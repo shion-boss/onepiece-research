@@ -1,0 +1,73 @@
+{
+  "name": "赤紫ロジャー",
+  "slug": "cardrush_1429",
+  "leader": "OP13-003",
+  "leader_name": "ゴール・Ｄ・ロジャー",
+  "source": "https://cardrush.media/onepiece/decks/1429",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-03",
+  "fetched_at": "2026-05-09T21:39:17Z",
+  "main": [
+    {
+      "card_id": "OP09-118",
+      "count": 1
+    },
+    {
+      "card_id": "P-107",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-065",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-007",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-004",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-007",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-067",
+      "count": 4
+    },
+    {
+      "card_id": "ST23-001",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 2
+    },
+    {
+      "card_id": "OP13-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-068",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-076",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-077",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-075",
+      "count": 4
+    }
+  ]
+}

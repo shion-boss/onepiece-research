@@ -1,0 +1,134 @@
+# ワンピースカードゲーム デッキ研究ツール
+
+「**自分の使いたいカードを最大限活かして、現環境のトップティアデッキに勝てるか**」を
+研究するためのデッキ構築・分析・対戦シミュレーションツール。
+
+> Bandai 公式とは無関係の個人研究プロジェクト。カード画像・テキスト・公式PDFは Bandai
+> 著作物のためリポジトリには **含まれていません**。下記セットアップで自動取得されます。
+
+## アーキテクチャ
+
+**Next.js 16 (TypeScript) フロントエンド + Python 3.10+ (FastAPI) バックエンド**
+
+```
+onepiece_research/
+├── CLAUDE.md           # プロジェクト全体の方針・規約 (Claude Code が自動読込)
+├── requirements.txt    # Python 依存
+├── scraper/            # 公式サイトから全弾スクレイプ
+├── engine/             # ルールエンジン + 効果DSL + AI + 対戦ハーネス
+│   ├── core.py / deck.py / deckbuilder.py
+│   ├── effects.py     # 効果DSL (プリミティブ 25+)
+│   ├── game.py        # ターン進行 / 攻防 / 合法手生成
+│   ├── ai.py          # GreedyAI / RandomAI / LookaheadAI
+│   └── harness.py     # AI vs AI 対戦実行
+├── api/main.py         # FastAPI で engine + DB をラップ
+├── db/
+│   ├── cards.json (4,518枚) — リポジトリに同梱 (~3.7MB)
+│   ├── card_effects.json   # カード効果オーバーレイ (481カード)
+│   ├── matchup_matrix.json # 事前計算 N×N 勝率
+│   ├── banlist/master.json # 禁止リスト
+│   ├── rules/   ※ 公式PDF (gitignore、scraper で取得)
+│   └── faq/     ※ 公式Q&A (gitignore、scraper で取得)
+├── decks/              # cardrush.media 大会上位由来 (cardrush_*.json, 15デッキ)
+├── scripts/            # scrape / cache / matrix / overlay 補助
+├── web/                # Next.js (App Router, Tailwind CSS v4, Zustand)
+│   └── public/cards/   ※ 全画像 (878MB、gitignore)
+└── tests/              # pytest (26 passed)
+```
+
+## セットアップ手順
+
+### 1. Python 環境
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+### 2. カード画像のダウンロード (任意、初回 30〜60min)
+
+`db/cards.json` 自体はリポジトリに同梱されているのでカードDBは即座に使えます。
+画像が必要な場合 (`/cards` ページや `<CardImage>` 表示) は:
+
+```bash
+# デッキで使うカードだけ先にローカルキャッシュ (~7MB)
+.venv/bin/python scripts/cache_deck_images.py
+
+# 全 4,518 枚 (~880MB / 30〜60min)
+.venv/bin/python scripts/cache_all_images.py
+```
+
+### 3. 公式 PDF / FAQ / 禁止リスト (任意)
+
+`.claude/skills/onepiece-tcg-rules/SKILL.md` の参照や、ルール変更検知に必要。
+
+```bash
+.venv/bin/python scripts/check_rules_update.py        # PDF だけ初回取得
+.venv/bin/python scripts/scrape_official_faq.py       # FAQ + cardqa
+.venv/bin/python scripts/scrape_official_banlist.py   # 禁止リスト (cards.jsonと共に同梱済)
+```
+
+### 4. メタデッキ更新 (任意)
+
+```bash
+.venv/bin/python scripts/scrape_cardrush_decks.py --scores 優勝 準優勝 --since 2026-01-01
+.venv/bin/python scripts/select_cardrush_representatives.py
+```
+
+### 5. テスト + 起動
+
+```bash
+# pytest
+.venv/bin/pytest                                        # 26 passed
+
+# 対戦シミュレーション デモ
+.venv/bin/python demo_smoke.py
+.venv/bin/python demo_matchup.py
+
+# 勝率行列 (~30s)
+.venv/bin/python scripts/compute_matchup_matrix.py --n-games 20 --seed 42
+
+# API 起動
+.venv/bin/uvicorn api.main:app --reload --port 8000
+# → http://localhost:8000/api/health
+
+# Next.js
+cd web && npm install
+cd web && npm run dev
+# → http://localhost:3000
+```
+
+## 進捗
+
+| Phase | 状態 | 概要 |
+|---|---|---|
+| 1. カードDB | ✅ | 全 54 弾 4,518 枚 |
+| 2. ルールエンジン + DSL | ✅ | プリミティブ 25+, トリガー 10+ |
+| 2.5 効果オーバーレイ | ✅ | **481 カード**, メタ主要カバレッジ **96%** |
+| 3. AI / 対戦ハーネス | ✅ | Greedy / Random / Lookahead |
+| 4. メタデッキ DB | ✅ | cardrush.media 産 **15 デッキ** + 月次更新 |
+| 5. デッキビルダー | ✅ | UI + API (`/decks/new`, `POST /api/decks`) |
+| 6. Next.js UI | ✅ | `/cards` `/decks` `/decks/[slug]` `/decks/new` `/decks/[slug]/analyze` `/meta` `/faq` |
+
+## 月次更新フロー
+
+```bash
+# 公式データ + cardrush + matrix を一括
+.venv/bin/python scripts/refresh_all.py
+.venv/bin/python scripts/refresh_all.py --cardrush-since 2026-01-01
+.venv/bin/python scripts/refresh_all.py --skip-meta-scrape --matrix-n-games 50
+```
+
+## ドキュメント
+
+- **`CLAUDE.md`** — プロジェクト方針・規約・既知の落とし穴 (Claude Code 用)
+- **`.claude/skills/onepiece-tcg-rules/SKILL.md`** — 公式ルール + Q&A + 禁止リスト リファレンス
+
+## ライセンス / 出典
+
+- ソースコード: MIT (個人で改変・利用可能)
+- カード画像・公式テキスト・公式PDF: Bandai 著作物。本リポジトリには同梱せず、
+  各自 scraper を実行してローカル取得する形
+- メタデッキデータ: [cardrush.media](https://cardrush.media/onepiece/decks/list) の
+  公開大会結果より取得 (リーダー名 + カード番号 + 採用枚数のみ。テキスト/画像は引用なし)
+- 本ツールは Bandai 公式とは無関係の個人研究プロジェクト

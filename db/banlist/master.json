@@ -1,0 +1,59 @@
+{
+  "fetched_at": "2026-05-09T19:07:58Z",
+  "source_url": "https://www.onepiece-cardgame.com/rules/restriction/",
+  "forbidden": [
+    {
+      "card_id": "OP06-047",
+      "name": "シャーロット・プリン"
+    },
+    {
+      "card_id": "OP03-040",
+      "name": "ナミ"
+    },
+    {
+      "card_id": "OP06-086",
+      "name": "ゲッコー・モリア"
+    },
+    {
+      "card_id": "ST10-001",
+      "name": "トラファルガー・ロー"
+    },
+    {
+      "card_id": "OP06-116",
+      "name": "排撃"
+    }
+  ],
+  "restricted": [],
+  "forbidden_pairs": [
+    {
+      "a": {
+        "card_id": "OP11-040",
+        "name": "モンキー・D・ルフィ"
+      },
+      "b": {
+        "card_id": "OP11-067",
+        "name": "シャーロット・カタクリ"
+      }
+    },
+    {
+      "a": {
+        "card_id": "OP11-040",
+        "name": "モンキー・D・ルフィ"
+      },
+      "b": {
+        "card_id": "OP08-069",
+        "name": "シャーロット・リンリン"
+      }
+    },
+    {
+      "a": {
+        "card_id": "OP07-115",
+        "name": "助けてクエーサ～!!!"
+      },
+      "b": {
+        "card_id": "EB04-058",
+        "name": "ボルサリーノ​"
+      }
+    }
+  ]
+}

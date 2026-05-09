@@ -1,0 +1,69 @@
+{
+  "name": "緑黄しらほし",
+  "slug": "cardrush_1223",
+  "leader": "OP11-022",
+  "leader_name": "しらほし",
+  "source": "https://cardrush.media/onepiece/decks/1223",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-04-01",
+  "fetched_at": "2026-05-09T21:40:31Z",
+  "main": [
+    {
+      "card_id": "EB03-052",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-030",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-018",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-107",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-036",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-016",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-011",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-033",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "ST16-004",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-035",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-036",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 2
+    }
+  ]
+}

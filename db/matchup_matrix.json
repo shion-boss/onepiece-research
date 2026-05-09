@@ -1,0 +1,1959 @@
+{
+  "computed_at": "2026-05-09T22:06:37Z",
+  "n_games": 20,
+  "seed": 42,
+  "decks": [
+    {
+      "slug": "cardrush_1223",
+      "name": "緑黄しらほし"
+    },
+    {
+      "slug": "cardrush_1273",
+      "name": "緑紫ルフィ"
+    },
+    {
+      "slug": "cardrush_1308",
+      "name": "赤黄ボニー"
+    },
+    {
+      "slug": "cardrush_1339",
+      "name": "青紫サンジ"
+    },
+    {
+      "slug": "cardrush_1342",
+      "name": "紫ドフラミンゴ"
+    },
+    {
+      "slug": "cardrush_1385",
+      "name": "黒クロコダイル"
+    },
+    {
+      "slug": "cardrush_1392",
+      "name": "黒イム"
+    },
+    {
+      "slug": "cardrush_1399",
+      "name": "赤青ルーシー"
+    },
+    {
+      "slug": "cardrush_1424",
+      "name": "紫エネル"
+    },
+    {
+      "slug": "cardrush_1429",
+      "name": "赤紫ロジャー"
+    },
+    {
+      "slug": "cardrush_1436",
+      "name": "空島ルフィ"
+    },
+    {
+      "slug": "cardrush_1437",
+      "name": "緑ミホーク"
+    },
+    {
+      "slug": "cardrush_1438",
+      "name": "赤青エース"
+    },
+    {
+      "slug": "cardrush_1439",
+      "name": "青黄ナミ"
+    },
+    {
+      "slug": "cardrush_1440",
+      "name": "緑ボニー"
+    }
+  ],
+  "matrix": [
+    {
+      "deck_a": "cardrush_1223",
+      "deck_a_name": "緑黄しらほし",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 18.8
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 19.15
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 18.5
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 21.25
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 24.05
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 23.5
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 15.4
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 13.45
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.6
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 23.8
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 26.3
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 20
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 20.2
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 7,
+          "draws": 1,
+          "avg_turns": 19.8
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1273",
+      "deck_a_name": "緑紫ルフィ",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18.1
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18.1
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 27.6
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 15.65
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 19.2
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 24.65
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 14.15
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 10.2
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.9
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18.9
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 26.55
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 18.9
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 17.3
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 20.4
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1308",
+      "deck_a_name": "赤黄ボニー",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 19.4
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 17.8
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 16.1
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 19.1
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 21.25
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 20.85
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 16.05
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 11.45
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 18.2
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 22.3
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 19
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 22.65
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 28.2
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 3,
+          "draws": 3,
+          "avg_turns": 17.4
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1339",
+      "deck_a_name": "青紫サンジ",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 16.9
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 24.7
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.1
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.4
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 16.9
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 20.8
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 19.25
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 8.2
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 11.5
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.1
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 19.3
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.1
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.1
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18.2
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_a_name": "紫ドフラミンゴ",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 18.6
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 15.7
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.1
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 17.2
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 21
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 13.35
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 14.4
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 20.6
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 22.35
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 19.6
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 21.6
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 6,
+          "draws": 3,
+          "avg_turns": 15.35
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_a_name": "黒クロコダイル",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 22.95
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 18.8
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 22.45
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 16.8
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 20.05
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 23.15
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 16.75
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 24
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 22.15
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 21.75
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 26.2
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 2,
+          "draws": 10,
+          "avg_turns": 16.3
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_a_name": "黒イム",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 22.4
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 24.25
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 19.05
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 20.85
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 20.3
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 23.3
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 19.8
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 10.5
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.9
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 20.2
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 23.1
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 19.95
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 20.75
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 18,
+          "draws": 2,
+          "avg_turns": 20.25
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_a_name": "赤青ルーシー",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 15.4
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 14.45
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 15.15
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 17.15
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 12.3
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.6
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 19.3
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 9.1
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 11.7
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 14.2
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 20.45
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 14.4
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.4
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 17.15
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1424",
+      "deck_a_name": "紫エネル",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 11.9
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 11.5
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 11.65
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 8.2
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 13.2
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 14.95
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 9
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 18.05
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 22.05
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 17.15
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 18.3
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 22.3
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 1,
+          "draws": 2,
+          "avg_turns": 11.75
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1429",
+      "deck_a_name": "赤紫ロジャー",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 15.3
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 17.8
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 12.2
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 18.1
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 21.45
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.8
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 12.6
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 17.45
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 24.65
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 19.75
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 29.95
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 0,
+          "draws": 6,
+          "avg_turns": 14.5
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1436",
+      "deck_a_name": "空島ルフィ",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 21.7
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 18.4
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 24.95
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 15.4
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 20.7
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 22.7
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 21.35
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 14.3
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 22.2
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 24.1
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 18.3
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 22.75
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 26.8
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 5,
+          "draws": 4,
+          "avg_turns": 16.3
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1437",
+      "deck_a_name": "緑ミホーク",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 29.2
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 24.2
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 19
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 20.85
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 20.3
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 25.65
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 23.3
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 20.75
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 18
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.9
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 20
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 21.65
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 20.1
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 6,
+          "draws": 3,
+          "avg_turns": 24.75
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1438",
+      "deck_a_name": "赤青エース",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 21.2
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 20.8
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 20.5
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.9
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 21.45
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 21.2
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 19.95
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 15.2
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 17.3
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 17.7
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 22.7
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 21.05
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 23.75
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 6,
+          "draws": 5,
+          "avg_turns": 17.4
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_a_name": "青黄ナミ",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 19.2
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 17.5
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 27.9
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.8
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 20.8
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 22.2
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 19
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 22.45
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 28.9
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 26.6
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 20.3
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 23.65
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 0,
+          "draws": 8,
+          "avg_turns": 16.4
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1440",
+      "deck_a_name": "緑ボニー",
+      "row": [
+        {
+          "deck_b": "cardrush_1223",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 12,
+          "draws": 1,
+          "avg_turns": 18.4
+        },
+        {
+          "deck_b": "cardrush_1273",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 18.6
+        },
+        {
+          "deck_b": "cardrush_1308",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 12,
+          "draws": 6,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "cardrush_1339",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 19.1
+        },
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 12,
+          "draws": 1,
+          "avg_turns": 14.3
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 12,
+          "draws": 4,
+          "avg_turns": 16.8
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 0,
+          "draws": 5,
+          "avg_turns": 19.15
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 15.8
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 17,
+          "draws": 2,
+          "avg_turns": 10.35
+        },
+        {
+          "deck_b": "cardrush_1429",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 13,
+          "draws": 7,
+          "avg_turns": 13.35
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 8,
+          "draws": 6,
+          "avg_turns": 16.45
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 4,
+          "draws": 8,
+          "avg_turns": 19.1
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 10,
+          "draws": 2,
+          "avg_turns": 15.6
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 9,
+          "draws": 11,
+          "avg_turns": 16.15
+        },
+        {
+          "deck_b": "cardrush_1440",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        }
+      ]
+    }
+  ]
+}

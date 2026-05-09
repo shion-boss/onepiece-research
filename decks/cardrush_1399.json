@@ -1,0 +1,73 @@
+{
+  "name": "赤青ルーシー",
+  "slug": "cardrush_1399",
+  "leader": "OP15-002",
+  "leader_name": "ルーシー",
+  "source": "https://cardrush.media/onepiece/decks/1399",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-04-29",
+  "fetched_at": "2026-05-09T21:39:24Z",
+  "main": [
+    {
+      "card_id": "OP15-053",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-052",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-040",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-045",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-006",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-118",
+      "count": 1
+    },
+    {
+      "card_id": "OP15-046",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-020",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-056",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-060",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-021",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-019",
+      "count": 3
+    },
+    {
+      "card_id": "OP10-059",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-057",
+      "count": 2
+    }
+  ]
+}

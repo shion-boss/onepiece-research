@@ -1,0 +1,85 @@
+{
+  "name": "赤黄ボニー",
+  "slug": "cardrush_1308",
+  "leader": "EB04-001",
+  "leader_name": "ジュエリー・ボニー",
+  "source": "https://cardrush.media/onepiece/decks/1308",
+  "score": "準優勝",
+  "tournament_name": "そだ杯",
+  "tournament_date": "2026-04-01",
+  "fetched_at": "2026-05-09T21:40:29Z",
+  "main": [
+    {
+      "card_id": "EB04-061",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-108",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-007",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-118",
+      "count": 1
+    },
+    {
+      "card_id": "EB04-054",
+      "count": 2
+    },
+    {
+      "card_id": "OP09-009",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-052",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 3
+    },
+    {
+      "card_id": "EB01-056",
+      "count": 2
+    },
+    {
+      "card_id": "ST21-003",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 2
+    },
+    {
+      "card_id": "ST29-015",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-008",
+      "count": 2
+    },
+    {
+      "card_id": "EB01-059",
+      "count": 3
+    }
+  ]
+}

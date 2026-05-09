@@ -1,0 +1,69 @@
+{
+  "name": "空島ルフィ",
+  "slug": "cardrush_1436",
+  "leader": "OP15-098",
+  "leader_name": "モンキー・Ｄ・ルフィ",
+  "source": "https://cardrush.media/onepiece/decks/1436",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-05",
+  "fetched_at": "2026-05-09T21:39:08Z",
+  "main": [
+    {
+      "card_id": "OP15-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-102",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-119",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "ST29-009",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-109",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-052",
+      "count": 3
+    },
+    {
+      "card_id": "OP15-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-099",
+      "count": 3
+    },
+    {
+      "card_id": "OP15-116",
+      "count": 4
+    }
+  ]
+}

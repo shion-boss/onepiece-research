@@ -1,0 +1,96 @@
+# =========================================================================
+# Python
+# =========================================================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# =========================================================================
+# Node / Next.js
+# =========================================================================
+web/node_modules/
+web/.next/
+web/out/
+web/.turbo/
+web/.swc/
+
+# =========================================================================
+# 環境変数 / シークレット
+# =========================================================================
+.env
+.env.local
+.env.*.local
+web/.env.local
+web/.env.development.local
+web/.env.production.local
+
+# =========================================================================
+# OS / エディタ
+# =========================================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# =========================================================================
+# プロジェクト固有 (再生成可能 / 大容量 / 著作権配慮)
+# =========================================================================
+
+# 画像キャッシュ (~ 1.4 GB) — scraper / scripts で取得
+images/
+web/public/cards/
+
+# SQLite (cards.json から派生)
+db/cards.sqlite
+db/cards.sqlite-journal
+db/test.sqlite
+
+# 公式PDFテキスト (Bandai 著作物 - scraper で取得)
+db/rules/*.pdf
+db/rules/*.txt
+
+# 公式 FAQ + cardqa (Bandai 著作物 - scraper で取得)
+db/faq/*.json
+!db/faq/INDEX.md
+
+# 対戦ログ (ローカル状態)
+db/match_history.jsonl
+
+# overlay 候補 (生成物、必要に応じて再生成)
+db/card_effects.suggestions.json
+
+# scraper のハッシュキャッシュ (再生成可)
+db/.update_cache.json
+
+# 旧 scrape_meta_decks.py の出力 (cardrush スクリプトに置き換え済)
+db/meta_decks/
+
+# デッキ退避ディレクトリ (cardrush 履歴)
+decks/_archive/
+
+# 一時ファイル
+/tmp/
+*.log
+
+# =========================================================================
+# Claude Code 個別設定 (チームで共有しない)
+# =========================================================================
+.claude/settings.local.json
+.claude/cache/
+.claude/scheduled_tasks.lock
+.claude/*.log
+
+# Node modules (ルート直下に万が一できた場合)
+node_modules/
