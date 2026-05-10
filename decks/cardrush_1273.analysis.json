@@ -235,5 +235,21 @@
     "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
     "特徴《麦わらの一味》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
+  ],
+  "ai_hint_signals": [
+    {
+      "type": "counter_aggression",
+      "value": "mid"
+    },
+    {
+      "type": "synergy_feature_priority",
+      "value": "麦わらの一味"
+    },
+    {
+      "type": "early_finisher_hold",
+      "value": [
+        "OP15-032"
+      ]
+    }
   ]
 }

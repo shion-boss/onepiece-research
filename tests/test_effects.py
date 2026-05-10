@@ -1144,3 +1144,28 @@ def test_choose_defense_predicts_attacker_self_buff():
     # 1000 counter 1 枚だけ切るバグ (ユーザー指摘) は再現しないはず
     assert not (len(counters) == 1 and counter_total == 1000), \
         f"バグ再現: 1000 counter 1 枚だけ切られた (gap >= 1 の状況で 1000 では足りない)"
+
+
+def test_hand_estimator_sample():
+    """sample_opponent_hand: hand_count 枚をプールから抽出"""
+    import random as random_mod
+    from engine.hand_estimator import sample_opponent_hand, estimate_counter_total
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    opp = state.players[1]
+    opp.hand = [repo.get("OP01-013")] * 4
+    opp.deck = [repo.get("OP01-016")] * 30
+    rng = random_mod.Random(0)
+
+    sampled = sample_opponent_hand(state, 1, rng)
+    assert len(sampled) == 4
+    # サンプル元はプール (deck + hand) から
+    pool_ids = {c.card_id for c in (opp.deck + opp.hand)}
+    for c in sampled:
+        assert c.card_id in pool_ids
+
+    # 期待 counter 総量
+    est = estimate_counter_total(state, 1)
+    assert isinstance(est, int)
+    assert est >= 0

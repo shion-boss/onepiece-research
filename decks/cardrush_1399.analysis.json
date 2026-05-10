@@ -88,7 +88,7 @@
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《革命軍/ドレスローザ》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《ドレスローザ/革命軍》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -222,5 +222,23 @@
     "中盤以降にフィニッシャーで一気に決める",
     "ブロッカーは慎重に切る (= 1 体の生存価値が高い)",
     "特徴《ドレスローザ》専属: シナジーカードを優先プレイ"
+  ],
+  "ai_hint_signals": [
+    {
+      "type": "preserve_counter_for_lethal",
+      "value": true
+    },
+    {
+      "type": "counter_aggression",
+      "value": "high"
+    },
+    {
+      "type": "synergy_feature_priority",
+      "value": "ドレスローザ"
+    },
+    {
+      "type": "avoid_life_loss",
+      "value": true
+    }
   ]
 }

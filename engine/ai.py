@@ -102,6 +102,13 @@ class GreedyAI:
         self.finisher_card_ids: set[str] = set()
         # ramp 系優先 (起動メイン無条件発動)
         self.prioritize_ramp = False
+        # 構造化シグナル由来のフラグ (default: 全て無効)
+        self.synergy_feature: Optional[str] = None
+        self.tank_lifeup_ok = False
+        self.avoid_life_loss = False
+        self.blocker_scarce = False
+        self.early_finisher_hold_ids: set[str] = set()
+        self.counter_aggression = "mid"
 
         if deck_analysis:
             self._apply_archetype_profile(deck_analysis)
@@ -110,6 +117,30 @@ class GreedyAI:
         """deck_analysis からアーキタイプ別の挙動パラメータを設定。"""
         arche = analysis.get("archetype", "ミッドレンジ")
         self.archetype = arche
+
+        # 構造化シグナル (ai_hint_signals) を読み取り、 各種フラグへ反映
+        signals = analysis.get("ai_hint_signals") or []
+        self.synergy_feature: Optional[str] = None
+        self.tank_lifeup_ok = False
+        self.avoid_life_loss = False
+        self.blocker_scarce = False
+        self.early_finisher_hold_ids: set[str] = set()
+        self.counter_aggression = "mid"  # low / mid / high
+        for sig in signals:
+            t = sig.get("type")
+            v = sig.get("value")
+            if t == "synergy_feature_priority":
+                self.synergy_feature = v
+            elif t == "tank_lifeup_ok":
+                self.tank_lifeup_ok = bool(v)
+            elif t == "avoid_life_loss":
+                self.avoid_life_loss = bool(v)
+            elif t == "blocker_scarce":
+                self.blocker_scarce = bool(v)
+            elif t == "early_finisher_hold" and isinstance(v, list):
+                self.early_finisher_hold_ids = set(v)
+            elif t == "counter_aggression":
+                self.counter_aggression = str(v)
         if arche == "アグロ":
             # ライフ詰め優先、 counter 控えめ、 攻撃 gap=0 でも積極的
             self.defense_thresholds = {
@@ -165,11 +196,30 @@ class GreedyAI:
         if play_stage_actions and len(me.stages) == 0:
             return min(play_stage_actions, key=lambda a: me.hand[a.hand_idx].cost)
 
-        # 1) 出せるキャラがあれば、一番コストが高いものを出す(コスト効率優先)
+        # 1) 出せるキャラがあれば優先順位で選ぶ:
+        #    (a) synergy_feature_priority があれば該当特徴のキャラを優先
+        #    (b) early_finisher_hold: 高コストフィニッシャーは life>=3 では温存 (= プレイ候補から外す)
+        #    (c) 残りの中で最大コストを選ぶ (= コスト効率)
         play_actions: list[PlayCharacter] = [a for a in actions if isinstance(a, PlayCharacter)]
         if play_actions:
-            best = max(play_actions, key=lambda a: me.hand[a.hand_idx].cost)
-            return best
+            life_left = len(me.life)
+            # フィニッシャー温存: ライフ余裕時 (>=3) なら hold 対象は除外
+            if life_left >= 3 and self.early_finisher_hold_ids:
+                non_hold = [
+                    a for a in play_actions
+                    if me.hand[a.hand_idx].card_id not in self.early_finisher_hold_ids
+                ]
+                if non_hold:
+                    play_actions = non_hold
+            # synergy 優先: 該当特徴を持つカードがあれば、 そこから最大コストを
+            if self.synergy_feature:
+                synergy_plays = [
+                    a for a in play_actions
+                    if self.synergy_feature in me.hand[a.hand_idx].features
+                ]
+                if synergy_plays:
+                    return max(synergy_plays, key=lambda a: me.hand[a.hand_idx].cost)
+            return max(play_actions, key=lambda a: me.hand[a.hand_idx].cost)
 
         # 2) アタック判断
         atk_char_actions: list[AttackCharacter] = [a for a in actions if isinstance(a, AttackCharacter)]
@@ -340,8 +390,13 @@ class GreedyAI:
             max_total, max_cards = self.defense_thresholds.get(
                 life_key, (2000, 1)
             )
+            # シグナル微調整: avoid_life_loss なら閾値+50%、 tank_lifeup_ok なら -30% (= 受けて手札補充重視)
+            if self.avoid_life_loss:
+                max_total = int(max_total * 1.5)
+                max_cards = max_cards + 1
+            elif self.tank_lifeup_ok:
+                max_total = int(max_total * 0.7)
             if life_left <= 1:
-                # 致命: 閾値無視で全力
                 return block_iid, tuple(spent)
             if counter_total <= max_total and len(spent) <= max_cards:
                 return block_iid, tuple(spent)

@@ -208,5 +208,25 @@
     "中盤以降にフィニッシャーで一気に決める",
     "特徴《超新星》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
+  ],
+  "ai_hint_signals": [
+    {
+      "type": "preserve_counter_for_lethal",
+      "value": true
+    },
+    {
+      "type": "counter_aggression",
+      "value": "high"
+    },
+    {
+      "type": "early_finisher_hold",
+      "value": [
+        "ST24-004"
+      ]
+    },
+    {
+      "type": "tank_lifeup_ok",
+      "value": true
+    }
   ]
 }

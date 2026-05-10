@@ -227,5 +227,30 @@
     "カウンター温存、 ライフは積極的に受けて手札を増やす",
     "中盤以降にフィニッシャーで一気に決める",
     "特徴《空島》専属: シナジーカードを優先プレイ"
+  ],
+  "ai_hint_signals": [
+    {
+      "type": "preserve_counter_for_lethal",
+      "value": true
+    },
+    {
+      "type": "counter_aggression",
+      "value": "high"
+    },
+    {
+      "type": "synergy_feature_priority",
+      "value": "空島"
+    },
+    {
+      "type": "early_finisher_hold",
+      "value": [
+        "EB02-052",
+        "OP15-109"
+      ]
+    },
+    {
+      "type": "tank_lifeup_ok",
+      "value": true
+    }
   ]
 }

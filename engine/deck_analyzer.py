@@ -104,8 +104,11 @@ class DeckAnalysis:
     # キーカード (役割別)
     key_cards: list[KeyCard]
 
-    # AI 戦略ヒント (このデッキ専用)
+    # AI 戦略ヒント (このデッキ専用、 人間用 = 表示)
     ai_hints: list[str]
+    # AI が読んで動作にマップする構造化ヒント (= 自動消費)
+    # 各シグナル: { "type": str, "value": int|str|bool|list }
+    ai_hint_signals: list[dict]
 
 
 # ----------------------------------------------------------------------------- #
@@ -257,8 +260,11 @@ def analyze_deck(
     # === キーカード ===
     key_cards = _compute_key_cards(main, leader, overlay)
 
-    # === AI ヒント ===
+    # === AI ヒント (人間表示 + 構造化) ===
     ai_hints = _compute_ai_hints(archetype, defense, blocker_count, top_features, leader)
+    ai_hint_signals = _compute_ai_hint_signals(
+        archetype, defense, blocker_count, top_features, key_cards, leader
+    )
 
     return DeckAnalysis(
         deck_name=deck.name,
@@ -292,6 +298,7 @@ def analyze_deck(
         strengths=strengths,
         key_cards=key_cards,
         ai_hints=ai_hints,
+        ai_hint_signals=ai_hint_signals,
     )
 
 
@@ -305,27 +312,133 @@ def _classify_archetype(
     main: list[CardDef],
     overlay: Optional[dict],
 ) -> tuple[str, str]:
-    """アーキタイプ + 速度を返す。"""
-    # ramp 系カードが多ければ ramp
-    ramp_count = sum(1 for c in main if _is_ramp_card(c, overlay))
-    if ramp_count >= 6:
-        return "ランプ", "中速"
+    """アーキタイプ + 速度を multi-signal scoring で判定。
 
+    各アーキ (アグロ/コントロール/ランプ/ミッドレンジ) に複数のシグナルから 0-100 のスコアを付与、
+    最大スコアのアーキを採用。 タイ時はミッドレンジ優先 (バランス型扱い)。
+
+    シグナル:
+      アグロ    : 低コストキャラ密度、 速攻持ち、 リーダー on_attack 強化、 平均コスト低、 リーダー攻撃の打点伸ばし傾向
+      コントロール: ブロッカー数、 除去カード数、 counter 総量、 平均コスト高、 起動メイン制御系リーダー
+      ランプ    : ramp 系カード数 (untap_don/add_don/add_rested_don)、 高コストキャラ数、 リーダーの DON 関連効果
+      ミッドレンジ: 平均コスト 2.7〜3.5、 上記いずれにも特化していない (デフォ)
+    """
+    # 集計用カウント
+    n_low_cost_chara = sum(
+        1 for c in main if c.category == Category.CHARACTER and c.cost <= 3
+    )
+    n_rush = sum(1 for c in main if "速攻" in (c.text or "") or "スピード" in (c.text or ""))
+    n_high_cost_chara = sum(
+        1 for c in main if c.category == Category.CHARACTER and c.cost >= 6
+    )
+    ramp_count = sum(1 for c in main if _is_ramp_card(c, overlay))
+    removal_count = sum(1 for c in main if _is_removal_card(c, overlay))
+    counter_2k = sum(1 for c in main if c.counter == 2000)
+    counter_total = sum(c.counter for c in main)
+
+    # === アグロスコア ===
+    aggro = 0
+    if avg_cost <= 2.7:
+        aggro += 30
+    elif avg_cost <= 3.0:
+        aggro += 15
+    if n_low_cost_chara >= 25:
+        aggro += 25
+    elif n_low_cost_chara >= 18:
+        aggro += 12
+    if n_rush >= 6:
+        aggro += 20
+    elif n_rush >= 3:
+        aggro += 10
+    # 速攻 / on_attack +N power 効果が多い = アグロ寄り
+    on_attack_buff_count = 0
+    if overlay:
+        for c in main:
+            bundle = overlay.get(c.card_id)
+            if bundle is None:
+                continue
+            for eff in bundle.effects:
+                if eff.get("when") != "on_attack":
+                    continue
+                for prim in eff.get("do", []):
+                    pp = prim.get("power_pump")
+                    if pp and pp.get("amount", 0) > 0:
+                        on_attack_buff_count += 1
+                        break
+                else:
+                    continue
+                break
+    if on_attack_buff_count >= 8:
+        aggro += 15
+    elif on_attack_buff_count >= 4:
+        aggro += 7
+    # 高コスト キャラ少ないほどアグロ寄り
+    if n_high_cost_chara <= 3:
+        aggro += 10
+
+    # === コントロールスコア ===
+    control = 0
+    if avg_cost >= 3.5:
+        control += 25
+    elif avg_cost >= 3.0:
+        control += 12
+    if blocker_count >= 8:
+        control += 25
+    elif blocker_count >= 5:
+        control += 12
+    if removal_count >= 6:
+        control += 20
+    elif removal_count >= 3:
+        control += 10
+    if counter_total >= 32000:
+        control += 15
+    if counter_2k >= 12:
+        control += 10
+    if n_high_cost_chara >= 6:
+        control += 10
+
+    # === ランプスコア ===
+    ramp = 0
+    if ramp_count >= 6:
+        ramp += 35
+    elif ramp_count >= 3:
+        ramp += 15
+    if n_high_cost_chara >= 6:
+        ramp += 20
+    elif n_high_cost_chara >= 4:
+        ramp += 10
+    if avg_cost >= 3.7:
+        ramp += 10
+
+    # === ミッドレンジスコア (= 中庸が高得点) ===
+    midrange = 30  # base
+    if 2.7 <= avg_cost <= 3.5:
+        midrange += 15
+    if 5 <= blocker_count <= 7:
+        midrange += 10
+    if 4 <= removal_count <= 5:
+        midrange += 10
+
+    scores = {
+        "アグロ": aggro,
+        "コントロール": control,
+        "ランプ": ramp,
+        "ミッドレンジ": midrange,
+    }
+    best_arch = max(scores, key=lambda k: scores[k])
+
+    # 速度判定 (アーキ独立、 avg_cost ベース)
     if avg_cost <= 2.7:
         speed = "高速"
-        archetype = "アグロ"
     elif avg_cost <= 3.5:
         speed = "中速"
-        archetype = "ミッドレンジ"
     else:
         speed = "低速"
-        archetype = "コントロール"
+    # ランプ専用調整 (低速気味でも中速扱い)
+    if best_arch == "ランプ" and speed == "低速":
+        speed = "中速"
 
-    # ブロッカー多 + イベ多 = コントロール寄り上書き
-    if blocker_count >= 8 and n_event >= 8 and archetype != "アグロ":
-        archetype = "コントロール"
-
-    return archetype, speed
+    return best_arch, speed
 
 
 def _compute_mulligan(
@@ -599,3 +712,66 @@ def _compute_ai_hints(
         hints.append("リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算")
 
     return hints
+
+
+def _compute_ai_hint_signals(
+    archetype: str,
+    defense: str,
+    blocker_count: int,
+    top_features: list,
+    key_cards: list,
+    leader: CardDef,
+) -> list[dict]:
+    """構造化ヒント: AI が直接読んで挙動にマップするシグナル。
+
+    各シグナル例:
+      {"type": "prefer_low_cost_attacks", "value": True}
+      {"type": "preserve_counter_for_lethal", "value": True}
+      {"type": "prioritize_ramp_first", "value": True}
+      {"type": "synergy_feature_priority", "value": "麦わらの一味"}
+      {"type": "early_finisher_hold", "value": ["OP15-002", ...]}
+      {"type": "counter_aggression", "value": "low"|"mid"|"high"}
+    """
+    out: list[dict] = []
+
+    # 1) アーキタイプ別の主要シグナル
+    if archetype == "アグロ":
+        out.append({"type": "prefer_low_cost_attacks", "value": True})
+        out.append({"type": "counter_aggression", "value": "low"})
+    elif archetype == "コントロール":
+        out.append({"type": "preserve_counter_for_lethal", "value": True})
+        out.append({"type": "counter_aggression", "value": "high"})
+    elif archetype == "ランプ":
+        out.append({"type": "prioritize_ramp_first", "value": True})
+        out.append({"type": "counter_aggression", "value": "mid"})
+    else:  # ミッドレンジ
+        out.append({"type": "counter_aggression", "value": "mid"})
+
+    # 2) 特徴シナジー (リーダーと top_features 一致)
+    if top_features:
+        feat, count = top_features[0]
+        if count >= 18 and feat in leader.features:
+            out.append({
+                "type": "synergy_feature_priority",
+                "value": feat,
+            })
+
+    # 3) フィニッシャー温存 (key_cards 中の finisher を ライフ ≥ 3 では温存)
+    finisher_ids = [k.card_id for k in key_cards if k.role == "finisher"]
+    if finisher_ids:
+        out.append({
+            "type": "early_finisher_hold",
+            "value": finisher_ids,
+        })
+
+    # 4) 防御力に応じた攻撃積極性
+    if defense == "硬い":
+        out.append({"type": "tank_lifeup_ok", "value": True})
+    elif defense == "脆い":
+        out.append({"type": "avoid_life_loss", "value": True})
+
+    # 5) ブロッカー希少 → 慎重に切る
+    if blocker_count <= 4:
+        out.append({"type": "blocker_scarce", "value": True})
+
+    return out

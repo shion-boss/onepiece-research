@@ -225,5 +225,19 @@
     "ライフ受けで手札増やすより、 1 ターンでも早く詰めに行く",
     "特徴《空島》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
+  ],
+  "ai_hint_signals": [
+    {
+      "type": "prefer_low_cost_attacks",
+      "value": true
+    },
+    {
+      "type": "counter_aggression",
+      "value": "low"
+    },
+    {
+      "type": "synergy_feature_priority",
+      "value": "空島"
+    }
   ]
 }
