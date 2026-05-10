@@ -2042,7 +2042,7 @@
   ],
   "EB04-016": [
     {
-      "_text": "トリ 起動メイン: ドン1アクティブ化 (制約は省略)",
+      "_text": "EB04-016 トリ 起動メイン: ドン1アクティブ、 その後 このターン中キャラ効果でドンアクティブ不可",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -2050,19 +2050,24 @@
       "do": [
         {
           "untap_don": 1
+        },
+        {
+          "_unimplemented": "このターン中、 キャラ効果でドンをアクティブにできない (= block_chara_untap_don turn)"
         }
       ]
     },
     {
-      "_text": "トリ アタック時: 海王類キャラ数で +1000",
+      "_text": "EB04-016 トリ アタック時: 自海王類3+で 相手cost8以下1体 rest",
       "when": "on_attack",
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "海王類",
+          "count": 3
+        }
+      },
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "battle"
-          }
+          "rest": "one_opponent_character_le_8cost"
         }
       ]
     }
@@ -2938,16 +2943,27 @@
   ],
   "OP13-042": [
     {
-      "_text": "白ひげ cost10 ブロッカー+【登場時】2ドロー1捨て + 自team にドン2付与 → 簡略: 2ドロー + 自リーダーにドン2付与",
+      "_text": "OP13-042 白ひげ 登場時: 2ドロー + 1捨て + 自リーダーとキャラ1にレストドン2ずつ",
       "when": "on_play",
       "do": [
         {
           "draw": 2
         },
         {
+          "trash_self_hand_random": 1
+        },
+        {
           "attach_don": {
             "target": "self_leader",
-            "count": 2
+            "count": 2,
+            "rested": true
+          }
+        },
+        {
+          "attach_don": {
+            "target": "one_self_character_any",
+            "count": 2,
+            "rested": true
           }
         }
       ]
@@ -3037,9 +3053,34 @@
   ],
   "EB02-052": [
     {
-      "_text": "エネル cost10 (黄) 【アタック時】(手札捨て) ライフ1以下でデッキ→ライフ +パワー1000 → 簡略: アタック時 +1000",
-      "when": "on_attack",
+      "_text": "EB02-052 エネル 常在: 自リーダー空島で self に【速攻】",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "空島"
+      },
       "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn",
+      "when": "on_attack",
+      "cost": {
+        "discard_hand": 1
+      },
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        },
         {
           "power_pump": {
             "target": "self",
@@ -3052,8 +3093,11 @@
   ],
   "OP15-113": [
     {
-      "_text": "ロロノア・ゾロ (黄 cost4) 【登場時】(手札捨て) デッキ→ライフ → 簡略: 登場時 デッキ→ライフ",
+      "_text": "OP15-113 ゾロ 登場時: 自手札1捨てで デッキ上1をライフへ",
       "when": "on_play",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -3206,11 +3250,17 @@
   ],
   "OP13-043": [
     {
-      "_text": "お玉 (青 cost1) 【登場時】(ライフ3以下) 2ドロー1捨て → 簡略: 1ドロー",
+      "_text": "OP13-043 お玉 登場時: 自ライフ3以下なら 2ドロー + 1捨て",
       "when": "on_play",
+      "if": {
+        "self_life_le": 3
+      },
       "do": [
         {
-          "draw": 1
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -3285,11 +3335,11 @@
   ],
   "ST23-001": [
     {
-      "_text": "ウタ (赤 cost6) コスト軽減条件 → 簡略: 1ドロー",
-      "when": "on_play",
+      "_text": "ST23-001 ウタ 手札 cost-4: 自パワー10000+ キャラがいる場合 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分のパワー10000以上のキャラがいる場合、コスト-4"
         }
       ]
     }
@@ -3388,18 +3438,25 @@
   ],
   "OP09-078": [
     {
-      "_text": "auto: ドン!!-2,自分の手札1枚を捨てることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、カード2枚を引く。",
+      "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
       "when": "counter",
+      "cost": {
+        "pay_don": 2,
+        "discard_hand": 1
+      },
+      "if": {
+        "leader_feature": "麦わらの一味"
+      },
       "do": [
         {
-          "draw": 2
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 4000,
+            "duration": "battle"
+          }
         },
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "turn"
-          }
+          "draw": 2
         }
       ]
     }
@@ -3519,11 +3576,36 @@
   ],
   "OP13-031": [
     {
-      "_text": "auto: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
+      "_text": "OP13-031 ロー 常在: 自ライフ1以下なら 【ブロッカー】 (DSL 条件付きキーワード)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-031 ロー 登場時: 自キャラ1を手札に戻すと 手札 cost5以下キャラ rest登場",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "_unimplemented": "自キャラ1を手札に戻すコスト (= return_self_to_hand)"
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "cost_le": 5
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ]
     }
@@ -3954,14 +4036,32 @@
   ],
   "EB04-061": [
     {
-      "_text": "auto: 自分の手札1枚を捨てることができる：自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。その後、このキャラは、次の相手のエンドフェイズ終了時まで、",
+      "_text": "EB04-061 ルフィ 手札 cost-1: 自ライフ1以下 (DSL未対応)",
+      "when": "in_hand",
+      "do": [
+        {
+          "_unimplemented": "手札のこのカードは、 自分のライフが1枚以下の場合、 コスト-1"
+        }
+      ]
+    },
+    {
+      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + self ブロッカー獲得 (次相手エンドまで → 簡略turn)",
       "when": "on_play",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
           }
         }
       ]
@@ -4013,18 +4113,25 @@
   ],
   "OP15-020": [
     {
-      "_text": "auto: 自分のリーダーを、このターン中、パワー+3000し、相手のキャラ1枚までを、次の相手のエンドフェイズ終了時まで、パワー-8000。その後、自分の手札2枚を捨ててもよい。そうした場合、相手のパワー0以下",
+      "_text": "OP15-020 火拳 メイン: 自リーダー +3000 turn + 相手キャラ1 -8000 (次相手エンドまで → 簡略turn)、 その後 手札2捨てで power0以下 KO",
       "when": "main",
       "do": [
-        {
-          "ko": "one_opponent_character_power_le_0"
-        },
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 3000,
             "duration": "turn"
           }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -8000,
+            "duration": "turn"
+          }
+        },
+        {
+          "_unimplemented": "自分の手札2枚を捨ててもよい。 そうした場合、 相手のパワー0以下のキャラ1枚までを KO する (= optional 後段 + KO)"
         }
       ]
     }
@@ -4065,11 +4172,29 @@
   ],
   "OP15-054": [
     {
-      "_text": "auto: 自分のリーダーが「ルーシー」の場合、以下から1つを選ぶ。・カード2枚を引き、自分の手札1枚を捨てる。その後、自分の手札からコスト4以下の特徴《ドレスローザ》を持つキャラカード1枚までを、登場させる。・",
+      "_text": "OP15-054 メイン: ルーシーリーダーで以下から1つ選ぶ (= choice、 簡略=1番)",
       "when": "main",
+      "if": {
+        "leader_name": "ルーシー"
+      },
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "feature": "ドレスローザ",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
+        },
+        {
+          "_unimplemented": "【選択肢B】 ステージ1枚を持ち主の手札に戻す (= choice not modeled)"
         }
       ]
     }
@@ -4754,25 +4879,60 @@
   ],
   "OP14-120": [
     {
-      "_text": "auto: 相手のコスト9以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。その後、相手のコスト0か8以上のキャラがいる場合、カード1枚を引く。",
+      "_text": "OP14-120 クロコ 登場時: 相手cost9以下1体が次相手エンド終了まで attack不可、その後 相手0か8+があれば 1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "set_cannot_attack": "one_opponent_character_le_9cost"
+        },
+        {
+          "_unimplemented": "相手のコスト0か8以上のキャラがいる場合、 1ドロー (= 条件付き分岐)"
+        }
+      ]
+    },
+    {
+      "_text": "OP14-120 クロコ KO時: 自手札1捨てで このキャラを trash から登場",
+      "when": "on_ko",
+      "cost": {
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "play_from_trash": {
+            "filter": {
+              "card_id": "OP14-120"
+            },
+            "limit": 1
+          }
         }
       ]
     }
   ],
   "OP12-037": [
     {
-      "_text": "auto: 自分のリーダーを、このバトル中、パワー+3000。",
+      "_text": "OP12-037 鬼気九刀流 メイン: ドン-3 → 相手キャラ/ドン合計 2 を rest",
+      "when": "main",
+      "cost": {
+        "pay_don": 3
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "相手のキャラかドン!!合計2枚までを、レストにする (= multi-target chara/don rest)"
+        }
+      ]
+    },
+    {
+      "_text": "OP12-037 鬼気九刀流 カウンター: 自リーダー +3000 battle",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 3000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -4797,8 +4957,11 @@
   ],
   "OP15-057": [
     {
-      "_text": "auto: 自分のリーダーが特徴《ドレスローザ》を持つ場合、カード1枚を引く。",
+      "_text": "OP15-057 ステージ 登場時: ドレスローザリーダーなら 1ドロー",
       "when": "on_play",
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
       "do": [
         {
           "draw": 1
@@ -4806,14 +4969,18 @@
       ]
     },
     {
-      "_text": "auto: このステージをレストにし、自分の手札からイベントかステージカード1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
+      "_text": "OP15-057 相手アタック時: rest_self + イベント/ステージ1捨て で 自リーダー/キャラ +2000 battle",
       "when": "opp_attack",
+      "cost": {
+        "rest_self": true,
+        "_unimplemented": "discard_event_or_stage 1"
+      },
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -5146,9 +5313,25 @@
   ],
   "ST22-015": [
     {
-      "_text": "auto: 自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、自分の手札から「エドワード・ニューゲート」1枚までを、登場させる。その後、自分のライフの上か下から1枚を手札に加えてもよい。そうした場合、自分のリ",
+      "_text": "ST22-015 メイン: 白ひげリーダーで 手札のニューゲート1を登場、 その後 ライフ上下1を手札 + 自リーダー +2000",
       "when": "main",
+      "if": {
+        "leader_features_any": [
+          "白ひげ海賊団"
+        ]
+      },
       "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "エドワード・ニューゲート"
+            },
+            "limit": 1
+          }
+        },
+        {
+          "_unimplemented": "自分のライフの上か下から1枚を手札に加えてもよい (任意)"
+        },
         {
           "power_pump": {
             "target": "self_leader",
@@ -5306,11 +5489,31 @@
   ],
   "OP05-019": [
     {
-      "_text": "auto: 相手のキャラ1枚までを、このターン中、パワー-4000。その後、自分のライフが2枚以下の場合、相手のパワー0以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-019 火拳 メイン: 相手キャラ1 -4000 turn, 自ライフ2以下なら power0以下 KO",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_0"
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -4000,
+            "duration": "turn"
+          }
+        },
+        {
+          "_unimplemented": "自ライフ2以下条件分岐 + power0以下 KO (= 条件付き 2nd phase)"
+        }
+      ]
+    },
+    {
+      "_text": "OP05-019 火拳 トリガー: メイン効果再発動 (簡略 = 同じ効果)",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -4000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -5611,11 +5814,11 @@
   ],
   "OP07-064": [
     {
-      "_text": "サンジ (黄 cost6) コスト軽減 + ブロッカー → 簡略: 1ドロー (登場時)",
-      "when": "on_play",
+      "_text": "OP07-064 サンジ 手札 cost-3: 自場ドン < 相手ドン - 2 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分の場のドン!!の枚数が相手の場のドン!!の枚数より2枚以上少ない場合、コスト-3"
         }
       ]
     }
@@ -6759,11 +6962,14 @@
   ],
   "OP06-035": [
     {
-      "_text": "ホーディ on_play: 相手1レスト + ライフ1手札 (簡略化: 1枚)",
+      "_text": "OP06-035 ホーディ 登場時: 相手キャラ/ドン合計2を rest, その後 自ライフ1を手札へ",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "相手のキャラかドン!!合計2枚までを、レストにする"
         },
         {
           "life_to_hand": 1
@@ -6965,14 +7171,20 @@
   ],
   "OP12-118": [
     {
-      "_text": "ボニー on_play: 簡略化 無条件 2ドロー + 1捨て + ドン1アクティブ",
+      "_text": "OP12-118 ボニー 登場時: 自レストカード8+で 2ドロー + 1捨て + ドン1アクティブ",
       "when": "on_play",
+      "if": {
+        "_unimplemented": "self_rested_cards_count_ge=8 (DSL未対応条件)"
+      },
       "do": [
         {
           "draw": 2
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap_don": 1
         }
       ]
     }
@@ -17558,18 +17770,25 @@
   ],
   "OP09-078_p2": [
     {
-      "_text": "auto: ドン!!-2,自分の手札1枚を捨てることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、カード2枚を引く。",
+      "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
       "when": "counter",
+      "cost": {
+        "pay_don": 2,
+        "discard_hand": 1
+      },
+      "if": {
+        "leader_feature": "麦わらの一味"
+      },
       "do": [
         {
-          "draw": 2
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 4000,
+            "duration": "battle"
+          }
         },
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "turn"
-          }
+          "draw": 2
         }
       ]
     }
@@ -18511,11 +18730,14 @@
   ],
   "OP06-035_p2": [
     {
-      "_text": "ホーディ on_play: 相手1レスト + ライフ1手札 (簡略化: 1枚)",
+      "_text": "OP06-035 ホーディ 登場時: 相手キャラ/ドン合計2を rest, その後 自ライフ1を手札へ",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "相手のキャラかドン!!合計2枚までを、レストにする"
         },
         {
           "life_to_hand": 1
@@ -18999,14 +19221,32 @@
   ],
   "EB04-061_p1": [
     {
-      "_text": "auto: 自分の手札1枚を捨てることができる：自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。その後、このキャラは、次の相手のエンドフェイズ終了時まで、",
+      "_text": "EB04-061 ルフィ 手札 cost-1: 自ライフ1以下 (DSL未対応)",
+      "when": "in_hand",
+      "do": [
+        {
+          "_unimplemented": "手札のこのカードは、 自分のライフが1枚以下の場合、 コスト-1"
+        }
+      ]
+    },
+    {
+      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + self ブロッカー獲得 (次相手エンドまで → 簡略turn)",
       "when": "on_play",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
           }
         }
       ]
@@ -19426,9 +19666,34 @@
   ],
   "EB02-052_p1": [
     {
-      "_text": "エネル cost10 (黄) 【アタック時】(手札捨て) ライフ1以下でデッキ→ライフ +パワー1000 → 簡略: アタック時 +1000",
-      "when": "on_attack",
+      "_text": "EB02-052 エネル 常在: 自リーダー空島で self に【速攻】",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "空島"
+      },
       "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn",
+      "when": "on_attack",
+      "cost": {
+        "discard_hand": 1
+      },
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        },
         {
           "power_pump": {
             "target": "self",
@@ -19824,8 +20089,11 @@
   ],
   "OP15-113_p1": [
     {
-      "_text": "ロロノア・ゾロ (黄 cost4) 【登場時】(手札捨て) デッキ→ライフ → 簡略: 登場時 デッキ→ライフ",
+      "_text": "OP15-113 ゾロ 登場時: 自手札1捨てで デッキ上1をライフへ",
       "when": "on_play",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -19919,9 +20187,34 @@
   ],
   "EB02-052_p2": [
     {
-      "_text": "エネル cost10 (黄) 【アタック時】(手札捨て) ライフ1以下でデッキ→ライフ +パワー1000 → 簡略: アタック時 +1000",
-      "when": "on_attack",
+      "_text": "EB02-052 エネル 常在: 自リーダー空島で self に【速攻】",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "空島"
+      },
       "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn",
+      "when": "on_attack",
+      "cost": {
+        "discard_hand": 1
+      },
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        },
         {
           "power_pump": {
             "target": "self",
@@ -19950,27 +20243,63 @@
   ],
   "OP13-031_p1": [
     {
-      "_text": "auto: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
+      "_text": "OP13-031 ロー 常在: 自ライフ1以下なら 【ブロッカー】 (DSL 条件付きキーワード)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-031 ロー 登場時: 自キャラ1を手札に戻すと 手札 cost5以下キャラ rest登場",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "_unimplemented": "自キャラ1を手札に戻すコスト (= return_self_to_hand)"
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "cost_le": 5
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ]
     }
   ],
   "OP13-042_p2": [
     {
-      "_text": "白ひげ cost10 ブロッカー+【登場時】2ドロー1捨て + 自team にドン2付与 → 簡略: 2ドロー + 自リーダーにドン2付与",
+      "_text": "OP13-042 白ひげ 登場時: 2ドロー + 1捨て + 自リーダーとキャラ1にレストドン2ずつ",
       "when": "on_play",
       "do": [
         {
           "draw": 2
         },
         {
+          "trash_self_hand_random": 1
+        },
+        {
           "attach_don": {
             "target": "self_leader",
-            "count": 2
+            "count": 2,
+            "rested": true
+          }
+        },
+        {
+          "attach_don": {
+            "target": "one_self_character_any",
+            "count": 2,
+            "rested": true
           }
         }
       ]
@@ -20246,11 +20575,31 @@
   ],
   "OP14-120_p1": [
     {
-      "_text": "auto: 相手のコスト9以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。その後、相手のコスト0か8以上のキャラがいる場合、カード1枚を引く。",
+      "_text": "OP14-120 クロコ 登場時: 相手cost9以下1体が次相手エンド終了まで attack不可、その後 相手0か8+があれば 1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "set_cannot_attack": "one_opponent_character_le_9cost"
+        },
+        {
+          "_unimplemented": "相手のコスト0か8以上のキャラがいる場合、 1ドロー (= 条件付き分岐)"
+        }
+      ]
+    },
+    {
+      "_text": "OP14-120 クロコ KO時: 自手札1捨てで このキャラを trash から登場",
+      "when": "on_ko",
+      "cost": {
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "play_from_trash": {
+            "filter": {
+              "card_id": "OP14-120"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -20357,16 +20706,27 @@
   ],
   "OP13-042_p1": [
     {
-      "_text": "白ひげ cost10 ブロッカー+【登場時】2ドロー1捨て + 自team にドン2付与 → 簡略: 2ドロー + 自リーダーにドン2付与",
+      "_text": "OP13-042 白ひげ 登場時: 2ドロー + 1捨て + 自リーダーとキャラ1にレストドン2ずつ",
       "when": "on_play",
       "do": [
         {
           "draw": 2
         },
         {
+          "trash_self_hand_random": 1
+        },
+        {
           "attach_don": {
             "target": "self_leader",
-            "count": 2
+            "count": 2,
+            "rested": true
+          }
+        },
+        {
+          "attach_don": {
+            "target": "one_self_character_any",
+            "count": 2,
+            "rested": true
           }
         }
       ]
@@ -21008,14 +21368,29 @@
   ],
   "OP12-037_p1": [
     {
-      "_text": "auto: 自分のリーダーを、このバトル中、パワー+3000。",
+      "_text": "OP12-037 鬼気九刀流 メイン: ドン-3 → 相手キャラ/ドン合計 2 を rest",
+      "when": "main",
+      "cost": {
+        "pay_don": 3
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "相手のキャラかドン!!合計2枚までを、レストにする (= multi-target chara/don rest)"
+        }
+      ]
+    },
+    {
+      "_text": "OP12-037 鬼気九刀流 カウンター: 自リーダー +3000 battle",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 3000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -21113,28 +21488,40 @@
   ],
   "OP12-118_p1": [
     {
-      "_text": "ボニー on_play: 簡略化 無条件 2ドロー + 1捨て + ドン1アクティブ",
+      "_text": "OP12-118 ボニー 登場時: 自レストカード8+で 2ドロー + 1捨て + ドン1アクティブ",
       "when": "on_play",
+      "if": {
+        "_unimplemented": "self_rested_cards_count_ge=8 (DSL未対応条件)"
+      },
       "do": [
         {
           "draw": 2
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap_don": 1
         }
       ]
     }
   ],
   "OP12-118_p2": [
     {
-      "_text": "ボニー on_play: 簡略化 無条件 2ドロー + 1捨て + ドン1アクティブ",
+      "_text": "OP12-118 ボニー 登場時: 自レストカード8+で 2ドロー + 1捨て + ドン1アクティブ",
       "when": "on_play",
+      "if": {
+        "_unimplemented": "self_rested_cards_count_ge=8 (DSL未対応条件)"
+      },
       "do": [
         {
           "draw": 2
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap_don": 1
         }
       ]
     }
@@ -22157,11 +22544,11 @@
   ],
   "OP07-064_p1": [
     {
-      "_text": "サンジ (黄 cost6) コスト軽減 + ブロッカー → 簡略: 1ドロー (登場時)",
-      "when": "on_play",
+      "_text": "OP07-064 サンジ 手札 cost-3: 自場ドン < 相手ドン - 2 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分の場のドン!!の枚数が相手の場のドン!!の枚数より2枚以上少ない場合、コスト-3"
         }
       ]
     }
@@ -22343,11 +22730,14 @@
   ],
   "OP06-035_p1": [
     {
-      "_text": "ホーディ on_play: 相手1レスト + ライフ1手札 (簡略化: 1枚)",
+      "_text": "OP06-035 ホーディ 登場時: 相手キャラ/ドン合計2を rest, その後 自ライフ1を手札へ",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "相手のキャラかドン!!合計2枚までを、レストにする"
         },
         {
           "life_to_hand": 1
@@ -23413,18 +23803,25 @@
   ],
   "OP09-078_p1": [
     {
-      "_text": "auto: ドン!!-2,自分の手札1枚を捨てることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、カード2枚を引く。",
+      "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
       "when": "counter",
+      "cost": {
+        "pay_don": 2,
+        "discard_hand": 1
+      },
+      "if": {
+        "leader_feature": "麦わらの一味"
+      },
       "do": [
         {
-          "draw": 2
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 4000,
+            "duration": "battle"
+          }
         },
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "turn"
-          }
+          "draw": 2
         }
       ]
     }
@@ -23775,14 +24172,32 @@
   ],
   "EB04-061_p2": [
     {
-      "_text": "auto: 自分の手札1枚を捨てることができる：自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。その後、このキャラは、次の相手のエンドフェイズ終了時まで、",
+      "_text": "EB04-061 ルフィ 手札 cost-1: 自ライフ1以下 (DSL未対応)",
+      "when": "in_hand",
+      "do": [
+        {
+          "_unimplemented": "手札のこのカードは、 自分のライフが1枚以下の場合、 コスト-1"
+        }
+      ]
+    },
+    {
+      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + self ブロッカー獲得 (次相手エンドまで → 簡略turn)",
       "when": "on_play",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
           }
         }
       ]
@@ -24470,11 +24885,11 @@
   ],
   "OP07-064_p3": [
     {
-      "_text": "サンジ (黄 cost6) コスト軽減 + ブロッカー → 簡略: 1ドロー (登場時)",
-      "when": "on_play",
+      "_text": "OP07-064 サンジ 手札 cost-3: 自場ドン < 相手ドン - 2 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分の場のドン!!の枚数が相手の場のドン!!の枚数より2枚以上少ない場合、コスト-3"
         }
       ]
     }
@@ -25333,11 +25748,11 @@
   ],
   "ST23-001_p1": [
     {
-      "_text": "ウタ (赤 cost6) コスト軽減条件 → 簡略: 1ドロー",
-      "when": "on_play",
+      "_text": "ST23-001 ウタ 手札 cost-4: 自パワー10000+ キャラがいる場合 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分のパワー10000以上のキャラがいる場合、コスト-4"
         }
       ]
     }
@@ -25588,11 +26003,31 @@
   ],
   "OP05-019_p1": [
     {
-      "_text": "auto: 相手のキャラ1枚までを、このターン中、パワー-4000。その後、自分のライフが2枚以下の場合、相手のパワー0以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-019 火拳 メイン: 相手キャラ1 -4000 turn, 自ライフ2以下なら power0以下 KO",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_0"
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -4000,
+            "duration": "turn"
+          }
+        },
+        {
+          "_unimplemented": "自ライフ2以下条件分岐 + power0以下 KO (= 条件付き 2nd phase)"
+        }
+      ]
+    },
+    {
+      "_text": "OP05-019 火拳 トリガー: メイン効果再発動 (簡略 = 同じ効果)",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -4000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -25761,11 +26196,11 @@
   ],
   "OP07-064_p2": [
     {
-      "_text": "サンジ (黄 cost6) コスト軽減 + ブロッカー → 簡略: 1ドロー (登場時)",
-      "when": "on_play",
+      "_text": "OP07-064 サンジ 手札 cost-3: 自場ドン < 相手ドン - 2 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分の場のドン!!の枚数が相手の場のドン!!の枚数より2枚以上少ない場合、コスト-3"
         }
       ]
     }
@@ -25985,11 +26420,17 @@
   ],
   "OP13-043_p1": [
     {
-      "_text": "お玉 (青 cost1) 【登場時】(ライフ3以下) 2ドロー1捨て → 簡略: 1ドロー",
+      "_text": "OP13-043 お玉 登場時: 自ライフ3以下なら 2ドロー + 1捨て",
       "when": "on_play",
+      "if": {
+        "self_life_le": 3
+      },
       "do": [
         {
-          "draw": 1
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -27565,15 +28006,25 @@
   ],
   "OP09-078_r1": [
     {
-      "_text": "ゴムゴムの巨人 カウンター (自動 fallback)",
+      "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
       "when": "counter",
+      "cost": {
+        "pay_don": 2,
+        "discard_hand": 1
+      },
+      "if": {
+        "leader_feature": "麦わらの一味"
+      },
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
+            "target": "self_inplay",
+            "amount": 4000,
             "duration": "battle"
           }
+        },
+        {
+          "draw": 2
         }
       ]
     }
@@ -30468,11 +30919,14 @@
   ],
   "OP06-035_r1": [
     {
-      "_text": "ホーディ on_play: 相手1レスト + ライフ1手札 (簡略化: 1枚)",
+      "_text": "OP06-035 ホーディ 登場時: 相手キャラ/ドン合計2を rest, その後 自ライフ1を手札へ",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "相手のキャラかドン!!合計2枚までを、レストにする"
         },
         {
           "life_to_hand": 1
@@ -54010,11 +54464,11 @@
   ],
   "OP07-064_r1": [
     {
-      "_text": "サンジ (黄 cost6) コスト軽減 + ブロッカー → 簡略: 1ドロー (登場時)",
-      "when": "on_play",
+      "_text": "OP07-064 サンジ 手札 cost-3: 自場ドン < 相手ドン - 2 (DSL未対応)",
+      "when": "in_hand",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "手札のこのカードは、自分の場のドン!!の枚数が相手の場のドン!!の枚数より2枚以上少ない場合、コスト-3"
         }
       ]
     }
@@ -54753,8 +55207,76 @@
   ],
   "OP12-070_p1": [],
   "OP12-072": [],
-  "OP12-102": [],
-  "OP12-102_p1": [],
+  "OP12-102": [
+    {
+      "_text": "OP12-102 しらほし 置換: 自cost6以下キャラが相手効果で場離れる時、代わりに自ライフ1表向き",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_base_cost_le": 6,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "_unimplemented": "自分のライフの上から1枚を表向きにする (= reveal_self_life)"
+        }
+      ]
+    },
+    {
+      "_text": "OP12-102 しらほし 常在: 相手ターン中、 他の自cost2しらほしいない場合、 海王類 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "_unimplemented": "other_self_chara_with_name=しらほし がいない (= 自身唯一)"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_characters",
+            "amount": 2000,
+            "duration": "static",
+            "feature": "海王類"
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-102_p1": [
+    {
+      "_text": "OP12-102 しらほし 置換: 自cost6以下キャラが相手効果で場離れる時、代わりに自ライフ1表向き",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_base_cost_le": 6,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "_unimplemented": "自分のライフの上から1枚を表向きにする (= reveal_self_life)"
+        }
+      ]
+    },
+    {
+      "_text": "OP12-102 しらほし 常在: 相手ターン中、 他の自cost2しらほしいない場合、 海王類 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "_unimplemented": "other_self_chara_with_name=しらほし がいない (= 自身唯一)"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_characters",
+            "amount": 2000,
+            "duration": "static",
+            "feature": "海王類"
+          }
+        }
+      ]
+    }
+  ],
   "OP11-012": [],
   "OP11-024": [],
   "OP11-027": [],

@@ -99,3 +99,4 @@ db/overlay_audit.md
 db/overlay_audit.json
 db/effect_smoke_test.md
 db/effect_smoke_test.json
+db/overlay_rewrite_targets.json
