@@ -142,23 +142,27 @@ class GreedyAI:
             elif t == "counter_aggression":
                 self.counter_aggression = str(v)
         if arche == "アグロ":
-            # ライフ詰め優先、 counter 控えめ、 攻撃 gap=0 でも積極的
+            # ライフ詰め優先、 counter 控えめ、 攻撃は power 不足でも狙う
             self.defense_thresholds = {
                 1: (99999, 99),
                 2: (5000, 2),    # 控えめ
                 3: (3000, 1),    # かなり控えめ
                 4: (0, 0),       # ライフ余裕時はほぼ counter 切らず攻める
             }
-            self.attack_gap_tolerance = -1000  # gap = atk - def が +tolerance 以上で攻撃 → -1000 = 1000 不足でも攻めて良い (= ぎりぎり通る攻撃も)
+            # tolerance = -2000: 2000 不足でも攻撃 (= 相手 counter を強制消費させる)
+            self.attack_gap_tolerance = -2000
         elif arche == "コントロール":
-            # 序盤耐え、 counter 厚め、 リーダー攻撃は安全策のみ
+            # 序盤耐え、 counter 厚め、 リーダー攻撃は ほぼ等パワーで GO
+            # (= +1000 の安全マージンは慎重すぎ。 中型コントロールは攻撃機会を逃すと
+            #   後半リソース勝負で押し負ける)
             self.defense_thresholds = {
                 1: (99999, 99),
                 2: (10000, 4),
                 3: (8000, 3),
                 4: (5000, 2),    # 余裕時も counter で予防
             }
-            self.attack_gap_tolerance = 1000  # gap+1000 確保した攻撃のみ (確実に通る)
+            # tolerance = 0 (等パワー以上で攻撃)。 「確実」 から 「等価」 へ緩和。
+            self.attack_gap_tolerance = 0
         elif arche == "ランプ":
             # DON 加速優先、 攻撃は中盤以降
             self.prioritize_ramp = True
@@ -169,7 +173,9 @@ class GreedyAI:
                 4: (3000, 1),
             }
             self.attack_gap_tolerance = 0
-        # ミッドレンジは default
+        else:  # ミッドレンジ
+            # default: ぎりぎり通る攻撃 (gap -500) も拾う。 攻撃機会の取りこぼしを抑制
+            self.attack_gap_tolerance = -500
 
         # フィニッシャー (= role: finisher) のカード ID をストア
         for k in analysis.get("key_cards", []):
@@ -181,10 +187,13 @@ class GreedyAI:
         me = state.turn_player
         opp = state.opponent
 
-        # 0) 起動メイン効果は基本撃つ(ノーコスト寄りなので)
+        # 0) 起動メイン効果: コスト無しは即発動、 ドン消費型は payoff 評価
         act_main = [a for a in actions if isinstance(a, ActivateMain)]
         if act_main:
-            return act_main[0]
+            chosen = self._pick_activate_main(state, act_main)
+            if chosen is not None:
+                return chosen
+            # 全 dud → 他のアクションへフォールスルー
 
         # 0.5) 撃てるイベントは安い順で消化 (リソース消費を抑える)
         play_event_actions: list[PlayEvent] = [a for a in actions if isinstance(a, PlayEvent)]
@@ -406,6 +415,96 @@ class GreedyAI:
         if target.card.cost >= 4 and len(spent) <= 1 and counter_total <= 2000:
             return block_iid, tuple(spent)
         return block_iid, ()
+
+    def _get_activate_eff(self, state: GameState, act: ActivateMain) -> Optional[dict]:
+        """ActivateMain の対応 effect dict を返す。 失敗時 None。"""
+        overlay = state.effects_overlay
+        if not overlay:
+            return None
+        me = state.turn_player
+        src = None
+        if me.leader.instance_id == act.source_iid:
+            src = me.leader
+        else:
+            src = next(
+                (c for c in me.characters if c.instance_id == act.source_iid), None
+            )
+        if src is None:
+            return None
+        bundle = overlay.get(src.card.card_id)
+        if bundle is None or act.effect_index >= len(bundle.effects):
+            return None
+        return bundle.effects[act.effect_index]
+
+    def _activate_main_pay_don(self, state: GameState, act: ActivateMain) -> int:
+        """この ActivateMain が消費する pay_don 数を返す。 取得失敗時 0。"""
+        eff = self._get_activate_eff(state, act)
+        if eff is None:
+            return 0
+        return int(eff.get("cost", {}).get("pay_don", 0))
+
+    def _activate_main_don_compensated(self, eff: dict) -> bool:
+        """pay_don コストが do 内の untap_don/add_don で相殺される効果か?
+
+        例: 緑紫ルフィ leader 「ドン-2 + untap_don 2」 → ドン純消費 0、 リーダーパワー up。
+        この種の効果は eval delta が小さくても積極的に発動すべき (将来価値含めて中立)。
+        """
+        pay_don = int(eff.get("cost", {}).get("pay_don", 0))
+        if pay_don == 0:
+            return False
+        refunded = 0
+        for prim in eff.get("do", []):
+            for k, v in prim.items():
+                if k == "untap_don":
+                    refunded += int(v) if isinstance(v, int) else int(v.get("amount", 0))
+                elif k == "add_don":
+                    refunded += int(v) if isinstance(v, int) else int(v.get("amount", 0))
+                elif k == "add_rested_don":
+                    refunded += int(v) if isinstance(v, int) else int(v.get("amount", 0))
+        return refunded >= pay_don
+
+    def _pick_activate_main(
+        self, state: GameState, candidates: list[ActivateMain]
+    ) -> Optional[Action]:
+        """activate_main 候補から payoff の良いものを選ぶ。
+
+        - pay_don=0 のコスト無し効果: 即 1 つ目を返す (=従来通り)
+        - pay_don≥1 のドン消費型: 1-ply eval で post-pre delta を測り、 改善あれば発動。
+          delta が「ドン消費分の損失」を超えるなら発動価値あり (eval 内 W_DON で
+          ドン消失は既に減算されるので、 純 delta > 0 なら net gain)。
+        - 全候補で payoff ≤ 0 → None (フォールスルーで他アクションへ)
+        """
+        if not candidates:
+            return None
+        # ノーコスト効果は最優先
+        free = [a for a in candidates if self._activate_main_pay_don(state, a) == 0]
+        if free:
+            return free[0]
+
+        # don 相殺型 (pay_don を untap_don/add_don で取り戻す) も即発動
+        for a in candidates:
+            eff = self._get_activate_eff(state, a)
+            if eff and self._activate_main_don_compensated(eff):
+                return a
+
+        # 純粋なドン消費型: 仮想実行 → eval delta が正のものを採用
+        from .eval import compute_score
+        me_idx = state.turn_player_idx
+        pre = compute_score(state, me_idx)
+        best_action: Optional[Action] = None
+        best_delta = 0
+        for a in candidates:
+            sim = copy.deepcopy(state)
+            try:
+                apply_action(sim, a)
+            except Exception:
+                continue
+            post = compute_score(sim, me_idx)
+            delta = post - pre
+            if delta > best_delta:
+                best_delta = delta
+                best_action = a
+        return best_action
 
     def _optimal_counter_combo(self, hand: list, gap: int) -> list[int]:
         """gap を超える最小コンボを brute force で探す (手札 < 12 想定)。

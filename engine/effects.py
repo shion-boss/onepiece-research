@@ -344,6 +344,15 @@ def execute_effect(
                 idx = state.rng.randrange(len(me.hand))
                 me.trash.append(me.hand.pop(idx))
             state.push_log(f"  効果: 手札{n}枚捨て")
+        elif k == "trash_opp_hand_random":
+            # 相手手札からランダム N 枚捨て (公式の「相手の手札から〜捨てさせる」表現)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            for _ in range(n):
+                if not opp.hand:
+                    break
+                idx = state.rng.randrange(len(opp.hand))
+                opp.trash.append(opp.hand.pop(idx))
+            state.push_log(f"  効果: 相手手札{n}枚捨て")
         elif k == "ko":
             targets = _resolve_target(v, state, me, opp, self_inplay)
             if not targets:
@@ -484,11 +493,10 @@ def execute_effect(
                     found < limit
                     and c.category == Category.CHARACTER
                     and _matches_filter(c, filt)
-                    and me.can_play_character()
                 ):
+                    # 公式 3-7-6-1: 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る
                     if not me.can_play_character():
-                        remaining.append(c)
-                        continue
+                        me.trash_weakest_chara_for_field_full(state)
                     ip = InPlay.of(c, rested=rested, sickness=sickness)
                     me.characters.append(ip)
                     picked.append(c)
@@ -633,9 +641,9 @@ def execute_effect(
             new_trash = []
             for card in me.trash:
                 if found < limit and card.category == Category.CHARACTER and _matches_filter(card, filt):
+                    # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
                     if not me.can_play_character():
-                        new_trash.append(card)
-                        continue
+                        me.trash_weakest_chara_for_field_full(state)
                     ip = InPlay.of(card, rested=False, sickness=True)
                     me.characters.append(ip)
                     found += 1
@@ -645,6 +653,29 @@ def execute_effect(
                 else:
                     new_trash.append(card)
             me.trash[:] = new_trash
+        elif k == "play_from_hand":
+            # 「自分の手札からキャラ1枚を 0 コストで登場」(緑紫ルフィ起動メイン等)。
+            # spec: {"filter": {"feature": "...", "cost_le": N}, "limit": 1}
+            # 通常の PlayCharacter と異なり、 コスト無視 (= 効果代替の登場)。
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            found = 0
+            new_hand = []
+            for card in me.hand:
+                if found < limit and card.category == Category.CHARACTER and _matches_filter(card, filt):
+                    # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state)
+                    ip = InPlay.of(card, rested=False, sickness=True)
+                    me.characters.append(ip)
+                    found += 1
+                    state.push_log(f"  効果: 手札から登場 → {card.name}")
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                else:
+                    new_hand.append(card)
+            me.hand[:] = new_hand
         elif k == "prevent_ko":
             # ターン終了時まで KO 耐性付与。target = self / all_self_characters 等
             target_spec = v if isinstance(v, str) else "self"

@@ -1169,3 +1169,76 @@ def test_hand_estimator_sample():
     est = estimate_counter_total(state, 1)
     assert isinstance(est, int)
     assert est >= 0
+
+
+def test_trash_opp_hand_random_primitive():
+    """trash_opp_hand_random: 相手手札を N 枚ランダム捨て"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # 相手手札に 5 枚
+    opp.hand = [repo.get("OP01-013")] * 5
+    opp.trash = []
+
+    from engine.effects import execute_effect
+    execute_effect({"trash_opp_hand_random": 2}, state, me, opp, None)
+    assert len(opp.hand) == 3
+    assert len(opp.trash) == 2
+
+    # 手札 0 枚なら何もしない
+    opp.hand = []
+    execute_effect({"trash_opp_hand_random": 3}, state, me, opp, None)
+    assert len(opp.hand) == 0
+
+
+def test_play_from_hand_primitive():
+    """play_from_hand: 手札の filter 一致キャラを 0 コストで登場"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # 手札に 4 枚 (filter で 3 コスト以下を 1 枚登場想定)
+    me.hand = [
+        repo.get("OP01-013"),  # 1コスト想定
+        repo.get("OP01-016"),  # サーチキャラ
+    ]
+    me.characters = []
+
+    from engine.effects import execute_effect
+    execute_effect(
+        {"play_from_hand": {"filter": {"cost_le": 5}, "limit": 1}},
+        state, me, opp, None,
+    )
+    assert len(me.characters) == 1
+    assert len(me.hand) == 1
+
+
+def test_field_full_replacement_via_effect():
+    """効果による登場時、 場 5 枚状態でも 1 枚を自動 trash で登場 (公式 3-7-6-1)。
+    KO ではないので 【KO 時】 トリガー発火しない。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # 場を 5 枚で埋める
+    me.characters = [
+        InPlay.of(repo.get("OP01-013"), sickness=False) for _ in range(5)
+    ]
+    me.trash = []
+    # トラッシュからのキャラ登場 (play_from_trash)
+    chara = repo.get("OP01-016")
+    me.trash = [chara]
+
+    from engine.effects import execute_effect
+    execute_effect(
+        {"play_from_trash": {"filter": {"cost_le": 10}, "limit": 1}},
+        state, me, opp, None,
+    )
+    # キャラエリア = 5 (= 4 + 新規 1)、 1 枚 trash
+    assert len(me.characters) == 5
+    # trash には最弱の OP01-013 が 1 枚
+    assert any(c.card_id == "OP01-013" for c in me.trash)

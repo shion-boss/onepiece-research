@@ -336,21 +336,7 @@ def _classify_archetype(
     counter_2k = sum(1 for c in main if c.counter == 2000)
     counter_total = sum(c.counter for c in main)
 
-    # === アグロスコア ===
-    aggro = 0
-    if avg_cost <= 2.7:
-        aggro += 30
-    elif avg_cost <= 3.0:
-        aggro += 15
-    if n_low_cost_chara >= 25:
-        aggro += 25
-    elif n_low_cost_chara >= 18:
-        aggro += 12
-    if n_rush >= 6:
-        aggro += 20
-    elif n_rush >= 3:
-        aggro += 10
-    # 速攻 / on_attack +N power 効果が多い = アグロ寄り
+    # 速攻 / on_attack +N power 効果数 (アグロ判定)
     on_attack_buff_count = 0
     if overlay:
         for c in main:
@@ -368,34 +354,74 @@ def _classify_archetype(
                 else:
                     continue
                 break
-    if on_attack_buff_count >= 8:
+
+    # === アグロスコア ===
+    # 「ライフ詰め型」 を捉える。 平均コスト・低コスト密度・速攻持ち・on_attack 強化 が主シグナル
+    aggro = 0
+    if avg_cost <= 2.7:
+        aggro += 30
+    elif avg_cost <= 3.0:
+        aggro += 22
+    elif avg_cost <= 3.3:
+        aggro += 12
+    elif avg_cost <= 3.6:
+        aggro += 5
+    if n_low_cost_chara >= 25:
+        aggro += 25
+    elif n_low_cost_chara >= 18:
         aggro += 15
+    elif n_low_cost_chara >= 14:
+        aggro += 8
+    if n_rush >= 6:
+        aggro += 22
+    elif n_rush >= 3:
+        aggro += 12
+    elif n_rush >= 1:
+        aggro += 5
+    if on_attack_buff_count >= 8:
+        aggro += 18
     elif on_attack_buff_count >= 4:
-        aggro += 7
+        aggro += 10
+    elif on_attack_buff_count >= 2:
+        aggro += 4
     # 高コスト キャラ少ないほどアグロ寄り
     if n_high_cost_chara <= 3:
         aggro += 10
+    # 除去・ramp 軸でない = アグロ寄り (= 純粋な打点デッキ)
+    if removal_count <= 2 and ramp_count <= 2:
+        aggro += 8
 
     # === コントロールスコア ===
+    # 「除去 + ブロッカー多用」 を主軸とした「除去重型」 のみ純コントロール扱い
     control = 0
-    if avg_cost >= 3.5:
-        control += 25
-    elif avg_cost >= 3.0:
+    if avg_cost >= 4.0:
+        control += 22
+    elif avg_cost >= 3.6:
         control += 12
-    if blocker_count >= 8:
+    elif avg_cost >= 3.3:
+        control += 5
+    if blocker_count >= 12:
         control += 25
-    elif blocker_count >= 5:
-        control += 12
-    if removal_count >= 6:
-        control += 20
-    elif removal_count >= 3:
-        control += 10
-    if counter_total >= 32000:
+    elif blocker_count >= 9:
         control += 15
-    if counter_2k >= 12:
+    elif blocker_count >= 6:
+        control += 7
+    if removal_count >= 6:
+        control += 25
+    elif removal_count >= 4:
+        control += 15
+    elif removal_count >= 2:
+        control += 5
+    if counter_total >= 36000:
+        control += 12
+    elif counter_total >= 32000:
+        control += 7
+    if counter_2k >= 14:
+        control += 8
+    if n_high_cost_chara >= 8:
         control += 10
-    if n_high_cost_chara >= 6:
-        control += 10
+    elif n_high_cost_chara >= 6:
+        control += 5
 
     # === ランプスコア ===
     ramp = 0
@@ -410,14 +436,25 @@ def _classify_archetype(
     if avg_cost >= 3.7:
         ramp += 10
 
-    # === ミッドレンジスコア (= 中庸が高得点) ===
-    midrange = 30  # base
-    if 2.7 <= avg_cost <= 3.5:
-        midrange += 15
-    if 5 <= blocker_count <= 7:
+    # === ミッドレンジスコア ===
+    # base を上げて、 「中型キャラ + 適度な除去/ブロッカー」 の中庸デッキを拾う
+    midrange = 35
+    if 2.8 <= avg_cost <= 3.7:
+        midrange += 18
+    elif 2.5 <= avg_cost <= 4.0:
+        midrange += 8
+    if 5 <= blocker_count <= 9:
         midrange += 10
-    if 4 <= removal_count <= 5:
+    if 2 <= removal_count <= 5:
+        midrange += 12
+    # 中型キャラ (cost 4-5) が主体 → midrange
+    n_mid_cost = sum(
+        1 for c in main if c.category == Category.CHARACTER and 4 <= c.cost <= 5
+    )
+    if n_mid_cost >= 16:
         midrange += 10
+    elif n_mid_cost >= 12:
+        midrange += 5
 
     scores = {
         "アグロ": aggro,

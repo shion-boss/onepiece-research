@@ -345,6 +345,8 @@ sources:
 | ライフを手札に | `life_to_hand N` | 実装済 |
 | ドン!! +N アクティブ | `add_don N` | 実装済 |
 | 自手札ランダム N 枚捨て | `trash_self_hand_random N` | 実装済 |
+| 相手手札ランダム N 枚捨て | `trash_opp_hand_random N` | 実装済 |
+| 手札からキャラ 0 コスト登場 | `play_from_hand {filter, limit}` | 実装済 (緑紫ルフィ等のコンボ起動メイン) |
 | 「相手キャラ1枚まで」(単体対象) | `one_opponent_character_le_5000` 等 | 実装済 (パワー高い順に1体) |
 | 「相手キャラ全員」(board wipe) | `any_opponent_character_le_5000` | 実装済 |
 | 起動メインの暗黙 once_per_turn | cost 未指定でも default true | 実装済 (無限ループ回避) |
@@ -368,7 +370,7 @@ sources:
 | ドン付与キャラ KO/離場 | ✅ 修正済 | KO・return_to_hand 時に attached_dons を `don_rested` に回収 |
 | 【自分/相手のターン終了時】 | ✅ 実装済 | Phase.END で `trigger_end_of_turn`。順序: ターン側 → 非ターン側。`when:"end_of_turn"` / `when:"opp_end_of_turn"` |
 | ステージカード | ✅ 実装済 | `PlayStage` action、1 枚制限・既存差替フロー、リフレッシュ時のレスト解除、【登場時】対応 |
-| 場 5 枚超過時の差替 | ⬜ 未実装 | 現在は `can_play_character()` で 5 枚なら拒否。本来は既存 1 枚トラッシュで登場可 (3-7-6-1) |
+| 場 5 枚超過時の差替 | ✅ 実装済 | 通常登場は `PlayCharacter.sacrifice_iid` で犠牲キャラ指定 (legal_actions が最弱を自動選択)。 効果登場 (`play_from_trash` / `play_from_hand` / `summon_from_deck`) も `Player.trash_weakest_chara_for_field_full` で自動差替。 KO ではないので【KO時】不発動 (3-7-6-1-1) |
 | 同時解決の優先順 | ⬜ 未実装 | ターン側→非ターン側のキュー化が必要。現状はオーバーレイの登録順 |
 | 【ブロック時】【相手のアタック時】 | ⬜ 未実装 | DSL の when に対応していない。ブロッカー本体の発動は AI 側で処理済 |
 | 【ダブルアタック】 | ✅ 実装済 + Q36 反映 | `CardDef.is_double_attack` で検出。リーダー攻撃時 2 ダメージ。 ライフ 1 への DA は 9-2-1 + Q36 準拠で 「敗北判定はアタック開始時のみ、ライフ尽きたら空打ち break」 |

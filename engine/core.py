@@ -291,6 +291,28 @@ class Player:
     def can_play_character(self):
         return self.field_count() < self.MAX_CHARACTERS
 
+    def trash_weakest_chara_for_field_full(self, state=None):
+        """場 5 枚状態で新規登場時、 最弱キャラを 1 枚トラッシュへ送る (公式 3-7-6-1)。
+
+        これは ルール処理 であり KO ではないので 【KO 時】 トリガーは発火しない (3-7-6-1-1)。
+        付与ドンはレストでコストエリアに戻る (6-5-5-4 と同様)。
+        選択基準: パワー低 → コスト低 (= 最弱) を自動選択 (将来 AI 判断置換可)。
+        戻り値: trash したキャラ (いなければ None)。
+        """
+        if self.field_count() < self.MAX_CHARACTERS:
+            return None
+        sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
+        self.characters.remove(sacrifice)
+        self.trash.append(sacrifice.card)
+        if sacrifice.attached_dons > 0:
+            self.don_rested += sacrifice.attached_dons
+        if state is not None:
+            state.push_log(
+                f"  差替 (3-7-6-1): {sacrifice.card.name} をトラッシュへ "
+                f"(KO ではないため【KO時】不発動)"
+            )
+        return sacrifice
+
 
 @dataclass
 class GameState:
