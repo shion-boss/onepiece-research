@@ -22,19 +22,20 @@ onepiece_research/
 ├── scraper/        # 公式サイトから全弾スクレイプ (Python)
 ├── engine/         # ルールエンジン + AI + 対戦ハーネス (Python)
 ├── api/            # FastAPI で engine をラップする HTTP API (Python)
-├── db/             # cards.json / cards.sqlite / card_effects.json (473 overlay)
+├── db/             # cards.json / cards.sqlite / card_effects.json (4,518 全登録, 効果あり 3,745)
 │                   #   + rules/ (公式PDF) / faq/ (公式Q&A) / banlist/ (禁止リスト)
 │                   #   + matchup_matrix.json (事前計算 N×N 勝率)
 ├── decks/          # メタデッキ JSON (cardrush_*.json — cardrush.media 大会上位由来)
+│   ├── *.analysis.json # 各デッキの静的分析 (戦略 / マリガン / キーカード / AI ヒント)
 │   └── _archive/   # 旧 meta_*.json + 非代表 cardrush_raw/ の退避先
 ├── images/         # 全カード画像 (空、scraper --with-images で取得)
-├── scripts/        # 補助スクリプト (scrape / cache / matrix / overlay 補助)
+├── scripts/        # 補助スクリプト (scrape / cache / matrix / overlay / weight tuning)
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
 │   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
 ├── web_skeleton/   # Next.js セットアップ手順 (キックオフ用ハンドオフ、現役性低)
-├── tests/          # pytest テスト (test_effects.py / test_deck.py、21 passed)
-├── .venv/          # Python 仮想環境 (gitignore 推奨)
-└── DEMO_*.PY       # ルート直下のデモスクリプト (matchup / smoke / with-effects)
+├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
+├── tests/          # pytest テスト (59 passed)
+└── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 
 > **注意**: WSL のホスト経由でマウントされていると `*.py` が `*.PY` (大文字) として
@@ -266,7 +267,9 @@ cd web && npm install
 
 # === 対戦 / matrix ===
 .venv/bin/pytest                                   # 全テスト実行 (tests/ 以下)
-.venv/bin/python DEMO_M~1.PY                       # 50戦マッチアップ デモ
+.venv/bin/python examples/demo_matchup.py          # 50戦マッチアップ デモ
+.venv/bin/python examples/demo_smoke.py            # 単一試合のスモークテスト
+.venv/bin/python examples/demo_with_effects.py     # 効果オーバーレイ込みの対戦デモ
 .venv/bin/python scripts/compute_matchup_matrix.py --n-games 20 --seed 42  # 勝率行列再計算
 
 # === サーバ ===

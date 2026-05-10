@@ -17,23 +17,30 @@ onepiece_research/
 ├── scraper/            # 公式サイトから全弾スクレイプ
 ├── engine/             # ルールエンジン + 効果DSL + AI + 対戦ハーネス
 │   ├── core.py / deck.py / deckbuilder.py
-│   ├── effects.py     # 効果DSL (プリミティブ 25+)
-│   ├── game.py        # ターン進行 / 攻防 / 合法手生成
-│   ├── ai.py          # GreedyAI / RandomAI / LookaheadAI
-│   └── harness.py     # AI vs AI 対戦実行
-├── api/main.py         # FastAPI で engine + DB をラップ
+│   ├── effects.py             # 効果DSL (プリミティブ 30+)
+│   ├── game.py                # ターン進行 / 攻防 / 合法手生成
+│   ├── eval.py                # 9 指標盤面評価関数 (LookaheadAI/MCTSAI/UI 共通)
+│   ├── analyzer.py            # 試合後分析 (ターニングポイント抽出)
+│   ├── deck_analyzer.py       # 静的デッキ分析 (戦略 / マリガン / キーカード / AI ヒント)
+│   ├── ai.py                  # Random / Greedy / EvalGreedy / Lookahead / MCTS
+│   ├── hand_estimator.py      # 隠匿情報モデル (相手手札の確率推定)
+│   ├── referee.py             # ルール違反監視 (RuleReferee)
+│   └── harness.py             # AI vs AI 対戦実行
+├── api/main.py         # FastAPI で engine + DB + 試合分析 をラップ
 ├── db/
 │   ├── cards.json (4,518枚) — リポジトリに同梱 (~3.7MB)
-│   ├── card_effects.json   # カード効果オーバーレイ (481カード)
+│   ├── card_effects.json   # カード効果オーバーレイ (4,518 全登録、 効果あり 3,745)
 │   ├── matchup_matrix.json # 事前計算 N×N 勝率
 │   ├── banlist/master.json # 禁止リスト
 │   ├── rules/   ※ 公式PDF (gitignore、scraper で取得)
 │   └── faq/     ※ 公式Q&A (gitignore、scraper で取得)
 ├── decks/              # cardrush.media 大会上位由来 (cardrush_*.json, 15デッキ)
-├── scripts/            # scrape / cache / matrix / overlay 補助
+│   └── *.analysis.json    # 各デッキの静的分析 (戦略/マリガン/AI ヒント)
+├── examples/           # スモークテスト・デモスクリプト (demo_smoke.py 等)
+├── scripts/            # scrape / cache / matrix / overlay / weight tuning 補助
 ├── web/                # Next.js (App Router, Tailwind CSS v4, Zustand)
 │   └── public/cards/   ※ 全画像 (878MB、gitignore)
-└── tests/              # pytest (26 passed)
+└── tests/              # pytest (59 passed)
 ```
 
 ## セットアップ手順

@@ -541,15 +541,32 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       const curAttached = collectAttached(cp);
       const costEl = zoneRefs.current.get(`costarea-${p}`);
       const costRect = costEl?.getBoundingClientRect();
-      // Cost Area の active 列の DON スロット位置を計算 (CostArea コンポーネントのレイアウトと一致):
+      // Cost Area の active/rested 列の DON スロット位置を計算 (CostArea コンポーネントのレイアウトと一致):
       //  - cost area 左 padding ≈ 4px (px-1)
       //  - active 列の DON は left: i * 18px (overlap 18px)、 中心 = left + 40 (donW=80 / 2)
-      //  - rested 列はそれ以後に flex gap-2 で続く
-      // active スロット index k の中心 X (relative to matRect):
+      //  - active 列の幅 = active=0 なら 0、 それ以外 80 + (active-1) * 18
+      //  - rested 列は active 列の後に flex gap-2 (8px) で続く
+      //  - rested DON は -rotate-90、 left: 16 + i*14, 中心は rotation で left + 40 + 16 = 56 + i*14
+      const COST_PAD_LEFT = 4;
+      const ACTIVE_OVERLAP = 18;
+      const ACTIVE_DON_W = 80;
+      const COL_GAP = 8;
+      const RESTED_OVERLAP = 14;
+      const RESTED_CENTER_OFFSET = 56;
       const activeSlotX = (k: number): number =>
         costRect
-          ? costRect.left + 4 + k * 18 + 40 - matRect.left
+          ? costRect.left + COST_PAD_LEFT + k * ACTIVE_OVERLAP + 40 - matRect.left
           : 0;
+      const restedSlotX = (k: number, currentActive: number): number => {
+        if (!costRect) return 0;
+        const activeWidth =
+          currentActive === 0 ? 0 : ACTIVE_DON_W + (currentActive - 1) * ACTIVE_OVERLAP;
+        const restedColLeft =
+          costRect.left + COST_PAD_LEFT + (activeWidth > 0 ? activeWidth + COL_GAP : 0);
+        return (
+          restedColLeft + RESTED_CENTER_OFFSET + k * RESTED_OVERLAP - matRect.left
+        );
+      };
       const costCy = costRect
         ? costRect.top + costRect.height / 2 - matRect.top
         : 0;
@@ -585,13 +602,12 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
         }
       }
 
-      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り、 rested 列に追加)
-      // rested 列の各スロットも厳密に計算するのは大変なので、 active 列の右端付近に着地。
-      // (= 視覚的には cost area の中央寄りなので center で許容)
+      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り、 rested 列の正しいスロットに着地)
+      // 公式 6-2-3-1: 付与ドンはレストでコストエリアに戻る → rested 列に追加。
+      // 各 char の戻り DON に rested 列の累積スロット index を割当 (= pp.don_rested から).
       if (costRect) {
         let returnStagger = 0;
-        // 戻り先 X: cost area の中央〜右寄り (rested 列に流れ込むイメージ)
-        const restedAreaX = costRect.left + costRect.width * 0.65 - matRect.left;
+        let cumulativeRestedSlot = pp.don_rested; // 既存 rested の次から追加
         for (const [iid, prevCount] of prevAttached) {
           const curCount = curAttached.get(iid) ?? 0;
           const delta = prevCount - curCount;
@@ -601,6 +617,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           const fromX = fromRect.left + fromRect.width / 2 - matRect.left;
           const fromY = fromRect.top + fromRect.height / 2 - matRect.top;
           for (let i = 0; i < delta; i++) {
+            const targetSlot = cumulativeRestedSlot;
+            cumulativeRestedSlot += 1;
             newFlights.push({
               id: `don-return-${p}-${iid}-${i}-${now}`,
               cardId: "",
@@ -609,7 +627,9 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               delayMs: returnStagger,
               fromX,
               fromY,
-              toX: restedAreaX,
+              // 着地: rested 列の targetSlot 番目スロット中心。
+              // active 数は cur (= 戻り処理後の状態) を使用
+              toX: restedSlotX(targetSlot, cp.don_active),
               toY: costCy,
               startBack: false,
               endBack: false,
