@@ -260,6 +260,9 @@ cd web && npm install
 .venv/bin/python scripts/suggest_overlay_from_cards.py # cards.json から overlay 候補を自動抽出
                                                        # → db/card_effects.suggestions.json (手動マージ)
 .venv/bin/python scripts/merge_overlay_suggestions.py  # suggestions の選択マージ
+.venv/bin/python scripts/audit_overlay_vs_faq.py       # overlay vs FAQ 突合監査
+                                                       # → db/overlay_audit.md (上位80件) + .json (全件)
+                                                       # severity 順で「公式テキストにあるのに overlay 欠落」 を surface
 
 # === 画像 ===
 .venv/bin/python scripts/cache_deck_images.py      # decks/ で使う画像をローカルキャッシュ

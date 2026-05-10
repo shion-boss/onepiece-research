@@ -94,3 +94,6 @@ decks/_archive/
 
 # Node modules (ルート直下に万が一できた場合)
 node_modules/
+# Audit reports (regenerable, large)
+db/overlay_audit.md
+db/overlay_audit.json
