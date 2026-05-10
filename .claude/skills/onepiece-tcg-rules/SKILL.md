@@ -331,8 +331,8 @@ sources:
 | 【自分のターン終了時】 | `when: end_of_turn` | 実装済 |
 | 【相手のターン終了時】 | `when: opp_end_of_turn` | 実装済 |
 | 【KO 時】 | `when: on_ko` | 実装済 |
-| 【ブロック時】 | `when: on_block` | **未実装** |
-| 【相手のアタック時】 | `when: on_opp_attack` | **未実装** |
+| 【ブロック時】 | `when: on_block` | 実装済 (`trigger_on_block`、 AttackLeader/AttackCharacter 両方でブロッカー解決) |
+| 【相手のアタック時】 | `when: opp_attack` | 実装済 (`trigger_on_opp_attack`、 AttackLeader/AttackCharacter 両方で発動) |
 | 【トリガー】 | `when: trigger` | 実装済 (置換効果として) |
 | 【メイン】イベント効果 | `when: main` | 実装済 (`trigger_main_event`) |
 | ライフ→手札 | `life_to_hand` プリミティブ | 実装済 |
@@ -371,8 +371,8 @@ sources:
 | 【自分/相手のターン終了時】 | ✅ 実装済 | Phase.END で `trigger_end_of_turn`。順序: ターン側 → 非ターン側。`when:"end_of_turn"` / `when:"opp_end_of_turn"` |
 | ステージカード | ✅ 実装済 | `PlayStage` action、1 枚制限・既存差替フロー、リフレッシュ時のレスト解除、【登場時】対応 |
 | 場 5 枚超過時の差替 | ✅ 実装済 | 通常登場は `PlayCharacter.sacrifice_iid` で犠牲キャラ指定 (legal_actions が最弱を自動選択)。 効果登場 (`play_from_trash` / `play_from_hand` / `summon_from_deck`) も `Player.trash_weakest_chara_for_field_full` で自動差替。 KO ではないので【KO時】不発動 (3-7-6-1-1) |
-| 同時解決の優先順 | ⬜ 未実装 | ターン側→非ターン側のキュー化が必要。現状はオーバーレイの登録順 |
-| 【ブロック時】【相手のアタック時】 | ⬜ 未実装 | DSL の when に対応していない。ブロッカー本体の発動は AI 側で処理済 |
+| 同時解決の優先順 | ✅ 実装済 | `trigger_turn_start` / `trigger_end_of_turn` はターン側→非ターン側で順次解決。 `trigger_on_attack`(turn) → `trigger_on_opp_attack`(non-turn) も同順序で呼出 (game.py:639-641 / 805-807) |
+| 【ブロック時】【相手のアタック時】 | ✅ 実装済 | `trigger_on_block` (10-2-15-1) と `trigger_on_opp_attack` (10-2-16-1) を game.py のバトル処理で発動。 AttackLeader にも blocker_iid フィールドを追加し、 リーダー攻撃へのブロッカー対応を実装 |
 | 【ダブルアタック】 | ✅ 実装済 + Q36 反映 | `CardDef.is_double_attack` で検出。リーダー攻撃時 2 ダメージ。 ライフ 1 への DA は 9-2-1 + Q36 準拠で 「敗北判定はアタック開始時のみ、ライフ尽きたら空打ち break」 |
 | 【バニッシュ】 | ✅ 実装済 | `CardDef.is_banish`。ライフ→トラッシュ (トリガー発動なし) |
 | 【ブロック不可】 | ✅ 実装済 | `CardDef.has_no_block`。AI choose_defense で参照、ブロッカー候補から除外 |
@@ -431,10 +431,10 @@ jq '.items[] | select(.q + .a | test("ダブルアタック"))' db/faq/*.json
 | 制限カード | デッキに 1 枚のみ |
 | 禁止ペア | A が入っているデッキには B を組み合わせ不可 |
 
-### deck builder への組み込み (推奨)
+### deck builder への組み込み
 
-- `engine/deck.py` の `validate()` で禁止カード/制限カード違反を検知すべき
-- 現状未実装。`db/banlist/master.json` を読み込んで違反を返すロジックを追加するのが次の改善
+- `engine/deck.py` の `DeckList.validate()` で禁止カード / 制限カード / 禁止ペア違反を自動検知
+- `db/banlist/master.json` を自動ロード (詳細は §19.5 後半参照)
 
 ### 取得元
 

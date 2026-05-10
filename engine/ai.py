@@ -869,8 +869,11 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, state.opponent.leader, True, state.opponent
         )
-        # AttackLeader にはブロッカー枠がないが MVP では無視
-        action = AttackLeader(attacker_iid=action.attacker_iid, counter_card_idxs=counters)
+        action = AttackLeader(
+            attacker_iid=action.attacker_iid,
+            counter_card_idxs=counters,
+            blocker_iid=block_iid,
+        )
 
     elif isinstance(action, AttackCharacter):
         from .game import _find_attacker, _find_character  # noqa

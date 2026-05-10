@@ -112,6 +112,7 @@ class RuleReferee:
                 attacker_iid=action.attacker_iid,
                 counter_card_idxs=(),
                 counter_event_idxs=(),
+                blocker_iid=None,
             )
         if isinstance(action, AttackCharacter):
             return AttackCharacter(

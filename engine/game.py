@@ -51,6 +51,7 @@ class AttackLeader:
     attacker_iid: int
     counter_card_idxs: tuple[int, ...] = ()
     counter_event_idxs: tuple[int, ...] = ()    # 【カウンター】イベントの手札 idx
+    blocker_iid: Optional[int] = None           # ブロッカー発動時のブロッカー iid (10-1-4)
 
 
 @dataclass(frozen=True)
@@ -717,20 +718,62 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     state.push_log("  survived")
                 _reset_battle_buffs(state)
                 return
+        # === ブロックステップ (7-1-2): blocker_iid 指定時 ===
+        # 公式 10-1-4: アクティブなブロッカー 1 枚をレストにすると、 アタック対象を
+        # ブロッカーに変更する。 【ブロック時】効果が発動する (10-2-15-1)。
+        actual_target: InPlay = opp.leader
+        target_iid = opp.leader.instance_id
+        target_kind = "leader"
+        is_blocked = False
+        if action.blocker_iid is not None and not attacker.has_no_block_now:
+            blocker = next(
+                (c for c in opp.characters if c.instance_id == action.blocker_iid),
+                None,
+            )
+            if blocker is None:
+                state.push_log(
+                    f"  ブロッカー消失: iid={action.blocker_iid} は既に場にない (ブロッカー無効)"
+                )
+            elif (
+                blocker.rested
+                or not blocker.is_blocker_now
+                or blocker.summoning_sickness
+            ):
+                state.push_log(
+                    f"  ブロッカー無効: {blocker.card.name} (rested/sickness/blocker特性なし)"
+                )
+            else:
+                blocker.rested = True
+                actual_target = blocker
+                target_iid = blocker.instance_id
+                target_kind = "blocker"
+                is_blocked = True
+                state.push_log(f"  blocker: {blocker.card.name}")
+                if state.effects_overlay:
+                    from .effects import trigger_on_block
+                    trigger_on_block(state, opp, me, blocker, state.effects_overlay)
+                # ブロック時効果で blocker が KO されている可能性 → 場から消えていれば fallback
+                if blocker not in opp.characters:
+                    state.push_log(
+                        f"  ブロック中に消失: {blocker.card.name} → 攻撃不発"
+                    )
+                    _reset_battle_buffs(state)
+                    return
+
         # === Pre-counter snapshot: アタッカー対防御側 (counter 反映前) ===
         atk_power = attacker.power
-        base_defender_power = opp.leader.power
+        base_defender_power = actual_target.power
         state.pending_event = {
             "type": "attack",
             "attacker_iid": attacker.instance_id,
-            "target_iid": opp.leader.instance_id,
-            "target_kind": "leader",
+            "target_iid": target_iid,
+            "target_kind": target_kind,
             "atk_power": atk_power,
             "defender_power": base_defender_power,
         }
         state.push_log(
             f"atk: {attacker.card.name}(P={atk_power}) -> "
-            f"{opp.leader.card.name}(P={base_defender_power})"
+            f"{actual_target.card.name}(P={base_defender_power})"
         )
         # === Counter フェイズ ===
         # カウンターイベント発動 (7-1-3-1-2): 各イベント毎に push_log → snapshot
@@ -743,15 +786,37 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             state.pending_event = {
                 "type": "attack",
                 "attacker_iid": attacker.instance_id,
-                "target_iid": opp.leader.instance_id,
-                "target_kind": "leader",
+                "target_iid": target_iid,
+                "target_kind": target_kind,
                 "atk_power": atk_power,
                 "defender_power": defender_power,
             }
             state.push_log(
                 f"  counter +{counter_added} → "
-                f"{opp.leader.card.name}(P={defender_power})"
+                f"{actual_target.card.name}(P={defender_power})"
             )
+        # ブロックされた場合: 勝てばブロッカーが KO、 負ければ生存 (リーダーへのダメージなし)
+        if is_blocked:
+            if atk_power >= defender_power:
+                if (
+                    not actual_target.ko_immune_until_turn_end
+                    and not actual_target.static_ko_immune
+                ):
+                    opp.characters.remove(actual_target)
+                    opp.trash.append(actual_target.card)
+                    if actual_target.attached_dons > 0:
+                        opp.don_rested += actual_target.attached_dons
+                    state.push_log(f"  KO: {actual_target.card.name}")
+                    if state.effects_overlay:
+                        from .effects import trigger_on_ko
+                        trigger_on_ko(
+                            state, opp, me, actual_target.card,
+                            state.effects_overlay,
+                        )
+            else:
+                state.push_log("  blocker survived")
+            _reset_battle_buffs(state)
+            return
         if atk_power >= defender_power:
             # 【ダブルアタック】: ダメージが 1 → 2 (10-1-2-1)
             damage = 2 if attacker.is_double_attack_now else 1

@@ -1242,3 +1242,107 @@ def test_field_full_replacement_via_effect():
     assert len(me.characters) == 5
     # trash には最弱の OP01-013 が 1 枚
     assert any(c.card_id == "OP01-013" for c in me.trash)
+
+
+def test_attack_leader_with_blocker():
+    """AttackLeader にブロッカー指定 → ブロッカーが攻撃対象に変わる (公式 7-1-2 / 10-1-4)。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    me.don_active = 5
+
+    # 攻撃側: パワー 5000 の attacker (リーダー or キャラ)
+    me.leader.summoning_sickness = False
+    state.turn_number = 3  # 1 ターン目バトル不可制限を回避
+
+    # 防御側: ブロッカー特性を持つキャラを場に置く
+    # OP01-006 はサンジ (麦わら) で blocker 持ちがあるカード
+    # シンプルに パワー 5000 の blocker テスト用キャラ
+    blocker_card = repo.get("OP01-006")  # サンジ ブロッカー想定
+    if "ブロッカー" not in (blocker_card.text or ""):
+        # フォールバック: テストできる blocker を探す
+        blocker_card = next(
+            (c for cid, c in repo._by_id.items() if "ブロッカー" in (c.text or "") and c.power >= 4000),
+            None,
+        )
+    assert blocker_card is not None, "blocker 持ちカードが見つからない"
+    blocker = InPlay.of(blocker_card, sickness=False, rested=False)
+    opp.characters = [blocker]
+
+    from engine.game import AttackLeader, apply_action
+    me.leader.rested = False
+    initial_life = len(opp.life)
+    initial_blocker_count = len(opp.characters)
+
+    action = AttackLeader(
+        attacker_iid=me.leader.instance_id,
+        blocker_iid=blocker.instance_id,
+    )
+    apply_action(state, action)
+
+    # ブロッカーがレストになっているか、 KO されているか (= 攻撃が向き先変わった証拠)
+    if blocker in opp.characters:
+        assert blocker.rested, "ブロッカーがレストになっていない"
+    # リーダーのライフは減っていない (= ブロッカーが受けた)
+    assert len(opp.life) == initial_life, f"life={initial_life}→{len(opp.life)} ブロッカー無視"
+
+
+def test_simultaneous_resolution_turn_player_first():
+    """公式 1-3-4 / 6-6-1-1: 両プレイヤーの効果が同時タイミングで発動する場合、
+    ターンプレイヤー側 → 非ターンプレイヤー側 の順で解決する。
+    end_of_turn を例に: 両側でドロー効果を持たせ、 turn 側のカードが先に発動する事を確認。"""
+    from engine.effects import trigger_end_of_turn
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-002", overlay={})  # turn 側 = OP01-002
+    me = state.players[0]
+    opp = state.players[1]
+    # 非turn 側を別カード ID に差替 (overlay 衝突回避)
+    state.players[1].leader = InPlay.of(repo.get("OP01-003"), sickness=False)
+    opp = state.players[1]
+    state.turn_player_idx = 0
+    me.deck = [repo.get("OP01-013")] * 5
+    opp.deck = [repo.get("OP01-016")] * 5
+    me.hand = []
+    opp.hand = []
+    log_record: list[str] = []
+    orig_push = state.push_log
+    def capture_log(msg):
+        log_record.append(msg)
+        return orig_push(msg)
+    state.push_log = capture_log
+
+    # 合成 overlay: turn 側 (OP01-002) に end_of_turn、 opp 側 (OP01-003) に opp_end_of_turn
+    from engine.effects import CardEffectBundle
+    fake_overlay = {
+        "OP01-002": CardEffectBundle(
+            card_id="OP01-002",
+            effects=[{"when": "end_of_turn", "if": {}, "do": [{"draw": 1}]}],
+        ),
+        "OP01-003": CardEffectBundle(
+            card_id="OP01-003",
+            effects=[{"when": "opp_end_of_turn", "if": {}, "do": [{"draw": 1}]}],
+        ),
+    }
+    state.effects_overlay = fake_overlay
+
+    trigger_end_of_turn(state, fake_overlay)
+
+    # 両者ともドローしている
+    assert len(me.hand) == 1
+    assert len(opp.hand) == 1
+
+    # ログ順を確認: turn 側 = サンジ (OP01-013) を引く、 非turn 側 = ナミ (OP01-016) を引く
+    draw_logs = [m for m in log_record if "ドロー" in m]
+    assert len(draw_logs) == 2, f"想定 2 件のドローログ、 実際: {draw_logs}"
+    # 1 件目 (= ターン側) のログには turn 側がドローするカード名が含まれるはず
+    turn_card_name = repo.get("OP01-013").name  # サンジ
+    opp_card_name = repo.get("OP01-016").name   # ナミ
+    assert turn_card_name in draw_logs[0], (
+        f"ターン側が先に解決されていない: 1番目={draw_logs[0]}"
+    )
+    assert opp_card_name in draw_logs[1], (
+        f"非ターン側が後に解決されていない: 2番目={draw_logs[1]}"
+    )
