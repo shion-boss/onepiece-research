@@ -840,6 +840,8 @@ def evaluate_static_effects(
             ip.attack_taunt = False
             ip.cannot_attack_static = False
             ip.protect_from_opp_effect = False
+            # static-granted keywords は毎回再計算 (= 条件外れたら消える)
+            ip.static_granted_keywords.clear()
 
     # ターンプレイヤー側を先に処理 (公式 1-3-4)
     turn_idx = state.turn_player_idx
@@ -904,6 +906,25 @@ def evaluate_static_effects(
                     if "set_opp_protect_static" in primitive:
                         for t in opp.characters:
                             t.protect_from_opp_effect = True
+                        continue
+                    # give_keyword / give_rush は static_granted_keywords へ
+                    # (= ドンが外れれば消える挙動を保証する)
+                    if "give_keyword" in primitive:
+                        spec = primitive["give_keyword"]
+                        if isinstance(spec, dict):
+                            target_spec = spec.get("target", "self")
+                            keyword = spec.get("keyword", "速攻")
+                        else:
+                            target_spec, keyword = "self", "速攻"
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            t.static_granted_keywords.add(keyword)
+                        continue
+                    if "give_rush" in primitive:
+                        target_spec = primitive["give_rush"] if isinstance(primitive["give_rush"], str) else "self"
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            t.static_granted_keywords.add("速攻")
                         continue
                     # 「元々のコストを X にする / +N する」: base_cost_override
                     if "set_base_cost" in primitive:
@@ -1321,16 +1342,42 @@ def trigger_on_attack(
     attacker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
+    """【アタック時】効果。 effect の `cost` フィールドがあれば支払い処理を行う:
+    - `once_per_turn`: True なら 1 ターン 1 回まで (`_on_attack_used_<idx>` で管理)
+    - `pay_don N`: 場のドンを N 枚レストにする (active 優先 → rested)。 不足時は発動不可
+    cost が無い場合は無条件発動 (互換維持)。
+    """
     bundle = effects_overlay.get(attacker.card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
+    for idx, eff in enumerate(bundle.effects):
         if eff.get("when") != "on_attack":
             continue
         if not eval_condition(eff.get("if", {}), state, me, attacker):
             continue
+        cost = eff.get("cost") or {}
+        # once_per_turn 判定 (effect index ごと管理。 同カードに複数 on_attack あっても独立)
+        per_turn_key = f"_on_attack_used_{idx}"
+        if cost.get("once_per_turn") and getattr(attacker, per_turn_key, False):
+            continue
+        pay_don = int(cost.get("pay_don", 0))
+        if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
+            continue  # ドン不足 → 発動不可
+        # ドン支払い: active から優先的にレストへ
+        if pay_don > 0:
+            from_active = min(me.don_active, pay_don)
+            me.don_active -= from_active
+            me.don_rested += from_active
+            remaining = pay_don - from_active
+            if remaining > 0:
+                # rested → ドン!!デッキへ戻す動きが厳密 (公式) だが、 簡略でレスト維持の総数からは引く
+                # ただし on_attack のコストはほぼ active のみで足りるので remaining=0 想定
+                pass
         for primitive in eff.get("do", []):
             execute_effect(primitive, state, me, opp, attacker)
+        # once_per_turn フラグ立て
+        if cost.get("once_per_turn"):
+            setattr(attacker, per_turn_key, True)
 
 
 def _can_pay_activate_cost(

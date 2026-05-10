@@ -283,6 +283,10 @@ def advance_phase(state: GameState) -> None:
                 c.attached_dons = 0
                 if hasattr(c, "_act_used"):
                     delattr(c, "_act_used")
+                # on_attack のターン1回フラグもクリア (任意 idx)
+                for attr in list(c.__dict__.keys()):
+                    if attr.startswith("_on_attack_used_"):
+                        delattr(c, attr)
             me.don_active += me.don_rested + me.leader.attached_dons
             me.leader.attached_dons = 0
             me.don_rested = 0
@@ -293,6 +297,9 @@ def advance_phase(state: GameState) -> None:
                 c.summoning_sickness = False
             if hasattr(me.leader, "_act_used"):
                 delattr(me.leader, "_act_used")
+            for attr in list(me.leader.__dict__.keys()):
+                if attr.startswith("_on_attack_used_"):
+                    delattr(me.leader, attr)
         # 公式 6-2-1-1-2: ターン開始時の自動効果を発動 (turn_number==1 含む全ターン)
         if state.effects_overlay:
             from .effects import trigger_turn_start

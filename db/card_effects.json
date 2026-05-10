@@ -6689,8 +6689,25 @@
   ],
   "OP06-118": [
     {
-      "_text": "ゾロ on_attack: untap self (1コスト相当の簡略化、cost支払い省略)",
+      "_text": "OP06-118 ゾロ on_attack: ドン1レストでアクティブ (ターン1回)",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "untap": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-118 ゾロ activate_main: ドン2レストでアクティブ (ターン1回)",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 2
+      },
       "do": [
         {
           "untap": "self"
@@ -22196,8 +22213,25 @@
   ],
   "OP06-118_p1": [
     {
-      "_text": "ゾロ on_attack: untap self (1コスト相当の簡略化、cost支払い省略)",
+      "_text": "OP06-118 ゾロ on_attack: ドン1レストでアクティブ (ターン1回)",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "untap": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-118 ゾロ activate_main: ドン2レストでアクティブ (ターン1回)",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 2
+      },
       "do": [
         {
           "untap": "self"
@@ -22207,8 +22241,25 @@
   ],
   "OP06-118_p2": [
     {
-      "_text": "ゾロ on_attack: untap self (1コスト相当の簡略化、cost支払い省略)",
+      "_text": "OP06-118 ゾロ on_attack: ドン1レストでアクティブ (ターン1回)",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "untap": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-118 ゾロ activate_main: ドン2レストでアクティブ (ターン1回)",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 2
+      },
       "do": [
         {
           "untap": "self"
@@ -25376,8 +25427,25 @@
   ],
   "OP06-118_p4": [
     {
-      "_text": "ゾロ on_attack: untap self (1コスト相当の簡略化、cost支払い省略)",
+      "_text": "OP06-118 ゾロ on_attack: ドン1レストでアクティブ (ターン1回)",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "untap": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-118 ゾロ activate_main: ドン2レストでアクティブ (ターン1回)",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 2
+      },
       "do": [
         {
           "untap": "self"
@@ -30546,8 +30614,25 @@
   ],
   "OP06-118_r1": [
     {
-      "_text": "ゾロ on_attack: untap self (1コスト相当の簡略化、cost支払い省略)",
+      "_text": "OP06-118 ゾロ on_attack: ドン1レストでアクティブ (ターン1回)",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "untap": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-118 ゾロ activate_main: ドン2レストでアクティブ (ターン1回)",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 2
+      },
       "do": [
         {
           "untap": "self"

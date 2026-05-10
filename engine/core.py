@@ -134,8 +134,11 @@ class InPlay:
     # 「このバトル中」期限 (公式 7-1-5-1)。AttackLeader/AttackCharacter の最後でリセット。
     # power_pump の duration:"battle" で加算される。
     battle_buff: int = 0
-    # 動的に付与されるキーワード (effect 由来)。Phase.END でクリア
+    # 動的に付与されるキーワード (event 由来 = give_keyword/give_rush 等の単発効果)。Phase.END でクリア
     granted_keywords: set = field(default_factory=set)
+    # 静的に付与されるキーワード (on_attached_don 等の常在条件由来)。
+    # evaluate_static_effects で毎回 False から再計算される。 ドンが外れれば消える。
+    static_granted_keywords: set = field(default_factory=set)
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
@@ -174,15 +177,27 @@ class InPlay:
 
     def has_keyword_active(self, keyword: str) -> bool:
         """カードの基本キーワード or 動的に付与されたキーワードを保有するか。"""
-        return self.card.has_keyword(keyword) or keyword in self.granted_keywords
+        return (
+            self.card.has_keyword(keyword)
+            or keyword in self.granted_keywords
+            or keyword in self.static_granted_keywords
+        )
 
     @property
     def is_blocker_now(self):
-        return self.card.is_blocker or "ブロッカー" in self.granted_keywords
+        return (
+            self.card.is_blocker
+            or "ブロッカー" in self.granted_keywords
+            or "ブロッカー" in self.static_granted_keywords
+        )
 
     @property
     def is_rush_now(self):
-        return self.card.is_rush or "速攻" in self.granted_keywords
+        return (
+            self.card.is_rush
+            or "速攻" in self.granted_keywords
+            or "速攻" in self.static_granted_keywords
+        )
 
     @property
     def is_rush_chara_only_now(self):
@@ -192,19 +207,33 @@ class InPlay:
             self.card.is_rush_chara_only
             or "速攻：キャラ" in self.granted_keywords
             or "速攻:キャラ" in self.granted_keywords
+            or "速攻：キャラ" in self.static_granted_keywords
+            or "速攻:キャラ" in self.static_granted_keywords
         )
 
     @property
     def is_double_attack_now(self):
-        return self.card.is_double_attack or "ダブルアタック" in self.granted_keywords
+        return (
+            self.card.is_double_attack
+            or "ダブルアタック" in self.granted_keywords
+            or "ダブルアタック" in self.static_granted_keywords
+        )
 
     @property
     def is_banish_now(self):
-        return self.card.is_banish or "バニッシュ" in self.granted_keywords
+        return (
+            self.card.is_banish
+            or "バニッシュ" in self.granted_keywords
+            or "バニッシュ" in self.static_granted_keywords
+        )
 
     @property
     def has_no_block_now(self):
-        return self.card.has_no_block or "ブロック不可" in self.granted_keywords
+        return (
+            self.card.has_no_block
+            or "ブロック不可" in self.granted_keywords
+            or "ブロック不可" in self.static_granted_keywords
+        )
 
     @property
     def base_power(self) -> int:

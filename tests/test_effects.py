@@ -1346,3 +1346,63 @@ def test_simultaneous_resolution_turn_player_first():
     assert opp_card_name in draw_logs[1], (
         f"非ターン側が後に解決されていない: 2番目={draw_logs[1]}"
     )
+
+
+def test_op06_118_zoro_on_attack_once_per_turn():
+    """OP06-118 9 コストゾロ: on_attack の untap 効果は ターン1回 + ドン1コスト。
+    無限攻撃しないことを確認。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    me.don_active = 5
+
+    zoro = repo.get("OP06-118")
+    zoro_ip = InPlay.of(zoro, sickness=False)
+    me.characters = [zoro_ip]
+
+    from engine.effects import trigger_on_attack
+
+    # 1 回目: don 1 消費して untap (rested → active 想定)
+    zoro_ip.rested = True
+    don_before = me.don_active
+    trigger_on_attack(state, me, opp, zoro_ip, overlay)
+    assert zoro_ip.rested is False, "1回目は active 化されるべき"
+    assert me.don_active == don_before - 1, f"ドン1消費されるべき (before={don_before}, after={me.don_active})"
+
+    # 2 回目: ターン1回フラグで発動しない
+    zoro_ip.rested = True
+    don_before2 = me.don_active
+    trigger_on_attack(state, me, opp, zoro_ip, overlay)
+    assert zoro_ip.rested is True, "2回目は once_per_turn で発動しないので rested のまま"
+    assert me.don_active == don_before2, "ドン消費もない"
+
+
+def test_op11_096_ripper_blocker_loses_when_don_removed():
+    """OP11-096 リッパー: 海軍がいる時 + ドン付与で常在ブロッカー (近似)。
+    ドンが外れると ブロッカー扱いされなくなる事を確認。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+
+    ripper = repo.get("OP11-096")
+    ripper_ip = InPlay.of(ripper, sickness=False)
+    ripper_ip.attached_dons = 1  # 条件満たす
+    me.characters = [ripper_ip]
+
+    from engine.effects import evaluate_static_effects
+    evaluate_static_effects(state, overlay)
+    # ドン付き → ブロッカー獲得
+    assert ripper_ip.is_blocker_now, "ドン付き時はブロッカー扱い"
+
+    # ドン外す
+    ripper_ip.attached_dons = 0
+    evaluate_static_effects(state, overlay)
+    # 元カードがブロッカーでなければ、 静的付与は剥がれる
+    if not ripper.is_blocker:
+        assert not ripper_ip.is_blocker_now, (
+            "ドン無しで ブロッカー扱い → bug。 static_granted_keywords がリセットされていない"
+        )
