@@ -114,12 +114,30 @@ def overlay_if_keys(effects: list[dict]) -> set[str]:
     return keys
 
 
+SIMPLIFIED_MARKERS = ("fallback", "簡略", "auto", "省略", "近似", "自動抽出")
+
+
+def has_simplified_marker(effects: list[dict]) -> bool:
+    """overlay に simplification marker (= 公式テキスト忠実でない兆候) があるか?"""
+    for e in effects:
+        if not isinstance(e, dict):
+            continue
+        text = e.get("_text", "") or ""
+        if any(m in text for m in SIMPLIFIED_MARKERS):
+            return True
+    return False
+
+
 def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[str]:
     """不審ヒューリスティック検出。 返り値は issue タグ。"""
     issues: list[str] = []
     text = card.get("text") or ""
     when_set = overlay_when_set(effects)
     cond_keys = overlay_if_keys(effects)
+
+    # === 簡略化マーカー検出 (最優先: ポリシー違反) ===
+    if has_simplified_marker(effects):
+        issues.append("simplified_marker")
 
     # === when 不整合 ===
     if "【起動メイン】" in text and "activate_main" not in when_set:
@@ -186,6 +204,7 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
 
 
 SEVERITY = {
+    "simplified_marker": 8,        # ポリシー違反 → 高 severity
     "missing_activate_main": 5,
     "missing_on_play": 5,
     "missing_on_ko": 4,

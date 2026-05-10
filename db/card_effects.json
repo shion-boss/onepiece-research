@@ -1479,17 +1479,7 @@
       ]
     }
   ],
-  "OP14-080": [
-    {
-      "_text": "黒黄モリア 起動メイン (KO代償): 全自team+1000 / アタック時手札3で1ライフ → 簡略: ターン終了時 1ドロー",
-      "when": "end_of_turn",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    }
-  ],
+  "OP14-080": [],
   "OP15-001": [
     {
       "_text": "赤緑クリーク 東の海のみで相手全-2000 → 簡略: ターン終了時 1ドロー",
@@ -2855,8 +2845,11 @@
   ],
   "EB04-058": [
     {
-      "_text": "ボルサリーノ (黄) ブロッカー+【登場時】ライフ2以下デッキ→ライフ → 簡略: 登場時 デッキ→ライフ",
+      "_text": "EB04-058 ボルサリーノ 登場時: 自ライフ2以下なら デッキ上1枚をライフへ",
       "when": "on_play",
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -2866,7 +2859,7 @@
   ],
   "EB04-007": [
     {
-      "_text": "赤ゾロ cost7 【登場時】自リーダー +2000 次相手エンド終了時まで → 簡略: ターン中 +2000",
+      "_text": "EB04-007 ゾロ 登場時: 自リーダー +2000 (次相手エンド終了まで → 簡略turn)",
       "when": "on_play",
       "do": [
         {
@@ -2877,17 +2870,56 @@
           }
         }
       ]
+    },
+    {
+      "_text": "EB04-007 ゾロ 起動メイン: 相手 power8000+ キャラいる場合、 self に【速攻：キャラ】turn",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "_unimplemented": "opp_chara_power_ge=8000 (条件 unmodeled)"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
     }
   ],
   "EB03-053": [
     {
-      "_text": "ナミ cost5 (黄) 【登場時】自リーダーにドン1付与 + 相手ライフ→相手手札 → 簡略: 自リーダーにドン1付与",
+      "_text": "EB03-053 ナミ 登場時: 自リーダーに rested ドン1付与, その後 相手life>=3 で 相手ライフ1を相手手札に",
       "when": "on_play",
       "do": [
         {
           "attach_don": {
             "target": "self_leader",
-            "count": 1
+            "count": 1,
+            "rested": true
+          }
+        },
+        {
+          "_unimplemented": "相手ライフが3以上の場合、 相手のライフ上から1枚を相手の手札に加える"
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053 ナミ KO時: 自ライフ表向き → 自手札 power6000以下のキャラ登場",
+      "when": "on_ko",
+      "do": [
+        {
+          "_unimplemented": "自分のライフ上から1枚を表向きにできる (任意コスト)"
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "power_le": 6000
+            },
+            "limit": 1
           }
         }
       ]
@@ -3264,18 +3296,30 @@
   ],
   "ST18-001": [
     {
-      "_text": "auto: 自分の場のドン!!が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "ST18-001 ウソ八 登場時: 自場ドン8以上で 相手 cost5以下 1枚 rest",
       "when": "on_play",
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_5cost"
         }
       ]
     }
   ],
   "OP08-036": [
     {
-      "_text": "auto trigger: 相手のキャラ1枚までを、レストにする。",
+      "_text": "OP08-036 エレクトリカルルナ メイン: 相手レスト cost7以下 全員 stay_rested_next_refresh",
+      "when": "main",
+      "do": [
+        {
+          "stay_rested_next_refresh": "all_opponent_rested_characters_le_7cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP08-036 エレクトリカルルナ トリガー: 相手キャラ1枚 rest",
       "when": "trigger",
       "do": [
         {
@@ -3286,14 +3330,29 @@
   ],
   "OP13-040": [
     {
-      "_text": "auto: 自分のリーダーを、このバトル中、パワー+3000。",
+      "_text": "OP13-040 メイン: ドン-2 → 相手レスト cost7以下キャラ 2枚まで stay_rested_next_refresh",
+      "when": "main",
+      "cost": {
+        "pay_don": 2
+      },
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+        },
+        {
+          "_unimplemented": "(2枚まで対象 — 現 DSL は 1 枚単体のみ)"
+        }
+      ]
+    },
+    {
+      "_text": "OP13-040 カウンター: 自リーダーをこのバトル中 +3000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 3000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -3408,14 +3467,29 @@
   ],
   "OP14-096": [
     {
-      "_text": "auto: 自分のトラッシュが10枚以上ある場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+      "_text": "OP14-096 浸食輪廻 メイン: ドン-2 → 相手 cost5以下 1枚 効果無効 (DSL未対応)",
+      "when": "main",
+      "cost": {
+        "pay_don": 2
+      },
+      "do": [
+        {
+          "_unimplemented": "相手のコスト5以下のキャラ1枚を、 このターン中、 効果を無効にする"
+        }
+      ]
+    },
+    {
+      "_text": "OP14-096 浸食輪廻 カウンター: 自トラッシュ10+ で 自リーダー/キャラ +4000 battle",
       "when": "counter",
+      "if": {
+        "self_trash_count_ge": 10
+      },
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 4000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -3456,14 +3530,36 @@
   ],
   "OP13-076": [
     {
-      "_text": "auto: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
-      "when": "counter",
+      "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn",
+      "when": "main",
+      "cost": {
+        "pay_don": 5
+      },
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
-            "amount": 3000,
+            "target": "one_opponent_character_le_5000",
+            "amount": -8000,
             "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-076 神避 カウンター: 手札1捨て → 自リーダー/キャラ +3000 battle",
+      "when": "counter",
+      "cost": {
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 3000,
+            "duration": "battle"
           }
         }
       ]
@@ -3471,8 +3567,11 @@
   ],
   "OP15-078": [
     {
-      "_text": "auto: ドン‼-2：カード1枚を引く。その後、相手のパワー5000以下のキャラ1枚までを、レストにする。",
+      "_text": "OP15-078 万雷 メイン: ドン-2 → 1ドロー + 相手 power5000以下 1体 rest",
       "when": "main",
+      "cost": {
+        "pay_don": 2
+      },
       "do": [
         {
           "draw": 1
@@ -3483,18 +3582,18 @@
       ]
     },
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+1000。その後、自分の場のドン‼が6枚以下の場合、カード1枚を引く。",
+      "_text": "OP15-078 万雷 カウンター: 自リーダー/キャラ +1000 battle, その後 自ドン6以下なら 1ドロー",
       "when": "counter",
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "battle"
+          }
         },
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
+          "_unimplemented": "その後 自ドン6以下条件 → 1ドロー (条件付き draw 後段)"
         }
       ]
     }
@@ -17340,22 +17439,28 @@
   ],
   "ST18-001_p2": [
     {
-      "_text": "auto: 自分の場のドン!!が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "ST18-001 ウソ八 登場時: 自場ドン8以上で 相手 cost5以下 1枚 rest",
       "when": "on_play",
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_5cost"
         }
       ]
     }
   ],
   "ST18-001_p3": [
     {
-      "_text": "auto: 自分の場のドン!!が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "ST18-001 ウソ八 登場時: 自場ドン8以上で 相手 cost5以下 1枚 rest",
       "when": "on_play",
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_5cost"
         }
       ]
     }
@@ -18760,7 +18865,7 @@
   ],
   "EB04-007_p1": [
     {
-      "_text": "赤ゾロ cost7 【登場時】自リーダー +2000 次相手エンド終了時まで → 簡略: ターン中 +2000",
+      "_text": "EB04-007 ゾロ 登場時: 自リーダー +2000 (次相手エンド終了まで → 簡略turn)",
       "when": "on_play",
       "do": [
         {
@@ -18768,6 +18873,24 @@
             "target": "self_leader",
             "amount": 2000,
             "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB04-007 ゾロ 起動メイン: 相手 power8000+ キャラいる場合、 self に【速攻：キャラ】turn",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "_unimplemented": "opp_chara_power_ge=8000 (条件 unmodeled)"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
           }
         }
       ]
@@ -18862,8 +18985,11 @@
   ],
   "EB04-058_p1": [
     {
-      "_text": "ボルサリーノ (黄) ブロッカー+【登場時】ライフ2以下デッキ→ライフ → 簡略: 登場時 デッキ→ライフ",
+      "_text": "EB04-058 ボルサリーノ 登場時: 自ライフ2以下なら デッキ上1枚をライフへ",
       "when": "on_play",
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -19070,13 +19196,34 @@
   ],
   "EB03-053_p1": [
     {
-      "_text": "ナミ cost5 (黄) 【登場時】自リーダーにドン1付与 + 相手ライフ→相手手札 → 簡略: 自リーダーにドン1付与",
+      "_text": "EB03-053 ナミ 登場時: 自リーダーに rested ドン1付与, その後 相手life>=3 で 相手ライフ1を相手手札に",
       "when": "on_play",
       "do": [
         {
           "attach_don": {
             "target": "self_leader",
-            "count": 1
+            "count": 1,
+            "rested": true
+          }
+        },
+        {
+          "_unimplemented": "相手ライフが3以上の場合、 相手のライフ上から1枚を相手の手札に加える"
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053 ナミ KO時: 自ライフ表向き → 自手札 power6000以下のキャラ登場",
+      "when": "on_ko",
+      "do": [
+        {
+          "_unimplemented": "自分のライフ上から1枚を表向きにできる (任意コスト)"
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "power_le": 6000
+            },
+            "limit": 1
           }
         }
       ]
@@ -19168,13 +19315,34 @@
   ],
   "EB03-053_p2": [
     {
-      "_text": "ナミ cost5 (黄) 【登場時】自リーダーにドン1付与 + 相手ライフ→相手手札 → 簡略: 自リーダーにドン1付与",
+      "_text": "EB03-053 ナミ 登場時: 自リーダーに rested ドン1付与, その後 相手life>=3 で 相手ライフ1を相手手札に",
       "when": "on_play",
       "do": [
         {
           "attach_don": {
             "target": "self_leader",
-            "count": 1
+            "count": 1,
+            "rested": true
+          }
+        },
+        {
+          "_unimplemented": "相手ライフが3以上の場合、 相手のライフ上から1枚を相手の手札に加える"
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053 ナミ KO時: 自ライフ表向き → 自手札 power6000以下のキャラ登場",
+      "when": "on_ko",
+      "do": [
+        {
+          "_unimplemented": "自分のライフ上から1枚を表向きにできる (任意コスト)"
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "power_le": 6000
+            },
+            "limit": 1
           }
         }
       ]
@@ -19554,8 +19722,11 @@
   ],
   "OP15-078_p1": [
     {
-      "_text": "auto: ドン‼-2：カード1枚を引く。その後、相手のパワー5000以下のキャラ1枚までを、レストにする。",
+      "_text": "OP15-078 万雷 メイン: ドン-2 → 1ドロー + 相手 power5000以下 1体 rest",
       "when": "main",
+      "cost": {
+        "pay_don": 2
+      },
       "do": [
         {
           "draw": 1
@@ -19566,18 +19737,18 @@
       ]
     },
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+1000。その後、自分の場のドン‼が6枚以下の場合、カード1枚を引く。",
+      "_text": "OP15-078 万雷 カウンター: 自リーダー/キャラ +1000 battle, その後 自ドン6以下なら 1ドロー",
       "when": "counter",
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "battle"
+          }
         },
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
+          "_unimplemented": "その後 自ドン6以下条件 → 1ドロー (条件付き draw 後段)"
         }
       ]
     }
@@ -19987,14 +20158,29 @@
   ],
   "OP14-096_p1": [
     {
-      "_text": "auto: 自分のトラッシュが10枚以上ある場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+      "_text": "OP14-096 浸食輪廻 メイン: ドン-2 → 相手 cost5以下 1枚 効果無効 (DSL未対応)",
+      "when": "main",
+      "cost": {
+        "pay_don": 2
+      },
+      "do": [
+        {
+          "_unimplemented": "相手のコスト5以下のキャラ1枚を、 このターン中、 効果を無効にする"
+        }
+      ]
+    },
+    {
+      "_text": "OP14-096 浸食輪廻 カウンター: 自トラッシュ10+ で 自リーダー/キャラ +4000 battle",
       "when": "counter",
+      "if": {
+        "self_trash_count_ge": 10
+      },
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 4000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -20238,14 +20424,36 @@
   ],
   "OP13-076_p1": [
     {
-      "_text": "auto: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
-      "when": "counter",
+      "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn",
+      "when": "main",
+      "cost": {
+        "pay_don": 5
+      },
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
-            "amount": 3000,
+            "target": "one_opponent_character_le_5000",
+            "amount": -8000,
             "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-076 神避 カウンター: 手札1捨て → 自リーダー/キャラ +3000 battle",
+      "when": "counter",
+      "cost": {
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 3000,
+            "duration": "battle"
           }
         }
       ]
@@ -21472,11 +21680,14 @@
   ],
   "ST18-001_p1": [
     {
-      "_text": "auto: 自分の場のドン!!が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "ST18-001 ウソ八 登場時: 自場ドン8以上で 相手 cost5以下 1枚 rest",
       "when": "on_play",
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_5cost"
         }
       ]
     }
@@ -23550,8 +23761,11 @@
   ],
   "EB04-058_p2": [
     {
-      "_text": "ボルサリーノ (黄) ブロッカー+【登場時】ライフ2以下デッキ→ライフ → 簡略: 登場時 デッキ→ライフ",
+      "_text": "EB04-058 ボルサリーノ 登場時: 自ライフ2以下なら デッキ上1枚をライフへ",
       "when": "on_play",
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -24664,14 +24878,29 @@
   ],
   "OP13-040_p1": [
     {
-      "_text": "auto: 自分のリーダーを、このバトル中、パワー+3000。",
+      "_text": "OP13-040 メイン: ドン-2 → 相手レスト cost7以下キャラ 2枚まで stay_rested_next_refresh",
+      "when": "main",
+      "cost": {
+        "pay_don": 2
+      },
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+        },
+        {
+          "_unimplemented": "(2枚まで対象 — 現 DSL は 1 枚単体のみ)"
+        }
+      ]
+    },
+    {
+      "_text": "OP13-040 カウンター: 自リーダーをこのバトル中 +3000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 3000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -25577,7 +25806,16 @@
   ],
   "OP08-036_p1": [
     {
-      "_text": "auto trigger: 相手のキャラ1枚までを、レストにする。",
+      "_text": "OP08-036 エレクトリカルルナ メイン: 相手レスト cost7以下 全員 stay_rested_next_refresh",
+      "when": "main",
+      "do": [
+        {
+          "stay_rested_next_refresh": "all_opponent_rested_characters_le_7cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP08-036 エレクトリカルルナ トリガー: 相手キャラ1枚 rest",
       "when": "trigger",
       "do": [
         {
@@ -28417,11 +28655,14 @@
   ],
   "ST18-001_r1": [
     {
-      "_text": "ウソ八 登場時 (自動 fallback)",
+      "_text": "ST18-001 ウソ八 登場時: 自場ドン8以上で 相手 cost5以下 1枚 rest",
       "when": "on_play",
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "draw": 1
+          "rest": "one_opponent_character_le_5cost"
         }
       ]
     }
@@ -54462,7 +54703,17 @@
   "OP13-078": [],
   "OP13-109": [],
   "OP13-112": [],
-  "OP09-118_p3": [],
+  "OP09-118_p3": [
+    {
+      "_text": "OP09-118 ゴール・D・ロジャー: 速攻 (CardDef) + 勝利条件 (DSL未対応)",
+      "when": "on_attack",
+      "do": [
+        {
+          "_unimplemented": "相手が【ブロッカー】を発動した時、自分か相手のライフが0枚の場合、自分はゲームに勝利する。 (= on_blocked + life=0 win condition)"
+        }
+      ]
+    }
+  ],
   "OP12-021": [],
   "OP12-036": [],
   "OP12-048": [],
@@ -54532,9 +54783,39 @@
   "OP09-074": [],
   "OP09-080": [],
   "OP09-086": [],
-  "OP09-118": [],
-  "OP09-118_p1": [],
-  "OP09-118_p2": [],
+  "OP09-118": [
+    {
+      "_text": "OP09-118 ゴール・D・ロジャー: 速攻 (CardDef) + 勝利条件 (DSL未対応)",
+      "when": "on_attack",
+      "do": [
+        {
+          "_unimplemented": "相手が【ブロッカー】を発動した時、自分か相手のライフが0枚の場合、自分はゲームに勝利する。 (= on_blocked + life=0 win condition)"
+        }
+      ]
+    }
+  ],
+  "OP09-118_p1": [
+    {
+      "_text": "OP09-118 ゴール・D・ロジャー: 速攻 (CardDef) + 勝利条件 (DSL未対応)",
+      "when": "on_attack",
+      "do": [
+        {
+          "_unimplemented": "相手が【ブロッカー】を発動した時、自分か相手のライフが0枚の場合、自分はゲームに勝利する。 (= on_blocked + life=0 win condition)"
+        }
+      ]
+    }
+  ],
+  "OP09-118_p2": [
+    {
+      "_text": "OP09-118 ゴール・D・ロジャー: 速攻 (CardDef) + 勝利条件 (DSL未対応)",
+      "when": "on_attack",
+      "do": [
+        {
+          "_unimplemented": "相手が【ブロッカー】を発動した時、自分か相手のライフが0枚の場合、自分はゲームに勝利する。 (= on_blocked + life=0 win condition)"
+        }
+      ]
+    }
+  ],
   "OP08-006": [],
   "OP08-020": [],
   "OP08-029": [],
