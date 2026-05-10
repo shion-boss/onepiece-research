@@ -2965,11 +2965,23 @@
   ],
   "EB04-054": [
     {
-      "_text": "くま cost7 (黄) 【登場時】ライフ2以下デッキ→ライフ → 簡略: 登場時 デッキ→ライフ",
+      "_text": "EB04-054 くま 登場時: 自ライフ2以下なら デッキ上1をライフへ",
       "when": "on_play",
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
           "put_top_to_life": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB04-054 くま KO時: 相手ライフ上1を相手手札へ",
+      "when": "on_ko",
+      "do": [
+        {
+          "_unimplemented": "相手のライフ上から1枚を相手手札へ (= mill_opp_life_to_hand 1)"
         }
       ]
     }
@@ -2997,11 +3009,11 @@
   ],
   "OP05-102": [
     {
-      "_text": "ゲダツ (黄 cost5) 【登場時】相手ライフ以下コスト KO → 簡略: コスト5以下KO",
+      "_text": "OP05-102 ゲダツ 登場時: 相手ライフ枚数以下コストの相手キャラ1 KO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5"
+          "_unimplemented": "相手ライフ枚数以下コストの相手キャラ1を KO (= dynamic cost limit selector based on opp_life)"
         }
       ]
     }
@@ -3139,14 +3151,15 @@
   ],
   "OP09-004": [
     {
-      "_text": "シャンクス (赤 cost10) 速攻+ 【常在】相手キャラ全-1000 → 簡略: 登場時に相手キャラ全-1000 turn",
-      "when": "on_play",
+      "_text": "OP09-004 シャンクス 常在: 相手キャラすべて -1000",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": "all_opponent_characters",
             "amount": -1000,
-            "duration": "turn"
+            "duration": "static"
           }
         }
       ]
@@ -3207,11 +3220,17 @@
   ],
   "OP13-072": [
     {
-      "_text": "バギー (紫 cost2) 【登場時】(リーダー+ドン条件) ドン1追加 → 簡略",
+      "_text": "OP13-072 バギー 登場時: ロジャー海賊団リーダー + 自付与ドンあり → ドンデッキからドン1レスト追加",
       "when": "on_play",
+      "if": {
+        "leader_features_any": [
+          "ロジャー海賊団"
+        ],
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
-          "add_don": 1
+          "add_rested_don": 1
         }
       ]
     }
@@ -3242,11 +3261,14 @@
   ],
   "OP08-047": [
     {
-      "_text": "ジョズ (青 cost6) 【登場時】(自キャラ手札戻し) 相手キャラ手札戻し → 簡略: 相手キャラ手札戻し",
+      "_text": "OP08-047 ジョズ 登場時: 自他キャラ1を手札に戻すコストで 相手cost6以下キャラ1を相手手札に戻す",
       "when": "on_play",
+      "cost": {
+        "_unimplemented": "return_self_other_chara_to_hand 1 (= 自分の他のキャラ1を手札へ戻す)"
+      },
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_6"
+          "return_to_hand": "one_opponent_character_le_6cost"
         }
       ]
     }
@@ -3316,8 +3338,11 @@
   ],
   "OP06-104": [
     {
-      "_text": "菊之丞 (黄 cost4) 【KO時】(ライフ3以下) デッキ→ライフ → 簡略: KO時 デッキ→ライフ",
+      "_text": "OP06-104 菊之丞 KO時: 相手ライフ3以下なら デッキ上1をライフへ",
       "when": "on_ko",
+      "if": {
+        "opp_life_le": 3
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -3338,11 +3363,17 @@
   ],
   "OP10-032": [
     {
-      "_text": "たしぎ (緑 cost3) 緑キャラ KO 代替 → 簡略: 1ドロー (代替効果は表現困難)",
-      "when": "on_play",
+      "_text": "OP10-032 たしぎ 置換: 自他緑キャラが相手効果で場離れる時、 self をレストにして代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_color": "緑",
+        "by_opp_effect": true,
+        "_unimplemented": "対象 = 「たしぎ」 以外の自分の緑キャラ (= color filter + name exclude)"
+      },
       "do": [
         {
-          "draw": 1
+          "rest": "self"
         }
       ]
     }
@@ -3489,11 +3520,17 @@
   ],
   "OP14-031": [
     {
-      "_text": "auto: 相手のコスト8以下のキャラ2枚までを、レストにする。その後、このターン終了時、自分のドン‼5枚までを、アクティブにする。",
+      "_text": "OP14-031 ナミ 登場時: 相手cost8以下キャラ2まで rest, ターン終了時 ドン5アクティブ",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_8cost"
+        },
+        {
+          "_unimplemented": "相手cost8以下キャラ 2枚まで (= multi-target rest)"
+        },
+        {
+          "_unimplemented": "このターン終了時、 ドン5アクティブ (= deferred untap_don 5 on end_of_turn)"
         }
       ]
     }
@@ -3517,16 +3554,16 @@
   ],
   "OP15-108": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、特徴《空島》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP15-108 ナミ 登場時: デッキ上3を見て 空島1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
               "feature": "空島"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3
           }
         }
       ]
@@ -3584,11 +3621,20 @@
   ],
   "OP13-108": [
     {
-      "_text": "auto trigger: 自分のライフが1枚以下の場合、相手のコスト7以下のキャラ1枚までを、レストにする。",
-      "when": "trigger",
+      "_text": "OP13-108 ボニー 登場時: エッグヘッドリーダーで self に【速攻】turn, その後 相手ライフ1を相手手札へ",
+      "when": "on_play",
+      "if": {
+        "leader_feature": "エッグヘッド"
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        },
+        {
+          "_unimplemented": "相手のライフ上から1枚を相手手札へ (= mill_opp_life_to_hand 1)"
         }
       ]
     }
@@ -3729,22 +3775,44 @@
   ],
   "OP10-072": [
     {
-      "_text": "auto: 自分の手札からイベント1枚を捨てることができる：カード2枚を引く。",
+      "_text": "OP10-072 ロシナンテ 登場時: 手札イベ1捨てで 2ドロー",
       "when": "on_play",
+      "cost": {
+        "_unimplemented": "discard_event_from_hand 1"
+      },
       "do": [
         {
           "draw": 2
+        }
+      ]
+    },
+    {
+      "_text": "OP10-072 ロシナンテ ターン終了時: 自場ドン7+で ドン2アクティブ",
+      "when": "end_of_turn",
+      "if": {
+        "self_don_ge": 7
+      },
+      "do": [
+        {
+          "untap_don": 2
         }
       ]
     }
   ],
   "OP05-077": [
     {
-      "_text": "auto trigger: ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
-      "when": "trigger",
+      "_text": "OP05-077 ガンマナイフ メイン: ドン-1 → 相手キャラ1 -5000 turn",
+      "when": "main",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
-          "add_don": 1
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -5000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -3909,16 +3977,17 @@
   ],
   "ST18-004": [
     {
-      "_text": "auto: 自分のデッキの上から5枚を見て、紫の特徴《麦わらの一味》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "ST18-004 ゾロ十郎 登場時: デッキ上5を見て 紫の麦わらキャラ1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
+              "color": "紫",
               "feature": "麦わらの一味"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 5
           }
         }
       ]
@@ -3926,15 +3995,16 @@
   ],
   "OP12-071": [
     {
-      "_text": "auto: 自分のデッキの上から4枚を見て、「サンジ」かイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP12-071 プリン 登場時: デッキ上4を見て サンジ or イベ 1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER"
+              "_unimplemented": "name=サンジ OR category=EVENT"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 4
           }
         }
       ]
@@ -3942,11 +4012,30 @@
   ],
   "OP15-061": [
     {
-      "_text": "auto: ドン‼-1：カード1枚を引く。",
+      "_text": "OP15-061 オーム 登場時: ドン-1 → 1ドロー",
       "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP15-061 オーム アタック時: 自場ドン6以下で 相手キャラ1 -1000 turn",
+      "when": "on_attack",
+      "if": {
+        "self_don_le": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -4055,11 +4144,17 @@
   ],
   "OP15-077": [
     {
-      "_text": "auto: ドン‼-1：カード1枚を引く。その後、相手のレストのパワー6000以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+      "_text": "OP15-077 雷龍 メイン: ドン-1 → 1ドロー + 相手レスト power6000以下1 stay_rested_next_refresh",
       "when": "main",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "draw": 1
+        },
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_power_le_6000"
         }
       ]
     }
@@ -4106,16 +4201,17 @@
   ],
   "OP05-106": [
     {
-      "_text": "auto: 自分のデッキの上から5枚を見て、「シュラ」以外の特徴《空島》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP05-106 シュラ 登場時: デッキ上5を見て 空島 (除く自身) 1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
-              "feature": "空島"
+              "feature": "空島",
+              "exclude_card_id": "OP05-106"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 5
           }
         }
       ]
@@ -4308,16 +4404,16 @@
   ],
   "OP15-040": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、特徴《ドレスローザ》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP15-040 ヴィオラ 登場時: デッキ上3を見て ドレスローザ1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
               "feature": "ドレスローザ"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3
           }
         }
       ]
@@ -4410,8 +4506,11 @@
   ],
   "EB04-053": [
     {
-      "_text": "auto: 自分のライフが2枚以下の場合、カード1枚を引く。",
+      "_text": "EB04-053 戦桃丸 ブロック時: 自ライフ2以下なら 1ドロー",
       "when": "on_block",
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
           "draw": 1
@@ -4511,33 +4610,29 @@
   ],
   "OP13-086": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、「シャルリア宮」以外の特徴《天竜人》を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置き、自分の手札1枚を捨てる。",
+      "_text": "OP13-086 登場時: デッキ上3を見て 天竜人 (除く自身) 1を手札 残trash + 1捨て",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
-              "feature": "天竜人"
+              "feature": "天竜人",
+              "exclude_card_id": "OP13-086"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3,
+            "rest_to": "trash"
           }
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
   ],
   "OP13-089": [
     {
-      "_text": "auto: カード1枚を引く。",
-      "when": "on_ko",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
+      "_text": "OP13-089 ウォーキュリー 常在: 自trash7+で 相手効果不滅 + ブロッカー",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -4546,6 +4641,21 @@
       "do": [
         {
           "set_ko_immune": "self"
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-089 ウォーキュリー KO時: 1ドロー",
+      "when": "on_ko",
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -4585,16 +4695,18 @@
   ],
   "OP13-096": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、「”五老星“ここに!!!」以外の特徴《天竜人》を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置く。",
+      "_text": "OP13-096 メイン: デッキ上3を見て 天竜人 (除く自身) 1を手札 残trash",
       "when": "main",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
-              "feature": "天竜人"
+              "feature": "天竜人",
+              "exclude_card_id": "OP13-096"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3,
+            "rest_to": "trash"
           }
         }
       ]
@@ -5085,26 +5197,46 @@
   ],
   "OP14-090": [
     {
-      "_text": "auto: 相手のコスト0のキャラ1枚までを、レストにする。",
+      "_text": "OP14-090 Mr.1 常在: cost0か8+キャラあれば 速攻：キャラ",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "_unimplemented": "場にコスト0か8以上のキャラがいる (= field_chara_cost_0_or_ge_8)"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP14-090 Mr.1 登場時: 相手cost0キャラ1 rest",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_cost_0",
+          "_unimplemented": "対象 = 相手のコスト0のキャラ1枚 (= cost_eq selector)"
         }
       ]
     }
   ],
   "OP14-099": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、「不服か？」以外の『B・W』を含む特徴を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置く。",
+      "_text": "OP14-099 不服か メイン: デッキ上3を見て BW (除く自身) 1を手札 残trash",
       "when": "main",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER"
+              "feature": "B・W",
+              "exclude_card_id": "OP14-099"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3,
+            "rest_to": "trash"
           }
         }
       ]
@@ -5173,16 +5305,17 @@
   ],
   "OP10-059": [
     {
-      "_text": "auto: 自分のデッキの上から5枚を見て、特徴《ドレスローザ》を持つキャラカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP10-059 メイン: デッキ上5を見て ドレスローザキャラ1を手札 残デッキ底",
       "when": "main",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
-              "feature": "ドレスローザ"
+              "feature": "ドレスローザ",
+              "category": "CHARACTER"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 5
           }
         }
       ]
@@ -5221,24 +5354,18 @@
   ],
   "OP06-038": [
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のレストのカードが8枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP06-038 カウンター: 自リーダー/キャラ1 +2000 battle, その後 自レスト8+で +追加2000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "auto trigger: 相手のレストのコスト3以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "ko": "one_opponent_character_cost_le_3"
+          "_unimplemented": "自レストカード8+で 同対象に追加+2000 (= 条件付き追加 buff to same target)"
         }
       ]
     }
@@ -5334,8 +5461,20 @@
   ],
   "OP14-072": [
     {
-      "_text": "auto: ドン‼-1：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP14-072 ベビー5 登場時: ドンデッキからドン1アクティブ追加",
+      "when": "on_play",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP14-072 ベビー5 KO時: ドン-1 → デッキ上1をライフへ",
       "when": "on_ko",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -5726,8 +5865,27 @@
   ],
   "OP15-067": [
     {
-      "_text": "auto: ドン‼-1：カード1枚を引く。",
+      "_text": "OP15-067 シュラ 常在: 自場ドン6以下なら 速攻",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_don_le": 6
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP15-067 シュラ 登場時: ドン-1 → 1ドロー",
       "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "draw": 1
@@ -5820,14 +5978,26 @@
   ],
   "OP13-007": [
     {
-      "_text": "エース&サボ&ルフィ 起動メイン: ドン付与+self KO で 相手 -3000 → 簡略: 1ドロー",
+      "_text": "OP13-007 起動メイン: 自リーダー/キャラに自active ドン1付与 + self trash → 相手キャラ1 -3000 turn",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "_unimplemented": "attach 1 active don to self target + trash_self"
       },
       "do": [
         {
-          "draw": 1
+          "attach_don": {
+            "target": "self_inplay_choice",
+            "count": 1,
+            "rested": false
+          }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -3000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -6142,11 +6312,15 @@
   ],
   "OP07-051": [
     {
-      "_text": "auto2: 相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "OP07-051 ハンコック 登場時: 相手「ルフィ」以外1 attack不可 (次相手ターン終了まで → 簡略 turn) + cost1以下キャラ1をデッキ底へ",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1"
+          "set_cannot_attack": "one_opponent_character_excl_name_モンキー・D・ルフィ",
+          "_unimplemented": "対象 = 相手の「モンキー・D・ルフィ」以外1枚 (= name 除外セレクタ)"
+        },
+        {
+          "_unimplemented": "コスト1以下のキャラ1枚を持ち主のデッキの下に置く (= return_to_deck_bottom)"
         }
       ]
     }
@@ -6164,20 +6338,20 @@
   ],
   "OP14-104": [
     {
-      "_text": "ゲッコー・モリア (cost8) 登場時: トラッシュからスリラー4以下登場 → 簡略: ドン+1",
+      "_text": "OP14-104 モリア 登場時: trashから cost4以下スリラーバークキャラ1を ライフへ表向き or 登場",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
-        }
-      ]
-    },
-    {
-      "_text": "トリガー: トラッシュから4以下登場 → 簡略: 1ドロー",
-      "when": "trigger",
-      "do": [
+          "_unimplemented": "ライフ上表向きに加える or 登場 を選ぶ (= choice between effects)"
+        },
         {
-          "draw": 1
+          "play_from_trash": {
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -6234,22 +6408,27 @@
   ],
   "ST21-003": [
     {
-      "_text": "サンジ (赤 cost2) 登場時: 麦わら6000以上 ブロック不可付与 → 簡略: 1ドロー",
+      "_text": "ST21-003 サンジ 登場時: 自パワー6000+麦わらキャラ1を選ぶと、 そのキャラのアタック時 相手はブロッカー不可",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "自パワー6000+麦わらキャラ1選択 → そのキャラに【ブロック不可】turn (= 条件付き選択 + give_keyword)"
         }
       ]
     }
   ],
   "OP15-052": [
     {
-      "_text": "レオ (緑 cost1) KO代替効果 → 簡略: 登場時 1ドロー",
-      "when": "on_play",
+      "_text": "OP15-052 レオ 置換: 自元々パワー7000以下キャラが相手効果で場離れる時、 自キャラ1をデッキ底へ送り代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_base_power_le": 7000,
+        "by_opp_effect": true
+      },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "自分のキャラ1枚を持ち主のデッキの下に置く (= return_self_chara_to_deck_bottom)"
         }
       ]
     }
@@ -6281,11 +6460,17 @@
   ],
   "OP10-045": [
     {
-      "_text": "キャベンディッシュ (黄 cost4) アタック時: 2ドロー1捨て → 簡略: 1ドロー",
+      "_text": "OP10-045 キャベ アタック時 (ターン1回): 2ドロー + 1捨て",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "draw": 1
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -6414,11 +6599,18 @@
   ],
   "OP15-046": [
     {
-      "_text": "サボ ブロッカー+ 登場時 (ドレスローザ条件) イベ発動 → 簡略: 1ドロー",
+      "_text": "OP15-046 サボ 登場時: ドレスローザリーダーで 手札のドレスローザ イベ1を発動",
       "when": "on_play",
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
       "do": [
         {
-          "draw": 1
+          "play_event_from_hand": {
+            "filter": {
+              "feature": "ドレスローザ"
+            }
+          }
         }
       ]
     }
@@ -6534,11 +6726,17 @@
   ],
   "OP12-099": [
     {
-      "_text": "カルガラ 自分ターン中 ライフ離れた時 1ドロー → 簡略: ターン終了時 1ドロー",
-      "when": "end_of_turn",
+      "_text": "OP12-099 カルガラ 自ターン中ライフ離れた時: 1ドロー, このターン 自効果ドロー禁止",
+      "when": "on_self_life_lost",
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
           "draw": 1
+        },
+        {
+          "_unimplemented": "このターン中、 自分の効果でカードを引くことができない (= block_self_draw turn)"
         }
       ]
     }
@@ -6769,11 +6967,20 @@
   ],
   "OP08-023": [
     {
-      "_text": "キャロット 登場時/アタック時: 7以下キャラはリフレッシュ無効 → 簡略: rest 1体",
+      "_text": "OP08-023 キャロット 登場時/アタック時: 相手レスト cost7以下キャラ1 stay_rested_next_refresh",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_rested_character_cost_le_7"
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP08-023 キャロット アタック時: 同効果",
+      "when": "on_attack",
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
         }
       ]
     }
@@ -7061,30 +7268,15 @@
   ],
   "OP14-110": [
     {
-      "_text": "ドクトル・ホグバック KO時: トリガー持ち4以下登場 → 簡略: 4以下登場",
+      "_text": "OP14-110 ホグバック KO時: trashから cost4以下 トリガー持ちキャラ (除く自身) 1を登場",
       "when": "on_ko",
       "do": [
         {
           "play_from_trash": {
             "filter": {
-              "category": "CHARACTER",
-              "cost_le": 4
-            },
-            "limit": 1
-          }
-        }
-      ]
-    },
-    {
-      "_text": "トリガー: スリラー4以下 trash 登場",
-      "when": "trigger",
-      "do": [
-        {
-          "play_from_trash": {
-            "filter": {
-              "category": "CHARACTER",
-              "feature": "スリラーバーク海賊団",
-              "cost_le": 4
+              "cost_le": 4,
+              "_unimplemented": "has_trigger=True (= トリガー keyword 持ち)",
+              "exclude_card_id": "OP14-110"
             },
             "limit": 1
           }
@@ -7094,27 +7286,20 @@
   ],
   "OP14-111": [
     {
-      "_text": "ペローナ (緑 cost4) 登場時/KO時: 6以下キャラ rest (アタック不可は近似で rest)",
+      "_text": "OP14-111 ペローナ 登場時: 相手cost6以下キャラ1 attack不可 (次相手エンドまで → 簡略turn)",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6"
+          "set_cannot_attack": "one_opponent_character_le_6cost"
         }
       ]
     },
     {
-      "_text": "ペローナ トリガー: スリラー4以下登場",
-      "when": "trigger",
+      "_text": "OP14-111 ペローナ KO時: 同効果",
+      "when": "on_ko",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "category": "CHARACTER",
-              "feature": "スリラーバーク海賊団",
-              "cost_le": 4
-            },
-            "limit": 1
-          }
+          "set_cannot_attack": "one_opponent_character_le_6cost"
         }
       ]
     }
@@ -7147,14 +7332,20 @@
   ],
   "OP14-083": [
     {
-      "_text": "ミス・ウェンズデー (青 cost1) 起動メイン (self trash): コスト0キャラ -3000 → 簡略: コスト0KO",
+      "_text": "OP14-083 ウェンズデー 起動メイン: self trash → 相手cost0キャラ1 -3000 turn",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "_unimplemented": "trash_self コスト"
       },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_0"
+          "power_pump": {
+            "target": "one_opponent_character_cost_0",
+            "amount": -3000,
+            "duration": "turn"
+          },
+          "_unimplemented": "対象 = 相手のコスト0のキャラ (= cost_eq selector)"
         }
       ]
     }
@@ -7176,14 +7367,22 @@
   ],
   "OP13-092": [
     {
-      "_text": "ミョスガルド (黒 cost2) 登場時 (ライフ3以下): trashからステージ登場 → 簡略: 1ドロー",
+      "_text": "OP13-092 ミョスガルド 登場時: 自ライフ3以下で trashから cost1聖地マリージョアステージ1を登場",
       "when": "on_play",
       "if": {
         "self_life_le": 3
       },
       "do": [
         {
-          "draw": 1
+          "play_from_trash": {
+            "filter": {
+              "category": "STAGE",
+              "feature": "聖地マリージョア",
+              "cost": 1
+            },
+            "limit": 1
+          },
+          "_unimplemented": "対象が STAGE カテゴリ (= play_stage_from_trash)"
         }
       ]
     }
@@ -7310,11 +7509,16 @@
   ],
   "PRB02-006": [
     {
-      "_text": "ロロノア・ゾロ ブロッカー + 相手ターンレスト代替 → 簡略: 登場時 KO耐性",
-      "when": "on_play",
+      "_text": "PRB02-006 ゾロ 相手ターン中: このキャラが相手キャラ効果でレストになる場合、 代わりに自分の他のキャラ1をレストにできる",
+      "when": "replace_rest",
+      "if": {
+        "opp_turn": true,
+        "target": "self",
+        "by_opp_chara_effect": true
+      },
       "do": [
         {
-          "prevent_ko": "self"
+          "_unimplemented": "このキャラのレストを代替: 自分の他のキャラ1枚をレストにする (= replace rest target)"
         }
       ]
     }
@@ -7368,23 +7572,18 @@
   ],
   "OP05-094": [
     {
-      "_text": "main: 相手キャラ コスト-3 (簡略化省略) → コスト0キャラ次リフレッシュ非アクティブ",
+      "_text": "OP05-094 メイン: 相手キャラ1 cost-3 turn, その後 相手cost0キャラ1 stay_rested_next_refresh",
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_character_any"
-        }
-      ]
-    },
-    {
-      "_text": "trigger: 2ドロー + 1捨て",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 2
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 3
+          }
         },
         {
-          "trash_self_hand_random": 1
+          "stay_rested_next_refresh": "one_opponent_character_cost_0",
+          "_unimplemented": "対象 = 相手のコスト0のキャラ (= cost_eq selector)"
         }
       ]
     }
@@ -7495,11 +7694,11 @@
   ],
   "OP08-044": [
     {
-      "_text": "キングデュー activate_main: 公開コスト省略, self+2000",
+      "_text": "OP08-044 キングデュー 起動メイン (ターン1回): 手札から白ひげ海賊団2枚公開コストで self +2000 turn",
       "when": "activate_main",
       "cost": {
-        "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "_unimplemented": "手札から白ひげ海賊団 2枚公開 (= reveal_hand 2 with feature filter)"
       },
       "do": [
         {
@@ -7671,13 +7870,18 @@
   ],
   "OP14-084": [
     {
-      "_text": "ミス・オールサンデー on_play: トラッシュからコスト4以下と1コスト1枚ずつ登場 (簡略化)",
+      "_text": "OP14-084 ミスサンデー 登場時: BWリーダーで trashからBWキャラ cost4以下 と cost1 を1枚ずつ登場",
       "when": "on_play",
+      "if": {
+        "leader_features_any": [
+          "B・W"
+        ]
+      },
       "do": [
         {
           "play_from_trash": {
             "filter": {
-              "category": "CHARACTER",
+              "feature": "B・W",
               "cost_le": 4
             },
             "limit": 1
@@ -7686,8 +7890,8 @@
         {
           "play_from_trash": {
             "filter": {
-              "category": "CHARACTER",
-              "cost_le": 1
+              "feature": "B・W",
+              "cost": 1
             },
             "limit": 1
           }
@@ -7711,28 +7915,30 @@
   ],
   "OP14-088": [
     {
-      "_text": "ドロフィー on_ko: 1ドロー (KO ステージ部省略)",
+      "_text": "OP14-088 ドロフィー KO時: BWリーダーで 1ドロー + 相手cost1ステージ1 KO",
       "when": "on_ko",
+      "if": {
+        "leader_features_any": [
+          "B・W"
+        ]
+      },
       "do": [
         {
           "draw": 1
+        },
+        {
+          "_unimplemented": "相手のコスト1のステージ1枚を KO (= ko target = stage filter)"
         }
       ]
     }
   ],
   "OP14-091": [
     {
-      "_text": "Mr.2 on_ko: トラッシュからコスト5以下登場 (B・W feature filter省略)",
+      "_text": "OP14-091 Mr.2 KO時: 手札かtrashから cost5以下 BW (除く自身) キャラ1を登場",
       "when": "on_ko",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_le": 5
-            },
-            "limit": 1
-          }
+          "_unimplemented": "手札かトラッシュから登場 (= play_from_hand_or_trash) + filter feature=BW exclude self + cost_le=5"
         }
       ]
     }
@@ -17514,11 +17720,18 @@
   ],
   "OP05-077_p1": [
     {
-      "_text": "auto trigger: ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
-      "when": "trigger",
+      "_text": "OP05-077 ガンマナイフ メイン: ドン-1 → 相手キャラ1 -5000 turn",
+      "when": "main",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
-          "add_don": 1
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -5000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -17909,11 +18122,16 @@
   ],
   "PRB02-006_p1": [
     {
-      "_text": "ロロノア・ゾロ ブロッカー + 相手ターンレスト代替 → 簡略: 登場時 KO耐性",
-      "when": "on_play",
+      "_text": "PRB02-006 ゾロ 相手ターン中: このキャラが相手キャラ効果でレストになる場合、 代わりに自分の他のキャラ1をレストにできる",
+      "when": "replace_rest",
+      "if": {
+        "opp_turn": true,
+        "target": "self",
+        "by_opp_chara_effect": true
+      },
       "do": [
         {
-          "prevent_ko": "self"
+          "_unimplemented": "このキャラのレストを代替: 自分の他のキャラ1枚をレストにする (= replace rest target)"
         }
       ]
     }
@@ -18188,11 +18406,11 @@
   ],
   "ST21-003_p2": [
     {
-      "_text": "サンジ (赤 cost2) 登場時: 麦わら6000以上 ブロック不可付与 → 簡略: 1ドロー",
+      "_text": "ST21-003 サンジ 登場時: 自パワー6000+麦わらキャラ1を選ぶと、 そのキャラのアタック時 相手はブロッカー不可",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "自パワー6000+麦わらキャラ1選択 → そのキャラに【ブロック不可】turn (= 条件付き選択 + give_keyword)"
         }
       ]
     }
@@ -18235,11 +18453,20 @@
   ],
   "OP08-023_p2": [
     {
-      "_text": "キャロット 登場時/アタック時: 7以下キャラはリフレッシュ無効 → 簡略: rest 1体",
+      "_text": "OP08-023 キャロット 登場時/アタック時: 相手レスト cost7以下キャラ1 stay_rested_next_refresh",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_rested_character_cost_le_7"
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP08-023 キャロット アタック時: 同効果",
+      "when": "on_attack",
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
         }
       ]
     }
@@ -19294,48 +19521,36 @@
   ],
   "OP06-038_p2": [
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のレストのカードが8枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP06-038 カウンター: 自リーダー/キャラ1 +2000 battle, その後 自レスト8+で +追加2000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "auto trigger: 相手のレストのコスト3以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "ko": "one_opponent_character_cost_le_3"
+          "_unimplemented": "自レストカード8+で 同対象に追加+2000 (= 条件付き追加 buff to same target)"
         }
       ]
     }
   ],
   "OP06-038_p3": [
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のレストのカードが8枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP06-038 カウンター: 自リーダー/キャラ1 +2000 battle, その後 自レスト8+で +追加2000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "auto trigger: 相手のレストのコスト3以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "ko": "one_opponent_character_cost_le_3"
+          "_unimplemented": "自レストカード8+で 同対象に追加+2000 (= 条件付き追加 buff to same target)"
         }
       ]
     }
@@ -19763,11 +19978,16 @@
   ],
   "PRB02-006_p2": [
     {
-      "_text": "ロロノア・ゾロ ブロッカー + 相手ターンレスト代替 → 簡略: 登場時 KO耐性",
-      "when": "on_play",
+      "_text": "PRB02-006 ゾロ 相手ターン中: このキャラが相手キャラ効果でレストになる場合、 代わりに自分の他のキャラ1をレストにできる",
+      "when": "replace_rest",
+      "if": {
+        "opp_turn": true,
+        "target": "self",
+        "by_opp_chara_effect": true
+      },
       "do": [
         {
-          "prevent_ko": "self"
+          "_unimplemented": "このキャラのレストを代替: 自分の他のキャラ1枚をレストにする (= replace rest target)"
         }
       ]
     }
@@ -20482,11 +20702,18 @@
   ],
   "OP15-046_p1": [
     {
-      "_text": "サボ ブロッカー+ 登場時 (ドレスローザ条件) イベ発動 → 簡略: 1ドロー",
+      "_text": "OP15-046 サボ 登場時: ドレスローザリーダーで 手札のドレスローザ イベ1を発動",
       "when": "on_play",
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
       "do": [
         {
-          "draw": 1
+          "play_event_from_hand": {
+            "filter": {
+              "feature": "ドレスローザ"
+            }
+          }
         }
       ]
     }
@@ -20578,22 +20805,47 @@
   ],
   "OP15-061_p1": [
     {
-      "_text": "auto: ドン‼-1：カード1枚を引く。",
+      "_text": "OP15-061 オーム 登場時: ドン-1 → 1ドロー",
       "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP15-061 オーム アタック時: 自場ドン6以下で 相手キャラ1 -1000 turn",
+      "when": "on_attack",
+      "if": {
+        "self_don_le": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -1000,
+            "duration": "turn"
+          }
         }
       ]
     }
   ],
   "OP15-077_p1": [
     {
-      "_text": "auto: ドン‼-1：カード1枚を引く。その後、相手のレストのパワー6000以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+      "_text": "OP15-077 雷龍 メイン: ドン-1 → 1ドロー + 相手レスト power6000以下1 stay_rested_next_refresh",
       "when": "main",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "draw": 1
+        },
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_power_le_6000"
         }
       ]
     }
@@ -21042,11 +21294,17 @@
   ],
   "OP14-031_p1": [
     {
-      "_text": "auto: 相手のコスト8以下のキャラ2枚までを、レストにする。その後、このターン終了時、自分のドン‼5枚までを、アクティブにする。",
+      "_text": "OP14-031 ナミ 登場時: 相手cost8以下キャラ2まで rest, ターン終了時 ドン5アクティブ",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_8cost"
+        },
+        {
+          "_unimplemented": "相手cost8以下キャラ 2枚まで (= multi-target rest)"
+        },
+        {
+          "_unimplemented": "このターン終了時、 ドン5アクティブ (= deferred untap_don 5 on end_of_turn)"
         }
       ]
     }
@@ -21161,13 +21419,18 @@
   ],
   "OP14-084_p1": [
     {
-      "_text": "ミス・オールサンデー on_play: トラッシュからコスト4以下と1コスト1枚ずつ登場 (簡略化)",
+      "_text": "OP14-084 ミスサンデー 登場時: BWリーダーで trashからBWキャラ cost4以下 と cost1 を1枚ずつ登場",
       "when": "on_play",
+      "if": {
+        "leader_features_any": [
+          "B・W"
+        ]
+      },
       "do": [
         {
           "play_from_trash": {
             "filter": {
-              "category": "CHARACTER",
+              "feature": "B・W",
               "cost_le": 4
             },
             "limit": 1
@@ -21176,8 +21439,8 @@
         {
           "play_from_trash": {
             "filter": {
-              "category": "CHARACTER",
-              "cost_le": 1
+              "feature": "B・W",
+              "cost": 1
             },
             "limit": 1
           }
@@ -21187,28 +21450,39 @@
   ],
   "OP14-090_p1": [
     {
-      "_text": "auto: 相手のコスト0のキャラ1枚までを、レストにする。",
+      "_text": "OP14-090 Mr.1 常在: cost0か8+キャラあれば 速攻：キャラ",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "_unimplemented": "場にコスト0か8以上のキャラがいる (= field_chara_cost_0_or_ge_8)"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP14-090 Mr.1 登場時: 相手cost0キャラ1 rest",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_cost_0",
+          "_unimplemented": "対象 = 相手のコスト0のキャラ1枚 (= cost_eq selector)"
         }
       ]
     }
   ],
   "OP14-091_p1": [
     {
-      "_text": "Mr.2 on_ko: トラッシュからコスト5以下登場 (B・W feature filter省略)",
+      "_text": "OP14-091 Mr.2 KO時: 手札かtrashから cost5以下 BW (除く自身) キャラ1を登場",
       "when": "on_ko",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_le": 5
-            },
-            "limit": 1
-          }
+          "_unimplemented": "手札かトラッシュから登場 (= play_from_hand_or_trash) + filter feature=BW exclude self + cost_le=5"
         }
       ]
     }
@@ -21245,47 +21519,40 @@
   ],
   "OP14-104_p1": [
     {
-      "_text": "ゲッコー・モリア (cost8) 登場時: トラッシュからスリラー4以下登場 → 簡略: ドン+1",
+      "_text": "OP14-104 モリア 登場時: trashから cost4以下スリラーバークキャラ1を ライフへ表向き or 登場",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
-        }
-      ]
-    },
-    {
-      "_text": "トリガー: トラッシュから4以下登場 → 簡略: 1ドロー",
-      "when": "trigger",
-      "do": [
+          "_unimplemented": "ライフ上表向きに加える or 登場 を選ぶ (= choice between effects)"
+        },
         {
-          "draw": 1
+          "play_from_trash": {
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ]
     }
   ],
   "OP14-111_p1": [
     {
-      "_text": "ペローナ (緑 cost4) 登場時/KO時: 6以下キャラ rest (アタック不可は近似で rest)",
+      "_text": "OP14-111 ペローナ 登場時: 相手cost6以下キャラ1 attack不可 (次相手エンドまで → 簡略turn)",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6"
+          "set_cannot_attack": "one_opponent_character_le_6cost"
         }
       ]
     },
     {
-      "_text": "ペローナ トリガー: スリラー4以下登場",
-      "when": "trigger",
+      "_text": "OP14-111 ペローナ KO時: 同効果",
+      "when": "on_ko",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "category": "CHARACTER",
-              "feature": "スリラーバーク海賊団",
-              "cost_le": 4
-            },
-            "limit": 1
-          }
+          "set_cannot_attack": "one_opponent_character_le_6cost"
         }
       ]
     }
@@ -21394,14 +21661,26 @@
   ],
   "OP13-007_p1": [
     {
-      "_text": "エース&サボ&ルフィ 起動メイン: ドン付与+self KO で 相手 -3000 → 簡略: 1ドロー",
+      "_text": "OP13-007 起動メイン: 自リーダー/キャラに自active ドン1付与 + self trash → 相手キャラ1 -3000 turn",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "_unimplemented": "attach 1 active don to self target + trash_self"
       },
       "do": [
         {
-          "draw": 1
+          "attach_don": {
+            "target": "self_inplay_choice",
+            "count": 1,
+            "rested": false
+          }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -3000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -21756,16 +22035,7 @@
   ],
   "OP13-089_p1": [
     {
-      "_text": "auto: カード1枚を引く。",
-      "when": "on_ko",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
+      "_text": "OP13-089 ウォーキュリー 常在: 自trash7+で 相手効果不滅 + ブロッカー",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -21774,22 +22044,28 @@
       "do": [
         {
           "set_ko_immune": "self"
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-089 ウォーキュリー KO時: 1ドロー",
+      "when": "on_ko",
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
   ],
   "OP13-089_p2": [
     {
-      "_text": "auto: カード1枚を引く。",
-      "when": "on_ko",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
+      "_text": "OP13-089 ウォーキュリー 常在: 自trash7+で 相手効果不滅 + ブロッカー",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -21798,6 +22074,21 @@
       "do": [
         {
           "set_ko_immune": "self"
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-089 ウォーキュリー KO時: 1ドロー",
+      "when": "on_ko",
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -21870,11 +22161,20 @@
   ],
   "OP13-108_p1": [
     {
-      "_text": "auto trigger: 自分のライフが1枚以下の場合、相手のコスト7以下のキャラ1枚までを、レストにする。",
-      "when": "trigger",
+      "_text": "OP13-108 ボニー 登場時: エッグヘッドリーダーで self に【速攻】turn, その後 相手ライフ1を相手手札へ",
+      "when": "on_play",
+      "if": {
+        "leader_feature": "エッグヘッド"
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        },
+        {
+          "_unimplemented": "相手のライフ上から1枚を相手手札へ (= mill_opp_life_to_hand 1)"
         }
       ]
     }
@@ -22364,16 +22664,17 @@
   ],
   "ST18-004_p1": [
     {
-      "_text": "auto: 自分のデッキの上から5枚を見て、紫の特徴《麦わらの一味》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "ST18-004 ゾロ十郎 登場時: デッキ上5を見て 紫の麦わらキャラ1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
+              "color": "紫",
               "feature": "麦わらの一味"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 5
           }
         }
       ]
@@ -22704,22 +23005,34 @@
   ],
   "OP10-032_p1": [
     {
-      "_text": "たしぎ (緑 cost3) 緑キャラ KO 代替 → 簡略: 1ドロー (代替効果は表現困難)",
-      "when": "on_play",
+      "_text": "OP10-032 たしぎ 置換: 自他緑キャラが相手効果で場離れる時、 self をレストにして代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_color": "緑",
+        "by_opp_effect": true,
+        "_unimplemented": "対象 = 「たしぎ」 以外の自分の緑キャラ (= color filter + name exclude)"
+      },
       "do": [
         {
-          "draw": 1
+          "rest": "self"
         }
       ]
     }
   ],
   "OP10-045_p1": [
     {
-      "_text": "キャベンディッシュ (黄 cost4) アタック時: 2ドロー1捨て → 簡略: 1ドロー",
+      "_text": "OP10-045 キャベ アタック時 (ターン1回): 2ドロー + 1捨て",
       "when": "on_attack",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "draw": 1
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -22781,11 +23094,26 @@
   ],
   "OP10-072_p1": [
     {
-      "_text": "auto: 自分の手札からイベント1枚を捨てることができる：カード2枚を引く。",
+      "_text": "OP10-072 ロシナンテ 登場時: 手札イベ1捨てで 2ドロー",
       "when": "on_play",
+      "cost": {
+        "_unimplemented": "discard_event_from_hand 1"
+      },
       "do": [
         {
           "draw": 2
+        }
+      ]
+    },
+    {
+      "_text": "OP10-072 ロシナンテ ターン終了時: 自場ドン7+で ドン2アクティブ",
+      "when": "end_of_turn",
+      "if": {
+        "self_don_ge": 7
+      },
+      "do": [
+        {
+          "untap_don": 2
         }
       ]
     }
@@ -22893,14 +23221,15 @@
   ],
   "OP09-004_p1": [
     {
-      "_text": "シャンクス (赤 cost10) 速攻+ 【常在】相手キャラ全-1000 → 簡略: 登場時に相手キャラ全-1000 turn",
-      "when": "on_play",
+      "_text": "OP09-004 シャンクス 常在: 相手キャラすべて -1000",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": "all_opponent_characters",
             "amount": -1000,
-            "duration": "turn"
+            "duration": "static"
           }
         }
       ]
@@ -22908,14 +23237,15 @@
   ],
   "OP09-004_p2": [
     {
-      "_text": "シャンクス (赤 cost10) 速攻+ 【常在】相手キャラ全-1000 → 簡略: 登場時に相手キャラ全-1000 turn",
-      "when": "on_play",
+      "_text": "OP09-004 シャンクス 常在: 相手キャラすべて -1000",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": "all_opponent_characters",
             "amount": -1000,
-            "duration": "turn"
+            "duration": "static"
           }
         }
       ]
@@ -23068,25 +23398,30 @@
   ],
   "OP07-051_p3": [
     {
-      "_text": "auto2: 相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "OP07-051 ハンコック 登場時: 相手「ルフィ」以外1 attack不可 (次相手ターン終了まで → 簡略 turn) + cost1以下キャラ1をデッキ底へ",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1"
+          "set_cannot_attack": "one_opponent_character_excl_name_モンキー・D・ルフィ",
+          "_unimplemented": "対象 = 相手の「モンキー・D・ルフィ」以外1枚 (= name 除外セレクタ)"
+        },
+        {
+          "_unimplemented": "コスト1以下のキャラ1枚を持ち主のデッキの下に置く (= return_to_deck_bottom)"
         }
       ]
     }
   ],
   "OP09-004_p3": [
     {
-      "_text": "シャンクス (赤 cost10) 速攻+ 【常在】相手キャラ全-1000 → 簡略: 登場時に相手キャラ全-1000 turn",
-      "when": "on_play",
+      "_text": "OP09-004 シャンクス 常在: 相手キャラすべて -1000",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": "all_opponent_characters",
             "amount": -1000,
-            "duration": "turn"
+            "duration": "static"
           }
         }
       ]
@@ -23126,11 +23461,20 @@
   ],
   "OP08-023_p1": [
     {
-      "_text": "キャロット 登場時/アタック時: 7以下キャラはリフレッシュ無効 → 簡略: rest 1体",
+      "_text": "OP08-023 キャロット 登場時/アタック時: 相手レスト cost7以下キャラ1 stay_rested_next_refresh",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_rested_character_cost_le_7"
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP08-023 キャロット アタック時: 同効果",
+      "when": "on_attack",
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
         }
       ]
     }
@@ -23318,22 +23662,30 @@
   ],
   "OP07-051_p1": [
     {
-      "_text": "auto2: 相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "OP07-051 ハンコック 登場時: 相手「ルフィ」以外1 attack不可 (次相手ターン終了まで → 簡略 turn) + cost1以下キャラ1をデッキ底へ",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1"
+          "set_cannot_attack": "one_opponent_character_excl_name_モンキー・D・ルフィ",
+          "_unimplemented": "対象 = 相手の「モンキー・D・ルフィ」以外1枚 (= name 除外セレクタ)"
+        },
+        {
+          "_unimplemented": "コスト1以下のキャラ1枚を持ち主のデッキの下に置く (= return_to_deck_bottom)"
         }
       ]
     }
   ],
   "OP07-051_p2": [
     {
-      "_text": "auto2: 相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "OP07-051 ハンコック 登場時: 相手「ルフィ」以外1 attack不可 (次相手ターン終了まで → 簡略 turn) + cost1以下キャラ1をデッキ底へ",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1"
+          "set_cannot_attack": "one_opponent_character_excl_name_モンキー・D・ルフィ",
+          "_unimplemented": "対象 = 相手の「モンキー・D・ルフィ」以外1枚 (= name 除外セレクタ)"
+        },
+        {
+          "_unimplemented": "コスト1以下のキャラ1枚を持ち主のデッキの下に置く (= return_to_deck_bottom)"
         }
       ]
     }
@@ -23833,11 +24185,11 @@
   ],
   "OP05-102_p1": [
     {
-      "_text": "ゲダツ (黄 cost5) 【登場時】相手ライフ以下コスト KO → 簡略: コスト5以下KO",
+      "_text": "OP05-102 ゲダツ 登場時: 相手ライフ枚数以下コストの相手キャラ1 KO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5"
+          "_unimplemented": "相手ライフ枚数以下コストの相手キャラ1を KO (= dynamic cost limit selector based on opp_life)"
         }
       ]
     }
@@ -24674,11 +25026,11 @@
   ],
   "ST21-003_p1": [
     {
-      "_text": "サンジ (赤 cost2) 登場時: 麦わら6000以上 ブロック不可付与 → 簡略: 1ドロー",
+      "_text": "ST21-003 サンジ 登場時: 自パワー6000+麦わらキャラ1を選ぶと、 そのキャラのアタック時 相手はブロッカー不可",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "自パワー6000+麦わらキャラ1選択 → そのキャラに【ブロック不可】turn (= 条件付き選択 + give_keyword)"
         }
       ]
     }
@@ -25575,27 +25927,28 @@
   ],
   "OP05-102_p2": [
     {
-      "_text": "ゲダツ (黄 cost5) 【登場時】相手ライフ以下コスト KO → 簡略: コスト5以下KO",
+      "_text": "OP05-102 ゲダツ 登場時: 相手ライフ枚数以下コストの相手キャラ1 KO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5"
+          "_unimplemented": "相手ライフ枚数以下コストの相手キャラ1を KO (= dynamic cost limit selector based on opp_life)"
         }
       ]
     }
   ],
   "OP05-106_p1": [
     {
-      "_text": "auto: 自分のデッキの上から5枚を見て、「シュラ」以外の特徴《空島》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP05-106 シュラ 登場時: デッキ上5を見て 空島 (除く自身) 1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
-              "feature": "空島"
+              "feature": "空島",
+              "exclude_card_id": "OP05-106"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 5
           }
         }
       ]
@@ -25820,11 +26173,14 @@
   ],
   "OP08-047_p1": [
     {
-      "_text": "ジョズ (青 cost6) 【登場時】(自キャラ手札戻し) 相手キャラ手札戻し → 簡略: 相手キャラ手札戻し",
+      "_text": "OP08-047 ジョズ 登場時: 自他キャラ1を手札に戻すコストで 相手cost6以下キャラ1を相手手札に戻す",
       "when": "on_play",
+      "cost": {
+        "_unimplemented": "return_self_other_chara_to_hand 1 (= 自分の他のキャラ1を手札へ戻す)"
+      },
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_6"
+          "return_to_hand": "one_opponent_character_le_6cost"
         }
       ]
     }
@@ -25874,14 +26230,15 @@
   ],
   "OP09-004_p4": [
     {
-      "_text": "シャンクス (赤 cost10) 速攻+ 【常在】相手キャラ全-1000 → 簡略: 登場時に相手キャラ全-1000 turn",
-      "when": "on_play",
+      "_text": "OP09-004 シャンクス 常在: 相手キャラすべて -1000",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": "all_opponent_characters",
             "amount": -1000,
-            "duration": "turn"
+            "duration": "static"
           }
         }
       ]
@@ -25976,11 +26333,17 @@
   ],
   "OP10-032_p2": [
     {
-      "_text": "たしぎ (緑 cost3) 緑キャラ KO 代替 → 簡略: 1ドロー (代替効果は表現困難)",
-      "when": "on_play",
+      "_text": "OP10-032 たしぎ 置換: 自他緑キャラが相手効果で場離れる時、 self をレストにして代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_color": "緑",
+        "by_opp_effect": true,
+        "_unimplemented": "対象 = 「たしぎ」 以外の自分の緑キャラ (= color filter + name exclude)"
+      },
       "do": [
         {
-          "draw": 1
+          "rest": "self"
         }
       ]
     }
@@ -26080,15 +26443,16 @@
   ],
   "OP12-071_p1": [
     {
-      "_text": "auto: 自分のデッキの上から4枚を見て、「サンジ」かイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP12-071 プリン 登場時: デッキ上4を見て サンジ or イベ 1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER"
+              "_unimplemented": "name=サンジ OR category=EVENT"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 4
           }
         }
       ]
@@ -26181,11 +26545,20 @@
   ],
   "OP13-108_p2": [
     {
-      "_text": "auto trigger: 自分のライフが1枚以下の場合、相手のコスト7以下のキャラ1枚までを、レストにする。",
-      "when": "trigger",
+      "_text": "OP13-108 ボニー 登場時: エッグヘッドリーダーで self に【速攻】turn, その後 相手ライフ1を相手手札へ",
+      "when": "on_play",
+      "if": {
+        "leader_feature": "エッグヘッド"
+      },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        },
+        {
+          "_unimplemented": "相手のライフ上から1枚を相手手札へ (= mill_opp_life_to_hand 1)"
         }
       ]
     }
@@ -26266,14 +26639,20 @@
   ],
   "OP14-083_p1": [
     {
-      "_text": "ミス・ウェンズデー (青 cost1) 起動メイン (self trash): コスト0キャラ -3000 → 簡略: コスト0KO",
+      "_text": "OP14-083 ウェンズデー 起動メイン: self trash → 相手cost0キャラ1 -3000 turn",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "_unimplemented": "trash_self コスト"
       },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_0"
+          "power_pump": {
+            "target": "one_opponent_character_cost_0",
+            "amount": -3000,
+            "duration": "turn"
+          },
+          "_unimplemented": "対象 = 相手のコスト0のキャラ (= cost_eq selector)"
         }
       ]
     }
@@ -26933,32 +27312,29 @@
   ],
   "OP06-038_p1": [
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のレストのカードが8枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP06-038 カウンター: 自リーダー/キャラ1 +2000 battle, その後 自レスト8+で +追加2000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "auto trigger: 相手のレストのコスト3以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "ko": "one_opponent_character_cost_le_3"
+          "_unimplemented": "自レストカード8+で 同対象に追加+2000 (= 条件付き追加 buff to same target)"
         }
       ]
     }
   ],
   "OP06-104_p1": [
     {
-      "_text": "菊之丞 (黄 cost4) 【KO時】(ライフ3以下) デッキ→ライフ → 簡略: KO時 デッキ→ライフ",
+      "_text": "OP06-104 菊之丞 KO時: 相手ライフ3以下なら デッキ上1をライフへ",
       "when": "on_ko",
+      "if": {
+        "opp_life_le": 3
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -27040,11 +27416,15 @@
   ],
   "OP07-051_p4": [
     {
-      "_text": "auto2: 相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "OP07-051 ハンコック 登場時: 相手「ルフィ」以外1 attack不可 (次相手ターン終了まで → 簡略 turn) + cost1以下キャラ1をデッキ底へ",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1"
+          "set_cannot_attack": "one_opponent_character_excl_name_モンキー・D・ルフィ",
+          "_unimplemented": "対象 = 相手の「モンキー・D・ルフィ」以外1枚 (= name 除外セレクタ)"
+        },
+        {
+          "_unimplemented": "コスト1以下のキャラ1枚を持ち主のデッキの下に置く (= return_to_deck_bottom)"
         }
       ]
     }
@@ -27314,57 +27694,79 @@
   ],
   "OP13-072_p1": [
     {
-      "_text": "バギー (紫 cost2) 【登場時】(リーダー+ドン条件) ドン1追加 → 簡略",
+      "_text": "OP13-072 バギー 登場時: ロジャー海賊団リーダー + 自付与ドンあり → ドンデッキからドン1レスト追加",
       "when": "on_play",
+      "if": {
+        "leader_features_any": [
+          "ロジャー海賊団"
+        ],
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
-          "add_don": 1
+          "add_rested_don": 1
         }
       ]
     }
   ],
   "OP13-086_p1": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、「シャルリア宮」以外の特徴《天竜人》を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置き、自分の手札1枚を捨てる。",
+      "_text": "OP13-086 登場時: デッキ上3を見て 天竜人 (除く自身) 1を手札 残trash + 1捨て",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
-              "feature": "天竜人"
+              "feature": "天竜人",
+              "exclude_card_id": "OP13-086"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3,
+            "rest_to": "trash"
           }
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
   ],
   "OP13-092_p1": [
     {
-      "_text": "ミョスガルド (黒 cost2) 登場時 (ライフ3以下): trashからステージ登場 → 簡略: 1ドロー",
+      "_text": "OP13-092 ミョスガルド 登場時: 自ライフ3以下で trashから cost1聖地マリージョアステージ1を登場",
       "when": "on_play",
       "if": {
         "self_life_le": 3
       },
       "do": [
         {
-          "draw": 1
+          "play_from_trash": {
+            "filter": {
+              "category": "STAGE",
+              "feature": "聖地マリージョア",
+              "cost": 1
+            },
+            "limit": 1
+          },
+          "_unimplemented": "対象が STAGE カテゴリ (= play_stage_from_trash)"
         }
       ]
     }
   ],
   "OP14-099_p1": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、「不服か？」以外の『B・W』を含む特徴を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置く。",
+      "_text": "OP14-099 不服か メイン: デッキ上3を見て BW (除く自身) 1を手札 残trash",
       "when": "main",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER"
+              "feature": "B・W",
+              "exclude_card_id": "OP14-099"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3,
+            "rest_to": "trash"
           }
         }
       ]
@@ -27410,16 +27812,16 @@
   ],
   "OP15-108_p1": [
     {
-      "_text": "auto: 自分のデッキの上から3枚を見て、特徴《空島》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP15-108 ナミ 登場時: デッキ上3を見て 空島1を手札 残デッキ底",
       "when": "on_play",
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER",
               "feature": "空島"
             },
-            "limit": 1
+            "limit": 1,
+            "depth": 3
           }
         }
       ]
@@ -27606,11 +28008,11 @@
   ],
   "ST21-003_p3": [
     {
-      "_text": "サンジ (赤 cost2) 登場時: 麦わら6000以上 ブロック不可付与 → 簡略: 1ドロー",
+      "_text": "ST21-003 サンジ 登場時: 自パワー6000+麦わらキャラ1を選ぶと、 そのキャラのアタック時 相手はブロッカー不可",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "自パワー6000+麦わらキャラ1選択 → そのキャラに【ブロック不可】turn (= 条件付き選択 + give_keyword)"
         }
       ]
     }
@@ -28116,11 +28518,18 @@
   ],
   "OP05-077_r1": [
     {
-      "_text": "ガンマナイフ メイン (自動 fallback)",
+      "_text": "OP05-077 ガンマナイフ メイン: ドン-1 → 相手キャラ1 -5000 turn",
       "when": "main",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -5000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -28138,11 +28547,11 @@
   ],
   "OP05-102_r1": [
     {
-      "_text": "ゲダツ (黄 cost5) 【登場時】相手ライフ以下コスト KO → 簡略: コスト5以下KO",
+      "_text": "OP05-102 ゲダツ 登場時: 相手ライフ枚数以下コストの相手キャラ1 KO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5"
+          "_unimplemented": "相手ライフ枚数以下コストの相手キャラ1を KO (= dynamic cost limit selector based on opp_life)"
         }
       ]
     }
@@ -28578,11 +28987,20 @@
   ],
   "OP08-023_r1": [
     {
-      "_text": "キャロット 登場時/アタック時: 7以下キャラはリフレッシュ無効 → 簡略: rest 1体",
+      "_text": "OP08-023 キャロット 登場時/アタック時: 相手レスト cost7以下キャラ1 stay_rested_next_refresh",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_rested_character_cost_le_7"
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP08-023 キャロット アタック時: 同効果",
+      "when": "on_attack",
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
         }
       ]
     }
@@ -30076,11 +30494,11 @@
   ],
   "ST21-003_r1": [
     {
-      "_text": "サンジ (赤 cost2) 登場時: 麦わら6000以上 ブロック不可付与 → 簡略: 1ドロー",
+      "_text": "ST21-003 サンジ 登場時: 自パワー6000+麦わらキャラ1を選ぶと、 そのキャラのアタック時 相手はブロッカー不可",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "自パワー6000+麦わらキャラ1選択 → そのキャラに【ブロック不可】turn (= 条件付き選択 + give_keyword)"
         }
       ]
     }
@@ -31575,44 +31993,76 @@
   ],
   "OP05-082_p1": [
     {
-      "_text": "しらほし 起動メイン (自動 fallback)",
+      "_text": "OP05-082 しらほし 起動メイン: self レスト + trash2をデッキ底に → 相手手札6+で 相手手札1捨て",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true,
+        "_unimplemented": "trash 2 to deck bottom"
+      },
+      "if": {
+        "_unimplemented": "opp_hand_count_ge=6"
+      },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "相手は自身の手札1枚を捨てる (= force_opp_discard)"
         }
       ]
     }
   ],
   "OP05-082_p2": [
     {
-      "_text": "しらほし 起動メイン (自動 fallback)",
+      "_text": "OP05-082 しらほし 起動メイン: self レスト + trash2をデッキ底に → 相手手札6+で 相手手札1捨て",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true,
+        "_unimplemented": "trash 2 to deck bottom"
+      },
+      "if": {
+        "_unimplemented": "opp_hand_count_ge=6"
+      },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "相手は自身の手札1枚を捨てる (= force_opp_discard)"
         }
       ]
     }
   ],
   "OP05-082_p3": [
     {
-      "_text": "しらほし 起動メイン (自動 fallback)",
+      "_text": "OP05-082 しらほし 起動メイン: self レスト + trash2をデッキ底に → 相手手札6+で 相手手札1捨て",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true,
+        "_unimplemented": "trash 2 to deck bottom"
+      },
+      "if": {
+        "_unimplemented": "opp_hand_count_ge=6"
+      },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "相手は自身の手札1枚を捨てる (= force_opp_discard)"
         }
       ]
     }
   ],
   "OP05-082_r1": [
     {
-      "_text": "しらほし 起動メイン (自動 fallback)",
+      "_text": "OP05-082 しらほし 起動メイン: self レスト + trash2をデッキ底に → 相手手札6+で 相手手札1捨て",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true,
+        "_unimplemented": "trash 2 to deck bottom"
+      },
+      "if": {
+        "_unimplemented": "opp_hand_count_ge=6"
+      },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "相手は自身の手札1枚を捨てる (= force_opp_discard)"
         }
       ]
     }
@@ -31860,24 +32310,18 @@
   ],
   "OP06-038_r1": [
     {
-      "_text": "auto: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のレストのカードが8枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP06-038 カウンター: 自リーダー/キャラ1 +2000 battle, その後 自レスト8+で +追加2000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "auto trigger: 相手のレストのコスト3以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "ko": "one_opponent_character_cost_le_3"
+          "_unimplemented": "自レストカード8+で 同対象に追加+2000 (= 条件付き追加 buff to same target)"
         }
       ]
     }
@@ -34818,11 +35262,14 @@
   ],
   "EB01-059": [
     {
-      "_text": "雷迎 メイン: 相手キャラKO + ライフ1枚にする (簡略: ライフ削減は省略)",
+      "_text": "EB01-059 雷迎 メイン: 相手キャラ1 KO, その後 自ライフを1になるまでトラッシュへ",
       "when": "main",
       "do": [
         {
           "ko": "one_opponent_character_le_5000"
+        },
+        {
+          "_unimplemented": "自ライフを1枚になるようにライフ上からトラッシュへ (= trim_self_life_to_1)"
         }
       ]
     }
@@ -35801,11 +36248,11 @@
   ],
   "OP14-093": [
     {
-      "_text": "Mr.4 KO時: BWキャラサーチ (簡略 1ドロー)",
+      "_text": "OP14-093 Mr.4 KO時: trashから cost8以下 BW キャラ1を手札へ",
       "when": "on_ko",
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "trash から cost8以下 BW キャラ1を手札に加える (= recall_from_trash with filter)"
         }
       ]
     }
@@ -35962,11 +36409,14 @@
   ],
   "OP12-030_p2": [
     {
-      "_text": "ジュラキュール・ミホーク 登場時 (自動 fallback)",
+      "_text": "OP12-030 ミホーク 登場時: ドン4アクティブ, このターン 自cost7+キャラ登場禁止",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "untap_don": 4
+        },
+        {
+          "_unimplemented": "このターン中、 元々cost7+キャラを登場できない (= block_play_cost_ge=7)"
         }
       ]
     }
@@ -36831,22 +37281,28 @@
   ],
   "OP12-030": [
     {
-      "_text": "OP12-030 ミホーク 登場時: untap_don 4 (ペナルティ block_chara_play は省略)",
+      "_text": "OP12-030 ミホーク 登場時: ドン4アクティブ, このターン 自cost7+キャラ登場禁止",
       "when": "on_play",
       "do": [
         {
           "untap_don": 4
+        },
+        {
+          "_unimplemented": "このターン中、 元々cost7+キャラを登場できない (= block_play_cost_ge=7)"
         }
       ]
     }
   ],
   "OP12-030_p1": [
     {
-      "_text": "ジュラキュール・ミホーク 登場時 (自動 fallback)",
+      "_text": "OP12-030 ミホーク 登場時: ドン4アクティブ, このターン 自cost7+キャラ登場禁止",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "untap_don": 4
+        },
+        {
+          "_unimplemented": "このターン中、 元々cost7+キャラを登場できない (= block_play_cost_ge=7)"
         }
       ]
     }
@@ -37053,11 +37509,18 @@
   ],
   "OP12-079": [
     {
-      "_text": "ルフィは海賊王: サンジリーダー → 1ドロー (簡略)",
+      "_text": "OP12-079 メイン: サンジリーダーで デッキ上3を見て1枚手札 残デッキ底",
       "when": "main",
+      "if": {
+        "leader_name": "サンジ"
+      },
       "do": [
         {
-          "draw": 1
+          "search": {
+            "filter": {},
+            "limit": 1,
+            "depth": 3
+          }
         }
       ]
     }
@@ -37643,11 +38106,11 @@
   ],
   "OP11-061": [
     {
-      "_text": "ゴムゴムのJET大蛇砲 メイン: コスト4以下相手キャラを return_to_hand 簡略",
+      "_text": "OP11-061 メイン: 相手元々cost4以下キャラ1を デッキ底に",
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
+          "_unimplemented": "相手の元々cost4以下のキャラ1を持ち主のデッキの下に置く (= return_to_deck_bottom with base_cost filter)"
         }
       ]
     }
@@ -37880,17 +38343,18 @@
   ],
   "OP11-107": [
     {
-      "_text": "チョンマゲ 起動メイン: しらほしリーダー → ライフ表向き (簡略 1ドロー)",
+      "_text": "OP11-107 チョンマゲ 起動メイン: しらほしリーダー + 自ライフ1を裏向きに → ターン終了時 self untap",
       "when": "activate_main",
-      "if": {
-        "leader_feature": "魚人島"
-      },
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "_unimplemented": "flip_self_life_face_down 1"
+      },
+      "if": {
+        "leader_name": "しらほし"
       },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "このターン終了時、 self をアクティブにする (= deferred untap on end_of_turn)"
         }
       ]
     }
@@ -42677,15 +43141,19 @@
   ],
   "OP05-082": [
     {
-      "_text": "OP05-082 しらほし 起動メイン: 自レスト → 1ドロー (簡略)",
+      "_text": "OP05-082 しらほし 起動メイン: self レスト + trash2をデッキ底に → 相手手札6+で 相手手札1捨て",
       "when": "activate_main",
       "cost": {
+        "once_per_turn": true,
         "rest_self": true,
-        "once_per_turn": true
+        "_unimplemented": "trash 2 to deck bottom"
+      },
+      "if": {
+        "_unimplemented": "opp_hand_count_ge=6"
       },
       "do": [
         {
-          "draw": 1
+          "_unimplemented": "相手は自身の手札1枚を捨てる (= force_opp_discard)"
         }
       ]
     }
@@ -47442,8 +47910,11 @@
   ],
   "OP06-104_r1": [
     {
-      "_text": "菊之丞 (黄 cost4) 【KO時】(ライフ3以下) デッキ→ライフ → 簡略: KO時 デッキ→ライフ",
+      "_text": "OP06-104 菊之丞 KO時: 相手ライフ3以下なら デッキ上1をライフへ",
       "when": "on_ko",
+      "if": {
+        "opp_life_le": 3
+      },
       "do": [
         {
           "put_top_to_life": 1
@@ -53407,15 +53878,11 @@
   ],
   "P-100": [
     {
-      "_text": "P-100 ティーチ アタック時: 相手リーダー -1000 (効果無効化を簡略)",
+      "_text": "P-100 ティーチ アタック時: 相手リーダーとキャラすべてを このターン中効果無効",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "opponent_leader",
-            "amount": -1000,
-            "duration": "turn"
-          }
+          "_unimplemented": "相手リーダーとキャラすべてを このターン中効果を無効にする (= effect_invalidate target = all_opp_team)"
         }
       ]
     }
@@ -55390,14 +55857,15 @@
   ],
   "OP09-004_r1": [
     {
-      "_text": "シャンクス (赤 cost10) 速攻+ 【常在】相手キャラ全-1000 → 簡略: 登場時に相手キャラ全-1000 turn",
-      "when": "on_play",
+      "_text": "OP09-004 シャンクス 常在: 相手キャラすべて -1000",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": "all_opponent_characters",
             "amount": -1000,
-            "duration": "turn"
+            "duration": "static"
           }
         }
       ]
@@ -55424,11 +55892,17 @@
   ],
   "OP10-032_r1": [
     {
-      "_text": "たしぎ (緑 cost3) 緑キャラ KO 代替 → 簡略: 1ドロー (代替効果は表現困難)",
-      "when": "on_play",
+      "_text": "OP10-032 たしぎ 置換: 自他緑キャラが相手効果で場離れる時、 self をレストにして代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_color": "緑",
+        "by_opp_effect": true,
+        "_unimplemented": "対象 = 「たしぎ」 以外の自分の緑キャラ (= color filter + name exclude)"
+      },
       "do": [
         {
-          "draw": 1
+          "rest": "self"
         }
       ]
     }
@@ -56151,24 +56625,27 @@
   "OP12-066": [],
   "OP12-070": [
     {
-      "_text": "OP12-070 サンジ トラッシュイベ5枚毎+1000 (簡略: trash_count_ge 5 で +1000)",
+      "_text": "OP12-070 サンジ 常在: 自trashイベント5枚毎にパワー+1000",
       "when": "on_attached_don",
       "n": 0,
-      "if": {
-        "self_trash_count_ge": 5
-      },
       "do": [
         {
           "power_pump": {
             "target": "self",
-            "amount": 1000,
-            "duration": "static"
-          }
+            "duration": "static",
+            "amount_per": {
+              "source": "_unimplemented",
+              "multiplier": 1000,
+              "divisor": 5
+            },
+            "amount": 0
+          },
+          "_unimplemented": "自trash イベント数 / 5 × 1000 (= dynamic per category-count)"
         }
       ]
     },
     {
-      "_text": "OP12-070 サンジ replace_ko: 相手効果で離れる時 ドン1戻して代替",
+      "_text": "OP12-070 サンジ 置換: 相手効果で場離れる時、 自場ドン1をドンデッキに戻して代替",
       "when": "replace_ko",
       "if": {
         "target": "self",
@@ -56176,12 +56653,46 @@
       },
       "do": [
         {
-          "pay_don": 1
+          "_unimplemented": "自分の場のドン!!1枚をドン!!デッキに戻す"
         }
       ]
     }
   ],
-  "OP12-070_p1": [],
+  "OP12-070_p1": [
+    {
+      "_text": "OP12-070 サンジ 常在: 自trashイベント5枚毎にパワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "duration": "static",
+            "amount_per": {
+              "source": "_unimplemented",
+              "multiplier": 1000,
+              "divisor": 5
+            },
+            "amount": 0
+          },
+          "_unimplemented": "自trash イベント数 / 5 × 1000 (= dynamic per category-count)"
+        }
+      ]
+    },
+    {
+      "_text": "OP12-070 サンジ 置換: 相手効果で場離れる時、 自場ドン1をドンデッキに戻して代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "_unimplemented": "自分の場のドン!!1枚をドン!!デッキに戻す"
+        }
+      ]
+    }
+  ],
   "OP12-072": [],
   "OP12-102": [
     {
