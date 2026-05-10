@@ -293,6 +293,8 @@ class Player:
     play_cost_reduction: int = 0
     # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
     block_chara_play_until_turn_end: bool = False
+    # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット
+    block_self_draw_until_turn_end: bool = False
 
     MAX_CHARACTERS = 5
     MAX_STAGES = 1     # 公式 3-8-5

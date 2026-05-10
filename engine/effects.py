@@ -217,6 +217,53 @@ def eval_condition(
             # 簡略: turn_number >= 2*v - 1 でフィルタ (両者対応)
             if state.turn_number < 2 * int(v) - 1:
                 return False
+        elif k == "self_attached_don_ge":
+            # 自分のリーダー or キャラに合計 N 枚以上のドンが付与されている
+            total = me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
+            if total < int(v):
+                return False
+        elif k == "self_chara_unique_name":
+            # 「自分の他の <name> が存在しない」 = 自身を除いた同名キャラ 0 (= 唯一性)
+            if self_inplay is None:
+                return False
+            target_name = str(v)
+            same = [
+                c for c in me.characters
+                if c is not self_inplay and c.card.name == target_name
+            ]
+            if same:
+                return False
+        elif k == "leader_name":
+            # リーダーのカード名一致 (例: "サンジ" / "イム" / "ルーシー")
+            if me.leader.card.name != str(v):
+                return False
+        elif k == "leader_name_in":
+            # リーダー名がリストに含まれる
+            if me.leader.card.name not in (v or []):
+                return False
+        elif k == "self_trash_event_count_ge":
+            # 自トラッシュのイベントカード数 N 以上
+            count = sum(1 for c in me.trash if c.category == Category.EVENT)
+            if count < int(v):
+                return False
+        elif k == "self_rested_cards_count_ge":
+            # 自場のレストカード数 (レストキャラ+レストドン+レストリーダー+レストステージ) ≥ N
+            count = me.don_rested
+            count += sum(1 for c in me.characters if c.rested)
+            if me.leader.rested:
+                count += 1
+            count += sum(1 for s in me.stages if s.rested)
+            if count < int(v):
+                return False
+        elif k == "self_chara_power_ge":
+            # 自場に N パワー以上のキャラがいる
+            need = int(v)
+            if not any(c.power >= need for c in me.characters):
+                return False
+        elif k == "_unimplemented":
+            # 「未対応条件」 マーカー: True 扱いにする (= 効果は試行する、 ただし忠実でない可能性あり)
+            # 上位レビューで埋める前提
+            continue
         else:
             # 未対応の条件は False 扱い(暴発防止)
             return False
@@ -276,7 +323,7 @@ def _resolve_target(
     # --- パラメトリック target (regex マッチ) ---
     if isinstance(target_spec, str):
         # one_opponent_character_cost_le_N (1 体、最高パワー)
-        m = re.match(r"one_opponent_character_cost_le_(\d+)$", target_spec)
+        m = re.match(r"one_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
             cands = sorted(
@@ -286,13 +333,13 @@ def _resolve_target(
             return cands[:1]
 
         # any_opponent_character_cost_le_N (全員)
-        m = re.match(r"any_opponent_character_cost_le_(\d+)$", target_spec)
+        m = re.match(r"any_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
             return [c for c in opp.characters if c.card.cost <= n]
 
         # one_opponent_rested_character_cost_le_N (レスト + コスト N 以下、1 体)
-        m = re.match(r"one_opponent_rested_character_cost_le_(\d+)$", target_spec)
+        m = re.match(r"one_opponent_rested_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
             cands = sorted(
@@ -310,6 +357,69 @@ def _resolve_target(
                 key=lambda c: -c.power,
             )
             return cands[:1]
+
+        # one_opponent_rested_character_power_le_N (レスト + パワー N 以下)
+        m = re.match(r"one_opponent_rested_character_power_le_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in opp.characters if c.rested and c.power <= n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # one_opponent_character_cost_eq_N / cost_0 等 (= ぴったり N コスト)
+        m = re.match(r"one_opponent_character_cost_(?:eq_)?(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in opp.characters if c.card.cost == n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # all_opponent_rested_characters_le_Ncost
+        m = re.match(r"all_opponent_rested_characters_le_(\d+)cost$", target_spec)
+        if m:
+            n = int(m.group(1))
+            return [c for c in opp.characters if c.rested and c.card.cost <= n]
+
+        # one_self_character_le_Ncost (= 自分の cost N 以下キャラ 1 枚、 パワー高い順)
+        m = re.match(r"one_self_character_le_(\d+)cost$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in me.characters if c.card.cost <= n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # one_self_character_named_X (名前一致セレクタ。 X は 「エネル」 等)
+        m = re.match(r"one_self_character_named_(.+)$", target_spec)
+        if m:
+            target_name = m.group(1)
+            cands = [c for c in me.characters if c.card.name == target_name]
+            return cands[:1]
+
+        # all_self_characters_named_X (名前一致全員)
+        m = re.match(r"all_self_characters_named_(.+)$", target_spec)
+        if m:
+            target_name = m.group(1)
+            return [c for c in me.characters if c.card.name == target_name]
+
+        # one_self_character_any (= 自分の任意 1 体、 パワー高い順)
+        if target_spec == "one_self_character_any":
+            cands = sorted(me.characters, key=lambda c: -c.power)
+            return cands[:1]
+
+        # other_self_chara (= self 以外の自キャラ 1 体)
+        if target_spec == "other_self_chara":
+            cands = [c for c in me.characters if c is not self_inplay]
+            return cands[:1]
+
+        # self_inplay_choice (= 自リーダーまたはキャラ 1 体、 リーダー優先)
+        if target_spec == "self_inplay_choice":
+            return [me.leader]
 
     return []
 
@@ -334,6 +444,10 @@ def execute_effect(
     for k, v in spec.items():
         if k == "draw":
             n = int(v)
+            if getattr(me, "block_self_draw_until_turn_end", False):
+                # 公式: 「このターン中、 自分の効果でドロー不可」 ペナルティ下では発動しない
+                state.push_log(f"  効果: ドロー {n} (このターン中ドロー禁止のため不発)")
+                continue
             drawn = me.draw(n)
             state.push_log(f"  効果: ドロー {n} → {[c.name for c in drawn]}")
         elif k == "trash_self_hand_random":
@@ -676,6 +790,83 @@ def execute_effect(
                 else:
                     new_hand.append(card)
             me.hand[:] = new_hand
+        elif k == "mill_opp_life_to_hand":
+            # 相手のライフ上から N 枚を相手の手札へ (= ライフ削り、 相手リーダーに対するダメージとほぼ等価)
+            # 公式: ヒット時にトリガー判定するが、 「効果で」 ライフを取る場合は trigger は発動しない (10-1-5)。
+            # 簡略実装: ライフ上から取り出して相手手札に入れるだけ (トリガー判定なし)
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            for _ in range(n):
+                if not opp.life:
+                    break
+                taken = opp.life.pop(0)
+                opp.hand.append(taken)
+            state.push_log(f"  効果: 相手ライフ上 {n} 枚を相手手札へ")
+        elif k == "mill_self_life_to_trash":
+            # 自分のライフ上から N 枚をトラッシュへ (= 自害効果)
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            for _ in range(n):
+                if not me.life:
+                    break
+                taken = me.life.pop(0)
+                me.trash.append(taken)
+            state.push_log(f"  効果: 自ライフ上 {n} 枚をトラッシュへ")
+        elif k == "return_self_don_to_deck":
+            # 自分の場のドン (active 優先 → rested) を N 枚ドンデッキに戻す
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            from_active = min(me.don_active, n)
+            me.don_active -= from_active
+            me.don_remaining_in_deck += from_active
+            remaining = n - from_active
+            from_rested = min(me.don_rested, remaining)
+            me.don_rested -= from_rested
+            me.don_remaining_in_deck += from_rested
+            state.push_log(f"  効果: 自ドン {n} 枚をドンデッキに戻す")
+        elif k == "rest_self_don":
+            # 自分のアクティブドン N 枚をレストにする (= 起動メイン代替コスト)
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            actual = min(me.don_active, n)
+            me.don_active -= actual
+            me.don_rested += actual
+            state.push_log(f"  効果: 自アクティブドン {actual} 枚をレストへ")
+        elif k == "deal_opp_leader_damage":
+            # 相手リーダーに N ダメージ (= 相手ライフ N を相手の手札 or トリガー)
+            # 簡略: mill_opp_life_to_hand と等価扱い (トリガー判定省略)
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            for _ in range(n):
+                if not opp.life:
+                    break
+                taken = opp.life.pop(0)
+                opp.hand.append(taken)
+            state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
+        elif k == "force_opp_discard":
+            # 相手手札からランダム N 枚捨てさせる (= trash_opp_hand_random と同義のエイリアス)
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            for _ in range(n):
+                if not opp.hand:
+                    break
+                idx = state.rng.randrange(len(opp.hand))
+                opp.trash.append(opp.hand.pop(idx))
+            state.push_log(f"  効果: 相手手札 {n} 枚捨て (force)")
+        elif k == "ko_opp_stage":
+            # 相手のステージ N 枚 KO (cost フィルタオプショナル)
+            spec = v if isinstance(v, dict) else {"limit": 1}
+            limit = int(spec.get("limit", 1))
+            cost_filter = spec.get("cost")
+            removed = 0
+            kept: list = []
+            for s in opp.stages:
+                if removed < limit and (cost_filter is None or s.card.cost == cost_filter):
+                    opp.trash.append(s.card)
+                    removed += 1
+                else:
+                    kept.append(s)
+            opp.stages[:] = kept
+            if removed > 0:
+                state.push_log(f"  効果: 相手ステージ {removed} 枚を KO")
+        elif k == "block_self_draw_turn":
+            # このターン中、 自分の効果でカードを引くことができない
+            me.block_self_draw_until_turn_end = True
+            state.push_log(f"  効果: このターン中、 自効果ドロー禁止")
         elif k == "prevent_ko":
             # ターン終了時まで KO 耐性付与。target = self / all_self_characters 等
             target_spec = v if isinstance(v, str) else "self"

@@ -253,6 +253,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.cost_minus_until_turn_end = 0
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
+        player.block_self_draw_until_turn_end = False
 
 
 def advance_phase(state: GameState) -> None:
@@ -378,8 +379,33 @@ def legal_actions(state: GameState) -> list[Action]:
     me = state.turn_player
     actions: list[Action] = [EndPhase()]
 
+    def _in_hand_cost_minus(card: CardDef) -> int:
+        """手札時のカード固有コスト軽減 (overlay の when:"in_hand" + cost_minus)。
+        条件 (if 句) を満たす effect の cost_minus を合計する。 公式: 「手札のこのカードは
+        〜の場合、 コスト-N」 を表現。"""
+        from .effects import eval_condition
+        if not state.effects_overlay:
+            return 0
+        bundle = state.effects_overlay.get(card.card_id)
+        if bundle is None:
+            return 0
+        total = 0
+        for eff in bundle.effects:
+            if eff.get("when") != "in_hand":
+                continue
+            if not eval_condition(eff.get("if", {}), state, me, None):
+                continue
+            for prim in eff.get("do", []):
+                if not isinstance(prim, dict):
+                    continue
+                if "in_hand_cost_minus" in prim:
+                    val = prim["in_hand_cost_minus"]
+                    total += int(val) if isinstance(val, int) else int(val.get("amount", 0))
+        return total
+
     def _eff_cost(card: CardDef) -> int:
-        return max(0, card.cost - me.play_cost_reduction)
+        base = card.cost - me.play_cost_reduction - _in_hand_cost_minus(card)
+        return max(0, base)
 
     # キャラ登場禁止 (OP14-020 ミホーク等のペナルティでこのターン中ブロック)
     chara_play_blocked = me.block_chara_play_until_turn_end
@@ -526,6 +552,30 @@ def apply_action(state: GameState, action: Action) -> None:
         _recompute_static(state)
 
 
+def _compute_in_hand_cost_minus(state: GameState, me: Player, card: CardDef) -> int:
+    """手札時のカード固有コスト軽減 (overlay の when:"in_hand" + cost_minus)。
+    apply_action でも legal_actions と同じ計算を共有するためのモジュールレベル helper。"""
+    from .effects import eval_condition
+    if not state.effects_overlay:
+        return 0
+    bundle = state.effects_overlay.get(card.card_id)
+    if bundle is None:
+        return 0
+    total = 0
+    for eff in bundle.effects:
+        if eff.get("when") != "in_hand":
+            continue
+        if not eval_condition(eff.get("if", {}), state, me, None):
+            continue
+        for prim in eff.get("do", []):
+            if not isinstance(prim, dict):
+                continue
+            if "in_hand_cost_minus" in prim:
+                val = prim["in_hand_cost_minus"]
+                total += int(val) if isinstance(val, int) else int(val.get("amount", 0))
+    return total
+
+
 def _apply_action_impl(state: GameState, action: Action) -> None:
     me = state.turn_player
     opp = state.opponent
@@ -540,7 +590,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         card = me.hand[action.hand_idx]
         if card.category != Category.CHARACTER:
             raise ValueError(f"PlayCharacter category={card.category}")
-        eff_cost = max(0, card.cost - me.play_cost_reduction)
+        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card))
         if me.don_active < eff_cost:
             raise ValueError("not enough don")
         if action.sacrifice_iid is not None:
@@ -578,7 +628,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         card = me.hand[action.hand_idx]
         if card.category != Category.EVENT:
             raise ValueError(f"PlayEvent category={card.category}")
-        eff_cost = max(0, card.cost - me.play_cost_reduction)
+        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card))
         if me.don_active < eff_cost:
             raise ValueError("not enough don")
         # 8-4-2: イベントを公開→コスト→トラッシュ→効果発動 の順
@@ -598,7 +648,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         card = me.hand[action.hand_idx]
         if card.category != Category.STAGE:
             raise ValueError(f"PlayStage category={card.category}")
-        eff_cost = max(0, card.cost - me.play_cost_reduction)
+        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card))
         if me.don_active < eff_cost:
             raise ValueError("not enough don")
         # 3-8-5-1: 既存ステージがあれば持ち主のトラッシュへ

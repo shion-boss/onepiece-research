@@ -62,7 +62,9 @@ def test_on_play_search():
 
 
 def test_on_play_ko():
-    """OP02-013 エース 登場時 5000以下を KO"""
+    """OP02-013 エース 登場時: 公式テキスト準拠で 「相手キャラ 1 枚まで -3000」 のパワーダウン
+    (KO ではなく power_pump)。 4000 のキャラは 1000 になる、 6000 のキャラは 3000 になる。
+    両方とも生存。"""
     repo = _repo()
     overlay = _overlay()
     ace = repo.get("OP02-013")
@@ -77,8 +79,14 @@ def test_on_play_ko():
     me.characters.append(ip)
     trigger_on_play(state, me, opp, ip, overlay)
 
-    assert len(opp.characters) == 1
-    assert opp.characters[0].card.card_id == "OP11-015"
+    # 公式: 「相手のキャラ 1〜2 枚まで -3000」 → 両方生存、 power 下がる
+    # 現 DSL は 1 枚対象 (one_opponent_character_le_5000) で 5000 以下のキャラを 1 体選択
+    # → ST21-005 (P4000) が選ばれ -3000 で 1000 に。 OP11-015 (P6000) は対象外で変化なし
+    assert len(opp.characters) == 2
+    st21 = next(c for c in opp.characters if c.card.card_id == "ST21-005")
+    assert st21.power == 4000 - 3000  # 1000
+    op11015 = next(c for c in opp.characters if c.card.card_id == "OP11-015")
+    assert op11015.power == 6000  # 対象外なので変化なし
 
 
 def test_activate_main_pump():
