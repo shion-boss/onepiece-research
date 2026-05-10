@@ -101,8 +101,8 @@ def setup_game(
     if first_player is None:
         first_player = rng.randrange(2)
 
-    p1 = _make_player(deck1, "P0", rng)
-    p2 = _make_player(deck2, "P1", rng)
+    p1 = _make_player(deck1, "P0", rng, effects_overlay)
+    p2 = _make_player(deck2, "P1", rng, effects_overlay)
     state = GameState(
         players=[p1, p2] if first_player == 0 else [p2, p1],
         turn_player_idx=0,
@@ -116,6 +116,17 @@ def setup_game(
 
     for p in state.players:
         p.draw(5)
+    # マリガン (公式 5-2-1-2): 各プレイヤーは1度だけ手札全戻し+引き直し可能。
+    # 先攻側から順に判定。AI ヒューリスティック: 手札に「3コスト以下のキャラ」が0枚ならマリガン。
+    # (序盤に登場できるキャラがいないなら引き直すべき)
+    for p in state.players:
+        if _should_mulligan(p):
+            # 手札を全部デッキに戻して シャッフル → 5 枚引き直し
+            p.deck.extend(p.hand)
+            p.hand = []
+            p.shuffle_deck(rng)
+            p.draw(5)
+            state.push_log(f"  マリガン: {p.name} 手札を引き直し")
     for p in state.players:
         for _ in range(p.leader.card.life):
             if p.deck:
@@ -125,18 +136,50 @@ def setup_game(
         f"start: P0={p1.leader.card.name}({p1.leader.card.life}L) "
         f"vs P1={p2.leader.card.name}({p2.leader.card.life}L)"
     )
+    _recompute_static(state)
     return state
 
 
-def _make_player(deck: DeckList, name: str, rng: random.Random) -> Player:
+def _should_mulligan(p: Player) -> bool:
+    """AI ヒューリスティックでマリガン判断。
+
+    序盤展開のため「コスト3以下のキャラ」が手札に1枚以上欲しい。
+    0枚ならマリガンする。コスト3以下のキャラが1+枚あれば現状の手札を保持。
+    """
+    low_cost_chars = [
+        c for c in p.hand
+        if c.category == Category.CHARACTER and c.cost <= 3
+    ]
+    return len(low_cost_chars) == 0
+
+
+def _make_player(
+    deck: DeckList,
+    name: str,
+    rng: random.Random,
+    effects_overlay: Optional[dict] = None,
+) -> Player:
     leader_inplay = InPlay.of(deck.leader, rested=False, sickness=False)
+    # 公式ルール上、ドン!!デッキは 10 枚 (5-1-2-3) だが、
+    # OP15-058 紫エネル等の「ルール上、自分のドン!!デッキは N 枚になる」効果に対応するため
+    # leader の overlay の when:"setup_modifier" + set_don_deck_size を反映する。
+    don_deck_size = 10
+    if effects_overlay is not None:
+        bundle = effects_overlay.get(deck.leader.card_id)
+        if bundle is not None:
+            for eff in bundle.effects:
+                if eff.get("when") != "setup_modifier":
+                    continue
+                for prim in eff.get("do", []):
+                    if "set_don_deck_size" in prim:
+                        don_deck_size = int(prim["set_don_deck_size"])
     p = Player(
         name=name,
         leader=leader_inplay,
         deck=list(deck.main),
         don_active=0,
         don_rested=0,
-        don_remaining_in_deck=10,
+        don_remaining_in_deck=don_deck_size,
     )
     p.shuffle_deck(rng)
     return p
@@ -145,23 +188,53 @@ def _make_player(deck: DeckList, name: str, rng: random.Random) -> Player:
 # --------------------------------------------------------------------------- #
 # フェーズ進行
 # --------------------------------------------------------------------------- #
+def _update_ownership_flags(state: GameState) -> None:
+    """各 InPlay の owner_idx と is_owners_turn を state から再計算。
+
+    DON+1000 は「所有者のターン中のみ」有効 (公式 6-5-5) なので、
+    InPlay.power はこのフラグを参照する。アクション適用後・ターン推移後に呼ぶ。
+    """
+    for me_idx in (0, 1):
+        p = state.players[me_idx]
+        is_my_turn = (me_idx == state.turn_player_idx)
+        for ip in [p.leader, *p.characters, *p.stages]:
+            ip.owner_idx = me_idx
+            ip.is_owners_turn = is_my_turn
+
+
 def _recompute_static(state: GameState) -> None:
-    """state.effects_overlay があれば常在効果 (on_attached_don 等) を再評価。"""
+    """state.effects_overlay があれば常在効果 (on_attached_don 等) を再評価。
+
+    overlay の有無に関わらず、所有者ターンフラグ (DON+1000 ゲート用) は更新する。
+    """
+    _update_ownership_flags(state)
     if state.effects_overlay:
         from .effects import evaluate_static_effects
         evaluate_static_effects(state, state.effects_overlay)
 
 
+def _reset_battle_buffs(state: GameState) -> None:
+    """バトル終了時 (公式 7-1-5-1) に全 InPlay の battle_buff (このバトル中効果) をクリア。
+
+    AttackLeader / AttackCharacter の処理末尾で呼ぶ。"""
+    for player in state.players:
+        for ip in [player.leader, *player.characters, *player.stages]:
+            ip.battle_buff = 0
+
+
 def _reset_turn_buff(state: GameState) -> None:
     """ターン終了時に全 InPlay の turn_buff / 動的キーワード / KO 耐性 /
-    アタック不可フラグをクリア。Player.play_cost_reduction も 0 に。"""
+    アタック不可フラグをクリア。Player.play_cost_reduction も 0 に。
+    cannot_attack_static は静的効果由来なのでここではクリアしない。"""
     for player in state.players:
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.turn_buff = 0
             ip.granted_keywords = set()
             ip.ko_immune_until_turn_end = False
             ip.cannot_attack_until_turn_end = False
+            ip.cost_minus_until_turn_end = 0
         player.play_cost_reduction = 0
+        player.block_chara_play_until_turn_end = False
 
 
 def advance_phase(state: GameState) -> None:
@@ -202,6 +275,10 @@ def advance_phase(state: GameState) -> None:
                 c.summoning_sickness = False
             if hasattr(me.leader, "_act_used"):
                 delattr(me.leader, "_act_used")
+        # 公式 6-2-1-1-2: ターン開始時の自動効果を発動 (turn_number==1 含む全ターン)
+        if state.effects_overlay:
+            from .effects import trigger_turn_start
+            trigger_turn_start(state, state.effects_overlay)
         state.phase = Phase.DRAW
 
     elif cur == Phase.DRAW:
@@ -220,6 +297,28 @@ def advance_phase(state: GameState) -> None:
         n = min(n, me.don_remaining_in_deck)
         me.don_active += n
         me.don_remaining_in_deck -= n
+        # ドンフェイズ修飾: リーダー overlay の when:"don_phase_modifier"
+        # auto_attach_to_leader: 配られた N 枚のうち M 枚を自リーダーに自動付与
+        # (OP13-003 赤紫ロジャー: 場ドンある場合 1 枚自動付与)
+        if state.effects_overlay and n > 0:
+            leader_id = me.leader.card.card_id
+            bundle = state.effects_overlay.get(leader_id)
+            if bundle is not None:
+                from .effects import eval_condition
+                for eff in bundle.effects:
+                    if eff.get("when") != "don_phase_modifier":
+                        continue
+                    if not eval_condition(eff.get("if", {}), state, me, me.leader):
+                        continue
+                    for prim in eff.get("do", []):
+                        attach_n = int(prim.get("auto_attach_to_leader", 0))
+                        if attach_n > 0:
+                            attach_n = min(attach_n, me.don_active)
+                            me.don_active -= attach_n
+                            me.leader.attached_dons += attach_n
+                            state.push_log(
+                                f"  自動付与: {me.name} リーダーにドン {attach_n} 枚"
+                            )
         state.phase = Phase.MAIN
 
     elif cur == Phase.MAIN:
@@ -257,14 +356,17 @@ def legal_actions(state: GameState) -> list[Action]:
     def _eff_cost(card: CardDef) -> int:
         return max(0, card.cost - me.play_cost_reduction)
 
+    # キャラ登場禁止 (OP14-020 ミホーク等のペナルティでこのターン中ブロック)
+    chara_play_blocked = me.block_chara_play_until_turn_end
+
     # 場 5 枚未満: 通常登場
-    if me.can_play_character():
+    if me.can_play_character() and not chara_play_blocked:
         for i, c in enumerate(me.hand):
             if c.category != Category.CHARACTER:
                 continue
             if _eff_cost(c) <= me.don_active:
                 actions.append(PlayCharacter(hand_idx=i))
-    else:
+    elif not chara_play_blocked:
         # 場 5 枚埋まり: 既存 1 枚を sacrifice して登場 (3-7-6-1)
         # 手札の playable × 既存最弱を 1 候補のみ生成 (爆発を抑える)
         for i, c in enumerate(me.hand):
@@ -312,13 +414,24 @@ def legal_actions(state: GameState) -> list[Action]:
     can_battle = state.turn_number > 2
 
     attackers: list[InPlay] = []
+    # 「速攻:キャラ」のみ持つキャラを別カテゴリで attacker に追加 (リーダー攻撃不可)
+    chara_only_attackers: list[InPlay] = []
     if can_battle:
-        if not me.leader.rested and not me.leader.cannot_attack_until_turn_end:
+        if (
+            not me.leader.rested
+            and not me.leader.cannot_attack_until_turn_end
+            and not me.leader.cannot_attack_static
+        ):
             attackers.append(me.leader)
         for ch in me.characters:
-            if ch.rested or ch.summoning_sickness:
+            if ch.rested:
                 continue
-            if ch.cannot_attack_until_turn_end:
+            if ch.cannot_attack_until_turn_end or ch.cannot_attack_static:
+                continue
+            if ch.summoning_sickness:
+                # 召喚酔いでも 速攻:キャラ なら例外的に「キャラ攻撃のみ」可能
+                if ch.is_rush_chara_only_now:
+                    chara_only_attackers.append(ch)
                 continue
             attackers.append(ch)
 
@@ -337,6 +450,23 @@ def legal_actions(state: GameState) -> list[Action]:
                     )
         else:
             actions.append(AttackLeader(attacker_iid=atk.instance_id))
+            for tgt in opponent.characters:
+                if tgt.rested or attack_active_ok:
+                    actions.append(
+                        AttackCharacter(attacker_iid=atk.instance_id, target_iid=tgt.instance_id)
+                    )
+
+    # 速攻:キャラ 専用 attacker: リーダー攻撃禁止、相手キャラのみ
+    for atk in chara_only_attackers:
+        attack_active_ok = "アクティブアタック可" in atk.granted_keywords
+        # taunt があるなら taunt のみ
+        if opp_taunts:
+            for tgt in opp_taunts:
+                if tgt.rested or attack_active_ok:
+                    actions.append(
+                        AttackCharacter(attacker_iid=atk.instance_id, target_iid=tgt.instance_id)
+                    )
+        else:
             for tgt in opponent.characters:
                 if tgt.rested or attack_active_ok:
                     actions.append(
@@ -491,6 +621,55 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
             trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
             trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+        # アタック対象変更チェック (OP14-060 紫ドフラ等。redirect_attack プリミティブが set)
+        if state.pending_attack_redirect is not None:
+            redirect_iid = state.pending_attack_redirect
+            state.pending_attack_redirect = None
+            # opp の場 (リーダー or キャラ) で iid を解決
+            if redirect_iid == opp.leader.instance_id:
+                # リーダー → リーダー (= no-op)
+                pass
+            else:
+                redirect_target = _find_character(opp, redirect_iid)
+                # AttackLeader → AttackCharacter にコンバート
+                redirected = AttackCharacter(
+                    attacker_iid=action.attacker_iid,
+                    target_iid=redirect_iid,
+                    counter_card_idxs=action.counter_card_idxs,
+                    counter_event_idxs=action.counter_event_idxs,
+                    blocker_iid=None,
+                )
+                state.push_log(
+                    f"  対象変更: leader → {redirect_target.card.name}"
+                )
+                # AttackCharacter ロジックを再帰呼出 (attack_rested は維持)
+                # ただし trigger_on_attack は既に発火済なのでスキップしたい
+                # 簡略実装: 再帰せず直接 KO 判定を行う
+                counter_added = _spend_counters(opp, action.counter_card_idxs)
+                _fire_counter_events(state, opp, me, action.counter_event_idxs)
+                defender_power = redirect_target.power + counter_added
+                atk_power = attacker.power
+                state.push_log(
+                    f"atk: {attacker.card.name}(P={atk_power}) -> "
+                    f"{redirect_target.card.name}(P={defender_power}) [c={counter_added}]"
+                )
+                if atk_power >= defender_power:
+                    if not redirect_target.ko_immune_until_turn_end:
+                        opp.characters.remove(redirect_target)
+                        opp.trash.append(redirect_target.card)
+                        if redirect_target.attached_dons > 0:
+                            opp.don_rested += redirect_target.attached_dons
+                        state.push_log(f"  KO: {redirect_target.card.name}")
+                        if state.effects_overlay:
+                            from .effects import trigger_on_ko
+                            trigger_on_ko(
+                                state, opp, me, redirect_target.card,
+                                state.effects_overlay,
+                            )
+                else:
+                    state.push_log("  survived")
+                _reset_battle_buffs(state)
+                return
         # カウンターイベント発動 (7-1-3-1-2): 防御側 = opp が手札からイベントをトラッシュ
         _fire_counter_events(state, opp, me, action.counter_event_idxs)
         counter_added = _spend_counters(opp, action.counter_card_idxs)
@@ -528,9 +707,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     continue
                 fired = False
                 if state.effects_overlay:
-                    from .effects import trigger_lifecard_trigger
+                    from .effects import trigger_lifecard_trigger, should_fire_trigger
+                    # 公式 10-1-5: 防御側プレイヤーが発動するか選択
+                    auto_fire = should_fire_trigger(state, opp, taken, state.effects_overlay)
                     fired = trigger_lifecard_trigger(
                         state, opp, me, taken, state.effects_overlay,
+                        auto_fire=auto_fire,
                     )
                 if fired:
                     opp.trash.append(taken)
@@ -540,6 +722,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
         else:
             state.push_log("  blocked")
+        # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
+        _reset_battle_buffs(state)
         return
 
     if isinstance(action, AttackCharacter):
@@ -611,6 +795,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay)
         else:
             state.push_log("  survived")
+        # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
+        _reset_battle_buffs(state)
         return
 
     if isinstance(action, ActivateMain):

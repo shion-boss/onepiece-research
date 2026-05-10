@@ -35,6 +35,7 @@ class GameResult:
     p1_field: int
     log: list[str] = field(default_factory=list)   # keep_logs=True で埋まる
     snapshots: list[dict] = field(default_factory=list)  # record_snapshots=True で埋まる
+    rule_violations: list[str] = field(default_factory=list)  # referee 違反ログ
 
 
 @dataclass
@@ -91,6 +92,8 @@ def run_matchup(
     keep_logs: bool = False,
     record_snapshots: bool = False,
     only_game_index: Optional[int] = None,
+    enforce_rules: bool = True,
+    referee_strict: bool = False,
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
@@ -98,6 +101,9 @@ def run_matchup(
     keep_logs=True で各 GameResult.log に state.log のコピーを保存 (メモリ消費注意)。
     record_snapshots=True で各 GameResult.snapshots に push_log 毎の盤面 dict を保存 (リプレイ用)。
     only_game_index が指定された場合、その index のゲームだけ実行 (他はスキップ、rng は同期)。
+    enforce_rules=True (既定) で各アクション前後にルール違反をチェック (RuleReferee)。
+    referee_strict=True で違反検出時に対戦を即停止 (= テスト用)。既定の False では
+    違反をログに記録するだけで対戦は継続。
     """
 
     if effects_overlay is None:
@@ -141,12 +147,21 @@ def run_matchup(
         ai_second = ai_factory_2(rng) if first_player == 0 else ai_factory_1(rng)
         ais = [ai_first, ai_second]
 
+        # ルール違反監視 referee (オプション)
+        referee = None
+        if enforce_rules:
+            from .referee import RuleReferee
+            referee = RuleReferee(
+                strict=referee_strict,
+                log_fn=(print if verbose else None),
+            )
+
         actions = 0
         while not state.game_over and actions < max_actions_per_game:
             me = state.turn_player_idx
             opp = 1 - me
             try:
-                play_one_action(state, ais[me], ais[opp])
+                play_one_action(state, ais[me], ais[opp], referee=referee)
             except Exception as e:
                 if verbose:
                     print(f"  [game {g}] error: {e}")
@@ -183,6 +198,7 @@ def run_matchup(
             p1_field=len(state.players[1].characters),
             log=list(state.log) if keep_logs else [],
             snapshots=list(state.snapshots) if record_snapshots else [],
+            rule_violations=(list(referee.violations) if referee else []),
         )
         report.games.append(result)
 
@@ -201,5 +217,12 @@ def run_matchup(
                 winners_life.append(g.p1_life_left if g.first_player == 0 else g.p0_life_left)
         if winners_life:
             report.avg_life_left_winner = statistics.mean(winners_life)
+        # ルール違反サマリ (verbose のときに出力)
+        total_violations = sum(len(g.rule_violations) for g in report.games)
+        if verbose and total_violations > 0:
+            print(f"  ⚠ ルール違反検出: {total_violations} 件 (全{len(report.games)}試合)")
+            for i, g in enumerate(report.games):
+                for v in g.rule_violations[:3]:
+                    print(f"    game {i}: {v}")
 
     return report

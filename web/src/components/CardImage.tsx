@@ -8,11 +8,13 @@ export function CardImage({
   alt,
   className,
   loading = "lazy",
+  style,
 }: {
   cardId: string;
   alt: string;
   className?: string;
   loading?: "lazy" | "eager";
+  style?: React.CSSProperties;
 }) {
   // cardId が切り替わったら errored をリセット (React 公式の prop→state 同期パターン)。
   // useEffect だと 1 フレーム古い画像が表示されるためレンダ中に同期する。
@@ -29,6 +31,7 @@ export function CardImage({
       src={src}
       alt={alt}
       className={className}
+      style={style}
       loading={loading}
       onError={() => {
         if (!errored) setErrored(true);

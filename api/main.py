@@ -450,6 +450,57 @@ class ValidateDeckResponse(BaseModel):
     errors: list[str]
 
 
+@app.put("/api/decks/{slug}", response_model=CreateDeckResponse)
+def update_deck(slug: str, req: CreateDeckRequest):
+    """デッキ上書き保存。slug 必須、existing でない場合は 404。validate 必須。"""
+    out_path = DECKS_DIR / f"{slug}.json"
+    if not out_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+    repo = get_repo()
+    if not req.leader:
+        raise HTTPException(400, "leader is required")
+    if not req.main:
+        raise HTTPException(400, "main is empty")
+
+    deck_dict = {
+        "name": req.name or "(無題)",
+        "leader": req.leader,
+        "main": [{"card_id": e.card_id, "count": e.count} for e in req.main],
+    }
+    try:
+        deck = make_deck_from_dict(deck_dict, repo)
+    except KeyError as e:
+        raise HTTPException(400, f"unknown card: {e}")
+    except Exception as e:
+        raise HTTPException(400, f"deck build failed: {e}")
+
+    errors = deck.validate()
+    if errors:
+        raise HTTPException(422, {"errors": errors})
+
+    deck_dict["slug"] = slug
+    deck_dict["source"] = "user"
+    deck_dict["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    out_path.write_text(
+        json.dumps(deck_dict, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return CreateDeckResponse(
+        slug=slug, path=str(out_path.relative_to(ROOT)), warnings=[]
+    )
+
+
+@app.delete("/api/decks/{slug}", status_code=204)
+def delete_deck(slug: str):
+    """デッキ削除。cardrush_* (大会上位由来) は保護。"""
+    if slug.startswith("cardrush_"):
+        raise HTTPException(403, "cardrush_* decks are protected (meta source)")
+    out_path = DECKS_DIR / f"{slug}.json"
+    if not out_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+    out_path.unlink()
+    return None
+
+
 @app.post("/api/decks/validate", response_model=ValidateDeckResponse)
 def validate_deck(req: CreateDeckRequest):
     """保存せず validate だけ実行 (UI のリアルタイム検証用)。"""

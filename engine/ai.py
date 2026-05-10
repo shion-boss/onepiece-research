@@ -78,6 +78,7 @@ class GreedyAI:
     def choose_action(self, state: GameState) -> Action:
         actions = legal_actions(state)
         me = state.turn_player
+        opp = state.opponent
 
         # 0) 起動メイン効果は基本撃つ(ノーコスト寄りなので)
         act_main = [a for a in actions if isinstance(a, ActivateMain)]
@@ -100,21 +101,96 @@ class GreedyAI:
             best = max(play_actions, key=lambda a: me.hand[a.hand_idx].cost)
             return best
 
-        # 2) 攻撃可能ならアタック(ドンを足してから)
-        atk_char_actions = [a for a in actions if isinstance(a, AttackCharacter)]
-        atk_leader_actions = [a for a in actions if isinstance(a, AttackLeader)]
+        # 2) アタック判断
+        atk_char_actions: list[AttackCharacter] = [a for a in actions if isinstance(a, AttackCharacter)]
+        atk_leader_actions: list[AttackLeader] = [a for a in actions if isinstance(a, AttackLeader)]
 
-        # ドンを攻撃前にリーダー or キャラに付与(打点を上げる)
-        if me.don_active >= 1 and (atk_char_actions or atk_leader_actions):
-            # まずリーダーで攻撃するなら、リーダーに付与
-            attach_leader = [a for a in actions if isinstance(a, AttachDonToLeader)]
-            if not me.leader.rested and attach_leader and me.leader.attached_dons < 4:
-                return AttachDonToLeader(n=1)
+        def _atk_inplay(iid: int) -> Optional[InPlay]:
+            if me.leader.instance_id == iid:
+                return me.leader
+            for c in me.characters:
+                if c.instance_id == iid:
+                    return c
+            return None
 
-        if atk_char_actions:
-            return self.rng.choice(atk_char_actions)
-        if atk_leader_actions:
-            return self.rng.choice(atk_leader_actions)
+        def _opp_chara(iid: int) -> Optional[InPlay]:
+            for c in opp.characters:
+                if c.instance_id == iid:
+                    return c
+            return None
+
+        # 2a) キャラ KO 狙い: atk.power >= target.power のものから (相手コスト高優先)
+        viable_char: list[tuple[AttackCharacter, InPlay, InPlay]] = []
+        for a in atk_char_actions:
+            attacker = _atk_inplay(a.attacker_iid)
+            target = _opp_chara(a.target_iid)
+            if attacker and target and attacker.power >= target.power:
+                viable_char.append((a, attacker, target))
+        if viable_char:
+            a, _, _ = max(viable_char, key=lambda x: (x[2].card.cost, x[2].power))
+            return a
+
+        # 2b) ドン付与で leader 攻撃を成立させる
+        # 候補: gap=opp_leader_p - attacker.power が 0 < gap <= 1000 (1ドンで届く)
+        # または gap == 0 (届くが、念押しで上乗せして counter 抗力を上げる)
+        if me.don_active >= 1 and atk_leader_actions:
+            opp_leader_p = opp.leader.power
+            don_candidates: list[tuple[int, InPlay]] = []
+            for a in atk_leader_actions:
+                attacker = _atk_inplay(a.attacker_iid)
+                if attacker is None or attacker.attached_dons >= 4:
+                    continue
+                gap = opp_leader_p - attacker.power
+                if 0 <= gap <= 1000:
+                    don_candidates.append((gap, attacker))
+            if don_candidates:
+                # 小さい gap 優先 (= 1ドンで成立)。同 gap なら attached_dons 少ない方
+                don_candidates.sort(key=lambda x: (x[0], x[1].attached_dons))
+                _, attacker = don_candidates[0]
+                if attacker is me.leader:
+                    return AttachDonToLeader(n=1)
+                else:
+                    return AttachDonToCharacter(target_iid=attacker.instance_id, n=1)
+
+        # 2c) リーダー攻撃判定。リーサル可能なら全力、そうでなければアタック順を最適化。
+        viable_leader: list[tuple[AttackLeader, InPlay]] = []
+        for a in atk_leader_actions:
+            attacker = _atk_inplay(a.attacker_iid)
+            if attacker and attacker.power >= opp.leader.power:
+                viable_leader.append((a, attacker))
+        if viable_leader:
+            # リーサル判定: 自分の合計打点で相手 life + 防御パワー を超えるか?
+            # 相手 counter で +N 防御される可能性は手札枚数 × 平均カウンター値で見積
+            opp_life = len(opp.life)
+            opp_hand = len(opp.hand)
+            # 平均カウンター推定: 手札 1 枚あたり 1500 (= 1k〜2k カウンター混合)
+            est_counter_per_card = 1500
+            # ライフ 1 枚 = 1 ヒット必要 (ダブルアタックは無視、簡略)
+            hits_to_lethal = opp_life
+            if hits_to_lethal == 0:
+                # life 0 状態 = 次ヒットで勝利
+                hits_to_lethal = 1
+            # 各 attacker の打点 - opp_leader.power を打点として集計
+            damage_potentials = sorted(
+                [(a, atk.power - opp.leader.power) for a, atk in viable_leader],
+                key=lambda x: -x[1],  # 大打点から
+            )
+            top_n = damage_potentials[:hits_to_lethal]
+            total_excess = sum(d for _, d in top_n)
+            # リーサル成立条件: 上位 hits_to_lethal 攻撃の合計 excess >
+            # (相手の使えるカウンター総量) → 全部受け止められない
+            est_max_defense = est_counter_per_card * opp_hand
+            is_lethal = (
+                len(top_n) >= hits_to_lethal
+                and total_excess >= est_max_defense
+            )
+            if is_lethal:
+                # リーサル: 最大打点から順に攻撃 (確実に通る)
+                return top_n[0][0]
+            # 通常: 「弱→強」順で攻撃 (相手の counter 抗力を消費させる)
+            # 低 excess (= ぎりぎり通る) を先、高 excess を最後に
+            ordered = sorted(viable_leader, key=lambda x: x[1].power)
+            return ordered[0][0]
 
         # 4) フェーズ終了
         return EndPhase()
@@ -129,13 +205,9 @@ class GreedyAI:
     ) -> tuple[Optional[int], tuple[int, ...]]:
         atk_p = attacker.power
         life_left = len(defender.life)
-        # ライフ残量による defensive weight (低いほど守りに行く)
-        # life=0 はそもそもアタックが通る = 敗北なので必死、life>=4 は余裕
-        defensive_weight = max(0, 5 - life_left)  # 0..5
 
         # ステップ1: ブロッカー候補を評価
         block_iid: Optional[int] = None
-        block_kept_alive = False
         if not attacker.has_no_block_now and is_leader_attack:
             best = None
             for c in defender.characters:
@@ -153,11 +225,10 @@ class GreedyAI:
                 #  - 生存できない: ライフ残量 1〜2 (致命) 時のみ犠牲ブロック
                 if survives:
                     block_iid = blocker.instance_id
-                    block_kept_alive = True
                 elif life_left <= 1:
                     block_iid = blocker.instance_id
 
-        # ステップ2: カウンター値を決定
+        # ステップ2: 防御パワー算出 (ブロッカー切ってたらブロッカー、それ以外は元の対象)
         target_power = defender.leader.power if is_leader_attack else target.power
         if block_iid is not None:
             blocker = next(c for c in defender.characters if c.instance_id == block_iid)
@@ -168,28 +239,34 @@ class GreedyAI:
             # 既に防御パワーが上回る → カウンター不要
             return block_iid, ()
 
-        # キャラ攻撃にカウンター切らない (resource 温存)
-        if not is_leader_attack:
-            return block_iid, ()
-
-        # ライフ残量別ポリシー
-        # life >= 4: 1ヒット許容OK。カウンター切らずに落とす
-        if life_left >= 4 and gap <= 1000:
-            return block_iid, ()
-        # life >= 3 で gap が大きい (>3000) なら、カウンター高くつくので諦める
-        if life_left >= 3 and gap > 4000:
-            return block_iid, ()
-
-        # 最適カウンター組み合わせ: gap を超える最小コンボ (合計カウンター値最小化)
         spent = self._optimal_counter_combo(defender.hand, gap)
         if not spent:
             return block_iid, ()
+        counter_total = sum(defender.hand[i].counter for i in spent)
 
-        # 防御コスト過多チェック: life>=2 で 3 枚以上のカウンターを使うのは過剰防衛
-        if life_left >= 2 and len(spent) >= 3:
+        if is_leader_attack:
+            # ライフ=0: 既に敗北。ライフ=1: 致命、全力で守る
+            if life_left <= 1:
+                return block_iid, tuple(spent)
+            # ライフ=2: 致命予備軍。+8000 まで、3 枚まで許容
+            if life_left == 2:
+                if counter_total <= 8000 and len(spent) <= 3:
+                    return block_iid, tuple(spent)
+                return block_iid, ()
+            # ライフ=3: 中盤。+6000 まで、2 枚まで
+            if life_left == 3:
+                if counter_total <= 6000 and len(spent) <= 2:
+                    return block_iid, tuple(spent)
+                return block_iid, ()
+            # ライフ>=4: 余裕。1 枚 (≤2000) のみ防御
+            if len(spent) <= 1 and counter_total <= 2000:
+                return block_iid, tuple(spent)
             return block_iid, ()
 
-        return block_iid, tuple(spent)
+        # キャラ攻撃 (= KO) の防御: コスト4以上の高価値ターゲットを 1 枚 (≤2000) で守る
+        if target.card.cost >= 4 and len(spent) <= 1 and counter_total <= 2000:
+            return block_iid, tuple(spent)
+        return block_iid, ()
 
     def _optimal_counter_combo(self, hand: list, gap: int) -> list[int]:
         """gap を超える最小コンボを brute force で探す (手札 < 12 想定)。
@@ -223,6 +300,165 @@ class GreedyAI:
             if best is None or key < best[:2]:
                 best = (len(picked), total, picked)
         return best[2] if best else []
+
+
+class MCTSAI(GreedyAI):
+    """Monte Carlo Tree Search AI (UCT-based)。
+
+    各 choose_action で:
+      1. Selection: UCB1 で子ノードを再帰選択
+      2. Expansion: 未展開アクション 1 つを子ノードに追加
+      3. Simulation: GreedyAI でロールアウト (深度制限) + ヒューリスティック評価
+      4. Backprop: 値を経路に伝播
+      最終的に最も訪問されたアクションを返す。
+
+    防御選択 (choose_defense) は GreedyAI を継承 (展開爆発回避)。
+
+    パラメータ:
+      n_simulations: 1 アクション選択あたりのシミュレーション数 (既定 30)
+      c_uct        : UCB1 の探索係数 (既定 1.41 = sqrt(2))
+      rollout_depth: ロールアウト最大ステップ (既定 12)
+    """
+
+    name = "MCTS"
+
+    # ヒューリスティック評価重み (LookaheadAI と同方針、0-1 にスケール)
+    H_LIFE = 0.05
+    H_FIELD = 0.02
+    H_HAND = 0.005
+
+    def __init__(
+        self,
+        rng: Optional[random.Random] = None,
+        n_simulations: int = 30,
+        c_uct: float = 1.41,
+        rollout_depth: int = 12,
+    ):
+        super().__init__(rng)
+        self.n_simulations = n_simulations
+        self.c_uct = c_uct
+        self.rollout_depth = rollout_depth
+
+    def choose_action(self, state: "GameState") -> "Action":
+        actions = legal_actions(state)
+        if len(actions) <= 1:
+            return actions[0] if actions else EndPhase()
+
+        me_idx = state.turn_player_idx
+        # ルートノード: state は各 simulation で deepcopy するため保存しない
+        root = _MCTSNode(parent=None, action=None)
+        root.unexpanded = list(actions)
+
+        import math
+
+        for _ in range(self.n_simulations):
+            sim_state = copy.deepcopy(state)
+            node = root
+            path = [node]
+
+            # 1. Selection
+            while (
+                not node.unexpanded
+                and node.children
+                and not sim_state.game_over
+            ):
+                node = self._best_child(node, math)
+                try:
+                    apply_action(sim_state, node.action)
+                except Exception:
+                    break
+                path.append(node)
+
+            # 2. Expansion
+            if not sim_state.game_over and node.unexpanded:
+                idx = self.rng.randrange(len(node.unexpanded))
+                action = node.unexpanded.pop(idx)
+                try:
+                    apply_action(sim_state, action)
+                    child = _MCTSNode(parent=node, action=action)
+                    if not sim_state.game_over:
+                        try:
+                            child.unexpanded = list(legal_actions(sim_state))
+                        except Exception:
+                            child.unexpanded = []
+                    node.children.append(child)
+                    node = child
+                    path.append(node)
+                except Exception:
+                    # 不正手はスキップ
+                    pass
+
+            # 3. Simulation
+            value = self._rollout(sim_state, me_idx)
+
+            # 4. Backprop
+            for n in path:
+                n.visits += 1
+                n.total_value += value
+
+        # 最も訪問された子を選ぶ (探索ではなく実プレイ用なので robust)
+        if not root.children:
+            return self.rng.choice(actions)
+        best = max(root.children, key=lambda c: c.visits)
+        return best.action
+
+    def _best_child(self, node: "_MCTSNode", math_mod) -> "_MCTSNode":
+        """UCB1 で子を選ぶ。"""
+        log_n = math_mod.log(node.visits) if node.visits > 0 else 0.0
+        best = None
+        best_score = -float("inf")
+        for child in node.children:
+            if child.visits == 0:
+                return child
+            avg = child.total_value / child.visits
+            ucb = avg + self.c_uct * math_mod.sqrt(log_n / child.visits)
+            if ucb > best_score:
+                best_score = ucb
+                best = child
+        return best if best else node.children[0]
+
+    def _rollout(self, state: "GameState", me_idx: int) -> float:
+        """state を深度 rollout_depth まで GreedyAI でプレイ → 終局/打切で 0-1 値を返す。"""
+        rollout_ai = GreedyAI(self.rng)
+        depth = 0
+        while not state.game_over and depth < self.rollout_depth:
+            try:
+                play_one_action(state, rollout_ai, rollout_ai)
+            except Exception:
+                break
+            depth += 1
+        if state.game_over:
+            if state.winner == me_idx:
+                return 1.0
+            elif state.winner is None:
+                return 0.5
+            else:
+                return 0.0
+        return self._heuristic_eval(state, me_idx)
+
+    def _heuristic_eval(self, state: "GameState", me_idx: int) -> float:
+        """非終局状態のヒューリスティック評価 (0-1 スケール)。"""
+        me = state.players[me_idx]
+        opp = state.players[1 - me_idx]
+        life_diff = len(me.life) - len(opp.life)
+        field_diff = len(me.characters) - len(opp.characters)
+        hand_diff = len(me.hand) - len(opp.hand)
+        v = 0.5 + self.H_LIFE * life_diff + self.H_FIELD * field_diff + self.H_HAND * hand_diff
+        return max(0.0, min(1.0, v))
+
+
+class _MCTSNode:
+    """MCTS の探索ノード。state は保存せず action のみ記録 (root から replay)。"""
+
+    __slots__ = ("parent", "action", "children", "unexpanded", "visits", "total_value")
+
+    def __init__(self, parent=None, action=None):
+        self.parent = parent
+        self.action = action
+        self.children: list["_MCTSNode"] = []
+        self.unexpanded: list[Action] = []
+        self.visits: int = 0
+        self.total_value: float = 0.0
 
 
 class LookaheadAI(GreedyAI):
@@ -293,8 +529,13 @@ class LookaheadAI(GreedyAI):
 # --------------------------------------------------------------------------- #
 # 攻撃時の防御を組み込んだ apply ラッパー
 # --------------------------------------------------------------------------- #
-def play_one_action(state: GameState, ai_self, ai_opp) -> Action:
-    """ターンプレイヤーの 1 アクションを選んで適用。攻撃時は防御側の判断を入れる。"""
+def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
+    """ターンプレイヤーの 1 アクションを選んで適用。攻撃時は防御側の判断を入れる。
+
+    referee (RuleReferee) を渡すと:
+      - 適用前: AI の選択が legal_actions に含まれるかチェック
+      - 適用後: 不変条件 (DON 総数、フィールド超過、instance_id 重複等) をチェック
+    """
     action = ai_self.choose_action(state)
 
     # 攻撃時: ブロッカー / カウンターを差し込む
@@ -321,5 +562,12 @@ def play_one_action(state: GameState, ai_self, ai_opp) -> Action:
             blocker_iid=block_iid,
         )
 
+    if referee is not None:
+        referee.before_action(state, action)
+
     apply_action(state, action)
+
+    if referee is not None:
+        referee.after_action(state)
+
     return action

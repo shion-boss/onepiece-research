@@ -89,6 +89,16 @@ type Flight = {
   midHoldMs?: number; // mid で停止する時間 (ms)
   startBack: boolean; // 始点で裏向きか
   endBack: boolean; // 終点で裏向きか
+  // DON!! トークンの移動アニメ。true のとき CardImage の代わりに DonAsset を表示。
+  // サイズも縮小 (44×62) で flight cleanup は短め (500ms)。
+  isDon?: boolean;
+  // アニメ開始までの遅延 (ms)。複数 DON を捌くとき stagger に使う。
+  delayMs?: number;
+  // この flight が「上マット (= 相手 = rotate-180)」を起点/終点にしているか。
+  // true のとき相手マットと同じ向きで描画する。
+  // 注意: snap.players のインデックスではなくマット位置で判定する。deck_a が
+  // 後攻のときは players[0] が上マットに居るため、p === oppIdx で算出すること。
+  onTopMat?: boolean;
 };
 
 // 状態遷移を View Transitions API でラップ。
@@ -159,6 +169,9 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   const cardPosCache = useRef(new Map<number, DOMRect>());
   const prevSnapRef = useRef<StateSnapshot | null>(null);
   const [flights, setFlights] = useState<Flight[]>([]);
+  // 飛行アニメ中のキャラ instance_id を保持。BoardCard はこの集合に含まれる間、
+  // opacity:0 で「到着前」を表現し flight オーバーレイとの 2 重表示を防ぐ。
+  const [incomingIids, setIncomingIids] = useState<Set<number>>(new Set());
   const [damageIndicators, setDamageIndicators] = useState<DamageIndicator[]>(
     [],
   );
@@ -175,6 +188,13 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
     }
     return [replay.deck_b_name, replay.deck_a_name];
   }, [replay.deck_a_name, replay.deck_b_name, replay.first_player]);
+
+  // 「自分デッキ (deck_a) = 下マット」「相手デッキ (deck_b) = 上マット」を
+  // 先攻/後攻に関係なく固定する。snap.players は先攻=index 0 で並んでいるので、
+  // deck_a が後攻なら selfIdx=1, oppIdx=0。
+  // flight 検出ロジックや FlyingCard の rotate 判定でも参照するので render の早い段階で確定させる。
+  const selfIdx: 0 | 1 = replay.first_player === 0 ? 0 : 1;
+  const oppIdx: 0 | 1 = (1 - selfIdx) as 0 | 1;
 
   const atEnd = idx >= snapshots.length - 1;
   const playingActive = playing && !atEnd;
@@ -240,6 +260,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
     const matRect = matEl.getBoundingClientRect();
 
     const newFlights: Flight[] = [];
+    // play flight に対応する到着前キャラ iid (この set に居る間 BoardCard を opacity:0)
+    const incomingToAdd: number[] = [];
     const now = Date.now();
 
     for (let p = 0; p < 2; p++) {
@@ -265,6 +287,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           newFlights.push({
             id: `ko-${lost.instance_id}-${now}-${i}`,
             cardId: lost.card_id,
+            onTopMat: p === oppIdx,
             fromX: fromRect.left + fromRect.width / 2 - matRect.left,
             fromY: fromRect.top + fromRect.height / 2 - matRect.top,
             toX,
@@ -298,6 +321,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
             newFlights.push({
               id: `play-${newChar.instance_id}-${now}`,
               cardId: newChar.card_id,
+              onTopMat: p === oppIdx,
               fromX,
               fromY,
               toX: toRect.left + toRect.width / 2 - matRect.left,
@@ -305,6 +329,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               startBack: false,
               endBack: false,
             });
+            incomingToAdd.push(newChar.instance_id);
           }
         }
       }
@@ -329,15 +354,15 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           const handRect = handEl.getBoundingClientRect();
           const leaderRect = leaderEl.getBoundingClientRect();
           const trashRect = trashEl.getBoundingClientRect();
-          // ステージは leader/stage/deck 行で leader の DOM 右隣に配置されている。
-          // 視覚的には自分マットでは leader の右側、相手マット (rotate-180) では
-          // leader の左側がステージ。「ステージの反対側のリーダーの隣」=
-          //   自分 (p=0): leader の左隣
-          //   相手 (p=1): leader の右隣 (visual)
-          const midOffsetX = p === 1 ? 90 : -90;
+          // 「各リーダーから見て左側」にイベントを設置・実行する。
+          // - 自分マット (selfIdx, 非回転): leader 視点の左 = 画面の左 → -90
+          // - 相手マット (oppIdx, rotate-180): leader 視点の左 = 画面の右 → +90
+          // (snap idx ではなく selfIdx/oppIdx で判定しないと deck_a 後攻時に逆転する)
+          const midOffsetX = p === oppIdx ? 90 : -90;
           newFlights.push({
             id: `event-${p}-${now}`,
             cardId: newCardId ?? "",
+            onTopMat: p === oppIdx,
             fromX: handRect.left + handRect.width / 2 - matRect.left,
             fromY: handRect.top + handRect.height / 2 - matRect.top,
             midX:
@@ -428,6 +453,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
             newFlights.push({
               id: `lh-${p}-${i}-${now}`,
               cardId: newCards[i] ?? "",
+              onTopMat: p === oppIdx,
               fromX,
               fromY,
               toX,
@@ -438,15 +464,143 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           }
         }
       }
+
+      // === DON!! トークンの移動アニメ === //
+      // 各 InPlay の attached_dons をマップにまとめ、prev/cur 差分から (return / attach) を検出
+      const collectAttached = (snap: typeof pp) => {
+        const m = new Map<number, number>();
+        m.set(snap.leader.instance_id, snap.leader.attached_dons);
+        for (const c of snap.characters) m.set(c.instance_id, c.attached_dons);
+        for (const s of snap.stages) m.set(s.instance_id, s.attached_dons);
+        return m;
+      };
+      const prevAttached = collectAttached(pp);
+      const curAttached = collectAttached(cp);
+      const costEl = zoneRefs.current.get(`costarea-${p}`);
+      const costRect = costEl?.getBoundingClientRect();
+      const costCx = costRect
+        ? costRect.left + costRect.width / 2 - matRect.left
+        : 0;
+      const costCy = costRect
+        ? costRect.top + costRect.height / 2 - matRect.top
+        : 0;
+
+      // (4) DON Deck → Cost Area (DON フェイズの 1〜2 枚分配)
+      const ddDelta = pp.don_remaining_in_deck - cp.don_remaining_in_deck;
+      if (ddDelta > 0 && costRect) {
+        const ddEl = zoneRefs.current.get(`dondeck-${p}`);
+        if (ddEl) {
+          const ddRect = ddEl.getBoundingClientRect();
+          const fromX = ddRect.left + ddRect.width / 2 - matRect.left;
+          const fromY = ddRect.top + ddRect.height / 2 - matRect.top;
+          for (let i = 0; i < ddDelta; i++) {
+            newFlights.push({
+              id: `don-draw-${p}-${i}-${now}`,
+              cardId: "",
+              isDon: true,
+              onTopMat: p === oppIdx,
+              delayMs: i * 120,
+              fromX,
+              fromY,
+              toX: costCx,
+              toY: costCy,
+              startBack: false,
+              endBack: false,
+            });
+          }
+        }
+      }
+
+      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り)
+      if (costRect) {
+        let returnStagger = 0;
+        for (const [iid, prevCount] of prevAttached) {
+          const curCount = curAttached.get(iid) ?? 0;
+          const delta = prevCount - curCount;
+          if (delta <= 0) continue;
+          // 既に場から消えた (KO 等) キャラは oldCardCache、生存中は newCache
+          const fromRect = newCache.get(iid) ?? oldCardCache.get(iid);
+          if (!fromRect) continue;
+          const fromX = fromRect.left + fromRect.width / 2 - matRect.left;
+          const fromY = fromRect.top + fromRect.height / 2 - matRect.top;
+          for (let i = 0; i < delta; i++) {
+            newFlights.push({
+              id: `don-return-${p}-${iid}-${i}-${now}`,
+              cardId: "",
+              isDon: true,
+              onTopMat: p === oppIdx,
+              delayMs: returnStagger,
+              fromX,
+              fromY,
+              toX: costCx,
+              toY: costCy,
+              startBack: false,
+              endBack: false,
+            });
+            returnStagger += 80;
+          }
+        }
+      }
+
+      // (6) Cost Area (active) → Leader/Char (DON 付与)
+      if (costRect) {
+        let attachStagger = 0;
+        for (const [iid, curCount] of curAttached) {
+          const prevCount = prevAttached.get(iid) ?? 0;
+          const delta = curCount - prevCount;
+          if (delta <= 0) continue;
+          const toR = newCache.get(iid);
+          if (!toR) continue;
+          const toX = toR.left + toR.width / 2 - matRect.left;
+          const toY = toR.top + toR.height / 2 - matRect.top;
+          for (let i = 0; i < delta; i++) {
+            newFlights.push({
+              id: `don-attach-${p}-${iid}-${i}-${now}`,
+              cardId: "",
+              isDon: true,
+              onTopMat: p === oppIdx,
+              delayMs: attachStagger,
+              fromX: costCx,
+              fromY: costCy,
+              toX,
+              toY,
+              startBack: false,
+              endBack: false,
+            });
+            attachStagger += 80;
+          }
+        }
+      }
     }
 
     if (newFlights.length === 0) return;
     setFlights((f) => [...f, ...newFlights]);
+    if (incomingToAdd.length > 0) {
+      setIncomingIids((prev) => {
+        const next = new Set(prev);
+        for (const iid of incomingToAdd) next.add(iid);
+        return next;
+      });
+    }
     const ids = newFlights.map((f) => f.id);
-    // 最長の飛行 (mid 経由) を見越して 1500ms 後にクリーンアップ
-    const maxDuration = newFlights.some((f) => f.midX !== undefined) ? 1500 : 800;
+    // 最長の飛行を計算してクリーンアップ。DON は delayMs (stagger) + 600ms 必要、
+    // mid 経由 flight は 1500ms、通常 flight は 800ms。
+    const baseDuration = newFlights.some((f) => f.midX !== undefined) ? 1500 : 800;
+    const donMaxDelay = newFlights.reduce(
+      (m, f) => (f.isDon ? Math.max(m, (f.delayMs ?? 0) + 600) : m),
+      0,
+    );
+    const maxDuration = Math.max(baseDuration, donMaxDelay);
     setTimeout(() => {
       setFlights((f) => f.filter((x) => !ids.includes(x.id)));
+      if (incomingToAdd.length > 0) {
+        setIncomingIids((prev) => {
+          if (prev.size === 0) return prev;
+          const next = new Set(prev);
+          for (const iid of incomingToAdd) next.delete(iid);
+          return next;
+        });
+      }
     }, maxDuration);
   }, [snapForArrow]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -587,14 +741,14 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
             )}
           </div>
 
-          {/* 左下: 自分の手札 (flex-2) */}
+          {/* 左下: 自分の手札 (flex-2) — selfIdx 固定 */}
           <HandPanel
             className="min-h-0 flex-[2]"
-            hand={snap.players[0].hand}
-            count={snap.players[0].hand_count}
-            name={playerName[0]}
-            active={acting === 0}
-            zoneId="hand-0"
+            hand={snap.players[selfIdx].hand}
+            count={snap.players[selfIdx].hand_count}
+            name={playerName[selfIdx]}
+            active={acting === selfIdx}
+            zoneId={`hand-${selfIdx}`}
           />
         </div>
 
@@ -614,41 +768,49 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           <div className="relative flex min-h-0 flex-col">
             <div className="flex min-h-0 flex-1 flex-col rotate-180">
               <PlayerMat
-                player={snap.players[1]}
-                active={acting === 1}
-                playerIdx={1}
+                player={snap.players[oppIdx]}
+                active={acting === oppIdx}
+                playerIdx={oppIdx}
+                incomingIids={incomingIids}
                 onOpenTrash={(cards) =>
                   setTrashModal({
-                    title: `${playerName[1]} のトラッシュ (${cards.length})`,
+                    title: `${playerName[oppIdx]} のトラッシュ (${cards.length})`,
                     cards,
                   })
                 }
               />
             </div>
             <NamePlate
-              name={playerName[1]}
-              active={acting === 1}
+              name={playerName[oppIdx]}
+              active={acting === oppIdx}
               className="absolute left-0 top-0 z-20"
             />
+            {snap.game_over && snap.winner !== null && (
+              <ResultBanner won={snap.winner === oppIdx} />
+            )}
           </div>
           {/* 自分マット */}
           <div className="relative flex min-h-0 flex-col">
             <PlayerMat
-              player={snap.players[0]}
-              active={acting === 0}
-              playerIdx={0}
+              player={snap.players[selfIdx]}
+              active={acting === selfIdx}
+              playerIdx={selfIdx}
+              incomingIids={incomingIids}
               onOpenTrash={(cards) =>
                 setTrashModal({
-                  title: `${playerName[0]} のトラッシュ (${cards.length})`,
+                  title: `${playerName[selfIdx]} のトラッシュ (${cards.length})`,
                   cards,
                 })
               }
             />
             <NamePlate
-              name={playerName[0]}
-              active={acting === 0}
+              name={playerName[selfIdx]}
+              active={acting === selfIdx}
               className="absolute left-0 top-0 z-20"
             />
+            {snap.game_over && snap.winner !== null && (
+              <ResultBanner won={snap.winner === selfIdx} />
+            )}
           </div>
 
           {/* アタック矢印 SVG オーバーレイ (attacker → target) + パワー表示 */}
@@ -736,15 +898,15 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
         {/* 右サイド: 上=相手手札 (2) / 下=Log+Controls (3) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {/* 右上: 相手の手札 (flex-2) */}
+          {/* 右上: 相手の手札 (flex-2) — oppIdx 固定 */}
           <HandPanel
             className="min-h-0 flex-[2]"
-            hand={snap.players[1].hand}
-            count={snap.players[1].hand_count}
-            name={playerName[1]}
-            active={acting === 1}
+            hand={snap.players[oppIdx].hand}
+            count={snap.players[oppIdx].hand_count}
+            name={playerName[oppIdx]}
+            active={acting === oppIdx}
             hidden
-            zoneId="hand-1"
+            zoneId={`hand-${oppIdx}`}
           />
 
           {/* 右下: ログ + コントロール (flex-3) */}
@@ -873,15 +1035,49 @@ function PhaseStrip({
   );
 }
 
+// ゲーム終了時に各マット中央へオーバーレイ表示する WIN / LOSE バナー。
+// 親ラッパは relative なので absolute inset-0 で覆い、rotate-180 を継承しないよう
+// 必ず PlayerMat (相手側は rotate-180 ラッパ) の **外側** に置くこと。
+function ResultBanner({ won }: { won: boolean }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+      {won ? (
+        <span
+          className="select-none text-8xl font-black tracking-[0.25em] text-amber-300"
+          style={{
+            textShadow:
+              "0 0 24px rgba(251,191,36,0.95), 0 0 56px rgba(251,191,36,0.55), 0 4px 8px rgba(0,0,0,0.5)",
+            WebkitTextStroke: "2px rgba(120,53,15,0.85)",
+          }}
+        >
+          WIN
+        </span>
+      ) : (
+        <span
+          className="select-none text-8xl font-black tracking-[0.25em] text-zinc-400/80"
+          style={{
+            textShadow: "0 4px 14px rgba(0,0,0,0.65)",
+            WebkitTextStroke: "1px rgba(63,63,70,0.65)",
+          }}
+        >
+          LOSE
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PlayerMat({
   player,
   active,
   playerIdx,
+  incomingIids,
   onOpenTrash,
 }: {
   player: PlayerSnapshot;
   active: boolean;
   playerIdx: 0 | 1;
+  incomingIids?: Set<number>;
   onOpenTrash?: (cards: string[]) => void;
 }) {
   const stage = player.stages[0] ?? null;
@@ -898,7 +1094,10 @@ function PlayerMat({
       {/* 左列: LIFE pile (上) + DON DECK pile (下) */}
       <div className="flex flex-col items-center justify-between gap-1 pt-3.5">
         <LifePile count={player.life_count} zoneId={`life-${playerIdx}`} />
-        <DonDeckPile count={player.don_remaining_in_deck} />
+        <DonDeckPile
+          count={player.don_remaining_in_deck}
+          zoneId={`dondeck-${playerIdx}`}
+        />
       </div>
 
       {/* 右列: 3 段 (chars / leader-stage-deck / cost-trash)。空き高は chars 行で吸収。 */}
@@ -912,7 +1111,11 @@ function PlayerMat({
             <div style={{ height: 123 }} className="opacity-0">.</div>
           )}
           {player.characters.map((c) => (
-            <BoardCard key={c.instance_id} card={c} />
+            <BoardCard
+              key={c.instance_id}
+              card={c}
+              incoming={incomingIids?.has(c.instance_id) ?? false}
+            />
           ))}
         </div>
 
@@ -933,7 +1136,11 @@ function PlayerMat({
           className="flex shrink-0 items-start gap-2 overflow-hidden rounded bg-emerald-200/30 px-2 py-0.5 ring-1 ring-emerald-700/20"
           style={{ height: 100 }}
         >
-          <CostArea active={player.don_active} rested={player.don_rested} />
+          <CostArea
+            active={player.don_active}
+            rested={player.don_rested}
+            zoneId={`costarea-${playerIdx}`}
+          />
           <TrashPile
             count={player.trash_count}
             zoneId={`trash-${playerIdx}`}
@@ -1036,48 +1243,61 @@ function DamagePop({ indicator }: { indicator: DamageIndicator }) {
 // === 飛行カード (KO / life→hand / イベントなどの移動アニメ用) === //
 function FlyingCard({ flight }: { flight: Flight }) {
   // 経由点 mid がある場合: from → mid (300ms) → hold (midHoldMs) → to (300ms)
-  // それ以外: from → to (700ms)
+  // それ以外: from → to (700ms / DON は 450ms)
   const hasMid = flight.midX !== undefined && flight.midY !== undefined;
   const [pos, setPos] = useState({ x: flight.fromX, y: flight.fromY });
   const [transitionMs, setTransitionMs] = useState(0);
   const [showBack, setShowBack] = useState(flight.startBack);
+  const [visible, setVisible] = useState(!flight.delayMs);
 
   useEffect(() => {
+    const delay = flight.delayMs ?? 0;
+    const tDelay = delay > 0 ? setTimeout(() => setVisible(true), delay) : null;
     const raf = requestAnimationFrame(() => {
-      if (hasMid) {
-        // mid へ
-        setTransitionMs(300);
-        setPos({ x: flight.midX!, y: flight.midY! });
-        const hold = flight.midHoldMs ?? 500;
-        const t1 = setTimeout(() => {
-          // mid → to
+      const startMove = () => {
+        if (hasMid) {
           setTransitionMs(300);
-          setPos({ x: flight.toX, y: flight.toY });
-        }, 300 + hold);
-        // 表/裏切替は最後の移動中
-        let t2: ReturnType<typeof setTimeout> | undefined;
-        if (flight.startBack !== flight.endBack) {
-          t2 = setTimeout(() => setShowBack(flight.endBack), 300 + hold + 150);
+          setPos({ x: flight.midX!, y: flight.midY! });
+          const hold = flight.midHoldMs ?? 500;
+          const t1 = setTimeout(() => {
+            setTransitionMs(300);
+            setPos({ x: flight.toX, y: flight.toY });
+          }, 300 + hold);
+          let t2: ReturnType<typeof setTimeout> | undefined;
+          if (flight.startBack !== flight.endBack) {
+            t2 = setTimeout(() => setShowBack(flight.endBack), 300 + hold + 150);
+          }
+          return () => {
+            clearTimeout(t1);
+            if (t2) clearTimeout(t2);
+          };
         }
-        return () => {
-          clearTimeout(t1);
-          if (t2) clearTimeout(t2);
-        };
-      }
-      // mid なし
-      setTransitionMs(700);
-      setPos({ x: flight.toX, y: flight.toY });
-      if (flight.startBack !== flight.endBack) {
-        const t = setTimeout(() => setShowBack(flight.endBack), 350);
+        // mid なし。DON は移動を少し速める
+        setTransitionMs(flight.isDon ? 450 : 700);
+        setPos({ x: flight.toX, y: flight.toY });
+        if (flight.startBack !== flight.endBack) {
+          const t = setTimeout(() => setShowBack(flight.endBack), 350);
+          return () => clearTimeout(t);
+        }
+      };
+      if (delay > 0) {
+        const t = setTimeout(startMove, delay);
         return () => clearTimeout(t);
       }
+      return startMove();
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (tDelay) clearTimeout(tDelay);
+    };
   }, [flight, hasMid]);
 
-  // 80×112 のカード、中心が (pos.x, pos.y) になるよう左上を計算
+  // 通常カード/DON トークンとも 80×112 (場の DON カード w-20 と同サイズに揃える)
   const W = 80;
   const H = 112;
+  // 上マット (= 相手マット、rotate-180 されている) を起点/終点とする flight は
+  // マットと同じ向きで描画。親 grid (matContainerRef) は非回転なので、ここで
+  // 個別に rotate(180deg) を当てる。先攻/後攻と無関係に「上マット = 相手」固定。
   return (
     <div
       className="pointer-events-none absolute z-40"
@@ -1086,14 +1306,24 @@ function FlyingCard({ flight }: { flight: Flight }) {
         top: pos.y - H / 2,
         width: W,
         height: H,
+        transform: flight.onTopMat ? "rotate(180deg)" : undefined,
         transition: `left ${transitionMs}ms cubic-bezier(0.4, 0, 0.2, 1), top ${transitionMs}ms cubic-bezier(0.4, 0, 0.2, 1)`,
       }}
     >
-      {showBack ? (
+      {flight.isDon ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src="/assets/don.png"
+          alt="DON"
+          style={{ opacity: visible ? 1 : 0 }}
+          className="block h-full w-full rounded shadow-lg ring-2 ring-amber-400"
+        />
+      ) : showBack ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src="/assets/ura.png"
           alt=""
+          style={{ opacity: visible ? 1 : 0 }}
           className="block h-full w-full rounded shadow-lg ring-2 ring-amber-400"
         />
       ) : (
@@ -1101,6 +1331,7 @@ function FlyingCard({ flight }: { flight: Flight }) {
           cardId={flight.cardId}
           alt={flight.cardId}
           loading="eager"
+          style={{ opacity: visible ? 1 : 0 }}
           className="block h-full w-full rounded shadow-lg ring-2 ring-amber-400"
         />
       )}
@@ -1386,13 +1617,14 @@ function TrashPile({
   );
 }
 
-function DonDeckPile({ count }: { count: number }) {
+function DonDeckPile({ count, zoneId }: { count: number; zoneId?: string }) {
+  const zoneRef = useZoneRef(zoneId ?? "_unused");
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className="text-[9px] font-medium uppercase tracking-wide text-emerald-900/60">
         DON Deck
       </span>
-      <div className="relative h-[100px] w-[72px]">
+      <div ref={zoneRef} className="relative h-[100px] w-[72px]">
         {count > 0 ? (
           <>
             <DonAsset
@@ -1415,10 +1647,13 @@ function DonDeckPile({ count }: { count: number }) {
 function CostArea({
   active,
   rested,
+  zoneId,
 }: {
   active: number;
   rested: number;
+  zoneId?: string;
 }) {
+  const zoneRef = useZoneRef(zoneId ?? "_unused");
   const donW = 80; // = w-20
   const donH = 112;
   const overlap = 18; // 縦置き同士の重ね幅 (~22% visible)
@@ -1428,7 +1663,10 @@ function CostArea({
       <span className="text-[9px] font-medium uppercase tracking-wide text-emerald-900/60">
         Cost Area  active {active} / rested {rested}
       </span>
-      <div className="flex flex-1 items-center gap-2 rounded border border-dashed border-emerald-700/40 bg-emerald-900/10 px-1 py-1">
+      <div
+        ref={zoneRef}
+        className="flex flex-1 items-center gap-2 rounded border border-dashed border-emerald-700/40 bg-emerald-900/10 px-1 py-1"
+      >
         {active === 0 && rested === 0 ? (
           <span className="text-[10px] text-emerald-900/40">(空)</span>
         ) : (
@@ -1519,9 +1757,13 @@ function HiddenHandCard({ cardId }: { cardId: string }) {
 function BoardCard({
   card,
   isLeader = false,
+  incoming = false,
 }: {
   card: CharSnapshot;
   isLeader?: boolean;
+  // true: 飛行アニメ中で「まだ盤面に到着していない」状態 → opacity:0 で隠す。
+  // レイアウト/ref 計測のためマウントは維持する。
+  incoming?: boolean;
 }) {
   // 通常カードは upright。レスト時のみ 90° 回転 (公式準拠)。
   // 相手側の上下逆さは、PlayerMat 全体に rotate-180 を掛けることで実現する。
@@ -1560,7 +1802,11 @@ function BoardCard({
   const donExtraH = donCount > 0 ? donCount * donStep : 0;
 
   return (
-    <div className="flex flex-col items-center gap-0.5" {...hover}>
+    <div
+      className="flex flex-col items-center gap-0.5"
+      style={{ opacity: incoming ? 0 : 1 }}
+      {...hover}
+    >
       <div
         ref={registerRef}
         style={{ width: wrapperW + donExtraW, height: wrapperH + donExtraH }}

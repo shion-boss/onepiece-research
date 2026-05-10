@@ -57,8 +57,10 @@ onepiece_research/
 - [x] **Phase 2 完了**: ルールエンジン(コアデータ構造、ターン進行、攻防、効果DSL)
   - 主要トリガー実装済: 登場/アタック/起動メイン/KO時/ターン終了時/ブロック時/相手アタック時/トリガー/カウンターイベント/メインイベント
   - DSL プリミティブ20+ 種 (draw / ko / power_pump / search / play_from_trash / give_keyword 他)
-- [x] **Phase 2.5 完了**: カード効果オーバーレイ **481カード** (`db/card_effects.json`)、
-  メタデッキ主要カードのカバレッジ **96%超**。
+- [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
+  - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
+  - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
+  - メタデッキ 15 リーダーは公式テキスト準拠で手書き、その他は自動生成 (近似 + fallback)
   - DSL条件: leader_feature/color, self/opp life/hand 各種, opp_turn/self_turn,
     self_rested, self_trash_count_ge, self_don_ge 等
   - DSL プリミティブ: draw / ko / power_pump (動的計算 amount_per 含む) /
@@ -70,7 +72,15 @@ onepiece_research/
     **set_base_power** (元々のパワー上書き) / **set_base_cost** (元々のコスト上書き / delta) /
     **set_attack_taunt** (キャラ taunt) / **replace_ko** (KO代替の置換効果)
   - 残: ハンド領域からの選択登場、相手手札からの捨てなど一部
-- [x] **Phase 3 完了**: AI (`GreedyAI` / `RandomAI` / `LookaheadAI`)、対戦ハーネス
+- [x] **Phase 3 完了**: AI (`GreedyAI` / `RandomAI` / `LookaheadAI` / `MCTSAI`)、対戦ハーネス
+  - GreedyAI 攻撃: パワー不足の確定失敗アタックを除外 / 1ドンで届く gap には DON 付与 /
+    キャラ KO 狙いを優先 (相手コスト高優先)
+  - GreedyAI 守備: ライフ残量別の counter 切り判定 (life≤1 全力, life=2 +8000/3枚許容,
+    life=3 +6000/2枚, life≥4 +2000/1枚)、コスト4以上のキャラ攻撃には1枚カウンター
+  - **リーサル計算**: ターン開始時、合計打点 - 相手 counter 推定 で勝利可能か判定
+  - **アタック順最適化**: 弱→強で攻撃 (相手の counter 抗力を消費させる)
+  - MCTSAI: UCT-based、`n_simulations=30`、ロールアウト+ヒューリスティック評価。opt-in (低速)
+  - **RuleReferee**: AI vs AI 対戦中のルール違反監視。全 630 試合違反ゼロ確認済
 - [x] **Phase 4 完了**: メタデッキ DB **15 デッキ** (`decks/cardrush_*.json`)。
   cardrush.media の大会上位入賞 (優勝/準優勝) を `scripts/scrape_cardrush_decks.py` で取得 →
   アーキタイプ毎に最新優勝を `select_cardrush_representatives.py` で代表選出 →
@@ -94,13 +104,20 @@ onepiece_research/
 
 ### 現在のメタ Tier (matchup matrix, n=20, 2026-05 時点)
 
+DON+1000 ルール厳密化 + AI 攻防判断強化 + **15リーダー効果を公式テキスト忠実実装** (起動メインコスト機構 / DON自動付与 / replace_ko / summon_from_deck / play_event_from_hand 等)
++ **公式ルール準拠の追加修正** (マリガン / battle_buff / on_turn_start / トリガー任意性 / 速攻:キャラ / 「場合」前文不実行→後文不実行 / 「元々のパワー」修正):
+
 | Tier | デッキ |
 |---|---|
-| **S (85%+)** | 赤紫ロジャー (94%) |
-| **A (75%+)** | 青黄ナミ (82%) |
-| **B (50-74%)** | 赤黄ボニー / 紫エネル / 空島ルフィ / 黒クロコ / 赤青エース / 紫ドフラ |
-| **C (25-49%)** | 緑黄しらほし / 緑ミホーク / 緑ボニー |
-| **D (<25%)** | 緑紫ルフィ / 黒イム / 赤青ルーシー / 青紫サンジ |
+| **S (85%+)** | 空島ルフィ (87%) |
+| **A (75%+)** | 赤紫ロジャー (84%) / 青黄ナミ (79%) |
+| **B (50-74%)** | 赤黄ボニー (73%) / 赤青エース (68%) / 緑ボニー (67%) / 紫エネル (66%) |
+| **C (25-49%)** | 赤青ルーシー (45%) / 紫ドフラ (44%) / 緑ミホーク / 緑黄しらほし / 黒イム |
+| **D (<25%)** | 黒クロコ / 青紫サンジ / 緑紫ルフィ |
+
+> 注: 緑紫ルフィ (1%) / 青紫サンジ (6%) の極端な低勝率は、起動メインの「ドン-N」コストを忠実に実装した結果、
+> AI ヒューリスティックではコスト負担に見合うリターンを引き出せていないため。本来は手札のシナジーカードを
+> 引き出すコンボ前提の効果なので、デッキ自体の研究と AI 改善の余地が残る。
 
 ## Next.js 側の方針
 
@@ -150,6 +167,10 @@ onepiece_research/
 - カード固有効果はメタデッキの主要カードから優先実装
 - **`harness.run_matchup` には `effects_overlay` を必ず渡す**(過去に渡し忘れて全試合で
   効果未発火だったバグあり。デフォルト引数で `db/card_effects.json` を自動ロード済み)
+- **DON+1000 は所有者のターン中のみ有効** (公式 6-5-5)。`InPlay.is_owners_turn` フラグを
+  `_recompute_static` (= ownership 反映) が更新する。テストで `InPlay.of()` 直接生成時は
+  デフォルト True で動くが、ターン跨ぎを伴うシナリオでは必ず `_recompute_static(state)` を
+  呼ぶか、`setup_game` 経由で初期化する
 - **公式ルールの一次情報は `db/rules/*.pdf` + `db/faq/*.json` + `db/banlist/master.json`** に集約済み。
   skill は `.claude/skills/onepiece-tcg-rules/SKILL.md`。ルール裁定や engine の不一致を直す時はまず skill を参照、
   個別カード Q&A は `db/faq/cardqa_*.json` を grep する
@@ -169,6 +190,8 @@ onepiece_research/
 | `/api/decks/build` | POST | コアカード固定型 自動構築 |
 | `/api/decks/{slug}` | GET | デッキ単体 (raw JSON) |
 | `/api/decks/{slug}/analyze` | GET | デッキ分析(色配分・コストカーブ・効果密度) |
+| `/api/decks/{slug}` | PUT | デッキ上書き保存 (validate 必須) |
+| `/api/decks/{slug}` | DELETE | デッキ削除 (`cardrush_*` は保護) |
 | `/api/match` | POST | 対戦実行 `{deck_a/deck_b or deck_a_id/deck_b_id, n_games, seed}` |
 | `/api/match/{job_id}` | GET | 過去対戦のサマリ |
 | `/api/match/{job_id}/games` | GET | ゲーム一覧 (短) |
@@ -183,7 +206,7 @@ onepiece_research/
 
 | エンドポイント | メソッド | 用途 |
 |---|---|---|
-| `/api/decks/{slug}` | PUT/DELETE | レシピ更新/削除 (現状 POST のみ) |
+| (現在 計画なし) | - | PUT/DELETE は実装済 |
 
 レスポンス型は `api/main.py` の Pydantic モデルと `web/src/lib/types.ts` の両方で定義。
 **不整合が起きたら `api/main.py` 側を真とする**。

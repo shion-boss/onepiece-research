@@ -90,6 +90,13 @@ class CardDef:
         return self.has_keyword("スピード") or self.has_keyword("速攻")
 
     @property
+    def is_rush_chara_only(self):
+        """【速攻：キャラ】(公式 10-1-1 派生): 登場ターン中も相手キャラへのみアタック可能。
+        is_rush とは独立。is_rush=False かつ summoning_sickness=True でも、
+        この属性で「相手キャラ攻撃のみ」例外的に許可する。"""
+        return self.has_keyword("速攻：キャラ") or self.has_keyword("速攻:キャラ")
+
+    @property
     def is_double_attack(self):
         """【ダブルアタック】: アタックでリーダーライフに与えるダメージが 1→2"""
         return self.has_keyword("ダブルアタック")
@@ -124,12 +131,18 @@ class InPlay:
     static_buff: int = 0
     # ターン中限定 (activate_main の power_pump duration:turn)。Phase.END でリセット
     turn_buff: int = 0
+    # 「このバトル中」期限 (公式 7-1-5-1)。AttackLeader/AttackCharacter の最後でリセット。
+    # power_pump の duration:"battle" で加算される。
+    battle_buff: int = 0
     # 動的に付与されるキーワード (effect 由来)。Phase.END でクリア
     granted_keywords: set = field(default_factory=set)
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
     cannot_attack_until_turn_end: bool = False
+    # ターン中の元々のコスト軽減 (cost_minus 効果)。Phase.END でクリア。
+    # 「元々のコスト N 以下」判定にこの修正値を反映する (= cost - cost_minus_until_turn_end)
+    cost_minus_until_turn_end: int = 0
     # 次のリフレッシュフェイズでアクティブにならない (stay_rested_next_refresh)
     # 該当プレイヤーのリフレッシュ時に消費 (rested 維持してフラグクリア)
     stay_rested_next_refresh: bool = False
@@ -144,6 +157,20 @@ class InPlay:
     # 「相手はこのキャラ以外にアタックできない」常在 (taunt)。
     # 静的効果でセット、evaluate_static_effects でリセット
     attack_taunt: bool = False
+    # 永続的な「アタックできない」フラグ (OP11-022 緑黄しらほし等のリーダー)。
+    # 静的効果でセット、evaluate_static_effects でリセット。turn_end でクリアされない。
+    cannot_attack_static: bool = False
+    # 「自分の効果で離れない」常在 (OP14-079 黒クロコのリーダー効果で相手キャラ全員にセット)。
+    # 静的効果でセット、evaluate_static_effects でリセット。
+    # 相手の効果 (ko / return_to_hand) からこのキャラを除外する保護。
+    protect_from_opp_effect: bool = False
+    # 所有者プレイヤー idx (0 or 1)。-1 は未設定 (テスト用直接生成のデフォルト)。
+    # _recompute_static / evaluate_static_effects で state.players から逆引き設定
+    owner_idx: int = -1
+    # 所有者のターン中か (公式 6-5-5: ドン+1000 は自分のターン中のみ有効)。
+    # _recompute_static で state.turn_player_idx と owner_idx を比較して更新。
+    # 直接生成された InPlay (テスト) はデフォルト True で従来通り動く。
+    is_owners_turn: bool = True
 
     def has_keyword_active(self, keyword: str) -> bool:
         """カードの基本キーワード or 動的に付与されたキーワードを保有するか。"""
@@ -156,6 +183,16 @@ class InPlay:
     @property
     def is_rush_now(self):
         return self.card.is_rush or "速攻" in self.granted_keywords
+
+    @property
+    def is_rush_chara_only_now(self):
+        """【速攻：キャラ】キャラのみアタック可能 (リーダー攻撃禁止)。
+        is_rush_now とは独立 (登場ターン中の特例)。"""
+        return (
+            self.card.is_rush_chara_only
+            or "速攻：キャラ" in self.granted_keywords
+            or "速攻:キャラ" in self.granted_keywords
+        )
 
     @property
     def is_double_attack_now(self):
@@ -171,18 +208,34 @@ class InPlay:
 
     @property
     def base_power(self) -> int:
-        """元々のパワー (override があればそちら)。「元々のパワー X 以下」判定に使う。"""
+        """現在の base power 値 (= override が無ければ card.power、あればその値)。
+        power プロパティの計算根。「元々のパワー」判定には truly_original_power を使う。"""
         return self.base_power_override if self.base_power_override is not None else self.card.power
 
     @property
+    def truly_original_power(self) -> int:
+        """公式 4-9: 「元々のパワー」は永続効果で変更されても変わらない、CardDef オリジナル値。
+        「元々のパワー X 以下」(target_power_le) 等のフィルタ判定に使う。"""
+        return self.card.power
+
+    @property
     def base_cost(self) -> int:
-        """元々のコスト (override があればそちら)。"""
-        return self.base_cost_override if self.base_cost_override is not None else self.card.cost
+        """元々のコスト (override があればそちら、ターン中の cost_minus を反映)。
+        「元々のコスト X 以下」判定 (KO 効果など) はこの値を使う。"""
+        raw = (
+            self.base_cost_override
+            if self.base_cost_override is not None
+            else self.card.cost
+        )
+        return max(0, raw - self.cost_minus_until_turn_end)
 
     @property
     def power(self):
         base = self.base_power
-        return base + 1000 * self.attached_dons + self.static_buff + self.turn_buff
+        # 公式 6-5-5: ドン+1000 は所有者のターン中のみ有効。
+        # 相手ターン中は物理的に付いていてもパワーには寄与しない。
+        don_buff = 1000 * self.attached_dons if self.is_owners_turn else 0
+        return base + don_buff + self.static_buff + self.turn_buff + self.battle_buff
 
     @classmethod
     def of(cls, card, rested=False, sickness=False):
@@ -209,6 +262,8 @@ class Player:
     don_remaining_in_deck: int = 10
     # ターン中、次にプレイするキャラ/イベントのコスト軽減 (累積)。Phase.END でリセット
     play_cost_reduction: int = 0
+    # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
+    block_chara_play_until_turn_end: bool = False
 
     MAX_CHARACTERS = 5
     MAX_STAGES = 1     # 公式 3-8-5
@@ -254,6 +309,10 @@ class GameState:
     # 次の push_log で記録される snapshot に含めるイベント情報 (例: attack の attacker/target iid)。
     # スナップショット時に消費される (= 1 回限り)。
     pending_event: Optional[dict] = None
+    # アタック対象変更フラグ (OP14-060 紫ドフラミンゴ等)。
+    # opp_attack トリガー内で redirect_attack プリミティブが set。
+    # AttackLeader/AttackCharacter 処理がこれを検知して対象を切替後 None にリセット。
+    pending_attack_redirect: Optional[int] = None
 
     @property
     def turn_player(self):
