@@ -89,6 +89,7 @@ class DeckList:
     name: str
     leader: CardDef
     main: list[CardDef]   # 50 枚に展開済み
+    slug: Optional[str] = None  # decks/<slug>.json 由来 (analysis ロードに使う)
 
     @classmethod
     def from_json(
@@ -96,7 +97,8 @@ class DeckList:
         json_path: str | Path,
         repo: CardRepository,
     ) -> "DeckList":
-        d = json.loads(Path(json_path).read_text(encoding="utf-8"))
+        path_obj = Path(json_path)
+        d = json.loads(path_obj.read_text(encoding="utf-8"))
         leader = repo.get(d["leader"])
         if leader.category != Category.LEADER:
             raise ValueError(f"{leader.card_id} はリーダーではない")
@@ -106,7 +108,9 @@ class DeckList:
             if card.category == Category.LEADER:
                 raise ValueError(f"メインデッキにリーダーは入れられない: {card.card_id}")
             main.extend([card] * int(entry.get("count", 1)))
-        return cls(name=d.get("name", "(no name)"), leader=leader, main=main)
+        # ファイル名 (拡張子無し) を slug にデフォルトで採用 (decks/cardrush_1429.json → cardrush_1429)
+        slug = d.get("slug") or path_obj.stem
+        return cls(name=d.get("name", "(no name)"), leader=leader, main=main, slug=slug)
 
     def validate(self, banlist: Optional[dict] = None) -> list[str]:
         """構築ルールチェック。違反のリストを返す(空なら合法)。

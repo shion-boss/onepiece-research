@@ -420,11 +420,14 @@
   ],
   "OP03-013": [
     {
-      "_text": "自動抽出: 相手のパワー3000以下のキャラ1枚までを、KOする。",
+      "_text": "マルコ 登場時: 相手P3000以下キャラKO",
       "when": "on_play",
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -671,11 +674,14 @@
   ],
   "OP08-040": [
     {
-      "_text": "自動抽出: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、相手のコスト4以下のキャラ",
+      "_text": "アトモス 登場時: 白ひげ海賊団リーダー時 相手キャラ1枚レスト",
       "when": "on_play",
+      "if": {
+        "leader_feature": "白ひげ海賊団"
+      },
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_le_5000"
         }
       ]
     }
@@ -2084,11 +2090,17 @@
   ],
   "OP01-008": [
     {
-      "_text": "自動抽出: 自分のライフ1枚を手札に加えることができる：このキャラは、このターン中、",
+      "_text": "キャベンディッシュ 登場時: ライフ→手札 + 速攻付与",
       "when": "on_play",
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -2128,13 +2140,18 @@
   ],
   "OP01-041": [
     {
-      "_text": "自動抽出: ①(コストエリアのドン‼を指定の数レストにできる)，このキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《ワノ国》を持つカード1枚までを公開し、手札",
+      "_text": "光月モモの助 起動メイン: ①+自レスト → ワノ国サーチ",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true,
+        "pay_don": 1
+      },
       "do": [
         {
           "search": {
             "filter": {
-              "category": "CHARACTER"
+              "feature": "ワノ国"
             },
             "limit": 1
           }
@@ -2144,11 +2161,11 @@
   ],
   "OP01-047": [
     {
-      "_text": "自動抽出: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "_text": "OP01-047 ロー 登場時: 自キャラ手札戻し代償で 1ドロー (簡略)",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "draw": 1
         }
       ]
     }
@@ -2275,11 +2292,11 @@
   ],
   "OP02-042": [
     {
-      "_text": "自動抽出: 相手のコスト6以下のキャラ1枚までを、レストにする。",
+      "_text": "ヤマト 登場時: 相手コスト6以下キャラ1枚レスト",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -9775,16 +9792,14 @@
   ],
   "OP03-040": [
     {
-      "_text": "ナミ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP03-040 ナミ ドン×1 自分アタック時 1ドロー (リーダー攻撃でライフダメージ近似)",
+      "when": "on_attack",
+      "if": {
+        "self_don_active_ge": 1
+      },
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
+          "draw": 1
         }
       ]
     }
@@ -9996,11 +10011,14 @@
   ],
   "OP02-049": [
     {
-      "_text": "エンポリオ・イワンコフ 自ターン終了時 1ドロー (自動生成)",
+      "_text": "エンポリオ・イワンコフ 自ターン終了時: 手札0なら 2ドロー",
       "when": "end_of_turn",
+      "if": {
+        "self_hand_count_le": 0
+      },
       "do": [
         {
-          "draw": 1
+          "draw": 2
         }
       ]
     }
@@ -10620,7 +10638,7 @@
   ],
   "ST14-001": [
     {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
+      "_text": "ST14-001 ルフィ ドン×1 自キャラ コスト+1 (簡略: リーダー +1000)",
       "when": "on_attached_don",
       "n": 1,
       "do": [
@@ -10834,29 +10852,14 @@
   ],
   "ST12-001": [
     {
-      "_text": "ロロノア・ゾロ＆サンジ アタック時 自リーダー +1000 (自動生成)",
+      "_text": "ST12-001 ゾロ&サンジ ドン×1 アタック時 1ドロー (簡略)",
       "when": "on_attack",
+      "if": {
+        "self_don_active_ge": 1
+      },
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "ロロノア・ゾロ＆サンジ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
+          "draw": 1
         }
       ]
     }
@@ -10892,14 +10895,15 @@
   ],
   "ST10-001": [
     {
-      "_text": "トラファルガー・ロー 起動メイン (自動生成)",
+      "_text": "ST10-001 ロー 起動メイン: ドン-3 → 相手P3000以下KO",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 3
       },
       "do": [
         {
-          "draw": 1
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -11857,11 +11861,11 @@
   ],
   "OP04-058": [
     {
-      "_text": "クロコダイル 自ターン終了時 1ドロー (汎用 fallback、本来は別効果)",
-      "when": "end_of_turn",
+      "_text": "OP04-058 クロコダイル 相手ターン終了時 untap_don 1 (簡略)",
+      "when": "opp_end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 1
         }
       ]
     }
@@ -11901,11 +11905,11 @@
   ],
   "OP03-076": [
     {
-      "_text": "ロブ・ルッチ 自ターン終了時 1ドロー (汎用 fallback、本来は別効果)",
-      "when": "end_of_turn",
+      "_text": "ロブ・ルッチ アタック時 自身アクティブ化 (簡略)",
+      "when": "on_attack",
       "do": [
         {
-          "draw": 1
+          "untap": "self"
         }
       ]
     }
@@ -12151,27 +12155,29 @@
   ],
   "OP06-007": [
     {
-      "_text": "自動抽出: 相手のパワー10000以下のキャラ1枚までを、KOする。",
+      "_text": "OP06-007 シャンクス 登場時: 相手P10000以下キャラKO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
   ],
   "OP06-059": [
     {
-      "_text": "自動抽出 (トリガー): 自分のデッキの上から5枚を見て、好きな順番に並び替え、デッキの上か下に置く。",
-      "when": "trigger",
+      "_text": "ホワイトスネーク カウンター: +1000 + 1ドロー",
+      "when": "counter",
       "do": [
         {
-          "search": {
-            "filter": {
-              "category": "CHARACTER"
-            },
-            "limit": 1
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "battle"
           }
+        },
+        {
+          "draw": 1
         }
       ]
     }
@@ -12488,11 +12494,15 @@
   ],
   "OP02-004": [
     {
-      "_text": "自動抽出: 相手のパワー3000以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
+      "_text": "OP02-004 ニューゲート 登場時: 自リーダー +2000 ターン中",
+      "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -12532,11 +12542,28 @@
   ],
   "OP02-121": [
     {
-      "_text": "自動抽出: 相手のコスト0のキャラ1枚までを、KOする。",
+      "_text": "OP02-121 クザン 常在: 自ターン中 相手キャラ コスト-5 (簡略無し → 登場時KO のみ)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 0,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP02-121 クザン 登場時: コスト0キャラKO (= P0以下相当なので簡略 le_5000)",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -12660,8 +12687,11 @@
   ],
   "OP06-069": [
     {
-      "_text": "自動抽出: 自分の場のドン !!が相手の場のドン !!の枚数以下でかつ、自分の手札が5枚以下の場合、カード2枚を引く。",
+      "_text": "OP06-069 レイジュ 登場時: 手札5以下なら 2ドロー (自場ドン条件は省略)",
       "when": "on_play",
+      "if": {
+        "self_hand_count_le": 5
+      },
       "do": [
         {
           "draw": 2
@@ -13014,7 +13044,7 @@
   ],
   "EB01-056": [
     {
-      "_text": "自動抽出: 自分のライフの上か下から1枚を手札に加えることができる：カード1枚を引く。",
+      "_text": "シャーロット・フランぺ 登場時: ライフから手札 + 1ドロー",
       "when": "on_play",
       "do": [
         {
@@ -15274,11 +15304,14 @@
   ],
   "OP06-101": [
     {
-      "_text": "自動抽出 (トリガー): 相手のコスト5以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
+      "_text": "おナミ 登場時: 自リーダー/自身にバニッシュ付与",
+      "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "give_keyword": {
+            "target": "self_leader",
+            "keyword": "バニッシュ"
+          }
         }
       ]
     }
@@ -15518,8 +15551,23 @@
   ],
   "OP04-082": [
     {
-      "_text": "自動抽出: 自分のリーダーが「レベッカ」の場合、相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から1枚をトラッシュに置く。",
+      "_text": "キュロス replace_ko: リーダーをレストで代替 (簡略)",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "do": [
+        {
+          "rest": "self_leader"
+        }
+      ]
+    },
+    {
+      "_text": "キュロス 登場時: レベッカ系リーダー時 相手キャラKO",
       "when": "on_play",
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
       "do": [
         {
           "ko": "one_opponent_character_le_5000"
@@ -31592,11 +31640,17 @@
   ],
   "EB03-017": [
     {
-      "_text": "ジュエリー・ボニー 登場時 (自動 fallback)",
+      "_text": "EB03-017 ボニー 登場時: 超新星リーダー時 untap_don 1 + stay_rested_next_refresh",
       "when": "on_play",
+      "if": {
+        "leader_feature": "超新星"
+      },
       "do": [
         {
-          "draw": 1
+          "untap_don": 1
+        },
+        {
+          "stay_rested_next_refresh": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -32289,8 +32343,11 @@
   ],
   "EB02-022": [
     {
-      "_text": "ウソップ 登場時 (自動 fallback)",
+      "_text": "EB02-022 ウソップ 登場時: 自場 P5000+ 2枚以下なら手札キャラ登場 (簡略: 1ドロー)",
       "when": "on_play",
+      "if": {
+        "self_field_count_le": 2
+      },
       "do": [
         {
           "draw": 1
@@ -32919,11 +32976,14 @@
   ],
   "EB01-039": [
     {
-      "_text": "降三世 引奈落 メイン (自動 fallback)",
+      "_text": "降三世 引奈落 メイン: ドン-1 → 相手コスト8以下キャラKO",
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "pay_don": 1
+        },
+        {
+          "ko": "one_opponent_character_le_5000"
         }
       ]
     }
@@ -33074,11 +33134,11 @@
   ],
   "EB01-059": [
     {
-      "_text": "雷迎 メイン (自動 fallback)",
+      "_text": "雷迎 メイン: 相手キャラKO + ライフ1枚にする (簡略: ライフ削減は省略)",
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "ko": "one_opponent_character_le_5000"
         }
       ]
     }
@@ -33794,13 +33854,13 @@
   ],
   "OP14-018": [
     {
-      "_text": "反撃に出るぞ カウンター (自動 fallback)",
+      "_text": "反撃に出るぞ カウンター: P8000+ あれば +4000",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
-            "amount": 2000,
+            "amount": 4000,
             "duration": "battle"
           }
         }
@@ -33809,11 +33869,11 @@
   ],
   "OP14-023": [
     {
-      "_text": "菊之丞 自分のターン終了時 (自動 fallback)",
+      "_text": "菊之丞 自ターン終了時: 自身アクティブ化",
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap": "self"
         }
       ]
     }
@@ -34057,7 +34117,7 @@
   ],
   "OP14-093": [
     {
-      "_text": "Mr.4(ベーブ) KO時 (自動 fallback)",
+      "_text": "Mr.4 KO時: BWキャラサーチ (簡略 1ドロー)",
       "when": "on_ko",
       "do": [
         {
@@ -35087,11 +35147,11 @@
   ],
   "OP12-030": [
     {
-      "_text": "ジュラキュール・ミホーク 登場時 (自動 fallback)",
+      "_text": "OP12-030 ミホーク 登場時: untap_don 4 (ペナルティ block_chara_play は省略)",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "untap_don": 4
         }
       ]
     }
@@ -35155,11 +35215,11 @@
   ],
   "OP12-043": [
     {
-      "_text": "クザン 登場時 (自動 fallback)",
+      "_text": "OP12-043 クザン 登場時: 手札捨て → 相手キャラ次相手リフレッシュ非アクティブ",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
         }
       ]
     }
@@ -35210,8 +35270,11 @@
   ],
   "OP12-059": [
     {
-      "_text": "粗砕 メイン (自動 fallback)",
+      "_text": "粗砕 メイン: サンジリーダー時 1ドロー",
       "when": "main",
+      "if": {
+        "leader_feature": "麦わらの一味"
+      },
       "do": [
         {
           "draw": 1
@@ -35219,8 +35282,11 @@
       ]
     },
     {
-      "_text": "粗砕 カウンター (自動 fallback)",
+      "_text": "粗砕 カウンター: トラッシュにイベ4+ なら +4000 (簡略 +2000)",
       "when": "counter",
+      "if": {
+        "self_trash_count_ge": 4
+      },
       "do": [
         {
           "power_pump": {
@@ -35893,11 +35959,11 @@
   ],
   "OP11-061": [
     {
-      "_text": "ゴムゴムのJET大蛇砲 メイン (自動 fallback)",
+      "_text": "ゴムゴムのJET大蛇砲 メイン: コスト4以下相手キャラを return_to_hand 簡略",
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "return_to_hand": "one_opponent_character_cost_le_4"
         }
       ]
     }
@@ -36751,11 +36817,14 @@
   ],
   "OP10-079": [
     {
-      "_text": "神誅殺 メイン (自動 fallback)",
+      "_text": "神誅殺 メイン: 相手コスト5以下KO + ドン+1",
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "ko": "one_opponent_character_cost_le_5"
+        },
+        {
+          "add_don": 1
         }
       ]
     }
@@ -37710,14 +37779,14 @@
   ],
   "OP09-097": [
     {
-      "_text": "闇水 カウンター (自動 fallback)",
+      "_text": "闇水 カウンター: 相手リーダー -4000 ターン中",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "battle"
+            "target": "opponent_leader",
+            "amount": -4000,
+            "duration": "turn"
           }
         }
       ]
@@ -38410,11 +38479,14 @@
   ],
   "OP08-074": [
     {
-      "_text": "ブラックマリア 起動メイン (自動 fallback)",
+      "_text": "ブラックマリア 起動メイン: ドンデッキから5レスト追加 (簡略 4)",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 4
         }
       ]
     }
@@ -39015,14 +39087,14 @@
   ],
   "OP07-018": [
     {
-      "_text": "KEEP OUT カウンター (自動 fallback)",
+      "_text": "KEEP OUT カウンター: 自リーダー +2000 (革命軍キャラ条件は省略)",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "battle"
+            "duration": "turn"
           }
         }
       ]
@@ -39041,11 +39113,11 @@
   ],
   "OP07-021": [
     {
-      "_text": "ウルージ 自分のターン終了時 (自動 fallback)",
+      "_text": "ウルージ 自ターン終了時: untap_don 1",
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 1
         }
       ]
     }
@@ -39122,7 +39194,7 @@
   ],
   "OP07-045": [
     {
-      "_text": "ジンベエ 登場時 (自動 fallback)",
+      "_text": "ジンベエ 登場時: 王下七武海コスト4以下登場 (簡略: 1ドロー)",
       "when": "on_play",
       "do": [
         {
@@ -39635,7 +39707,7 @@
   ],
   "OP06-009": [
     {
-      "_text": "シュライヤ アタック時 (自動 fallback)",
+      "_text": "シュライヤ アタック時: 自リーダー +1000 (簡略)",
       "when": "on_attack",
       "do": [
         {
@@ -39644,15 +39716,6 @@
             "amount": 1000,
             "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "シュライヤ ブロック時 (自動 fallback)",
-      "when": "on_block",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
@@ -39829,11 +39892,21 @@
   ],
   "OP06-034": [
     {
-      "_text": "ヒョウゾウ 起動メイン (自動 fallback)",
+      "_text": "ヒョウゾウ 起動メイン: 相手コスト4以下レスト + 自身+1000",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "draw": 1
+          "rest": "one_opponent_character_cost_le_4"
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -40060,8 +40133,13 @@
   ],
   "OP06-068": [
     {
-      "_text": "ヴィンスモーク・レイジュ 起動メイン (自動 fallback)",
+      "_text": "OP06-068 レイジュ 起動メイン: ドン-1 + 自KO → 1ドロー (簡略)",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1,
+        "ko_self_with_filter": {}
+      },
       "do": [
         {
           "draw": 1
@@ -40856,7 +40934,7 @@
   ],
   "OP05-075": [
     {
-      "_text": "Mr.1(ダズ・ボーネス) 相手のアタック時 (自動 fallback)",
+      "_text": "Mr.1 相手アタック時 1ドロー (簡略 = B・W登場の代替)",
       "when": "opp_attack",
       "do": [
         {
@@ -40915,8 +40993,12 @@
   ],
   "OP05-082": [
     {
-      "_text": "しらほし 起動メイン (自動 fallback)",
+      "_text": "OP05-082 しらほし 起動メイン: 自レスト → 1ドロー (簡略)",
       "when": "activate_main",
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      },
       "do": [
         {
           "draw": 1
@@ -41590,16 +41672,14 @@
   ],
   "OP04-053": [
     {
-      "_text": "ページワン ドン×1 常在 +1000 自リーダー (自動 fallback)",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "ページワン ドン×1 イベ発動時 1ドロー (簡略: end_of_turn 1draw)",
+      "when": "end_of_turn",
+      "if": {
+        "self_don_ge": 1
+      },
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
+          "draw": 1
         }
       ]
     }
@@ -41845,11 +41925,15 @@
   ],
   "OP04-083": [
     {
-      "_text": "サボ 登場時 (自動 fallback)",
+      "_text": "サボ 登場時: 自キャラ全員 +1000 (簡略 = ターン中)",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -42128,7 +42212,7 @@
   ],
   "OP04-119": [
     {
-      "_text": "ドンキホーテ・ロシナンテ 登場時 (自動 fallback)",
+      "_text": "ロシナンテ 登場時: 自レスト → 1ドロー (簡略)",
       "when": "on_play",
       "do": [
         {
@@ -43085,13 +43169,13 @@
   ],
   "OP03-118": [
     {
-      "_text": "威国 カウンター (自動 fallback)",
+      "_text": "威国 カウンター: 自リーダー +5000 このバトル中",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
-            "amount": 2000,
+            "amount": 5000,
             "duration": "battle"
           }
         }
@@ -43591,7 +43675,7 @@
   ],
   "OP02-065": [
     {
-      "_text": "Mr.3(ギャルディーノ) 自分のターン終了時 (自動 fallback)",
+      "_text": "OP02-065 Mr.3 自ターン終了時: 手札1捨て → 1ドロー (簡略)",
       "when": "end_of_turn",
       "do": [
         {
@@ -43893,11 +43977,14 @@
   ],
   "OP02-106": [
     {
-      "_text": "つる 登場時 (自動 fallback)",
+      "_text": "OP02-106 つる 登場時: 相手キャラ コスト-2",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2
+          }
         }
       ]
     }
@@ -44034,11 +44121,15 @@
   ],
   "OP01-006": [
     {
-      "_text": "お玉 登場時 (自動 fallback)",
+      "_text": "お玉 登場時: 相手キャラ -2000 ターン中",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -44224,15 +44315,18 @@
   ],
   "OP01-026": [
     {
-      "_text": "ゴムゴムの火拳銃 カウンター (自動 fallback)",
+      "_text": "ゴムゴムの火拳銃 カウンター: +4000 + 相手P4000以下KO",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
-            "amount": 2000,
+            "amount": 4000,
             "duration": "battle"
           }
+        },
+        {
+          "ko": "one_opponent_character_le_5000"
         }
       ]
     }
@@ -44923,11 +45017,14 @@
   ],
   "OP01-094": [
     {
-      "_text": "カイドウ 登場時 (自動 fallback)",
+      "_text": "OP01-094 カイドウ 登場時: ドン-6 → 百獣海賊団 リーダー時 5000以下KO (簡略)",
       "when": "on_play",
+      "if": {
+        "leader_feature": "百獣海賊団"
+      },
       "do": [
         {
-          "draw": 1
+          "ko": "all_opponent_characters"
         }
       ]
     }
@@ -47048,11 +47145,20 @@
   ],
   "ST18-005": [
     {
-      "_text": "ルフィ太郎 登場時 (自動 fallback)",
+      "_text": "ST18-005 ルフィ太郎 登場時: ドン-1 → 紫麦わらサーチ (簡略)",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "pay_don": 1
+        },
+        {
+          "search": {
+            "filter": {
+              "feature": "麦わらの一味",
+              "cost_le": 5
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -47289,11 +47395,11 @@
   ],
   "ST16-004": [
     {
-      "_text": "シャンクス 登場時 (自動 fallback)",
+      "_text": "ST16-004 シャンクス 登場時: 相手レストキャラ1枚KO",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "ko": "one_opponent_rested_character_le_5000"
         }
       ]
     }
@@ -48670,11 +48776,14 @@
   ],
   "ST04-014": [
     {
-      "_text": "大看板”災害” メイン (自動 fallback)",
+      "_text": "大看板 災害 メイン: 1ドロー + ドン+1",
       "when": "main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "add_don": 1
         }
       ]
     }
@@ -48718,25 +48827,14 @@
   ],
   "ST03-003": [
     {
-      "_text": "クロコダイル ブロック時 (自動 fallback)",
+      "_text": "ST03-003 クロコ ブロック時: ドン1+ で 相手コスト2以下KO",
       "when": "on_block",
+      "if": {
+        "self_don_ge": 1
+      },
       "do": [
         {
-          "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "クロコダイル ドン×1 常在 +1000 自リーダー (自動 fallback)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
+          "ko": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -48834,15 +48932,27 @@
   ],
   "ST03-017": [
     {
-      "_text": "メロメロ甘風 カウンター (自動 fallback)",
+      "_text": "メロメロ甘風 カウンター: 自リーダー +4000 このバトル中",
       "when": "counter",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
-            "amount": 2000,
+            "amount": 4000,
             "duration": "battle"
           }
+        }
+      ]
+    },
+    {
+      "_text": "メロメロ甘風 カウンター: 手札3以下なら 1ドロー",
+      "when": "counter",
+      "if": {
+        "self_hand_count_le": 3
+      },
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -48905,21 +49015,16 @@
   ],
   "ST02-010": [
     {
-      "_text": "バジル・ホーキンス ドン×1 常在 +1000 自リーダー (自動 fallback)",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "ホーキンス アタック時: ドン1+ で自身アクティブ化",
+      "when": "on_attack",
+      "if": {
+        "self_don_active_ge": 1
+      },
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
+          "untap": "self"
         }
-      ],
-      "if": {
-        "self_turn": true
-      }
+      ]
     }
   ],
   "ST02-013": [
@@ -49071,11 +49176,11 @@
   ],
   "ST01-011": [
     {
-      "_text": "ブルック 登場時 (自動 fallback)",
+      "_text": "ST01-011 ブルック 登場時: レストドン+2 (キャラ付与は省略)",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 2
         }
       ]
     }
@@ -51618,14 +51723,14 @@
   ],
   "P-100": [
     {
-      "_text": "マーシャル・D・ティーチ アタック時 (自動 fallback)",
+      "_text": "P-100 ティーチ アタック時: 相手リーダー -1000 (効果無効化を簡略)",
       "when": "on_attack",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+            "target": "opponent_leader",
+            "amount": -1000,
+            "duration": "turn"
           }
         }
       ]
@@ -54278,7 +54383,38 @@
   "OP12-048": [],
   "OP12-053": [],
   "OP12-066": [],
-  "OP12-070": [],
+  "OP12-070": [
+    {
+      "_text": "OP12-070 サンジ トラッシュイベ5枚毎+1000 (簡略: trash_count_ge 5 で +1000)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_trash_count_ge": 5
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP12-070 サンジ replace_ko: 相手効果で離れる時 ドン1戻して代替",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "pay_don": 1
+        }
+      ]
+    }
+  ],
   "OP12-070_p1": [],
   "OP12-072": [],
   "OP12-102": [],
@@ -54361,7 +54497,26 @@
   "OP05-097": [],
   "OP05-100": [],
   "OP05-100_p1": [],
-  "OP05-107": [],
+  "OP05-107": [
+    {
+      "_text": "スペーシー中尉 自ターン中 +2000 (ライフ手札時の近似)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_life_le": 4
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP01-121_p2": [],
   "OP05-100_p2": [],
   "OP04-005": [],
@@ -54376,7 +54531,18 @@
   "OP03-032": [],
   "OP03-043": [],
   "OP03-045": [],
-  "OP03-088": [],
+  "OP03-088": [
+    {
+      "_text": "フクロウ 静的 KO 耐性 (常在)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "OP02-024": [],
   "OP02-027": [],
   "OP02-031": [],
@@ -54385,7 +54551,38 @@
   "OP02-074": [],
   "OP02-095": [],
   "OP02-100": [],
-  "OP02-114": [],
+  "OP02-114": [
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 KO 耐性",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP02-114_p1": [],
   "OP01-025": [],
   "OP01-025_p1": [],

@@ -1,0 +1,213 @@
+{
+  "deck_name": "紫ドフラミンゴ",
+  "leader_id": "OP14-060",
+  "leader_name": "ドンキホーテ・ドフラミンゴ",
+  "leader_color": [
+    "紫"
+  ],
+  "leader_features": [
+    "王下七武海",
+    "ドンキホーテ海賊団"
+  ],
+  "leader_text": "【相手のアタック時】【ターン1回】ドン‼-1：自分のリーダーか特徴《ドンキホーテ海賊団》を持つキャラ1枚を選ぶ。選んだカードにアタックの対象を変更する。",
+  "total_cards": 50,
+  "n_character": 43,
+  "n_event": 7,
+  "n_stage": 0,
+  "avg_cost": 4.22,
+  "cost_curve": [
+    {
+      "cost": 0,
+      "count": 4
+    },
+    {
+      "cost": 1,
+      "count": 11
+    },
+    {
+      "cost": 3,
+      "count": 2
+    },
+    {
+      "cost": 4,
+      "count": 6
+    },
+    {
+      "cost": 5,
+      "count": 18
+    },
+    {
+      "cost": 8,
+      "count": 5
+    },
+    {
+      "cost": 10,
+      "count": 4
+    }
+  ],
+  "counter_total": 38000,
+  "counter_2k_count": 8,
+  "counter_1k_count": 22,
+  "blocker_count": 1,
+  "color_distribution": {
+    "紫": 50
+  },
+  "top_features": [
+    [
+      "ドンキホーテ海賊団",
+      41
+    ],
+    [
+      "王下七武海",
+      11
+    ],
+    [
+      "パンクハザード",
+      8
+    ],
+    [
+      "海軍",
+      4
+    ],
+    [
+      "海賊王",
+      4
+    ]
+  ],
+  "archetype": "ランプ",
+  "speed": "中速",
+  "defense": "硬い",
+  "consistency": "高い",
+  "strategy_summary": "特徴《ドンキホーテ海賊団》軸のランプデッキ (中速)。防御 硬い・安定性 高い。",
+  "mulligan_keep_card_ids": [
+    "OP10-065",
+    "OP14-067"
+  ],
+  "mulligan_keep_criteria": [
+    "コスト 3 以下のキャラ ≥ 1 枚",
+    "サーチ / ドローカード ≥ 1 枚",
+    "リーダー特徴《ドンキホーテ海賊団/王下七武海》を持つキャラ ≥ 1 枚"
+  ],
+  "mulligan_throw_criteria": [
+    "5 コスト以上のカードしかない",
+    "リーダー特徴と無関係なカードばかり",
+    "1 ターン目に展開できる手数なし"
+  ],
+  "ideal_moves": [
+    {
+      "turn": 1,
+      "description": "1 コストキャラを展開、 序盤テンポ確保",
+      "candidate_cards": [
+        "OP14-067",
+        "OP14-067",
+        "OP14-067"
+      ]
+    },
+    {
+      "turn": 3,
+      "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
+      "candidate_cards": [
+        "ST18-001",
+        "ST18-001"
+      ]
+    },
+    {
+      "turn": 4,
+      "description": "4-5 コスト中堅展開、 盤面強化",
+      "candidate_cards": [
+        "OP14-061",
+        "OP14-061",
+        "OP14-061"
+      ]
+    },
+    {
+      "turn": 6,
+      "description": "フィニッシャー展開、 リーサル準備",
+      "candidate_cards": [
+        "OP14-069",
+        "OP14-069",
+        "OP14-069"
+      ]
+    }
+  ],
+  "weaknesses": [
+    "ブロッカー 1 枚のみ: 直接攻撃を止めにくい",
+    "平均コスト高い: 序盤の展開遅く、 アグロに押し切られる懸念"
+  ],
+  "strengths": [
+    "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
+    "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
+    "特徴《ドンキホーテ海賊団》専属 (41 枚): シナジーカードで爆発力"
+  ],
+  "key_cards": [
+    {
+      "card_id": "OP14-069",
+      "name": "ドンキホーテ・ドフラミンゴ",
+      "count": 4,
+      "cost": 10,
+      "role": "removal",
+      "reason": "相手キャラ除去 → 盤面コントロールの要"
+    },
+    {
+      "card_id": "OP10-065",
+      "name": "シュガー",
+      "count": 4,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP14-067",
+      "name": "デリンジャー",
+      "count": 4,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP10-071",
+      "name": "ドンキホーテ・ドフラミンゴ",
+      "count": 4,
+      "cost": 8,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP14-074",
+      "name": "モネ",
+      "count": 4,
+      "cost": 5,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP14-071",
+      "name": "ピーカ",
+      "count": 4,
+      "cost": 5,
+      "role": "ramp",
+      "reason": "DON 加速 → 大型早出しの起点"
+    },
+    {
+      "card_id": "OP14-068",
+      "name": "トレーボル",
+      "count": 4,
+      "cost": 5,
+      "role": "ramp",
+      "reason": "DON 加速 → 大型早出しの起点"
+    },
+    {
+      "card_id": "OP14-072",
+      "name": "ベビー５",
+      "count": 4,
+      "cost": 4,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    }
+  ],
+  "ai_hints": [
+    "DON 加速を最優先、 小型ブロッカーで凌いで大型展開へ",
+    "ブロッカー少ないので、 リーダー攻撃を許容してライフで受ける選択も",
+    "特徴《ドンキホーテ海賊団》専属: シナジーカードを優先プレイ"
+  ]
+}

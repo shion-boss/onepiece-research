@@ -12,12 +12,20 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { CardImage } from "./CardImage";
+import {
+  computeBoardEval,
+  evalLabel,
+  evalColorClass,
+} from "@/lib/boardEval";
+import { BoardEvalChart } from "./BoardEvalChart";
 import type {
   CharSnapshot,
+  GameAnalysisResponse,
   PlayerSnapshot,
   ReplayResponse,
   StateSnapshot,
 } from "@/lib/types";
+import { fetchGameAnalysis } from "@/lib/api";
 
 // ホバー中のカード情報をどこからでも共有するための Context
 type HoverInfo = {
@@ -129,6 +137,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   const [speedIdx, setSpeedIdx] = useState(1);
   const [followLog, setFollowLog] = useState(true);
   const [hovered, setHovered] = useState<HoverInfo | null>(null);
+  const [showBoardEval, setShowBoardEval] = useState(false);
 
   // BoardCard 各々の DOM 要素を instance_id で記録 → アタック矢印描画に使う
   const cardRefs = useRef(new Map<number, HTMLElement>());
@@ -380,6 +389,60 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
         }
       }
 
+      // (2.5) カウンター消費 (counter event / counter card 共通):
+      //   attack イベント中、 defender (= turn_player の対岸) の hand 減 + trash 増 を検知。
+      //   各 snapshot で 1 枚分の flight: hand → defender 自リーダー左側 (700ms hold) → trash。
+      //   engine 側で attack を pre-counter / post-counter snapshot に分割しているため、
+      //   counter event は各 push_log で 1 枚ずつ、 counter card は post-counter snapshot で
+      //   まとめて (stagger 付き) 描画される。
+      const isInAttack = cur.event?.type === "attack";
+      const isDefender = cur.turn_player_idx !== p;
+      const counterTrashGain = cp.trash.length - pp.trash.length;
+      const counterHandLoss = pp.hand.length - cp.hand.length;
+      if (
+        isInAttack &&
+        isDefender &&
+        counterTrashGain > 0 &&
+        counterHandLoss > 0
+      ) {
+        const nCounters = Math.min(counterTrashGain, counterHandLoss);
+        // 増分の card_id (cp.trash の末尾 N 枚)
+        const newCounterIds = cp.trash.slice(cp.trash.length - nCounters);
+        const handEl = zoneRefs.current.get(`hand-${p}`);
+        const leaderEl = cardRefs.current.get(cp.leader.instance_id);
+        const trashEl = zoneRefs.current.get(`trash-${p}`);
+        if (handEl && leaderEl && trashEl) {
+          const handRect = handEl.getBoundingClientRect();
+          const leaderRect = leaderEl.getBoundingClientRect();
+          const trashRect = trashEl.getBoundingClientRect();
+          // 「各リーダーから見て左側」(event と同じ規則):
+          //   自分マット (selfIdx, 非回転): 画面の左 → -90
+          //   相手マット (oppIdx, rotate-180): 画面の右 → +90
+          const midOffsetX = p === oppIdx ? 90 : -90;
+          for (let i = 0; i < nCounters; i++) {
+            newFlights.push({
+              id: `counter-${p}-${i}-${now}`,
+              cardId: newCounterIds[i] ?? "",
+              onTopMat: p === oppIdx,
+              delayMs: i * 200, // 複数枚なら 200ms stagger
+              fromX: handRect.left + handRect.width / 2 - matRect.left,
+              fromY: handRect.top + handRect.height / 2 - matRect.top,
+              midX:
+                leaderRect.left +
+                leaderRect.width / 2 -
+                matRect.left +
+                midOffsetX,
+              midY: leaderRect.top + leaderRect.height / 2 - matRect.top,
+              midHoldMs: 700,
+              toX: trashRect.left + trashRect.width / 2 - matRect.left,
+              toY: trashRect.top + trashRect.height / 2 - matRect.top,
+              startBack: false,
+              endBack: false,
+            });
+          }
+        }
+      }
+
       // (3a) 手札増減インジケータ
       //   増加: 必ず +N 表示 (ドロー / ライフ→手札 / サーチ など)
       //   減少: 「捨て」を含むログのみ -N 表示。play/event/stage/atk(=counter spend) は表示しない。
@@ -478,14 +541,21 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       const curAttached = collectAttached(cp);
       const costEl = zoneRefs.current.get(`costarea-${p}`);
       const costRect = costEl?.getBoundingClientRect();
-      const costCx = costRect
-        ? costRect.left + costRect.width / 2 - matRect.left
-        : 0;
+      // Cost Area の active 列の DON スロット位置を計算 (CostArea コンポーネントのレイアウトと一致):
+      //  - cost area 左 padding ≈ 4px (px-1)
+      //  - active 列の DON は left: i * 18px (overlap 18px)、 中心 = left + 40 (donW=80 / 2)
+      //  - rested 列はそれ以後に flex gap-2 で続く
+      // active スロット index k の中心 X (relative to matRect):
+      const activeSlotX = (k: number): number =>
+        costRect
+          ? costRect.left + 4 + k * 18 + 40 - matRect.left
+          : 0;
       const costCy = costRect
         ? costRect.top + costRect.height / 2 - matRect.top
         : 0;
 
       // (4) DON Deck → Cost Area (DON フェイズの 1〜2 枚分配)
+      // 着地点を「center」ではなく「新規追加スロット (= prev_active + i)」に
       const ddDelta = pp.don_remaining_in_deck - cp.don_remaining_in_deck;
       if (ddDelta > 0 && costRect) {
         const ddEl = zoneRefs.current.get(`dondeck-${p}`);
@@ -493,6 +563,10 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           const ddRect = ddEl.getBoundingClientRect();
           const fromX = ddRect.left + ddRect.width / 2 - matRect.left;
           const fromY = ddRect.top + ddRect.height / 2 - matRect.top;
+          // DON フェイズで配られる N 枚のうち最初の M 枚は active で増える (= ddDelta の中の active 増加分)
+          // それ以降 (リフレッシュ時のドン付与戻り由来) は rested 列に行くが、 ここでは active 限定:
+          // 簡略: prev.don_active + i 番目の active スロットに着地
+          const prevActive = pp.don_active;
           for (let i = 0; i < ddDelta; i++) {
             newFlights.push({
               id: `don-draw-${p}-${i}-${now}`,
@@ -502,7 +576,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               delayMs: i * 120,
               fromX,
               fromY,
-              toX: costCx,
+              toX: activeSlotX(prevActive + i),
               toY: costCy,
               startBack: false,
               endBack: false,
@@ -511,14 +585,17 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
         }
       }
 
-      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り)
+      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り、 rested 列に追加)
+      // rested 列の各スロットも厳密に計算するのは大変なので、 active 列の右端付近に着地。
+      // (= 視覚的には cost area の中央寄りなので center で許容)
       if (costRect) {
         let returnStagger = 0;
+        // 戻り先 X: cost area の中央〜右寄り (rested 列に流れ込むイメージ)
+        const restedAreaX = costRect.left + costRect.width * 0.65 - matRect.left;
         for (const [iid, prevCount] of prevAttached) {
           const curCount = curAttached.get(iid) ?? 0;
           const delta = prevCount - curCount;
           if (delta <= 0) continue;
-          // 既に場から消えた (KO 等) キャラは oldCardCache、生存中は newCache
           const fromRect = newCache.get(iid) ?? oldCardCache.get(iid);
           if (!fromRect) continue;
           const fromX = fromRect.left + fromRect.width / 2 - matRect.left;
@@ -532,7 +609,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               delayMs: returnStagger,
               fromX,
               fromY,
-              toX: costCx,
+              toX: restedAreaX,
               toY: costCy,
               startBack: false,
               endBack: false,
@@ -543,8 +620,11 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       }
 
       // (6) Cost Area (active) → Leader/Char (DON 付与)
+      // active 列から飛ぶので、 起点は active 列の右端付近 (= 直近で attach されるスロット)
       if (costRect) {
         let attachStagger = 0;
+        // 出発 X: cur.don_active の最右端スロット (簡略: prev_active 末尾)
+        const fromActiveX = activeSlotX(Math.max(0, pp.don_active - 1));
         for (const [iid, curCount] of curAttached) {
           const prevCount = prevAttached.get(iid) ?? 0;
           const delta = curCount - prevCount;
@@ -560,7 +640,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               isDon: true,
               onTopMat: p === oppIdx,
               delayMs: attachStagger,
-              fromX: costCx,
+              fromX: fromActiveX,
               fromY: costCy,
               toX,
               toY,
@@ -583,14 +663,21 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       });
     }
     const ids = newFlights.map((f) => f.id);
-    // 最長の飛行を計算してクリーンアップ。DON は delayMs (stagger) + 600ms 必要、
-    // mid 経由 flight は 1500ms、通常 flight は 800ms。
+    // 最長の飛行を計算してクリーンアップ。
+    // - 通常 flight: 800ms / mid 経由 flight: 1500ms (= 300+700hold+300+α)
+    // - DON は delayMs (stagger) + 600ms 必要
+    // - mid 経由 + delayMs (counter 複数枚 stagger): delayMs + 1500ms
     const baseDuration = newFlights.some((f) => f.midX !== undefined) ? 1500 : 800;
     const donMaxDelay = newFlights.reduce(
       (m, f) => (f.isDon ? Math.max(m, (f.delayMs ?? 0) + 600) : m),
       0,
     );
-    const maxDuration = Math.max(baseDuration, donMaxDelay);
+    const midMaxDelay = newFlights.reduce(
+      (m, f) =>
+        f.midX !== undefined ? Math.max(m, (f.delayMs ?? 0) + 1500) : m,
+      0,
+    );
+    const maxDuration = Math.max(baseDuration, donMaxDelay, midMaxDelay);
     setTimeout(() => {
       setFlights((f) => f.filter((x) => !ids.includes(x.id)));
       if (incomingToAdd.length > 0) {
@@ -652,9 +739,15 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="relative flex min-h-0 flex-1 flex-col gap-2">
       {/* 上端: フェーズストリップ (画面の上に固定表示) */}
-      <PhaseStrip snap={snap} aName={playerName[0]} bName={playerName[1]} />
+      <PhaseStrip
+        snap={snap}
+        aName={playerName[0]}
+        bName={playerName[1]}
+      />
+      {/* 盤面評価オーバーレイは下記ログ領域 (右下) に absolute 配置。
+          ログコンテナを relative にし、 同じサイズのオーバーレイを重ねる構造。 */}
 
       {/* 3 列レイアウト
             ┌──────────────┬─────────────┬──────────────┐
@@ -950,6 +1043,18 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                   />
                   📌 追従
                 </label>
+                <button
+                  type="button"
+                  onClick={() => setShowBoardEval((s) => !s)}
+                  className={`ml-2 rounded px-2 py-0.5 transition ${
+                    showBoardEval
+                      ? "bg-emerald-300 text-emerald-950"
+                      : "border border-amber-200/40 hover:bg-amber-900/30"
+                  }`}
+                  title="盤面評価パネルの表示切替"
+                >
+                  盤面評価 {showBoardEval ? "▾" : "▸"}
+                </button>
               </div>
               <input
                 type="range"
@@ -964,8 +1069,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               />
             </div>
 
-            {/* ログ */}
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-amber-950/60 pt-2">
+            {/* ログ (relative で BoardEval オーバーレイをこの内側に重ねる) */}
+            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-t border-amber-950/60 pt-2">
               <div className="mb-1 text-[10px] uppercase tracking-wide text-amber-200/70">
                 Log  step {idx + 1}/{snapshots.length}
               </div>
@@ -978,6 +1083,23 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                   setIdx(i);
                 }}
               />
+              {/* 盤面評価オーバーレイ: ログ部分とのみ同サイズで重ねる (コントロールは avoid)。 z-50 で最上位 */}
+              {showBoardEval && (
+                <div className="board-eval-scroll pointer-events-auto absolute inset-0 z-50 overflow-auto rounded border border-white/15 bg-black/30 text-zinc-100 shadow-2xl backdrop-blur-sm">
+                  <BoardEvalPanel
+                    snap={snap}
+                    snapshots={snapshots}
+                    currentIdx={idx}
+                    onJump={(i) => withViewTransition(() => setIdx(i))}
+                    selfIdx={selfIdx}
+                    oppIdx={oppIdx}
+                    selfName={playerName[selfIdx]}
+                    oppName={playerName[oppIdx]}
+                    jobId={replay.job_id}
+                    gameIndex={replay.game_index}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1030,6 +1152,298 @@ function PhaseStrip({
         <span className="rounded bg-rose-100 px-2 py-0.5 font-medium text-rose-900 dark:bg-rose-900 dark:text-rose-100">
           GAME OVER
         </span>
+      )}
+    </div>
+  );
+}
+
+// 盤面評価パネル: PhaseStrip 直下に表示。 self/opp のスコア・有利度ゲージ・内訳。
+// 「現在 / 推移」タブで現スナップショット詳細と全試合の時系列グラフを切替表示。
+function BoardEvalPanel({
+  snap,
+  snapshots,
+  currentIdx,
+  onJump,
+  selfIdx,
+  oppIdx,
+  selfName,
+  oppName,
+  jobId,
+  gameIndex,
+}: {
+  snap: StateSnapshot;
+  snapshots: StateSnapshot[];
+  currentIdx: number;
+  onJump?: (idx: number) => void;
+  selfIdx: 0 | 1;
+  oppIdx: 0 | 1;
+  selfName: string;
+  oppName: string;
+  jobId?: string;
+  gameIndex?: number;
+}) {
+  const [tab, setTab] = useState<"current" | "history" | "turning">(
+    "current",
+  );
+  const [analysis, setAnalysis] = useState<GameAnalysisResponse | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // ターニングタブを開いたとき lazy 取得
+  useEffect(() => {
+    if (tab !== "turning" || !jobId || gameIndex === undefined || analysis)
+      return;
+    let cancelled = false;
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    fetchGameAnalysis(jobId, gameIndex)
+      .then((res) => {
+        if (!cancelled) setAnalysis(res);
+      })
+      .catch((e) => {
+        if (!cancelled) setAnalysisError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setAnalysisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, jobId, gameIndex, analysis]);
+
+  const ev = computeBoardEval(snap, selfIdx, oppIdx);
+  const label = evalLabel(ev.normalized);
+  const colorClass = evalColorClass(ev.normalized);
+  // ゲージ: -1.0 〜 +1.0 を 0% 〜 100% に変換 (50% が互角)
+  const gaugePct = ((ev.normalized + 1) / 2) * 100;
+
+  type Row = {
+    name: string;
+    m: { self: number; opp: number; diff: number; contribution: number };
+    formatNum?: (n: number) => string;
+  };
+  const fmtFloat = (n: number) => n.toFixed(2);
+  const rows: Row[] = [
+    { name: "ライフ", m: ev.breakdown.life },
+    { name: "場のキャラ数", m: ev.breakdown.fieldCount },
+    { name: "場のパワー合計", m: ev.breakdown.fieldPower },
+    { name: "手札", m: ev.breakdown.hand },
+    { name: "DON 総数", m: ev.breakdown.don },
+    { name: "ブロッカー数", m: ev.breakdown.blocker },
+    { name: "付与 DON 合計", m: ev.breakdown.attachedDon },
+    { name: "アクティブキャラ数", m: ev.breakdown.activeChara },
+    { name: "リーサル兆候", m: ev.breakdown.lethal, formatNum: fmtFloat },
+  ];
+
+  return (
+    <div className="p-3 text-xs text-zinc-100">
+      {/* タブ切替 */}
+      <div className="mb-2 flex items-center gap-1">
+        {(["current", "history", "turning"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
+              tab === t
+                ? "bg-white/90 text-zinc-900"
+                : "bg-white/10 text-zinc-200 hover:bg-white/20"
+            }`}
+          >
+            {t === "current" ? "現在" : t === "history" ? "推移" : "ターニング"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "current" && (
+        <>
+          {/* 上段: 有利度ラベル + ゲージ */}
+          <div className="mb-2 flex items-center gap-3">
+            <span className={`font-bold ${colorClass}`}>
+              {selfName}: {label}
+            </span>
+            <span className="font-mono text-zinc-300">
+              ({ev.diff >= 0 ? "+" : ""}
+              {ev.diff.toLocaleString()})
+            </span>
+            <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div className="absolute left-1/2 top-0 h-full w-px bg-white/40" />
+              <div
+                className={`absolute top-0 h-full ${
+                  ev.normalized >= 0 ? "bg-emerald-500" : "bg-rose-500"
+                }`}
+                style={
+                  ev.normalized >= 0
+                    ? { left: "50%", width: `${gaugePct - 50}%` }
+                    : { right: "50%", width: `${50 - gaugePct}%` }
+                }
+              />
+            </div>
+            <span className="font-mono text-zinc-300">
+              ← {oppName} : self →
+            </span>
+          </div>
+          {/* 下段: 内訳テーブル */}
+          <table className="w-full text-[11px] tabular-nums">
+            <thead className="text-zinc-300">
+              <tr>
+                <th className="text-left">項目</th>
+                <th className="text-right">{selfName}</th>
+                <th className="text-right">{oppName}</th>
+                <th className="text-right">差</th>
+                <th className="text-right">寄与</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const fmt =
+                  r.formatNum ?? ((n: number) => n.toLocaleString());
+                return (
+                  <tr key={r.name} className="border-t border-white/10">
+                    <td className="text-zinc-200">{r.name}</td>
+                    <td className="text-right font-mono">{fmt(r.m.self)}</td>
+                    <td className="text-right font-mono">{fmt(r.m.opp)}</td>
+                    <td
+                      className={`text-right font-mono ${
+                        r.m.diff > 0
+                          ? "text-emerald-400"
+                          : r.m.diff < 0
+                            ? "text-rose-400"
+                            : "text-zinc-400"
+                      }`}
+                    >
+                      {r.m.diff >= 0 ? "+" : ""}
+                      {fmt(r.m.diff)}
+                    </td>
+                    <td
+                      className={`text-right font-mono ${
+                        r.m.contribution > 0
+                          ? "text-emerald-400"
+                          : r.m.contribution < 0
+                            ? "text-rose-400"
+                            : "text-zinc-400"
+                      }`}
+                    >
+                      {r.m.contribution >= 0 ? "+" : ""}
+                      {Math.round(r.m.contribution).toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t-2 border-white/30 font-medium">
+                <td className="text-zinc-200">合計スコア</td>
+                <td className="text-right font-mono">
+                  {Math.round(ev.selfScore).toLocaleString()}
+                </td>
+                <td className="text-right font-mono">
+                  {Math.round(ev.oppScore).toLocaleString()}
+                </td>
+                <td
+                  className={`text-right font-mono ${colorClass}`}
+                  colSpan={2}
+                >
+                  {ev.diff >= 0 ? "+" : ""}
+                  {Math.round(ev.diff).toLocaleString()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {tab === "history" && (
+        <BoardEvalChart
+          snapshots={snapshots}
+          selfIdx={selfIdx}
+          oppIdx={oppIdx}
+          currentIdx={currentIdx}
+          onJump={onJump}
+        />
+      )}
+
+      {tab === "turning" && (
+        <div className="space-y-2">
+          {analysisLoading && (
+            <div className="text-zinc-300">分析中...</div>
+          )}
+          {analysisError && (
+            <div className="text-rose-400">エラー: {analysisError}</div>
+          )}
+          {!jobId || gameIndex === undefined ? (
+            <div className="text-zinc-300">
+              リプレイ情報がないので分析できません
+            </div>
+          ) : null}
+          {analysis && (
+            <>
+              {analysis.summary && (
+                <div className="grid grid-cols-2 gap-2 rounded bg-white/5 p-2 text-[11px] tabular-nums">
+                  <div>
+                    平均 eval:{" "}
+                    <span className="font-mono">
+                      {Math.round(analysis.summary.avg_score).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    最大リード:{" "}
+                    <span className="font-mono text-emerald-400">
+                      +{Math.round(analysis.summary.max_lead).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    最大劣勢:{" "}
+                    <span className="font-mono text-rose-400">
+                      {Math.round(analysis.summary.max_deficit).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    {analysis.summary.comeback ? (
+                      <span className="font-bold text-amber-300">
+                        🔥 逆転勝ち
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400">通常進行</span>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="mb-1 text-[11px] text-zinc-300">
+                ターニングポイント (上位 {analysis.turning_points.length} 件):
+              </div>
+              <ul className="space-y-0.5">
+                {analysis.turning_points.length === 0 && (
+                  <li className="text-[11px] text-zinc-400">
+                    顕著なターニングポイントなし
+                  </li>
+                )}
+                {analysis.turning_points.map((tp) => (
+                  <li
+                    key={tp.snap_idx}
+                    onClick={() => onJump?.(tp.snap_idx)}
+                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[11px] tabular-nums hover:bg-white/10"
+                  >
+                    <span className="w-12 text-right font-mono text-zinc-400">
+                      T{tp.turn} #{tp.snap_idx}
+                    </span>
+                    <span
+                      className={`w-16 text-right font-mono ${
+                        tp.side === "self_gain"
+                          ? "text-emerald-400"
+                          : "text-rose-400"
+                      }`}
+                    >
+                      {tp.delta >= 0 ? "+" : ""}
+                      {Math.round(tp.delta).toLocaleString()}
+                    </span>
+                    <span className="flex-1 truncate text-zinc-200">
+                      {tp.log}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1428,7 +1842,7 @@ function LogTrackCompact({
   return (
     <div
       ref={ref}
-      className="flex-1 overflow-y-auto font-mono text-[11px] leading-5"
+      className="log-scroll flex-1 overflow-y-auto font-mono text-[11px] leading-5"
     >
       {snapshots.map((s, i) => (
         <div

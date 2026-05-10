@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 
 from engine.deck import CardRepository, make_deck_from_dict  # noqa: E402
 from engine.deckbuilder import build_with_core  # noqa: E402
+from engine.effects import load_effect_overlay  # noqa: E402
 from engine.harness import run_matchup  # noqa: E402
 
 app = FastAPI(title="One Piece Research API", version="0.2")
@@ -320,7 +321,10 @@ class DeckSummary(BaseModel):
 def _list_deck_files() -> list[Path]:
     if not DECKS_DIR.exists():
         return []
-    return sorted(DECKS_DIR.glob("*.json"))
+    # *.analysis.json は分析メタデータなのでデッキ本体から除外
+    return sorted(
+        p for p in DECKS_DIR.glob("*.json") if not p.name.endswith(".analysis.json")
+    )
 
 
 def _load_deck_json(slug: str) -> dict:
@@ -368,6 +372,40 @@ def list_decks():
 @app.get("/api/decks/{slug}")
 def get_deck(slug: str):
     return _load_deck_json(slug)
+
+
+@app.get("/api/decks/{slug}/strategy")
+def get_deck_strategy(slug: str):
+    """静的デッキ分析 (戦略 / マリガン / 理想ムーブ / 弱点 / キーカード / AI ヒント)。
+
+    `decks/<slug>.analysis.json` があればそれを返す (高速)。
+    なければ即時生成して返す (= cache miss でも軽量、 動的対戦不要)。
+    """
+    from dataclasses import asdict
+    from engine.deck_analyzer import analyze_deck
+
+    deck_path = DECKS_DIR / f"{slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+
+    cache_path = DECKS_DIR / f"{slug}.analysis.json"
+    if cache_path.exists():
+        try:
+            return json.loads(cache_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass  # cache 壊れていれば再生成
+
+    # 即時生成
+    repo = get_repo()
+    try:
+        deck = make_deck_from_dict(json.loads(deck_path.read_text(encoding="utf-8")), repo)
+    except Exception as e:
+        raise HTTPException(500, f"deck load failed: {e}")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    analysis = analyze_deck(deck, overlay)
+    d = asdict(analysis)
+    d["top_features"] = [list(t) for t in d.get("top_features", [])]
+    return d
 
 
 # --------------------------------------------------------------------------- #
@@ -1027,6 +1065,46 @@ class ReplayResponse(BaseModel):
     snapshots: list[StateSnapshot]
 
 
+# === 試合後分析 ===
+class EvalPointOut(BaseModel):
+    snap_idx: int
+    turn: int
+    phase: str
+    score: float
+    normalized: float
+    log: str
+
+
+class TurningPointOut(BaseModel):
+    snap_idx: int
+    turn: int
+    delta: float
+    side: str  # "self_gain" / "self_loss"
+    log: str
+    score_before: float
+    score_after: float
+
+
+class GameSummaryOut(BaseModel):
+    avg_score: float
+    max_lead: float
+    max_deficit: float
+    final_score: float
+    comeback: bool
+
+
+class GameAnalysisResponse(BaseModel):
+    job_id: str
+    game_index: int
+    me_idx: int
+    me_name: str
+    opp_name: str
+    winner: Optional[int]
+    eval_series: list[EvalPointOut]
+    turning_points: list[TurningPointOut]
+    summary: Optional[GameSummaryOut]
+
+
 @app.post("/api/match/{job_id}/games/{game_index}/replay", response_model=ReplayResponse)
 def replay_match_game(job_id: str, game_index: int):
     """対象ゲームを同じ seed で再実行し、push_log 毎の盤面スナップショットを返す。
@@ -1063,4 +1141,86 @@ def replay_match_game(job_id: str, game_index: int):
         winner=g.winner,
         turns=g.turns,
         snapshots=[StateSnapshot(**s) for s in g.snapshots],
+    )
+
+
+@app.get(
+    "/api/match/{job_id}/games/{game_index}/analysis",
+    response_model=GameAnalysisResponse,
+)
+def analyze_match_game(job_id: str, game_index: int):
+    """既存 replay snapshot を再利用して試合後分析を返す。
+
+    deck_a 視点 (= me_idx は first_player から逆引きで deck_a が居る側) で
+    eval_series + turning_points + summary を計算。
+    snapshot が record されていない場合は replay と同じく lazy 再実行する。
+    """
+    from engine.analyzer import analyze_game
+
+    job = _MATCH_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(404, f"match job not found: {job_id}")
+    if game_index < 0 or game_index >= job["n_games"]:
+        raise HTTPException(404, f"game index out of range: {game_index}")
+
+    repo = get_repo()
+    try:
+        deck_a = make_deck_from_dict(job["deck_a"], repo)
+        deck_b = make_deck_from_dict(job["deck_b"], repo)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(500, f"deck rebuild failed: {e}")
+
+    report = run_matchup(
+        deck_a, deck_b,
+        n_games=job["n_games"],
+        seed=job["seed"],
+        record_snapshots=True,
+        only_game_index=game_index,
+    )
+    g = report.games[game_index]
+    snapshots = g.snapshots
+
+    # me_idx (= deck_a 視点 = self) を first_player で決める。
+    # MatchReplay の selfIdx と同じ計算: deck_a が後攻 (first_player==1) なら snap.players[1]
+    me_idx = g.first_player  # 0 or 1
+    me_name = report.deck1_name  # = deck_a name
+    opp_name = report.deck2_name
+
+    analysis = analyze_game(
+        snapshots, me_idx=me_idx, me_name=me_name, opp_name=opp_name,
+    )
+
+    return GameAnalysisResponse(
+        job_id=job_id,
+        game_index=game_index,
+        me_idx=analysis.me_idx,
+        me_name=analysis.me_name,
+        opp_name=analysis.opp_name,
+        winner=analysis.winner,
+        eval_series=[
+            EvalPointOut(
+                snap_idx=p.snap_idx, turn=p.turn, phase=p.phase,
+                score=p.score, normalized=p.normalized, log=p.log,
+            )
+            for p in analysis.eval_series
+        ],
+        turning_points=[
+            TurningPointOut(
+                snap_idx=t.snap_idx, turn=t.turn, delta=t.delta,
+                side=t.side, log=t.log,
+                score_before=t.score_before, score_after=t.score_after,
+            )
+            for t in analysis.turning_points
+        ],
+        summary=(
+            GameSummaryOut(
+                avg_score=analysis.summary.avg_score,
+                max_lead=analysis.summary.max_lead,
+                max_deficit=analysis.summary.max_deficit,
+                final_score=analysis.summary.final_score,
+                comeback=analysis.summary.comeback,
+            )
+            if analysis.summary
+            else None
+        ),
     )

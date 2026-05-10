@@ -38,7 +38,12 @@ def test_validate_existing_decks_pass():
     """decks/*.json (cardrush 産メタ含む) は基本的に validate() が空であるべき。
     レシピが古く現禁止リストに違反するもの (黒黄モリア / 青黄ハンコック等) は別途 archive 済。"""
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
-    deck_paths = sorted((ROOT / "decks").glob("*.json"))
+    # *.analysis.json は分析メタデータなのでデッキ本体から除外
+    deck_paths = sorted(
+        p
+        for p in (ROOT / "decks").glob("*.json")
+        if not p.name.endswith(".analysis.json")
+    )
     assert deck_paths, "decks/ にデッキファイルが無い"
     failures = []
     for p in deck_paths:

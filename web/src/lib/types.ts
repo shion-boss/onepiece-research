@@ -246,3 +246,100 @@ export type ReplayResponse = {
   turns: number;
   snapshots: StateSnapshot[];
 };
+
+// === 試合後分析 ===
+export type EvalPoint = {
+  snap_idx: number;
+  turn: number;
+  phase: string;
+  score: number;
+  normalized: number;
+  log: string;
+};
+
+export type TurningPoint = {
+  snap_idx: number;
+  turn: number;
+  delta: number;
+  side: "self_gain" | "self_loss";
+  log: string;
+  score_before: number;
+  score_after: number;
+};
+
+export type GameSummary = {
+  avg_score: number;
+  max_lead: number;
+  max_deficit: number;
+  final_score: number;
+  comeback: boolean;
+};
+
+export type GameAnalysisResponse = {
+  job_id: string;
+  game_index: number;
+  me_idx: number;
+  me_name: string;
+  opp_name: string;
+  winner: number | null;
+  eval_series: EvalPoint[];
+  turning_points: TurningPoint[];
+  summary: GameSummary | null;
+};
+
+// === デッキ静的分析 (engine/deck_analyzer.py) ===
+export type DeckCostBucket = { cost: number; count: number };
+
+export type DeckKeyCard = {
+  card_id: string;
+  name: string;
+  count: number;
+  cost: number;
+  role: string;
+  reason: string;
+};
+
+export type DeckIdealMove = {
+  turn: number;
+  description: string;
+  candidate_cards: string[];
+};
+
+export type DeckStrategy = {
+  deck_name: string;
+  leader_id: string;
+  leader_name: string;
+  leader_color: string[];
+  leader_features: string[];
+  leader_text: string;
+
+  total_cards: number;
+  n_character: number;
+  n_event: number;
+  n_stage: number;
+  avg_cost: number;
+  cost_curve: DeckCostBucket[];
+  counter_total: number;
+  counter_2k_count: number;
+  counter_1k_count: number;
+  blocker_count: number;
+  color_distribution: Record<string, number>;
+  top_features: [string, number][];
+
+  archetype: string;
+  speed: string;
+  defense: string;
+  consistency: string;
+  strategy_summary: string;
+
+  mulligan_keep_card_ids: string[];
+  mulligan_keep_criteria: string[];
+  mulligan_throw_criteria: string[];
+
+  ideal_moves: DeckIdealMove[];
+
+  weaknesses: string[];
+  strengths: string[];
+  key_cards: DeckKeyCard[];
+  ai_hints: string[];
+};

@@ -13,6 +13,8 @@ import type {
   MatchRequest,
   MatchSummary,
   MatchupMatrix,
+  DeckStrategy,
+  GameAnalysisResponse,
   ReplayResponse,
 } from "./types";
 
@@ -122,6 +124,33 @@ export async function fetchMatchReplay(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`fetchMatchReplay failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function fetchDeckStrategy(slug: string): Promise<DeckStrategy> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/strategy`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`fetchDeckStrategy failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function fetchGameAnalysis(
+  jobId: string,
+  gameIndex: number,
+): Promise<GameAnalysisResponse> {
+  const res = await fetch(
+    `${API}/api/match/${encodeURIComponent(jobId)}/games/${gameIndex}/analysis`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`fetchGameAnalysis failed: ${res.status} ${detail}`);
   }
   return res.json();
 }

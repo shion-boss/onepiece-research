@@ -79,6 +79,31 @@ _DEFAULT_OVERLAY_PATH = (
 )
 
 
+def _try_load_deck_analysis(deck: DeckList) -> Optional[dict]:
+    """deck.slug があれば decks/<slug>.analysis.json をロード。"""
+    if not getattr(deck, "slug", None):
+        return None
+    path = Path("decks") / f"{deck.slug}.analysis.json"
+    if not path.exists():
+        path = Path(__file__).resolve().parent.parent / "decks" / f"{deck.slug}.analysis.json"
+    if not path.exists():
+        return None
+    try:
+        import json
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _construct_ai(factory, rng, deck_analysis):
+    """AI factory が deck_analysis を受け取れるか試す。
+    GreedyAI/EvalGreedyAI 等は kwarg 対応、 古い factory は無視。"""
+    try:
+        return factory(rng, deck_analysis=deck_analysis)
+    except TypeError:
+        return factory(rng)
+
+
 def run_matchup(
     deck1: DeckList,
     deck2: DeckList,
@@ -94,6 +119,8 @@ def run_matchup(
     only_game_index: Optional[int] = None,
     enforce_rules: bool = True,
     referee_strict: bool = False,
+    deck1_analysis: Optional[dict] = None,
+    deck2_analysis: Optional[dict] = None,
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
@@ -108,6 +135,12 @@ def run_matchup(
 
     if effects_overlay is None:
         effects_overlay = load_effect_overlay(_DEFAULT_OVERLAY_PATH)
+
+    # 引数で analysis 未指定なら decks/<slug>.analysis.json から自動ロード
+    if deck1_analysis is None:
+        deck1_analysis = _try_load_deck_analysis(deck1)
+    if deck2_analysis is None:
+        deck2_analysis = _try_load_deck_analysis(deck2)
 
     report = MatchupReport(
         deck1_name=deck1.name, deck2_name=deck2.name, n_games=n_games
@@ -130,12 +163,15 @@ def run_matchup(
 
         if first_player == 0:
             d_first, d_second = deck1, deck2
+            ana_first, ana_second = deck1_analysis, deck2_analysis
         else:
             d_first, d_second = deck2, deck1
+            ana_first, ana_second = deck2_analysis, deck1_analysis
 
         state = setup_game(
             d_first, d_second, rng=rng, first_player=0,
             effects_overlay=effects_overlay,
+            deck1_analysis=ana_first, deck2_analysis=ana_second,
         )
         if record_snapshots:
             state.record_snapshots = True
@@ -143,8 +179,13 @@ def run_matchup(
             if state.log:
                 state.snapshots.append(state._build_snapshot(state.log[-1]))
         play_until_main(state)
-        ai_first = ai_factory_1(rng) if first_player == 0 else ai_factory_2(rng)
-        ai_second = ai_factory_2(rng) if first_player == 0 else ai_factory_1(rng)
+        # first_player == 0 なら deck1 が先攻 (= AI1, analysis1)、 1 なら逆
+        if first_player == 0:
+            ai_first = _construct_ai(ai_factory_1, rng, deck1_analysis)
+            ai_second = _construct_ai(ai_factory_2, rng, deck2_analysis)
+        else:
+            ai_first = _construct_ai(ai_factory_2, rng, deck2_analysis)
+            ai_second = _construct_ai(ai_factory_1, rng, deck1_analysis)
         ais = [ai_first, ai_second]
 
         # ルール違反監視 referee (オプション)

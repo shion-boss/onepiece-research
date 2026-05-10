@@ -1334,6 +1334,85 @@ def _can_pay_activate_cost(
     return True
 
 
+def estimate_attacker_self_buff(
+    state: GameState,
+    attacker: InPlay,
+    effects_overlay: dict[str, "CardEffectBundle"],
+) -> int:
+    """attacker が `when:"on_attack"` 効果で自身 / 自リーダーに与える正の power_pump 合計。
+
+    defender が counter を切る量を決めるとき、 attacker のリアクティブ強化を予測するのに使う。
+    例: attacker.power=6000、 attacker.on_attack で「self_leader +1000」あり → 実質 7000 攻撃。
+        defender は gap=2000 (vs base 5000 leader) で counter を切る必要がある。
+    target = "self" / "self_leader" / "self_inplay" の正の amount を集計。
+    eval_condition で `if` 句が True のもののみ。 DON コスト等は最大 (発動可) と仮定。
+    """
+    if not effects_overlay:
+        return 0
+    bundle = effects_overlay.get(attacker.card.card_id)
+    if bundle is None:
+        return 0
+    total = 0
+    me = state.turn_player  # attacker の所有者 = ターンプレイヤー
+    for eff in bundle.effects:
+        if eff.get("when") != "on_attack":
+            continue
+        if not eval_condition(eff.get("if", {}), state, me, attacker):
+            continue
+        for prim in eff.get("do", []):
+            pp = prim.get("power_pump")
+            if not pp:
+                continue
+            target = pp.get("target", "self")
+            amount = int(pp.get("amount", 0))
+            # self / self_leader / self_inplay : attacker 自身またはターン側リーダーが強化される
+            if target in ("self", "self_leader", "self_inplay") and amount > 0:
+                total += amount
+    return total
+
+
+def estimate_opp_attack_buff_to_leader(
+    state: GameState,
+    opp: Player,
+    effects_overlay: dict[str, "CardEffectBundle"],
+) -> int:
+    """opp 側が「相手のアタック時」に自リーダーへ加算する power_pump 合計を見積もる。
+
+    AI がリーダー攻撃の viable 判定をするとき、 trigger_on_opp_attack で発火しうる
+    防御 buff を予測してフィルタするのに使う。最大予想値 (= 条件成立時の上限) を返す。
+
+    集計対象: opp.leader / opp.characters / opp.stages の overlay の when:"opp_attack" 効果
+      do 配列中の power_pump で target が self_leader / self (= self_inplay = leader 自身)
+      かつ amount > 0 のもの (defensive 強化)
+    eval_condition で `if` 句 が True のもののみ。
+    DON コストや opp_hand 条件等は default で「最大」(常に発動可能) と仮定。
+    """
+    if not effects_overlay:
+        return 0
+    total = 0
+    candidates: list[InPlay] = [opp.leader, *opp.characters, *opp.stages]
+    for inplay in candidates:
+        bundle = effects_overlay.get(inplay.card.card_id)
+        if bundle is None:
+            continue
+        for eff in bundle.effects:
+            if eff.get("when") != "opp_attack":
+                continue
+            # if 句 を opp 視点で評価 (opp 側 leader_feature 等)
+            if not eval_condition(eff.get("if", {}), state, opp, inplay):
+                continue
+            for prim in eff.get("do", []):
+                pp = prim.get("power_pump")
+                if not pp:
+                    continue
+                target = pp.get("target", "self")
+                amount = int(pp.get("amount", 0))
+                # opp 視点の self_leader / self → opp.leader 自身が強化される
+                if target in ("self_leader", "self") and amount > 0:
+                    total += amount
+    return total
+
+
 def list_activate_main_effects(
     state: GameState,
     me: Player,

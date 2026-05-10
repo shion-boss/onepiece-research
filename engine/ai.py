@@ -43,8 +43,13 @@ from .game import (
 class RandomAI:
     name = "Random"
 
-    def __init__(self, rng: Optional[random.Random] = None):
+    def __init__(
+        self,
+        rng: Optional[random.Random] = None,
+        deck_analysis: Optional[dict] = None,
+    ):
         self.rng = rng or random.Random()
+        self.deck_analysis = deck_analysis  # 使わない (Random は分析無視)
 
     # メインフェーズの行動選択
     def choose_action(self, state: GameState) -> Action:
@@ -72,8 +77,73 @@ class RandomAI:
 class GreedyAI:
     name = "Greedy"
 
-    def __init__(self, rng: Optional[random.Random] = None):
+    def __init__(
+        self,
+        rng: Optional[random.Random] = None,
+        deck_analysis: Optional[dict] = None,
+    ):
         self.rng = rng or random.Random()
+        self.deck_analysis = deck_analysis
+        # アーキタイプ別ヒューリスティックパラメータ
+        # default = ミッドレンジ (= 既存の挙動)
+        self.archetype = "ミッドレンジ"
+        # 防御パラメータ: ライフ別に counter を切る上限と枚数
+        # 値: { life: (max_total, max_cards) }
+        self.defense_thresholds = {
+            1: (99999, 99),  # 致命: 全力
+            2: (8000, 3),
+            3: (6000, 2),
+            4: (2000, 1),
+        }
+        # 攻撃パラメータ: gap_tolerance = リーダー攻撃の安全マージン
+        # (= attacker.power >= leader.power + tolerance なら攻撃)
+        self.attack_gap_tolerance = 0
+        # フィニッシャー温存判定の閾値 (高コスト = key_cards 由来)
+        self.finisher_card_ids: set[str] = set()
+        # ramp 系優先 (起動メイン無条件発動)
+        self.prioritize_ramp = False
+
+        if deck_analysis:
+            self._apply_archetype_profile(deck_analysis)
+
+    def _apply_archetype_profile(self, analysis: dict) -> None:
+        """deck_analysis からアーキタイプ別の挙動パラメータを設定。"""
+        arche = analysis.get("archetype", "ミッドレンジ")
+        self.archetype = arche
+        if arche == "アグロ":
+            # ライフ詰め優先、 counter 控えめ、 攻撃 gap=0 でも積極的
+            self.defense_thresholds = {
+                1: (99999, 99),
+                2: (5000, 2),    # 控えめ
+                3: (3000, 1),    # かなり控えめ
+                4: (0, 0),       # ライフ余裕時はほぼ counter 切らず攻める
+            }
+            self.attack_gap_tolerance = -1000  # gap = atk - def が +tolerance 以上で攻撃 → -1000 = 1000 不足でも攻めて良い (= ぎりぎり通る攻撃も)
+        elif arche == "コントロール":
+            # 序盤耐え、 counter 厚め、 リーダー攻撃は安全策のみ
+            self.defense_thresholds = {
+                1: (99999, 99),
+                2: (10000, 4),
+                3: (8000, 3),
+                4: (5000, 2),    # 余裕時も counter で予防
+            }
+            self.attack_gap_tolerance = 1000  # gap+1000 確保した攻撃のみ (確実に通る)
+        elif arche == "ランプ":
+            # DON 加速優先、 攻撃は中盤以降
+            self.prioritize_ramp = True
+            self.defense_thresholds = {
+                1: (99999, 99),
+                2: (8000, 3),
+                3: (7000, 2),
+                4: (3000, 1),
+            }
+            self.attack_gap_tolerance = 0
+        # ミッドレンジは default
+
+        # フィニッシャー (= role: finisher) のカード ID をストア
+        for k in analysis.get("key_cards", []):
+            if k.get("role") == "finisher":
+                self.finisher_card_ids.add(k.get("card_id", ""))
 
     def choose_action(self, state: GameState) -> Action:
         actions = legal_actions(state)
@@ -130,17 +200,27 @@ class GreedyAI:
             a, _, _ = max(viable_char, key=lambda x: (x[2].card.cost, x[2].power))
             return a
 
+        # 防御側のリアクティブ buff (opp_attack で opp.leader を強化する効果) を見積。
+        # 例: 紫ドフラ / 赤青エース 等の「相手アタック時 リーダー +N」効果が発動した時、
+        # 実際の defender_power は opp.leader.power + est_buff になる。
+        est_opp_buff = 0
+        if state.effects_overlay:
+            from .effects import estimate_opp_attack_buff_to_leader
+            est_opp_buff = estimate_opp_attack_buff_to_leader(
+                state, opp, state.effects_overlay
+            )
+        est_defender_power = opp.leader.power + est_opp_buff
+
         # 2b) ドン付与で leader 攻撃を成立させる
-        # 候補: gap=opp_leader_p - attacker.power が 0 < gap <= 1000 (1ドンで届く)
+        # 候補: gap=est_defender_power - attacker.power が 0 < gap <= 1000 (1ドンで届く)
         # または gap == 0 (届くが、念押しで上乗せして counter 抗力を上げる)
         if me.don_active >= 1 and atk_leader_actions:
-            opp_leader_p = opp.leader.power
             don_candidates: list[tuple[int, InPlay]] = []
             for a in atk_leader_actions:
                 attacker = _atk_inplay(a.attacker_iid)
                 if attacker is None or attacker.attached_dons >= 4:
                     continue
-                gap = opp_leader_p - attacker.power
+                gap = est_defender_power - attacker.power
                 if 0 <= gap <= 1000:
                     don_candidates.append((gap, attacker))
             if don_candidates:
@@ -153,10 +233,13 @@ class GreedyAI:
                     return AttachDonToCharacter(target_iid=attacker.instance_id, n=1)
 
         # 2c) リーダー攻撃判定。リーサル可能なら全力、そうでなければアタック順を最適化。
+        # est_defender_power + アーキタイプ別 gap_tolerance に基づいてフィルタ
+        # (アグロ: tolerance=-1000 で攻めっ気、 コントロール: +1000 で安全策)
+        attack_threshold = est_defender_power + self.attack_gap_tolerance
         viable_leader: list[tuple[AttackLeader, InPlay]] = []
         for a in atk_leader_actions:
             attacker = _atk_inplay(a.attacker_iid)
-            if attacker and attacker.power >= opp.leader.power:
+            if attacker and attacker.power >= attack_threshold:
                 viable_leader.append((a, attacker))
         if viable_leader:
             # リーサル判定: 自分の合計打点で相手 life + 防御パワー を超えるか?
@@ -203,10 +286,19 @@ class GreedyAI:
         is_leader_attack: bool,
         defender: Player,
     ) -> tuple[Optional[int], tuple[int, ...]]:
-        atk_p = attacker.power
+        # attacker のリアクティブ自己強化 (= on_attack で self/self_leader +N)
+        # を予測して実効攻撃力を見積もる。 これを忘れると 「6000 攻撃に 1000 counter で
+        # 6000 vs 6000 = 攻撃成功」 となり counter が無駄になる。
+        est_attacker_buff = 0
+        if state.effects_overlay:
+            from .effects import estimate_attacker_self_buff
+            est_attacker_buff = estimate_attacker_self_buff(
+                state, attacker, state.effects_overlay
+            )
+        atk_p = attacker.power + est_attacker_buff
         life_left = len(defender.life)
 
-        # ステップ1: ブロッカー候補を評価
+        # ステップ1: ブロッカー候補を評価 (実効 atk_p で生存判定)
         block_iid: Optional[int] = None
         if not attacker.has_no_block_now and is_leader_attack:
             best = None
@@ -214,15 +306,11 @@ class GreedyAI:
                 if c.rested or c.summoning_sickness or not c.is_blocker_now:
                     continue
                 survives = c.power >= atk_p
-                # 評価: 生き残るブロッカーが最優先、次にパワー高いもの
                 score = (1 if survives else 0, c.power)
                 if best is None or score > best[0]:
                     best = (score, c)
             if best is not None:
                 survives, blocker = best[0][0], best[1]
-                # ブロッカー使う条件:
-                #  - 生存できる: 常に使う (ライフを守れて損失ゼロ)
-                #  - 生存できない: ライフ残量 1〜2 (致命) 時のみ犠牲ブロック
                 if survives:
                     block_iid = blocker.instance_id
                 elif life_left <= 1:
@@ -234,6 +322,8 @@ class GreedyAI:
             blocker = next(c for c in defender.characters if c.instance_id == block_iid)
             target_power = blocker.power
 
+        # gap = 実効攻撃力 - 防御パワー。 公式 7-1-4: atk >= def で攻撃側勝ち、
+        # よって defender は gap+1 以上の counter を切らないと意味がない。
         gap = atk_p - target_power
         if gap < 0:
             # 既に防御パワーが上回る → カウンター不要
@@ -245,21 +335,15 @@ class GreedyAI:
         counter_total = sum(defender.hand[i].counter for i in spent)
 
         if is_leader_attack:
-            # ライフ=0: 既に敗北。ライフ=1: 致命、全力で守る
+            # アーキタイプ別の閾値テーブルを参照 (defense_thresholds)
+            life_key = max(1, min(life_left, 4))
+            max_total, max_cards = self.defense_thresholds.get(
+                life_key, (2000, 1)
+            )
             if life_left <= 1:
+                # 致命: 閾値無視で全力
                 return block_iid, tuple(spent)
-            # ライフ=2: 致命予備軍。+8000 まで、3 枚まで許容
-            if life_left == 2:
-                if counter_total <= 8000 and len(spent) <= 3:
-                    return block_iid, tuple(spent)
-                return block_iid, ()
-            # ライフ=3: 中盤。+6000 まで、2 枚まで
-            if life_left == 3:
-                if counter_total <= 6000 and len(spent) <= 2:
-                    return block_iid, tuple(spent)
-                return block_iid, ()
-            # ライフ>=4: 余裕。1 枚 (≤2000) のみ防御
-            if len(spent) <= 1 and counter_total <= 2000:
+            if counter_total <= max_total and len(spent) <= max_cards:
                 return block_iid, tuple(spent)
             return block_iid, ()
 
@@ -302,6 +386,111 @@ class GreedyAI:
         return best[2] if best else []
 
 
+class EvalGreedyAI(GreedyAI):
+    """GreedyAI の高速ヒューリスティックフィルタ + 1-ply eval tie-break。
+
+    GreedyAI の choose_action は「これは絶対やる」「これは絶対やらない」の判定で
+    候補を 1 つに絞ることが多いが、 同点・複数候補のケースで eval (9 指標) を使って
+    最善を選ぶ。 LookaheadAI より高速 (= 全手探索でなく Greedy の filter 通過手のみ評価)。
+
+    - 起動メイン / イベント / ステージ / キャラ登場: GreedyAI の判定をそのまま使う
+    - キャラ攻撃 / リーダー攻撃: viable な候補から eval で最高 score の手を選ぶ
+    - 防御選択 (choose_defense): GreedyAI を継承
+    """
+
+    name = "EvalGreedy"
+
+    def choose_action(self, state: GameState) -> Action:
+        actions = legal_actions(state)
+        me = state.turn_player
+        opp = state.opponent
+
+        # 0)〜1) 起動メイン / イベント / ステージ / キャラ登場 → GreedyAI と同じ
+        act_main = [a for a in actions if isinstance(a, ActivateMain)]
+        if act_main:
+            return self._eval_pick(state, act_main)
+
+        play_event_actions = [a for a in actions if isinstance(a, PlayEvent)]
+        if play_event_actions:
+            return self._eval_pick(state, play_event_actions)
+
+        play_stage_actions = [a for a in actions if isinstance(a, PlayStage)]
+        if play_stage_actions and len(me.stages) == 0:
+            return min(play_stage_actions, key=lambda a: me.hand[a.hand_idx].cost)
+
+        play_actions = [a for a in actions if isinstance(a, PlayCharacter)]
+        if play_actions:
+            return self._eval_pick(state, play_actions)
+
+        # 2) アタック判断: GreedyAI のフィルタを再利用してから eval で tie-break
+        atk_char_actions = [a for a in actions if isinstance(a, AttackCharacter)]
+        atk_leader_actions = [a for a in actions if isinstance(a, AttackLeader)]
+
+        # 候補リスト (GreedyAI と同様のロジックで viable なものだけ)
+        viable_atks: list[Action] = []
+
+        def _atk_inplay(iid: int) -> Optional[InPlay]:
+            if me.leader.instance_id == iid:
+                return me.leader
+            for c in me.characters:
+                if c.instance_id == iid:
+                    return c
+            return None
+
+        def _opp_chara(iid: int) -> Optional[InPlay]:
+            for c in opp.characters:
+                if c.instance_id == iid:
+                    return c
+            return None
+
+        for a in atk_char_actions:
+            attacker = _atk_inplay(a.attacker_iid)
+            target = _opp_chara(a.target_iid)
+            if attacker and target and attacker.power >= target.power:
+                viable_atks.append(a)
+
+        # opp の reactive buff 推定 (GreedyAI と同じ)
+        est_opp_buff = 0
+        if state.effects_overlay:
+            from .effects import estimate_opp_attack_buff_to_leader
+            est_opp_buff = estimate_opp_attack_buff_to_leader(
+                state, opp, state.effects_overlay
+            )
+        est_defender_power = opp.leader.power + est_opp_buff
+
+        for a in atk_leader_actions:
+            attacker = _atk_inplay(a.attacker_iid)
+            if attacker and attacker.power >= est_defender_power:
+                viable_atks.append(a)
+
+        if viable_atks:
+            return self._eval_pick(state, viable_atks)
+
+        # ドン付与 / EndPhase は GreedyAI のロジックに委譲
+        return super().choose_action(state)
+
+    def _eval_pick(self, state: GameState, candidates: list[Action]) -> Action:
+        """候補 1〜N 個から 1-ply eval で最高 score の手を選ぶ。
+        候補 1 個ならそのまま返す (= deepcopy コスト節約)。"""
+        if len(candidates) <= 1:
+            return candidates[0]
+        from .eval import compute_score
+        me_idx = state.turn_player_idx
+        best = candidates[0]
+        best_score = -float("inf")
+        for action in candidates:
+            sim = copy.deepcopy(state)
+            try:
+                apply_action(sim, action)
+            except Exception:
+                continue
+            score = compute_score(sim, me_idx)
+            if score > best_score:
+                best_score = score
+                best = action
+        return best
+
+
 class MCTSAI(GreedyAI):
     """Monte Carlo Tree Search AI (UCT-based)。
 
@@ -333,8 +522,9 @@ class MCTSAI(GreedyAI):
         n_simulations: int = 30,
         c_uct: float = 1.41,
         rollout_depth: int = 12,
+        deck_analysis: Optional[dict] = None,
     ):
-        super().__init__(rng)
+        super().__init__(rng, deck_analysis=deck_analysis)
         self.n_simulations = n_simulations
         self.c_uct = c_uct
         self.rollout_depth = rollout_depth
@@ -437,14 +627,12 @@ class MCTSAI(GreedyAI):
         return self._heuristic_eval(state, me_idx)
 
     def _heuristic_eval(self, state: "GameState", me_idx: int) -> float:
-        """非終局状態のヒューリスティック評価 (0-1 スケール)。"""
-        me = state.players[me_idx]
-        opp = state.players[1 - me_idx]
-        life_diff = len(me.life) - len(opp.life)
-        field_diff = len(me.characters) - len(opp.characters)
-        hand_diff = len(me.hand) - len(opp.hand)
-        v = 0.5 + self.H_LIFE * life_diff + self.H_FIELD * field_diff + self.H_HAND * hand_diff
-        return max(0.0, min(1.0, v))
+        """非終局状態のヒューリスティック評価 (0-1 スケール)。
+        9 指標 eval (engine/eval.py) を tanh 正規化で 0.5 ± 0.5 にマップ。"""
+        from .eval import compute_score, normalized_score
+        score = compute_score(state, me_idx)
+        # normalized_score は -1〜+1。 0.5 + 0.5×x で 0〜1 に
+        return 0.5 + 0.5 * normalized_score(score)
 
 
 class _MCTSNode:
@@ -502,28 +690,10 @@ class LookaheadAI(GreedyAI):
         return best_action
 
     def _evaluate(self, state: "GameState", me_idx: int) -> float:
-        # ゲーム終了は決定的シグナル
-        if state.game_over:
-            return self.W_GAME_OVER if state.winner == me_idx else -self.W_GAME_OVER
-
-        me = state.players[me_idx]
-        opp = state.players[1 - me_idx]
-
-        life_diff = len(me.life) - len(opp.life)
-        field_count_diff = len(me.characters) - len(opp.characters)
-        field_power_diff = sum(c.power for c in me.characters) - sum(
-            c.power for c in opp.characters
-        )
-        hand_diff = len(me.hand) - len(opp.hand)
-        don_diff = me.total_don - opp.total_don
-
-        return (
-            life_diff * self.W_LIFE
-            + field_count_diff * self.W_FIELD_COUNT
-            + field_power_diff * self.W_FIELD_POWER
-            + hand_diff * self.W_HAND
-            + don_diff * self.W_DON
-        )
+        # 9 指標の評価関数 (engine/eval.py) に委譲。
+        # 旧 5 指標 (W_LIFE 等) は engine/eval.py の DEFAULT_WEIGHTS に移行済。
+        from .eval import compute_score
+        return compute_score(state, me_idx)
 
 
 # --------------------------------------------------------------------------- #

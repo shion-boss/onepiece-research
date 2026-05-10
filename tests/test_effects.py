@@ -957,3 +957,190 @@ def test_turn_start_trigger_fires():
     # 5 枚 (初期) + on_turn_start 1 = 6 枚 (DRAW 前)
     # この時点で phase=DRAW (まだドロー前)
     assert p1_hand >= 5 + 1, f"on_turn_start で 1 ドロー追加されるはず (現状 {p1_hand})"
+
+
+def test_estimate_opp_attack_buff():
+    """opp_attack で opp.leader を強化する効果を AI が事前見積できる"""
+    from engine.effects import estimate_opp_attack_buff_to_leader, CardEffectBundle
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    opp = state.players[1]
+
+    # opp.leader に opp_attack で +2000 の overlay
+    test_overlay = {
+        opp.leader.card.card_id: CardEffectBundle(
+            card_id=opp.leader.card.card_id,
+            effects=[{
+                "when": "opp_attack",
+                "do": [{"power_pump": {"target": "self_leader", "amount": 2000, "duration": "turn"}}],
+            }],
+        )
+    }
+    state.effects_overlay = test_overlay
+    buff = estimate_opp_attack_buff_to_leader(state, opp, test_overlay)
+    assert buff == 2000, f"opp_attack +2000 が見積もられるはず ({buff})"
+
+    # 条件付き (満たさない場合は 0)
+    test_overlay2 = {
+        opp.leader.card.card_id: CardEffectBundle(
+            card_id=opp.leader.card.card_id,
+            effects=[{
+                "when": "opp_attack",
+                "if": {"self_life_le": 0},  # opp.life=0 必要
+                "do": [{"power_pump": {"target": "self_leader", "amount": 3000, "duration": "turn"}}],
+            }],
+        )
+    }
+    opp.life = [repo.get("OP01-001")] * 4  # life >= 1 なので条件不満
+    buff2 = estimate_opp_attack_buff_to_leader(state, opp, test_overlay2)
+    assert buff2 == 0, f"条件不成立で 0 が返るはず ({buff2})"
+
+
+def test_avoid_low_power_attack_against_buffed_leader():
+    """opp.leader が opp_attack +2000 buff 持ちなら、 atk=5000 では viable と見なされない"""
+    from engine.ai import GreedyAI
+    from engine.game import AttackLeader
+    from engine.effects import CardEffectBundle
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    state.turn_number = 3  # バトル可能
+    me = state.players[0]
+    opp = state.players[1]
+    opp.life = [repo.get("OP01-001")] * 4  # life 余裕
+
+    # opp.leader に opp_attack で +2000 buff
+    test_overlay = {
+        opp.leader.card.card_id: CardEffectBundle(
+            card_id=opp.leader.card.card_id,
+            effects=[{
+                "_text": "test: opp_attack +2000 to self_leader",
+                "when": "opp_attack",
+                "do": [{"power_pump": {"target": "self_leader", "amount": 2000, "duration": "turn"}}],
+            }],
+        )
+    }
+    state.effects_overlay = test_overlay
+
+    # me.leader はパワー 5000 (OP01-001 ルフィ)。 me に追加キャラなし。
+    # 通常なら 5000 >= 5000 で AttackLeader 候補になるが、
+    # est_defender = 5000 + 2000 = 7000 で viable から除外され EndPhase になるはず
+    ai = GreedyAI(rng=random.Random(0))
+    action = ai.choose_action(state)
+    assert not isinstance(action, AttackLeader), \
+        f"opp_attack +2000 buff の見積で低パワー攻撃が抑制されるはず ({type(action).__name__})"
+
+
+def test_double_attack_on_life_1_does_not_win():
+    """公式 cardqa Q36: 相手ライフ 1 枚にダブルアタック 2 ダメ与えても勝利できない"""
+    from engine.deck import DeckList
+    from engine.game import setup_game, apply_action, AttackLeader, Phase
+
+    repo = _repo()
+    leader = repo.get("OP01-001")
+    deck1 = DeckList(name="t1", leader=leader, main=[repo.get("OP01-013")] * 50)
+    deck2 = DeckList(name="t2", leader=leader, main=[repo.get("OP01-013")] * 50)
+    state = setup_game(deck1, deck2, rng=random.Random(0), first_player=0)
+    state.phase = Phase.MAIN
+    state.turn_number = 3
+
+    me = state.players[0]
+    opp = state.players[1]
+    opp.life = [repo.get("OP01-001")] * 1  # ライフ 1 枚
+    me.leader.rested = False
+    me.leader.granted_keywords.add("ダブルアタック")
+
+    apply_action(state, AttackLeader(attacker_iid=me.leader.instance_id))
+
+    # 公式: ライフ 1 + DA 攻撃 → 1 枚目で life=0、 2 枚目は空打ち、 game NOT over
+    assert len(opp.life) == 0, "1 ダメ目はライフ消費"
+    assert state.game_over is False, \
+        f"公式 Q36: ライフ 1 にダブルアタックでは勝利不可 (現状 game_over={state.game_over})"
+    assert state.winner is None
+
+
+def test_attack_on_life_0_wins():
+    """ライフ 0 状態でアタック受けた瞬間に敗北 (公式 9-2-1)"""
+    from engine.deck import DeckList
+    from engine.game import setup_game, apply_action, AttackLeader, Phase
+
+    repo = _repo()
+    leader = repo.get("OP01-001")
+    deck1 = DeckList(name="t1", leader=leader, main=[repo.get("OP01-013")] * 50)
+    deck2 = DeckList(name="t2", leader=leader, main=[repo.get("OP01-013")] * 50)
+    state = setup_game(deck1, deck2, rng=random.Random(0), first_player=0)
+    state.phase = Phase.MAIN
+    state.turn_number = 3
+
+    me = state.players[0]
+    opp = state.players[1]
+    opp.life = []  # ライフ 0 (= 既に空)
+    me.leader.rested = False
+
+    apply_action(state, AttackLeader(attacker_iid=me.leader.instance_id))
+    assert state.game_over is True, "ライフ 0 で攻撃受けた瞬間敗北"
+    assert state.winner == 0
+
+
+def test_choose_defense_predicts_attacker_self_buff():
+    """attacker の on_attack 自己強化を予測してカウンター量を決める。
+
+    シナリオ:
+      - attacker.power=6000, attacker overlay: on_attack で self_leader +1000
+      - defender.leader=5000、 手札に 1000 カウンター 2 枚
+      - 1000 counter 1 枚切ると 5000+1000=6000 vs atk 7000 (実効) → 失敗
+      - 2 枚切ると 5000+2000=7000 vs 7000 → atk_power=7000 == 7000 で攻撃側勝ち、 でも 2 枚は閾値超過
+      - 結果: 1 枚で守れないので AI は counter 切らず通す (= 「無駄打ち」防止)
+    """
+    from engine.ai import GreedyAI
+    from engine.effects import CardEffectBundle
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    state.turn_player_idx = 1  # opp 側がアタック (= P1 がターンプレイヤー)
+    me.life = [repo.get("OP01-001")] * 3  # life=3
+
+    # attacker 用 overlay: on_attack で self_leader +1000
+    attacker_card = repo.get("OP01-013")
+    test_overlay = {
+        attacker_card.card_id: CardEffectBundle(
+            card_id=attacker_card.card_id,
+            effects=[{
+                "_text": "test attacker self buff",
+                "when": "on_attack",
+                "do": [{"power_pump": {"target": "self_leader", "amount": 1000, "duration": "turn"}}],
+            }],
+        ),
+    }
+    state.effects_overlay = test_overlay
+
+    attacker = InPlay.of(attacker_card, sickness=False)
+    attacker.attached_dons = 4  # 4000 +4000 = 6000 (実効 7000)
+    opp.characters = [attacker]
+    # me 側手札に 1000 カウンター付きカード
+    counter_card_id = None
+    for c in [repo.get("OP01-013"), repo.get("OP01-016"), repo.get("OP02-013")]:
+        if c.counter > 0:
+            counter_card_id = c.card_id
+            me.hand = [c, c]
+            break
+    if counter_card_id is None:
+        return  # counter 持ちのカードが見つからず
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    # attacker.power=4000+4000=8000、 self_buff +1000 = 9000 実効
+    # me.leader.power = 5000 → gap = 4000
+    # 1000 counter 1 枚 (total=1000 ≤ gap) は無効、 2 枚 (total=2000 ≤ gap) も無効
+    # → counter 切らずに通す (life で受ける) のが正解
+    # この前は attacker.power=8000 で計算してたので gap=3000、 1000 counter 1 枚は ≤ 3000 で無効、
+    # 2 枚 (2000) も無効 → 切らず。 同じ結果になるはずだが、 buff 予測なしだと
+    # gap が 3000 のままなので 「1000+2000」 等の組み合わせが通る可能性あり。
+    # 重要なのは 「無駄な少枚数 counter は切らない」 ことの確認:
+    counter_total = sum(me.hand[i].counter for i in counters)
+    # 1000 counter 1 枚だけ切るバグ (ユーザー指摘) は再現しないはず
+    assert not (len(counters) == 1 and counter_total == 1000), \
+        f"バグ再現: 1000 counter 1 枚だけ切られた (gap >= 1 の状況で 1000 では足りない)"

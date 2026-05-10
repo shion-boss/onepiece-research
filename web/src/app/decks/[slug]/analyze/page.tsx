@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { fetchDeckAnalysis } from "@/lib/api";
+import { fetchDeckAnalysis, fetchDeckStrategy } from "@/lib/api";
 import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { DeckMatchupRow } from "@/components/DeckMatchupRow";
-import type { DeckAnalysis } from "@/lib/types";
+import { DeckStrategyPanel } from "@/components/DeckStrategyPanel";
+import type { DeckAnalysis, DeckStrategy } from "@/lib/types";
 
 export default async function DeckAnalyzePage({
   params,
@@ -12,9 +13,13 @@ export default async function DeckAnalyzePage({
   const { slug } = await params;
 
   let data: DeckAnalysis | null = null;
+  let strategy: DeckStrategy | null = null;
   let error: string | null = null;
   try {
-    data = await fetchDeckAnalysis(slug);
+    [data, strategy] = await Promise.all([
+      fetchDeckAnalysis(slug),
+      fetchDeckStrategy(slug).catch(() => null),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -46,6 +51,7 @@ export default async function DeckAnalyzePage({
         </div>
       ) : data ? (
         <>
+          {strategy && <DeckStrategyPanel strategy={strategy} />}
           <DeckAnalyzeCharts data={data} />
           <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
             <h2 className="mb-3 text-lg font-semibold">対戦相手別 勝率</h2>

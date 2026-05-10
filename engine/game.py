@@ -95,6 +95,8 @@ def setup_game(
     rng: Optional[random.Random] = None,
     first_player: Optional[int] = None,
     effects_overlay: Optional[dict] = None,
+    deck1_analysis: Optional[dict] = None,
+    deck2_analysis: Optional[dict] = None,
 ) -> GameState:
     if rng is None:
         rng = random.Random()
@@ -113,15 +115,19 @@ def setup_game(
     )
     state.players[0].name = "P0"
     state.players[1].name = "P1"
+    # 各プレイヤーに analysis を割り当て (= マリガン判定で使う)。
+    # state.players の並び順は first_player に従って入れ替えてあるので、 それに合わせる。
+    if first_player == 0:
+        analyses = [deck1_analysis, deck2_analysis]
+    else:
+        analyses = [deck2_analysis, deck1_analysis]
 
     for p in state.players:
         p.draw(5)
     # マリガン (公式 5-2-1-2): 各プレイヤーは1度だけ手札全戻し+引き直し可能。
-    # 先攻側から順に判定。AI ヒューリスティック: 手札に「3コスト以下のキャラ」が0枚ならマリガン。
-    # (序盤に登場できるキャラがいないなら引き直すべき)
-    for p in state.players:
-        if _should_mulligan(p):
-            # 手札を全部デッキに戻して シャッフル → 5 枚引き直し
+    # deck_analysis があれば mulligan_keep_card_ids を見てキープ判定、 無ければフォールバック。
+    for p, a in zip(state.players, analyses):
+        if _should_mulligan(p, a):
             p.deck.extend(p.hand)
             p.hand = []
             p.shuffle_deck(rng)
@@ -140,12 +146,23 @@ def setup_game(
     return state
 
 
-def _should_mulligan(p: Player) -> bool:
+def _should_mulligan(
+    p: Player,
+    deck_analysis: Optional[dict] = None,
+) -> bool:
     """AI ヒューリスティックでマリガン判断。
 
-    序盤展開のため「コスト3以下のキャラ」が手札に1枚以上欲しい。
-    0枚ならマリガンする。コスト3以下のキャラが1+枚あれば現状の手札を保持。
+    deck_analysis があれば mulligan_keep_card_ids ベースで判定:
+      - 手札に「キープしたい主力カード」が1枚以上 → キープ (mulligan しない)
+      - 0枚 → マリガン
+    無ければフォールバック (= 「コスト3以下のキャラ」が0枚ならマリガン)。
     """
+    if deck_analysis:
+        keep_ids = set(deck_analysis.get("mulligan_keep_card_ids") or [])
+        if keep_ids:
+            has_key = any(c.card_id in keep_ids for c in p.hand)
+            return not has_key
+    # フォールバック
     low_cost_chars = [
         c for c in p.hand
         if c.category == Category.CHARACTER and c.cost <= 3
@@ -630,7 +647,16 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 # リーダー → リーダー (= no-op)
                 pass
             else:
-                redirect_target = _find_character(opp, redirect_iid)
+                redirect_target = next(
+                    (c for c in opp.characters if c.instance_id == redirect_iid),
+                    None,
+                )
+                if redirect_target is None:
+                    state.push_log(
+                        f"  対象変更失敗: redirect iid={redirect_iid} は既に場にない"
+                    )
+                    _reset_battle_buffs(state)
+                    return
                 # AttackLeader → AttackCharacter にコンバート
                 redirected = AttackCharacter(
                     attacker_iid=action.attacker_iid,
@@ -642,17 +668,38 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 state.push_log(
                     f"  対象変更: leader → {redirect_target.card.name}"
                 )
-                # AttackCharacter ロジックを再帰呼出 (attack_rested は維持)
-                # ただし trigger_on_attack は既に発火済なのでスキップしたい
-                # 簡略実装: 再帰せず直接 KO 判定を行う
-                counter_added = _spend_counters(opp, action.counter_card_idxs)
-                _fire_counter_events(state, opp, me, action.counter_event_idxs)
-                defender_power = redirect_target.power + counter_added
+                # === Pre-counter snapshot ===
                 atk_power = attacker.power
+                base_defender_power = redirect_target.power
+                state.pending_event = {
+                    "type": "attack",
+                    "attacker_iid": attacker.instance_id,
+                    "target_iid": redirect_target.instance_id,
+                    "target_kind": "character",
+                    "atk_power": atk_power,
+                    "defender_power": base_defender_power,
+                }
                 state.push_log(
                     f"atk: {attacker.card.name}(P={atk_power}) -> "
-                    f"{redirect_target.card.name}(P={defender_power}) [c={counter_added}]"
+                    f"{redirect_target.card.name}(P={base_defender_power})"
                 )
+                # === Counter フェイズ ===
+                _fire_counter_events(state, opp, me, action.counter_event_idxs)
+                counter_added = _spend_counters(opp, action.counter_card_idxs)
+                defender_power = base_defender_power + counter_added
+                if counter_added > 0:
+                    state.pending_event = {
+                        "type": "attack",
+                        "attacker_iid": attacker.instance_id,
+                        "target_iid": redirect_target.instance_id,
+                        "target_kind": "character",
+                        "atk_power": atk_power,
+                        "defender_power": defender_power,
+                    }
+                    state.push_log(
+                        f"  counter +{counter_added} → "
+                        f"{redirect_target.card.name}(P={defender_power})"
+                    )
                 if atk_power >= defender_power:
                     if not redirect_target.ko_immune_until_turn_end:
                         opp.characters.remove(redirect_target)
@@ -670,33 +717,58 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     state.push_log("  survived")
                 _reset_battle_buffs(state)
                 return
-        # カウンターイベント発動 (7-1-3-1-2): 防御側 = opp が手札からイベントをトラッシュ
-        _fire_counter_events(state, opp, me, action.counter_event_idxs)
-        counter_added = _spend_counters(opp, action.counter_card_idxs)
-        defender_power = opp.leader.power + counter_added
+        # === Pre-counter snapshot: アタッカー対防御側 (counter 反映前) ===
         atk_power = attacker.power
+        base_defender_power = opp.leader.power
         state.pending_event = {
             "type": "attack",
             "attacker_iid": attacker.instance_id,
             "target_iid": opp.leader.instance_id,
             "target_kind": "leader",
             "atk_power": atk_power,
-            "defender_power": defender_power,
+            "defender_power": base_defender_power,
         }
         state.push_log(
             f"atk: {attacker.card.name}(P={atk_power}) -> "
-            f"{opp.leader.card.name}(P={defender_power}) [c={counter_added}]"
+            f"{opp.leader.card.name}(P={base_defender_power})"
         )
+        # === Counter フェイズ ===
+        # カウンターイベント発動 (7-1-3-1-2): 各イベント毎に push_log → snapshot
+        _fire_counter_events(state, opp, me, action.counter_event_idxs)
+        # カウンターカード消費 (キャラ counter 値、_spend_counters は log なし)
+        counter_added = _spend_counters(opp, action.counter_card_idxs)
+        defender_power = base_defender_power + counter_added
+        # === Post-counter snapshot: counter 加算後の defender_power ===
+        if counter_added > 0:
+            state.pending_event = {
+                "type": "attack",
+                "attacker_iid": attacker.instance_id,
+                "target_iid": opp.leader.instance_id,
+                "target_kind": "leader",
+                "atk_power": atk_power,
+                "defender_power": defender_power,
+            }
+            state.push_log(
+                f"  counter +{counter_added} → "
+                f"{opp.leader.card.name}(P={defender_power})"
+            )
         if atk_power >= defender_power:
             # 【ダブルアタック】: ダメージが 1 → 2 (10-1-2-1)
             damage = 2 if attacker.is_double_attack_now else 1
             is_banish = attacker.is_banish_now
+            # 公式 9-2-1 + cardqa Q36: 敗北判定は「アタック開始時にライフ 0」のみ。
+            # ダブルアタックでライフ 1 → 1 枚消費して 0 になっても、その時点では敗北しない
+            # (= 2 発目はライフが無いため空打ち)。次のアタックで「アタック開始時 life=0」 → 敗北。
+            if not opp.life:
+                state.declare_winner(state.turn_player_idx, f"{opp.name} life=0 hit")
+                return
             if damage == 2:
                 state.push_log(f"  ダブルアタック: 2 ダメージ")
             for _ in range(damage):
                 if not opp.life:
-                    state.declare_winner(state.turn_player_idx, f"{opp.name} life=0 hit")
-                    return
+                    # 攻撃中にライフが尽きた → 残りダメージは空打ち (Q36)。敗北は宣言しない
+                    state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
+                    break
                 taken = opp.life.pop(0)
                 if is_banish:
                     # 【バニッシュ】: トリガー発動せずトラッシュへ (10-1-3-1)
@@ -733,38 +805,81 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             from .effects import trigger_on_attack, trigger_on_opp_attack
             trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
             trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
-        # カウンターイベント発動 (7-1-3-1-2)
-        _fire_counter_events(state, opp, me, action.counter_event_idxs)
-        target = _find_character(opp, action.target_iid)
+        # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
+        target = next(
+            (c for c in opp.characters if c.instance_id == action.target_iid),
+            None,
+        )
+        if target is None:
+            state.push_log(
+                f"  対象消失: 攻撃時効果で iid={action.target_iid} は既に場にない (空打ち)"
+            )
+            _reset_battle_buffs(state)
+            return
 
         actual_target: InPlay = target
         if action.blocker_iid is not None:
-            blocker = _find_character(opp, action.blocker_iid)
-            if blocker.rested or not blocker.is_blocker_now or blocker.summoning_sickness:
-                raise ValueError("invalid blocker")
-            blocker.rested = True
-            actual_target = blocker
-            state.push_log(f"  blocker: {blocker.card.name}")
-            # 10-2-15-1: 【ブロック時】効果発動
-            if state.effects_overlay:
-                from .effects import trigger_on_block
-                trigger_on_block(state, opp, me, blocker, state.effects_overlay)
+            blocker = next(
+                (c for c in opp.characters if c.instance_id == action.blocker_iid),
+                None,
+            )
+            if blocker is None:
+                state.push_log(
+                    f"  ブロッカー消失: iid={action.blocker_iid} は既に場にない (ブロッカー無効)"
+                )
+            elif (
+                blocker.rested
+                or not blocker.is_blocker_now
+                or blocker.summoning_sickness
+            ):
+                # 不正ブロッカーは無視 (KO してきた可能性等)
+                state.push_log(
+                    f"  ブロッカー無効: {blocker.card.name} (rested/sickness/blocker特性なし)"
+                )
+                blocker = None
+            if blocker is not None:
+                blocker.rested = True
+                actual_target = blocker
+                state.push_log(f"  blocker: {blocker.card.name}")
+                # 10-2-15-1: 【ブロック時】効果発動
+                if state.effects_overlay:
+                    from .effects import trigger_on_block
+                    trigger_on_block(state, opp, me, blocker, state.effects_overlay)
 
-        counter_added = _spend_counters(opp, action.counter_card_idxs)
-        defender_power = actual_target.power + counter_added
+        # === Pre-counter snapshot ===
         atk_power = attacker.power
+        base_defender_power = actual_target.power
+        target_kind = "blocker" if action.blocker_iid is not None else "character"
         state.pending_event = {
             "type": "attack",
             "attacker_iid": attacker.instance_id,
             "target_iid": actual_target.instance_id,
-            "target_kind": "blocker" if action.blocker_iid is not None else "character",
+            "target_kind": target_kind,
             "atk_power": atk_power,
-            "defender_power": defender_power,
+            "defender_power": base_defender_power,
         }
         state.push_log(
             f"atk: {attacker.card.name}(P={atk_power}) -> "
-            f"{actual_target.card.name}(P={defender_power}) [c={counter_added}]"
+            f"{actual_target.card.name}(P={base_defender_power})"
         )
+        # === Counter フェイズ ===
+        _fire_counter_events(state, opp, me, action.counter_event_idxs)
+        counter_added = _spend_counters(opp, action.counter_card_idxs)
+        defender_power = base_defender_power + counter_added
+        # === Post-counter snapshot ===
+        if counter_added > 0:
+            state.pending_event = {
+                "type": "attack",
+                "attacker_iid": attacker.instance_id,
+                "target_iid": actual_target.instance_id,
+                "target_kind": target_kind,
+                "atk_power": atk_power,
+                "defender_power": defender_power,
+            }
+            state.push_log(
+                f"  counter +{counter_added} → "
+                f"{actual_target.card.name}(P={defender_power})"
+            )
         if atk_power >= defender_power:
             if actual_target.ko_immune_until_turn_end:
                 state.push_log(f"  KO 耐性: {actual_target.card.name} は KO されない")
