@@ -14,7 +14,15 @@ export function CardImage({
   className?: string;
   loading?: "lazy" | "eager";
 }) {
-  const [src, setSrc] = useState(cardImageUrl(cardId));
+  // cardId が切り替わったら errored をリセット (React 公式の prop→state 同期パターン)。
+  // useEffect だと 1 フレーム古い画像が表示されるためレンダ中に同期する。
+  const [errored, setErrored] = useState(false);
+  const [prevCardId, setPrevCardId] = useState(cardId);
+  if (cardId !== prevCardId) {
+    setPrevCardId(cardId);
+    setErrored(false);
+  }
+  const src = errored ? cardImageRemoteUrl(cardId) : cardImageUrl(cardId);
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -23,8 +31,7 @@ export function CardImage({
       className={className}
       loading={loading}
       onError={() => {
-        const remote = cardImageRemoteUrl(cardId);
-        if (src !== remote) setSrc(remote);
+        if (!errored) setErrored(true);
       }}
     />
   );

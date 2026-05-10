@@ -186,3 +186,63 @@ export type GameLog = {
   p1_field: number;
   log: string[];
 };
+
+export type CharSnapshot = {
+  instance_id: number;
+  card_id: string;
+  name: string;
+  rested: boolean;
+  attached_dons: number;
+  summoning_sickness: boolean;
+  power: number;
+  base_power: number;
+  keywords: string[];
+};
+
+export type PlayerSnapshot = {
+  name: string;
+  leader: CharSnapshot;
+  characters: CharSnapshot[];
+  stages: CharSnapshot[];
+  hand: string[];
+  hand_count: number;
+  life_count: number;
+  trash: string[];
+  trash_count: number;
+  deck_count: number;
+  don_active: number;
+  don_rested: number;
+  don_total: number;
+  don_remaining_in_deck: number;
+};
+
+export type AttackEvent = {
+  type: string;
+  attacker_iid: number;
+  target_iid: number;
+  target_kind: string;
+  atk_power: number;
+  defender_power: number;
+};
+
+export type StateSnapshot = {
+  turn: number;
+  turn_player_idx: number;
+  phase: string;
+  log: string;
+  game_over: boolean;
+  winner: number | null;
+  event: AttackEvent | null;
+  players: PlayerSnapshot[];
+};
+
+export type ReplayResponse = {
+  job_id: string;
+  game_index: number;
+  deck_a_name: string;
+  deck_b_name: string;
+  first_player: number;
+  winner: number;
+  turns: number;
+  snapshots: StateSnapshot[];
+};

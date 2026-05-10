@@ -55,6 +55,12 @@ export default async function MatchGamePage({
               <span className="text-sm text-zinc-600 dark:text-zinc-400">
                 先攻: {game.first_player === 0 ? summary.deck_a_name : summary.deck_b_name}
               </span>
+              <Link
+                href={`/decks/${encodeURIComponent(slug)}/match/${encodeURIComponent(job_id)}/${idx}/replay`}
+                className="ml-auto rounded bg-violet-600 px-3 py-1 text-sm font-medium text-white hover:bg-violet-500"
+              >
+                ▶ 盤面リプレイで見る
+              </Link>
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-3 text-sm sm:grid-cols-5">
               <Stat label="turns" value={game.turns} />

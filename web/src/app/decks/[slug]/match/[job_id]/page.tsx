@@ -78,6 +78,7 @@ export default async function MatchJobPage({
                     <th className="p-2 text-right font-medium">P0 life</th>
                     <th className="p-2 text-right font-medium">P1 life</th>
                     <th className="p-2 font-medium">log</th>
+                    <th className="p-2 font-medium">replay</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -115,6 +116,14 @@ export default async function MatchJobPage({
                           className="text-sm text-blue-600 hover:underline dark:text-blue-400"
                         >
                           開く →
+                        </Link>
+                      </td>
+                      <td className="p-2">
+                        <Link
+                          href={`/decks/${encodeURIComponent(slug)}/match/${encodeURIComponent(job_id)}/${g.index}/replay`}
+                          className="text-sm text-violet-600 hover:underline dark:text-violet-400"
+                        >
+                          ▶ 再生
                         </Link>
                       </td>
                     </tr>

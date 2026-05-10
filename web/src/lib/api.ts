@@ -13,6 +13,7 @@ import type {
   MatchRequest,
   MatchSummary,
   MatchupMatrix,
+  ReplayResponse,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -104,6 +105,24 @@ export async function fetchMatchGame(
     { cache: "no-store" },
   );
   if (!res.ok) throw new Error(`fetchMatchGame failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchMatchReplay(
+  jobId: string,
+  gameIndex: number,
+): Promise<ReplayResponse> {
+  const res = await fetch(
+    `${API}/api/match/${encodeURIComponent(jobId)}/games/${gameIndex}/replay`,
+    {
+      method: "POST",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`fetchMatchReplay failed: ${res.status} ${detail}`);
+  }
   return res.json();
 }
 

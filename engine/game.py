@@ -496,6 +496,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         counter_added = _spend_counters(opp, action.counter_card_idxs)
         defender_power = opp.leader.power + counter_added
         atk_power = attacker.power
+        state.pending_event = {
+            "type": "attack",
+            "attacker_iid": attacker.instance_id,
+            "target_iid": opp.leader.instance_id,
+            "target_kind": "leader",
+            "atk_power": atk_power,
+            "defender_power": defender_power,
+        }
         state.push_log(
             f"atk: {attacker.card.name}(P={atk_power}) -> "
             f"{opp.leader.card.name}(P={defender_power}) [c={counter_added}]"
@@ -561,6 +569,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         counter_added = _spend_counters(opp, action.counter_card_idxs)
         defender_power = actual_target.power + counter_added
         atk_power = attacker.power
+        state.pending_event = {
+            "type": "attack",
+            "attacker_iid": attacker.instance_id,
+            "target_iid": actual_target.instance_id,
+            "target_kind": "blocker" if action.blocker_iid is not None else "character",
+            "atk_power": atk_power,
+            "defender_power": defender_power,
+        }
         state.push_log(
             f"atk: {attacker.card.name}(P={atk_power}) -> "
             f"{actual_target.card.name}(P={defender_power}) [c={counter_added}]"

@@ -248,6 +248,12 @@ class GameState:
     winner: Optional[int] = None
     game_over: bool = False
     effects_overlay: dict = field(default_factory=dict)
+    # 盤面スナップショット (UI リプレイ用)。True の時のみ push_log() 毎に記録
+    record_snapshots: bool = False
+    snapshots: list = field(default_factory=list)
+    # 次の push_log で記録される snapshot に含めるイベント情報 (例: attack の attacker/target iid)。
+    # スナップショット時に消費される (= 1 回限り)。
+    pending_event: Optional[dict] = None
 
     @property
     def turn_player(self):
@@ -264,7 +270,10 @@ class GameState:
         return self.players.index(player)
 
     def push_log(self, msg):
-        self.log.append(f"T{self.turn_number} P{self.turn_player_idx}: {msg}")
+        line = f"T{self.turn_number} P{self.turn_player_idx}: {msg}"
+        self.log.append(line)
+        if self.record_snapshots:
+            self.snapshots.append(self._build_snapshot(line))
 
     def declare_winner(self, winner_idx, reason):
         if self.game_over:
@@ -272,3 +281,57 @@ class GameState:
         self.winner = winner_idx
         self.game_over = True
         self.push_log(f"GAME OVER (winner={winner_idx}): {reason}")
+
+    def _build_snapshot(self, log_line: str) -> dict:
+        """現在の state をリプレイ可能な dict に直列化。push_log で都度呼ばれる。"""
+        event = self.pending_event
+        self.pending_event = None  # 1 回限り
+        return {
+            "turn": self.turn_number,
+            "turn_player_idx": self.turn_player_idx,
+            "phase": self.phase.name if hasattr(self.phase, "name") else str(self.phase),
+            "log": log_line,
+            "game_over": self.game_over,
+            "winner": self.winner,
+            "event": event,
+            "players": [_player_snapshot(p) for p in self.players],
+        }
+
+
+def _inplay_snapshot(ip) -> dict:
+    return {
+        "instance_id": ip.instance_id,
+        "card_id": ip.card.card_id,
+        "name": ip.card.name,
+        "rested": ip.rested,
+        "attached_dons": ip.attached_dons,
+        "summoning_sickness": ip.summoning_sickness,
+        "power": ip.power,
+        "base_power": ip.base_power,
+        "keywords": sorted({
+            *(["速攻"] if ip.is_rush_now else []),
+            *(["ブロッカー"] if ip.is_blocker_now else []),
+            *(["ダブルアタック"] if ip.is_double_attack_now else []),
+            *(["バニッシュ"] if ip.is_banish_now else []),
+            *(["ブロック不可"] if ip.has_no_block_now else []),
+        }),
+    }
+
+
+def _player_snapshot(p) -> dict:
+    return {
+        "name": p.name,
+        "leader": _inplay_snapshot(p.leader),
+        "characters": [_inplay_snapshot(c) for c in p.characters],
+        "stages": [_inplay_snapshot(s) for s in p.stages],
+        "hand": [c.card_id for c in p.hand],
+        "hand_count": len(p.hand),
+        "life_count": len(p.life),
+        "trash": [c.card_id for c in p.trash],
+        "trash_count": len(p.trash),
+        "deck_count": len(p.deck),
+        "don_active": p.don_active,
+        "don_rested": p.don_rested,
+        "don_total": p.total_don,
+        "don_remaining_in_deck": p.don_remaining_in_deck,
+    }

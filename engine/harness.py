@@ -34,6 +34,7 @@ class GameResult:
     p0_field: int
     p1_field: int
     log: list[str] = field(default_factory=list)   # keep_logs=True で埋まる
+    snapshots: list[dict] = field(default_factory=list)  # record_snapshots=True で埋まる
 
 
 @dataclass
@@ -88,11 +89,15 @@ def run_matchup(
     verbose: bool = False,
     effects_overlay: Optional[dict] = None,
     keep_logs: bool = False,
+    record_snapshots: bool = False,
+    only_game_index: Optional[int] = None,
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
     effects_overlay を None で渡すと db/card_effects.json を自動ロード。
     keep_logs=True で各 GameResult.log に state.log のコピーを保存 (メモリ消費注意)。
+    record_snapshots=True で各 GameResult.snapshots に push_log 毎の盤面 dict を保存 (リプレイ用)。
+    only_game_index が指定された場合、その index のゲームだけ実行 (他はスキップ、rng は同期)。
     """
 
     if effects_overlay is None:
@@ -109,6 +114,14 @@ def run_matchup(
         first_player = g % 2  # 0 -> deck1 先攻, 1 -> deck2 先攻
         rng = random.Random(rng_master.randrange(2**31))
 
+        # only_game_index 指定時は他のゲームはスキップ (rng_master は進めて互換維持)
+        if only_game_index is not None and g != only_game_index:
+            report.games.append(GameResult(
+                winner=-1, first_player=first_player, turns=0, actions=0,
+                p0_life_left=0, p1_life_left=0, p0_field=0, p1_field=0,
+            ))
+            continue
+
         if first_player == 0:
             d_first, d_second = deck1, deck2
         else:
@@ -118,6 +131,11 @@ def run_matchup(
             d_first, d_second, rng=rng, first_player=0,
             effects_overlay=effects_overlay,
         )
+        if record_snapshots:
+            state.record_snapshots = True
+            # setup 中の "start:" ログ分の snapshot を補完
+            if state.log:
+                state.snapshots.append(state._build_snapshot(state.log[-1]))
         play_until_main(state)
         ai_first = ai_factory_1(rng) if first_player == 0 else ai_factory_2(rng)
         ai_second = ai_factory_2(rng) if first_player == 0 else ai_factory_1(rng)
@@ -164,6 +182,7 @@ def run_matchup(
             p0_field=len(state.players[0].characters),
             p1_field=len(state.players[1].characters),
             log=list(state.log) if keep_logs else [],
+            snapshots=list(state.snapshots) if record_snapshots else [],
         )
         report.games.append(result)
 

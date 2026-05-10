@@ -818,7 +818,14 @@ def run_match(req: MatchRequest):
     )
 
     job_id = uuid.uuid4().hex[:12]
-    _MATCH_JOBS[job_id] = {"report": report}
+    _MATCH_JOBS[job_id] = {
+        "report": report,
+        # リプレイ再実行時に同じ条件で再構築するため、deck/seed/n_games を保持
+        "deck_a": deck_a_dict,
+        "deck_b": deck_b_dict,
+        "seed": req.seed,
+        "n_games": req.n_games,
+    }
     while len(_MATCH_JOBS) > _MAX_JOBS:
         _MATCH_JOBS.popitem(last=False)
 
@@ -903,4 +910,106 @@ def get_match_game(job_id: str, game_index: int):
         p0_field=g.p0_field,
         p1_field=g.p1_field,
         log=list(g.log),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# エンドポイント: replay (盤面スナップショット付きで対象ゲームを再実行)
+# --------------------------------------------------------------------------- #
+class CharSnapshot(BaseModel):
+    instance_id: int
+    card_id: str
+    name: str
+    rested: bool
+    attached_dons: int
+    summoning_sickness: bool
+    power: int
+    base_power: int
+    keywords: list[str]
+
+
+class PlayerSnapshot(BaseModel):
+    name: str
+    leader: CharSnapshot
+    characters: list[CharSnapshot]
+    stages: list[CharSnapshot]
+    hand: list[str]
+    hand_count: int
+    life_count: int
+    trash: list[str]
+    trash_count: int
+    deck_count: int
+    don_active: int
+    don_rested: int
+    don_total: int
+    don_remaining_in_deck: int
+
+
+class AttackEvent(BaseModel):
+    type: str
+    attacker_iid: int
+    target_iid: int
+    target_kind: str
+    atk_power: int
+    defender_power: int
+
+
+class StateSnapshot(BaseModel):
+    turn: int
+    turn_player_idx: int
+    phase: str
+    log: str
+    game_over: bool
+    winner: Optional[int] = None
+    event: Optional[AttackEvent] = None
+    players: list[PlayerSnapshot]
+
+
+class ReplayResponse(BaseModel):
+    job_id: str
+    game_index: int
+    deck_a_name: str
+    deck_b_name: str
+    first_player: int
+    winner: int
+    turns: int
+    snapshots: list[StateSnapshot]
+
+
+@app.post("/api/match/{job_id}/games/{game_index}/replay", response_model=ReplayResponse)
+def replay_match_game(job_id: str, game_index: int):
+    """対象ゲームを同じ seed で再実行し、push_log 毎の盤面スナップショットを返す。
+
+    元の対戦時には snapshot を取らない (メモリ節約) ので、開いた試合だけ lazy 再実行する。
+    """
+    job = _MATCH_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(404, f"match job not found: {job_id}")
+    if game_index < 0 or game_index >= job["n_games"]:
+        raise HTTPException(404, f"game index out of range: {game_index}")
+
+    repo = get_repo()
+    try:
+        deck_a = make_deck_from_dict(job["deck_a"], repo)
+        deck_b = make_deck_from_dict(job["deck_b"], repo)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(500, f"deck rebuild failed: {e}")
+
+    report = run_matchup(
+        deck_a, deck_b,
+        n_games=job["n_games"],
+        seed=job["seed"],
+        record_snapshots=True,
+        only_game_index=game_index,
+    )
+    g = report.games[game_index]
+    return ReplayResponse(
+        job_id=job_id,
+        game_index=game_index,
+        deck_a_name=report.deck1_name,
+        deck_b_name=report.deck2_name,
+        first_player=g.first_player,
+        winner=g.winner,
+        turns=g.turns,
+        snapshots=[StateSnapshot(**s) for s in g.snapshots],
     )
