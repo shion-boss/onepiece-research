@@ -847,6 +847,70 @@ def execute_effect(
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
             state.push_log(f"  効果: 相手手札 {n} 枚捨て (force)")
+        elif k == "return_to_deck_bottom":
+            # 対象 (相手 or 自分のキャラ) を持ち主のデッキの下に置く
+            target_spec = v if isinstance(v, str) else (v.get("target", "one_opponent_character_le_5000") if isinstance(v, dict) else "one_opponent_character_le_5000")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                if t in opp.characters:
+                    if t.protect_from_opp_effect or t.static_ko_immune:
+                        continue
+                    if state.effects_overlay and try_replace_ko(
+                        state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                    ):
+                        continue
+                    opp.characters.remove(t)
+                    opp.deck.append(t.card)
+                    if t.attached_dons > 0:
+                        opp.don_rested += t.attached_dons
+                    state.push_log(f"  効果: {t.card.name} を相手デッキ底へ")
+                elif t in me.characters:
+                    me.characters.remove(t)
+                    me.deck.append(t.card)
+                    if t.attached_dons > 0:
+                        me.don_rested += t.attached_dons
+                    state.push_log(f"  効果: {t.card.name} を自デッキ底へ")
+        elif k == "untap_chara":
+            # 「自分のキャラ N 枚をアクティブにする」 (= rested→active)
+            spec = v if isinstance(v, dict) else {"target": "one_self_character_any", "limit": 1}
+            target_spec = spec.get("target", "one_self_character_any")
+            limit = int(spec.get("limit", 1))
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets[:limit]:
+                t.rested = False
+            state.push_log(f"  効果: 自キャラ untap → {[t.card.name for t in targets[:limit]]}")
+        elif k == "shuffle_self_deck":
+            # 自分のデッキをシャッフル
+            state.rng.shuffle(me.deck)
+            state.push_log(f"  効果: 自デッキシャッフル")
+        elif k == "trash_to_hand":
+            # 自分のトラッシュからカード N 枚 (filter 付き) を手札に
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            found = 0
+            new_trash = []
+            for card in me.trash:
+                if found < limit and _matches_filter(card, filt):
+                    me.hand.append(card)
+                    found += 1
+                else:
+                    new_trash.append(card)
+            me.trash[:] = new_trash
+            if found > 0:
+                state.push_log(f"  効果: trash {found} 枚を手札へ")
+        elif k == "self_hand_to_size":
+            # 自分の手札が N 枚になるように手札を捨てる
+            target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))
+            while len(me.hand) > target_size:
+                idx = state.rng.randrange(len(me.hand))
+                me.trash.append(me.hand.pop(idx))
+            state.push_log(f"  効果: 自手札を {target_size} 枚に")
+        elif k == "block_chara_play_cost_ge":
+            # このターン中、 元々のコスト N 以上のキャラを登場できない
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 7))
+            me.block_chara_play_until_turn_end = True  # 簡略 (cost 区別なく ブロック)
+            state.push_log(f"  効果: このターン中 cost{n}+ キャラ登場禁止")
         elif k == "ko_opp_stage":
             # 相手のステージ N 枚 KO (cost フィルタオプショナル)
             spec = v if isinstance(v, dict) else {"limit": 1}

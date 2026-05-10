@@ -39,6 +39,34 @@ DECKS_DIR = ROOT / "decks"
 
 SIMPLIFIED_MARKERS = ("fallback", "簡略", "auto", "省略", "近似", "自動抽出")
 
+# テスト依存カード (= 個別動作期待): bulk rewrite 対象から除外
+PROTECTED_TEST_CARDS = {
+    "OP01-013",  # サンジ activate_main pump
+    "OP01-016",  # ナミ search 麦わら
+    "OP02-013",  # エース on_play -3000
+    "OP01-051",  # キッド attack_taunt static
+    "OP15-003",  # アルビダ replace_ko self
+    "OP06-118",  # ゾロ on_attack once_per_turn
+    "OP11-096",  # リッパー conditional blocker
+}
+
+
+def has_unimplemented(effs: list) -> bool:
+    """overlay の effects に _unimplemented プリミティブが含まれるか?"""
+    if not isinstance(effs, list):
+        return False
+    for e in effs:
+        if not isinstance(e, dict):
+            continue
+        for p in (e.get("do", []) or []):
+            if isinstance(p, dict) and "_unimplemented" in p:
+                return True
+        if isinstance(e.get("cost"), dict) and "_unimplemented" in e["cost"]:
+            return True
+        if isinstance(e.get("if"), dict) and "_unimplemented" in e["if"]:
+            return True
+    return False
+
 
 # --------------------------------------------------------------------------- #
 # パターン定義
@@ -188,18 +216,30 @@ ADD_RESTED_DON_RE = re.compile(r"ドン[‼!]{1,2}\s*デッキからドン[‼!]
 UNTAP_DON_RE = re.compile(r"自分のドン[‼!]{1,2}\s*([0-9０-９]+)\s*枚(?:まで)?を、?\s*アクティブにする")
 
 # パワー付与
-POWER_PUMP_LEADER_RE = re.compile(r"自分のリーダー(?:1枚まで)?を、?(?:このターン中|このバトル中)、?\s*パワー\s*\+\s*([0-9０-９]+)")
-POWER_PUMP_INPLAY_RE = re.compile(r"自分のリーダーかキャラ\s*1\s*枚(?:まで)?を、?(?:このターン中|このバトル中)、?\s*パワー\s*\+\s*([0-9０-９]+)")
-POWER_PUMP_OPP_NEG_RE = re.compile(r"相手の(?:キャラ|リーダーかキャラ)\s*1\s*枚(?:まで)?を、?\s*このターン中、\s*パワー\s*\-\s*([0-9０-９]+)")
+POWER_PUMP_LEADER_RE = re.compile(r"自分のリーダー(?:1枚まで)?を、?(?:[^パ]*?)(?:このターン中|このバトル中|次の相手のエンドフェイズ終了時まで|次の相手のターン終了時まで)、?\s*パワー\s*\+\s*([0-9０-９]+)")
+POWER_PUMP_INPLAY_RE = re.compile(r"自分のリーダーかキャラ\s*1\s*枚(?:まで)?を、?(?:[^パ]*?)(?:このターン中|このバトル中|次の相手のエンドフェイズ終了時まで)、?\s*パワー\s*\+\s*([0-9０-９]+)")
+POWER_PUMP_SELF_CHARA_RE = re.compile(r"このキャラ(?:は)?(?:、)?(?:このターン中|このバトル中)、?\s*パワー\s*\+\s*([0-9０-９]+)")
+POWER_PUMP_ALL_SELF_RE = re.compile(r"自分のリーダーとキャラすべてを、?(?:このターン中|このバトル中)、?\s*パワー\s*\+\s*([0-9０-９]+)")
+POWER_PUMP_OPP_NEG_RE = re.compile(r"相手の(?:キャラ|リーダーかキャラ|リーダー)\s*1\s*枚(?:まで)?を、?(?:[^パ]*?)(?:このターン中|次の相手のエンドフェイズ終了時まで|次の相手のターン終了時まで)、?\s*パワー\s*\-\s*([0-9０-９]+)")
+POWER_PUMP_ALL_OPP_NEG_RE = re.compile(r"相手のキャラすべてを、?(?:このターン中|このバトル中)、?\s*パワー\s*\-\s*([0-9０-９]+)")
+# 「N 枚まで」 (N>1) は any_* として近似
+POWER_PUMP_OPP_NEG_MULTI_RE = re.compile(r"相手の(?:キャラ|リーダーかキャラ)\s*([2-9])\s*枚まで(?:を)?、?(?:[^パ]*?)(?:このターン中|次の相手のエンドフェイズ終了時まで|次の相手のターン終了時まで)、?\s*パワー\s*\-\s*([0-9０-９]+)")
 
 # KO / Bounce / Rest (相手キャラを対象)
 KO_OPP_COST_RE = re.compile(r"相手の(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?を、?\s*KOする")
 KO_OPP_POWER_RE = re.compile(r"相手のパワー\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?を、?\s*KOする")
+KO_OPP_RESTED_RE = re.compile(r"相手のレストのキャラ\s*1\s*枚(?:まで)?を、?\s*KOする")
 RETURN_OPP_COST_RE = re.compile(r"相手の(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?を、?\s*持ち主の手札に戻す")
+RETURN_OPP_DECK_BOTTOM_RE = re.compile(r"(?:相手の(?:元々の)?コスト\s*([0-9０-９]+)\s*以下の)?キャラ\s*1\s*枚(?:まで)?を、?\s*持ち主のデッキの下に置く")
 REST_OPP_COST_RE = re.compile(r"相手の(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?を、?\s*レストにする")
 REST_OPP_RESTED_COST_RE = re.compile(r"相手のレストの(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?は、?\s*次の相手のリフレッシュフェイズでアクティブにならない")
 STAY_RESTED_OPP_RE = re.compile(r"相手のレストの(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ.*?次の相手のリフレッシュフェイズでアクティブにならない")
+STAY_RESTED_OPP_ANY_RE = re.compile(r"相手のレストのキャラ\s*1\s*枚(?:まで)?は、?\s*次の相手のリフレッシュフェイズでアクティブにならない")
 CANNOT_ATTACK_OPP_RE = re.compile(r"相手の(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?は、?.*?アタックできない")
+CANNOT_ATTACK_OPP_ANY_RE = re.compile(r"相手のキャラ\s*1\s*枚(?:まで)?は、?.*?アタックできない")
+KO_OPP_ANY_RE = re.compile(r"相手のキャラ\s*1\s*枚(?:まで)?を、?\s*KOする")
+RETURN_OPP_ANY_RE = re.compile(r"相手のキャラ\s*1\s*枚(?:まで)?を、?\s*持ち主の手札に戻す")
+REST_OPP_ANY_RE = re.compile(r"相手の(?:アクティブの)?キャラ\s*1\s*枚(?:まで)?を、?\s*レストにする")
 
 # サーチ (自分のデッキの上から N 枚を見て...)
 # 公式テキストは 「N 枚を見て、 [〜の]カード [N枚]まで を公開し、 手札に加える」
@@ -214,12 +254,44 @@ FILT_EXCLUDE_NAME_RE = re.compile(r"「([^」]+)」以外")
 # 召喚 / 登場
 PLAY_FROM_TRASH_RE = re.compile(r"自分のトラッシュから(?:コスト\s*([0-9０-９]+)\s*以下の)?(?:特徴《([^》]+)》を持つ)?(?:キャラカード|キャラ)\s*1\s*枚(?:まで)?を、?\s*登場させる")
 PLAY_FROM_HAND_RE = re.compile(r"自分の手札から(?:コスト\s*([0-9０-９]+)\s*以下の)?(?:特徴《([^》]+)》を持つ)?(?:キャラカード|キャラ)\s*1\s*枚(?:まで)?を、?\s*(?:レストで)?登場させる")
+SUMMON_FROM_DECK_RE = re.compile(r"自分のデッキから(?:コスト\s*([0-9０-９]+)\s*以下の)?(?:特徴《([^》]+)》を持つ)?(?:キャラカード|キャラ)\s*1\s*枚(?:まで)?を、?\s*登場させ")
 
 # キーワード付与
 GIVE_KEYWORD_RE = re.compile(r"自分の(?:リーダー|キャラ|リーダーかキャラ).*?は、?\s*このターン中、?\s*【(速攻|ブロッカー|ダブルアタック|バニッシュ|ブロック不可|速攻：キャラ)】を得る")
 
 # 在中 attach_don
 ATTACH_DON_LEADER_RE = re.compile(r"自分のリーダー(?:にレストの|に)?\s*ドン[‼!]{1,2}\s*([0-9０-９]+)\s*枚(?:まで|ずつまで)?を、?\s*(?:レストで)?\s*付与する")
+ATTACH_DON_INPLAY_RE = re.compile(r"自分のリーダーかキャラ\s*1\s*枚に(?:レストの|アクティブの)?\s*ドン[‼!]{1,2}\s*([0-9０-９]+)\s*枚(?:まで)?を、?\s*付与する")
+ATTACH_DON_CHARA_RE = re.compile(r"自分のキャラ\s*1\s*枚に(?:レストの|アクティブの)?\s*ドン[‼!]{1,2}\s*([0-9０-９]+)\s*枚(?:まで)?を、?\s*付与する")
+# 自分のリーダー/キャラを場のドン!! N 枚で 「アクティブにする」 系統
+UNTAP_DON_LEADER_RE = re.compile(r"自分のリーダーを、?\s*アクティブにする")
+# 「相手のリーダーかキャラ」 を pump
+POWER_PUMP_OPP_LEADER_OR_CHARA_NEG_RE = re.compile(r"相手のリーダーかキャラ\s*1\s*枚(?:まで)?を、?\s*このターン中、\s*パワー\s*\-\s*([0-9０-９]+)")
+# 相手のレストのキャラ KO
+KO_OPP_RESTED_COST_RE = re.compile(r"相手のレストの(?:元々の)?コスト\s*([0-9０-９]+)\s*以下のキャラ\s*1\s*枚(?:まで)?を、?\s*KOする")
+# ライフを表向きにする
+REVEAL_SELF_LIFE_RE = re.compile(r"自分のライフの上から\s*([0-9０-９]+)\s*枚(?:まで)?を、?\s*表向きにする")
+# 自分の元々のコスト/パワー X 以下の自キャラを untap
+UNTAP_SELF_FILTERED_RE = re.compile(r"自分(?:の(?:特徴《[^》]+》を持つ|元々のコスト\s*([0-9０-９]+)\s*以下の|パワー\s*([0-9０-９]+)\s*以下の))?キャラ\s*([0-9０-９]+)\s*枚(?:まで)?を、?\s*アクティブにする")
+# 「自分のキャラ N 枚をレストにできる：」 (= rest_self_cards N コスト)
+COST_REST_SELF_CHARAS_RE = re.compile(r"自分のキャラ\s*([0-9０-９]+)\s*枚を(?:レストにできる|レストにする)")
+COST_TRASH_SELF_HAND_RE = re.compile(r"自分の手札\s*([0-9０-９]+)\s*枚を捨てる(?:ことができる)?[：:]")
+# Untap (キャラ)
+UNTAP_SELF_LEADER_RE = re.compile(r"自分のリーダーを、?\s*アクティブにする")
+UNTAP_SELF_CHARA_RE = re.compile(r"自分の(?:キャラ|特徴《[^》]+》を持つキャラ)\s*1\s*枚(?:まで)?を、?\s*アクティブにする")
+# 自手札にカード追加 (= 単発の add_to_hand 効果用)
+SHUFFLE_DECK_RE = re.compile(r"デッキをシャッフルする")
+# Cost +/-
+COST_PLUS_OPP_RE = re.compile(r"相手のキャラ\s*1\s*枚(?:まで)?を、?\s*このターン中、\s*コスト\s*\+\s*([0-9０-９]+)")
+COST_MINUS_OPP_RE = re.compile(r"相手のキャラ\s*1\s*枚(?:まで)?を、?\s*このターン中、\s*コスト\s*[-－]\s*([0-9０-９]+)")
+# 相手の手札を 1 枚捨てさせる
+DISCARD_OPP_RE = re.compile(r"相手は(?:自身の手札|手札の)\s*([0-9０-９]+)\s*枚を(?:選び|ランダムに)?\s*捨てる")
+# 相手手札を N 枚にする (= 5枚以上なら 4 まで)
+HAND_TO_SIZE_RE = re.compile(r"相手の手札が\s*([0-9０-９]+)\s*枚になるように")
+# self を手札に戻す (= 自身を return)
+RETURN_SELF_TO_HAND_RE = re.compile(r"このキャラを持ち主の手札に戻す")
+# 自分のトラッシュからカード N 枚 (filter) を手札に
+TRASH_TO_HAND_RE = re.compile(r"自分のトラッシュから(?:特徴《([^》]+)》を持つ)?カード\s*([0-9０-９]+)\s*枚(?:まで)?を、?\s*手札に加える")
 
 
 def extract_primitives(body: str) -> list[dict]:
@@ -254,22 +326,112 @@ def extract_primitives(body: str) -> list[dict]:
         primitives.append({"power_pump": {"target": "self_leader", "amount": to_int(m.group(1)), "duration": duration}})
     elif m := POWER_PUMP_INPLAY_RE.search(body):
         primitives.append({"power_pump": {"target": "self_inplay", "amount": to_int(m.group(1)), "duration": duration}})
+    elif m := POWER_PUMP_ALL_SELF_RE.search(body):
+        primitives.append({"power_pump": {"target": "all_self_team", "amount": to_int(m.group(1)), "duration": duration}})
+    elif m := POWER_PUMP_SELF_CHARA_RE.search(body):
+        primitives.append({"power_pump": {"target": "self", "amount": to_int(m.group(1)), "duration": duration}})
     if m := POWER_PUMP_OPP_NEG_RE.search(body):
         primitives.append({"power_pump": {"target": "one_opponent_character_le_5000", "amount": -to_int(m.group(1)), "duration": "turn"}})
+    elif m := POWER_PUMP_OPP_NEG_MULTI_RE.search(body):
+        # N 枚まで → any_opponent_character_le_5000 で近似 (= 全 ≤5000 対象。 1 ply での影響は同じ)
+        primitives.append({"power_pump": {"target": "any_opponent_character_le_5000", "amount": -to_int(m.group(2)), "duration": "turn"}})
+    elif m := POWER_PUMP_ALL_OPP_NEG_RE.search(body):
+        primitives.append({"power_pump": {"target": "all_opponent_characters", "amount": -to_int(m.group(1)), "duration": "turn"}})
 
-    # KO / bounce / rest (相手対象)
+    # KO / bounce / rest (相手対象、 cost 限定 → 一般)
+    ko_added = False
+    return_added = False
+    rest_added = False
+    stay_added = False
+    attack_added = False
     if m := KO_OPP_COST_RE.search(body):
         primitives.append({"ko": f"one_opponent_character_cost_le_{m.group(1)}cost"})
+        ko_added = True
     elif m := KO_OPP_POWER_RE.search(body):
         primitives.append({"ko": f"one_opponent_character_power_le_{m.group(1)}"})
+        ko_added = True
+    elif KO_OPP_RESTED_RE.search(body):
+        primitives.append({"ko": "one_opponent_rested_character_le_5000"})
+        ko_added = True
+    elif KO_OPP_ANY_RE.search(body) and not ko_added:
+        primitives.append({"ko": "one_opponent_character_any"})
+        ko_added = True
+    # 「相手のリーダーかキャラ N 枚まで」 のパワー減 (multi-target)
+    if not ko_added:
+        m_multi = re.search(r"相手の(?:キャラ|リーダーかキャラ)\s*[2-9]\s*枚まで.*?KOする", body)
+        if m_multi:
+            primitives.append({"ko": "any_opponent_character_le_5000"})
+            ko_added = True
     if m := RETURN_OPP_COST_RE.search(body):
         primitives.append({"return_to_hand": f"one_opponent_character_cost_le_{m.group(1)}cost"})
+        return_added = True
+    elif RETURN_OPP_ANY_RE.search(body) and not return_added:
+        primitives.append({"return_to_hand": "one_opponent_character_any"})
+        return_added = True
+    if m := RETURN_OPP_DECK_BOTTOM_RE.search(body):
+        cost_str = m.group(1)
+        if cost_str:
+            primitives.append({"return_to_deck_bottom": f"one_opponent_character_cost_le_{cost_str}cost"})
+        else:
+            primitives.append({"return_to_deck_bottom": "one_opponent_character_any"})
     if m := REST_OPP_COST_RE.search(body):
         primitives.append({"rest": f"one_opponent_character_cost_le_{m.group(1)}cost"})
+        rest_added = True
+    elif REST_OPP_ANY_RE.search(body) and not rest_added:
+        primitives.append({"rest": "one_opponent_character_any"})
+        rest_added = True
     if m := STAY_RESTED_OPP_RE.search(body):
         primitives.append({"stay_rested_next_refresh": f"one_opponent_rested_character_cost_le_{m.group(1)}cost"})
+        stay_added = True
+    elif STAY_RESTED_OPP_ANY_RE.search(body) and not stay_added:
+        primitives.append({"stay_rested_next_refresh": "one_opponent_rested_character_le_5000"})
+        stay_added = True
     if m := CANNOT_ATTACK_OPP_RE.search(body):
         primitives.append({"set_cannot_attack": f"one_opponent_character_cost_le_{m.group(1)}cost"})
+        attack_added = True
+    elif CANNOT_ATTACK_OPP_ANY_RE.search(body) and not attack_added:
+        primitives.append({"set_cannot_attack": "one_opponent_character_any"})
+        attack_added = True
+
+    # cost +/-
+    if m := COST_MINUS_OPP_RE.search(body):
+        primitives.append({"cost_minus": {"target": "one_opponent_character_le_5000", "amount": to_int(m.group(1))}})
+    elif m := COST_PLUS_OPP_RE.search(body):
+        primitives.append({"cost_minus": {"target": "one_opponent_character_le_5000", "amount": -to_int(m.group(1))}})
+
+    # 相手手札捨て
+    if m := DISCARD_OPP_RE.search(body):
+        primitives.append({"trash_opp_hand_random": to_int(m.group(1))})
+    if m := HAND_TO_SIZE_RE.search(body):
+        primitives.append({"self_hand_to_size": to_int(m.group(1))})
+
+    # untap (キャラ)
+    if UNTAP_SELF_LEADER_RE.search(body) and "ドン" not in body[:body.find("アクティブにする")]:
+        primitives.append({"untap": "self_leader"})
+    elif UNTAP_SELF_CHARA_RE.search(body):
+        primitives.append({"untap_chara": {"target": "one_self_character_any", "limit": 1}})
+
+    # 召喚 (デッキから)
+    if m := SUMMON_FROM_DECK_RE.search(body):
+        cost_le = m.group(1)
+        feature = m.group(2)
+        filt = {}
+        if cost_le:
+            filt["cost_le"] = to_int(cost_le)
+        if feature:
+            filt["feature"] = feature
+        primitives.append({"summon_from_deck": {"filter": filt, "limit": 1}})
+
+    # トラッシュからカード (= 非キャラ含む) 手札へ
+    if m := TRASH_TO_HAND_RE.search(body):
+        feature = m.group(1)
+        n = to_int(m.group(2))
+        filt = {"feature": feature} if feature else {}
+        primitives.append({"trash_to_hand": {"filter": filt, "limit": n}})
+
+    # シャッフル
+    if SHUFFLE_DECK_RE.search(body):
+        primitives.append({"shuffle_self_deck": True})
 
     # search
     if m := SEARCH_RE.search(body):
@@ -310,10 +472,23 @@ def extract_primitives(body: str) -> list[dict]:
     if m := GIVE_KEYWORD_RE.search(body):
         primitives.append({"give_keyword": {"target": "self_inplay", "keyword": m.group(1)}})
 
-    # ドン付与 (自リーダーに)
-    if m := ATTACH_DON_LEADER_RE.search(body):
-        rested = "レストで" in body
+    # ドン付与 (自リーダーに / 自リーダーかキャラに / 自キャラ 1 体に)
+    rested = "レストで" in body or "レストの" in body
+    if m := ATTACH_DON_INPLAY_RE.search(body):
+        primitives.append({"attach_don": {"target": "self_inplay_choice", "count": to_int(m.group(1)), "rested": rested}})
+    elif m := ATTACH_DON_LEADER_RE.search(body):
         primitives.append({"attach_don": {"target": "self_leader", "count": to_int(m.group(1)), "rested": rested}})
+    elif m := ATTACH_DON_CHARA_RE.search(body):
+        primitives.append({"attach_don": {"target": "one_self_character_any", "count": to_int(m.group(1)), "rested": rested}})
+
+    # 相手リーダーかキャラ パワー-N
+    if not any("power_pump" in p and p.get("power_pump", {}).get("amount", 0) < 0 for p in primitives if isinstance(p, dict)):
+        if m := POWER_PUMP_OPP_LEADER_OR_CHARA_NEG_RE.search(body):
+            primitives.append({"power_pump": {"target": "one_opponent_character_le_5000", "amount": -to_int(m.group(1)), "duration": "turn"}})
+
+    # 相手レスト cost N 以下キャラ KO
+    if m := KO_OPP_RESTED_COST_RE.search(body):
+        primitives.append({"ko": f"one_opponent_rested_character_cost_le_{m.group(1)}cost"})
 
     return primitives
 
@@ -321,6 +496,21 @@ def extract_primitives(body: str) -> list[dict]:
 # --------------------------------------------------------------------------- #
 # 1 カードの overlay 構築
 # --------------------------------------------------------------------------- #
+def _is_noise_body(body: str) -> bool:
+    """空文字・「/」 のみ・短すぎる body は noise (= primitive 抽出無意味) として skip。"""
+    s = (body or "").strip()
+    if not s or s in ("/", "・", "／"):
+        return True
+    # ブロッカー説明文 (CardDef で表現済) の典型的な括弧書きのみ
+    if "相手のアタックの後" in s and "アタックの対象" in s:
+        return True
+    if "登場したターンに" in s and "アタックできる" in s and len(s) < 60:
+        return True
+    if "(このカードが与えるダメージは2になる)" in s and len(s) < 50:
+        return True
+    return False
+
+
 def build_overlay_for_card(card: dict) -> list[dict]:
     """1 カードの overlay を構築。 解析できない部分は _unimplemented stub で残す。"""
     text = (card.get("text") or "").strip()
@@ -332,6 +522,8 @@ def build_overlay_for_card(card: dict) -> list[dict]:
     # 通常テキストの分解
     sections = split_by_trigger(text)
     for when, body in sections:
+        if _is_noise_body(body):
+            continue
         cost = extract_cost(body)
         cond = extract_if(body)
         prims = extract_primitives(body)
@@ -354,14 +546,15 @@ def build_overlay_for_card(card: dict) -> list[dict]:
     # trigger 欄 (= 別フィールド) 処理
     if trigger_text and trigger_text != "-" and trigger_text.startswith("【トリガー】"):
         body = trigger_text[len("【トリガー】"):].strip()
-        prims = extract_primitives(body)
-        if not prims:
-            prims = [{"_unimplemented": body}]
-        entries.append({
-            "_text": f"{cid} trigger: {body[:80]}",
-            "when": "trigger",
-            "do": prims,
-        })
+        if not _is_noise_body(body):
+            prims = extract_primitives(body)
+            if not prims:
+                prims = [{"_unimplemented": body}]
+            entries.append({
+                "_text": f"{cid} trigger: {body[:80]}",
+                "when": "trigger",
+                "do": prims,
+            })
 
     # テキストありなのに entries が空の場合 (= 【】 マーカーがない単純常在効果) → 全文を _unimplemented で残す
     if not entries and text and text != "-":
@@ -376,6 +569,15 @@ def build_overlay_for_card(card: dict) -> list[dict]:
         # n を None で残すと検証 NG なので、 削除
         if entries[-1].get("n") is None:
             entries[-1].pop("n", None)
+
+    # 後処理: 各エントリ内の _unimplemented を持つ primitive のうち、
+    # 同じ entry に他の有効 primitive がある場合は noise の _unimplemented を捨てる
+    for entry in entries:
+        do = entry.get("do", []) or []
+        if len(do) > 1:
+            kept = [p for p in do if not (isinstance(p, dict) and len(p) == 1 and "_unimplemented" in p and (not p["_unimplemented"] or p["_unimplemented"].strip() in ("", "/")))]
+            if kept:
+                entry["do"] = kept
 
     return entries
 
@@ -405,16 +607,22 @@ def main():
         except Exception:
             continue
 
-    # 対象抽出
+    # 対象抽出: simplified marker 持ち or _unimplemented 持ち
+    # (メタリーダー / テスト依存カードは protected)
     targets: list[str] = []
     for cid, effs in overlay.items():
         if cid.startswith("_"):
             continue
         if cid in meta_leaders:
             continue
-        if not has_simplified_marker(effs):
+        if cid in PROTECTED_TEST_CARDS:
             continue
-        targets.append(cid)
+        # parallel variants of protected cards も除外
+        base = cid.split("_p")[0].split("_r")[0]
+        if base in PROTECTED_TEST_CARDS:
+            continue
+        if has_simplified_marker(effs) or has_unimplemented(effs):
+            targets.append(cid)
 
     targets.sort()
     if args.limit:
