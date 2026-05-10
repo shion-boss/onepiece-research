@@ -97,3 +97,5 @@ node_modules/
 # Audit reports (regenerable, large)
 db/overlay_audit.md
 db/overlay_audit.json
+db/effect_smoke_test.md
+db/effect_smoke_test.json

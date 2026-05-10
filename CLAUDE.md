@@ -263,6 +263,10 @@ cd web && npm install
 .venv/bin/python scripts/audit_overlay_vs_faq.py       # overlay vs FAQ 突合監査
                                                        # → db/overlay_audit.md (上位80件) + .json (全件)
                                                        # severity 順で「公式テキストにあるのに overlay 欠落」 を surface
+.venv/bin/python scripts/smoke_test_card_effects.py    # 全カード効果スモークテスト
+                                                       # 各 effect を最小ステートで発火 → 変化検出
+                                                       # → db/effect_smoke_test.md / .json
+                                                       # ERROR=0 (致命なし) / NO_CHANGE 件は条件依存
 
 # === 画像 ===
 .venv/bin/python scripts/cache_deck_images.py      # decks/ で使う画像をローカルキャッシュ
