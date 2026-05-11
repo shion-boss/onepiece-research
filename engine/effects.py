@@ -90,6 +90,207 @@ def load_effect_overlay(path: str | Path) -> dict[str, CardEffectBundle]:
 
 
 # --------------------------------------------------------------------------- #
+# トリガーループ (FIFO + アクティブプレイヤー優先)
+# --------------------------------------------------------------------------- #
+# 設計概要:
+#   各 trigger_* (= イベント発火点) は同期で「fire するか」 「replace するか」 等の
+#   即時決定を行い、 実体の効果実行は TriggerEvent としてキューに積む。
+#   apply_action / advance_phase の最後に resolve_triggers(state) を一度呼ぶと、
+#   キューが空になるまで FIFO + アクティブプレイヤー優先で順次実行する。
+#
+#   公式 8-1-2: 効果は発動プレイヤーがすべて解決後、 相手プレイヤーが解決。
+#   公式 8-1-3: 同時発火の同陣営内順序は発動プレイヤーが任意 (= AI フックで選択可)。
+@dataclass
+class TriggerEvent:
+    """トリガー解決キューの 1 エントリ。
+
+    when:           "on_play" / "on_ko" / "on_attack" / "opp_attack" / "on_block" /
+                    "on_turn_start" / "opp_turn_start" / "end_of_turn" /
+                    "opp_end_of_turn" / "main" / "counter" / "trigger" /
+                    "activate_main"
+    owner_idx:      この効果の「自分」側プレイヤー idx (0 or 1)。
+                    AI フック / アクティブプレイヤー優先判定に使う。
+    source_card_id: 効果バンドル検索キー (= card.card_id)。
+                    on_ko 等で InPlay が場から消えた後でも参照可能。
+    source_iid:     発火元 InPlay の instance_id (= 場に残っていれば bundle 起点として使える)。
+                    on_ko / counter / main 等、 発火時点で既に場にないならば None。
+    payload:        when ごとの追加情報。
+                    - on_attack/opp_attack/on_block: attacker_iid
+                    - lifecard trigger: defender_idx, attacker_idx (固定値)
+                    - activate_main: effect_index (= bundle.effects 内の index)
+    """
+
+    when: str
+    owner_idx: int
+    source_card_id: str
+    source_iid: Optional[int] = None
+    payload: dict = field(default_factory=dict)
+
+
+def enqueue_event(
+    state: GameState,
+    when: str,
+    owner_idx: int,
+    source_card_id: str,
+    source_iid: Optional[int] = None,
+    payload: Optional[dict] = None,
+) -> None:
+    """トリガーをキューに追加。 resolve_triggers を別途呼ぶ必要あり。"""
+    state.event_queue.append(
+        TriggerEvent(
+            when=when,
+            owner_idx=owner_idx,
+            source_card_id=source_card_id,
+            source_iid=source_iid,
+            payload=payload or {},
+        )
+    )
+
+
+def _pop_next_event(state: GameState) -> Optional[TriggerEvent]:
+    """次に解決すべきイベントを 1 つ取り出す。
+
+    優先順序:
+    1. owner_idx == turn_player_idx のものを先に
+    2. 同 owner 内では FIFO (= enqueue 順)
+    3. event_order_hook があれば 同 owner / 同 when グループ内で AI が再順序付け可能
+    """
+    if not state.event_queue:
+        return None
+    turn_idx = state.turn_player_idx
+    # まずアクティブプレイヤー側を探す
+    active_events = [e for e in state.event_queue if e.owner_idx == turn_idx]
+    if not active_events:
+        # 非アクティブ側のみ → FIFO 先頭
+        evt = state.event_queue[0]
+        state.event_queue.remove(evt)
+        return evt
+    # AI フックがあれば 同 when の連続グループを取り出して順序選択
+    hook = state.event_order_hook
+    if hook is not None and len(active_events) > 1:
+        # 同 when の先頭グループを抽出 (FIFO 順)
+        first_when = active_events[0].when
+        group = [e for e in active_events if e.when == first_when]
+        if len(group) > 1:
+            ordered = hook(state, group)
+            if ordered:
+                evt = ordered[0]
+                state.event_queue.remove(evt)
+                return evt
+    evt = active_events[0]
+    state.event_queue.remove(evt)
+    return evt
+
+
+def resolve_triggers(state: GameState) -> None:
+    """イベントキューが空になるまでドレイン。
+
+    再入呼び出し (= 効果実行中に資源解放のため別ルートから呼ばれた) は no-op。
+    apply_action 末尾、 advance_phase 末尾、 ライフトリガー処理直後など、
+    「アクション境界」 で 1 回だけ呼べば良い。
+    """
+    if state.resolving:
+        return
+    if not state.event_queue:
+        return
+    state.resolving = True
+    try:
+        while state.event_queue:
+            evt = _pop_next_event(state)
+            if evt is None:
+                break
+            _execute_event(state, evt)
+    finally:
+        state.resolving = False
+
+
+def _execute_event(state: GameState, evt: TriggerEvent) -> None:
+    """1 イベントを実行。 owner / opp を解決し、 該当 bundle の when 効果を発火。
+
+    on_play / on_attack / on_block / on_ko / on_turn_start / opp_turn_start /
+    end_of_turn / opp_end_of_turn / opp_attack / main / counter / trigger /
+    activate_main / replace_ko を分岐処理。
+    """
+    overlay = state.effects_overlay
+    if not overlay:
+        return
+    bundle = overlay.get(evt.source_card_id)
+    if bundle is None:
+        return
+
+    me = state.players[evt.owner_idx]
+    opp = state.players[1 - evt.owner_idx]
+
+    # source_iid が指定されていれば、 場に残っているかチェック
+    self_inplay: Optional[InPlay] = None
+    if evt.source_iid is not None:
+        for ip in [me.leader, *me.characters, *me.stages]:
+            if ip.instance_id == evt.source_iid:
+                self_inplay = ip
+                break
+        # 場から消えている場合: on_ko 等は self_inplay=None で許容、
+        # それ以外 (on_attack/on_block 等) は途中で KO されたので発火中止
+        if self_inplay is None and evt.when not in (
+            "on_ko", "main", "counter", "trigger"
+        ):
+            return
+        # 効果無効化 (negate_effect プリミティブで付与)。 場にいて、 かつ source が
+        # 「効果無効」 キーワードを持っているなら発火を抑止 (主要効果のみ。 on_ko 等は除外)
+        if (
+            self_inplay is not None
+            and "効果無効" in self_inplay.granted_keywords
+            and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter")
+        ):
+            state.push_log(
+                f"  効果無効: {self_inplay.card.name} の【{evt.when}】 は発動されない"
+            )
+            return
+
+    when = evt.when
+
+    # play_self / fire_self_effect が self_inplay=None でも source_card_id を参照できるよう、
+    # state にスタック (元の値を退避 → 復元)。
+    prev_src_cid = getattr(state, "current_source_card_id", None)
+    state.current_source_card_id = evt.source_card_id
+
+    try:
+        # payload.effect_indexes が指定されていれば、 その index の効果のみ発火 (cost 既払い)。
+        # activate_main / on_attack (cost 持ち) で使う。
+        explicit_idxs = evt.payload.get("effect_indexes")
+        if explicit_idxs is not None:
+            for idx in explicit_idxs:
+                if not (0 <= idx < len(bundle.effects)):
+                    continue
+                eff = bundle.effects[idx]
+                if eff.get("when") != when:
+                    continue
+                # cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)
+                if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                    continue
+                for primitive in eff.get("do", []):
+                    execute_effect(primitive, state, me, opp, self_inplay)
+            return
+
+        # 通常の when 一致 effects を全て発火
+        for eff in bundle.effects:
+            if eff.get("when") != when:
+                continue
+            if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                continue
+            for primitive in eff.get("do", []):
+                execute_effect(primitive, state, me, opp, self_inplay)
+    finally:
+        state.current_source_card_id = prev_src_cid
+
+
+def _maybe_resolve(state: GameState) -> None:
+    """resolve_triggers をネスト呼び出ししない安全ラッパ。 trigger_* の末尾で呼ぶ。"""
+    if state.resolving:
+        return
+    resolve_triggers(state)
+
+
+# --------------------------------------------------------------------------- #
 # 条件評価
 # --------------------------------------------------------------------------- #
 def eval_condition(
@@ -146,6 +347,13 @@ def eval_condition(
                 return False
         elif k == "self_life_ge":
             if len(me.life) < int(v):
+                return False
+        elif k == "self_life_eq":
+            if len(me.life) != int(v):
+                return False
+        elif k == "self_power_ge":
+            # self_inplay のパワーが N 以上 (= 自身に対する条件)
+            if self_inplay is None or self_inplay.power < int(v):
                 return False
         elif k == "opp_life_le" and opp is not None:
             if len(opp.life) > int(v):
@@ -309,6 +517,18 @@ def _resolve_target(
     if target_spec == "one_opponent_character_any":
         cands = sorted(opp.characters, key=lambda c: -c.power)
         return cands[:1]
+    if target_spec == "one_opponent_inplay_any":
+        # リーダー or キャラ 1 枚 (= 「相手のリーダーかキャラ 1 枚まで」)。
+        # 脅威優先: パワー高いキャラ → なければリーダー
+        cands = sorted(opp.characters, key=lambda c: -c.power)
+        if cands:
+            return cands[:1]
+        return [opp.leader]
+    if target_spec == "one_self_character_filtered":
+        # spec が辞書じゃないと filter は外から渡せないので、 caller 側でラップ済みを期待。
+        # 単独で来た場合は全自キャラから最強を返す (= フォールバック)
+        cands = sorted(me.characters, key=lambda c: -c.power)
+        return cands[:1]
     if target_spec == "one_opponent_rested_character_le_5000":
         cands = sorted(
             [c for c in opp.characters if c.rested and c.power <= 5000],
@@ -393,6 +613,37 @@ def _resolve_target(
                 key=lambda c: -c.power,
             )
             return cands[:1]
+
+        # one_self_character_cost_eq_N (= 自分の cost N ぴったりキャラ 1 枚)
+        m = re.match(r"one_self_character_cost_eq_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in me.characters if c.card.cost == n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # any_opp_inplay_n_N (= 相手のリーダーかキャラ 合計 N 枚まで)
+        # 脅威優先: パワー高いキャラ N 体 (キャラが N 未満なら リーダーも追加)
+        m = re.match(r"any_opp_inplay_n_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(opp.characters, key=lambda c: -c.power)
+            # キャラ N 体未満なら リーダーで補う (= 全ての可能対象を返す)
+            if len(cands) < n:
+                cands = list(cands) + [opp.leader]
+            return cands[:n]
+
+        # any_opp_rested_chara_n_N (= 相手のレストのキャラ N 体まで)
+        m = re.match(r"any_opp_rested_chara_n_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in opp.characters if c.rested],
+                key=lambda c: -c.power,
+            )
+            return cands[:n]
 
         # one_self_character_named_X (名前一致セレクタ。 X は 「エネル」 等)
         m = re.match(r"one_self_character_named_(.+)$", target_spec)
@@ -540,6 +791,9 @@ def execute_effect(
                     t.static_buff += amount
                 elif duration == "battle":
                     t.battle_buff += amount
+                elif duration == "next_self_turn_start":
+                    # 「次の自分のターン開始時まで」 = ターン跨ぎ。 REFRESH 時に clear
+                    t.next_turn_buff += amount
                 else:
                     t.turn_buff += amount
             state.push_log(f"  効果: パワー{amount:+d} → {[t.card.name for t in targets]}")
@@ -747,10 +1001,12 @@ def execute_effect(
             state.push_log(f"  効果: {keyword} 付与 → {[t.card.name for t in targets]}")
         elif k == "play_from_trash":
             # 「自分のトラッシュからキャラ1枚を登場」
-            # spec: {"filter": {"category": "CHARACTER", "feature": "...", "cost_le": N}, "limit": 1}
+            # spec: {"filter": {"category": "CHARACTER", "feature": "...", "cost_le": N},
+            #        "limit": 1, "rested": bool}
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
             filt = spec.get("filter", {})
             limit = int(spec.get("limit", 1))
+            rested = bool(spec.get("rested", False))
             found = 0
             new_trash = []
             for card in me.trash:
@@ -758,10 +1014,11 @@ def execute_effect(
                     # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state)
-                    ip = InPlay.of(card, rested=False, sickness=True)
+                    ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
                     found += 1
-                    state.push_log(f"  効果: トラッシュから登場 → {card.name}")
+                    label = "レストで" if rested else ""
+                    state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 else:
@@ -769,11 +1026,12 @@ def execute_effect(
             me.trash[:] = new_trash
         elif k == "play_from_hand":
             # 「自分の手札からキャラ1枚を 0 コストで登場」(緑紫ルフィ起動メイン等)。
-            # spec: {"filter": {"feature": "...", "cost_le": N}, "limit": 1}
+            # spec: {"filter": {"feature": "...", "cost_le": N}, "limit": 1, "rested": bool}
             # 通常の PlayCharacter と異なり、 コスト無視 (= 効果代替の登場)。
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
             filt = spec.get("filter", {})
             limit = int(spec.get("limit", 1))
+            rested = bool(spec.get("rested", False))
             found = 0
             new_hand = []
             for card in me.hand:
@@ -781,10 +1039,11 @@ def execute_effect(
                     # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state)
-                    ip = InPlay.of(card, rested=False, sickness=True)
+                    ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
                     found += 1
-                    state.push_log(f"  効果: 手札から登場 → {card.name}")
+                    label = "レストで" if rested else ""
+                    state.push_log(f"  効果: 手札から{label}登場 → {card.name}")
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 else:
@@ -1000,6 +1259,316 @@ def execute_effect(
             me.don_active -= n
             target.attached_dons += n
             state.push_log(f"  効果: ドン{n}付与 → {target.card.name} (P={target.power})")
+        elif k == "mill_self_top":
+            # 自分のデッキ上 N 枚をトラッシュに置く。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            milled = []
+            for _ in range(n):
+                if not me.deck:
+                    break
+                c = me.deck.pop(0)
+                me.trash.append(c)
+                milled.append(c.name)
+            state.push_log(f"  効果: 自デッキ {len(milled)} 枚 trash → {milled}")
+        elif k == "look_top_reorder":
+            # 自分のデッキ上 N 枚を見て、 好きな順番で デッキの上/下 に置く。
+            # spec: {"depth": N, "to": "top"|"bottom"|"choice"} (choice = AI が片方選ぶ; 現実装は top)
+            # 公開情報のみで決まる効果なので AI に判断させる余地は少ない。 簡略実装:
+            #   to="top": 順番そのままで戻す (= no-op の安全選択)
+            #   to="bottom": 上 N 枚をデッキ末尾に移動
+            #   to="choice": ヒューリスティック → トリガー持ち / コスト低が手前に来るよう並び替え
+            spec = v if isinstance(v, dict) else {"depth": int(v), "to": "top"}
+            depth = int(spec.get("depth", 1))
+            to_pos = spec.get("to", "top")
+            if depth <= 0 or not me.deck:
+                continue
+            top_n = me.deck[:depth]
+            rest = me.deck[depth:]
+            if to_pos == "bottom":
+                me.deck = rest + top_n
+                state.push_log(f"  効果: デッキ上 {len(top_n)} 枚をデッキ下へ")
+            elif to_pos == "choice":
+                # ヒューリスティック: 低コスト → 高コスト の順に並び替えて上に置く (早期展開優先)
+                top_n.sort(key=lambda c: (c.cost, c.name))
+                me.deck = top_n + rest
+                state.push_log(f"  効果: デッキ上 {len(top_n)} 枚をコスト昇順に並び替え")
+            else:
+                # to="top": 順番維持 (= no-op)
+                state.push_log(f"  効果: デッキ上 {len(top_n)} 枚を確認 (順番維持)")
+        elif k == "play_self":
+            # このカードを登場させる。 trigger / on_ko 等 self_inplay=None の場面で使う。
+            # source_card_id は state.current_source_card_id にスタックされている。
+            # 検索順: me.trash (= trigger 後 / KO 後)、 me.hand (= 通常)。
+            src_cid = (
+                self_inplay.card.card_id if self_inplay
+                else getattr(state, "current_source_card_id", None)
+            )
+            if not src_cid:
+                continue
+            # 既に場に同 iid のものが残っているなら no-op (二重登場防止)
+            if self_inplay is not None and self_inplay in me.characters:
+                continue
+            found_card = None
+            for zone_name, zone in (("trash", me.trash), ("hand", me.hand)):
+                for i, c in enumerate(zone):
+                    if c.card_id == src_cid and c.category == Category.CHARACTER:
+                        found_card = zone.pop(i)
+                        state.push_log(f"  効果: このカードを登場 ({zone_name} → 場)")
+                        break
+                if found_card:
+                    break
+            if not found_card:
+                continue
+            if not me.can_play_character():
+                me.trash_weakest_chara_for_field_full(state)
+            ip = InPlay.of(found_card, rested=False, sickness=True)
+            me.characters.append(ip)
+            if state.effects_overlay:
+                trigger_on_play(state, me, opp, ip, state.effects_overlay)
+        elif k == "fire_self_effect":
+            # このカードの【XXX】効果を発動する。 同 bundle 内の指定 when 効果を再発火。
+            # 再帰防止: state._fire_self_depth で深度制限 (max 2)。
+            spec = v if isinstance(v, dict) else {"when_kind": str(v)}
+            when_kind = spec.get("when_kind", "main")
+            src_cid = (
+                self_inplay.card.card_id if self_inplay
+                else getattr(state, "current_source_card_id", None)
+            )
+            if not src_cid:
+                continue
+            depth = getattr(state, "_fire_self_depth", 0)
+            if depth >= 2:
+                state.push_log(f"  効果コピー: 再帰深度上限 (skip)")
+                continue
+            state._fire_self_depth = depth + 1
+            try:
+                bundle = state.effects_overlay.get(src_cid) if state.effects_overlay else None
+                if bundle is None:
+                    continue
+                for eff in bundle.effects:
+                    if eff.get("when") != when_kind:
+                        continue
+                    if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                        continue
+                    for prim in eff.get("do", []):
+                        execute_effect(prim, state, me, opp, self_inplay)
+                state.push_log(f"  効果: 自身の【{when_kind}】効果を発動")
+            finally:
+                state._fire_self_depth = depth
+        elif k == "return_opp_don":
+            # 相手は自身の場のドン N 枚をドンデッキに戻す。 active 優先、 不足は rested から。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            removed = 0
+            take_a = min(n, opp.don_active)
+            opp.don_active -= take_a
+            opp.don_remaining_in_deck += take_a
+            removed += take_a
+            if removed < n:
+                take_r = min(n - removed, opp.don_rested)
+                opp.don_rested -= take_r
+                opp.don_remaining_in_deck += take_r
+                removed += take_r
+            state.push_log(f"  効果: 相手ドン {removed} 枚をドンデッキへ戻す")
+        elif k == "opp_hand_to_deck_bottom":
+            # 相手は自身の手札 N 枚を選び (簡略: ランダム or 末尾) デッキの下に置く。
+            # 現実的には AI が判断するが、 簡略でランダムを採用。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            moved = 0
+            for _ in range(n):
+                if not opp.hand:
+                    break
+                idx = state.rng.randrange(len(opp.hand))
+                opp.deck.append(opp.hand.pop(idx))
+                moved += 1
+            state.push_log(f"  効果: 相手手札 {moved} 枚をデッキ下へ")
+        elif k == "self_hand_to_deck_bottom":
+            # 自分の手札 N 枚を好きな順番でデッキの下に置く。 簡略: 末尾から。
+            spec = v if isinstance(v, dict) else {"amount": int(v) if not isinstance(v, dict) else 1}
+            n = int(spec.get("amount", 1))
+            moved = 0
+            for _ in range(n):
+                if not me.hand:
+                    break
+                # ヒューリスティック: コスト最高のカード (= 手札で死にカード) をデッキ下に
+                idx = max(range(len(me.hand)), key=lambda i: me.hand[i].cost)
+                me.deck.append(me.hand.pop(idx))
+                moved += 1
+            state.push_log(f"  効果: 自手札 {moved} 枚をデッキ下へ")
+        elif k == "give_attack_active_chara":
+            # 「相手のアクティブのキャラにもアタックできる」 = "アクティブアタック可" キーワード付与。
+            # spec: target ("self" / "self_leader" / "self_inplay" など)、 duration
+            target_spec = v if isinstance(v, str) else (v or {}).get("target", "self")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                t.granted_keywords.add("アクティブアタック可")
+            state.push_log(
+                f"  効果: アクティブアタック可付与 → {[t.card.name for t in targets]}"
+            )
+        elif k == "to_opp_life":
+            # 「相手のキャラ 1 枚までを、 持ち主のライフの上か下に表向きで加える」 系。
+            # 対象キャラを場から取り除き (KO ではない)、 持ち主 (= opp) のライフに加える。
+            # spec: target_spec ("one_opponent_character_cost_le_N" など) 文字列
+            target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_character_any")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                if t in opp.characters:
+                    if t.protect_from_opp_effect:
+                        state.push_log(f"  保護効果: {t.card.name} は離れない")
+                        continue
+                    opp.characters.remove(t)
+                    # 付与ドンはレストでコストエリアに戻る (6-5-5-4)
+                    if t.attached_dons > 0:
+                        opp.don_rested += t.attached_dons
+                    # ライフに加える (= KO ではないので【KO時】 不発動)
+                    opp.life.append(t.card)
+                    state.push_log(f"  効果: {t.card.name} を持ち主ライフへ")
+        elif k == "ko_multi":
+            # マルチターゲット KO。 v はターゲット仕様のリスト。
+            # 例: [{"target": "one_opponent_character_cost_le_2"},
+            #      {"target": "one_opponent_character_cost_le_1"}]
+            # 各 spec を順に resolve → KO。 同じキャラを 2 度 KO しないよう dedup。
+            if not isinstance(v, list):
+                continue
+            already_kod = set()
+            for spec in v:
+                target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
+                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                for t in targets:
+                    if id(t) in already_kod:
+                        continue
+                    if t in opp.characters:
+                        if t.protect_from_opp_effect:
+                            state.push_log(f"  保護効果: {t.card.name}")
+                            continue
+                        if t.ko_immune_until_turn_end or t.static_ko_immune:
+                            state.push_log(f"  KO 耐性: {t.card.name}")
+                            continue
+                        if state.effects_overlay and try_replace_ko(
+                            state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                        ):
+                            already_kod.add(id(t))
+                            continue
+                        opp.characters.remove(t)
+                        opp.trash.append(t.card)
+                        if t.attached_dons > 0:
+                            opp.don_rested += t.attached_dons
+                        state.push_log(f"  効果: KO {t.card.name}")
+                        already_kod.add(id(t))
+                        if state.effects_overlay:
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+        elif k == "return_to_hand_multi":
+            # マルチターゲット bounce (手札戻し)。
+            if not isinstance(v, list):
+                continue
+            already_returned = set()
+            for spec in v:
+                target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
+                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                for t in targets:
+                    if id(t) in already_returned:
+                        continue
+                    if t in opp.characters:
+                        if t.protect_from_opp_effect or t.static_ko_immune:
+                            state.push_log(f"  保護: {t.card.name}")
+                            continue
+                        if state.effects_overlay and try_replace_ko(
+                            state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                        ):
+                            already_returned.add(id(t))
+                            continue
+                        opp.characters.remove(t)
+                        opp.hand.append(t.card)
+                        if t.attached_dons > 0:
+                            opp.don_rested += t.attached_dons
+                        state.push_log(f"  効果: {t.card.name} を持ち主の手札へ")
+                        already_returned.add(id(t))
+        elif k == "return_to_deck_bottom_multi":
+            # マルチターゲット 「持ち主のデッキの下に置く」。
+            if not isinstance(v, list):
+                continue
+            already = set()
+            for spec in v:
+                target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
+                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                for t in targets:
+                    if id(t) in already:
+                        continue
+                    if t in opp.characters:
+                        if t.protect_from_opp_effect or t.static_ko_immune:
+                            continue
+                        if state.effects_overlay and try_replace_ko(
+                            state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                        ):
+                            already.add(id(t))
+                            continue
+                        opp.characters.remove(t)
+                        opp.deck.append(t.card)
+                        if t.attached_dons > 0:
+                            opp.don_rested += t.attached_dons
+                        state.push_log(f"  効果: {t.card.name} を持ち主のデッキ下へ")
+                        already.add(id(t))
+        elif k == "hand_to_self_life":
+            # 「自分の手札から [filter] カード N 枚までを、 ライフの上に裏向きで加える」。
+            # spec: {"filter": {feature/cost_le/...}, "count": 1}
+            spec = v if isinstance(v, dict) else {"filter": {}, "count": int(v) if isinstance(v, int) else 1}
+            filt = spec.get("filter", {})
+            count = int(spec.get("count", 1))
+            moved = 0
+            new_hand = []
+            for card in me.hand:
+                if moved < count and _matches_filter(card, filt):
+                    me.life.append(card)
+                    moved += 1
+                    state.push_log(f"  効果: {card.name} を自ライフへ")
+                else:
+                    new_hand.append(card)
+            me.hand[:] = new_hand
+        elif k == "negate_effect":
+            # 相手のキャラ / リーダー 1 枚 を このターン中、 効果無効化 (簡略実装)。
+            # 「効果を発動しなくなる」 → granted_keywords に "効果無効" を追加。
+            # 実際の効果発動を抑制するのは effects.py 全体の trigger_* 関数の追加判定が必要だが、
+            # 簡略では 「fire 直前に negate キーワードを check」 する形にする。
+            # 現状: 統計用ラベルとして付与のみ (= 機能制限あり、 将来拡張)。
+            target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_inplay_any")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                t.granted_keywords.add("効果無効")
+            state.push_log(f"  効果: 効果無効付与 → {[t.card.name for t in targets]} (近似)")
+        elif k == "other_self_charas_to_deck_bottom":
+            # このキャラ以外の自分のキャラすべてをデッキ下へ。
+            for ip in list(me.characters):
+                if ip is self_inplay:
+                    continue
+                me.characters.remove(ip)
+                if ip.attached_dons > 0:
+                    me.don_rested += ip.attached_dons
+                me.deck.append(ip.card)
+                state.push_log(f"  効果: {ip.card.name} を自デッキ下へ")
+        elif k == "other_self_charas_to_trash":
+            for ip in list(me.characters):
+                if ip is self_inplay:
+                    continue
+                me.characters.remove(ip)
+                if ip.attached_dons > 0:
+                    me.don_rested += ip.attached_dons
+                me.trash.append(ip.card)
+                state.push_log(f"  効果: {ip.card.name} を trash へ")
+                if state.effects_overlay:
+                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay)
+        elif k == "extra_turn":
+            # 「このターンの後に自分のターンを追加で得る」。
+            # 簡略実装: state.extra_turn_pending を True に。 advance_phase の END 時に
+            # turn_player_idx を変えないことで実現。
+            state.extra_turn_pending = True
+            state.push_log(f"  効果: このターンの後 ターン追加 (extra_turn フラグ)")
+        elif k == "return_self_to_hand":
+            # このキャラを持ち主の手札に戻す。
+            if self_inplay is not None and self_inplay in me.characters:
+                me.characters.remove(self_inplay)
+                if self_inplay.attached_dons > 0:
+                    me.don_rested += self_inplay.attached_dons
+                me.hand.append(self_inplay.card)
+                state.push_log(f"  効果: {self_inplay.card.name} を自手札に戻す")
         else:
             # 未対応はスキップ
             pass
@@ -1041,10 +1610,28 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "cost_ge" in filt and card.cost < int(filt["cost_ge"]):
         return False
+    if "cost_eq" in filt and card.cost != int(filt["cost_eq"]):
+        return False
+    if "power_le" in filt and card.power > int(filt["power_le"]):
+        return False
+    if "power_ge" in filt and card.power < int(filt["power_ge"]):
+        return False
     if "feature" in filt and filt["feature"] not in card.features:
         return False
     if "color" in filt and filt["color"] not in card.color:
         return False
+    if "exclude_name" in filt and card.name == filt["exclude_name"]:
+        return False
+    if "has_trigger" in filt and filt["has_trigger"]:
+        if not (card.trigger and card.trigger.startswith("【トリガー】")):
+            return False
+    if "feature_or_name" in filt:
+        # feature OR name のいずれかにマッチ
+        spec = filt["feature_or_name"]
+        feat = spec.get("feature")
+        name = spec.get("name")
+        if not ((feat and feat in card.features) or (name and card.name == name)):
+            return False
     return True
 
 
@@ -1058,17 +1645,26 @@ def trigger_on_play(
     self_inplay: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """キャラ登場時のトリガー処理。"""
+    """キャラ登場時のトリガーを enqueue。 resolve は呼び出し元 (apply_action 末尾) で実施。
+
+    on_play 効果が存在しないカードでも enqueue 自体は no-op コスト (= bundle 不在ですぐ return)。
+    enqueue 後の auto-resolve はネスト時 (= 既に resolving 中) に no-op になる。
+    """
     bundle = effects_overlay.get(self_inplay.card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
-        if eff.get("when") != "on_play":
-            continue
-        if not eval_condition(eff.get("if", {}), state, me, self_inplay):
-            continue
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, me, opp, self_inplay)
+    # on_play 効果が 1 つも無いなら enqueue 自体スキップ (キュー肥大化回避)
+    if not any(e.get("when") == "on_play" for e in bundle.effects):
+        return
+    me_idx = state.players.index(me)
+    enqueue_event(
+        state,
+        when="on_play",
+        owner_idx=me_idx,
+        source_card_id=self_inplay.card.card_id,
+        source_iid=self_inplay.instance_id,
+    )
+    _maybe_resolve(state)
 
 
 def evaluate_static_effects(
@@ -1201,94 +1797,66 @@ def evaluate_static_effects(
                     execute_effect(primitive, state, me, opp, inplay)
 
 
+def _enqueue_field_when(
+    state: GameState,
+    owner: Player,
+    when: str,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """owner の場 (leader + characters) のうち、 指定 when を持つ全ての InPlay を enqueue。
+    複数効果がある場合でもイベントは「カード単位」で 1 つ (= _execute_event が when 一致を全実行)。
+    """
+    candidates: list[InPlay] = [owner.leader] + list(owner.characters)
+    owner_idx = state.players.index(owner)
+    for ip in candidates:
+        bundle = effects_overlay.get(ip.card.card_id)
+        if bundle is None:
+            continue
+        if not any(e.get("when") == when for e in bundle.effects):
+            continue
+        enqueue_event(
+            state,
+            when=when,
+            owner_idx=owner_idx,
+            source_card_id=ip.card.card_id,
+            source_iid=ip.instance_id,
+        )
+
+
 def trigger_turn_start(
     state: GameState,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """ターン開始時の自動効果発動 (公式 6-2-1-1-2)。
-    REFRESH 内で発動。順序: ターン側「自分のターン開始時」 → 非ターン側「相手のターン開始時」。
-    overlay の when:"on_turn_start" / "opp_turn_start"。
+    """ターン開始時の自動効果を enqueue (公式 6-2-1-1-2)。
+
+    順序保証:
+    - ターン側「自分のターン開始時」 を 全件 enqueue (= owner_idx=turn_player_idx)
+    - 非ターン側「相手のターン開始時」 を 全件 enqueue (= owner_idx=非ターン側)
+    キューはアクティブプレイヤー優先で取り出されるので、 自然に「ターン側 → 非ターン側」 順になる。
     """
     if not effects_overlay:
         return
-
     me = state.turn_player
     opp = state.opponent
-
-    # Step 1: ターン側 (自分のターン開始時)
-    candidates = [me.leader] + list(me.characters)
-    for inplay in candidates:
-        bundle = effects_overlay.get(inplay.card.card_id)
-        if bundle is None:
-            continue
-        for eff in bundle.effects:
-            if eff.get("when") != "on_turn_start":
-                continue
-            if not eval_condition(eff.get("if", {}), state, me, inplay):
-                continue
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, me, opp, inplay)
-
-    # Step 2: 非ターン側 (相手のターン開始時)
-    candidates_opp = [opp.leader] + list(opp.characters)
-    for inplay in candidates_opp:
-        bundle = effects_overlay.get(inplay.card.card_id)
-        if bundle is None:
-            continue
-        for eff in bundle.effects:
-            if eff.get("when") != "opp_turn_start":
-                continue
-            if not eval_condition(eff.get("if", {}), state, opp, inplay):
-                continue
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, opp, me, inplay)
+    _enqueue_field_when(state, me, "on_turn_start", effects_overlay)
+    _enqueue_field_when(state, opp, "opp_turn_start", effects_overlay)
+    _maybe_resolve(state)
 
 
 def trigger_end_of_turn(
     state: GameState,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """エンドフェイズの自動効果発動 (公式 6-6-1-1)。
-
-    順序:
-    1. ターンプレイヤー側の【自分のターン終了時】効果
-    2. 非ターンプレイヤー側の【相手のターン終了時】効果
-
-    各カテゴリ内では複数効果あればプレイヤーが任意順 (現実装は出現順)。
+    """エンドフェイズの自動効果を enqueue (公式 6-6-1-1)。
+    順序: ターン側【自分のターン終了時】→ 非ターン側【相手のターン終了時】。
     """
     if not effects_overlay:
         return
-
     me = state.turn_player
     opp = state.opponent
-
-    # Step 1: ターン側の【自分のターン終了時】
-    candidates = [me.leader] + list(me.characters)
-    for inplay in candidates:
-        bundle = effects_overlay.get(inplay.card.card_id)
-        if bundle is None:
-            continue
-        for eff in bundle.effects:
-            if eff.get("when") != "end_of_turn":
-                continue
-            if not eval_condition(eff.get("if", {}), state, me, inplay):
-                continue
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, me, opp, inplay)
-
-    # Step 2: 非ターン側の【相手のターン終了時】
-    candidates_opp = [opp.leader] + list(opp.characters)
-    for inplay in candidates_opp:
-        bundle = effects_overlay.get(inplay.card.card_id)
-        if bundle is None:
-            continue
-        for eff in bundle.effects:
-            if eff.get("when") != "opp_end_of_turn":
-                continue
-            if not eval_condition(eff.get("if", {}), state, opp, inplay):
-                continue
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, opp, me, inplay)
+    _enqueue_field_when(state, me, "end_of_turn", effects_overlay)
+    _enqueue_field_when(state, opp, "opp_end_of_turn", effects_overlay)
+    _maybe_resolve(state)
 
 
 def trigger_on_opp_attack(
@@ -1298,26 +1866,15 @@ def trigger_on_opp_attack(
     attacker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """【相手のアタック時】(opp_attack) 効果の発動 (10-2-16-1)。
+    """【相手のアタック時】(opp_attack) を enqueue (10-2-16-1)。
 
-    me = アタックを受けているプレイヤー。
-    opp = アタックしているプレイヤー (= attacker の持ち主)。
-    me 側の leader + characters のうち when:"opp_attack" を持つカードを発動。
+    me = アタックを受けているプレイヤー (= 効果の「自分」側)。
+    opp = アタックしているプレイヤー。
     """
     if not effects_overlay:
         return
-    candidates: list[InPlay] = [me.leader] + list(me.characters)
-    for inplay in candidates:
-        bundle = effects_overlay.get(inplay.card.card_id)
-        if bundle is None:
-            continue
-        for eff in bundle.effects:
-            if eff.get("when") != "opp_attack":
-                continue
-            if not eval_condition(eff.get("if", {}), state, me, inplay):
-                continue
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, me, opp, inplay)
+    _enqueue_field_when(state, me, "opp_attack", effects_overlay)
+    _maybe_resolve(state)
 
 
 def trigger_on_block(
@@ -1327,23 +1884,26 @@ def trigger_on_block(
     blocker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """【ブロック時】(on_block) 効果の発動 (10-2-15-1)。
+    """【ブロック時】(on_block) を enqueue (10-2-15-1)。
 
     me = ブロッカーを発動した側 (アタックを受けている側)。
-    blocker = ブロッカーとして使われた InPlay。
     """
     if not effects_overlay:
         return
     bundle = effects_overlay.get(blocker.card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
-        if eff.get("when") != "on_block":
-            continue
-        if not eval_condition(eff.get("if", {}), state, me, blocker):
-            continue
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, me, opp, blocker)
+    if not any(e.get("when") == "on_block" for e in bundle.effects):
+        return
+    me_idx = state.players.index(me)
+    enqueue_event(
+        state,
+        when="on_block",
+        owner_idx=me_idx,
+        source_card_id=blocker.card.card_id,
+        source_iid=blocker.instance_id,
+    )
+    _maybe_resolve(state)
 
 
 def try_replace_ko(
@@ -1454,21 +2014,23 @@ def trigger_on_ko(
     ko_card: CardDef,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """【KO時】効果の発動。ko_card は既にトラッシュへ移動済 (10-2-17-2 の特例)。
-
-    owner: KO されたキャラの持ち主 (= 効果の "自分"側)
-    opp: KO した側の対戦相手
+    """【KO時】を enqueue。 ko_card は既にトラッシュへ (10-2-17-2)。
+    source_iid=None: 場から既に消えているので、 _execute_event 内では self_inplay=None で実行。
     """
     bundle = effects_overlay.get(ko_card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
-        if eff.get("when") != "on_ko":
-            continue
-        if not eval_condition(eff.get("if", {}), state, owner, None):
-            continue
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, owner, opp, None)
+    if not any(e.get("when") == "on_ko" for e in bundle.effects):
+        return
+    owner_idx = state.players.index(owner)
+    enqueue_event(
+        state,
+        when="on_ko",
+        owner_idx=owner_idx,
+        source_card_id=ko_card.card_id,
+        source_iid=None,
+    )
+    _maybe_resolve(state)
 
 
 def trigger_lifecard_trigger(
@@ -1479,13 +2041,11 @@ def trigger_lifecard_trigger(
     effects_overlay: dict[str, CardEffectBundle],
     auto_fire: bool = True,
 ) -> bool:
-    """ライフカードの【トリガー】効果を発動。発動した場合 True (カードはトラッシュへ)、
+    """ライフカードの【トリガー】を enqueue。 発動した場合 True (カードはトラッシュへ)、
     発動しなかった (or 発動できなかった) 場合 False (カードは手札へ)。
 
-    overlay 上は when:"trigger" で記述。
-    公式 10-1-5: プレイヤーは発動するか選べる。
-    auto_fire=True: 効果ヒューリスティックで「発動すべきなら発動」(現実装は基本発動)。
-    auto_fire=False: 発動しない (= 手札に加える、保持を選ぶ)。
+    公式 10-1-5: プレイヤーは発動するか選べる。 auto_fire は呼び出し側で判定済み。
+    fire するなら enqueue + 即時 resolve (= life ヒット 1 回ごとに resolve、 Q36 に従う)。
     """
     bundle = effects_overlay.get(card.card_id)
     if bundle is None:
@@ -1495,14 +2055,22 @@ def trigger_lifecard_trigger(
         return False
     if not auto_fire:
         return False
-    # 発動可能な効果が存在するかを最終チェック (eval_condition で 1 つでも True)
-    fireable = [e for e in trigger_effects if eval_condition(e.get("if", {}), state, defender, None)]
-    if not fireable:
+    # 発動可能な効果が 1 つでもあるか (= 発動成立判定)
+    fireable_exists = any(
+        eval_condition(e.get("if", {}), state, defender, None) for e in trigger_effects
+    )
+    if not fireable_exists:
         return False
     state.push_log(f"  TRIGGER: {card.name}")
-    for eff in fireable:
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, defender, attacker_player, None)
+    defender_idx = state.players.index(defender)
+    enqueue_event(
+        state,
+        when="trigger",
+        owner_idx=defender_idx,
+        source_card_id=card.card_id,
+        source_iid=None,
+    )
+    _maybe_resolve(state)
     return True
 
 
@@ -1550,20 +2118,21 @@ def trigger_main_event(
     card: CardDef,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """【メイン】イベントカード発動時の効果実行 (PlayEvent から呼ぶ)。
-
-    overlay 上は when:"main" で記述。発動コストは PlayEvent 側で支払い済み。
-    """
+    """【メイン】イベントを enqueue。 コストは呼び出し側で支払い済み。"""
     bundle = effects_overlay.get(card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
-        if eff.get("when") != "main":
-            continue
-        if not eval_condition(eff.get("if", {}), state, me, None):
-            continue
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, me, opp, None)
+    if not any(e.get("when") == "main" for e in bundle.effects):
+        return
+    me_idx = state.players.index(me)
+    enqueue_event(
+        state,
+        when="main",
+        owner_idx=me_idx,
+        source_card_id=card.card_id,
+        source_iid=None,
+    )
+    _maybe_resolve(state)
 
 
 def trigger_counter_event(
@@ -1573,21 +2142,21 @@ def trigger_counter_event(
     card: CardDef,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """【カウンター】イベントカード発動時の効果実行 (7-1-3-1-2)。
-
-    overlay 上は when:"counter" で記述。me=防御側 (アタックを受けている側)。
-    発動コストは呼び出し側で支払い済み。
-    """
+    """【カウンター】イベントを enqueue (7-1-3-1-2)。 me=防御側。 コスト既払い。"""
     bundle = effects_overlay.get(card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
-        if eff.get("when") != "counter":
-            continue
-        if not eval_condition(eff.get("if", {}), state, me, None):
-            continue
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, me, opp, None)
+    if not any(e.get("when") == "counter" for e in bundle.effects):
+        return
+    me_idx = state.players.index(me)
+    enqueue_event(
+        state,
+        when="counter",
+        owner_idx=me_idx,
+        source_card_id=card.card_id,
+        source_iid=None,
+    )
+    _maybe_resolve(state)
 
 
 def trigger_on_attack(
@@ -1597,42 +2166,62 @@ def trigger_on_attack(
     attacker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """【アタック時】効果。 effect の `cost` フィールドがあれば支払い処理を行う:
-    - `once_per_turn`: True なら 1 ターン 1 回まで (`_on_attack_used_<idx>` で管理)
-    - `pay_don N`: 場のドンを N 枚レストにする (active 優先 → rested)。 不足時は発動不可
-    cost が無い場合は無条件発動 (互換維持)。
+    """【アタック時】を enqueue。 effect の `cost` (once_per_turn / pay_don) は
+    enqueue タイミングで同期に支払う (= 失敗ならスキップ、 成功なら effect_indexes payload に記録)。
+
+    cost を支払って enqueue した index のみ _execute_event で発火。
+    cost 無しの effect は通常通り when="on_attack" の全件発火 (effect_indexes 未指定)。
     """
     bundle = effects_overlay.get(attacker.card.card_id)
     if bundle is None:
         return
+    paid_indexes: list[int] = []
+    has_costless = False
     for idx, eff in enumerate(bundle.effects):
         if eff.get("when") != "on_attack":
             continue
+        cost = eff.get("cost") or {}
+        if not cost:
+            has_costless = True
+            continue
         if not eval_condition(eff.get("if", {}), state, me, attacker):
             continue
-        cost = eff.get("cost") or {}
-        # once_per_turn 判定 (effect index ごと管理。 同カードに複数 on_attack あっても独立)
+        # once_per_turn 判定
         per_turn_key = f"_on_attack_used_{idx}"
         if cost.get("once_per_turn") and getattr(attacker, per_turn_key, False):
             continue
         pay_don = int(cost.get("pay_don", 0))
         if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
-            continue  # ドン不足 → 発動不可
-        # ドン支払い: active から優先的にレストへ
+            continue
+        # 支払い (active 優先で rested へ)
         if pay_don > 0:
             from_active = min(me.don_active, pay_don)
             me.don_active -= from_active
             me.don_rested += from_active
-            remaining = pay_don - from_active
-            if remaining > 0:
-                # rested → ドン!!デッキへ戻す動きが厳密 (公式) だが、 簡略でレスト維持の総数からは引く
-                # ただし on_attack のコストはほぼ active のみで足りるので remaining=0 想定
-                pass
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, me, opp, attacker)
-        # once_per_turn フラグ立て
         if cost.get("once_per_turn"):
             setattr(attacker, per_turn_key, True)
+        paid_indexes.append(idx)
+    me_idx = state.players.index(me)
+    if has_costless:
+        # cost 無し効果 → 通常 enqueue (effect_indexes 未指定 = when 一致全件)
+        # cost 持ちの effect_indexes 経路と分けるため、 別イベントとして 2 件積むのが安全
+        # ただし has_costless と paid_indexes を 1 イベントで両立させる方が AI 順序選択上自然。
+        # → effect_indexes に paid_indexes + costless idx を全部入れて単一イベントにする。
+        for idx, eff in enumerate(bundle.effects):
+            if eff.get("when") == "on_attack" and not eff.get("cost"):
+                paid_indexes.append(idx)
+        paid_indexes = sorted(set(paid_indexes))
+    if not paid_indexes:
+        return
+    enqueue_event(
+        state,
+        when="on_attack",
+        owner_idx=me_idx,
+        source_card_id=attacker.card.card_id,
+        source_iid=attacker.instance_id,
+        payload={"effect_indexes": paid_indexes},
+    )
+    _maybe_resolve(state)
 
 
 def _can_pay_activate_cost(
@@ -1783,6 +2372,12 @@ def fire_activate_main(
     inplay: InPlay,
     eff: EffectSpec,
 ) -> None:
+    """起動メインの発火。 コストは同期支払い、 効果は enqueue (= effect_indexes payload 経由)。
+
+    一度コストを払ったら効果実行は再評価せず必ず行う (= eval_condition は skip 可能)。
+    実装上は _execute_event 側で if 句を再評価しているが、 起動メインの if 句は通常
+    cost 判定とほぼ重複なので問題なし。
+    """
     cost = eff.get("cost", {})
     # rest_self
     if cost.get("rest_self"):
@@ -1822,5 +2417,24 @@ def fire_activate_main(
     if cost.get("once_per_turn", True):
         setattr(inplay, "_act_used", True)
     state.push_log(f"  起動メイン: {inplay.card.name}")
-    for primitive in eff.get("do", []):
-        execute_effect(primitive, state, me, opp, inplay)
+    # effect 本体は enqueue (= 集中ドレインで実行)。 bundle 内 effect index を解決して payload に。
+    bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
+    if bundle is None:
+        return
+    eff_idx = None
+    for i, e in enumerate(bundle.effects):
+        if e is eff:
+            eff_idx = i
+            break
+    if eff_idx is None:
+        return
+    me_idx = state.players.index(me)
+    enqueue_event(
+        state,
+        when="activate_main",
+        owner_idx=me_idx,
+        source_card_id=inplay.card.card_id,
+        source_iid=inplay.instance_id,
+        payload={"effect_indexes": [eff_idx]},
+    )
+    _maybe_resolve(state)

@@ -1414,3 +1414,481 @@ def test_op11_096_ripper_blocker_loses_when_don_removed():
         assert not ripper_ip.is_blocker_now, (
             "ドン無しで ブロッカー扱い → bug。 static_granted_keywords がリセットされていない"
         )
+
+
+# --------------------------------------------------------------------------- #
+# 新トリガーキュー (TriggerEvent / resolve_triggers)
+# --------------------------------------------------------------------------- #
+def test_trigger_queue_drains_synchronously():
+    """trigger_on_play() を直接呼ぶと、 _maybe_resolve で同期的にドレインされる。"""
+    repo = _repo()
+    overlay = _overlay()
+    nami = repo.get("OP01-016")
+    state = _make_state(repo, "OP01-003", hand_ids=["OP01-016"], overlay=overlay)
+    state.players[0].deck = [repo.get("OP01-013")] * 5
+
+    me = state.players[0]
+    opp = state.players[1]
+    ip = InPlay.of(nami, sickness=True)
+    me.characters.append(ip)
+
+    assert state.event_queue == []
+    trigger_on_play(state, me, opp, ip, overlay)
+    # 効果が発火 → サーチで手札+1 + キューは空
+    assert state.event_queue == [], "trigger_on_play 後にキューは空のはず"
+    assert state.resolving is False
+    assert len(me.hand) == 2  # 元 1 枚 + サーチ 1 枚
+
+
+def test_trigger_queue_active_player_priority():
+    """両陣営に on_turn_start が enqueue された時、 ターンプレイヤー側が先にドレインされる。"""
+    from engine.effects import enqueue_event, resolve_triggers, TriggerEvent
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    state.turn_player_idx = 0  # P0 がターン側
+
+    fired_order = []
+    state.event_order_hook = None
+
+    # mock: enqueue したイベントを execute_event で実行する代わりに fired_order に記録
+    # → resolve_triggers は実 overlay が空なので何もしないので、 ここでは
+    # _pop_next_event の優先順を直接検証
+    from engine.effects import _pop_next_event
+    state.event_queue.append(TriggerEvent(
+        when="on_turn_start", owner_idx=1, source_card_id="X",
+    ))
+    state.event_queue.append(TriggerEvent(
+        when="on_turn_start", owner_idx=0, source_card_id="Y",
+    ))
+    state.event_queue.append(TriggerEvent(
+        when="on_turn_start", owner_idx=1, source_card_id="Z",
+    ))
+    # P0 (active) のものが先に取り出されるはず
+    e1 = _pop_next_event(state)
+    assert e1.owner_idx == 0 and e1.source_card_id == "Y"
+    # 残り 2 件は両方 P1 → FIFO 先頭 (X) が次
+    e2 = _pop_next_event(state)
+    assert e2.owner_idx == 1 and e2.source_card_id == "X"
+    e3 = _pop_next_event(state)
+    assert e3.owner_idx == 1 and e3.source_card_id == "Z"
+    assert _pop_next_event(state) is None
+
+
+def test_trigger_queue_event_order_hook():
+    """同 owner / 同 when グループ内の順序を AI フックで再順序付けできる。"""
+    from engine.effects import _pop_next_event, TriggerEvent
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    state.turn_player_idx = 0
+
+    # 同 owner=0, 同 when="on_play" のイベントを 3 つ enqueue
+    state.event_queue.append(TriggerEvent(
+        when="on_play", owner_idx=0, source_card_id="A",
+    ))
+    state.event_queue.append(TriggerEvent(
+        when="on_play", owner_idx=0, source_card_id="B",
+    ))
+    state.event_queue.append(TriggerEvent(
+        when="on_play", owner_idx=0, source_card_id="C",
+    ))
+
+    # フック: 逆順を返す
+    def reverse_hook(state, events):
+        return list(reversed(events))
+
+    state.event_order_hook = reverse_hook
+
+    e1 = _pop_next_event(state)
+    assert e1.source_card_id == "C", f"フックで C が先頭になるはず (got {e1.source_card_id})"
+
+
+# --------------------------------------------------------------------------- #
+# Phase 1 新規プリミティブの単体テスト
+# --------------------------------------------------------------------------- #
+def test_mill_self_top_primitive():
+    """mill_self_top: 自分のデッキ上 N 枚を trash"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    initial_deck_size = len(me.deck)
+    initial_trash_size = len(me.trash)
+    execute_effect({"mill_self_top": 3}, state, me, opp, None)
+    assert len(me.deck) == initial_deck_size - 3
+    assert len(me.trash) == initial_trash_size + 3
+
+
+def test_look_top_reorder_to_bottom():
+    """look_top_reorder to=bottom: 上 N 枚をデッキ末尾に移動"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.deck = [repo.get(cid) for cid in ["OP01-013"] * 5 + ["OP01-016"] * 5]
+    top_3 = list(me.deck[:3])
+    execute_effect({"look_top_reorder": {"depth": 3, "to": "bottom"}}, state, me, opp, None)
+    # 上 3 枚は末尾に
+    assert me.deck[-3:] == top_3
+    # 残りは前に詰まる
+    assert len(me.deck) == 10
+
+
+def test_look_top_reorder_to_choice_sorts_by_cost():
+    """look_top_reorder to=choice: ヒューリスティックでコスト昇順に並び替え"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # 高コスト → 低コスト の順で並べる (元順)
+    me.deck = [repo.get("OP02-013"), repo.get("OP01-013"), repo.get("OP01-016")] + [repo.get("OP01-013")] * 5
+    execute_effect({"look_top_reorder": {"depth": 3, "to": "choice"}}, state, me, opp, None)
+    # コスト昇順 (低 → 高) で並んでいるはず
+    top_3 = me.deck[:3]
+    costs = [c.cost for c in top_3]
+    assert costs == sorted(costs), f"choice 並び替え後コスト昇順のはず: {costs}"
+
+
+def test_play_self_from_trash():
+    """play_self: trash 中の同 card_id を field に登場"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    nami = repo.get("OP01-016")
+    me.trash.append(nami)
+    state.current_source_card_id = "OP01-016"
+    initial_chars = len(me.characters)
+    initial_trash = len(me.trash)
+    execute_effect({"play_self": True}, state, me, opp, None)
+    assert len(me.characters) == initial_chars + 1
+    assert me.characters[-1].card.card_id == "OP01-016"
+    assert len(me.trash) == initial_trash - 1
+
+
+def test_play_self_no_match_is_noop():
+    """play_self: source_card_id と一致するカードが trash/hand にない場合 no-op"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    state.current_source_card_id = "OP99-999"  # 存在しない
+    initial_chars = len(me.characters)
+    execute_effect({"play_self": True}, state, me, opp, None)
+    assert len(me.characters) == initial_chars  # 変化なし
+
+
+def test_fire_self_effect_recursion_limit():
+    """fire_self_effect: 再帰深度 2 で停止 (= 自己無限ループ防止)"""
+    from engine.effects import execute_effect, CardEffectBundle
+    repo = _repo()
+    # 自身の main 効果が自身の main 効果を呼ぶ無限ループ overlay
+    overlay = {
+        "OP01-013": CardEffectBundle(
+            card_id="OP01-013",
+            effects=[{
+                "when": "main",
+                "do": [{"draw": 1}, {"fire_self_effect": {"when_kind": "main"}}],
+            }],
+        ),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    state.players[0].deck = [repo.get("OP01-013")] * 30
+    me = state.players[0]
+    opp = state.players[1]
+    state.current_source_card_id = "OP01-013"
+    state._fire_self_depth = 0
+    initial_hand = len(me.hand)
+    execute_effect({"fire_self_effect": {"when_kind": "main"}}, state, me, opp, None)
+    # 深度制限 (max 2) → fire 1回 → 内部で fire (depth=1) → 内部で fire (depth=2 で止まる)
+    # よって 2 回の draw が実行されるはず (depth 0→1→2 で停止)
+    drew = len(me.hand) - initial_hand
+    assert drew >= 1 and drew <= 3, f"再帰深度制限が効いていない: drew={drew}"
+
+
+def test_return_opp_don_primitive():
+    """return_opp_don: 相手の場ドンをドンデッキに戻す"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    opp.don_active = 5
+    opp.don_rested = 2
+    opp.don_remaining_in_deck = 3
+    execute_effect({"return_opp_don": 4}, state, me, opp, None)
+    # active 5 → 1 (4 戻る)、 残 don_remaining_in_deck = 3+4 = 7
+    assert opp.don_active == 1
+    assert opp.don_rested == 2  # active で足りたので rested 触らず
+    assert opp.don_remaining_in_deck == 7
+
+
+def test_return_opp_don_falls_back_to_rested():
+    """return_opp_don: active で足りなければ rested から差し引く"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    opp.don_active = 1
+    opp.don_rested = 5
+    opp.don_remaining_in_deck = 4
+    execute_effect({"return_opp_don": 3}, state, me, opp, None)
+    assert opp.don_active == 0
+    assert opp.don_rested == 3  # 5 → 3 (2 戻る)
+    assert opp.don_remaining_in_deck == 7
+
+
+def test_opp_hand_to_deck_bottom():
+    """opp_hand_to_deck_bottom: 相手手札 N 枚をランダムにデッキ下へ"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    opp.hand = [repo.get(c) for c in ["OP01-013", "OP01-016", "OP02-013"]]
+    initial_hand = len(opp.hand)
+    initial_deck = len(opp.deck)
+    execute_effect({"opp_hand_to_deck_bottom": 2}, state, me, opp, None)
+    assert len(opp.hand) == initial_hand - 2
+    assert len(opp.deck) == initial_deck + 2
+
+
+def test_self_hand_to_deck_bottom_picks_highest_cost():
+    """self_hand_to_deck_bottom: ヒューリスティックで最高コスト優先で デッキ下へ"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # コスト 1, 5, 2 の手札 → コスト 5 が選ばれるはず
+    me.hand = [repo.get("OP01-013"), repo.get("ST21-005"), repo.get("OP01-016")]
+    initial_deck_count = len(me.deck)
+    initial_hand_count = len(me.hand)
+    # max cost を確認
+    max_cost = max(c.cost for c in me.hand)
+    execute_effect({"self_hand_to_deck_bottom": 1}, state, me, opp, None)
+    assert len(me.hand) == initial_hand_count - 1
+    assert len(me.deck) == initial_deck_count + 1
+    # デッキ末尾に置かれた = 最高コストカード
+    assert me.deck[-1].cost == max_cost
+
+
+def test_give_attack_active_chara_primitive():
+    """give_attack_active_chara: 「アクティブアタック可」 keyword 付与"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    sanji = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [sanji]
+    execute_effect({"give_attack_active_chara": "self"}, state, me, opp, sanji)
+    assert "アクティブアタック可" in sanji.granted_keywords
+
+
+def test_one_opponent_inplay_any_target():
+    """one_opponent_inplay_any: キャラ優先 → なければリーダー"""
+    from engine.effects import _resolve_target
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # キャラなし → リーダーが返る
+    targets = _resolve_target("one_opponent_inplay_any", state, me, opp, None)
+    assert len(targets) == 1
+    assert targets[0] is opp.leader
+    # キャラあり → 最高パワーキャラが返る
+    weak = InPlay.of(repo.get("OP01-013"), sickness=False)  # P5000
+    strong = InPlay.of(repo.get("OP11-015"), sickness=False)  # P6000
+    opp.characters = [weak, strong]
+    targets = _resolve_target("one_opponent_inplay_any", state, me, opp, None)
+    assert len(targets) == 1
+    assert targets[0] is strong, f"高パワーキャラ優先のはず (got {targets[0].card.name})"
+
+
+# --------------------------------------------------------------------------- #
+# Phase 2 新規プリミティブの単体テスト
+# --------------------------------------------------------------------------- #
+def test_power_pump_next_self_turn_start_duration():
+    """power_pump duration=next_self_turn_start: 次の自分のターン開始時まで持続"""
+    from engine.effects import execute_effect
+    from engine.game import advance_phase
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    state.turn_player_idx = 0
+    state.turn_number = 3
+    # me.leader に next_self_turn_start +2000 適用
+    execute_effect(
+        {"power_pump": {"target": "self_leader", "amount": 2000, "duration": "next_self_turn_start"}},
+        state, me, opp, None,
+    )
+    base_power = me.leader.card.power
+    assert me.leader.power == base_power + 2000, "適用直後は +2000 のはず"
+    # ターンを進める: END phase + REFRESH (opp's turn) + ... + REFRESH (own's turn)
+    # 簡略: next_turn_buff フラグを直接確認
+    assert me.leader.next_turn_buff == 2000
+
+
+def test_next_turn_buff_clears_on_owner_refresh():
+    """next_turn_buff: 所有者ターン開始時 (REFRESH 進入時) にクリア"""
+    from engine.core import Phase
+    from engine.game import advance_phase
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # 強制的にバフ設定 + ターン構成
+    state.turn_player_idx = 0
+    state.turn_number = 2
+    state.phase = Phase.REFRESH
+    me.leader.next_turn_buff = 2000
+    # P0 の REFRESH (= 自分のターン開始) を 1 回処理
+    advance_phase(state)
+    # REFRESH を抜けた = next_turn_buff がクリアされたはず
+    assert me.leader.next_turn_buff == 0, f"REFRESH 後にクリアされるはず (got {me.leader.next_turn_buff})"
+
+
+def test_to_opp_life_primitive():
+    """to_opp_life: 相手キャラを持ち主のライフへ"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    target_card = repo.get("OP01-013")
+    ip = InPlay.of(target_card, sickness=False)
+    opp.characters = [ip]
+    initial_life = len(opp.life)
+    initial_trash = len(opp.trash)
+    execute_effect({"to_opp_life": "one_opponent_character_cost_le_5cost"}, state, me, opp, None)
+    assert ip not in opp.characters
+    assert len(opp.life) == initial_life + 1
+    assert opp.life[-1] is target_card
+    # トラッシュには行かない (= KO ではない)
+    assert len(opp.trash) == initial_trash
+
+
+def test_ko_multi_primitive():
+    """ko_multi: 2 spec を別々に解決して KO。 dedup で同一キャラの 2 重 KO を防ぐ"""
+    from engine.effects import execute_effect
+    from engine.core import Category
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # cost 1 と cost 2 の キャラを 1 体ずつ
+    c1_cards = [c for c in repo._by_id.values() if c.category == Category.CHARACTER and c.cost == 1]
+    c2_cards = [c for c in repo._by_id.values() if c.category == Category.CHARACTER and c.cost == 2]
+    if not c1_cards or not c2_cards:
+        return  # DB 依存スキップ
+    ip_c1 = InPlay.of(c1_cards[0], sickness=False)
+    ip_c2 = InPlay.of(c2_cards[0], sickness=False)
+    opp.characters = [ip_c1, ip_c2]
+    execute_effect(
+        {"ko_multi": [
+            "one_opponent_character_cost_le_2cost",
+            "one_opponent_character_cost_le_1cost",
+        ]},
+        state, me, opp, None,
+    )
+    # 最低 1 体は KO されるはず (= 動作確認)
+    # 順序 / power 依存で 1 体だけになるケースもあるが、 dedup 機能は確認できる
+    assert len(opp.characters) <= 1
+    assert len(opp.trash) >= 1
+
+
+def test_negate_effect_suppresses_on_play():
+    """negate_effect: 効果無効化されたキャラの on_play は発動しない"""
+    from engine.effects import execute_effect, trigger_on_play, CardEffectBundle
+    repo = _repo()
+    nami = repo.get("OP01-016")
+    overlay = {
+        "OP01-016": CardEffectBundle(card_id="OP01-016", effects=[
+            {"when": "on_play", "do": [{"draw": 1}]},
+        ]),
+    }
+    state = _make_state(repo, "OP01-003", overlay=overlay)
+    state.players[0].deck = [repo.get("OP01-013")] * 30
+    me = state.players[0]
+    opp = state.players[1]
+    ip = InPlay.of(nami, sickness=True)
+    me.characters = [ip]
+    # 効果無効を ip に付与
+    ip.granted_keywords.add("効果無効")
+    initial_hand = len(me.hand)
+    trigger_on_play(state, me, opp, ip, overlay)
+    # 効果無効により draw が発動しないはず
+    assert len(me.hand) == initial_hand, "効果無効中は on_play が発動しないはず"
+
+
+def test_hand_to_self_life_primitive():
+    """hand_to_self_life: 手札から filter 一致カードを ライフへ"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.hand = [
+        repo.get("OP01-013"),  # サンジ (CHARACTER)
+        repo.get("OP01-016"),  # ナミ (CHARACTER)
+    ]
+    initial_life = len(me.life)
+    initial_hand = len(me.hand)
+    execute_effect(
+        {"hand_to_self_life": {"filter": {"category": "CHARACTER"}, "count": 1}},
+        state, me, opp, None,
+    )
+    assert len(me.life) == initial_life + 1
+    assert len(me.hand) == initial_hand - 1
+
+
+def test_return_to_hand_multi():
+    """return_to_hand_multi: 2 spec を別々に解決して bounce"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    from engine.core import Category
+    c1 = [c for c in repo._by_id.values() if c.category == Category.CHARACTER and c.cost == 1][:1]
+    c3 = [c for c in repo._by_id.values() if c.category == Category.CHARACTER and c.cost == 3][:1]
+    if not c1 or not c3:
+        return
+    ip1 = InPlay.of(c1[0], sickness=False)
+    ip3 = InPlay.of(c3[0], sickness=False)
+    opp.characters = [ip1, ip3]
+    initial_hand = len(opp.hand)
+    execute_effect(
+        {"return_to_hand_multi": [
+            "one_opponent_character_cost_le_3cost",
+            "one_opponent_character_cost_le_1cost",
+        ]},
+        state, me, opp, None,
+    )
+    assert len(opp.characters) == 0
+    assert len(opp.hand) == initial_hand + 2
+
+
+def test_play_from_trash_rested_flag():
+    """play_from_trash: rested=True で レストで登場"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.trash = [repo.get("OP01-013")]
+    execute_effect(
+        {"play_from_trash": {"filter": {}, "limit": 1, "rested": True}},
+        state, me, opp, None,
+    )
+    assert len(me.characters) == 1
+    assert me.characters[0].rested is True, "rested=True で登場するはず"

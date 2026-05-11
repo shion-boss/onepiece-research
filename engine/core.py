@@ -5,7 +5,7 @@ import itertools
 import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 
 class Phase(Enum):
@@ -134,6 +134,10 @@ class InPlay:
     # 「このバトル中」期限 (公式 7-1-5-1)。AttackLeader/AttackCharacter の最後でリセット。
     # power_pump の duration:"battle" で加算される。
     battle_buff: int = 0
+    # 「次の自分のターン開始時まで」 期限。 所有者の次の REFRESH 開始時 (advance_phase で
+    # turn_player_idx == owner_idx 時) にリセットされる。 = ターンを 1 つ跨いで持続。
+    # power_pump の duration:"next_self_turn_start" で加算される。
+    next_turn_buff: int = 0
     # 動的に付与されるキーワード (event 由来 = give_keyword/give_rush 等の単発効果)。Phase.END でクリア
     granted_keywords: set = field(default_factory=set)
     # 静的に付与されるキーワード (on_attached_don 等の常在条件由来)。
@@ -264,7 +268,7 @@ class InPlay:
         # 公式 6-5-5: ドン+1000 は所有者のターン中のみ有効。
         # 相手ターン中は物理的に付いていてもパワーには寄与しない。
         don_buff = 1000 * self.attached_dons if self.is_owners_turn else 0
-        return base + don_buff + self.static_buff + self.turn_buff + self.battle_buff
+        return base + don_buff + self.static_buff + self.turn_buff + self.battle_buff + self.next_turn_buff
 
     @classmethod
     def of(cls, card, rested=False, sickness=False):
@@ -366,6 +370,19 @@ class GameState:
     # opp_attack トリガー内で redirect_attack プリミティブが set。
     # AttackLeader/AttackCharacter 処理がこれを検知して対象を切替後 None にリセット。
     pending_attack_redirect: Optional[int] = None
+    # トリガー解決キュー (FIFO + ターンプレイヤー優先)。enqueue_event で push、
+    # resolve_triggers でドレイン。各 trigger_* は同期で「fire するか」判断のみ行い、
+    # 実際の効果実行はキューに積んで resolve_triggers が一箇所で実行する。
+    event_queue: list = field(default_factory=list)
+    # resolve_triggers の再入を防ぐフラグ (= ネストした enqueue 中に再ドレインしない)
+    resolving: bool = False
+    # 同時発火 (同 owner / 同 when グループ) の順序を AI に決めさせるフック。
+    # シグネチャ: (state, events: list[TriggerEvent]) -> list[TriggerEvent]
+    # None ならデフォルトで FIFO 順 (enqueue 順) を維持。
+    event_order_hook: Optional[Callable] = None
+    # 「このターンの後に自分のターンを追加で得る」 フラグ。 END phase で消費され、
+    # turn_player_idx を切り替えずに REFRESH に戻ることで「もう 1 回ターン」 を実現。
+    extra_turn_pending: bool = False
 
     @property
     def turn_player(self):

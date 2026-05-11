@@ -301,6 +301,13 @@ def advance_phase(state: GameState) -> None:
             for attr in list(me.leader.__dict__.keys()):
                 if attr.startswith("_on_attack_used_"):
                     delattr(me.leader, attr)
+            # next_turn_buff (= 「次の自分のターン開始時まで」 期限) を所有者側でクリア。
+            # 自分のターン開始時 = ここで自分の InPlay の next_turn_buff を 0 に。
+            me.leader.next_turn_buff = 0
+            for c in me.characters:
+                c.next_turn_buff = 0
+            for s in me.stages:
+                s.next_turn_buff = 0
         # 公式 6-2-1-1-2: ターン開始時の自動効果を発動 (turn_number==1 含む全ターン)
         if state.effects_overlay:
             from .effects import trigger_turn_start
@@ -357,10 +364,21 @@ def advance_phase(state: GameState) -> None:
             trigger_end_of_turn(state, state.effects_overlay)
         # 公式ルール上、手札上限はない (3-4)。ターン終了時の discard は不要。
         _reset_turn_buff(state)
-        state.turn_player_idx = 1 - state.turn_player_idx
-        state.turn_number += 1
+        if state.extra_turn_pending:
+            # 「ターン追加」 効果: ターンプレイヤーを変えず、 そのまま REFRESH へ。
+            state.extra_turn_pending = False
+            state.turn_number += 1
+            state.push_log(f"=== extra turn: P{state.turn_player_idx} ===")
+        else:
+            state.turn_player_idx = 1 - state.turn_player_idx
+            state.turn_number += 1
         state.phase = Phase.REFRESH
 
+    # 各 trigger_* が enqueue しただけで終わっているケースに備え、
+    # フェーズ境界でもキューを掃く。
+    if state.effects_overlay and state.event_queue and not state.resolving:
+        from .effects import resolve_triggers
+        resolve_triggers(state)
     _recompute_static(state)
 
 
@@ -549,6 +567,12 @@ def apply_action(state: GameState, action: Action) -> None:
     try:
         _apply_action_impl(state, action)
     finally:
+        # トリガー解決 → 静的効果 (KO/登場で場が変動した可能性あり) の順で正規化。
+        # _maybe_resolve は trigger_* 内で都度呼ばれるが、 ここでは「アクション境界」 で
+        # キューが残っていれば最終ドレイン (例: enqueue だけして resolve せず終わるパス対策)。
+        if state.effects_overlay and state.event_queue and not state.resolving:
+            from .effects import resolve_triggers
+            resolve_triggers(state)
         _recompute_static(state)
 
 
