@@ -103,3 +103,8 @@ db/overlay_rewrite_targets.json
 
 # overlay 書き換えの中間バックアップ (各 round の前状態)
 db/card_effects.json.bak*
+
+# auto_rewrite_round.sh の制御ファイル
+.auto_rewrite.lock
+.auto_rewrite.log
+.auto_rewrite.STOP
