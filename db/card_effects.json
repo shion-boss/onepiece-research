@@ -60890,9 +60890,16 @@
       "n": 2,
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【相手のターン中】このキャラのパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     }
   ],
   "ST21-002_p1": [
@@ -60902,9 +60909,16 @@
       "n": 2,
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【相手のターン中】このキャラのパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     }
   ],
   "ST21-009": [
@@ -60913,7 +60927,16 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分の特徴《麦わらの一味》を持つ、リーダーかキャラ1枚にレストのドン!!2枚までを、付与する。"
+          "attach_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "麦わらの一味"
+              }
+            },
+            "count": 2,
+            "rested": true
+          }
         }
       ],
       "cost": {
@@ -60927,7 +60950,16 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分の特徴《麦わらの一味》を持つ、リーダーかキャラ1枚にレストのドン!!2枚までを、付与する。"
+          "attach_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "麦わらの一味"
+              }
+            },
+            "count": 2,
+            "rested": true
+          }
         }
       ],
       "cost": {
@@ -60942,9 +60974,17 @@
       "n": 2,
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【相手のターン中】自分の元々のパワー4000以下の特徴《麦わらの一味》を持つキャラすべてを、パワー+1000"
+          "power_pump": {
+            "target": "all_self_characters",
+            "feature": "麦わらの一味",
+            "amount": 1000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     }
   ],
   "ST21-011_p1": [
@@ -60954,9 +60994,17 @@
       "n": 2,
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【相手のターン中】自分の元々のパワー4000以下の特徴《麦わらの一味》を持つキャラすべてを、パワー+1000"
+          "power_pump": {
+            "target": "all_self_characters",
+            "feature": "麦わらの一味",
+            "amount": 1000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     }
   ],
   "ST21-012": [
@@ -61025,7 +61073,15 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【on_ko】自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "赤",
+              "exclude_name": "ロロノア・ゾロ"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -61037,7 +61093,15 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "赤",
+              "exclude_name": "ロロノア・ゾロ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -61048,7 +61112,15 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【on_ko】自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "赤",
+              "exclude_name": "ロロノア・ゾロ"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -61060,7 +61132,15 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "赤",
+              "exclude_name": "ロロノア・ゾロ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -61728,7 +61808,15 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の特徴《FILM》を持つキャラすべてを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "FILM"
+              }
+            },
+            "limit": 99
+          }
         }
       ]
     }
@@ -62981,7 +63069,22 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：このキャラは、次の自分のターン開始時まで、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "next_self_turn_start"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -63848,9 +63951,16 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のキャラが3枚以上いる場合、このキャラのパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_field_count_ge": 3
+      }
     }
   ],
   "ST02-008": [
@@ -63882,7 +63992,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のレストのコスト5以下の特徴《超新星》か《ハートの海賊団》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": "one_self_character_any",
+            "limit": 1
+          }
         }
       ]
     }
@@ -63957,7 +64070,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札のコスト2以下の特徴《超新星》を持つカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2,
+              "feature": "超新星"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -64459,9 +64579,16 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のキャラが3枚以上いる場合、このキャラのパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_field_count_ge": 3
+      }
     }
   ],
   "ST02-005_r1": [
@@ -64534,7 +64661,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のレストのコスト5以下の特徴《超新星》か《ハートの海賊団》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": "one_self_character_any",
+            "limit": 1
+          }
         }
       ]
     }
@@ -64634,7 +64764,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札のコスト2以下の特徴《超新星》を持つカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2,
+              "feature": "超新星"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -66509,7 +66646,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分のライフが4枚以上の場合、相手は自身の手札1枚をデッキの下に置く"
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "if": {
@@ -66522,7 +66659,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフが4枚以上の場合、相手は自身の手札1枚をデッキの下に置く。"
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "if": {
@@ -66537,9 +66674,17 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の手札が3枚以下の場合、このキャラはパワー+4000"
+          "power_pump": {
+            "target": "self",
+            "amount": 4000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_turn": true,
+        "self_hand_count_le": 3
+      }
     }
   ],
   "P-051": [
@@ -66638,7 +66783,15 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の特徴《FILM》を持つキャラすべてを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "FILM"
+              }
+            },
+            "limit": 99
+          }
         }
       ]
     }
@@ -67837,7 +67990,22 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：このキャラは、次の自分のターン開始時まで、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "next_self_turn_start"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -68743,7 +68911,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分のライフが4枚以上の場合、相手は自身の手札1枚をデッキの下に置く"
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "if": {
@@ -68756,7 +68924,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフが4枚以上の場合、相手は自身の手札1枚をデッキの下に置く。"
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "if": {
@@ -68771,9 +68939,17 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の手札が3枚以下の場合、このキャラはパワー+4000"
+          "power_pump": {
+            "target": "self",
+            "amount": 4000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_turn": true,
+        "self_hand_count_le": 3
+      }
     }
   ],
   "P-051_p1": [
