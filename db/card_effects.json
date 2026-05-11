@@ -49311,7 +49311,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト8以下の特徴《王下七武海》を持つキャラ1枚までを、KOする。"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 8,
+              "feature": "王下七武海"
+            }
+          }
         }
       ]
     },
@@ -53322,7 +53328,10 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のレストのコスト3以下のキャラ2枚までを、KOする。"
+          "ko_multi": [
+            "one_opponent_rested_character_cost_le_3",
+            "one_opponent_rested_character_cost_le_3"
+          ]
         }
       ]
     },
@@ -56548,7 +56557,11 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーは、このターン中、パワー+4000。"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 4000,
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -59214,7 +59227,10 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のレストのコスト5以下のキャラ2枚までを、KOする。"
+          "ko_multi": [
+            "one_opponent_rested_character_cost_le_5",
+            "one_opponent_rested_character_cost_le_5"
+          ]
         }
       ]
     }
@@ -60345,7 +60361,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の「モンキー・Ｄ・ルフィ」1枚までは、このターン中、【ブロック不可】を得る。(このカードはブロックされない)"
+          "give_keyword": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "モンキー・Ｄ・ルフィ"
+            },
+            "keyword": "ブロック不可"
+          }
         }
       ]
     },
