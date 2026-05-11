@@ -75,8 +75,7 @@ claude -p \
   --no-session-persistence \
   --max-budget-usd 5 \
   --permission-mode bypassPermissions \
-  --model claude-haiku-4-5-20251001 \
-  --fallback-model claude-sonnet-4-6 \
+  --model claude-sonnet-4-6 \
   "$(cat "$PROMPT_FILE")" \
   >> "$LOG" 2>&1
 CLAUDE_RC=$?
