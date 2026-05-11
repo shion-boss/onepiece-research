@@ -5,6 +5,7 @@ import type { Card } from "@/lib/types";
 import { fetchCards } from "@/lib/api";
 import { CardImage } from "@/components/CardImage";
 import { ColorChip } from "@/components/ColorChip";
+import { useDeckBuilderStore } from "@/stores/deckBuilder";
 
 export function LeaderPicker({
   current,
@@ -13,15 +14,20 @@ export function LeaderPicker({
   current: Card | null;
   onPick: (leader: Card) => void;
 }) {
+  const regulation = useDeckBuilderStore((s) => s.regulation);
   const [leaders, setLeaders] = useState<Card[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
   useEffect(() => {
-    fetchCards({ category: "LEADER", limit: 200 })
+    fetchCards({
+      category: "LEADER",
+      block_icon_ge: regulation === "standard" ? 2 : undefined,
+      limit: 200,
+    })
       .then(setLeaders)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [regulation]);
 
   if (error) {
     return (
@@ -52,7 +58,11 @@ export function LeaderPicker({
       </div>
 
       {current && (
-        <div className="flex items-center gap-3 rounded border border-zinc-300 p-2 dark:border-zinc-700">
+        <div className={`flex items-center gap-3 rounded border p-2 ${
+          regulation === "standard" && current.block_icon < 2
+            ? "border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-950/30"
+            : "border-zinc-300 dark:border-zinc-700"
+        }`}>
           <CardImage
             cardId={current.card_id}
             alt={current.name}
@@ -63,6 +73,11 @@ export function LeaderPicker({
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               {current.card_id} · life {current.life}
             </div>
+            {regulation === "standard" && current.block_icon < 2 && (
+              <div className="mt-0.5 text-xs font-medium text-red-600 dark:text-red-400">
+                スタンダード使用不可 (block①)
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-1">
             {current.color.map((c) => (

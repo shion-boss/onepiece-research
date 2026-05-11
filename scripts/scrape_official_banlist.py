@@ -154,7 +154,10 @@ def parse_master(html: str) -> dict:
                         forbidden_pairs.append(pair)
 
     # 残った pair_buffer はフラッシュ (奇数なら捨てる)
+    # standard_min_block: 年1回ブロックアイコン更新のタイミングで手動変更する
+    # 2026年4月〜2027年3月はブロック②以上 (= block_icon >= 2) が使用可
     return {
+        "standard_min_block": 2,
         "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_url": URL_MASTER,
         "forbidden": forbidden,

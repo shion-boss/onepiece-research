@@ -29,6 +29,7 @@ export default async function CardsPage({
   };
 
   const categoryRaw = get("category");
+  const regulationRaw = get("regulation");
   const filters: CardFilters = {
     color: get("color"),
     category:
@@ -38,6 +39,8 @@ export default async function CardsPage({
     cost_le: parseInt0(get("cost_le")),
     cost_ge: parseInt0(get("cost_ge")),
     name_contains: get("name_contains"),
+    // "standard" = block_icon >= 2、未指定 = 全件
+    block_icon_ge: regulationRaw === "standard" ? 2 : undefined,
     limit: 200,
   };
 

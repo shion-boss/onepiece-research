@@ -14,10 +14,15 @@ export default async function MetaPage() {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">メタ分析</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">メタ分析</h1>
+          <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+            STD
+          </span>
+        </div>
         {data && (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {data.decks.length} デッキ × {data.decks.length} の勝率行列。各セル{" "}
+            {data.decks.length} デッキ × {data.decks.length} の勝率行列 (スタンダードレギュレーション)。各セル{" "}
             {data.n_games} 戦 (seed={data.seed}) ・最終計算{" "}
             {data.computed_at.replace("T", " ").replace("Z", "")} ・更新は{" "}
             <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Card, CardCategory } from "@/lib/types";
 import { fetchCards } from "@/lib/api";
 import { CardImage } from "@/components/CardImage";
+import { useDeckBuilderStore } from "@/stores/deckBuilder";
 
 const CATEGORIES: CardCategory[] = ["CHARACTER", "EVENT", "STAGE"];
 
@@ -16,6 +17,7 @@ export function CardSearchPane({
   onAdd: (card: Card) => void;
   countOf: (cardId: string) => number;
 }) {
+  const regulation = useDeckBuilderStore((s) => s.regulation);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function CardSearchPane({
       cost_ge: costGe ? Number(costGe) : undefined,
       cost_le: costLe ? Number(costLe) : undefined,
       name_contains: name || undefined,
+      block_icon_ge: regulation === "standard" ? 2 : undefined,
       limit: 200,
     })
       .then((all) => {
@@ -53,7 +56,7 @@ export function CardSearchPane({
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [leaderColors, filterColor, category, costGe, costLe, name]);
+  }, [leaderColors, filterColor, category, costGe, costLe, name, regulation]);
 
   if (leaderColors.length === 0) {
     return (
@@ -146,6 +149,15 @@ export function CardSearchPane({
 
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           {loading ? "読み込み中…" : `${cards.length} 件`}
+        </span>
+        <span
+          className={`rounded px-1.5 py-0.5 text-xs font-bold ${
+            regulation === "standard"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+          }`}
+        >
+          {regulation === "standard" ? "STD" : "EX"}
         </span>
       </div>
 

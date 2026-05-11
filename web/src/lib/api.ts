@@ -161,6 +161,7 @@ export interface CreateDeckRequest {
   main: { card_id: string; count: number }[];
   slug?: string;
   overwrite?: boolean;
+  regulation?: string;
 }
 
 export interface CreateDeckResponse {

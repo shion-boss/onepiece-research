@@ -25,6 +25,7 @@ export type CardFilters = {
   cost_le?: number;
   cost_ge?: number;
   name_contains?: string;
+  block_icon_ge?: number;
   limit?: number;
 };
 
@@ -39,6 +40,8 @@ export type DeckSpec = {
   name?: string;
 };
 
+export type Regulation = "standard" | "extra";
+
 export type DeckSummary = {
   slug: string;
   name: string;
@@ -47,10 +50,12 @@ export type DeckSummary = {
   leader_color: string[];
   main_count: number;
   unique: number;
+  regulation?: Regulation;
 };
 
 export type DeckDetail = DeckSpec & {
   slug?: string;
+  regulation?: Regulation;
 };
 
 export type MatchRequest = {

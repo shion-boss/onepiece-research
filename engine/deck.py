@@ -25,6 +25,39 @@ from typing import Optional
 from .core import CardDef, Category
 
 _BANLIST_PATH = Path(__file__).resolve().parent.parent / "db" / "banlist" / "master.json"
+_CARDS_PATH = Path(__file__).resolve().parent.parent / "db" / "cards.json"
+
+_MAX_BLOCK_CACHE: Optional[dict[str, int]] = None
+
+# SPR 判定に使うセンチネル値 (Standard 無条件許可)
+_SPR_SENTINEL = 999
+
+
+def _load_max_block_by_base_id() -> dict[str, int]:
+    """base_id ごとの Standard 判定用ブロック値を返す。
+
+    - 再録版がある場合: 全バリアントの最大 block_icon
+    - SPカード (スーパーパラレルレア) 版がある場合: _SPR_SENTINEL (=999)
+      → 公式規定「SPR と同一ナンバーのカードは再録有無に関わらず Standard 使用可」
+    """
+    global _MAX_BLOCK_CACHE
+    if _MAX_BLOCK_CACHE is not None:
+        return _MAX_BLOCK_CACHE
+    result: dict[str, int] = {}
+    try:
+        rows = json.loads(_CARDS_PATH.read_text(encoding="utf-8"))
+        for row in rows:
+            base = row.get("base_id") or row.get("card_id", "")
+            b = int(row.get("block_icon", 0))
+            # SPR 版があれば sentinel をセット (以降はこれより大きい値は来ない)
+            if row.get("rarity") == "SPカード":
+                result[base] = _SPR_SENTINEL
+            elif result.get(base, 0) < _SPR_SENTINEL:
+                result[base] = max(result.get(base, 0), b)
+    except (json.JSONDecodeError, OSError):
+        pass
+    _MAX_BLOCK_CACHE = result
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -90,6 +123,7 @@ class DeckList:
     leader: CardDef
     main: list[CardDef]   # 50 枚に展開済み
     slug: Optional[str] = None  # decks/<slug>.json 由来 (analysis ロードに使う)
+    regulation: str = "standard"  # "standard" | "extra"
 
     @classmethod
     def from_json(
@@ -110,13 +144,20 @@ class DeckList:
             main.extend([card] * int(entry.get("count", 1)))
         # ファイル名 (拡張子無し) を slug にデフォルトで採用 (decks/cardrush_1429.json → cardrush_1429)
         slug = d.get("slug") or path_obj.stem
-        return cls(name=d.get("name", "(no name)"), leader=leader, main=main, slug=slug)
+        return cls(
+            name=d.get("name", "(no name)"),
+            leader=leader,
+            main=main,
+            slug=slug,
+            regulation=d.get("regulation", "standard"),
+        )
 
     def validate(self, banlist: Optional[dict] = None) -> list[str]:
         """構築ルールチェック。違反のリストを返す(空なら合法)。
 
         banlist=None の場合 `db/banlist/master.json` を自動ロード。
         banlist={} (空 dict) を渡すと banlist チェックをスキップ。
+        regulation は self.regulation を参照する ("standard" | "extra")。
         """
         problems: list[str] = []
         if len(self.main) != 50:
@@ -144,6 +185,9 @@ class DeckList:
             banlist = _load_banlist()
         if banlist:
             problems.extend(_check_banlist(self, c, banlist))
+            # スタンダードレギュレーション: 使用可能ブロックのチェック
+            if self.regulation == "standard":
+                problems.extend(_check_standard_block(self, banlist))
 
         return problems
 
@@ -195,6 +239,31 @@ def _check_banlist(deck: "DeckList", base_id_counts, banlist: dict) -> list[str]
     return problems
 
 
+def _check_standard_block(deck: "DeckList", banlist: dict) -> list[str]:
+    """スタンダードレギュレーションのブロックアイコン制限チェック。
+
+    banlist の standard_min_block 以上のカードのみ使用可。
+    同一 base_id に Standard 対応の再録版が存在すれば違反としない
+    (物理プレイで再録版を持参可能なため)。
+    """
+    problems: list[str] = []
+    min_block: int = banlist.get("standard_min_block", 2)
+    max_block_map = _load_max_block_by_base_id()
+    seen: set[str] = set()
+    for card in [deck.leader] + deck.main:
+        bid = _base_id(card.card_id)
+        if bid in seen:
+            continue
+        seen.add(bid)
+        # base_id の最大 block_icon で判定 (再録版が Standard 対応なら OK)
+        max_block = max_block_map.get(bid, card.block_icon)
+        if max_block < min_block:
+            problems.append(
+                f"スタンダード使用不可 (block①のみ): {card.card_id} {card.name}"
+            )
+    return problems
+
+
 def make_deck_from_dict(d: dict, repo: CardRepository) -> DeckList:
     """JSON ファイルではなく辞書から作る。テストやプログラム生成に便利。"""
     leader = repo.get(d["leader"])
@@ -202,4 +271,9 @@ def make_deck_from_dict(d: dict, repo: CardRepository) -> DeckList:
     for entry in d.get("main", []):
         card = repo.get(entry["card_id"])
         main.extend([card] * int(entry.get("count", 1)))
-    return DeckList(name=d.get("name", "(no name)"), leader=leader, main=main)
+    return DeckList(
+        name=d.get("name", "(no name)"),
+        leader=leader,
+        main=main,
+        regulation=d.get("regulation", "standard"),
+    )

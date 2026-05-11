@@ -30,6 +30,7 @@ export function CardFilterBar() {
   const cost_le = params.get("cost_le") ?? "";
   const cost_ge = params.get("cost_ge") ?? "";
   const name_contains = params.get("name_contains") ?? "";
+  const regulation = params.get("regulation") ?? "";
 
   const setParam = (k: string, v: string) =>
     update((p) => {
@@ -102,6 +103,33 @@ export function CardFilterBar() {
         className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
         aria-label="カード名"
       />
+
+      <div className="flex rounded border border-zinc-300 text-xs dark:border-zinc-700 overflow-hidden" role="group" aria-label="レギュレーション">
+        <button
+          type="button"
+          onClick={() => setParam("regulation", "")}
+          aria-pressed={regulation === ""}
+          className={`px-2 py-1 font-medium transition ${
+            regulation === ""
+              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+              : "bg-transparent text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          }`}
+        >
+          全件
+        </button>
+        <button
+          type="button"
+          onClick={() => setParam("regulation", regulation === "standard" ? "" : "standard")}
+          aria-pressed={regulation === "standard"}
+          className={`px-2 py-1 font-medium transition ${
+            regulation === "standard"
+              ? "bg-blue-600 text-white"
+              : "bg-transparent text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          }`}
+        >
+          STD
+        </button>
+      </div>
 
       {isPending && (
         <span className="text-xs text-zinc-500 dark:text-zinc-400">更新中…</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { Card } from "@/lib/types";
+import type { Card, Regulation } from "@/lib/types";
 
 export type BuilderEntry = {
   card: Card;
@@ -20,8 +20,10 @@ type State = {
   leader: Card | null;
   entries: BuilderEntry[];
   name: string;
+  regulation: Regulation;
   setName: (n: string) => void;
   setLeader: (leader: Card | null) => void;
+  setRegulation: (r: Regulation) => void;
   addCard: (card: Card) => string | null; // 失敗時はエラー文字列
   decrement: (cardId: string) => void;
   increment: (cardId: string) => string | null;
@@ -37,8 +39,10 @@ export const useDeckBuilderStore = create<State>((set, get) => ({
   leader: null,
   entries: [],
   name: "新しいデッキ",
+  regulation: "standard",
 
   setName: (n) => set({ name: n }),
+  setRegulation: (r) => set({ regulation: r }),
 
   setLeader: (leader) => {
     if (leader === null) {
@@ -110,7 +114,7 @@ export const useDeckBuilderStore = create<State>((set, get) => ({
       entries: s.entries.filter((e) => e.card.card_id !== cardId),
     })),
 
-  reset: () => set({ leader: null, entries: [], name: "新しいデッキ" }),
+  reset: () => set({ leader: null, entries: [], name: "新しいデッキ", regulation: "standard" }),
 
   countByBaseId: (cardId) => {
     const bid = baseId(cardId);
@@ -123,9 +127,10 @@ export const useDeckBuilderStore = create<State>((set, get) => ({
 
   saveToLocalStorage: () => {
     if (typeof window === "undefined") return;
-    const { leader, entries, name } = get();
+    const { leader, entries, name, regulation } = get();
     const payload = {
       name,
+      regulation,
       leader: leader?.card_id ?? null,
       entries: entries.map((e) => ({ card_id: e.card.card_id, count: e.count })),
       saved_at: new Date().toISOString(),
@@ -140,14 +145,12 @@ export const useDeckBuilderStore = create<State>((set, get) => ({
     try {
       const payload = JSON.parse(raw) as {
         name?: string;
+        regulation?: Regulation;
         leader: string | null;
         entries: { card_id: string; count: number }[];
       };
-      // leader と entries の Card 全体は再フェッチが必要
-      // この関数は (page 側で) fetchCard を経由してから呼ぶ前提でストアにセットする
-      // だが card 全体を持っていないのでここでは raw を返さない
-      // 代わりに別フローで page 側で復元する
       if (payload.name) set({ name: payload.name });
+      if (payload.regulation) set({ regulation: payload.regulation });
       return true;
     } catch {
       return false;

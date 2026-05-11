@@ -10,7 +10,20 @@ export function DeckSummaryTile({ deck }: { deck: DeckSummary }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-lg font-medium">{deck.name}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-medium">{deck.name}</span>
+            {deck.regulation && (
+              <span
+                className={`rounded px-1.5 py-0.5 text-xs font-bold ${
+                  deck.regulation === "standard"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                }`}
+              >
+                {deck.regulation === "standard" ? "STD" : "EX"}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
             {deck.leader_name} ({deck.leader})
           </div>

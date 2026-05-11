@@ -120,6 +120,20 @@ def meta_matrix():
 
 
 # --------------------------------------------------------------------------- #
+# エンドポイント: banlist
+# --------------------------------------------------------------------------- #
+_BANLIST_PATH = ROOT / "db" / "banlist" / "master.json"
+
+
+@app.get("/api/banlist")
+def get_banlist():
+    """禁止 / 制限 / 禁止ペア + standard_min_block を返す。"""
+    if not _BANLIST_PATH.exists():
+        raise HTTPException(404, "banlist not found")
+    return json.loads(_BANLIST_PATH.read_text(encoding="utf-8"))
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: FAQ search (db/faq/*.json から横断検索)
 # --------------------------------------------------------------------------- #
 FAQ_DIR = ROOT / "db" / "faq"
@@ -255,6 +269,7 @@ def list_cards(
     cost_le: Optional[int] = Query(None),
     cost_ge: Optional[int] = Query(None),
     name_contains: Optional[str] = Query(None),
+    block_icon_ge: Optional[int] = Query(None, description="ブロックアイコン下限 (Standard=2)"),
     limit: int = Query(200, ge=1, le=2000),
 ):
     repo = get_repo()
@@ -275,6 +290,8 @@ def list_cards(
         if cost_ge is not None and card.cost < cost_ge:
             continue
         if name_contains and name_contains not in card.name:
+            continue
+        if block_icon_ge is not None and card.block_icon < block_icon_ge:
             continue
         cards.append(_to_out(card))
         if len(cards) >= limit:
@@ -316,6 +333,7 @@ class DeckSummary(BaseModel):
     leader_color: list[str]
     main_count: int
     unique: int
+    regulation: Optional[str] = None
 
 
 def _list_deck_files() -> list[Path]:
@@ -364,6 +382,7 @@ def list_decks():
                 leader_color=leader_color,
                 main_count=main_count,
                 unique=unique,
+                regulation=d.get("regulation"),
             )
         )
     return out
@@ -417,6 +436,7 @@ class CreateDeckRequest(BaseModel):
     main: list[DeckEntry]
     slug: Optional[str] = None
     overwrite: bool = False
+    regulation: str = "standard"
 
 
 class CreateDeckResponse(BaseModel):
@@ -450,6 +470,7 @@ def create_deck(req: CreateDeckRequest):
         "name": req.name or "(無題)",
         "leader": req.leader,
         "main": [{"card_id": e.card_id, "count": e.count} for e in req.main],
+        "regulation": req.regulation,
     }
     try:
         deck = make_deck_from_dict(deck_dict, repo)
@@ -504,6 +525,7 @@ def update_deck(slug: str, req: CreateDeckRequest):
         "name": req.name or "(無題)",
         "leader": req.leader,
         "main": [{"card_id": e.card_id, "count": e.count} for e in req.main],
+        "regulation": req.regulation,
     }
     try:
         deck = make_deck_from_dict(deck_dict, repo)
@@ -551,6 +573,7 @@ def validate_deck(req: CreateDeckRequest):
         "name": req.name or "(無題)",
         "leader": req.leader,
         "main": [{"card_id": e.card_id, "count": e.count} for e in req.main],
+        "regulation": req.regulation,
     }
     try:
         deck = make_deck_from_dict(deck_dict, repo)

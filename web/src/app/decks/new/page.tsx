@@ -32,8 +32,10 @@ function NewDeckPageContent() {
     leader,
     entries,
     name,
+    regulation,
     setName,
     setLeader,
+    setRegulation,
     addCard,
     increment,
     decrement,
@@ -174,6 +176,30 @@ function NewDeckPageContent() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded border border-zinc-300 text-sm dark:border-zinc-700 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRegulation("standard")}
+              className={`px-3 py-1 font-medium transition ${
+                regulation === "standard"
+                  ? "bg-blue-600 text-white"
+                  : "bg-transparent text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              STD
+            </button>
+            <button
+              type="button"
+              onClick={() => setRegulation("extra")}
+              className={`px-3 py-1 font-medium transition ${
+                regulation === "extra"
+                  ? "bg-purple-600 text-white"
+                  : "bg-transparent text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              EX
+            </button>
+          </div>
           <input
             type="text"
             value={name}
@@ -227,6 +253,7 @@ function NewDeckPageContent() {
                     card_id: e.card.card_id,
                     count: e.count,
                   })),
+                  regulation,
                 });
                 showFlash(
                   `サーバ保存しました (slug: ${res.slug}) → デッキ詳細へ移動`,
