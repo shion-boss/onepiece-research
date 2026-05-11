@@ -17,6 +17,32 @@
 6. 失敗時は `git reset --hard HEAD` で巻き戻し + `.auto_rewrite.STOP` を作って exit 1。
 7. 完了したら `git commit` のみ (push しない)。
 
+## 直前ラウンドの失敗教訓
+
+過去の自動ラウンドで sonnet が書いた DSL で `smoke_test_card_effects.py` が
+`on_play: ERROR=2` を出して revert されたケースがある。 原因は **target spec が
+存在しない名前** だったり、 **必須引数が無い** primitive 呼び出しが書かれたこと。
+
+対策:
+- 書き換える前に、 該当 primitive の引数仕様を `engine/effects.py` で **必ず grep して確認**:
+  ```bash
+  grep -n -A 5 'elif k == "PRIMITIVE_NAME"' engine/effects.py
+  ```
+- target spec は既存の以下から選ぶ (grep で確認):
+  - 単独: `self`, `self_leader`, `opponent_leader`, `self_inplay`, `one_self_character_any`,
+    `one_opponent_character_any`, `one_opponent_inplay_any`, `other_self_chara`,
+    `all_self_characters`, `all_opponent_characters`, `all_self_team`
+  - 派生 (regex): `one_opponent_character_cost_le_N`, `one_opponent_character_cost_le_Ncost`,
+    `any_opponent_character_cost_le_N`, `one_opponent_character_power_le_N`,
+    `one_opponent_character_power_eq_N`, `one_opponent_rested_character_cost_le_N`,
+    `one_opponent_character_attached_don_ge_N`, `one_self_character_cost_le_N`
+  - 辞書 spec: `{"type": "one_self_chara_or_leader_filtered", "filter": {...}}` /
+    `{"type": "self_chara_named", "name": "..."}` / `{"type": "all_self_chara_named", "name": "..."}`
+- 公開されていない名前 (例: `one_self_chara_filter`, `any_self_chara_with_feature` 等)
+  を creative に作らない。 該当 spec が無いなら **その unique はスキップ**。
+- 書き換え後の `git diff db/card_effects.json` を見て、 各 effect block の構造
+  (`when` / `if` / `do` / `cost`) が公式テキストと合致するか必ず再チェック。
+
 ## 進め方
 
 ```bash
