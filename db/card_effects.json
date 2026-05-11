@@ -174,11 +174,34 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】②(コストエリアのドン‼を指定の数レストにできる)：自分のキャラが5枚いる場合、自分のキャラ1枚を、持ち主の手札に戻し、自分の手札から、戻したキャラと異なる色のコスト5以下のキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "any_self_chara"
+              },
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 5
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_field_count_ge": 5
       }
     }
   ],
@@ -7387,7 +7410,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト4以下の特徴《スリラーバーク海賊団》を持つキャラカード1枚までを、ライフの上に表向きで加えるか登場させる。"
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "feature": "スリラーバーク海賊団"
+            },
+            "limit": 1
+          }
         }
       ]
     },
@@ -12269,11 +12299,34 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】②(コストエリアのドン‼を指定の数レストにできる)：自分のキャラが5枚いる場合、自分のキャラ1枚を、持ち主の手札に戻し、自分の手札から、戻したキャラと異なる色のコスト5以下のキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "any_self_chara"
+              },
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 5
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_field_count_ge": 5
       }
     }
   ],
@@ -25780,7 +25833,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト4以下の特徴《スリラーバーク海賊団》を持つキャラカード1枚までを、ライフの上に表向きで加えるか登場させる。"
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "feature": "スリラーバーク海賊団"
+            },
+            "limit": 1
+          }
         }
       ]
     },
@@ -43934,7 +43994,19 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "scry_life": {
+                    "owner": "opp",
+                    "depth": 99
+                  }
+                }
+              ],
+              []
+            ]
+          }
         }
       ]
     }
@@ -43945,7 +44017,19 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "scry_life": {
+                    "owner": "opp",
+                    "depth": 99
+                  }
+                }
+              ],
+              []
+            ]
+          }
         }
       ]
     }
@@ -45330,7 +45414,7 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のライフが2枚以下の場合、相手のアクティブのキャラ1枚までは、このターン中、アタックできない。"
+          "set_cannot_attack": "one_opponent_character_any"
         }
       ],
       "if": {
@@ -45360,7 +45444,7 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のライフが2枚以下の場合、相手のアクティブのキャラ1枚までは、このターン中、アタックできない。"
+          "set_cannot_attack": "one_opponent_character_any"
         }
       ],
       "if": {
@@ -45726,7 +45810,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のドン‼すべてを、アクティブにする。その後、自分は、このターン中、手札からカードをプレイできない。"
+          "untap_don": "all"
+        },
+        {
+          "block_chara_play_turn": true
         }
       ]
     }
@@ -45737,7 +45824,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のドン‼すべてを、アクティブにする。その後、自分は、このターン中、手札からカードをプレイできない。"
+          "untap_don": "all"
+        },
+        {
+          "block_chara_play_turn": true
         }
       ]
     }
@@ -47797,7 +47887,14 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の特徴《海軍》を持つ、リーダーかキャラ1枚までは、このターン中、アクティブのキャラにもアタックできる。"
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "海軍"
+              }
+            }
+          }
         }
       ]
     }
@@ -47817,7 +47914,14 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の特徴《海軍》を持つ、リーダーかキャラ1枚までは、このターン中、アクティブのキャラにもアタックできる。"
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "海軍"
+              }
+            }
+          }
         }
       ]
     }
@@ -48967,7 +49071,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト5の特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "hand_to_self_life": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_eq": 5,
+                    "feature": "超新星"
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -50092,7 +50214,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト3以下の黄のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "color": "黄"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -50115,7 +50244,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト3以下の黄のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "color": "黄"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -51819,7 +51955,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の「カリブー」1枚までを、レストで登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "name": "カリブー"
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ]
     }
@@ -51881,7 +52025,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ジンベエ」以外のコスト4以下の特徴《王下七武海》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "feature": "王下七武海",
+              "exclude_name": "ジンベエ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -51892,7 +52044,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ジンベエ」以外のコスト4以下の特徴《王下七武海》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "feature": "王下七武海",
+              "exclude_name": "ジンベエ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -53291,7 +53451,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "以下から1つを選ぶ。相手のコスト4以下のキャラ1枚までを、トラッシュに置く。相手は自身のトラッシュのカード3枚を好きな順番でデッキの下に置く。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "ko": "one_opponent_character_cost_le_4cost"
+                }
+              ],
+              []
+            ]
+          }
         }
       ]
     }
@@ -54631,7 +54800,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からパワー3000以下の特徴《動物》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 3000,
+              "feature": "動物"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -55559,7 +55735,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "相手のコスト3以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。"
+          "to_opp_life": "one_opponent_character_cost_le_3cost"
         }
       ]
     }
@@ -55614,7 +55790,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト3以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。"
+          "to_opp_life": "one_opponent_character_cost_le_3cost"
         }
       ]
     },
@@ -55916,7 +56092,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の【トリガー】を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "has_trigger": true
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -55924,25 +56107,31 @@
   "OP03-041": [
     {
       "_text": "on_attached_don n=1: このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい",
-      "when": "on_attached_don",
+      "when": "on_attack",
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい"
+          "mill": 7
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     }
   ],
   "OP03-041_p1": [
     {
       "_text": "on_attached_don n=1: このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい",
-      "when": "on_attached_don",
+      "when": "on_attack",
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい"
+          "mill": 7
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     }
   ],
   "OP03-042": [
@@ -56762,7 +56951,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の【トリガー】を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "has_trigger": true
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57028,9 +57224,17 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の『白ひげ海賊団』を含む特徴を持つキャラすべてを、パワー+1000"
+          "power_pump": {
+            "target": "all_self_characters",
+            "feature": "白ひげ海賊団",
+            "amount": 1000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_turn": true
+      }
     }
   ],
   "OP02-021": [
@@ -57162,7 +57366,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト2以下の特徴《FILM》か《麦わらの一味》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2,
+              "or_clauses": [
+                {
+                  "feature": "FILM"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57173,7 +57391,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト3以下の特徴《FILM》か《麦わらの一味》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "or_clauses": [
+                {
+                  "feature": "FILM"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57276,7 +57508,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札が3枚になるようにカードを引き、自分の手札から、コスト6以下の青の特徴《インペルダウン》を持つキャラカード1枚までを、登場させる。"
+          "draw": 3
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 6,
+              "color": "青",
+              "feature": "インペルダウン"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57287,7 +57530,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札が3枚になるようにカードを引き、自分の手札から、コスト6以下の青の特徴《インペルダウン》を持つキャラカード1枚までを、登場させる。"
+          "draw": 3
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 6,
+              "color": "青",
+              "feature": "インペルダウン"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -60245,7 +60499,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の「カリブー」1枚までを、レストで登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "name": "カリブー"
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ]
     }
@@ -61636,9 +61898,17 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の『白ひげ海賊団』を含む特徴を持つキャラすべてを、パワー+1000"
+          "power_pump": {
+            "target": "all_self_characters",
+            "feature": "白ひげ海賊団",
+            "amount": 1000,
+            "duration": "static"
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_turn": true
+      }
     }
   ],
   "OP02-023_r1": [
@@ -62359,7 +62629,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト2以下の特徴《FILM》か《麦わらの一味》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2,
+              "or_clauses": [
+                {
+                  "feature": "FILM"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -62370,7 +62654,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト3以下の特徴《FILM》か《麦わらの一味》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "or_clauses": [
+                {
+                  "feature": "FILM"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -65014,7 +65312,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からパワー3000以下の特徴《動物》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 3000,
+              "feature": "動物"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -65135,7 +65440,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "以下から1つを選ぶ。相手のコスト4以下のキャラ1枚までを、トラッシュに置く。相手は自身のトラッシュのカード3枚を好きな順番でデッキの下に置く。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "ko": "one_opponent_character_cost_le_4cost"
+                }
+              ],
+              []
+            ]
+          }
         }
       ]
     }
@@ -65534,7 +65848,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト5の特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "hand_to_self_life": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_eq": 5,
+                    "feature": "超新星"
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          }
         }
       ]
     }
