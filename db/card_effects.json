@@ -1264,7 +1264,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "相手は自身の手札1枚をデッキの下に置く。"
+          "opp_hand_to_deck_bottom": 1
         }
       ]
     }
@@ -16570,7 +16570,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "_unimplemented": "自分の手札が5枚になるように手札を捨てる。"
+          "self_hand_to_size": 5
         }
       ]
     }
@@ -18397,7 +18397,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手は自身のコスト6以下のキャラ1枚を、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_6cost"
         }
       ]
     },
@@ -20849,7 +20849,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュから黒のカード1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "color": "黒"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -21404,7 +21409,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手の手札が6枚以上ある場合、相手は自身のライフ1枚を手札に加える。"
+          "mill_opp_life_to_hand": 1
         }
       ],
       "if": {
@@ -42746,7 +42751,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の特徴《空島》を持つキャラ1枚までは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)"
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "空島"
+              }
+            },
+            "keyword": "ダブルアタック"
+          }
         }
       ]
     }
