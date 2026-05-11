@@ -185,6 +185,25 @@ class InPlay:
     # 「次の相手のターン終了時まで、効果で KO されない」 (OP09-033 等)。
     # 所有者ターン終了時 (= 公式「次の相手ターン終了時」と一致) にクリア。
     ko_immune_through_opp_turn: bool = False
+    # 「次の相手のターン終了時まで、 パワー+N」 (= 自キャラ等を対象、 applier-tracking 必須)。
+    # applier_idx と applied_turn を記録し、 _reset_timed_buffs で
+    # 「applier 以外のターン終了 (= 1 回以上 turn_number 進行後)」 にクリア。
+    # EB02-041 (麦わらの一味コスト+2) 等の自陣形式に対応。
+    next_opp_turn_end_buff: int = 0
+    next_opp_turn_end_applier_idx: int = -1
+    next_opp_turn_end_applied_turn: int = 0
+    # 「次の自分のターン終了時まで、 パワー+N」 (= ST10-016 トリガー等)。
+    # applier の次の自身ターン終了時にクリア (applied_turn より後の applier 端のターン終了)。
+    next_self_turn_end_buff: int = 0
+    next_self_turn_end_applier_idx: int = -1
+    next_self_turn_end_applied_turn: int = 0
+    # 「次の相手のターン終了時まで、 レストにできない」 (= OP14-033 等の自陣防衛効果)。
+    # rest primitive で flagged キャラをスキップする。
+    # クリア: applier の次の相手ターン終了時 = ended_idx != applier_idx かつ
+    # applied_turn < state.turn_number (= 既に 1 ターン以上経過)。
+    cannot_be_rested_buff: bool = False
+    cannot_be_rested_applier_idx: int = -1
+    cannot_be_rested_applied_turn: int = 0
     # 所有者プレイヤー idx (0 or 1)。-1 は未設定 (テスト用直接生成のデフォルト)。
     # _recompute_static / evaluate_static_effects で state.players から逆引き設定
     owner_idx: int = -1
@@ -282,7 +301,10 @@ class InPlay:
         # 公式 6-5-5: ドン+1000 は所有者のターン中のみ有効。
         # 相手ターン中は物理的に付いていてもパワーには寄与しない。
         don_buff = 1000 * self.attached_dons if self.is_owners_turn else 0
-        return base + don_buff + self.static_buff + self.turn_buff + self.battle_buff + self.next_turn_buff
+        return (
+            base + don_buff + self.static_buff + self.turn_buff + self.battle_buff
+            + self.next_turn_buff + self.next_opp_turn_end_buff + self.next_self_turn_end_buff
+        )
 
     @classmethod
     def of(cls, card, rested=False, sickness=False):

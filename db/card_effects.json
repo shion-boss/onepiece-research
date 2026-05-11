@@ -8009,7 +8009,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン‼が7枚以上ある場合、自分の特徴《ODYSSEY》を持つ、リーダーとキャラすべてを、次の相手のエンドフェイズ終了時まで、パワー+1000。"
+          "power_pump": {
+            "target": {
+              "type": "all_self_team_filtered",
+              "filter": {
+                "feature": "ODYSSEY"
+              }
+            },
+            "amount": 1000,
+            "duration": "next_opp_end_phase"
+          }
         }
       ],
       "if": {
@@ -8811,7 +8820,16 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の特徴《エッグヘッド》を持つ、リーダーかキャラ1枚までを、次の自分のターン終了時まで、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "エッグヘッド"
+              }
+            },
+            "amount": 2000,
+            "duration": "next_self_turn_end"
+          }
         }
       ]
     }
@@ -15889,7 +15907,15 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分の特徴《ワノ国》を持つリーダーにレストのドン‼1枚までを、付与する。"
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "ワノ国"
+              }
+            },
+            "count": 1
+          }
         }
       ],
       "cost": {
@@ -16090,7 +16116,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダー1枚にレストのドン‼2枚までを、付与する。"
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 2
+          }
         }
       ]
     },
@@ -16768,7 +16797,15 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の『白ひげ海賊団』を含む特徴を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。"
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "白ひげ海賊団"
+              }
+            },
+            "count": 1
+          }
         }
       ]
     },
@@ -42314,9 +42351,21 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の属性(斬)を持つリーダーにレストのドン‼2枚までを、付与する。"
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "attribute": "斬"
+              }
+            },
+            "count": 2
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "EB03-017": [
@@ -51734,7 +51783,11 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュが10枚以上ある場合、自分のキャラ1枚までを、次の相手のターン終了時まで、パワー+2000。"
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 2000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -52339,7 +52392,16 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分の特徴《革命軍》を持つキャラ1枚までを、次の自分のターン終了時まで、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "革命軍"
+              }
+            },
+            "amount": 2000,
+            "duration": "next_self_turn_end"
+          }
         }
       ]
     },
@@ -63609,7 +63671,11 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分のリーダー1枚までを、次の自分のターン終了時まで、パワー+1000。"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_self_turn_end"
+          }
         }
       ]
     }

@@ -955,14 +955,33 @@ def execute_effect(
                 elif duration == "next_self_turn_start":
                     # 「次の自分のターン開始時まで」 = ターン跨ぎ。 REFRESH 時に clear
                     t.next_turn_buff += amount
+                elif duration in ("next_opp_turn_end", "next_opp_end_phase"):
+                    # 「次の相手のターン (= エンドフェイズ) 終了時まで」
+                    # applier-tracking で _reset_turn_buff にてクリア。
+                    me_idx = state.players.index(me)
+                    t.next_opp_turn_end_buff += amount
+                    t.next_opp_turn_end_applier_idx = me_idx
+                    t.next_opp_turn_end_applied_turn = state.turn_number
+                elif duration == "next_self_turn_end":
+                    # 「次の自分のターン終了時まで」 = applier の次の自身ターン終了
+                    me_idx = state.players.index(me)
+                    t.next_self_turn_end_buff += amount
+                    t.next_self_turn_end_applier_idx = me_idx
+                    t.next_self_turn_end_applied_turn = state.turn_number
                 else:
                     t.turn_buff += amount
             state.push_log(f"  効果: パワー{amount:+d} → {[t.card.name for t in targets]}")
         elif k == "rest":
             targets = _resolve_target(v, state, me, opp, self_inplay)
+            actually_rested = []
             for t in targets:
+                # 「レストにできない」 保護 (OP14-033 等)
+                if t.cannot_be_rested_buff:
+                    state.push_log(f"  レスト不能保護: {t.card.name}")
+                    continue
                 t.rested = True
-            state.push_log(f"  効果: レスト → {[t.card.name for t in targets]}")
+                actually_rested.append(t)
+            state.push_log(f"  効果: レスト → {[t.card.name for t in actually_rested]}")
         elif k == "rest_self_cards":
             # 自分のリーダー/キャラから N 枚をレスト。 AI 簡易: アクティブの中から power 低い順。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
@@ -1531,6 +1550,35 @@ def execute_effect(
             me.don_active -= n
             target.attached_dons += n
             state.push_log(f"  効果: ドン{n}付与 → {target.card.name} (P={target.power})")
+        elif k == "attach_rested_don":
+            # 「自キャラ/リーダーに レストのドン N 枚を付与」 (ST08-001 等)。
+            # ソースは me.don_rested。 付与後は attached_dons の一部として保持
+            # (= レフレッシュ時にコストエリアに戻る = 通常の attached_dons と同じ動作)。
+            spec = v if isinstance(v, dict) else {"target": "self_leader", "count": 1}
+            target_spec = spec.get("target", "self_leader")
+            n = int(spec.get("count", 1))
+            n = min(n, me.don_rested)
+            if n <= 0:
+                continue
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            if not targets:
+                continue
+            target = targets[0]
+            me.don_rested -= n
+            target.attached_dons += n
+            state.push_log(f"  効果: レストドン{n}付与 → {target.card.name}")
+        elif k == "set_cannot_rest":
+            # 「対象は、 次の (相手) ターン終了時まで、 レストにできない」 (OP14-033 等)。
+            # rest プリミティブで cannot_be_rested_buff のあるキャラはスキップされる。
+            # 適用時 applier_idx と applied_turn を記録し、 _reset_turn_buff でクリア。
+            target_spec = v if isinstance(v, str) else (v or {}).get("target", "all_self_characters")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            me_idx = state.players.index(me)
+            for t in targets:
+                t.cannot_be_rested_buff = True
+                t.cannot_be_rested_applier_idx = me_idx
+                t.cannot_be_rested_applied_turn = state.turn_number
+            state.push_log(f"  効果: レスト不能 → {[t.card.name for t in targets]}")
         elif k == "mill_self_top":
             # 自分のデッキ上 N 枚をトラッシュに置く。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))

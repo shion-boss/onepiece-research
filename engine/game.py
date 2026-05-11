@@ -265,6 +265,37 @@ def _reset_turn_buff(state: GameState) -> None:
         ip.cannot_attack_through_opp_turn = False
         ip.ko_immune_through_opp_turn = False
 
+    # 次の(相手|自分)のターン終了時まで タイムドバフ系を applier-tracking でクリア。
+    # 条件: applied_turn < state.turn_number (= 少なくとも 1 ターン経過)
+    # かつ ended_idx の判定 (next_opp = !=applier、 next_self = ==applier)
+    ended_idx = state.players.index(me_turn)
+    for player in state.players:
+        for ip in [player.leader, *player.characters, *player.stages]:
+            # next_opp_turn_end_buff: applier の相手のターン終了で消える
+            if ip.next_opp_turn_end_buff != 0 or ip.next_opp_turn_end_applier_idx >= 0:
+                if (ip.next_opp_turn_end_applier_idx >= 0
+                        and ip.next_opp_turn_end_applied_turn < state.turn_number
+                        and ended_idx != ip.next_opp_turn_end_applier_idx):
+                    ip.next_opp_turn_end_buff = 0
+                    ip.next_opp_turn_end_applier_idx = -1
+                    ip.next_opp_turn_end_applied_turn = 0
+            # next_self_turn_end_buff: applier の自身のターン終了で消える
+            if ip.next_self_turn_end_buff != 0 or ip.next_self_turn_end_applier_idx >= 0:
+                if (ip.next_self_turn_end_applier_idx >= 0
+                        and ip.next_self_turn_end_applied_turn < state.turn_number
+                        and ended_idx == ip.next_self_turn_end_applier_idx):
+                    ip.next_self_turn_end_buff = 0
+                    ip.next_self_turn_end_applier_idx = -1
+                    ip.next_self_turn_end_applied_turn = 0
+            # cannot_be_rested_buff: applier の相手ターン終了で消える (= 防衛効果)
+            if ip.cannot_be_rested_buff:
+                if (ip.cannot_be_rested_applier_idx >= 0
+                        and ip.cannot_be_rested_applied_turn < state.turn_number
+                        and ended_idx != ip.cannot_be_rested_applier_idx):
+                    ip.cannot_be_rested_buff = False
+                    ip.cannot_be_rested_applier_idx = -1
+                    ip.cannot_be_rested_applied_turn = 0
+
 
 def advance_phase(state: GameState) -> None:
     if state.game_over:
