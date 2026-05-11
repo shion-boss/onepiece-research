@@ -650,7 +650,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《百獣海賊団》を持つ場合、自分のデッキの上から7枚を見て、「疫災弾」か「氷鬼」合計2枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。"
+          "search_top_n": {
+            "depth": 7,
+            "filter": {
+              "name_in": [
+                "疫災弾",
+                "氷鬼"
+              ]
+            },
+            "limit": 2,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "if": {
@@ -7669,7 +7680,23 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分の特徴《魚人族》か《人魚族》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "or_clauses": [
+                  {
+                    "feature": "魚人族"
+                  },
+                  {
+                    "feature": "人魚族"
+                  }
+                ]
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -19139,7 +19166,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ポートガス・D・エース」の場合、自分のデッキの上から5枚を見て、「ポートガス・D・エース」か赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "or_clauses": [
+                {
+                  "name": "ポートガス・D・エース"
+                },
+                {
+                  "category": "EVENT",
+                  "color": "赤"
+                }
+              ]
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "if": {
@@ -42183,7 +42226,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「シュガー」の場合、自分の手札からパワー6000以下の特徴《ドンキホーテ海賊団》を持つキャラカード1枚までを、レストで登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "feature": "ドンキホーテ海賊団"
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ],
       "if": {
@@ -48216,7 +48267,14 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "name": "カリブー",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -56132,7 +56190,16 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分の特徴《ワノ国》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+3000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "ワノ国"
+              }
+            },
+            "amount": 3000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -56791,7 +56858,10 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《インペルダウン》を持つ場合、カード2枚を引き、手札1枚を捨てる。"
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ],
       "if": {
@@ -58645,7 +58715,14 @@
       "when": "on_block",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_block】自分の手札からコスト2以下の赤のキャラカード1枚までを、登場させる"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "赤",
+              "cost_le": 2
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -65589,7 +65666,14 @@
       "when": "on_block",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_block】自分の手札からコスト2以下の赤のキャラカード1枚までを、登場させる"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "赤",
+              "cost_le": 2
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -67895,7 +67979,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《エッグヘッド》を持つ場合、自分の手札からコスト5以下の、特徴《エッグヘッド》か【トリガー】を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 5,
+              "or_clauses": [
+                {
+                  "feature": "エッグヘッド"
+                },
+                {
+                  "has_trigger": true
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -68765,7 +68863,14 @@
       "when": "on_block",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_block】自分の手札からコスト2以下の赤のキャラカード1枚までを、登場させる"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "赤",
+              "cost_le": 2
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {

@@ -2887,6 +2887,10 @@ def _can_pay_activate_cost(
     """
     if cost.get("rest_self") and inplay.rested:
         return False
+    if cost.get("trash_self"):
+        # 自身が場 (chara or stage) にいる必要
+        if inplay not in me.characters and inplay not in me.stages:
+            return False
     pay_don = int(cost.get("pay_don", 0))
     if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
         return False
@@ -3031,6 +3035,24 @@ def fire_activate_main(
     # rest_self
     if cost.get("rest_self"):
         inplay.rested = True
+    # trash_self: 起動コストとしてこのキャラ自身をトラッシュに置く
+    # 公式: 「このキャラをトラッシュに置くことができる」 = 自KO 同等の扱い
+    # (= 場から取り除き、 持ち主のトラッシュへ、 付与ドンはレストでコストエリアへ)
+    if cost.get("trash_self"):
+        if inplay in me.characters:
+            me.characters.remove(inplay)
+            me.trash.append(inplay.card)
+            if inplay.attached_dons > 0:
+                me.don_rested += inplay.attached_dons
+                inplay.attached_dons = 0
+            state.push_log(f"  起動メインコスト: 自トラッシュ {inplay.card.name}")
+        elif inplay in me.stages:
+            me.stages.remove(inplay)
+            me.trash.append(inplay.card)
+            if inplay.attached_dons > 0:
+                me.don_rested += inplay.attached_dons
+                inplay.attached_dons = 0
+            state.push_log(f"  起動メインコスト: 自ステージトラッシュ {inplay.card.name}")
     # pay_don N: 場のドンを N 枚ドンデッキに戻す (active 優先)
     pay_don = int(cost.get("pay_don", 0))
     if pay_don > 0:
