@@ -8943,7 +8943,24 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "カード1枚を引き、自分の手札からコスト3以下の、特徴《魚人族》か《人魚族》を持つキャラカード1枚までを、登場させる。"
+          "draw": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "or_clauses": [
+                {
+                  "feature": "魚人族"
+                },
+                {
+                  "feature": "人魚族"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -19410,7 +19427,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_self_character_any"
         }
       ]
     }
@@ -42483,7 +42500,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「シャーロット・カタクリ」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "シャーロット・カタクリ"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -42931,9 +42955,23 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の「サボ」以外の特徴《革命軍》を持つキャラ1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "革命軍",
+                "exclude_name": "サボ"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "EB02-003": [
@@ -44036,9 +44074,20 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分のキャラの「スパンダム」1枚までを、このターン中、パワー+3000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "スパンダム"
+            },
+            "amount": 3000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "EB01-045": [
@@ -44377,7 +44426,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「ブルック」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "ブルック"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -45760,9 +45816,20 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の「モンキー・Ｄ・ルフィ」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "モンキー・Ｄ・ルフィ"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "OP13-019": [
@@ -46215,7 +46282,13 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分のトラッシュからコスト3以下のステージカード1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "STAGE",
+              "cost_le": 3
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -47322,7 +47395,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「トラファルガー・ロー」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "トラファルガー・ロー"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -47555,11 +47635,24 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分のリーダーが特徴《海軍》を持つ場合、自分の特徴《海軍》を持つキャラ1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "海軍"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
         "leader_feature": "海軍"
+      },
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
       }
     }
   ],
@@ -47651,9 +47744,20 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の特徴《海軍》を持つ、リーダーかキャラ1枚までは、このターン中、アクティブのキャラにもアタックできる。"
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "海軍"
+              }
+            }
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "OP11-016": [
@@ -48842,7 +48946,13 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、自分のトラッシュから紫のイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT",
+              "color": "紫"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -49134,7 +49244,13 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手のコスト4以下の特徴《王下七武海》を持つキャラ1枚までを、KOする。"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4,
+              "feature": "王下七武海"
+            }
+          }
         }
       ]
     }
@@ -49974,11 +50090,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の特徴《キッド海賊団》を持つリーダー1枚までを、アクティブにする。"
+          "untap": "self_leader"
         }
       ],
       "cost": {
         "pay_don": 1
+      },
+      "if": {
+        "leader_feature": "キッド海賊団"
       }
     }
   ],
@@ -50758,11 +50877,22 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分のリーダーが「トニートニー・チョッパー」の場合、自分のキャラの「トニートニー・チョッパー」すべてを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_named",
+              "name": "トニートニー・チョッパー"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
         "leader_name": "トニートニー・チョッパー"
+      },
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
       }
     }
   ],
@@ -50998,7 +51128,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「エドワード・ウィーブル」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "エドワード・ウィーブル"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -51128,7 +51265,13 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の手札から「ビスケット兵」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "name": "ビスケット兵"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -51210,7 +51353,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の手札からコスト5以下の「ヒヨコ子爵」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "name": "ヒヨコ子爵",
+              "cost_le": 5
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -51676,9 +51826,20 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の「シャーロット・プリン」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "シャーロット・プリン"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "OP08-111": [
@@ -52215,7 +52376,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「ボア・ハンコック」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "ボア・ハンコック"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -52626,7 +52794,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「ロブ・ルッチ」1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "ロブ・ルッチ"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -53205,10 +53380,12 @@
       "when": "main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 1000,
-            "duration": "turn"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 2
+            },
+            "limit": 1
           }
         }
       ]
@@ -54074,10 +54251,13 @@
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 5000,
+              "feature": "革命軍"
+            },
+            "limit": 1
           }
         }
       ]
@@ -54968,7 +55148,11 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーとキャラすべてを、次の自分のターン開始時まで、パワー+1000。"
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
         }
       ],
       "cost": {
@@ -57134,9 +57318,20 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の「シャーロット・リンリン」1枚までを、次の自分のターン開始時まで、パワー+1000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "シャーロット・リンリン"
+            },
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     },
     {
       "_text": "OP03-117 trigger: このカードを登場させる。",
@@ -57355,9 +57550,21 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の手札から「ドグラ」以外のコスト1の赤のキャラ1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "exclude_name": "ドグラ",
+              "cost_eq": 1,
+              "color": "赤"
+            },
+            "limit": 1
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     }
   ],
   "OP02-014": [
@@ -58289,7 +58496,10 @@
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "ko_opp_stage": {
+            "cost_le": 3,
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -59391,7 +59601,11 @@
       "when": "on_block",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このターン中、このキャラはパワー+1000。"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -59405,7 +59619,7 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、相手のアクティブのキャラにもアタックできる。"
+          "give_attack_active_chara": "self"
         }
       ],
       "cost": {
@@ -59951,7 +60165,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の「モンキー・Ｄ・ルフィ」を、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "モンキー・Ｄ・ルフィ"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -62419,10 +62640,12 @@
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2
+            },
+            "limit": 1
           }
         }
       ]
@@ -63546,9 +63769,19 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の「シャーロット・リンリン」1枚までは、このターン中、【バニッシュ】を得る。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)"
+          "give_keyword": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "シャーロット・リンリン"
+            },
+            "keyword": "バニッシュ"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     },
     {
       "_text": "ST07-011 trigger: このカードを登場させる。",
@@ -63566,9 +63799,19 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の「シャーロット・リンリン」1枚までは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)"
+          "give_keyword": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "シャーロット・リンリン"
+            },
+            "keyword": "ダブルアタック"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true
+      }
     },
     {
       "_text": "ST07-013 trigger: このカードを登場させる。",
@@ -63723,13 +63966,7 @@
       "when": "main",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_le_5000",
-            "amount": 2
-          }
+          "force_opp_discard": 1
         }
       ]
     },
@@ -63941,7 +64178,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分の手札のコスト4以下の「ページワン」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "name": "ページワン",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -67606,10 +67850,14 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 5000,
+              "color": "黄",
+              "has_trigger": true
+            },
+            "limit": 1
           }
         }
       ]
@@ -69504,7 +69752,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の手札のコスト4以下の「ページワン」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "name": "ページワン",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {

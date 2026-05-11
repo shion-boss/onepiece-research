@@ -1433,13 +1433,24 @@ def execute_effect(
             state.push_log(f"  効果: このターン中 cost{n}+ キャラ登場禁止")
         elif k == "ko_opp_stage":
             # 相手のステージ N 枚 KO (cost フィルタオプショナル)
+            # cost: int (==), cost_le: int (≤), cost_ge: int (≥)
             spec = v if isinstance(v, dict) else {"limit": 1}
             limit = int(spec.get("limit", 1))
-            cost_filter = spec.get("cost")
+            cost_eq = spec.get("cost")
+            cost_le = spec.get("cost_le")
+            cost_ge = spec.get("cost_ge")
+            def _stage_matches(s):
+                if cost_eq is not None and s.card.cost != int(cost_eq):
+                    return False
+                if cost_le is not None and s.card.cost > int(cost_le):
+                    return False
+                if cost_ge is not None and s.card.cost < int(cost_ge):
+                    return False
+                return True
             removed = 0
             kept: list = []
             for s in opp.stages:
-                if removed < limit and (cost_filter is None or s.card.cost == cost_filter):
+                if removed < limit and _stage_matches(s):
                     opp.trash.append(s.card)
                     removed += 1
                 else:
