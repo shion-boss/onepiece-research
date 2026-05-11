@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { fetchDeckAnalysis, fetchDeckStrategy } from "@/lib/api";
+import { ArticleGenerator } from "@/components/ArticleGenerator";
+import { VsArticleGenerator } from "@/components/VsArticleGenerator";
 import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { DeckMatchupRow } from "@/components/DeckMatchupRow";
 import { DeckStrategyPanel } from "@/components/DeckStrategyPanel";
@@ -27,12 +29,14 @@ export default async function DeckAnalyzePage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
       <header className="space-y-1">
-        <Link
-          href={`/decks/${encodeURIComponent(slug)}`}
-          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-        >
-          ← /decks/{slug}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/decks/${encodeURIComponent(slug)}`}
+            className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
+          >
+            ← デッキ詳細
+          </Link>
+        </div>
         <h1 className="text-2xl font-semibold tracking-tight">
           {data?.name ?? slug} — 分析
         </h1>
@@ -57,6 +61,8 @@ export default async function DeckAnalyzePage({
             <h2 className="mb-3 text-lg font-semibold">対戦相手別 勝率</h2>
             <DeckMatchupRow slug={slug} />
           </section>
+          <VsArticleGenerator slug={slug} />
+          <ArticleGenerator slug={slug} />
         </>
       ) : null}
     </main>

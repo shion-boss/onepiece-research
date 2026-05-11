@@ -1224,3 +1224,127 @@ def analyze_match_game(job_id: str, game_index: int):
             else None
         ),
     )
+
+
+# --------------------------------------------------------------------------- #
+# エンドポイント: note 記事生成 (完全ローカル)
+# --------------------------------------------------------------------------- #
+
+class ArticleResponse(BaseModel):
+    article: str
+    deck_name: str
+    model: str
+
+
+@app.post("/api/decks/{slug}/generate-article")
+def generate_deck_article(slug: str):
+    """デッキ分析データを元に note.com 向けデッキ概要記事をローカル生成する。
+    外部 API 不要。engine/article_generator.py のテンプレートエンジンを使用。
+    vs 相手 攻略記事は /api/decks/{slug}/battle-report エンドポイントを使うこと。
+    """
+    from engine.article_generator import generate_article
+
+    deck_path = DECKS_DIR / f"{slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+
+    strategy_data: dict = {}
+    cache_path = DECKS_DIR / f"{slug}.analysis.json"
+    if cache_path.exists():
+        try:
+            strategy_data = json.loads(cache_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    if not strategy_data:
+        try:
+            from dataclasses import asdict
+            from engine.deck_analyzer import analyze_deck
+            repo = get_repo()
+            deck = make_deck_from_dict(json.loads(deck_path.read_text(encoding="utf-8")), repo)
+            overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+            analysis = analyze_deck(deck, overlay)
+            d = asdict(analysis)
+            d["top_features"] = [list(t) for t in d.get("top_features", [])]
+            strategy_data = d
+        except Exception as e:
+            raise HTTPException(500, f"strategy load failed: {e}")
+
+    deck_name = strategy_data.get("deck_name", slug)
+
+    matchup_rows: list[dict] = []
+    deck_name_map: dict[str, str] = {}
+    if _MATRIX_PATH.exists():
+        try:
+            matrix = json.loads(_MATRIX_PATH.read_text(encoding="utf-8"))
+            deck_name_map = {d["slug"]: d["name"] for d in matrix.get("decks", [])}
+            for row in matrix.get("matrix", []):
+                if row.get("deck_a") == slug:
+                    matchup_rows = row.get("row", [])
+                    break
+        except Exception:
+            pass
+
+    article = generate_article(strategy_data, matchup_rows, deck_name_map)
+    return ArticleResponse(article=article, deck_name=deck_name, model="local")
+
+
+class BattleReportResponse(BaseModel):
+    article: str
+    deck_name: str
+    opponent_name: str
+    n_games: int
+    n_wins: int
+    n_losses: int
+
+
+@app.post("/api/decks/{slug}/battle-report", response_model=BattleReportResponse)
+def generate_battle_report(
+    slug: str,
+    opponent_slug: str = Query(..., description="対戦相手デッキの slug"),
+    n_games: int = Query(10, ge=3, le=20, description="試合数 (3〜20)"),
+    seed: int = Query(42),
+):
+    """対戦ログを解析して勝ち/負け別の実戦レポートを生成する。"""
+    from engine.log_analyzer import parse_game_log, generate_battle_report as _gen_report
+    from engine.analyzer import analyze_game
+
+    repo = get_repo()
+
+    deck_path = DECKS_DIR / f"{slug}.json"
+    opp_path = DECKS_DIR / f"{opponent_slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+    if not opp_path.exists():
+        raise HTTPException(404, f"opponent deck not found: {opponent_slug}")
+
+    try:
+        deck_a = make_deck_from_dict(json.loads(deck_path.read_text(encoding="utf-8")), repo)
+        deck_b = make_deck_from_dict(json.loads(opp_path.read_text(encoding="utf-8")), repo)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, f"deck build failed: {e}")
+
+    report = run_matchup(
+        deck_a, deck_b, n_games=n_games, seed=seed, keep_logs=True, record_snapshots=True,
+    )
+
+    all_stats = [
+        parse_game_log(g.log, g.winner, g.turns, our_idx=0)
+        for g in report.games
+    ]
+
+    board_analyses = [
+        analyze_game(g.snapshots, me_idx=0, me_name=deck_a.name, opp_name=deck_b.name)
+        for g in report.games
+    ]
+
+    n_wins = sum(1 for s in all_stats if s.won)
+    article = _gen_report(all_stats, deck_a.name, deck_b.name, board_analyses=board_analyses)
+
+    return BattleReportResponse(
+        article=article,
+        deck_name=deck_a.name,
+        opponent_name=deck_b.name,
+        n_games=n_games,
+        n_wins=n_wins,
+        n_losses=n_games - n_wins,
+    )

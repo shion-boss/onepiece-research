@@ -263,3 +263,48 @@ export async function searchFaq(
   if (!res.ok) throw new Error(`searchFaq failed: ${res.status}`);
   return res.json();
 }
+
+export interface BattleReportResponse {
+  article: string;
+  deck_name: string;
+  opponent_name: string;
+  n_games: number;
+  n_wins: number;
+  n_losses: number;
+}
+
+export async function generateBattleReport(
+  slug: string,
+  opponentSlug: string,
+  nGames: number = 10,
+  seed: number = 42,
+): Promise<BattleReportResponse> {
+  const params = new URLSearchParams({
+    opponent_slug: opponentSlug,
+    n_games: String(nGames),
+    seed: String(seed),
+  });
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/battle-report?${params}`,
+    { method: "POST", cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `battle-report failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function generateDeckArticle(
+  slug: string,
+): Promise<{ article: string; deck_name: string; model: string }> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/generate-article`,
+    { method: "POST", cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `generate-article failed: ${res.status}`);
+  }
+  return res.json();
+}
