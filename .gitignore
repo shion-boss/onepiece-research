@@ -68,6 +68,13 @@ db/faq/*.json
 # 対戦ログ (ローカル状態)
 db/match_history.jsonl
 
+# replay 永続化 (再生成可、 大容量バイナリ)
+db/match_replays.sqlite
+db/match_replays.sqlite-journal
+
+# matchup_matrix の一時バックアップ (= 適用前の snapshot)
+db/matchup_matrix.before.json
+
 # overlay 候補 (生成物、必要に応じて再生成)
 db/card_effects.suggestions.json
 

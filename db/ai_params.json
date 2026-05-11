@@ -1,0 +1,24 @@
+{
+  "version": "1",
+  "saved_at": "2026-05-12T00:00:00Z",
+  "note": "initial default — matches hardcoded values in engine/eval.py and engine/ai.py",
+  "params": {
+    "w_life": 1500,
+    "w_field_count": 1200,
+    "w_field_power": 1,
+    "w_hand": 250,
+    "w_don": 200,
+    "w_blocker": 800,
+    "w_attached_don": 400,
+    "w_active_chara": 600,
+    "w_lethal": 5000,
+    "activate_main_min_payoff_global": 0,
+    "activate_main_don_compensated_strict": false,
+    "defense_threshold_life_le_1": 99999,
+    "defense_threshold_life_eq_2": 8000,
+    "defense_threshold_life_eq_3": 6000,
+    "defense_threshold_life_ge_4": 2000,
+    "attack_gap_tolerance_default": -500
+  },
+  "_history": []
+}

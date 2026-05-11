@@ -1,0 +1,28 @@
+{
+  "version": "2026-05",
+  "note": "Human-assigned tier ground truth from CLAUDE.md. Used by learn_ai_params.py to score prediction accuracy.",
+  "tier_thresholds": {
+    "S": 0.85,
+    "A": 0.75,
+    "B": 0.50,
+    "C": 0.25,
+    "D": 0.0
+  },
+  "tiers": {
+    "cardrush_1429": {"name": "赤紫ロジャー", "leader": "OP13-003", "tier": "A", "expected_winrate": 0.83},
+    "cardrush_1439": {"name": "青黄ナミ", "leader": "OP11-041", "tier": "A", "expected_winrate": 0.82},
+    "cardrush_1342": {"name": "紫ドフラミンゴ", "leader": "OP14-060", "tier": "A", "expected_winrate": 0.77},
+    "cardrush_1436": {"name": "空島ルフィ", "leader": "OP15-098", "tier": "B", "expected_winrate": 0.74},
+    "cardrush_1438": {"name": "赤青エース", "leader": "OP13-002", "tier": "B", "expected_winrate": 0.72},
+    "cardrush_1308": {"name": "赤黄ボニー", "leader": "EB04-001", "tier": "B", "expected_winrate": 0.71},
+    "cardrush_1424": {"name": "紫エネル", "leader": "OP15-058", "tier": "B", "expected_winrate": 0.67},
+    "cardrush_1440": {"name": "緑ボニー", "leader": "OP07-019", "tier": "B", "expected_winrate": 0.51},
+    "cardrush_1223": {"name": "緑黄しらほし", "leader": "OP11-022", "tier": "C", "expected_winrate": 0.37},
+    "cardrush_1437": {"name": "緑ミホーク", "leader": "OP14-020", "tier": "C", "expected_winrate": 0.35},
+    "cardrush_1392": {"name": "黒イム", "leader": "OP13-079", "tier": "C", "expected_winrate": 0.32},
+    "cardrush_1339": {"name": "青紫サンジ", "leader": "OP12-041", "tier": "D", "expected_winrate": 0.23},
+    "cardrush_1399": {"name": "赤青ルーシー", "leader": "OP15-002", "tier": "D", "expected_winrate": 0.13},
+    "cardrush_1273": {"name": "緑紫ルフィ", "leader": "EB02-010", "tier": "D", "expected_winrate": 0.06},
+    "cardrush_1385": {"name": "黒クロコダイル", "leader": "OP14-079", "tier": "D", "expected_winrate": 0.06}
+  }
+}

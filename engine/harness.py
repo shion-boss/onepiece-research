@@ -121,6 +121,8 @@ def run_matchup(
     referee_strict: bool = False,
     deck1_analysis: Optional[dict] = None,
     deck2_analysis: Optional[dict] = None,
+    record_replays: bool = False,
+    replays_db_path: Optional[Path] = None,
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
@@ -131,10 +133,18 @@ def run_matchup(
     enforce_rules=True (既定) で各アクション前後にルール違反をチェック (RuleReferee)。
     referee_strict=True で違反検出時に対戦を即停止 (= テスト用)。既定の False では
     違反をログに記録するだけで対戦は継続。
+    record_replays=True で各試合を db/match_replays.sqlite に永続化 (= 学習データ蓄積)。
+    keep_logs/record_snapshots は自動的に True 扱い。 replays_db_path を指定すれば
+    別 sqlite ファイルに保存 (= テスト用)。
     """
 
     if effects_overlay is None:
         effects_overlay = load_effect_overlay(_DEFAULT_OVERLAY_PATH)
+
+    if record_replays:
+        # 学習用に詳細データを強制保存
+        keep_logs = True
+        record_snapshots = True
 
     # 引数で analysis 未指定なら decks/<slug>.analysis.json から自動ロード
     if deck1_analysis is None:
@@ -242,6 +252,26 @@ def run_matchup(
             rule_violations=(list(referee.violations) if referee else []),
         )
         report.games.append(result)
+
+        if record_replays:
+            from .replay_recorder import save_replay
+            try:
+                save_replay(
+                    deck_a=getattr(deck1, "slug", None) or deck1.name,
+                    deck_b=getattr(deck2, "slug", None) or deck2.name,
+                    game_idx=g,
+                    winner_for_deck_a=winner_for_deck,
+                    first_player=first_player,
+                    turns=state.turn_number,
+                    log=result.log,
+                    snapshots=result.snapshots,
+                    seed=seed,
+                    extra_meta={"actions": actions, "rule_violations": result.rule_violations},
+                    db_path=replays_db_path,
+                )
+            except Exception as e:
+                if verbose:
+                    print(f"  [game {g}] replay save failed: {e}")
 
         if verbose and (g + 1) % max(1, n_games // 10) == 0:
             print(f"  [{g+1}/{n_games}] {report.deck1_name} {report.deck1_wins}-{report.deck2_wins} {report.deck2_name}")

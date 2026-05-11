@@ -23,6 +23,8 @@ import copy
 import random
 from typing import Optional
 
+from . import hand_estimator
+from .ai_params import AIParams
 from .core import GameState, InPlay, Phase, Player, Category
 from .game import (
     Action,
@@ -81,23 +83,22 @@ class GreedyAI:
         self,
         rng: Optional[random.Random] = None,
         deck_analysis: Optional[dict] = None,
+        ai_params: Optional[AIParams] = None,
     ):
         self.rng = rng or random.Random()
         self.deck_analysis = deck_analysis
+        # AI 全体共有パラメータ (= 学習対象)。 未指定なら db/ai_params.json から読み込み。
+        self.ai_params = ai_params if ai_params is not None else AIParams.load()
         # アーキタイプ別ヒューリスティックパラメータ
         # default = ミッドレンジ (= 既存の挙動)
         self.archetype = "ミッドレンジ"
         # 防御パラメータ: ライフ別に counter を切る上限と枚数
         # 値: { life: (max_total, max_cards) }
-        self.defense_thresholds = {
-            1: (99999, 99),  # 致命: 全力
-            2: (8000, 3),
-            3: (6000, 2),
-            4: (2000, 1),
-        }
+        # ai_params の base 値を初期化に使う (= ミッドレンジ default)
+        self.defense_thresholds = self._default_defense_thresholds()
         # 攻撃パラメータ: gap_tolerance = リーダー攻撃の安全マージン
         # (= attacker.power >= leader.power + tolerance なら攻撃)
-        self.attack_gap_tolerance = 0
+        self.attack_gap_tolerance = self.ai_params.attack_gap_tolerance_default
         # フィニッシャー温存判定の閾値 (高コスト = key_cards 由来)
         self.finisher_card_ids: set[str] = set()
         # ramp 系優先 (起動メイン無条件発動)
@@ -109,9 +110,21 @@ class GreedyAI:
         self.blocker_scarce = False
         self.early_finisher_hold_ids: set[str] = set()
         self.counter_aggression = "mid"
+        self.keep_field_synergy_only: Optional[str] = None
+        self.preferred_search_target_ids: list[str] = []
 
         if deck_analysis:
             self._apply_archetype_profile(deck_analysis)
+
+    def _default_defense_thresholds(self) -> dict:
+        """AIParams から base 防御閾値 dict を構築。"""
+        p = self.ai_params
+        return {
+            1: (p.defense_threshold_life_le_1, 99),  # 致命: 全力
+            2: (p.defense_threshold_life_eq_2, 3),
+            3: (p.defense_threshold_life_eq_3, 2),
+            4: (p.defense_threshold_life_ge_4, 1),
+        }
 
     def _apply_archetype_profile(self, analysis: dict) -> None:
         """deck_analysis からアーキタイプ別の挙動パラメータを設定。"""
@@ -126,6 +139,10 @@ class GreedyAI:
         self.blocker_scarce = False
         self.early_finisher_hold_ids: set[str] = set()
         self.counter_aggression = "mid"  # low / mid / high
+        # 起動メインの「場が特徴 X のみ」 条件を守るためのシナジー外 play 抑制
+        self.keep_field_synergy_only: Optional[str] = None
+        # サーチ系効果の優先ターゲット ID リスト (フィニッシャー/ドロー)
+        self.preferred_search_target_ids: list[str] = []
         for sig in signals:
             t = sig.get("type")
             v = sig.get("value")
@@ -141,6 +158,10 @@ class GreedyAI:
                 self.early_finisher_hold_ids = set(v)
             elif t == "counter_aggression":
                 self.counter_aggression = str(v)
+            elif t == "keep_field_synergy_only":
+                self.keep_field_synergy_only = str(v) if v else None
+            elif t == "preferred_search_target_ids" and isinstance(v, list):
+                self.preferred_search_target_ids = list(v)
         if arche == "アグロ":
             # ライフ詰め優先、 counter 控えめ、 攻撃は power 不足でも狙う
             self.defense_thresholds = {
@@ -174,8 +195,10 @@ class GreedyAI:
             }
             self.attack_gap_tolerance = 0
         else:  # ミッドレンジ
-            # default: ぎりぎり通る攻撃 (gap -500) も拾う。 攻撃機会の取りこぼしを抑制
-            self.attack_gap_tolerance = -500
+            # default: ai_params.attack_gap_tolerance_default を使う (= 学習対象)。
+            # defense_thresholds も __init__ で ai_params から既に初期化済み。
+            self.attack_gap_tolerance = self.ai_params.attack_gap_tolerance_default
+            self.defense_thresholds = self._default_defense_thresholds()
 
         # フィニッシャー (= role: finisher) のカード ID をストア
         for k in analysis.get("key_cards", []):
@@ -187,13 +210,24 @@ class GreedyAI:
         me = state.turn_player
         opp = state.opponent
 
-        # 0) 起動メイン効果: コスト無しは即発動、 ドン消費型は payoff 評価
+        # 0) 起動メイン効果: コスト無しは即発動、 ドン消費型は payoff 評価。
+        # ただし「untap_don 系で don_rested が refunded 未満」 のもの (= 効果不発) は
+        # PlayCharacter の後ろに後回し (= キャラ play で don_rested を貯めてから再評価)。
         act_main = [a for a in actions if isinstance(a, ActivateMain)]
+        deferred_act_main: list[ActivateMain] = []
         if act_main:
-            chosen = self._pick_activate_main(state, act_main)
-            if chosen is not None:
-                return chosen
-            # 全 dud → 他のアクションへフォールスルー
+            eligible = []
+            for a in act_main:
+                eff = self._get_activate_eff(state, a)
+                if eff and self._has_useless_untap(eff, me):
+                    # untap が機能しないので後回し
+                    deferred_act_main.append(a)
+                else:
+                    eligible.append(a)
+            if eligible:
+                chosen = self._pick_activate_main(state, eligible)
+                if chosen is not None:
+                    return chosen
 
         # 0.5) 撃てるイベントは安い順で消化 (リソース消費を抑える)
         play_event_actions: list[PlayEvent] = [a for a in actions if isinstance(a, PlayEvent)]
@@ -212,6 +246,31 @@ class GreedyAI:
         play_actions: list[PlayCharacter] = [a for a in actions if isinstance(a, PlayCharacter)]
         if play_actions:
             life_left = len(me.life)
+            # keep_field_synergy_only: 起動メイン「場が特徴 X のみ」 条件を守る。
+            # 場が既に全部シナジー特徴のキャラなら、 シナジー外を play すると条件破壊 → 除外。
+            # (場にシナジー外が混在している場合は条件既に破壊済みなので何でも play 可)
+            if self.keep_field_synergy_only and me.characters:
+                feat = self.keep_field_synergy_only
+                field_all_synergy = all(
+                    feat in c.card.features for c in me.characters
+                )
+                if field_all_synergy:
+                    synergy_only_plays = [
+                        a for a in play_actions
+                        if feat in me.hand[a.hand_idx].features
+                    ]
+                    if synergy_only_plays:
+                        play_actions = synergy_only_plays
+                    # シナジー候補が無ければ play_actions を絞らず、 後段の判断に委ねる
+            elif self.keep_field_synergy_only and not me.characters:
+                # 場が空 = これから建てる。 1 体目は必ずシナジー特徴で揃える
+                feat = self.keep_field_synergy_only
+                synergy_only_plays = [
+                    a for a in play_actions
+                    if feat in me.hand[a.hand_idx].features
+                ]
+                if synergy_only_plays:
+                    play_actions = synergy_only_plays
             # フィニッシャー温存: ライフ余裕時 (>=3) なら hold 対象は除外
             if life_left >= 3 and self.early_finisher_hold_ids:
                 non_hold = [
@@ -302,11 +361,11 @@ class GreedyAI:
                 viable_leader.append((a, attacker))
         if viable_leader:
             # リーサル判定: 自分の合計打点で相手 life + 防御パワー を超えるか?
-            # 相手 counter で +N 防御される可能性は手札枚数 × 平均カウンター値で見積
+            # 相手 counter は hand_estimator で公開情報 (= opp.deck+hand プール) から
+            # 期待値推定。 トラッシュ済カウンター持ちは自動的にプールから外れる。
             opp_life = len(opp.life)
-            opp_hand = len(opp.hand)
-            # 平均カウンター推定: 手札 1 枚あたり 1500 (= 1k〜2k カウンター混合)
-            est_counter_per_card = 1500
+            opp_idx = 1 - state.turn_player_idx
+            est_counter_per_card = hand_estimator.expected_counter_per_card(state, opp_idx)
             # ライフ 1 枚 = 1 ヒット必要 (ダブルアタックは無視、簡略)
             hits_to_lethal = opp_life
             if hits_to_lethal == 0:
@@ -321,7 +380,7 @@ class GreedyAI:
             total_excess = sum(d for _, d in top_n)
             # リーサル成立条件: 上位 hits_to_lethal 攻撃の合計 excess >
             # (相手の使えるカウンター総量) → 全部受け止められない
-            est_max_defense = est_counter_per_card * opp_hand
+            est_max_defense = int(est_counter_per_card * len(opp.hand))
             is_lethal = (
                 len(top_n) >= hits_to_lethal
                 and total_excess >= est_max_defense
@@ -334,8 +393,45 @@ class GreedyAI:
             ordered = sorted(viable_leader, key=lambda x: x[1].power)
             return ordered[0][0]
 
+        # 3) 後回しにしていた起動メイン (untap 系) を再評価
+        # PlayCharacter / 攻撃で don_rested が貯まっている可能性
+        if deferred_act_main:
+            # 再度フィルタ: 今は don_rested が十分か?
+            still_eligible = [
+                a for a in deferred_act_main
+                if not self._has_useless_untap(
+                    self._get_activate_eff(state, a) or {}, me
+                )
+            ]
+            if still_eligible:
+                chosen = self._pick_activate_main(state, still_eligible)
+                if chosen is not None:
+                    return chosen
+
         # 4) フェーズ終了
         return EndPhase()
+
+    def _has_useless_untap(self, eff: dict, me: Player) -> bool:
+        """この起動メイン効果が untap_don を含み、 現状 don_rested 不足で発動しても
+        0 ドンしか活性化できない (= 焚き損) か判定。 PlayCharacter 後に再評価するため。
+
+        注意: untap_don 限定で判定する。 add_don / add_rested_don は「**新しい ドンをデッキから出す**」
+        効果で、 don_rested に依存しないため untap 系には含めない。
+        """
+        untap_required = 0
+        for prim in eff.get("do", []):
+            for k, v in prim.items():
+                if k == "untap_don":
+                    if isinstance(v, int):
+                        untap_required += v
+                    elif isinstance(v, str) and v == "all":
+                        untap_required += 1  # 1 以上なら良い
+                    elif isinstance(v, dict):
+                        untap_required += int(v.get("amount", 0))
+        if untap_required == 0:
+            return False  # untap_don 系効果なし
+        # 現時点 で actually untap できる枚数 < untap_required なら無駄打ち
+        return me.don_rested < untap_required
 
     def choose_defense(
         self,
@@ -477,6 +573,10 @@ class GreedyAI:
           delta が「ドン消費分の損失」を超えるなら発動価値あり (eval 内 W_DON で
           ドン消失は既に減算されるので、 純 delta > 0 なら net gain)。
         - 全候補で payoff ≤ 0 → None (フォールスルーで他アクションへ)
+
+        ai_params 由来のゲート (= 学習可能):
+        - activate_main_don_compensated_strict: ドン相殺型でも 「DON 再投資先あり」 のみ採用
+        - activate_main_min_payoff_global: ドン相殺型でも eval delta が指定値未満なら不採用
         """
         if not candidates:
             return None
@@ -485,15 +585,34 @@ class GreedyAI:
         if free:
             return free[0]
 
-        # don 相殺型 (pay_don を untap_don/add_don で取り戻す) も即発動
-        for a in candidates:
-            eff = self._get_activate_eff(state, a)
-            if eff and self._activate_main_don_compensated(eff):
-                return a
-
-        # 純粋なドン消費型: 仮想実行 → eval delta が正のものを採用
+        # don 相殺型 (pay_don を untap_don/add_don で取り戻す)
+        # ai_params のゲート: strict=True なら「DON 再投資先あり」 のみ、
+        # min_payoff_global > 0 なら eval delta チェック
+        strict = self.ai_params.activate_main_don_compensated_strict
+        min_payoff = self.ai_params.activate_main_min_payoff_global
         from .eval import compute_score
         me_idx = state.turn_player_idx
+        for a in candidates:
+            eff = self._get_activate_eff(state, a)
+            if not (eff and self._activate_main_don_compensated(eff)):
+                continue
+            # gate 1: strict モード = DON 再投資先 / power_pump 利用先があるか
+            if strict and not self._don_compensated_useful_now(state, eff):
+                continue
+            # gate 2: min_payoff > 0 なら eval delta 要求
+            if min_payoff > 0:
+                pre = compute_score(state, me_idx)
+                sim = copy.deepcopy(state)
+                try:
+                    apply_action(sim, a)
+                except Exception:
+                    continue
+                post = compute_score(sim, me_idx)
+                if post - pre < min_payoff:
+                    continue
+            return a
+
+        # 純粋なドン消費型: 仮想実行 → eval delta が正のものを採用
         pre = compute_score(state, me_idx)
         best_action: Optional[Action] = None
         best_delta = 0
@@ -509,6 +628,90 @@ class GreedyAI:
                 best_delta = delta
                 best_action = a
         return best_action
+
+    def _don_compensated_useful_now(
+        self, state: GameState, eff: dict
+    ) -> bool:
+        """ドン相殺型起動メインを「今打つ価値あるか」 判定。
+
+        判定基準 (厳密):
+        - untap_don 系: untap した DON が **追加で必要** な再投資先があるか
+          (= 「現 don_active では出せないが、 untap_don 後なら出せる」 カードがある)
+        - power_pump 効果: 対象が **今ターン未だ攻撃しておらず**、 かつ pump がリターンを生む
+        - 純粋な「DON ぐるぐる回し」 (= 再投資先なし) は False (= 浪費)
+
+        どちらも該当しなければ False = 今焚くだけ DON 浪費。
+        """
+        me = state.turn_player
+        untap_amount = 0       # untap_don: rested ドンを active 化
+        new_don_amount = 0     # add_don / add_rested_don: 新規ドン発生 (rested 依存なし)
+        has_power_pump = False
+        for prim in eff.get("do", []):
+            for k, v in prim.items():
+                amount = 0
+                if isinstance(v, int):
+                    amount = v
+                elif isinstance(v, dict):
+                    amount = int(v.get("amount", 0))
+                if k == "untap_don":
+                    untap_amount += amount if amount else 1
+                elif k in ("add_don", "add_rested_don"):
+                    new_don_amount += amount
+                elif k == "power_pump":
+                    has_power_pump = True
+
+        # 1) untap_don の有用性: untap_don は rested ドンしか活性化できない。
+        # 現状 me.don_rested が untap_amount 未満なら、 実際に得られる active ドンはそれだけ。
+        # 一方で add_don / add_rested_don は新規ドンなので don_rested 不足の影響を受けない。
+        total_don_gain = min(untap_amount, me.don_rested) + new_don_amount
+        if untap_amount > 0 and total_don_gain <= 0:
+            # untap も new_don も得るものなし → untap 効果は実質無価値
+            if not has_power_pump:
+                return False
+            # power_pump はあるが ドン獲得部分は無価値 → power_pump 判定にフォールスルー
+        elif total_don_gain > 0:
+            # 得た DON で「追加で出せるカード」 を作れるか
+            useful = False
+            for c in me.hand:
+                cost = getattr(c, "cost", 99)
+                if cost > me.don_active and cost <= me.don_active + total_don_gain:
+                    useful = True
+                    break
+            if useful:
+                return True
+            if not has_power_pump:
+                return False
+
+        # 2) power_pump の有用性: 「pump 無しでも (= 既存 DON を付与すれば) 攻撃成立」 なら False
+        if has_power_pump:
+            opp = state.opponent
+            if me.leader.rested:
+                # リーダー既に攻撃済み → リーダー対象 pump は無価値、 キャラ pump のみ評価
+                for chara in me.characters:
+                    if (not chara.rested and not chara.summoning_sickness
+                            and chara.attached_dons < 2):
+                        return True
+                return False
+            # リーダー未 rest = 攻撃予定。
+            # 「起動メインを焚かず、 既存の don_active を leader に付与した場合」 の最大攻撃力
+            # でも opp.leader を倒せるなら pump は不要 (= 浪費)。
+            opp_lp = opp.leader.power
+            pay_don = int(eff.get("cost", {}).get("pay_don", 0))
+            # 起動メインを撃つ場合の純 DON 増減 (= untap で実際に活性化できる枚数 + 新規ドン - 支払い)
+            don_if_skip = me.don_active  # 撃たない場合の使える DON
+            don_if_play = me.don_active - pay_don + min(untap_amount, me.don_rested) + new_don_amount
+            # 撃たない方が DON 多いか同等 = まず False を検討
+            max_atk_no_pump = me.leader.power + min(4, don_if_skip) * 1000
+            if max_atk_no_pump >= opp_lp:
+                # pump 無しで届く → pump はリーダー +1000 = リーサル助力でなければ不要
+                # リーサルチェック: 相手 life=1 で hand が薄い場合は +1000 が活きる
+                if len(opp.life) >= 2 or len(opp.hand) >= 3:
+                    return False
+            # pump がないと届かない → pump は本当に必要
+            return True
+
+        # 3) その他の効果型 (search / draw 等): 通常通り発動
+        return True
 
     def _optimal_counter_combo(self, hand: list, gap: int) -> list[int]:
         """gap を超える最小コンボを brute force で探す (手札 < 12 想定)。

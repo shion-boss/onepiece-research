@@ -28,12 +28,72 @@ from engine.harness import run_matchup             # noqa: E402
 OUT = ROOT / "db" / "matchup_matrix.json"
 
 
+def _compare_matrices(before_path: Path, after_path: Path) -> int:
+    """2 つの matchup_matrix.json を比較して、 デッキ別の勝率変化を表示。
+
+    10%pt 以上の退行が見つかったら警告終了 (exit 2)。
+    """
+    if not before_path.exists():
+        print(f"ERROR: {before_path} not found")
+        return 1
+    if not after_path.exists():
+        print(f"ERROR: {after_path} not found")
+        return 1
+    before = json.loads(before_path.read_text(encoding="utf-8"))
+    after = json.loads(after_path.read_text(encoding="utf-8"))
+
+    def deck_avg_winrate(matrix_doc: dict) -> dict[str, float]:
+        out: dict[str, float] = {}
+        for cell in matrix_doc.get("matrix", []):
+            slug_a = cell["deck_a"]
+            wr_list = [
+                r["winrate"]
+                for r in cell["row"]
+                if r.get("winrate") is not None
+            ]
+            if wr_list:
+                out[slug_a] = sum(wr_list) / len(wr_list)
+        return out
+
+    b_wr = deck_avg_winrate(before)
+    a_wr = deck_avg_winrate(after)
+    all_slugs = sorted(set(b_wr) | set(a_wr))
+    print(f"{'deck':<25}  {'before':>8}  {'after':>8}  {'delta':>8}")
+    print("-" * 60)
+    regression_found = False
+    for slug in all_slugs:
+        b = b_wr.get(slug)
+        a = a_wr.get(slug)
+        if b is None or a is None:
+            print(f"{slug:<25}  {'N/A':>8}  {'N/A':>8}")
+            continue
+        delta = a - b
+        flag = ""
+        if delta <= -0.10:
+            flag = "  ⚠ regression"
+            regression_found = True
+        elif delta >= 0.10:
+            flag = "  ✓ improved"
+        print(f"{slug:<25}  {b:>7.2%}  {a:>7.2%}  {delta:>+7.2%}{flag}")
+    if regression_found:
+        print("\n10%pt 以上の退行を検出。 結果を採用する場合は人間レビュー必須。")
+        return 2
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-games", type=int, default=30, help="各セルの試合数")
     ap.add_argument("--seed", type=int, default=42, help="乱数 seed")
     ap.add_argument("--decks-glob", default="*.json", help="対象 deck ファイル glob")
+    ap.add_argument("--row-diff", nargs=2, metavar=("BEFORE", "AFTER"),
+                    help="2 つの matrix json を比較してデッキ別勝率差分を表示")
     args = ap.parse_args()
+
+    if args.row_diff:
+        before_path = Path(args.row_diff[0])
+        after_path = Path(args.row_diff[1])
+        return _compare_matrices(before_path, after_path)
 
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     deck_paths = sorted((ROOT / "decks").glob(args.decks_glob))

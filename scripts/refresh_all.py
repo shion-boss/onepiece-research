@@ -66,6 +66,15 @@ def step_matrix(n_games: int, seed: int) -> int:
     ])
 
 
+def step_learn_diagnostic() -> int:
+    """敗因タグ集計 + AI パラメータ学習の診断モード。 自動 apply はしない。"""
+    return run([
+        str(PYTHON),
+        str(SCRIPTS / "learn_ai_params.py"),
+        "--no-grid",
+    ])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-official", action="store_true", help="PDF/FAQ/banlist チェックをスキップ")
@@ -73,6 +82,8 @@ def main() -> int:
                     help="cardrush 再 scrape + 代表選出をスキップ")
     ap.add_argument("--skip-matrix", action="store_true",
                     help="マッチアップ行列再計算をスキップ")
+    ap.add_argument("--skip-learn", action="store_true",
+                    help="AI 学習診断をスキップ")
     ap.add_argument("--cardrush-scores", nargs="+", default=["優勝", "準優勝"],
                     choices=["優勝", "準優勝", "3位", "ベスト4"])
     ap.add_argument("--cardrush-since", default=None, help="cardrush 取得期間 (YYYY-MM-DD)")
@@ -98,6 +109,10 @@ def main() -> int:
         rcs.append(("cardrush-select", step_cardrush_select()))
     if not args.skip_matrix:
         rcs.append(("matrix", step_matrix(args.matrix_n_games, args.matrix_seed)))
+    if not args.skip_learn:
+        # 診断モードのみ実行 (= 敗因タグ集計 + 提案レポート)。
+        # 採用は手動で `learn_ai_params.py --apply`。
+        rcs.append(("learn-diagnostic", step_learn_diagnostic()))
 
     print()
     print("=" * 60)
