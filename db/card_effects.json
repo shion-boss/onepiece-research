@@ -3626,7 +3626,22 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_end_phase"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB04-007 activate_main: 【ターン1回】相手のパワー8000以上のキャラがいる場合、このキャラは、このターン中、【速攻：キャラ】を得る",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
           }
         }
       ]
@@ -3771,6 +3786,26 @@
               "feature": "超新星"
             },
             "limit": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST24-002 opp_attack: このキャラをトラッシュに置くことができる：自分のドン!!1枚までを、アクティブにする。",
+      "when": "opp_attack",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_to_trash": true
+              }
+            ],
+            "effect": [
+              {
+                "untap_don": 1
+              }
+            ]
           }
         }
       ]
@@ -4055,6 +4090,29 @@
               "feature": "白ひげ海賊団"
             },
             "limit": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST22-002 opp_attack: このキャラをトラッシュに置くことができる：カード1枚を引き、自分の手札1枚をデッキの下に置く。",
+      "when": "opp_attack",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_to_trash": true
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "self_hand_to_deck_bottom": 1
+              }
+            ]
           }
         }
       ]
@@ -7498,6 +7556,22 @@
   ],
   "OP15-114": [
     {
+      "_text": "OP15-114 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラすべてを、このターン中、パワー-2000。その後、相手のパワー0以下のキャラすべてを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_opponent_characters",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_0"
+        }
+      ]
+    },
+    {
       "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
       "when": "activate_main",
       "cost": {
@@ -8434,9 +8508,10 @@
         {
           "play_from_trash": {
             "filter": {
+              "category": "CHARACTER",
               "cost_le": 4,
-              "_unimplemented": "has_trigger=True (= トリガー keyword 持ち)",
-              "exclude_card_id": "OP14-110"
+              "has_trigger": true,
+              "exclude_name": "ドクトル・ホグバック"
             },
             "limit": 1
           }
@@ -8445,6 +8520,15 @@
     }
   ],
   "OP14-111": [
+    {
+      "_text": "OP14-111 on_play: 相手のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+      "when": "on_play",
+      "do": [
+        {
+          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+        }
+      ]
+    },
     {
       "_text": "OP14-111 on_ko: 相手のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
       "when": "on_ko",
@@ -42117,6 +42201,25 @@
             "target": "self",
             "amount": 1000,
             "duration": "battle"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB04-052 on_ko: 自分のライフが2枚以下の場合、自分の手札からパワー6000以下の黄のキャラカード1枚までを、登場させる。",
+      "when": "on_ko",
+      "if": {
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "黄"
+            },
+            "limit": 1
           }
         }
       ]
