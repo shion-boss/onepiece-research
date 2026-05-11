@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { fetchFaqSources, searchFaq } from "@/lib/api";
 import type { FaqHit, FaqSource } from "@/lib/types";
@@ -80,13 +79,7 @@ export default function FaqPage() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
       <header className="space-y-1">
-        <Link
-          href="/"
-          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-        >
-          ← back
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">/faq</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Q&amp;A</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           公式 Q&A 横断検索 ({totalQa.toLocaleString()} 件 / {sources.length} ソース)。
           複数キーワードはスペース区切りで AND 検索。

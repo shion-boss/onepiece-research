@@ -14,13 +14,7 @@ export default async function MetaPage() {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-6">
       <header className="space-y-1">
-        <Link
-          href="/"
-          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-        >
-          ← back
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">/meta</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">メタ分析</h1>
         {data && (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {data.decks.length} デッキ × {data.decks.length} の勝率行列。各セル{" "}

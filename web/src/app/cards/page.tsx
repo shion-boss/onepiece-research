@@ -52,15 +52,7 @@ export default async function CardsPage({
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="space-y-1">
-          <Link
-            href="/"
-            className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-          >
-            ← back
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">/cards</h1>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">カード</h1>
         <div className="text-sm text-zinc-600 dark:text-zinc-400">
           {error ? "—" : `${cards.length} 件 (上限 200)`}
         </div>

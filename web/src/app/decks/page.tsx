@@ -15,13 +15,7 @@ export default async function DecksPage() {
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="space-y-1">
-          <Link
-            href="/"
-            className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-          >
-            ← back
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">/decks</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">デッキ</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             メタデッキ DB ({decks.length} 個)。クリックで詳細・対戦シミュレーション。
           </p>

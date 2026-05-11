@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useDeckBuilderStore } from "@/stores/deckBuilder";
 import { LeaderPicker } from "@/components/builder/LeaderPicker";
 import { CardSearchPane } from "@/components/builder/CardSearchPane";
@@ -16,6 +16,14 @@ import {
 } from "@/lib/api";
 
 export default function NewDeckPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-zinc-500">読み込み中…</div>}>
+      <NewDeckPageContent />
+    </Suspense>
+  );
+}
+
+function NewDeckPageContent() {
   const params = useSearchParams();
   const router = useRouter();
   const fromSlug = params.get("from");

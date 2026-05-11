@@ -1,8 +1,6 @@
-import Link from "next/link";
-
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 p-12">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 p-12">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">
           One Piece Research
@@ -12,44 +10,27 @@ export default function Home() {
         </p>
       </header>
 
-      <nav className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Link
-          href="/cards"
-          className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
-        >
-          <div className="text-lg font-medium">/cards</div>
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            カードブラウザ(検索 / フィルタ)
-          </div>
-        </Link>
-        <Link
-          href="/decks"
-          className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
-        >
-          <div className="text-lg font-medium">/decks</div>
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            デッキ管理 + 対戦シミュレーション
-          </div>
-        </Link>
-        <Link
-          href="/meta"
-          className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
-        >
-          <div className="text-lg font-medium">/meta</div>
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            メタデッキ間の勝率行列 (heatmap)
-          </div>
-        </Link>
-        <Link
-          href="/faq"
-          className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
-        >
-          <div className="text-lg font-medium">/faq</div>
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            公式 Q&A の横断検索
-          </div>
-        </Link>
-      </nav>
+      <div className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
+        <p>左のサイドバーから各機能へ移動できます:</p>
+        <ul className="ml-4 list-disc space-y-1.5 text-zinc-600 dark:text-zinc-400">
+          <li>
+            <strong className="text-zinc-800 dark:text-zinc-200">カード</strong>{" "}
+            — 全 4,518 枚の検索・フィルタ
+          </li>
+          <li>
+            <strong className="text-zinc-800 dark:text-zinc-200">デッキ</strong>{" "}
+            — メタデッキの管理・対戦シミュレーション
+          </li>
+          <li>
+            <strong className="text-zinc-800 dark:text-zinc-200">メタ分析</strong>{" "}
+            — デッキ間の勝率行列 (N×N heatmap)
+          </li>
+          <li>
+            <strong className="text-zinc-800 dark:text-zinc-200">Q&amp;A</strong>{" "}
+            — 公式ルールQ&amp;A の横断検索 (2,500+ 件)
+          </li>
+        </ul>
+      </div>
     </main>
   );
 }
