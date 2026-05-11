@@ -47663,7 +47663,16 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】相手の属性(特)を持つキャラ1枚までを、このターン中、パワー-5000"
+          "power_pump": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "attribute": "特"
+              }
+            },
+            "amount": -5000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -47675,7 +47684,16 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "相手の属性(特)を持つキャラ1枚までを、このターン中、パワー-5000。"
+          "power_pump": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "attribute": "特"
+              }
+            },
+            "amount": -5000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -56481,7 +56499,14 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト1の赤のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 1,
+              "color": "赤"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -59122,7 +59147,15 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分の手札からコスト4以下の「ベポ」以外の特徴《ハートの海賊団》を持つキャラカード1枚までを、登場させる"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "exclude_name": "ベポ",
+              "feature": "ハートの海賊団"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -63206,7 +63239,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分の手札が5枚以下の場合、このキャラは、次の自分のターン開始時まで、パワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
         }
       ],
       "if": {
@@ -63219,7 +63256,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札が5枚以下の場合、このキャラは、次の自分のターン開始時まで、パワー+2000。"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
         }
       ],
       "if": {
@@ -64552,7 +64593,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】相手のドン!!1枚までを、レストにする"
+          "rest_opp_don": 1
         }
       ],
       "if": {
@@ -65221,7 +65262,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】相手のドン!!1枚までを、レストにする"
+          "rest_opp_don": 1
         }
       ],
       "if": {
@@ -67691,7 +67732,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "相手は、このターン中、【ブロッカー】を発動できない。"
+          "prevent_blocker_for_attacker": "self"
         }
       ]
     }
@@ -68348,7 +68389,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】相手のドン!!1枚までを、レストにする"
+          "rest_opp_don": 1
         }
       ],
       "if": {
