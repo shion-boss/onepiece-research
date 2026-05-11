@@ -610,7 +610,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "相手の元々のパワーが5000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_5000"
         }
       ]
     }
@@ -1134,7 +1134,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト3以下の、特徴《魚人族》か《人魚族》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "or_clauses": [
+                {
+                  "feature": "魚人族"
+                },
+                {
+                  "feature": "人魚族"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     },
@@ -1154,7 +1168,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《東の海》を持つ場合、相手の元々のパワー6000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_6000"
         }
       ],
       "if": {
@@ -1168,7 +1182,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "相手のリーダーかコスト7以下のキャラ1枚までを、レストにする。"
+          "rest": "one_opponent_inplay_cost_le_7"
         }
       ]
     }
@@ -1179,7 +1193,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のドン‼が付与されているキャラ1枚までを、レストにする。"
+          "rest": "one_opponent_character_attached_don_ge_1"
         }
       ]
     }
@@ -2567,11 +2581,17 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分の特徴《フォクシー海賊団》を持つキャラが3枚以上いる場合、相手の元々のパワー6000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_6000"
         }
       ],
       "cost": {
         "pay_don": 1
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "フォクシー海賊団",
+          "count": 3
+        }
       }
     }
   ],
@@ -5388,9 +5408,12 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーの「ロロノア・ゾロ」を、アクティブにする。"
+          "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ロロノア・ゾロ"
+      }
     },
     {
       "_text": "OP12-039 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -5598,7 +5621,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手のリーダーかコスト3以下のキャラ1枚までを、レストにする。"
+          "rest": "one_opponent_inplay_cost_le_3"
         }
       ]
     }
@@ -9073,7 +9096,14 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分の「クリーク」1枚までを、このバトル中、パワー+4000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "クリーク"
+            },
+            "amount": 4000,
+            "duration": "battle"
+          }
         }
       ]
     }
@@ -15803,7 +15833,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手の元々のコスト3以下のキャラ2枚までを、KOする。"
+          "ko_multi": [
+            "one_opponent_character_cost_le_3",
+            "one_opponent_character_cost_le_3"
+          ]
         }
       ],
       "cost": {
@@ -16010,7 +16043,7 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "相手の元々のパワー6000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_6000"
         }
       ]
     },
@@ -16019,7 +16052,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手の元々のパワー5000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_5000"
         }
       ]
     }
@@ -16727,7 +16760,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "相手の元々のパワー3000以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -41483,7 +41516,16 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ミンク族》を持つ、リーダーかキャラ1枚までを、このバトル中、パワー+3000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "ミンク族"
+              }
+            },
+            "amount": 3000,
+            "duration": "battle"
+          }
         }
       ]
     }
@@ -42286,7 +42328,14 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分の「ボア・ハンコック」1枚までを、このバトル中、パワー+3000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "ボア・ハンコック"
+            },
+            "amount": 3000,
+            "duration": "battle"
+          }
         }
       ]
     }
@@ -45387,7 +45436,16 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分の特徴《スリラーバーク海賊団》を持つ、リーダーかキャラ1枚までを、このバトル中、パワー+3000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "スリラーバーク海賊団"
+              }
+            },
+            "amount": 3000,
+            "duration": "battle"
+          }
         }
       ]
     },
@@ -45915,7 +45973,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ボア・ハンコック」の場合、自分の手札からコスト3以下の「ボア・ハンコック」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "name": "ボア・ハンコック"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -45929,7 +45994,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ボア・ハンコック」の場合、自分の手札からコスト6以下の「ボア・ハンコック」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 6,
+              "name": "ボア・ハンコック"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -46150,7 +46222,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の特徴《天竜人》を持つキャラ1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "天竜人"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -51918,7 +51999,21 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《魚人族》を持つ場合、自分の手札からコスト3以下の特徴《魚人族》か《人魚族》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "or_clauses": [
+                {
+                  "feature": "魚人族"
+                },
+                {
+                  "feature": "人魚族"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -54377,7 +54472,16 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -55668,7 +55772,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ワノ国》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+1000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "ワノ国"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -57608,7 +57721,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト1の青のイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT",
+              "color": "青",
+              "cost_eq": 1
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -58779,7 +58899,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の「パシフィスタ」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "name": "パシフィスタ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -58818,7 +58945,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《B・W》を持つ場合、自分のトラッシュのイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -59667,7 +59799,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の「モンキー・Ｄ・ルフィ」を、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "モンキー・Ｄ・ルフィ"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -62676,11 +62815,20 @@
   ],
   "ST12-016": [
     {
+      "_text": "ST12-016 main: 相手のリーダーかコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "main",
+      "do": [
+        {
+          "rest": "one_opponent_inplay_cost_le_4"
+        }
+      ]
+    },
+    {
       "_text": "ST12-016 counter: 相手のリーダーかコスト4以下のキャラ1枚までを、レストにする。",
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "相手のリーダーかコスト4以下のキャラ1枚までを、レストにする。"
+          "rest": "one_opponent_inplay_cost_le_4"
         }
       ]
     },
@@ -67019,7 +67167,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト5以下の特徴《海王類》か《魚人島》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 5,
+              "or_clauses": [
+                {
+                  "feature": "海王類"
+                },
+                {
+                  "feature": "魚人島"
+                }
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }

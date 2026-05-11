@@ -552,6 +552,30 @@ def _resolve_target(
         if t == "all_self_chara_named":
             name = target_spec.get("name", "")
             return [ip for ip in me.characters if ip.card.name == name]
+        if t == "one_self_chara_or_leader_filtered":
+            # 自リーダー / キャラから filter にマッチする 1 枚 (パワー高い順)
+            filt = target_spec.get("filter", {})
+            cands = [ip for ip in [me.leader, *me.characters]
+                     if _matches_filter(ip.card, filt)]
+            cands.sort(key=lambda ip: -ip.power)
+            return cands[:1]
+        if t == "one_self_chara_filtered":
+            # 自キャラのみから filter にマッチする 1 枚 (パワー高い順)
+            filt = target_spec.get("filter", {})
+            cands = [ip for ip in me.characters
+                     if _matches_filter(ip.card, filt)]
+            cands.sort(key=lambda ip: -ip.power)
+            return cands[:1]
+        if t == "all_self_chara_filtered":
+            # 自キャラ全員 (filter マッチ)
+            filt = target_spec.get("filter", {})
+            return [ip for ip in me.characters
+                    if _matches_filter(ip.card, filt)]
+        if t == "all_self_team_filtered":
+            # 自リーダー + キャラ全員 (filter マッチ)
+            filt = target_spec.get("filter", {})
+            return [ip for ip in [me.leader, *me.characters]
+                    if _matches_filter(ip.card, filt)]
     if target_spec in (None, "self") and self_inplay is not None:
         return [self_inplay]
     if target_spec == "opponent_leader":
@@ -752,6 +776,19 @@ def _resolve_target(
         if m:
             target_name = m.group(1)
             return [c for c in me.characters if c.card.name == target_name]
+
+        # one_opponent_inplay_cost_le_N (= 相手のリーダーかコスト N 以下のキャラ 1 体)
+        # 脅威優先: パワー高いキャラ → なければリーダー
+        m = re.match(r"one_opponent_inplay_cost_le_(\d+)(?:cost)?$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in opp.characters if c.card.cost <= n],
+                key=lambda c: -c.power,
+            )
+            if cands:
+                return cands[:1]
+            return [opp.leader]
 
         # one_self_character_any (= 自分の任意 1 体、 パワー高い順)
         if target_spec == "one_self_character_any":
@@ -1107,7 +1144,11 @@ def execute_effect(
             state.push_log(f"  効果: レストドン+{n}")
         elif k == "untap_don":
             # レストドンを N 枚アクティブにする (緑紫ルフィ / 緑ミホーク等)
-            n = int(v)
+            # v="all" は「自分のドン!! すべてを、アクティブにする」(OP13-028)
+            if isinstance(v, str) and v == "all":
+                n = me.don_rested
+            else:
+                n = int(v)
             n = min(n, me.don_rested)
             me.don_rested -= n
             me.don_active += n
