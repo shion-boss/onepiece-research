@@ -576,6 +576,33 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             return [ip for ip in [me.leader, *me.characters]
                     if _matches_filter(ip.card, filt)]
+        if t == "one_opponent_character_filtered":
+            # 相手キャラから filter にマッチする 1 枚 (= パワー高い順、 attached_don 等の属性条件も追加サポート)
+            filt = target_spec.get("filter", {})
+            # 追加条件: attached_don_ge, rested
+            attached_don_ge = int(filt.get("attached_don_ge", 0))
+            rested_required = bool(filt.get("rested", False))
+            cands = []
+            for ip in opp.characters:
+                if not _matches_filter(ip.card, filt):
+                    continue
+                if attached_don_ge > 0 and ip.attached_dons < attached_don_ge:
+                    continue
+                if rested_required and not ip.rested:
+                    continue
+                # 現在パワー条件 (= InPlay.power; "現在のパワー" 用)
+                if "current_power_le" in filt and ip.power > int(filt["current_power_le"]):
+                    continue
+                cands.append(ip)
+            cands.sort(key=lambda ip: -ip.power)
+            return cands[:1]
+        if t == "one_opponent_inplay_filtered":
+            # 相手リーダー or キャラ から filter にマッチする 1 枚
+            filt = target_spec.get("filter", {})
+            cands = [opp.leader, *opp.characters]
+            cands = [ip for ip in cands if _matches_filter(ip.card, filt)]
+            cands.sort(key=lambda ip: -ip.power)
+            return cands[:1]
     if target_spec in (None, "self") and self_inplay is not None:
         return [self_inplay]
     if target_spec == "opponent_leader":
