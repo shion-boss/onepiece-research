@@ -1892,3 +1892,322 @@ def test_play_from_trash_rested_flag():
     )
     assert len(me.characters) == 1
     assert me.characters[0].rested is True, "rested=True で登場するはず"
+
+
+def test_life_top_or_bottom_to_hand():
+    """life_top_or_bottom_to_hand: 自ライフ1枚を手札へ"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-013"), repo.get("OP01-013")]
+    hand_before = len(me.hand)
+    life_before = len(me.life)
+    result = execute_effect(
+        {"life_top_or_bottom_to_hand": {"owner": "self", "count": 1}},
+        state, me, opp, None,
+    )
+    assert len(me.hand) == hand_before + 1
+    assert len(me.life) == life_before - 1
+    # ライフ 0 のときは False (= 解決不能)
+    me.life = []
+    result = execute_effect(
+        {"life_top_or_bottom_to_hand": 1},
+        state, me, opp, None,
+    )
+    assert result is False
+
+
+def test_scry_life_reorders_by_value():
+    """scry_life: 自ライフ上 N 枚をトリガー有/カウンター大優先で上に並べる"""
+    from engine.effects import execute_effect
+    from engine.core import Category
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # トリガー無し + カウンター無し vs トリガー有を意図的に並べる
+    # OP01-013 (サンジ) はカウンター2000、 リーダー OP01-001 はカウンター0
+    low = repo.get("OP01-001")  # leader (category=LEADER) — power 5000 / counter 0
+    high = repo.get("OP01-013") # character — counter 2000
+    me.life = [low, high]  # top=low, bottom=high
+    execute_effect(
+        {"scry_life": {"owner": "self", "depth": 2}},
+        state, me, opp, None,
+    )
+    # 価値高 (high) が上に来るべき
+    assert me.life[0] is high
+    assert me.life[1] is low
+
+
+def test_choice_picks_by_life_count():
+    """choice: 自ライフ 1 以下なら option=1 を選ぶ"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-013")]  # ライフ 1 (≤ 1)
+    me.hand = [repo.get("OP01-013")]
+    # option 0: ライフ → 手札 (life_to_hand)
+    # option 1: 手札 → ライフ (hand_to_self_life)
+    execute_effect(
+        {"choice": {
+            "options": [
+                [{"life_to_hand": 1}],
+                [{"hand_to_self_life": 1}],
+            ],
+        }},
+        state, me, opp, None,
+    )
+    # option=1 が選ばれた = 手札→ライフ → ライフ 2 / 手札 0
+    assert len(me.life) == 2
+    assert len(me.hand) == 0
+
+
+def test_reveal_top_play_matched_summons():
+    """reveal_top_play: デッキ上1枚が filter にマッチすればキャラ登場"""
+    from engine.effects import execute_effect
+    from engine.core import Category
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # OP01-013 (サンジ, cost=4) を上に置く
+    target_card = repo.get("OP01-013")
+    me.deck = [target_card] + list(me.deck)
+    before_chara = len(me.characters)
+    before_deck = len(me.deck)
+    execute_effect(
+        {"reveal_top_play": {"filter": {"cost_le": 4}, "rested": False, "rest_remain": "bottom"}},
+        state, me, opp, None,
+    )
+    # マッチ → キャラ登場、 デッキ -1
+    assert len(me.characters) == before_chara + 1
+    assert me.characters[-1].card is target_card
+    assert me.characters[-1].rested is False
+    assert len(me.deck) == before_deck - 1
+
+
+def test_reveal_top_play_unmatched_to_bottom():
+    """reveal_top_play: filter にマッチしなければデッキ下に戻す"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    sanji = repo.get("OP01-013")  # cost=4
+    me.deck = [sanji] + list(me.deck)
+    before_chara = len(me.characters)
+    before_deck = len(me.deck)
+    execute_effect(
+        {"reveal_top_play": {"filter": {"cost_le": 1}, "rest_remain": "bottom"}},
+        state, me, opp, None,
+    )
+    # 不マッチ (サンジ cost=2 > 1) → 場 変化なし、 デッキ枚数は同じ (底へ戻る)
+    assert len(me.characters) == before_chara
+    assert len(me.deck) == before_deck
+    # 底に戻された
+    assert me.deck[-1] is sanji
+
+
+def test_rest_self_cards_primitive():
+    """rest_self_cards: 自場の active キャラ/リーダーから power 低い順に N 枚レスト"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # 異なるパワーのキャラ 3 体
+    c1 = InPlay.of(repo.get("OP01-013"), sickness=False)  # power 4000
+    c2 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [c1, c2]
+    # me.leader.power = 5000 (OP01-001)
+    execute_effect({"rest_self_cards": 2}, state, me, opp, None)
+    # power 低い順 → c1, c2 が先にレスト (leader は 5000 で残り)
+    rested = sum(1 for ip in [me.leader, *me.characters] if ip.rested)
+    assert rested == 2
+    assert c1.rested and c2.rested
+    assert not me.leader.rested
+
+
+def test_replace_ko_target_color_filter():
+    """_replace_ko_match: target_color フィルタで色を判別"""
+    from engine.effects import _replace_ko_match
+    repo = _repo()
+    holder = InPlay.of(repo.get("OP01-013"), sickness=False)  # 赤
+    victim_green = InPlay.of(repo.get("OP01-001"), sickness=False)
+    # OP01-001 = 赤リーダー、 緑テスト用に別カードを探す
+    from engine.core import Category
+    green_chara = None
+    for c in repo._by_id.values():
+        if c.category == Category.CHARACTER and '緑' in c.color:
+            green_chara = c
+            break
+    assert green_chara is not None
+    victim_green = InPlay.of(green_chara, sickness=False)
+    cond = {"target": "other_self_chara", "target_color": "緑", "by_opp_effect": True}
+    assert _replace_ko_match(cond, holder, victim_green, by_opp_effect=True) is True
+    # 赤カードで判定 → False
+    victim_red = InPlay.of(repo.get("OP01-013"), sickness=False)
+    assert _replace_ko_match(cond, holder, victim_red, by_opp_effect=True) is False
+
+
+def test_replace_ko_target_name_exclude():
+    """_replace_ko_match: target_name_exclude で特定名を除外"""
+    from engine.effects import _replace_ko_match
+    repo = _repo()
+    holder = InPlay.of(repo.get("OP01-013"), sickness=False)
+    # サンジ (OP01-013) は除外、 他のキャラは通す
+    cond = {"target": "other_self_chara", "target_name_exclude": "サンジ"}
+    victim = InPlay.of(repo.get("OP01-013"), sickness=False)  # holder と別 instance
+    # サンジ自身 → exclude されるべき
+    assert _replace_ko_match(cond, holder, victim, by_opp_effect=False) is False
+    # 別のキャラ
+    other = repo.get("OP01-001")  # 別の名前
+    victim2 = InPlay.of(other, sickness=False)
+    assert _replace_ko_match(cond, holder, victim2, by_opp_effect=False) is True
+
+
+def test_disable_effect_turn_duration():
+    """disable_effect duration=turn: granted_keywords に '効果無効' を追加、 ターン終了でクリア"""
+    from engine.effects import execute_effect
+    from engine.game import advance_phase
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    sanji = InPlay.of(repo.get("OP01-013"), sickness=False)
+    opp.characters = [sanji]
+    execute_effect(
+        {"disable_effect": {"target": "one_opponent_character_any", "duration": "turn"}},
+        state, me, opp, None,
+    )
+    assert "効果無効" in sanji.granted_keywords
+    assert sanji.effect_disabled_through_opp_turn is False
+
+
+def test_disable_effect_next_opp_turn_with_cannot_attack():
+    """disable_effect duration=next_opp_turn_end + also_cannot_attack:
+    フラグ 2 つを立て、 所有者ターン終了時にクリア"""
+    from engine.effects import execute_effect
+    from engine.game import advance_phase, _reset_turn_buff
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    sanji = InPlay.of(repo.get("OP01-013"), sickness=False)
+    opp.characters = [sanji]
+    execute_effect(
+        {"disable_effect": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end",
+            "also_cannot_attack": True,
+        }},
+        state, me, opp, None,
+    )
+    assert sanji.effect_disabled_through_opp_turn is True
+    assert sanji.cannot_attack_through_opp_turn is True
+    # me (ターン主) のターン終了時 → opp のフラグはクリアされない (= 次の相手ターン中も有効)
+    _reset_turn_buff(state)
+    assert sanji.effect_disabled_through_opp_turn is True
+    # ターン交代をシミュレート: turn_player_idx = 1 (opp 側)
+    state.turn_player_idx = 1
+    # opp のターン終了時 → opp のキャラのフラグがクリア
+    _reset_turn_buff(state)
+    assert sanji.effect_disabled_through_opp_turn is False
+    assert sanji.cannot_attack_through_opp_turn is False
+
+
+def test_disable_effect_blocks_on_attack_trigger():
+    """効果無効化されたキャラの on_attack は _execute_event で抑止される"""
+    from engine.effects import execute_effect, _execute_event, TriggerEvent, CardEffectBundle
+    repo = _repo()
+    overlay = {"OP01-013": CardEffectBundle(card_id="OP01-013", effects=[
+        {"when": "on_attack",
+         "do": [{"power_pump": {"target": "self", "amount": 1000, "duration": "turn"}}]}
+    ])}
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    sanji = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [sanji]
+    # disable_effect (turn) を適用
+    sanji.granted_keywords.add("効果無効")
+    base_power = sanji.power
+    # on_attack イベント発火
+    evt = TriggerEvent(
+        when="on_attack",
+        owner_idx=0,
+        source_card_id="OP01-013",
+        source_iid=sanji.instance_id,
+        payload={},
+    )
+    _execute_event(state, evt)
+    # 効果無効 → power_pump 不発 → パワー変化なし
+    assert sanji.power == base_power
+
+
+def test_optional_cost_then_fires_when_payable():
+    """optional_cost_then: ライフ + 手札があるとき cost を払って effect 発動"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-013"), repo.get("OP01-013")]
+    me.hand = [repo.get("OP01-013")]
+    execute_effect(
+        {"optional_cost_then": {
+            "cost": [{"life_top_or_bottom_to_hand": 1}],
+            "effect": [{"hand_to_self_life": 1}],
+        }},
+        state, me, opp, None,
+    )
+    # cost: ライフ -1 / 手札 +1 → 効果: 手札 -1 / ライフ +1 → 結果: swap
+    assert len(me.life) == 2
+    assert len(me.hand) == 1
+
+
+def test_optional_cost_then_skips_when_unpayable():
+    """optional_cost_then: cost を払えないなら何もしない (return False)"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = []  # ライフ 0 → cost 払えない
+    me.hand = [repo.get("OP01-013")]
+    result = execute_effect(
+        {"optional_cost_then": {
+            "cost": [{"life_top_or_bottom_to_hand": 1}],
+            "effect": [{"hand_to_self_life": 1}],
+        }},
+        state, me, opp, None,
+    )
+    assert result is False
+    assert len(me.hand) == 1, "手札は変化なし"
+
+
+def test_choice_default_option_0_when_life_mid():
+    """choice: 自ライフ ≥ 3 では option=0 (= 公式テキスト先頭)"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-013")] * 3
+    me.hand = [repo.get("OP01-013")]
+    execute_effect(
+        {"choice": {
+            "options": [
+                [{"life_to_hand": 1}],
+                [{"hand_to_self_life": 1}],
+            ],
+        }},
+        state, me, opp, None,
+    )
+    # option=0 → ライフ 1枚を手札へ → ライフ 2 / 手札 2
+    assert len(me.life) == 2
+    assert len(me.hand) == 2

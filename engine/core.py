@@ -171,6 +171,20 @@ class InPlay:
     # 静的効果でセット、evaluate_static_effects でリセット。
     # 相手の効果 (ko / return_to_hand) からこのキャラを除外する保護。
     protect_from_opp_effect: bool = False
+    # 「次の相手のターン終了時まで」効果無効 (OP09-093 黒ひげ等)。
+    # 所有者ターンの END で _reset_turn_buff がクリア (= ちょうど「次の相手ターン終了時」と一致)
+    effect_disabled_through_opp_turn: bool = False
+    # 「次の相手のターン終了時まで」アタック不可。同上でクリア。
+    cannot_attack_through_opp_turn: bool = False
+    # 「このキャラがアタックする場合、相手は【ブロッカー】を発動できない」 (ST21-003 等)。
+    # Phase.END でクリア (turn-bound)。
+    attacker_prevents_blocker_until_turn_end: bool = False
+    # 「相手の元々のコスト N 以下のキャラへアタックできない」 (OP12-020 リーダー等)。
+    # -1 は無効、 0+ は cost 上限。 Phase.END でクリア。
+    cannot_attack_target_cost_le_until_turn_end: int = -1
+    # 「次の相手のターン終了時まで、効果で KO されない」 (OP09-033 等)。
+    # 所有者ターン終了時 (= 公式「次の相手ターン終了時」と一致) にクリア。
+    ko_immune_through_opp_turn: bool = False
     # 所有者プレイヤー idx (0 or 1)。-1 は未設定 (テスト用直接生成のデフォルト)。
     # _recompute_static / evaluate_static_effects で state.players から逆引き設定
     owner_idx: int = -1
@@ -295,6 +309,10 @@ class Player:
     don_remaining_in_deck: int = 10
     # ターン中、次にプレイするキャラ/イベントのコスト軽減 (累積)。Phase.END でリセット
     play_cost_reduction: int = 0
+    # 静的 filter 付きコスト軽減 (= 場のキャラの常在効果)。
+    # 各要素: {"filter": {...}, "amount": int}。 evaluate_static_effects で再構築。
+    # OP05-097 「コスト2以上の天竜人キャラの支払うコストは1少なくなる」 等
+    play_cost_reductions_filtered: list = field(default_factory=list)
     # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
     block_chara_play_until_turn_end: bool = False
     # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット

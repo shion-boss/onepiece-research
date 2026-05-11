@@ -234,11 +234,15 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
             "on_ko", "main", "counter", "trigger"
         ):
             return
-        # 効果無効化 (negate_effect プリミティブで付与)。 場にいて、 かつ source が
-        # 「効果無効」 キーワードを持っているなら発火を抑止 (主要効果のみ。 on_ko 等は除外)
+        # 効果無効化 (negate_effect/disable_effect プリミティブで付与)。 場にいて、 かつ
+        # source が「効果無効」 キーワード or ターン跨ぎ無効フラグを持っているなら抑止。
+        # 主要効果のみ。 on_ko 等は除外。
         if (
             self_inplay is not None
-            and "効果無効" in self_inplay.granted_keywords
+            and (
+                "効果無効" in self_inplay.granted_keywords
+                or self_inplay.effect_disabled_through_opp_turn
+            )
             and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter")
         ):
             state.push_log(
@@ -405,9 +409,55 @@ def eval_condition(
                 return False
             if bool(v) != self_inplay.rested:
                 return False
+        elif k == "don_diff_le":
+            # 自分のドン総数 - 相手のドン総数 が N 以下 (= 「相手より N 以上少ない」 を表現)
+            # 例: don_diff_le: -2 → 自分のドンが相手より 2 枚以上少ない
+            n = int(v)
+            self_don = (
+                me.don_active + me.don_rested + me.leader.attached_dons
+                + sum(c.attached_dons for c in me.characters)
+            )
+            opp_don = (
+                opp.don_active + opp.don_rested + opp.leader.attached_dons
+                + sum(c.attached_dons for c in opp.characters)
+            )
+            if (self_don - opp_don) > n:
+                return False
+        elif k == "life_zero_either":
+            # 自分か相手のライフが 0 (OR)。 OP09-118 用
+            if bool(v) != (len(me.life) == 0 or len(opp.life) == 0):
+                return False
+        elif k == "self_chara_cost_ge_count":
+            # 自場のキャラのうち cost N 以上が n_required 枚以上いるか
+            # spec: {"cost_ge": N, "n": M}
+            spec_val = v if isinstance(v, dict) else {}
+            cost_ge = int(spec_val.get("cost_ge", 0))
+            n_req = int(spec_val.get("n", 1))
+            count = sum(1 for c in me.characters if c.card.cost >= cost_ge)
+            if count < n_req:
+                return False
+        elif k == "leader_multicolor":
+            # 自リーダーが多色 (= color に "/" 含む) であるか
+            is_multi = "/" in me.leader.card.color
+            if bool(v) != is_multi:
+                return False
+        elif k == "leader_feature_contains":
+            # 自リーダーの特徴に文字列 v を含む特徴があるか (= 『CP』を含む特徴等)
+            if not any(v in f for f in me.leader.card.features):
+                return False
+        elif k == "self_summoning_sickness":
+            # 「このキャラが登場したターンの場合」 = 召喚酔い中。 OP09-093 黒ひげ等
+            if self_inplay is None:
+                return False
+            if bool(v) != self_inplay.summoning_sickness:
+                return False
         elif k == "opp_leader_attribute" and opp is not None:
             # 相手リーダーの属性 (例: "斬"、緑ミホーク "斬がある場合 +1000")
             if v != opp.leader.card.attribute:
+                return False
+        elif k == "self_leader_attribute":
+            # 自リーダーの属性 (= 「自分のリーダーが属性(斬) を持つ場合」 等)
+            if v != me.leader.card.attribute:
                 return False
         elif k == "self_chara_only_feature":
             # 自分の場のキャラがすべて指定特徴を持つ (空でも True)
@@ -489,6 +539,19 @@ def _resolve_target(
     self_inplay: Optional[InPlay],
 ) -> list[InPlay]:
     """target 指定文字列または辞書から対象 InPlay リストを返す。"""
+    # 辞書 spec で type-based dispatch
+    if isinstance(target_spec, dict) and "type" in target_spec:
+        t = target_spec["type"]
+        if t == "self_chara_named":
+            name = target_spec.get("name", "")
+            return [ip for ip in me.characters if ip.card.name == name][:1]
+        if t == "self_chara_or_leader_named":
+            name = target_spec.get("name", "")
+            cands = [ip for ip in [me.leader, *me.characters] if ip.card.name == name]
+            return cands[:1]
+        if t == "all_self_chara_named":
+            name = target_spec.get("name", "")
+            return [ip for ip in me.characters if ip.card.name == name]
     if target_spec in (None, "self") and self_inplay is not None:
         return [self_inplay]
     if target_spec == "opponent_leader":
@@ -574,6 +637,38 @@ def _resolve_target(
             n = int(m.group(1))
             cands = sorted(
                 [c for c in opp.characters if c.power <= n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # one_opponent_character_power_eq_N (パワー N ぴったり、 1 体)。
+        # 公式「元々のパワー N」 用 (= CardDef.power で判定)。
+        m = re.match(r"one_opponent_character_power_eq_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in opp.characters if c.card.power == n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # one_opponent_character_attached_don_ge_N (= 相手のドン N 枚以上付与キャラ、 1 体)
+        # OP15-001 等
+        m = re.match(r"one_opponent_character_attached_don_ge_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in opp.characters if c.attached_dons >= n],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # one_self_character_cost_le_N (= 自分のキャラ コスト N 以下、 1 体, power 最大)
+        m = re.match(r"one_self_character_cost_le_(\d+)(?:cost)?$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = sorted(
+                [c for c in me.characters if c.card.cost <= n],
                 key=lambda c: -c.power,
             )
             return cands[:1]
@@ -729,7 +824,7 @@ def execute_effect(
                             f"  保護効果: {t.card.name} は相手の効果で離れない"
                         )
                         continue
-                    if t.ko_immune_until_turn_end or t.static_ko_immune:
+                    if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
                         state.push_log(f"  KO 耐性: {t.card.name} は効果で KO されない")
                         continue
                     # 置換効果 (KOされる場合、代わりに〜) のチェック
@@ -746,6 +841,8 @@ def execute_effect(
                     if state.effects_overlay:
                         # 効果による KO も【KO時】を発動 (10-2-1-3)
                         trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+                        # 「相手のキャラが KO された時」 (= 自分の効果で KO した側)
+                        trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
         elif k == "power_pump":
             # {"target": "self", "amount": 2000, "duration": "turn"|"static",
             #  "feature": "麦わらの一味" (特徴フィルタ),
@@ -802,6 +899,15 @@ def execute_effect(
             for t in targets:
                 t.rested = True
             state.push_log(f"  効果: レスト → {[t.card.name for t in targets]}")
+        elif k == "rest_self_cards":
+            # 自分のリーダー/キャラから N 枚をレスト。 AI 簡易: アクティブの中から power 低い順。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            actives = [me.leader] + list(me.characters)
+            actives = [ip for ip in actives if not ip.rested]
+            actives.sort(key=lambda ip: ip.power)
+            for ip in actives[:n]:
+                ip.rested = True
+            state.push_log(f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in actives[:n]]}")
         elif k == "return_to_hand":
             targets = _resolve_target(v, state, me, opp, self_inplay)
             for t in targets:
@@ -879,6 +985,89 @@ def execute_effect(
             state.rng.shuffle(me.deck)
             if not picked:
                 state.push_log(f"  効果: デッキ登場 (該当なし)")
+        elif k == "search_top_n":
+            # 公式: 「自分のデッキの上から N 枚を見て、 (filter) M 枚までを (destination)、
+            #       残りを (rest_remain) に置く」
+            # spec: {"depth": 5, "filter": {...}, "limit": 1,
+            #        "destination": "hand"|"play", "rested": false,
+            #        "rest_remain": "bottom"|"top_or_bottom"|"trash"}
+            spec_val = v if isinstance(v, dict) else {}
+            depth = int(spec_val.get("depth", 5))
+            filt = spec_val.get("filter", {})
+            limit = int(spec_val.get("limit", 1))
+            destination = spec_val.get("destination", "hand")
+            rested_flag = bool(spec_val.get("rested", False))
+            rest_remain = spec_val.get("rest_remain", "bottom")
+            if not me.deck:
+                return False
+            seen = me.deck[:depth]
+            me.deck = me.deck[depth:]
+            picked: list[CardDef] = []
+            remaining: list[CardDef] = []
+            for c in seen:
+                if len(picked) < limit and _matches_filter(c, filt):
+                    picked.append(c)
+                else:
+                    remaining.append(c)
+            for c in picked:
+                if destination == "play":
+                    if c.category != Category.CHARACTER:
+                        # キャラ以外は登場できない → 手札にもどす (簡略フォールバック)
+                        me.hand.append(c)
+                        continue
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state)
+                    ip = InPlay.of(c, rested=rested_flag, sickness=True)
+                    me.characters.append(ip)
+                    state.push_log(f"  効果: search_top_n → 登場 {c.name}")
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                else:  # hand
+                    me.hand.append(c)
+                    state.push_log(f"  効果: search_top_n → 手札 {c.name}")
+            # 残り処理
+            if rest_remain == "trash":
+                me.trash.extend(remaining)
+                state.push_log(
+                    f"  効果: search_top_n 残り{len(remaining)}枚 → トラッシュ"
+                )
+            else:
+                # bottom / top_or_bottom はどちらも底へ (AI 簡易)
+                me.deck.extend(remaining)
+            if not picked:
+                state.push_log(f"  効果: search_top_n 該当なし")
+        elif k == "reveal_top_play":
+            # 公式: 「デッキの一番上を公開し、 (条件) の場合、 登場させてもよい。 残りをデッキの下/上下に置く」
+            # spec: {"filter": {...}, "rested": false, "rest_remain": "bottom"|"top_or_bottom"|"top"}
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            rested_flag = bool(spec_val.get("rested", False))
+            rest_remain = spec_val.get("rest_remain", "bottom")
+            if not me.deck:
+                return False
+            revealed = me.deck.pop(0)
+            matched = (
+                revealed.category == Category.CHARACTER
+                and _matches_filter(revealed, filt)
+            )
+            state.push_log(
+                f"  効果: デッキ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"
+            )
+            if matched:
+                # AI 簡易: マッチなら必ず登場 (公式テキストでは任意だが期待値プラス)
+                if not me.can_play_character():
+                    me.trash_weakest_chara_for_field_full(state)
+                ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
+                me.characters.append(ip)
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
+            else:
+                # マッチしなければ rest_remain に従ってデッキへ戻す
+                # AI 簡易: top_or_bottom は底に固定 (上下選択の判断は後追い)
+                if rest_remain == "top":
+                    me.deck.insert(0, revealed)
+                else:
+                    me.deck.append(revealed)
         elif k == "search":
             # {"filter": {"category": "CHARACTER", "cost_le": 4}, "limit": 1}
             filt = v.get("filter", {})
@@ -937,6 +1126,8 @@ def execute_effect(
                 me.don_remaining_in_deck += more
                 removed += more
             state.push_log(f"  効果: 自ドン -{removed} (ドンデッキへ)")
+            if removed > 0 and state.effects_overlay:
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
         elif k == "untap":
             # 対象を rested=False に。target = self / self_leader / all_self_characters
             target_spec = v if isinstance(v, str) else "self"
@@ -1080,6 +1271,8 @@ def execute_effect(
             me.don_rested -= from_rested
             me.don_remaining_in_deck += from_rested
             state.push_log(f"  効果: 自ドン {n} 枚をドンデッキに戻す")
+            if (from_active + from_rested) > 0 and state.effects_overlay:
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
         elif k == "rest_self_don":
             # 自分のアクティブドン N 枚をレストにする (= 起動メイン代替コスト)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -1355,6 +1548,13 @@ def execute_effect(
                 state.push_log(f"  効果: 自身の【{when_kind}】効果を発動")
             finally:
                 state._fire_self_depth = depth
+        elif k == "rest_opp_don":
+            # 相手の active ドンを N 枚レストにする (ST02-008 等)。 不足はそのまま。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            taken = min(n, opp.don_active)
+            opp.don_active -= taken
+            opp.don_rested += taken
+            state.push_log(f"  効果: 相手ドン{taken}枚レスト")
         elif k == "return_opp_don":
             # 相手は自身の場のドン N 枚をドンデッキに戻す。 active 優先、 不足は rested から。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -1440,7 +1640,7 @@ def execute_effect(
                         if t.protect_from_opp_effect:
                             state.push_log(f"  保護効果: {t.card.name}")
                             continue
-                        if t.ko_immune_until_turn_end or t.static_ko_immune:
+                        if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
                             state.push_log(f"  KO 耐性: {t.card.name}")
                             continue
                         if state.effects_overlay and try_replace_ko(
@@ -1456,6 +1656,7 @@ def execute_effect(
                         already_kod.add(id(t))
                         if state.effects_overlay:
                             trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+                            trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
         elif k == "return_to_hand_multi":
             # マルチターゲット bounce (手札戻し)。
             if not isinstance(v, list):
@@ -1569,6 +1770,270 @@ def execute_effect(
                     me.don_rested += self_inplay.attached_dons
                 me.hand.append(self_inplay.card)
                 state.push_log(f"  効果: {self_inplay.card.name} を自手札に戻す")
+        elif k == "give_ko_immune_through_opp_turn":
+            # 「自分の特徴X を持つキャラすべては、 次の相手ターン終了時まで、 効果で KO されない」(OP09-033)
+            # spec: {"filter": {...}}
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            for ip in me.characters:
+                if _matches_filter(ip.card, filt):
+                    ip.ko_immune_through_opp_turn = True
+            state.push_log(
+                f"  効果: KO耐性 (next_opp_turn_end) → filter={filt}"
+            )
+        elif k == "set_cannot_attack_target_cost_le":
+            # 「相手の元々のコスト N 以下のキャラへアタックできない」 (OP12-020 リーダー等)
+            # spec: {"target": "self_leader", "cost_le": 7} or {"cost_le": 7} (= self_leader 既定)
+            spec_val = v if isinstance(v, dict) else {"cost_le": int(v)}
+            target_spec = spec_val.get("target", "self_leader")
+            cost_le = int(spec_val.get("cost_le", 0))
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                t.cannot_attack_target_cost_le_until_turn_end = cost_le
+            state.push_log(
+                f"  効果: コスト{cost_le}以下のキャラへアタック禁止 → {[t.card.name for t in targets]}"
+            )
+        elif k == "win_game":
+            # 効果による勝利 (OP09-118 速攻ルフィ等)。 即座に declare_winner。
+            me_idx = state.players.index(me)
+            state.declare_winner(me_idx, "効果による勝利")
+            state.push_log(f"  効果: {me.name} がゲームに勝利")
+        elif k == "return_self_to_trash":
+            # このキャラをトラッシュに置く (ジェルマ66コスト等)。
+            if self_inplay is not None and self_inplay in me.characters:
+                me.characters.remove(self_inplay)
+                if self_inplay.attached_dons > 0:
+                    me.don_rested += self_inplay.attached_dons
+                me.trash.append(self_inplay.card)
+                state.push_log(f"  効果: {self_inplay.card.name} をトラッシュへ")
+        elif k == "play_from_hand_or_trash":
+            # 手札 か トラッシュ から filter 一致のキャラ 1 枚を登場 (= ジェルマ66系)。
+            # spec: {"filter": {...}, "limit": 1, "rested": false}
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            rested_flag = bool(spec.get("rested", False))
+            # 手札優先 → トラッシュ
+            found = 0
+            new_hand = []
+            for card in me.hand:
+                if (
+                    found < limit
+                    and card.category == Category.CHARACTER
+                    and _matches_filter(card, filt)
+                ):
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state)
+                    ip = InPlay.of(card, rested=rested_flag, sickness=True)
+                    me.characters.append(ip)
+                    found += 1
+                    state.push_log(f"  効果: 手札から登場 → {card.name}")
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                else:
+                    new_hand.append(card)
+            me.hand[:] = new_hand
+            if found < limit:
+                # トラッシュから残り
+                new_trash = []
+                for card in me.trash:
+                    if (
+                        found < limit
+                        and card.category == Category.CHARACTER
+                        and _matches_filter(card, filt)
+                    ):
+                        if not me.can_play_character():
+                            me.trash_weakest_chara_for_field_full(state)
+                        ip = InPlay.of(card, rested=rested_flag, sickness=True)
+                        me.characters.append(ip)
+                        found += 1
+                        state.push_log(f"  効果: トラッシュから登場 → {card.name}")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                    else:
+                        new_trash.append(card)
+                me.trash[:] = new_trash
+            if found == 0:
+                state.push_log(f"  効果: play_from_hand_or_trash 該当なし")
+        elif k == "life_top_or_bottom_to_hand":
+            # 公式: 「ライフの上か下から N 枚を手札に加える」
+            # spec: {"owner": "self"|"opp", "count": 1, "place": "top"|"bottom"|"choice"}
+            spec_val = v if isinstance(v, dict) else {"count": int(v)}
+            owner = spec_val.get("owner", "self")
+            count = int(spec_val.get("count", 1))
+            place = spec_val.get("place", "choice")
+            target_pl = me if owner == "self" else opp
+            if not target_pl.life:
+                return False
+            moved = 0
+            for _ in range(count):
+                if not target_pl.life:
+                    break
+                # AI 簡易: choice なら下 (= 表向きカードを手札に加える挙動を持つ
+                # トリガー有りのライフを下に残すことを優先) 。
+                # 実用上は上下どちらでも 1 枚減るので勝率影響小。
+                if place == "bottom":
+                    card = target_pl.life.pop(-1)
+                else:
+                    card = target_pl.life.pop(0)
+                me.hand.append(card)
+                moved += 1
+            state.push_log(f"  効果: {owner}ライフ上/下{moved}枚を手札へ")
+        elif k == "scry_life":
+            # 公式: 「ライフの上から N 枚までを見て、 ライフの上か下に置く」
+            # spec: {"owner": "self"|"opp"|"self_or_opp", "depth": 1}
+            spec_val = v if isinstance(v, dict) else {"depth": int(v)}
+            owner = spec_val.get("owner", "self")
+            depth = int(spec_val.get("depth", 1))
+            # AI 簡易: owner="self_or_opp" は自ライフ優先 (= 自分のライフを最適化)
+            target_pl = me if owner in ("self", "self_or_opp") else opp
+            if not target_pl.life:
+                return False
+            seen = target_pl.life[:depth]
+            rest = target_pl.life[depth:]
+            # 自ライフ: 価値の高いカード(トリガー有/カウンター大/パワー大) を上に
+            # 相手ライフ: 逆 (= 弱いカードを上にして引かせる)
+            def _life_value(card):
+                trig = 1 if getattr(card, "trigger", None) else 0
+                counter = int(getattr(card, "counter", 0) or 0)
+                power = int(getattr(card, "power", 0) or 0)
+                return (trig, counter, power)
+            if target_pl is me:
+                seen.sort(key=_life_value, reverse=True)
+            else:
+                seen.sort(key=_life_value)
+            target_pl.life = seen + rest
+            owner_label = "自" if target_pl is me else "相手"
+            state.push_log(f"  効果: {owner_label}ライフ上{depth}枚を整列")
+        elif k == "prevent_blocker_for_attacker":
+            # 公式: 「指定キャラ/リーダーがアタックする場合、 相手は【ブロッカー】を発動できない」
+            # spec: {"target": <target_spec>} | str (target_spec)
+            # target_spec で辞書 {"type": "one_self_chara_or_leader_filtered",
+            #                    "filter": {"power_ge": 6000, "feature": "..."}} もサポート。
+            target_spec = v if not isinstance(v, dict) or "target" not in v else v.get("target")
+            if isinstance(target_spec, dict) and target_spec.get("type") == "one_self_chara_or_leader_filtered":
+                filt = target_spec.get("filter", {})
+                # 全自リーダー/キャラから filter にマッチする 1 枚 (= power 高い順)
+                cands = [me.leader] + list(me.characters)
+                cands = [ip for ip in cands if _matches_filter(ip.card, filt)]
+                # power_ge は dataclass の InPlay.power (= base + buff) を参照する場合と
+                # card.power の場合で意図が異なる。 公式は「現在のパワー」なので InPlay.power を見る。
+                if "power_ge" in filt:
+                    cands = [ip for ip in cands if ip.power >= int(filt["power_ge"])]
+                cands.sort(key=lambda ip: -ip.power)
+                targets = cands[:1]
+            else:
+                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                t.attacker_prevents_blocker_until_turn_end = True
+            state.push_log(
+                f"  効果: ブロッカー発動禁止 (attacker) → {[t.card.name for t in targets]}"
+            )
+        elif k == "disable_effect":
+            # 公式: 「相手の X 1 枚を、 (このターン中 | 次の相手のターン終了時まで)、 効果を無効にする」
+            # spec: {"target": <target_spec>, "duration": "turn"|"next_opp_turn_end",
+            #        "also_cannot_attack": false}
+            spec_val = v if isinstance(v, dict) else {"target": v}
+            target_spec = spec_val.get("target", "one_opponent_inplay_any")
+            duration = spec_val.get("duration", "turn")
+            also_cannot_attack = bool(spec_val.get("also_cannot_attack", False))
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            if not targets:
+                return False
+            for t in targets:
+                if duration == "next_opp_turn_end":
+                    t.effect_disabled_through_opp_turn = True
+                    if also_cannot_attack:
+                        t.cannot_attack_through_opp_turn = True
+                else:
+                    # duration="turn" → 既存 granted_keywords + cannot_attack_until_turn_end
+                    t.granted_keywords.add("効果無効")
+                    if also_cannot_attack:
+                        t.cannot_attack_until_turn_end = True
+            state.push_log(
+                f"  効果: 効果無効 ({duration}) → {[t.card.name for t in targets]}"
+                + (" + アタック不可" if also_cannot_attack else "")
+            )
+        elif k == "optional_cost_then":
+            # 公式: 「X することができる：Y」 = optional cost を払って Y を発動。
+            # spec: {"cost": [<primitive>...], "effect": [<primitive>...]}
+            # AI 簡易: cost / effect 両方が払える状態なら発動する。
+            spec_val = v if isinstance(v, dict) else {}
+            cost_specs = spec_val.get("cost", [])
+            effect_specs = spec_val.get("effect", [])
+            # payability check (= cost が払える前提条件)
+            can_pay = True
+            for cs in cost_specs:
+                if "life_top_or_bottom_to_hand" in cs or "life_to_hand" in cs:
+                    if not me.life:
+                        can_pay = False
+                        break
+                elif "trash_self_hand_random" in cs:
+                    if not me.hand:
+                        can_pay = False
+                        break
+                elif "pay_don" in cs:
+                    n = int(cs.get("pay_don", 0))
+                    if (me.don_active + me.don_rested) < n:
+                        can_pay = False
+                        break
+                elif "rest_self_don" in cs:
+                    n = int(cs.get("rest_self_don", 0))
+                    if me.don_active < n:
+                        can_pay = False
+                        break
+                elif "return_self_to_hand" in cs:
+                    if self_inplay is None or self_inplay not in me.characters:
+                        can_pay = False
+                        break
+                elif "return_self_to_trash" in cs:
+                    if self_inplay is None or self_inplay not in me.characters:
+                        can_pay = False
+                        break
+            # effect が空回りするケースも skip (= 価値なし)
+            should_fire = can_pay
+            if should_fire:
+                for es in effect_specs:
+                    if "hand_to_self_life" in es and not me.hand:
+                        should_fire = False
+                        break
+            if not should_fire:
+                state.push_log(f"  効果: optional_cost_then 不発 (cost不能 or 効果空)")
+                return False
+            for cs in cost_specs:
+                execute_effect(cs, state, me, opp, self_inplay)
+            for es in effect_specs:
+                execute_effect(es, state, me, opp, self_inplay)
+            state.push_log(f"  効果: optional_cost_then 発動")
+        elif k == "choice":
+            # 公式: 「A するか B する」 (= A or B の選択)。
+            # spec: {"options": [[<do_spec>...], [<do_spec>...]],
+            #        "heuristic": "life_count" | None}
+            # AI 簡易: heuristic="life_count" のとき
+            #   自ライフ ≤ 1 → option=1 を優先 (= ライフ追加系を選ぶ想定)
+            #   自ライフ ≥ 3 → option=0 を優先 (= ライフから手札への変換)
+            #   それ以外 → option=0 (公式テキスト先頭)
+            spec_val = v if isinstance(v, dict) else {"options": v}
+            options = spec_val.get("options", [])
+            if not options:
+                return True
+            heuristic = spec_val.get("heuristic", "life_count")
+            idx = 0
+            if heuristic == "life_count" and len(options) >= 2:
+                if len(me.life) <= 1:
+                    idx = 1
+                elif len(me.life) >= 3:
+                    idx = 0
+                else:
+                    idx = 0
+            chosen = options[idx]
+            # chosen は do リスト or {"do": [...]} のどちらか許容
+            inner = chosen.get("do", chosen) if isinstance(chosen, dict) else chosen
+            if not isinstance(inner, list):
+                inner = [inner]
+            for sub_spec in inner:
+                execute_effect(sub_spec, state, me, opp, self_inplay)
+            state.push_log(f"  効果: choice (option={idx}/{len(options)})")
         else:
             # 未対応はスキップ
             pass
@@ -1632,6 +2097,20 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         name = spec.get("name")
         if not ((feat and feat in card.features) or (name and card.name == name)):
             return False
+    if "name" in filt and card.name != filt["name"]:
+        return False
+    if "name_in" in filt:
+        names = filt["name_in"]
+        if isinstance(names, str):
+            names = [names]
+        if card.name not in names:
+            return False
+    if "attribute" in filt and card.attribute != filt["attribute"]:
+        return False
+    if "or_clauses" in filt:
+        # OR 結合: 各サブ filter のいずれかが True なら通る (= 残りのキーと AND)
+        if not any(_matches_filter(card, sub) for sub in filt["or_clauses"]):
+            return False
     return True
 
 
@@ -1693,6 +2172,8 @@ def evaluate_static_effects(
             ip.protect_from_opp_effect = False
             # static-granted keywords は毎回再計算 (= 条件外れたら消える)
             ip.static_granted_keywords.clear()
+        # 静的 filter 付き cost reduction も毎回再構築
+        player.play_cost_reductions_filtered = []
 
     # ターンプレイヤー側を先に処理 (公式 1-3-4)
     turn_idx = state.turn_player_idx
@@ -1757,6 +2238,14 @@ def evaluate_static_effects(
                     if "set_opp_protect_static" in primitive:
                         for t in opp.characters:
                             t.protect_from_opp_effect = True
+                        continue
+                    # filter 付き cost reduction static (OP05-097 天竜人 等)
+                    if "reduce_play_cost_filtered_static" in primitive:
+                        spec = primitive["reduce_play_cost_filtered_static"]
+                        me.play_cost_reductions_filtered.append({
+                            "filter": spec.get("filter", {}),
+                            "amount": int(spec.get("amount", 1)),
+                        })
                         continue
                     # give_keyword / give_rush は static_granted_keywords へ
                     # (= ドンが外れれば消える挙動を保証する)
@@ -1874,6 +2363,50 @@ def trigger_on_opp_attack(
     if not effects_overlay:
         return
     _enqueue_field_when(state, me, "opp_attack", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_on_opp_chara_ko(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「相手のキャラが KO された時」 (on_opp_chara_ko)。 KO した側 (me) の場の効果を発火。
+    OP03-076 / EB04-044 等。 trigger_on_ko の後に呼ぶ。"""
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, me, "on_opp_chara_ko", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_on_self_don_returned_to_deck(
+    state: GameState,
+    owner: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「自分の場のドンがドンデッキに戻された時」 (on_self_don_returned_to_deck)。
+    OP06-042 / OP06-076 / OP04-058 / OP12-040 等が登録する場の効果を発火。
+    pay_don / return_self_don_to_deck 等の直後に呼ぶ。"""
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, owner, "on_self_don_returned_to_deck", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_on_opp_blocker_use(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    blocker: InPlay,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「相手が【ブロッカー】を発動した時」 (on_opp_blocker_use)。 アタッカー側 (= me) の場の
+    効果を発火 (OP09-118 速攻ルフィ等)。"""
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, me, "on_opp_blocker_use", effects_overlay)
     _maybe_resolve(state)
 
 
@@ -2004,6 +2537,15 @@ def _replace_ko_match(
     if "target_feature" in cond:
         if cond["target_feature"] not in victim.card.features:
             return False
+    if "target_color" in cond:
+        if cond["target_color"] not in victim.card.color:
+            return False
+    if "target_name_exclude" in cond:
+        excl = cond["target_name_exclude"]
+        if isinstance(excl, str):
+            excl = [excl]
+        if victim.card.name in excl:
+            return False
     return True
 
 
@@ -2029,6 +2571,34 @@ def trigger_on_ko(
         owner_idx=owner_idx,
         source_card_id=ko_card.card_id,
         source_iid=None,
+    )
+    _maybe_resolve(state)
+
+
+def trigger_on_life_zero(
+    state: GameState,
+    owner: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """ライフが 0 になった瞬間のトリガー。 リーダーの when="on_life_zero" を発火。
+    OP05-098 紫エネル等の「ライフが0枚になった時」効果用。
+    """
+    if not effects_overlay:
+        return
+    leader = owner.leader
+    bundle = effects_overlay.get(leader.card.card_id)
+    if bundle is None:
+        return
+    if not any(e.get("when") == "on_life_zero" for e in bundle.effects):
+        return
+    owner_idx = state.players.index(owner)
+    enqueue_event(
+        state,
+        when="on_life_zero",
+        owner_idx=owner_idx,
+        source_card_id=leader.card.card_id,
+        source_iid=leader.instance_id,
     )
     _maybe_resolve(state)
 
@@ -2392,6 +2962,8 @@ def fire_activate_main(
         me.don_rested -= rest_more
         me.don_remaining_in_deck += rest_more
         state.push_log(f"  起動メインコスト: ドン-{pay_don}")
+        if (taken + rest_more) > 0 and state.effects_overlay:
+            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
     # discard_hand N: 手札N枚ランダム捨て (簡略: 末尾から)
     discard_n = int(cost.get("discard_hand", 0))
     for _ in range(discard_n):

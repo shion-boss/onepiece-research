@@ -359,7 +359,11 @@ class GreedyAI:
 
         # ステップ1: ブロッカー候補を評価 (実効 atk_p で生存判定)
         block_iid: Optional[int] = None
-        if not attacker.has_no_block_now and is_leader_attack:
+        if (
+            not attacker.has_no_block_now
+            and not attacker.attacker_prevents_blocker_until_turn_end
+            and is_leader_attack
+        ):
             best = None
             for c in defender.characters:
                 if c.rested or c.summoning_sickness or not c.is_blocker_now:

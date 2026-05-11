@@ -244,6 +244,7 @@ def _reset_turn_buff(state: GameState) -> None:
     """ターン終了時に全 InPlay の turn_buff / 動的キーワード / KO 耐性 /
     アタック不可フラグをクリア。Player.play_cost_reduction も 0 に。
     cannot_attack_static は静的効果由来なのでここではクリアしない。"""
+    me_turn = state.turn_player
     for player in state.players:
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.turn_buff = 0
@@ -251,9 +252,18 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.ko_immune_until_turn_end = False
             ip.cannot_attack_until_turn_end = False
             ip.cost_minus_until_turn_end = 0
+            ip.attacker_prevents_blocker_until_turn_end = False
+            ip.cannot_attack_target_cost_le_until_turn_end = -1
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
         player.block_self_draw_until_turn_end = False
+    # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン
+    # 終了時にクリア (= 自分が相手ターン中に解除される動きを実現)。
+    # ターン主のキャラ/リーダーのみクリア対象とする。
+    for ip in [me_turn.leader, *me_turn.characters, *me_turn.stages]:
+        ip.effect_disabled_through_opp_turn = False
+        ip.cannot_attack_through_opp_turn = False
+        ip.ko_immune_through_opp_turn = False
 
 
 def advance_phase(state: GameState) -> None:
@@ -422,7 +432,13 @@ def legal_actions(state: GameState) -> list[Action]:
         return total
 
     def _eff_cost(card: CardDef) -> int:
-        base = card.cost - me.play_cost_reduction - _in_hand_cost_minus(card)
+        from .effects import _matches_filter as _matches
+        filtered_reduction = sum(
+            int(r.get("amount", 0))
+            for r in me.play_cost_reductions_filtered
+            if _matches(card, r.get("filter", {}))
+        )
+        base = card.cost - me.play_cost_reduction - _in_hand_cost_minus(card) - filtered_reduction
         return max(0, base)
 
     # キャラ登場禁止 (OP14-020 ミホーク等のペナルティでこのターン中ブロック)
@@ -490,12 +506,17 @@ def legal_actions(state: GameState) -> list[Action]:
             not me.leader.rested
             and not me.leader.cannot_attack_until_turn_end
             and not me.leader.cannot_attack_static
+            and not me.leader.cannot_attack_through_opp_turn
         ):
             attackers.append(me.leader)
         for ch in me.characters:
             if ch.rested:
                 continue
-            if ch.cannot_attack_until_turn_end or ch.cannot_attack_static:
+            if (
+                ch.cannot_attack_until_turn_end
+                or ch.cannot_attack_static
+                or ch.cannot_attack_through_opp_turn
+            ):
                 continue
             if ch.summoning_sickness:
                 # 召喚酔いでも 速攻:キャラ なら例外的に「キャラ攻撃のみ」可能
@@ -508,19 +529,23 @@ def legal_actions(state: GameState) -> list[Action]:
     # 相手場に attack_taunt 持ちキャラがいる場合 (OP01-051 キッド等):
     # AttackLeader 禁止 + AttackCharacter は taunt キャラのみ対象
     opp_taunts = [c for c in opponent.characters if c.attack_taunt]
+    def _can_attack_target(attacker, target_cost: int) -> bool:
+        cap = attacker.cannot_attack_target_cost_le_until_turn_end
+        return cap < 0 or target_cost > cap
+
     for atk in attackers:
         # 「アクティブアタック可」キーワード付与時はアクティブも対象に (give_keyword で付与)
         attack_active_ok = "アクティブアタック可" in atk.granted_keywords
         if opp_taunts:
             for tgt in opp_taunts:
-                if tgt.rested or attack_active_ok:
+                if (tgt.rested or attack_active_ok) and _can_attack_target(atk, tgt.card.cost):
                     actions.append(
                         AttackCharacter(attacker_iid=atk.instance_id, target_iid=tgt.instance_id)
                     )
         else:
             actions.append(AttackLeader(attacker_iid=atk.instance_id))
             for tgt in opponent.characters:
-                if tgt.rested or attack_active_ok:
+                if (tgt.rested or attack_active_ok) and _can_attack_target(atk, tgt.card.cost):
                     actions.append(
                         AttackCharacter(attacker_iid=atk.instance_id, target_iid=tgt.instance_id)
                     )
@@ -576,6 +601,17 @@ def apply_action(state: GameState, action: Action) -> None:
         _recompute_static(state)
 
 
+def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:
+    """場の静的効果 (play_cost_reductions_filtered) から、 card がマッチする
+    軽減量を合計する。 OP05-097 「コスト2以上の天竜人キャラのコスト -1」 等。"""
+    from .effects import _matches_filter
+    total = 0
+    for r in me.play_cost_reductions_filtered:
+        if _matches_filter(card, r.get("filter", {})):
+            total += int(r.get("amount", 0))
+    return total
+
+
 def _compute_in_hand_cost_minus(state: GameState, me: Player, card: CardDef) -> int:
     """手札時のカード固有コスト軽減 (overlay の when:"in_hand" + cost_minus)。
     apply_action でも legal_actions と同じ計算を共有するためのモジュールレベル helper。"""
@@ -614,7 +650,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         card = me.hand[action.hand_idx]
         if card.category != Category.CHARACTER:
             raise ValueError(f"PlayCharacter category={card.category}")
-        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card))
+        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card) - _compute_filtered_cost_reduction(me, card))
         if me.don_active < eff_cost:
             raise ValueError("not enough don")
         if action.sacrifice_iid is not None:
@@ -652,7 +688,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         card = me.hand[action.hand_idx]
         if card.category != Category.EVENT:
             raise ValueError(f"PlayEvent category={card.category}")
-        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card))
+        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card) - _compute_filtered_cost_reduction(me, card))
         if me.don_active < eff_cost:
             raise ValueError("not enough don")
         # 8-4-2: イベントを公開→コスト→トラッシュ→効果発動 の順
@@ -672,7 +708,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         card = me.hand[action.hand_idx]
         if card.category != Category.STAGE:
             raise ValueError(f"PlayStage category={card.category}")
-        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card))
+        eff_cost = max(0, card.cost - me.play_cost_reduction - _compute_in_hand_cost_minus(state, me, card) - _compute_filtered_cost_reduction(me, card))
         if me.don_active < eff_cost:
             raise ValueError("not enough don")
         # 3-8-5-1: 既存ステージがあれば持ち主のトラッシュへ
@@ -790,11 +826,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             opp.don_rested += redirect_target.attached_dons
                         state.push_log(f"  KO: {redirect_target.card.name}")
                         if state.effects_overlay:
-                            from .effects import trigger_on_ko
+                            from .effects import trigger_on_ko, trigger_on_opp_chara_ko
                             trigger_on_ko(
                                 state, opp, me, redirect_target.card,
                                 state.effects_overlay,
                             )
+                            trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                 else:
                     state.push_log("  survived")
                 _reset_battle_buffs(state)
@@ -831,8 +868,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 is_blocked = True
                 state.push_log(f"  blocker: {blocker.card.name}")
                 if state.effects_overlay:
-                    from .effects import trigger_on_block
+                    from .effects import trigger_on_block, trigger_on_opp_blocker_use
                     trigger_on_block(state, opp, me, blocker, state.effects_overlay)
+                    # アタッカー側 (me) の「相手が【ブロッカー】を発動した時」 効果 (OP09-118 等)
+                    trigger_on_opp_blocker_use(state, me, opp, blocker, state.effects_overlay)
                 # ブロック時効果で blocker が KO されている可能性 → 場から消えていれば fallback
                 if blocker not in opp.characters:
                     state.push_log(
@@ -889,11 +928,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         opp.don_rested += actual_target.attached_dons
                     state.push_log(f"  KO: {actual_target.card.name}")
                     if state.effects_overlay:
-                        from .effects import trigger_on_ko
+                        from .effects import trigger_on_ko, trigger_on_opp_chara_ko
                         trigger_on_ko(
                             state, opp, me, actual_target.card,
                             state.effects_overlay,
                         )
+                        trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
             else:
                 state.push_log("  blocker survived")
             _reset_battle_buffs(state)
@@ -906,8 +946,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             # ダブルアタックでライフ 1 → 1 枚消費して 0 になっても、その時点では敗北しない
             # (= 2 発目はライフが無いため空打ち)。次のアタックで「アタック開始時 life=0」 → 敗北。
             if not opp.life:
-                state.declare_winner(state.turn_player_idx, f"{opp.name} life=0 hit")
-                return
+                # ライフ 0 トリガー (OP05-098 紫エネル等): デッキ上 1 枚をライフに移して
+                # 敗北回避するパターン。 効果でライフが回復していれば下記 winner 宣言を回避。
+                if state.effects_overlay:
+                    from .effects import trigger_on_life_zero
+                    trigger_on_life_zero(state, opp, me, state.effects_overlay)
+                if not opp.life:
+                    state.declare_winner(state.turn_player_idx, f"{opp.name} life=0 hit")
+                    return
             if damage == 2:
                 state.push_log(f"  ダブルアタック: 2 ダメージ")
             for _ in range(damage):
@@ -1052,8 +1098,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     else:
                         state.push_log(f"  KO: {actual_target.card.name}")
                     if state.effects_overlay:
-                        from .effects import trigger_on_ko
+                        from .effects import trigger_on_ko, trigger_on_opp_chara_ko
                         trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay)
+                        trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
         else:
             state.push_log("  survived")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
