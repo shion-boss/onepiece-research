@@ -17235,7 +17235,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《王下七武海》を持つ場合、このキャラ以外のコスト1以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_1cost"
         }
       ],
       "if": {
@@ -19591,7 +19591,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分のコスト1の特徴《ヴィンスモーク家》を持つキャラ1枚までを、持ち主の手札に戻す。"
+          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分のコスト1の特徴《ヴィンスモーク家》を持つキャラ1枚までを、持ち主の手札に戻す。 (engine 拡張要: return_to_hand に自キャラ対象)"
         }
       ]
     }
@@ -19852,12 +19852,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる)：相手のコスト2以下のキャラ2枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_2cost"
+              },
+              {
+                "rest": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "OP06-081": [
@@ -21707,7 +21718,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "➁(コストエリアのドン!!を指定の数レストにできる)：コスト5以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -30551,7 +30573,7 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "➀(コストエリアのドン!!を指定の数レストにできる)，このキャラを持ち主の手札に戻すことができる：自分の手札からコスト3のキャラ1枚までを、登場させる。"
+          "_unimplemented": "➀(コストエリアのドン!!を指定の数レストにできる)，このキャラを持ち主の手札に戻すことができる：自分の手札からコスト3のキャラ1枚までを、登場させる。 (engine 拡張要: activate_main の return_self_to_hand + rest_self_don 複合コスト)"
         }
       ],
       "cost": {
@@ -34027,7 +34049,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "➁(コストエリアのドン‼を指定の数レストにできる)：コスト5以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -41839,11 +41872,17 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分の特徴《ワノ国》を持つリーダーにレストのドン‼1枚までを、付与する。"
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 1
+          }
         }
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "leader_feature": "ワノ国"
       }
     }
   ],
@@ -42242,9 +42281,27 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：コスト8以上のキャラが2枚以上いる場合、自分の特徴《革命軍》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+1000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "革命軍"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      },
+      "if": {
+        "self_chara_cost_ge_count": {
+          "cost_ge": 8,
+          "n": 2
+        }
+      }
     }
   ],
   "EB04-049": [
@@ -42352,7 +42409,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のライフが2枚以下の場合、自分の手札からパワー6000以下の黄のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "黄"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -43126,11 +43190,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《エッグヘッド》を持ち、自分のライフが2枚以上の場合、自分の手札から【トリガー】を持つキャラカード1枚までを、ライフの上に表向きで加える。"
+          "hand_to_self_life": {
+            "filter": {
+              "category": "CHARACTER",
+              "has_trigger": true
+            },
+            "count": 1
+          }
         }
       ],
       "if": {
-        "self_life_ge": 2
+        "self_life_ge": 2,
+        "leader_feature": "エッグヘッド"
       }
     },
     {
@@ -43138,7 +43209,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手の「モンキー・Ｄ・ルフィ」以外のコスト6以下のキャラ1枚までは、このターン中、アタックできない。"
+          "_unimplemented": "相手の「モンキー・Ｄ・ルフィ」以外のコスト6以下のキャラ1枚までは、このターン中、アタックできない。 (engine 拡張要: set_cannot_attack の name exclude)"
         }
       ]
     }
@@ -44579,9 +44650,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分のライフが2枚以下の場合、このキャラのパワー+2000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_life_le": 2
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分のライフが2枚以下の場合、このキャラのパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -45284,12 +45362,20 @@
   ],
   "OP15-111": [
     {
-      "_text": "OP15-111 on_attached_don (パターン未一致): 【ドン‼×1】【アタック時】自分の「カルガラ」1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP15-111 on_attack: 【ドン‼×1】自分の「カルガラ」1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
-          "_unimplemented": "【ドン‼×1】【アタック時】自分の「カルガラ」1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)"
+          "give_keyword": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "カルガラ"
+            },
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -49506,9 +49592,15 @@
       "_text": "on_attached_don n=1: 自分のトラッシュが8枚以上ある場合、このキャラは【速攻】を得る",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_trash_count_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のトラッシュが8枚以上ある場合、このキャラは【速攻】を得る"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -54974,9 +55066,22 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場にドン!!が8枚以上ある場合、自分のパワー6000以下の紫の特徴《麦わらの一味》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "power_le": 6000,
+                "color": "紫",
+                "feature": "麦わらの一味"
+              }
+            },
+            "limit": 1
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-070": [
@@ -54984,9 +55089,15 @@
       "_text": "on_attached_don n=1: 自分の場にドン!!が8枚以上ある場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分の場にドン!!が8枚以上ある場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
