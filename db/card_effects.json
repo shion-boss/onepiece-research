@@ -7444,11 +7444,23 @@
   ],
   "OP14-105": [
     {
-      "_text": "OP14-105 trigger: 自分のリーダーが特徴《九蛇海賊団》を持つ場合、このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の手札から特徴《アマゾン・リリー》か《九蛇海賊団》を持つカード3枚を公開することができる：自分のリーダーとキャラすべてにレストのドン‼1枚ずつまでを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "optional_cost_then": {
+            "cost": [{"reveal_hand_with_filter": {"feature_in": ["アマゾン・リリー", "九蛇海賊団"], "count": 3}}],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "all_self_team",
+                  "count": 1,
+                  "per_target": true
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -32676,11 +32688,23 @@
   ],
   "OP14-105_p1": [
     {
-      "_text": "OP14-105_p1 trigger: 自分のリーダーが特徴《九蛇海賊団》を持つ場合、このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の手札から特徴《アマゾン・リリー》か《九蛇海賊団》を持つカード3枚を公開することができる：自分のリーダーとキャラすべてにレストのドン‼1枚ずつまでを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "optional_cost_then": {
+            "cost": [{"reveal_hand_with_filter": {"feature_in": ["アマゾン・リリー", "九蛇海賊団"], "count": 3}}],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "all_self_team",
+                  "count": 1,
+                  "per_target": true
+                }
+              }
+            ]
+          }
         }
       ]
     }
