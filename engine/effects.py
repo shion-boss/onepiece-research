@@ -1748,11 +1748,16 @@ def execute_effect(
             state.push_log(f"  効果: 自デッキ {len(milled)} 枚 trash → {milled}")
         elif k == "look_top_reorder":
             # 自分のデッキ上 N 枚を見て、 好きな順番で デッキの上/下 に置く。
-            # spec: {"depth": N, "to": "top"|"bottom"|"choice"} (choice = AI が片方選ぶ; 現実装は top)
+            # spec:
+            #   {"depth": N, "to": "top"|"bottom"|"choice"|"split"}
             # 公開情報のみで決まる効果なので AI に判断させる余地は少ない。 簡略実装:
             #   to="top": 順番そのままで戻す (= no-op の安全選択)
             #   to="bottom": 上 N 枚をデッキ末尾に移動
             #   to="choice": ヒューリスティック → トリガー持ち / コスト低が手前に来るよう並び替え
+            #   to="split": match_filter 一致は match_to、 残りは remain_to へ分割 (拡張)
+            #     spec: {"depth": N, "to": "split",
+            #            "match_filter": {...}, "match_to": "top"|"bottom"|"trash"|"hand",
+            #            "remain_to": "top"|"bottom"|"trash"}
             spec = v if isinstance(v, dict) else {"depth": int(v), "to": "top"}
             depth = int(spec.get("depth", 1))
             to_pos = spec.get("to", "top")
@@ -1768,6 +1773,45 @@ def execute_effect(
                 top_n.sort(key=lambda c: (c.cost, c.name))
                 me.deck = top_n + rest
                 state.push_log(f"  効果: デッキ上 {len(top_n)} 枚をコスト昇順に並び替え")
+            elif to_pos == "split":
+                # 公式表現例: 「デッキ上 5 枚を見て、 トリガー持ちカードを手札に加え、
+                #              残りを好きな順番でデッキの下に置く」
+                # match_filter で抽出、 match_to (= 一致先) と remain_to (= 残り先) に振り分ける。
+                # 「hand」「trash」 へは順序問わず、 「top」「bottom」 はそのままの順で挿入。
+                match_filter = spec.get("match_filter", {})
+                match_to = spec.get("match_to", "hand")
+                remain_to = spec.get("remain_to", "bottom")
+                # 後で deck に戻す残り = rest を起点にする
+                me.deck = rest
+                matched: list[CardDef] = []
+                remain: list[CardDef] = []
+                for c in top_n:
+                    if _matches_filter(c, match_filter):
+                        matched.append(c)
+                    else:
+                        remain.append(c)
+                # matched 振り分け
+                if match_to == "hand":
+                    me.hand.extend(matched)
+                elif match_to == "trash":
+                    me.trash.extend(matched)
+                elif match_to == "top":
+                    me.deck = matched + me.deck
+                elif match_to == "bottom":
+                    me.deck.extend(matched)
+                # remain 振り分け
+                if remain_to == "trash":
+                    me.trash.extend(remain)
+                elif remain_to == "top":
+                    me.deck = remain + me.deck
+                elif remain_to == "hand":
+                    me.hand.extend(remain)
+                else:  # bottom (default)
+                    me.deck.extend(remain)
+                state.push_log(
+                    f"  効果: デッキ上 {depth} 枚 split"
+                    f" (match={len(matched)}→{match_to}, remain={len(remain)}→{remain_to})"
+                )
             else:
                 # to="top": 順番維持 (= no-op)
                 state.push_log(f"  効果: デッキ上 {len(top_n)} 枚を確認 (順番維持)")

@@ -544,3 +544,103 @@ def test_replace_ko_complex_no_default_returns_false():
     # 何も実行されず、 ライフ / 手札も変化なし
     assert len(me.life) == 3
     assert len(me.hand) == 0
+
+
+# --------------------------------------------------------------------------- #
+# X3: look_top_reorder 拡張 (split mode)
+# --------------------------------------------------------------------------- #
+def test_look_top_reorder_split_match_to_hand():
+    """look_top_reorder split: match を hand、 remain を deck bottom"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    # デッキ上 3 枚を意図的に配置: OP01-013 (cost 2) / OP01-016 (cost 2) / OP01-001 (リーダー)
+    me.hand = []
+    top1 = repo.get("OP01-013")
+    top2 = repo.get("OP01-016")
+    top3 = repo.get("OP01-001")
+    me.deck = [top1, top2, top3] + me.deck
+    hand_before = len(me.hand)
+    deck_before = len(me.deck)
+    execute_effect(
+        {"look_top_reorder": {
+            "depth": 3,
+            "to": "split",
+            "match_filter": {"category": "CHARACTER"},
+            "match_to": "hand",
+            "remain_to": "bottom",
+        }},
+        state, me, opp, None,
+    )
+    # CHARACTER 2 枚 (OP01-013/016) は手札へ、 OP01-001 (LEADER) は底へ
+    assert len(me.hand) == hand_before + 2
+    # デッキ枚数は変わらず (1 枚 deck → bottom 移動 + 2 枚 deck → hand 移動)
+    # = (deck_before - 3) + 1 = deck_before - 2
+    assert len(me.deck) == deck_before - 2
+
+
+def test_look_top_reorder_split_match_to_trash():
+    """look_top_reorder split: match を trash, remain を deck bottom"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.deck = [repo.get("OP01-013")] * 3 + [repo.get("OP01-001")] * 2 + me.deck
+    trash_before = len(me.trash)
+    execute_effect(
+        {"look_top_reorder": {
+            "depth": 5,
+            "to": "split",
+            "match_filter": {"category": "CHARACTER"},
+            "match_to": "trash",
+            "remain_to": "bottom",
+        }},
+        state, me, opp, None,
+    )
+    assert len(me.trash) == trash_before + 3
+
+
+def test_look_top_reorder_split_match_to_top():
+    """look_top_reorder split: match を top (= deck 先頭), remain を bottom"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    chara = repo.get("OP01-013")
+    leader = repo.get("OP01-001")
+    me.deck = [chara, leader, chara] + me.deck
+    execute_effect(
+        {"look_top_reorder": {
+            "depth": 3,
+            "to": "split",
+            "match_filter": {"category": "CHARACTER"},
+            "match_to": "top",
+            "remain_to": "bottom",
+        }},
+        state, me, opp, None,
+    )
+    # 先頭 2 枚は chara (CHARACTER), 最後尾あたりに leader
+    assert me.deck[0].card_id == chara.card_id
+    assert me.deck[1].card_id == chara.card_id
+
+
+def test_look_top_reorder_legacy_to_bottom_still_works():
+    """既存 to='bottom' は壊れていない (regression check)"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    a = repo.get("OP01-013")
+    b = repo.get("OP01-016")
+    me.deck = [a, b] + me.deck
+    deck_before = len(me.deck)
+    execute_effect(
+        {"look_top_reorder": {"depth": 2, "to": "bottom"}},
+        state, me, opp, None,
+    )
+    # 上 2 枚が底へ移動 (枚数不変)
+    assert len(me.deck) == deck_before
+    # 末尾 2 枚が a, b の順
+    assert me.deck[-2].card_id == a.card_id
+    assert me.deck[-1].card_id == b.card_id
