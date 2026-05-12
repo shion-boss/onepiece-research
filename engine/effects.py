@@ -5128,6 +5128,58 @@ def estimate_opp_attack_buff_to_leader(
     return total
 
 
+def estimate_opp_life_trigger_attacker_ko_risk(
+    state: GameState,
+    opp: Player,
+    attacker_power: int,
+    effects_overlay: dict[str, "CardEffectBundle"],
+) -> float:
+    """opp 側のライフから出る可能性のあるトリガー (= 「雷迎」 系) で
+    自陣 attacker が KO されるリスクを期待損失で見積もる。
+
+    AI 簡易: opp.deck + opp.life から「【トリガー】を持つ」 カードのうち、
+    効果が attacker を KO しうるもの (= ko / ko_multi primitive を含み、
+    target が attacker のパワーを KO 可能) の枚数 / 残デッキ枚数 を確率とし、
+    attacker のコスト相当を期待損失とする。
+
+    完全な確率モデルではなく、 「ライフが残ってる + 相手デッキに KO トリガーが多い」
+    場合に attacker のリスクを認識させるための簡易シグナル。
+
+    Returns: 期待損失 (= cost × 確率 × 1000)。 単位は AI スコア (= W_FIELD_POWER 基準)。
+    """
+    if not effects_overlay or not opp.life:
+        return 0.0
+    # opp の見えない手札 / デッキ全体から「KOトリガー候補」 を数える
+    # 簡略: opp.deck + opp.life (= まだ手札に来てないカード) で評価
+    pool = list(opp.deck) + list(opp.life)
+    if not pool:
+        return 0.0
+    ko_trigger_count = 0
+    for card in pool:
+        if not card.trigger or "【トリガー】" not in (card.trigger or ""):
+            continue
+        bundle = effects_overlay.get(card.card_id)
+        if bundle is None:
+            continue
+        for eff in bundle.effects:
+            if eff.get("when") != "trigger":
+                continue
+            for prim in eff.get("do", []):
+                if "ko" in prim or "ko_multi" in prim:
+                    ko_trigger_count += 1
+                    break
+            else:
+                continue
+            break
+    if ko_trigger_count == 0:
+        return 0.0
+    # 確率 = ライフ取られた時に KO トリガーが出る期待 (= ライフから引かれるカード = pool 中の任意 1 枚)
+    # 既にライフに有るのは pool 中だが、 ライフは固定 (= デッキシャッフル前提なので両者を pool として扱う)
+    prob = ko_trigger_count / len(pool)
+    # 期待損失 = attacker_power × 確率 (= attacker が KO されたら power 喪失)
+    return attacker_power * prob
+
+
 def list_activate_main_effects(
     state: GameState,
     me: Player,

@@ -403,11 +403,27 @@ class GreedyAI:
         # est_defender_power + アーキタイプ別 gap_tolerance に基づいてフィルタ
         # (アグロ: tolerance=-1000 で攻めっ気、 コントロール: +1000 で安全策)
         attack_threshold = est_defender_power + self.attack_gap_tolerance
+        # ライフトリガー (= 雷迎系) で attacker が KO されるリスクを期待損失で見積。
+        # opp.life ≥ 1 かつ デッキに KO トリガーが多い場合に高コスト attacker での
+        # リーダー攻撃を抑制する。 expected_loss = attacker_power × prob。
         viable_leader: list[tuple[AttackLeader, InPlay]] = []
         for a in atk_leader_actions:
             attacker = _atk_inplay(a.attacker_iid)
-            if attacker and attacker.power >= attack_threshold:
-                viable_leader.append((a, attacker))
+            if not attacker or attacker.power < attack_threshold:
+                continue
+            # KO リスク見積もり (= attacker_power 損失見込み)
+            ko_risk = 0.0
+            if state.effects_overlay and opp.life and attacker.card.cost >= 5:
+                from .effects import estimate_opp_life_trigger_attacker_ko_risk
+                ko_risk = estimate_opp_life_trigger_attacker_ko_risk(
+                    state, opp, attacker.power, state.effects_overlay
+                )
+            # ライフ取得の期待利益 (= W_LIFE) = 1500 (boardEval 規模)
+            life_gain = 1500
+            # KO リスクが ライフ利益を超える → 攻撃を控える
+            if ko_risk > life_gain * 1.5:
+                continue
+            viable_leader.append((a, attacker))
         if viable_leader:
             # リーサル判定: 自分の合計打点で相手 life + 防御パワー を超えるか?
             # 相手 counter は hand_estimator で公開情報 (= opp.deck+hand プール) から
