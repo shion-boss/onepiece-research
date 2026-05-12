@@ -7422,11 +7422,15 @@
   ],
   "OP14-114": [
     {
-      "_text": "OP14-114 trigger: 自分のリーダーが特徴《九蛇海賊団》を持つ場合、このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の特徴《九蛇海賊団》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "attach_rested_don": {
+            "target": {"type": "one_self_chara_or_leader_filtered", "filter": {"feature": "九蛇海賊団"}},
+            "count": 1
+          }
         }
       ]
     }
@@ -58245,23 +58249,57 @@
   ],
   "OP02-030": [
     {
-      "_text": "OP02-030 on_ko: 自分のデッキからコスト3の緑の特徴《ワノ国》を持つキャラカード1枚までを、登場させる。その後、デッキをシャッフルする。",
+      "_text": "【起動メイン】【ターン1回】③(コストエリアのドン‼を指定の数レストにできる)：このキャラをアクティブにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 3}],
+            "effect": [{"untap": "self"}]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【KO時】自分のデッキからコスト3の緑の特徴《ワノ国》を持つキャラカード1枚までを、登場させる。その後、デッキをシャッフルする。",
       "when": "on_ko",
       "do": [
         {
-          "shuffle_self_deck": true
-        }
+          "summon_from_deck": {
+            "filter": {"cost_eq": 3, "color": "緑", "feature": "ワノ国", "category": "CHARACTER"},
+            "limit": 1
+          }
+        },
+        {"shuffle_self_deck": true}
       ]
     }
   ],
   "OP02-030_p1": [
     {
-      "_text": "OP02-030_p1 on_ko: 自分のデッキからコスト3の緑の特徴《ワノ国》を持つキャラカード1枚までを、登場させる。その後、デッキをシャッフルする。",
+      "_text": "【起動メイン】【ターン1回】③(コストエリアのドン‼を指定の数レストにできる)：このキャラをアクティブにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 3}],
+            "effect": [{"untap": "self"}]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【KO時】自分のデッキからコスト3の緑の特徴《ワノ国》を持つキャラカード1枚までを、登場させる。その後、デッキをシャッフルする。",
       "when": "on_ko",
       "do": [
         {
-          "shuffle_self_deck": true
-        }
+          "summon_from_deck": {
+            "filter": {"cost_eq": 3, "color": "緑", "feature": "ワノ国", "category": "CHARACTER"},
+            "limit": 1
+          }
+        },
+        {"shuffle_self_deck": true}
       ]
     }
   ],
@@ -59451,42 +59489,60 @@
   ],
   "OP01-040": [
     {
-      "_text": "OP01-040 on_play: 自分のリーダーが「光月おでん」の場合、自分の手札からコスト3以下の特徴《赤鞘九人男》を持つキャラカード1枚までを、登場させる。",
+      "_text": "【登場時】自分のリーダーが「光月おでん」の場合、自分の手札からコスト3以下の特徴《赤鞘九人男》を持つキャラカード1枚までを、登場させる。",
       "when": "on_play",
+      "if": {"leader_name": "光月おでん"},
       "do": [
         {
           "play_from_hand": {
-            "filter": {
-              "cost_le": 3,
-              "feature": "赤鞘九人男"
-            },
+            "filter": {"cost_le": 3, "feature": "赤鞘九人男"},
             "limit": 1
           }
         }
-      ],
-      "if": {
-        "leader_name": "光月おでん"
-      }
+      ]
+    },
+    {
+      "_text": "【ドン‼×1】【アタック時】【ターン1回】自分のコスト3以下の特徴《赤鞘九人男》を持つキャラ1枚までを、アクティブにする。",
+      "when": "on_attack",
+      "if": {"self_attached_don_ge": 1},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "untap_chara": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"cost_le": 3, "feature": "赤鞘九人男"}},
+            "limit": 1
+          }
+        }
+      ]
     }
   ],
   "OP01-040_p1": [
     {
-      "_text": "OP01-040_p1 on_play: 自分のリーダーが「光月おでん」の場合、自分の手札からコスト3以下の特徴《赤鞘九人男》を持つキャラカード1枚までを、登場させる。",
+      "_text": "【登場時】自分のリーダーが「光月おでん」の場合、自分の手札からコスト3以下の特徴《赤鞘九人男》を持つキャラカード1枚までを、登場させる。",
       "when": "on_play",
+      "if": {"leader_name": "光月おでん"},
       "do": [
         {
           "play_from_hand": {
-            "filter": {
-              "cost_le": 3,
-              "feature": "赤鞘九人男"
-            },
+            "filter": {"cost_le": 3, "feature": "赤鞘九人男"},
             "limit": 1
           }
         }
-      ],
-      "if": {
-        "leader_name": "光月おでん"
-      }
+      ]
+    },
+    {
+      "_text": "【ドン‼×1】【アタック時】【ターン1回】自分のコスト3以下の特徴《赤鞘九人男》を持つキャラ1枚までを、アクティブにする。",
+      "when": "on_attack",
+      "if": {"self_attached_don_ge": 1},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "untap_chara": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"cost_le": 3, "feature": "赤鞘九人男"}},
+            "limit": 1
+          }
+        }
+      ]
     }
   ],
   "OP01-042": [
@@ -60679,22 +60735,30 @@
   ],
   "ST29-012": [
     {
-      "_text": "ST29-012 trigger: このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の「モンキー・D・ルフィ」1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "attach_rested_don": {
+            "target": {"type": "self_chara_or_leader_named", "name": "モンキー・D・ルフィ"},
+            "count": 1
+          }
         }
       ]
     }
   ],
   "ST29-012_p1": [
     {
-      "_text": "ST29-012_p1 trigger: このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の「モンキー・D・ルフィ」1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "attach_rested_don": {
+            "target": {"type": "self_chara_or_leader_named", "name": "モンキー・D・ルフィ"},
+            "count": 1
+          }
         }
       ]
     }
@@ -62431,8 +62495,9 @@
   ],
   "ST19-003": [
     {
-      "_text": "ST19-003 on_play: 自分のリーダーが「スモーカー」の場合、相手のキャラ1枚までを、このターン中、コスト-4。",
+      "_text": "【登場時】自分のリーダーが「スモーカー」の場合、相手のキャラ1枚までを、このターン中、コスト-4。",
       "when": "on_play",
+      "if": {"leader_name": "スモーカー"},
       "do": [
         {
           "cost_minus": {
@@ -62440,10 +62505,16 @@
             "amount": 4
           }
         }
-      ],
-      "if": {
-        "leader_name": "スモーカー"
-      }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】このキャラが登場したターンの場合、相手のコスト0のキャラ1枚までを、トラッシュに置く。",
+      "when": "activate_main",
+      "if": {"self_summoning_sickness": true},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {"ko": "one_opponent_character_cost_le_0"}
+      ]
     }
   ],
   "ST19-004": [
@@ -68114,16 +68185,25 @@
   ],
   "P-096": [
     {
-      "_text": "P-096 on_play: カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "【登場時】カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "on_play",
       "do": [
+        {"draw": 1},
+        {"trash_self_hand_random": 1}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の「ナミ」1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
         {
-          "trash_self_hand_random": 1
+          "attach_rested_don": {
+            "target": {"type": "self_chara_or_leader_named", "name": "ナミ"},
+            "count": 1
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "P-097": [
