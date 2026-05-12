@@ -22,10 +22,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from engine.ai import EvalGreedyAI, GreedyAI, MCTSAI  # noqa: E402
 from engine.deck import CardRepository, DeckList   # noqa: E402
 from engine.harness import run_matchup             # noqa: E402
 
 OUT = ROOT / "db" / "matchup_matrix.json"
+
+
+_AI_FACTORIES = {
+    "greedy": GreedyAI,
+    "eval_greedy": EvalGreedyAI,
+    "mcts": MCTSAI,
+}
+
+
+def _resolve_ai_factory(name: str):
+    """--ai フラグから AI コンストラクタを解決。"""
+    return _AI_FACTORIES[name]
 
 
 def _compare_matrices(before_path: Path, after_path: Path) -> int:
@@ -86,6 +99,12 @@ def main() -> int:
     ap.add_argument("--n-games", type=int, default=30, help="各セルの試合数")
     ap.add_argument("--seed", type=int, default=42, help="乱数 seed")
     ap.add_argument("--decks-glob", default="*.json", help="対象 deck ファイル glob")
+    ap.add_argument(
+        "--ai",
+        choices=["greedy", "eval_greedy", "mcts"],
+        default="greedy",
+        help="対戦 AI (default: greedy)。 mcts は ISMCTS+PUCT、 計算コスト高め",
+    )
     ap.add_argument("--row-diff", nargs=2, metavar=("BEFORE", "AFTER"),
                     help="2 つの matrix json を比較してデッキ別勝率差分を表示")
     args = ap.parse_args()
@@ -94,6 +113,11 @@ def main() -> int:
         before_path = Path(args.row_diff[0])
         after_path = Path(args.row_diff[1])
         return _compare_matrices(before_path, after_path)
+
+    # --ai フラグから AI factory を解決 (module 内で参照されるグローバル変数経由)
+    global _AI_FACTORY
+    _AI_FACTORY = _resolve_ai_factory(args.ai)
+    print(f"AI: {args.ai}")
 
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     deck_paths = sorted((ROOT / "decks").glob(args.decks_glob))
@@ -127,7 +151,10 @@ def main() -> int:
                     "avg_turns": 0.0,
                 })
                 continue
-            rep = run_matchup(deck_a, deck_b, n_games=args.n_games, seed=args.seed)
+            rep = run_matchup(
+                deck_a, deck_b, n_games=args.n_games, seed=args.seed,
+                ai_factory_1=_AI_FACTORY, ai_factory_2=_AI_FACTORY,
+            )
             row.append({
                 "deck_b": slug_b,
                 "winrate": round(rep.deck1_winrate, 4),

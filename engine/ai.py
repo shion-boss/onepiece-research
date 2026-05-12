@@ -853,21 +853,35 @@ class EvalGreedyAI(GreedyAI):
 
 
 class MCTSAI(GreedyAI):
-    """Monte Carlo Tree Search AI (UCT-based)。
+    """Information Set Monte Carlo Tree Search AI (ISMCTS + PUCT)。
 
     各 choose_action で:
-      1. Selection: UCB1 で子ノードを再帰選択
-      2. Expansion: 未展開アクション 1 つを子ノードに追加
-      3. Simulation: GreedyAI でロールアウト (深度制限) + ヒューリスティック評価
-      4. Backprop: 値を経路に伝播
+      1. Determinize: 各 simulation で opp.hand を hand_estimator で公平にサンプル
+         (= 隠匿情報を直視しない、 公式ルール準拠)
+      2. Selection: PUCT で子ノードを再帰選択 (GreedyAI heuristic を root prior に使用)
+      3. Expansion: 未展開アクション 1 つを子ノードに追加
+      4. Simulation: EvalGreedyAI でロールアウト (深度制限) + ヒューリスティック評価
+      5. Backprop: 値を経路に伝播
       最終的に最も訪問されたアクションを返す。
 
     防御選択 (choose_defense) は GreedyAI を継承 (展開爆発回避)。
 
-    パラメータ:
-      n_simulations: 1 アクション選択あたりのシミュレーション数 (既定 30)
-      c_uct        : UCB1 の探索係数 (既定 1.41 = sqrt(2))
-      rollout_depth: ロールアウト最大ステップ (既定 12)
+    パラメータ (実用速度優先 default、 強度優先なら CLI で上書き):
+      n_simulations_critical: 重要局面 (PlayCharacter / AttackLeader 含む) のシミュレーション数 (既定 12)
+      n_simulations_default : それ以外の局面のシミュレーション数 (既定 6)
+      c_puct               : PUCT の探索係数 (既定 1.5)
+      rollout_depth        : ロールアウト最大ステップ (既定 8)
+      use_eval_rollout     : True = EvalGreedyAI でロールアウト (高精度・低速)、
+                              False = GreedyAI (高速、 既定 False)
+
+    パフォーマンス目安 (本格デッキ + 効果オーバーレイ):
+      default 設定で 1 試合 ~10-15 秒、 matrix 全 225 セル × 10 戦 = ~6-9 時間。
+      強度優先プリセット (n_critical=50 / depth=20) は ~30-40 秒/試合。
+      deepcopy が支配的 ボトルネック、 将来は state diff 化で改善可。
+
+    後方互換:
+      n_simulations (旧): 指定時は critical/default 両方に適用
+      c_uct (旧)        : 指定時は c_puct として扱う
     """
 
     name = "MCTS"
@@ -880,15 +894,25 @@ class MCTSAI(GreedyAI):
     def __init__(
         self,
         rng: Optional[random.Random] = None,
-        n_simulations: int = 30,
-        c_uct: float = 1.41,
-        rollout_depth: int = 12,
+        n_simulations_critical: int = 12,
+        n_simulations_default: int = 6,
+        c_puct: float = 1.5,
+        rollout_depth: int = 8,
+        use_eval_rollout: bool = False,
         deck_analysis: Optional[dict] = None,
+        # 後方互換
+        n_simulations: Optional[int] = None,
+        c_uct: Optional[float] = None,
     ):
         super().__init__(rng, deck_analysis=deck_analysis)
-        self.n_simulations = n_simulations
-        self.c_uct = c_uct
+        if n_simulations is not None:
+            n_simulations_critical = n_simulations
+            n_simulations_default = n_simulations
+        self.n_simulations_critical = n_simulations_critical
+        self.n_simulations_default = n_simulations_default
+        self.c_puct = c_uct if c_uct is not None else c_puct
         self.rollout_depth = rollout_depth
+        self.use_eval_rollout = use_eval_rollout
 
     def choose_action(self, state: "GameState") -> "Action":
         actions = legal_actions(state)
@@ -896,24 +920,39 @@ class MCTSAI(GreedyAI):
             return actions[0] if actions else EndPhase()
 
         me_idx = state.turn_player_idx
-        # ルートノード: state は各 simulation で deepcopy するため保存しない
-        root = _MCTSNode(parent=None, action=None)
-        root.unexpanded = list(actions)
+
+        # 適応的シミュレーション数: PlayCharacter / AttackLeader を含むなら重要局面
+        is_critical = any(
+            isinstance(a, (PlayCharacter, AttackLeader)) for a in actions
+        )
+        n_sims = (
+            self.n_simulations_critical if is_critical else self.n_simulations_default
+        )
+
+        # PUCT 用 prior を root レベルで計算 (= GreedyAI の選好を bias として使う)
+        priors = self._compute_priors(state, actions)
+
+        root = _MCTSNode(parent=None, action=None, prior=1.0)
+        # unexpanded は (action, prior) のタプルで保持
+        root.unexpanded = list(zip(actions, priors))
 
         import math
 
-        for _ in range(self.n_simulations):
+        for _ in range(n_sims):
             sim_state = copy.deepcopy(state)
+            # ISMCTS: opp.hand を公開情報 (deck+hand プール) からサンプルで置換
+            hand_estimator.determinize_state(sim_state, 1 - me_idx, self.rng)
+
             node = root
             path = [node]
 
-            # 1. Selection
+            # 1. Selection (PUCT)
             while (
                 not node.unexpanded
                 and node.children
                 and not sim_state.game_over
             ):
-                node = self._best_child(node, math)
+                node = self._best_child_puct(node, math)
                 try:
                     apply_action(sim_state, node.action)
                 except Exception:
@@ -923,13 +962,16 @@ class MCTSAI(GreedyAI):
             # 2. Expansion
             if not sim_state.game_over and node.unexpanded:
                 idx = self.rng.randrange(len(node.unexpanded))
-                action = node.unexpanded.pop(idx)
+                action, prior = node.unexpanded.pop(idx)
                 try:
                     apply_action(sim_state, action)
-                    child = _MCTSNode(parent=node, action=action)
+                    child = _MCTSNode(parent=node, action=action, prior=prior)
                     if not sim_state.game_over:
                         try:
-                            child.unexpanded = list(legal_actions(sim_state))
+                            sub_actions = list(legal_actions(sim_state))
+                            # 子ノード以降は uniform prior (= root 以外で GreedyAI を呼ぶコスト回避)
+                            sub_prior = 1.0 / len(sub_actions) if sub_actions else 0.0
+                            child.unexpanded = [(a, sub_prior) for a in sub_actions]
                         except Exception:
                             child.unexpanded = []
                     node.children.append(child)
@@ -953,24 +995,52 @@ class MCTSAI(GreedyAI):
         best = max(root.children, key=lambda c: c.visits)
         return best.action
 
-    def _best_child(self, node: "_MCTSNode", math_mod) -> "_MCTSNode":
-        """UCB1 で子を選ぶ。"""
-        log_n = math_mod.log(node.visits) if node.visits > 0 else 0.0
+    def _compute_priors(self, state: "GameState", actions: list) -> list[float]:
+        """GreedyAI heuristic から PUCT 用 prior を導出。
+
+        GreedyAI が選ぶ action に高い prior (0.6)、 それ以外を残り 0.4 で均等配分。
+        最後に合計 1.0 に正規化。
+        """
+        n = len(actions)
+        if n <= 1:
+            return [1.0] * n
+        try:
+            preferred = super().choose_action(state)
+        except Exception:
+            preferred = None
+        priors: list[float] = []
+        for a in actions:
+            if preferred is not None and a == preferred:
+                priors.append(0.6)
+            else:
+                priors.append(0.4 / (n - 1))
+        total = sum(priors)
+        if total > 0:
+            priors = [p / total for p in priors]
+        return priors
+
+    def _best_child_puct(self, node: "_MCTSNode", math_mod) -> "_MCTSNode":
+        """PUCT で子を選ぶ: Q(a) + c * P(a) * sqrt(N_parent) / (1 + N_a)"""
+        parent_visits = max(1, node.visits)
+        sqrt_n = math_mod.sqrt(parent_visits)
         best = None
         best_score = -float("inf")
         for child in node.children:
             if child.visits == 0:
                 return child
-            avg = child.total_value / child.visits
-            ucb = avg + self.c_uct * math_mod.sqrt(log_n / child.visits)
-            if ucb > best_score:
-                best_score = ucb
+            q = child.total_value / child.visits
+            u = self.c_puct * child.prior * sqrt_n / (1 + child.visits)
+            score = q + u
+            if score > best_score:
+                best_score = score
                 best = child
         return best if best else node.children[0]
 
     def _rollout(self, state: "GameState", me_idx: int) -> float:
-        """state を深度 rollout_depth まで GreedyAI でプレイ → 終局/打切で 0-1 値を返す。"""
-        rollout_ai = GreedyAI(self.rng)
+        """state を深度 rollout_depth まで AI でプレイ → 終局/打切で 0-1 値を返す。"""
+        rollout_ai = (
+            EvalGreedyAI(self.rng) if self.use_eval_rollout else GreedyAI(self.rng)
+        )
         depth = 0
         while not state.game_over and depth < self.rollout_depth:
             try:
@@ -997,15 +1067,24 @@ class MCTSAI(GreedyAI):
 
 
 class _MCTSNode:
-    """MCTS の探索ノード。state は保存せず action のみ記録 (root から replay)。"""
+    """MCTS の探索ノード。 state は保存せず action のみ記録 (root から replay)。
 
-    __slots__ = ("parent", "action", "children", "unexpanded", "visits", "total_value")
+    `prior` は PUCT 用の事前確率 (= 親ノードでこの action が選ばれる確率)。
+    root の直接の子のみ GreedyAI heuristic 由来、 それ以降は uniform。
+    """
 
-    def __init__(self, parent=None, action=None):
+    __slots__ = (
+        "parent", "action", "prior", "children",
+        "unexpanded", "visits", "total_value",
+    )
+
+    def __init__(self, parent=None, action=None, prior: float = 1.0):
         self.parent = parent
         self.action = action
+        self.prior = prior
         self.children: list["_MCTSNode"] = []
-        self.unexpanded: list[Action] = []
+        # (action, prior) のタプルリスト
+        self.unexpanded: list = []
         self.visits: int = 0
         self.total_value: float = 0.0
 

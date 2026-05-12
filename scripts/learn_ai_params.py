@@ -86,8 +86,15 @@ def _run_matrix(
     record_replays: bool,
     replays_db_path: Optional[Path] = None,
     verbose: bool = False,
+    ai_factory=None,
 ) -> dict:
-    """全 N×N matchup を実行し、 集計勝率と replay パスを返す。"""
+    """全 N×N matchup を実行し、 集計勝率と replay パスを返す。
+
+    ai_factory: AI コンストラクタ (省略時は GreedyAI)。 両プレイヤーに適用。
+    """
+    if ai_factory is None:
+        from engine.ai import GreedyAI as _DefaultAI
+        ai_factory = _DefaultAI
     pair_winrates: dict[str, list[float]] = {s: [] for s, _, _ in decks}
     t0 = time.time()
     total = len(decks) * (len(decks) - 1)
@@ -101,6 +108,8 @@ def _run_matrix(
                 deck_a, deck_b, n_games=n_games, seed=seed,
                 record_replays=record_replays,
                 replays_db_path=replays_db_path,
+                ai_factory_1=ai_factory,
+                ai_factory_2=ai_factory,
             )
             pair_winrates[slug_a].append(rep.deck1_winrate)
             if verbose and done % max(1, total // 10) == 0:
@@ -293,7 +302,22 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true", help="採用して db/ai_params.json に保存")
     ap.add_argument("--max-grid-combinations", type=int, default=48,
                     help="grid 探索の最大組み合わせ数 (= 計算時間制限)")
+    ap.add_argument(
+        "--ai",
+        choices=["greedy", "eval_greedy", "mcts"],
+        default="greedy",
+        help="対戦 AI (default: greedy)。 mcts は ISMCTS+PUCT、 計算コスト高め",
+    )
     args = ap.parse_args()
+
+    from engine.ai import EvalGreedyAI, GreedyAI, MCTSAI
+    _AI_FACTORIES = {
+        "greedy": GreedyAI,
+        "eval_greedy": EvalGreedyAI,
+        "mcts": MCTSAI,
+    }
+    ai_factory = _AI_FACTORIES[args.ai]
+    print(f"AI: {args.ai}")
 
     # tier_truth ロード
     if not TIER_TRUTH_PATH.exists():
@@ -315,7 +339,10 @@ def main() -> int:
     # ----- ステップ 1: baseline -----
     print("\n=== Baseline ===")
     t0 = time.time()
-    baseline_matrix = _run_matrix(decks, args.n_games, args.seed, record_replays=True, verbose=True)
+    baseline_matrix = _run_matrix(
+        decks, args.n_games, args.seed, record_replays=True,
+        verbose=True, ai_factory=ai_factory,
+    )
     print(f"  elapsed {time.time() - t0:.1f}s")
     baseline_score = _score(baseline_matrix, tier_truth)
     print(f"  accuracy: {baseline_score['accuracy']:.3f}")
@@ -378,7 +405,7 @@ def main() -> int:
         _write_param_overrides(candidate)
         try:
             matrix = _run_matrix(decks, args.n_games, args.seed,
-                                 record_replays=False)
+                                 record_replays=False, ai_factory=ai_factory)
             score = _score(matrix, tier_truth)
         finally:
             _restore_params(original_params)
