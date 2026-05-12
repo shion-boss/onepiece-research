@@ -1091,6 +1091,29 @@ def execute_effect(
                     t.turn_buff += amount
             state.push_log(f"  効果: パワー{amount:+d} → {[t.card.name for t in targets]}")
         elif k == "rest":
+            # 「相手のキャラかドン1枚までを、 レストにする」 用 特殊 target spec。
+            # 通常の target spec で相手のドンは表現できないため (ドンは InPlay ではない)、
+            # rest primitive 内で one_opp_chara_or_don を分岐処理。
+            is_chara_or_don = (
+                v == "one_opp_chara_or_don"
+                or (isinstance(v, dict) and v.get("type") == "one_opp_chara_or_don")
+            )
+            if is_chara_or_don:
+                # AI 優先順位: 相手アクティブキャラ (最も脅威) > opp.don_active > opp.don_rested (= 無意味だが順序保持)。
+                active_charas = [c for c in opp.characters if not c.rested and not c.cannot_be_rested_buff]
+                active_charas.sort(key=lambda ip: -ip.power)
+                if active_charas:
+                    target = active_charas[0]
+                    target.rested = True
+                    state.push_log(f"  効果: レスト → 相手キャラ {target.card.name}")
+                elif opp.don_active > 0:
+                    opp.don_active -= 1
+                    opp.don_rested += 1
+                    state.push_log(f"  効果: レスト → 相手アクティブドン 1 枚")
+                else:
+                    state.push_log(f"  効果: レスト → 対象なし (不発)")
+                    return False
+                return True
             targets = _resolve_target(v, state, me, opp, self_inplay)
             actually_rested = []
             for t in targets:
@@ -1124,7 +1147,8 @@ def execute_effect(
                         continue
                     # 置換効果: 「相手の効果で場を離れる場合、代わりに〜」(ペローナ等)
                     if state.effects_overlay and try_replace_ko(
-                        state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                        state, opp, me, t, state.effects_overlay,
+                        by_opp_effect=True, leave_kind="return_to_hand",
                     ):
                         continue
                     opp.characters.remove(t)
@@ -1411,24 +1435,33 @@ def execute_effect(
             for t in targets:
                 t.granted_keywords.add(keyword)
             state.push_log(f"  効果: {keyword} 付与 → {[t.card.name for t in targets]}")
-        elif k == "play_from_trash":
-            # 「自分のトラッシュからキャラ1枚を登場」
+        elif k == "play_from_trash" or k == "play_multi_from_trash":
+            # 「自分のトラッシュからキャラ1枚を登場」 (limit>1 で複数体)
             # spec: {"filter": {"category": "CHARACTER", "feature": "...", "cost_le": N},
-            #        "limit": 1, "rested": bool}
+            #        "limit": 1, "rested": bool, "unique_name": false}
+            # play_multi_from_trash は alias (= 公式 「~まで」 N 枚指定の意図を明示)。
+            # unique_name=true で カード名が重複しないように複数体登場 (OP06-062 ジャッジ)。
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
             filt = spec.get("filter", {})
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
+            unique_name = bool(spec.get("unique_name", False))
             found = 0
+            seen_names: set[str] = set()
             new_trash = []
             for card in me.trash:
                 if found < limit and card.category == Category.CHARACTER and _matches_filter(card, filt):
+                    if unique_name and card.name in seen_names:
+                        # name 重複: 登場させずトラッシュに残す
+                        new_trash.append(card)
+                        continue
                     # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state)
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
                     found += 1
+                    seen_names.add(card.name)
                     label = "レストで" if rested else ""
                     state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
                     if state.effects_overlay:
@@ -1519,6 +1552,16 @@ def execute_effect(
                 taken = me.life.pop(0)
                 me.trash.append(taken)
             state.push_log(f"  効果: 自ライフ上 {n} 枚をトラッシュへ")
+        elif k == "mill_opp_life_to_trash":
+            # 公式 「相手のライフの上から N 枚をトラッシュに置く」 (OP11-102 ケイミー等)。
+            # mill_self_life_to_trash と対称。 ライフトリガーは発動しない (= 効果でのライフ移動 10-1-5)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            for _ in range(n):
+                if not opp.life:
+                    break
+                taken = opp.life.pop(0)
+                opp.trash.append(taken)
+            state.push_log(f"  効果: 相手ライフ上 {n} 枚をトラッシュへ")
         elif k == "return_self_don_to_deck":
             # 自分の場のドン (active 優先 → rested) を N 枚ドンデッキに戻す
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -1567,7 +1610,8 @@ def execute_effect(
                     if t.protect_from_opp_effect or t.static_ko_immune:
                         continue
                     if state.effects_overlay and try_replace_ko(
-                        state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                        state, opp, me, t, state.effects_overlay,
+                        by_opp_effect=True, leave_kind="return_to_deck_bottom",
                     ):
                         continue
                     opp.characters.remove(t)
@@ -2052,7 +2096,8 @@ def execute_effect(
                             state.push_log(f"  保護: {t.card.name}")
                             continue
                         if state.effects_overlay and try_replace_ko(
-                            state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                            state, opp, me, t, state.effects_overlay,
+                            by_opp_effect=True, leave_kind="return_to_hand",
                         ):
                             already_returned.add(id(t))
                             continue
@@ -2077,7 +2122,8 @@ def execute_effect(
                         if t.protect_from_opp_effect or t.static_ko_immune:
                             continue
                         if state.effects_overlay and try_replace_ko(
-                            state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                            state, opp, me, t, state.effects_overlay,
+                            by_opp_effect=True, leave_kind="return_to_deck_bottom",
                         ):
                             already.add(id(t))
                             continue
@@ -2427,6 +2473,36 @@ def execute_effect(
                     if len(matching) < d_count:
                         can_pay = False
                         break
+                elif "stage_to_deck_bottom" in cs:
+                    # 公式 「自分のステージ1枚を持ち主のデッキの下に置くことができる：効果」 用 cost。
+                    # spec: {"stage_to_deck_bottom": {"cost_eq": N, "count": 1}} もしくは
+                    # spec: {"stage_to_deck_bottom": 1} (= cost 制約なし、 count=1)
+                    sb_spec = cs["stage_to_deck_bottom"]
+                    if isinstance(sb_spec, dict):
+                        sb_count = int(sb_spec.get("count", 1))
+                        sb_filt = {k: v for k, v in sb_spec.items() if k != "count"}
+                    else:
+                        sb_count = int(sb_spec)
+                        sb_filt = {}
+                    matching = [s for s in me.stages if _matches_filter(s.card, sb_filt)]
+                    if len(matching) < sb_count:
+                        can_pay = False
+                        break
+                elif "return_self_chara_to_deck_bottom" in cs:
+                    # 公式 「自分のキャラ1枚を持ち主のデッキの下に置くことができる：効果」 用 cost。
+                    # spec: {"return_self_chara_to_deck_bottom": {"count": 1, "filter": {...}}} もしくは
+                    # spec: {"return_self_chara_to_deck_bottom": 1}
+                    rb_spec = cs["return_self_chara_to_deck_bottom"]
+                    if isinstance(rb_spec, dict):
+                        rb_count = int(rb_spec.get("count", 1))
+                        rb_filt = rb_spec.get("filter", {})
+                    else:
+                        rb_count = int(rb_spec)
+                        rb_filt = {}
+                    matching = [c for c in me.characters if _matches_filter(c.card, rb_filt)]
+                    if len(matching) < rb_count:
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -2476,6 +2552,63 @@ def execute_effect(
                         else:
                             new_hand.append(c)
                     me.hand = new_hand
+                    continue
+                if "stage_to_deck_bottom" in cs:
+                    # 公式: 自場のステージ N 枚を持ち主 (= me) のデッキの下へ。
+                    # AI 簡易: 該当する filter 一致の最初の N 枚 (= 任意選択は最古順) を取り出す。
+                    sb_spec = cs["stage_to_deck_bottom"]
+                    if isinstance(sb_spec, dict):
+                        sb_count = int(sb_spec.get("count", 1))
+                        sb_filt = {k: v for k, v in sb_spec.items() if k != "count"}
+                    else:
+                        sb_count = int(sb_spec)
+                        sb_filt = {}
+                    moved = 0
+                    new_stages = []
+                    for s in me.stages:
+                        if moved < sb_count and _matches_filter(s.card, sb_filt):
+                            me.deck.append(s.card)
+                            moved += 1
+                            state.push_log(
+                                f"  効果コスト: 自ステージ → デッキ下 ({s.card.name})"
+                            )
+                            # 付与ドンは公式 6-5-5-4 同様にレストでコストエリアへ戻す。
+                            if s.attached_dons > 0:
+                                me.don_rested += s.attached_dons
+                        else:
+                            new_stages.append(s)
+                    me.stages = new_stages
+                    continue
+                if "return_self_chara_to_deck_bottom" in cs:
+                    # 公式: 自キャラ N 枚を持ち主 (= me) のデッキの下へ。
+                    rb_spec = cs["return_self_chara_to_deck_bottom"]
+                    if isinstance(rb_spec, dict):
+                        rb_count = int(rb_spec.get("count", 1))
+                        rb_filt = rb_spec.get("filter", {})
+                    else:
+                        rb_count = int(rb_spec)
+                        rb_filt = {}
+                    # AI 簡易: filter 一致の中から power 低い順 (= 最も惜しくないキャラ) を取り出す。
+                    cands = [c for c in me.characters if _matches_filter(c.card, rb_filt)]
+                    cands.sort(key=lambda c: c.power)
+                    moved = 0
+                    targets_to_move = set()
+                    for c in cands:
+                        if moved < rb_count:
+                            targets_to_move.add(c.instance_id)
+                            moved += 1
+                    new_chars = []
+                    for c in me.characters:
+                        if c.instance_id in targets_to_move:
+                            me.deck.append(c.card)
+                            state.push_log(
+                                f"  効果コスト: 自キャラ → デッキ下 ({c.card.name})"
+                            )
+                            if c.attached_dons > 0:
+                                me.don_rested += c.attached_dons
+                        else:
+                            new_chars.append(c)
+                    me.characters = new_chars
                     continue
                 execute_effect(cs, state, me, opp, self_inplay)
             for es in effect_specs:
@@ -2594,6 +2727,13 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "has_trigger" in filt and filt["has_trigger"]:
         if not (card.trigger and card.trigger.startswith("【トリガー】")):
+            return False
+    if "trigger" in filt and isinstance(filt["trigger"], bool) and filt["trigger"]:
+        # 公式 「【トリガー】を持つカード」 用 alias。
+        # cards.json の trigger フィールドが空でなければ「トリガー持ち」。
+        # 通常 trigger 文字列は 「【トリガー】…」 で始まるが、 既存 has_trigger との互換のため
+        # 「【トリガー】」 prefix or 非空文字列のいずれでも True 扱い (公式テキスト忠実)。
+        if not card.trigger:
             return False
     if "feature_or_name" in filt:
         # feature OR name のいずれかにマッチ
@@ -3024,20 +3164,33 @@ def try_replace_ko(
     victim: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
     by_opp_effect: bool,
+    leave_kind: str = "ko",
 ) -> bool:
-    """KO される直前の置換効果 (when="replace_ko") を試行。
-    1 つでも発動・成功すれば True を返し、本来の KO をキャンセルさせる。
+    """場を離れる直前の置換効果 (when="replace_ko" / "replace_leave") を試行。
+    1 つでも発動・成功すれば True を返し、本来の離脱をキャンセルさせる。
 
     overlay 例:
       "OP15-003": [{"when": "replace_ko",
                     "if": {"target": "self"},
                     "do": [{"trash_self_hand_random": 1}]}]
+      "OP15-003_p1": [{"when": "replace_ko",
+                    "if": {"target": "self"},
+                    "cost": [{"discard_hand_with_filter":
+                              {"filter": {"category": "CHARACTER", "power_le": 6000}, "count": 1}}]}]
       "OP12-027": [{"when": "replace_ko",
                     "if": {"target": "other_self_chara",
                            "target_attribute": "斬",
                            "target_cost_le": 5,
                            "by_opp_effect": true},
                     "do": [{"rest": "self"}]}]
+      "OP12-053": [{"when": "replace_leave",
+                    "if": {"target": "self", "by_opp_effect": true},
+                    "cost": [{"discard_hand_with_filter":
+                              {"filter": {}, "count": 1}}]}]
+
+    leave_kind: "ko" | "return_to_hand" | "return_to_deck_bottom"
+      - "ko" のみ replace_ko に該当 (= 既存挙動)
+      - replace_leave (= 「場を離れる場合」) は KO 含む全離脱種別で発火
     """
     if not effects_overlay:
         return False
@@ -3050,7 +3203,15 @@ def try_replace_ko(
         if bundle is None:
             continue
         for eff in bundle.effects:
-            if eff.get("when") != "replace_ko":
+            when = eff.get("when")
+            # replace_ko は KO 限定、 replace_leave は KO + return_to_hand + return_to_deck_bottom
+            if when == "replace_ko":
+                if leave_kind != "ko":
+                    continue
+            elif when == "replace_leave":
+                # 公式 「場を離れる場合」 はあらゆる離脱種別に該当
+                pass
+            else:
                 continue
             if not _replace_ko_match(eff.get("if", {}), inplay, victim, by_opp_effect):
                 continue
@@ -3059,17 +3220,96 @@ def try_replace_ko(
                 k: v for k, v in eff.get("if", {}).items()
                 if k not in ("target", "target_attribute", "target_cost_le",
                              "target_power_le", "target_power_ge",
-                             "target_feature", "by_opp_effect")
+                             "target_feature", "target_color",
+                             "target_name_exclude", "by_opp_effect")
             }
             if extra_cond and not eval_condition(extra_cond, state, owner, inplay):
                 continue
+            # cost フィールド対応 (任意): cost が払えない場合は置換不可。
+            # spec: {"cost": [<primitive>...]} を payability check で消費する。
+            cost_specs = eff.get("cost", [])
+            if cost_specs:
+                if not _can_pay_replace_cost(state, owner, cost_specs):
+                    continue
+                _pay_replace_cost(state, owner, cost_specs)
             state.push_log(
-                f"  KO 置換: {victim.card.name} → {inplay.card.name} の効果で代替"
+                f"  離脱置換 ({when}): {victim.card.name} → {inplay.card.name} の効果で代替"
             )
             for primitive in eff.get("do", []):
                 execute_effect(primitive, state, owner, opp, inplay)
             return True
     return False
+
+
+def _can_pay_replace_cost(
+    state: GameState, me: Player, cost_specs: list[dict]
+) -> bool:
+    """replace_ko / replace_leave の cost 配列が払えるかチェック。 R3 拡張。"""
+    for cs in cost_specs:
+        if "discard_hand_with_filter" in cs:
+            df_spec = cs["discard_hand_with_filter"]
+            if "filter" in df_spec:
+                d_filt = df_spec.get("filter", {})
+            else:
+                d_filt = {k: v for k, v in df_spec.items() if k != "count"}
+            d_count = int(df_spec.get("count", 1))
+            matching = [c for c in me.hand if _matches_filter(c, d_filt)]
+            if len(matching) < d_count:
+                return False
+        elif "trash_self_hand_random" in cs:
+            n = int(cs["trash_self_hand_random"])
+            if len(me.hand) < n:
+                return False
+        elif "discard_hand" in cs:
+            # 単純 「手札 N 枚捨てる」 (count に整数)
+            n = int(cs["discard_hand"])
+            if len(me.hand) < n:
+                return False
+        else:
+            # 未対応 cost は支払不能扱い (= 公式 4-10 解釈不能→False)
+            return False
+    return True
+
+
+def _pay_replace_cost(
+    state: GameState, me: Player, cost_specs: list[dict]
+) -> None:
+    """replace_ko / replace_leave の cost 配列を実行 (消費)。"""
+    for cs in cost_specs:
+        if "discard_hand_with_filter" in cs:
+            df_spec = cs["discard_hand_with_filter"]
+            if "filter" in df_spec:
+                d_filt = df_spec.get("filter", {})
+            else:
+                d_filt = {k: v for k, v in df_spec.items() if k != "count"}
+            d_count = int(df_spec.get("count", 1))
+            discarded = 0
+            new_hand = []
+            for c in me.hand:
+                if discarded < d_count and _matches_filter(c, d_filt):
+                    me.trash.append(c)
+                    discarded += 1
+                    state.push_log(f"  離脱置換コスト: 手札捨て (filter) → {c.name}")
+                else:
+                    new_hand.append(c)
+            me.hand = new_hand
+        elif "trash_self_hand_random" in cs:
+            n = int(cs["trash_self_hand_random"])
+            for _ in range(n):
+                if not me.hand:
+                    break
+                idx = state.rng.randrange(len(me.hand))
+                me.trash.append(me.hand.pop(idx))
+                state.push_log(f"  離脱置換コスト: 手札ランダム1枚捨て")
+        elif "discard_hand" in cs:
+            n = int(cs["discard_hand"])
+            for _ in range(n):
+                if not me.hand:
+                    break
+                # AI 簡易: power 低 → cost 低い順に捨てる (最も惜しくない)
+                me.hand.sort(key=lambda c: (c.power, c.cost))
+                me.trash.append(me.hand.pop(0))
+                state.push_log(f"  離脱置換コスト: 手札 1 枚捨て")
 
 
 def _replace_ko_match(
