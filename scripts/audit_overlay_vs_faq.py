@@ -266,7 +266,11 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
     # === when 不整合 ===
     if "【起動メイン】" in text and "activate_main" not in when_set:
         issues.append("missing_activate_main")
-    if "【登場時】" in text and "on_play" not in when_set:
+    # 「【登場時】」 のうち「【登場時】効果」 (= フィルタ参照) は trigger ではない。
+    # 例: PRB01-001 サンジ 「自分のコスト8以下の【登場時】効果を持たないキャラ1枚...」
+    # 該当パターン 「【登場時】効果」 を除いて素の「【登場時】」 が残るか確認。
+    text_for_on_play = (text or "").replace("【登場時】効果", "")
+    if "【登場時】" in text_for_on_play and "on_play" not in when_set:
         issues.append("missing_on_play")
     if "【KO時】" in text and "on_ko" not in when_set:
         issues.append("missing_on_ko")
@@ -329,7 +333,15 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
 
     # === 効果 0 件 (vanilla) なのに FAQ ある ===
     if len(effects) == 0 and len(qa_list) >= 1:
-        issues.append("vanilla_but_has_faq")
+        # ただし、 テキストが純粋にキーワードマーカーのみのカード
+        # (= 【ブロッカー】 / 【速攻】 / 【バニッシュ】 / 【ダブルアタック】 / 【ブロック不可】 / 「-」)
+        # は真の vanilla とみなし、 flag しない (FAQ はキーワード一般説明のみ)。
+        stripped = re.sub(r"【[^】]+】", "", text or "")
+        stripped = re.sub(r"\([^)]*\)", "", stripped)  # 「(...)」 の説明テキストを除去
+        stripped = stripped.replace("-", "").strip()
+        # 空 or 短い (キーワード説明のみ) なら真の vanilla
+        if stripped and len(stripped) >= 4:
+            issues.append("vanilla_but_has_faq")
 
     return issues
 

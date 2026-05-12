@@ -1499,6 +1499,30 @@ def execute_effect(
             for t in targets:
                 t.granted_keywords.add(keyword)
             state.push_log(f"  効果: {keyword} 付与 → {[t.card.name for t in targets]}")
+        elif k == "set_base_power_timed":
+            # 「元々のパワーを X にする (期限付き)」 (ST26-005 ルフィ 等)。
+            # spec: {"target": "self_leader", "amount": 7000, "duration": "next_opp_turn_end"}
+            # duration: "turn" | "next_self_turn_start" | "next_opp_turn_end"
+            spec = v if isinstance(v, dict) else {}
+            target_spec = spec.get("target", "self")
+            amount = int(spec.get("amount", 0))
+            duration = spec.get("duration", "turn")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            me_idx = state.players.index(me)
+            for t in targets:
+                if duration == "turn":
+                    t.turn_base_power_override = amount
+                elif duration == "next_self_turn_start":
+                    t.next_turn_base_power_override = amount
+                elif duration in ("next_opp_turn_end", "next_opp_end_phase"):
+                    t.next_opp_turn_end_base_power_override = amount
+                    t.next_opp_turn_end_base_power_override_applier_idx = me_idx
+                    t.next_opp_turn_end_base_power_override_applied_turn = state.turn_number
+                else:
+                    t.base_power_override = amount
+            state.push_log(
+                f"  効果: 元々のパワー={amount} ({duration}) → {[t.card.name for t in targets]}"
+            )
         elif k == "set_base_power_copy":
             # 「このキャラの元々のパワーは、 このターン中、 選んだキャラと同じパワーになる」
             # (EB01-061 Mr.2 等)。 from_target で選んだキャラの current power を
@@ -2746,6 +2770,22 @@ def execute_effect(
                     if len(matching) < rb_count:
                         can_pay = False
                         break
+                elif "return_self_chara_to_hand" in cs:
+                    # 公式 「自分のキャラ1枚を持ち主の手札に戻すことができる：効果」 用 cost。
+                    # OP01-047 トラファルガー・ロー 等。
+                    # spec: {"return_self_chara_to_hand": {"count": 1, "filter": {...}}}
+                    # or short form: {"return_self_chara_to_hand": 1}
+                    rh_spec = cs["return_self_chara_to_hand"]
+                    if isinstance(rh_spec, dict):
+                        rh_count = int(rh_spec.get("count", 1))
+                        rh_filt = rh_spec.get("filter", {})
+                    else:
+                        rh_count = int(rh_spec)
+                        rh_filt = {}
+                    matching = [c for c in me.characters if _matches_filter(c.card, rh_filt)]
+                    if len(matching) < rh_count:
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -2836,6 +2876,37 @@ def execute_effect(
                         else:
                             new_stages.append(s)
                     me.stages = new_stages
+                    continue
+                if "return_self_chara_to_hand" in cs:
+                    # 公式: 自キャラ N 枚を持ち主 (= me) の手札へ。
+                    rh_spec = cs["return_self_chara_to_hand"]
+                    if isinstance(rh_spec, dict):
+                        rh_count = int(rh_spec.get("count", 1))
+                        rh_filt = rh_spec.get("filter", {})
+                    else:
+                        rh_count = int(rh_spec)
+                        rh_filt = {}
+                    # AI 簡易: power 低い順に取り出す。
+                    cands = [c for c in me.characters if _matches_filter(c.card, rh_filt)]
+                    cands.sort(key=lambda c: c.power)
+                    moved = 0
+                    targets_to_move = set()
+                    for c in cands:
+                        if moved < rh_count:
+                            targets_to_move.add(c.instance_id)
+                            moved += 1
+                    new_chars = []
+                    for c in me.characters:
+                        if c.instance_id in targets_to_move:
+                            me.hand.append(c.card)
+                            state.push_log(
+                                f"  効果コスト: 自キャラ → 手札 ({c.card.name})"
+                            )
+                            if c.attached_dons > 0:
+                                me.don_rested += c.attached_dons
+                        else:
+                            new_chars.append(c)
+                    me.characters = new_chars
                     continue
                 if "return_self_chara_to_deck_bottom" in cs:
                     # 公式: 自キャラ N 枚を持ち主 (= me) のデッキの下へ。

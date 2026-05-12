@@ -1390,7 +1390,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "EB03-001 on_attack: 効果を持たないキャラ1枚までは、このターン中、【速攻】を得る。",
@@ -2845,15 +2848,29 @@
   ],
   "OP01-047": [
     {
-      "_text": "OP01-047 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 3
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 3
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -4996,7 +5013,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "PRB02-012": [
@@ -8224,6 +8244,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -9945,7 +9968,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "EB03-001_p1 on_attack: 効果を持たないキャラ1枚までは、このターン中、【速攻】を得る。",
@@ -10058,6 +10084,9 @@
       ],
       "if": {
         "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -11111,7 +11140,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "シャーロット・カタクリ 相手アタック時 相手リーダー -1000 (自動生成防御)",
@@ -11139,7 +11171,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "シャーロット・カタクリ 相手アタック時 相手リーダー -1000 (自動生成防御)",
@@ -11249,7 +11284,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP10-003_p1": [
@@ -11260,7 +11298,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP10-022": [
@@ -11413,6 +11454,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -11432,6 +11476,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -11982,6 +12029,9 @@
       ],
       "if": {
         "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -12001,6 +12051,9 @@
       ],
       "if": {
         "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -12966,6 +13019,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -12985,6 +13041,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -13135,6 +13194,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -13392,7 +13454,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "ウタ ドン×1 常在 +1000 リーダー (自動生成)",
@@ -13675,7 +13740,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "ウタ ドン×1 常在 +1000 リーダー (自動生成)",
@@ -14349,6 +14417,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -14374,7 +14445,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP12-020_p2": [
@@ -14705,12 +14779,34 @@
   ],
   "OP12-081": [
     {
-      "_text": "OP12-081 on_attached_don (パターン未一致): このリーダーが相手のリーダーにアタックした時、自分のコスト8以上のキャラが2枚以上いる場合、カード1枚を引く。【ターン1回】相手が、元々のコスト8以上のキャラを",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP12-081 コアラ on_attack: 自コスト8以上が2枚以上 → 1ドロー (attack target が相手リーダーか否かを engine が dispatch していないため すべての on_attack で発火)",
+      "when": "on_attack",
+      "conditions": [
+        {
+          "self_chara_cost_ge_count": {
+            "cost_ge": 8,
+            "n": 2
+          }
+        }
+      ],
       "do": [
         {
-          "_unimplemented": "このリーダーが相手のリーダーにアタックした時、自分のコスト8以上のキャラが2枚以上いる場合、カード1枚を引く。【ターン1回】相手が、元々のコスト8以上のキャラを登場させた時かキャラの効果でキャラを登場させた時、発動できる。相手は自身のライフの上から1枚を、手札に加える。"
+          "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP12-081 コアラ on_opp_chara_played: 【ターン1回】相手キャラ登場時 → 相手ライフ上を相手手札へ",
+      "when": "on_opp_chara_played",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "_unimplemented": "公式: 相手が 元々のコスト8以上のキャラを登場させた時 か キャラの効果でキャラを登場させた時 限定 (条件未対応 — payload-aware 条件が必要)。発動できるは optional だが現状必発火。"
+        },
+        {
+          "mill_opp_life_to_hand": 1
         }
       ]
     }
@@ -14863,6 +14959,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -14878,6 +14977,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -14893,6 +14995,9 @@
       ],
       "if": {
         "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -14908,6 +15013,9 @@
       ],
       "if": {
         "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -14988,6 +15096,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -15061,6 +15172,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -15080,6 +15194,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -25646,7 +25763,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB02-036_p1": [
@@ -31641,7 +31761,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB03-006_p1": [
@@ -32562,6 +32685,9 @@
       ],
       "if": {
         "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
       }
     }
   ],
@@ -37908,7 +38034,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "PRB02-002_p1": [
@@ -37923,7 +38052,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "PRB02-004": [
@@ -43291,7 +43423,10 @@
         {
           "mill_self_top": 2
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB04-043_p1": [
@@ -43302,7 +43437,10 @@
         {
           "mill_self_top": 2
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB04-045": [
@@ -46616,16 +46754,58 @@
   ],
   "ST26-005_p1": [
     {
-      "_text": "ST26-005_p1 on_attack: ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、自分の特徴《麦わらの一味》を",
-      "when": "on_attack",
-      "do": [
-        {
-          "_unimplemented": "ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、自分の特徴《麦わらの一味》を持つリーダーを、次の相手のエンドフェイズ終了時まで、元々のパワー7000にする。"
-        }
-      ],
+      "_text": "ST26-005_p1 on_play: ドン-2 + 多色 + opp_don>=5 + 麦わらリーダー → リーダー元々のパワー7000 (next_opp_turn_end)",
+      "when": "on_play",
       "cost": {
         "pay_don": 2
-      }
+      },
+      "conditions": [
+        {
+          "leader_color": "多色"
+        },
+        {
+          "opp_don_count_ge": 5
+        },
+        {
+          "leader_feature": "麦わらの一味"
+        }
+      ],
+      "do": [
+        {
+          "set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 7000,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST26-005_p1 on_attack: 同上",
+      "when": "on_attack",
+      "cost": {
+        "pay_don": 2
+      },
+      "conditions": [
+        {
+          "leader_color": "多色"
+        },
+        {
+          "opp_don_count_ge": 5
+        },
+        {
+          "leader_feature": "麦わらの一味"
+        }
+      ],
+      "do": [
+        {
+          "set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 7000,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
     }
   ],
   "OP14-005": [
@@ -46784,7 +46964,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP14-017": [
@@ -50606,7 +50789,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP10-037_p1": [
@@ -50620,7 +50806,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP10-040": [
@@ -56361,7 +56550,10 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP05-032_p1": [
@@ -56372,7 +56564,10 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP05-033": [
@@ -63324,16 +63519,58 @@
   ],
   "ST26-005": [
     {
-      "_text": "ST26-005 on_attack: ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、自分の特徴《麦わらの一味》を",
-      "when": "on_attack",
-      "do": [
-        {
-          "_unimplemented": "ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、自分の特徴《麦わらの一味》を持つリーダーを、次の相手のエンドフェイズ終了時まで、元々のパワー7000にする。"
-        }
-      ],
+      "_text": "ST26-005 on_play: ドン-2 + 多色 + opp_don>=5 + 麦わらリーダー → リーダー元々のパワー7000 (next_opp_turn_end)",
+      "when": "on_play",
       "cost": {
         "pay_don": 2
-      }
+      },
+      "conditions": [
+        {
+          "leader_color": "多色"
+        },
+        {
+          "opp_don_count_ge": 5
+        },
+        {
+          "leader_feature": "麦わらの一味"
+        }
+      ],
+      "do": [
+        {
+          "set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 7000,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST26-005 on_attack: 同上",
+      "when": "on_attack",
+      "cost": {
+        "pay_don": 2
+      },
+      "conditions": [
+        {
+          "leader_color": "多色"
+        },
+        {
+          "opp_don_count_ge": 5
+        },
+        {
+          "leader_feature": "麦わらの一味"
+        }
+      ],
+      "do": [
+        {
+          "set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 7000,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
     }
   ],
   "OP09-043_r1": [
@@ -63494,7 +63731,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "once_per_turn": true
       }
     }
   ],
@@ -67181,7 +67419,10 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "ST02-013": [

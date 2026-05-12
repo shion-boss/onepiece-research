@@ -168,6 +168,13 @@ class InPlay:
     # 所有者の REFRESH 開始時 (= 次の自ターン開始時) にクリア。
     # turn_base_power_override より弱い優先 (= 「このターン中」 が同時に有効なら そちら勝ち)。
     next_turn_base_power_override: Optional[int] = None
+    # 「次の相手のターン (= エンドフェイズ) 終了時まで」 の base_power 上書き
+    # (= ST26-005 モンキー・Ｄ・ルフィ 「自分のリーダーを 次の相手のエンドフェイズ終了時まで、 元々のパワー 7000 にする」)。
+    # applier-tracking (= applier_idx の opp ターンが終了したら _reset_turn_buff でクリア、
+    # ただし applied_turn より少なくとも 1 ターン以上経過必須)。 EB02-041 系のドン+2 と同じ仕組み。
+    next_opp_turn_end_base_power_override: Optional[int] = None
+    next_opp_turn_end_base_power_override_applier_idx: int = -1
+    next_opp_turn_end_base_power_override_applied_turn: int = 0
     # 「元々のコスト」を上書き (None なら CardDef.cost を使う)
     base_cost_override: Optional[int] = None
     # 「相手はこのキャラ以外にアタックできない」常在 (taunt)。
@@ -286,11 +293,14 @@ class InPlay:
         """現在の base power 値 (= override が無ければ card.power、あればその値)。
         power プロパティの計算根。「元々のパワー」判定には truly_original_power を使う。
         優先順位: turn_base_power_override (このターン中) > next_turn_base_power_override
-        (次の自ターン開始時まで) > base_power_override (静的) > card.power。"""
+        (次の自ターン開始時まで) > next_opp_turn_end_base_power_override (次の相手ターン
+        終了時まで) > base_power_override (静的) > card.power。"""
         if self.turn_base_power_override is not None:
             return self.turn_base_power_override
         if self.next_turn_base_power_override is not None:
             return self.next_turn_base_power_override
+        if self.next_opp_turn_end_base_power_override is not None:
+            return self.next_opp_turn_end_base_power_override
         return self.base_power_override if self.base_power_override is not None else self.card.power
 
     @property

@@ -251,3 +251,76 @@ def test_on_self_event_played_does_not_fire_on_opp_event():
     trigger_main_event(state, opp, me, event_card, overlay)
     # me の hand に変化なし
     assert len(me.hand) == initial_hand
+
+
+# --------------------------------------------------------------------------- #
+# 3. R45 追加: set_base_power_timed primitive
+# --------------------------------------------------------------------------- #
+def test_set_base_power_timed_next_opp_turn_end():
+    """ST26-005 パターン: 自リーダーの 元々のパワー=7000 を 次の相手ターン終了時まで設定。"""
+    repo = _repo()
+    state = _make_state(repo)
+    me = state.players[0]
+    opp = state.players[1]
+    # leader power: P0 が OP01-003 (リーダー power 5000 想定。 元値は repo から取得)
+    original = me.leader.card.power
+    # set_base_power_timed で 7000 へ
+    execute_effect(
+        {"set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 7000,
+            "duration": "next_opp_turn_end",
+        }},
+        state, me, opp, None,
+    )
+    assert me.leader.next_opp_turn_end_base_power_override == 7000
+    assert me.leader.base_power == 7000  # next_opp_turn_end_base_power_override 反映
+    assert me.leader.next_opp_turn_end_base_power_override_applier_idx == 0
+
+
+def test_set_base_power_timed_turn_duration():
+    """duration=turn: turn_base_power_override に格納。"""
+    repo = _repo()
+    state = _make_state(repo)
+    me = state.players[0]
+    opp = state.players[1]
+    execute_effect(
+        {"set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 8000,
+            "duration": "turn",
+        }},
+        state, me, opp, None,
+    )
+    assert me.leader.turn_base_power_override == 8000
+    assert me.leader.base_power == 8000
+
+
+# --------------------------------------------------------------------------- #
+# 4. R45 追加: return_self_chara_to_hand cost
+# --------------------------------------------------------------------------- #
+def test_return_self_chara_to_hand_cost_payable():
+    """OP01-047 ロー パターン: optional_cost_then で 自キャラ1枚を持ち主の手札に戻す cost。"""
+    repo = _repo()
+    state = _make_state(repo)
+    me = state.players[0]
+    opp = state.players[1]
+    # 自キャラを 2 枚場へ
+    chara_card = repo.get("OP01-013")
+    me.characters.append(InPlay.of(chara_card, sickness=False))
+    me.characters.append(InPlay.of(chara_card, sickness=False))
+    initial_chars = len(me.characters)
+    initial_hand = len(me.hand)
+    # optional_cost_then で 1 体手札へ → draw 1
+    execute_effect(
+        {
+            "optional_cost_then": {
+                "cost": [{"return_self_chara_to_hand": {"count": 1}}],
+                "effect": [{"draw": 1}],
+            },
+        },
+        state, me, opp, None,
+    )
+    # 1 体減って手札に + cost で 1 枚増える + draw で 1 枚増える
+    assert len(me.characters) == initial_chars - 1
+    assert len(me.hand) == initial_hand + 2  # cost で 1 + draw で 1
