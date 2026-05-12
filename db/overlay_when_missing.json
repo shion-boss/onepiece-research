@@ -1,0 +1,134 @@
+{
+  "ST09-002": {
+    "name": "雨月天ぷら",
+    "category": "CHARACTER",
+    "text": "- 【トリガー】相手のコスト2以下のキャラ1枚までを、レストにし、このカードを手札に加える。",
+    "missing_whens": [
+      "trigger"
+    ],
+    "actual_whens": [],
+    "qa_count": 2
+  },
+  "OP08-043": {
+    "name": "エドワード・ニューゲート",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のリーダーが『白ひげ海賊団』を含む特徴を持ち、自分のライフが2枚以下の場合、相手のキャラすべては、次の相手のターン終了時まで、アタックする際、自身の手札2枚を捨てなければアタックすること",
+    "missing_whens": [
+      "opp_end_of_turn"
+    ],
+    "actual_whens": [
+      "on_play"
+    ],
+    "qa_count": 2
+  },
+  "EB01-042": {
+    "name": "スカーレット",
+    "category": "CHARACTER",
+    "text": "【起動メイン】このキャラをトラッシュに置くことができる：自分の手札から「スカーレット」以外のコスト3以下の特徴《ドレスローザ》を持つキャラカード1枚までを、レストで登場させる。その後、相手のキャラ1枚",
+    "missing_whens": [
+      "main"
+    ],
+    "actual_whens": [
+      "activate_main"
+    ],
+    "qa_count": 2
+  },
+  "OP10-030": {
+    "name": "スモーカー",
+    "category": "CHARACTER",
+    "text": "【バニッシュ】(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)【起動メイン】自分のドン‼1枚までを、アクティブにする。その後、自分はこのターン中、キャラの効果で",
+    "missing_whens": [
+      "main",
+      "trigger"
+    ],
+    "actual_whens": [
+      "activate_main"
+    ],
+    "qa_count": 4
+  },
+  "ST01-007": {
+    "name": "ナミ",
+    "category": "CHARACTER",
+    "text": "【起動メイン】【ターン1回】自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与する。 ",
+    "missing_whens": [
+      "main"
+    ],
+    "actual_whens": [
+      "activate_main"
+    ],
+    "qa_count": 1
+  },
+  "OP01-051": {
+    "name": "ユースタス・キッド",
+    "category": "CHARACTER",
+    "text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下",
+    "missing_whens": [
+      "main"
+    ],
+    "actual_whens": [
+      "activate_main",
+      "on_attached_don"
+    ],
+    "qa_count": 1
+  },
+  "OP09-111": {
+    "name": "ブルック",
+    "category": "CHARACTER",
+    "text": "- 【トリガー】自分のリーダーが特徴《エッグヘッド》を持ち、相手の手札が6枚以上の場合、相手は自身の手札2枚を捨てる。",
+    "missing_whens": [
+      "trigger"
+    ],
+    "actual_whens": [],
+    "qa_count": 2
+  },
+  "OP14-060": {
+    "name": "ドンキホーテ・ドフラミンゴ",
+    "category": "LEADER",
+    "text": "【相手のアタック時】【ターン1回】ドン‼-1：自分のリーダーか特徴《ドンキホーテ海賊団》を持つキャラ1枚を選ぶ。選んだカードにアタックの対象を変更する。 ",
+    "missing_whens": [
+      "on_attack"
+    ],
+    "actual_whens": [
+      "opp_attack"
+    ],
+    "qa_count": 6
+  },
+  "OP07-019": {
+    "name": "ジュエリー・ボニー",
+    "category": "LEADER",
+    "text": "【相手のアタック時】【ターン1回】➀(コストエリアのドン‼を指定の数レストにできる)：相手の、リーダーかキャラ1枚までを、レストにする。 ",
+    "missing_whens": [
+      "on_attack"
+    ],
+    "actual_whens": [
+      "opp_attack"
+    ],
+    "qa_count": 4
+  },
+  "OP04-069": {
+    "name": "Mｒ.2・ボン・クレー(ベンサム)",
+    "category": "CHARACTER",
+    "text": "【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラの元々のパワーは、このターン中、相手のアタックしているリーダーかキャラと同じパワーになる。 ",
+    "missing_whens": [
+      "on_attack"
+    ],
+    "actual_whens": [
+      "opp_attack",
+      "trigger"
+    ],
+    "qa_count": 2
+  },
+  "OP09-013": {
+    "name": "ヤソップ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+1000。【ドン‼×1】【アタック時】相手のキャラ1枚までを、このターン中、パワー-1000。 ",
+    "missing_whens": [
+      "opp_end_of_turn"
+    ],
+    "actual_whens": [
+      "on_attack",
+      "on_play"
+    ],
+    "qa_count": 2
+  }
+}
