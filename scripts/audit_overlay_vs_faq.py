@@ -189,6 +189,37 @@ R3_KNOWN_TARGET_SPECS = {
 }
 
 
+# R4 拡張で engine 側に追加された新規 cost / primitive / spec。
+# audit が「未知のキー」 と勘違いしないように知識として記録。
+R4_KNOWN_COST_KEYS = {
+    # 公開コスト (= 実消費なし)。 「自分の手札から特徴X を持つカード N 枚を公開することができる：効果」
+    # 影響カード: OP14-105 ゴルゴン三姉妹 / OP12-003 クロッカス / OP08-040 アトモス / OP12-009 ジンベエ 等 (23+ 枚)
+    # 形式: {"reveal_hand_with_filter": {"filter": {...}, "count": N}}
+    #    or {"reveal_hand_with_filter": {"feature_in": [...], "count": N}}
+    "reveal_hand_with_filter",
+}
+R4_KNOWN_OPTIONAL_COST_PRIMITIVES = {
+    # optional_cost_then.cost で扱える追加 cost (R4)。
+    # 公開のみ、 実消費なし (公式 OP14-105 / OP12-003)。
+    "reveal_hand_with_filter",
+    # 自ライフ上/下から N 枚をトラッシュ (= ST13-005 等)。 既存 primitive を cost として認識。
+    "mill_self_life_to_trash",
+}
+R4_KNOWN_PRIMITIVE_KEYS = {
+    # 「N1 と N2 と N3 それぞれ 1 枚ずつ」 (= ST13-006 ロー/エース/サボ系)
+    "play_from_hand_named_set",
+    # 「自分のデッキの上から N 枚を公開し、 (filter 条件) の場合、 効果X。 その後 (rest_remain)」
+    # ST22-016 / ST22-012 / ST17-001 / EB01-029 等。 reveal + cond → conditional then/else。
+    "reveal_top_then",
+}
+R4_KNOWN_PRIMITIVE_OPTIONS = {
+    # attach_don / attach_rested_don の per_target=true (= 「全員に 1 枚ずつ付与」)。
+    # OP14-105 ゴルゴン三姉妹 / OP04-004 アラバスタ系。
+    # spec キー自体は既存だが、 per_target オプションが追加された。
+    "per_target",
+}
+
+
 def overlay_if_keys(effects: list[dict]) -> set[str]:
     keys: set[str] = set()
     for e in effects:
