@@ -9311,19 +9311,34 @@
   ],
   "EB04-021": [
     {
-      "_text": "EB04-021 on_play: 自分のリーダーが「ネフェルタリ・ビビ」の場合、カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "【登場時】自分のリーダーが「ネフェルタリ・ビビ」の場合、カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "on_play",
+      "if": {"leader_name": "ネフェルタリ・ビビ"},
+      "do": [
+        {"draw": 2},
+        {"trash_self_hand_random": 1}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [{"trash_self_hand_random": 1}],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      },
-      "if": {
-        "leader_name": "ネフェルタリ・ビビ"
-      }
+      ]
     }
   ],
   "EB02-061": [
@@ -15923,23 +15938,23 @@
   ],
   "EB04-036": [
     {
-      "_text": "EB04-036 on_play: ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストに",
+      "_text": "【登場時】ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
+      "if": {"leader_feature": "フォクシー海賊団"},
+      "cost": {"pay_don": 1},
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "rest": "one_opponent_character_cost_le_9cost"
-        }
-      ],
-      "cost": {
-        "pay_don": 1,
-        "discard_hand": 1
-      },
-      "if": {
-        "leader_feature": "フォクシー海賊団"
-      }
+        {"draw": 2},
+        {"trash_self_hand_random": 1},
+        {"rest": "one_opponent_character_cost_le_9cost"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {"add_rested_don": 1}
+      ]
     }
   ],
   "EB04-037": [
@@ -17501,12 +17516,11 @@
   ],
   "OP11-031": [
     {
-      "_text": "OP11-031 on_play: 自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "【登場時】自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
+      "if": {"leader_features_any": ["魚人族", "人魚族"]},
       "do": [
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
-        }
+        {"rest": "one_opponent_character_cost_le_5cost"}
       ]
     }
   ],
@@ -24358,14 +24372,27 @@
   ],
   "EB04-007_p1": [
     {
-      "_text": "EB04-007_p1 on_play: 自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。",
+      "_text": "【登場時】自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。",
       "when": "on_play",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_end_phase"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】相手のパワー8000以上のキャラがいる場合、このキャラは、このターン中、【速攻：キャラ】を得る。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
           }
         }
       ]
@@ -24402,23 +24429,23 @@
   ],
   "EB04-036_p1": [
     {
-      "_text": "EB04-036_p1 on_play: ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストに",
+      "_text": "【登場時】ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
+      "if": {"leader_feature": "フォクシー海賊団"},
+      "cost": {"pay_don": 1},
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "rest": "one_opponent_character_cost_le_9cost"
-        }
-      ],
-      "cost": {
-        "pay_don": 1,
-        "discard_hand": 1
-      },
-      "if": {
-        "leader_feature": "フォクシー海賊団"
-      }
+        {"draw": 2},
+        {"trash_self_hand_random": 1},
+        {"rest": "one_opponent_character_cost_le_9cost"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {"add_rested_don": 1}
+      ]
     }
   ],
   "EB04-038_p1": [
@@ -27569,12 +27596,11 @@
   ],
   "OP11-031_p1": [
     {
-      "_text": "OP11-031_p1 on_play: 自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "【登場時】自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
+      "if": {"leader_features_any": ["魚人族", "人魚族"]},
       "do": [
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
-        }
+        {"rest": "one_opponent_character_cost_le_5cost"}
       ]
     }
   ],
@@ -35117,12 +35143,28 @@
   ],
   "OP06-118_r2": [
     {
-      "_text": "OP06-118_r2 on_attached_don (パターン未一致): 【アタック時】【ターン1回】自分のドン‼1枚をレストにできる：このキャラをアクティブにする。【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：このキ",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "【アタック時】【ターン1回】自分のドン‼1枚をレストにできる：このキャラをアクティブにする。",
+      "when": "on_attack",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "_unimplemented": "【アタック時】【ターン1回】自分のドン‼1枚をレストにできる：このキャラをアクティブにする。【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：このキャラをアクティブにする。"
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 1}],
+            "effect": [{"untap": "self"}]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：このキャラをアクティブにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 2}],
+            "effect": [{"untap": "self"}]
+          }
         }
       ]
     }
@@ -43816,7 +43858,7 @@
   ],
   "EB01-002": [
     {
-      "_text": "EB01-002 on_play: 自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。",
+      "_text": "【登場時】自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。",
       "when": "on_play",
       "do": [
         {
@@ -43824,6 +43866,28 @@
             "target": "self_inplay_choice",
             "count": 1,
             "rested": true
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーが特徴《ワノ国》か《白ひげ海賊団》を持つ場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
+      "when": "opp_attack",
+      "if": {"leader_features_any": ["ワノ国", "白ひげ海賊団"]},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"trash_self_hand_random": 1}],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_inplay_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
