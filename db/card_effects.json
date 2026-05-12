@@ -1015,7 +1015,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《海軍》を持つ場合、相手のコスト5以下のキャラ2枚までを、レストにする。"
+          "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "rest": "one_opponent_character_cost_le_5cost"
         }
       ],
       "if": {
@@ -2296,7 +2299,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す"
+          "return_to_hand": "one_opponent_character_cost_le_3cost"
         }
       ],
       "if": {
@@ -2309,7 +2312,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_3cost"
         }
       ],
       "if": {
@@ -2358,11 +2361,27 @@
   ],
   "EB02-013": [
     {
-      "_text": "EB02-013 on_play: 自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ゾウ」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手",
+      "_text": "EB02-013 on_play: 自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ゾウ」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ゾウ」1枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ゾウ」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ゾウ」1枚までを、登場させる。"
+          "search_top_n": {
+            "depth": 7,
+            "filter": {
+              "name": "ゾウ"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "ゾウ"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -2716,7 +2735,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_ko】自分の手札1枚を相手が選び、捨てる"
+          "trash_self_hand_random": 1
         }
       ],
       "if": {
@@ -2737,7 +2756,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札1枚を相手が選び、捨てる。"
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -3531,11 +3550,27 @@
   ],
   "OP05-101": [
     {
-      "_text": "OP05-101 on_play: 自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登",
+      "_text": "OP05-101 on_play: 自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登場させる。"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "name": "ホーリー"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "ホーリー"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -4191,11 +4226,17 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが多色で、相手のライフが3枚以下の場合、相手の元々のパワー7000以下のキャラ1枚までを、KOする。"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "power_le": 7000
+            }
+          }
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "leader_multicolor": true
       }
     },
     {
@@ -7309,7 +7350,16 @@
       "when": "end_of_turn",
       "do": [
         {
-          "_unimplemented": "自分のライフが3枚以下の場合、コスト5以下の特徴《エッグヘッド》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_le": 5,
+                "feature": "エッグヘッド"
+              }
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -8232,7 +8282,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト5以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。"
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
         }
       ]
     },
@@ -9290,7 +9343,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のドン‼が2枚以上付与されているレストのコスト8以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。"
+          "_unimplemented": "相手のドン‼が2枚以上付与されているレストのコスト8以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。 (engine 拡張要: stay_rested_next_refresh が dict target を受け入れない)"
         }
       ]
     },
@@ -16994,7 +17047,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のキャラ1枚を持ち主の手札に戻すことができる：コスト6以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "_unimplemented": "自分のキャラ1枚を持ち主の手札に戻すことができる：コスト6以下のキャラ1枚までを、持ち主の手札に戻す。 (engine 拡張要: 自キャラ1枚バウンスコスト)"
         }
       ]
     },
@@ -17243,7 +17296,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《王下七武海》を持つ場合、このキャラ以外のコスト1以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_1cost"
         }
       ],
       "if": {
@@ -17989,11 +18042,27 @@
   ],
   "OP10-006": [
     {
-      "_text": "OP10-006 on_play: 自分のデッキの上から5枚を見て、「スマイリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「スマイリー」1枚までを",
+      "_text": "OP10-006 on_play: 自分のデッキの上から5枚を見て、「スマイリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「スマイリー」1枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、「スマイリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「スマイリー」1枚までを、登場させる。"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "name": "スマイリー"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "スマイリー"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -19612,7 +19681,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分のコスト1の特徴《ヴィンスモーク家》を持つキャラ1枚までを、持ち主の手札に戻す。"
+          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分のコスト1の特徴《ヴィンスモーク家》を持つキャラ1枚までを、持ち主の手札に戻す。 (engine 拡張要: return_to_hand に自キャラ対象)"
         }
       ]
     }
@@ -19873,12 +19942,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる)：相手のコスト2以下のキャラ2枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_2cost"
+              },
+              {
+                "rest": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "OP06-081": [
@@ -20421,7 +20501,10 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト2以下のキャラ2枚までを、レストにする"
+          "rest": "one_opponent_character_cost_le_2cost"
+        },
+        {
+          "rest": "one_opponent_character_cost_le_2cost"
         }
       ]
     },
@@ -20569,7 +20652,23 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト0のキャラか、相手のコスト3以下のステージ1枚までを、KOする。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "ko": "one_opponent_character_cost_0"
+                }
+              ],
+              [
+                {
+                  "ko_opp_stage": {
+                    "cost_le": 3,
+                    "limit": 1
+                  }
+                }
+              ]
+            ]
+          }
         }
       ]
     },
@@ -21062,9 +21161,12 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：コスト3以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "ST27-005 on_ko: 自分のトラッシュから黒のカード1枚までを、手札に加える。",
@@ -21717,7 +21819,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "➁(コストエリアのドン!!を指定の数レストにできる)：コスト5以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -24486,9 +24599,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：相手のレストのパワー8000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_rested_character_power_le_8000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB04-025_p1": [
@@ -26017,7 +26133,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト5以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。"
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
         }
       ]
     },
@@ -30609,7 +30728,7 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "➀(コストエリアのドン!!を指定の数レストにできる)，このキャラを持ち主の手札に戻すことができる：自分の手札からコスト3のキャラ1枚までを、登場させる。"
+          "_unimplemented": "➀(コストエリアのドン!!を指定の数レストにできる)，このキャラを持ち主の手札に戻すことができる：自分の手札からコスト3のキャラ1枚までを、登場させる。 (engine 拡張要: activate_main の return_self_to_hand + rest_self_don 複合コスト)"
         }
       ],
       "cost": {
@@ -32443,7 +32562,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト5以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。"
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
         }
       ]
     },
@@ -34100,7 +34222,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "➁(コストエリアのドン‼を指定の数レストにできる)：コスト5以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -35389,7 +35522,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の、パワー3000以下のキャラ1枚までとコスト1以下のステージ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "ko_opp_stage": {
+            "cost_le": 1,
+            "limit": 1
+          }
         }
       ]
     },
@@ -35411,7 +35550,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の、パワー3000以下のキャラ1枚までとコスト1以下のステージ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "ko_opp_stage": {
+            "cost_le": 1,
+            "limit": 1
+          }
         }
       ]
     },
@@ -41911,11 +42056,17 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分の特徴《ワノ国》を持つリーダーにレストのドン‼1枚までを、付与する。"
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 1
+          }
         }
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "leader_feature": "ワノ国"
       }
     }
   ],
@@ -42314,9 +42465,27 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：コスト8以上のキャラが2枚以上いる場合、自分の特徴《革命軍》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+1000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "革命軍"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      },
+      "if": {
+        "self_chara_cost_ge_count": {
+          "cost_ge": 8,
+          "n": 2
+        }
+      }
     }
   ],
   "EB04-049": [
@@ -42424,7 +42593,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のライフが2枚以下の場合、自分の手札からパワー6000以下の黄のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000,
+              "color": "黄"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -43198,11 +43374,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《エッグヘッド》を持ち、自分のライフが2枚以上の場合、自分の手札から【トリガー】を持つキャラカード1枚までを、ライフの上に表向きで加える。"
+          "hand_to_self_life": {
+            "filter": {
+              "category": "CHARACTER",
+              "has_trigger": true
+            },
+            "count": 1
+          }
         }
       ],
       "if": {
-        "self_life_ge": 2
+        "self_life_ge": 2,
+        "leader_feature": "エッグヘッド"
       }
     },
     {
@@ -43210,7 +43393,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手の「モンキー・Ｄ・ルフィ」以外のコスト6以下のキャラ1枚までは、このターン中、アタックできない。"
+          "_unimplemented": "相手の「モンキー・Ｄ・ルフィ」以外のコスト6以下のキャラ1枚までは、このターン中、アタックできない。 (engine 拡張要: set_cannot_attack の name exclude)"
         }
       ]
     }
@@ -43557,7 +43740,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ガイモン」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ガイモン"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -44308,7 +44496,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "コスト3以下のキャラ1枚までを、持ち主のデッキの下に戻す。"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_3cost"
         }
       ]
     }
@@ -44716,9 +44904,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分のライフが2枚以下の場合、このキャラのパワー+2000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_life_le": 2
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分のライフが2枚以下の場合、このキャラのパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -44935,7 +45130,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "このキャラカードをトラッシュから手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "name": "キュロス"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -44946,7 +45146,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ボビー・ファンク」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ボビー・ファンク"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -45087,7 +45292,13 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト8以下のキャラカード1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 8
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -45405,12 +45616,20 @@
   ],
   "OP15-111": [
     {
-      "_text": "OP15-111 on_attached_don (パターン未一致): 【ドン‼×1】【アタック時】自分の「カルガラ」1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP15-111 on_attack: 【ドン‼×1】自分の「カルガラ」1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
-          "_unimplemented": "【ドン‼×1】【アタック時】自分の「カルガラ」1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)"
+          "give_keyword": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "カルガラ"
+            },
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -47581,7 +47800,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -49091,9 +49315,17 @@
     {
       "_text": "OP10-008 on_play: 自分の「ロック」がいない場合、自分の手札から「ロック」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "ロック"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「ロック」がいない場合、自分の手札から「ロック」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ロック"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -49180,9 +49412,17 @@
     {
       "_text": "OP10-017 on_play: 自分の「スコッチ」がいない場合、自分の手札から「スコッチ」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "スコッチ"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「スコッチ」がいない場合、自分の手札から「スコッチ」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "スコッチ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -49606,9 +49846,15 @@
       "_text": "on_attached_don n=1: 自分のトラッシュが8枚以上ある場合、このキャラは【速攻】を得る",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_trash_count_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のトラッシュが8枚以上ある場合、このキャラは【速攻】を得る"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -50124,7 +50370,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のパワー4000以下のリーダー1枚までを、このターン中、パワー+1000。"
+          "_unimplemented": "自分のパワー4000以下のリーダー1枚までを、このターン中、パワー+1000。 (engine 拡張要: 自リーダーパワー条件 / self_leader_power_le)"
         }
       ]
     }
@@ -52037,9 +52283,15 @@
       "_text": "on_attached_don n=1: 【自分のターン中】相手のキャラすべてを、コスト-1",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-1"
+          "set_base_cost": {
+            "target": "all_opponent_characters",
+            "delta": -1
+          }
         }
       ]
     }
@@ -52109,7 +52361,13 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト4以下の「うるティ」1枚までを、登場させる。"
+          "play_from_trash": {
+            "filter": {
+              "name": "うるティ",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -52121,7 +52379,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラのコスト+2"
+          "set_base_cost": {
+            "target": "self",
+            "delta": 2
+          }
         }
       ]
     }
@@ -52741,7 +53002,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の、パワー3000以下のキャラ1枚までとコスト1以下のステージ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "ko_opp_stage": {
+            "cost_le": 1,
+            "limit": 1
+          }
         }
       ]
     },
@@ -53270,9 +53537,15 @@
       "_text": "on_attached_don n=1: 【自分のターン中】相手のキャラすべてを、コスト-1",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-1"
+          "set_base_cost": {
+            "target": "all_opponent_characters",
+            "delta": -1
+          }
         }
       ]
     }
@@ -53503,7 +53776,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「リリーカーネーション」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "リリーカーネーション"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -53799,7 +54077,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のキャラすべてを、レストにする。"
+          "rest": "all_opponent_characters"
         }
       ]
     },
@@ -53926,7 +54204,13 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト2のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 2
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -54854,7 +55138,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からパワー5000以下の特徴《革命軍》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 5000,
+              "feature": "革命軍"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -55099,9 +55390,22 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場にドン!!が8枚以上ある場合、自分のパワー6000以下の紫の特徴《麦わらの一味》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "power_le": 6000,
+                "color": "紫",
+                "feature": "麦わらの一味"
+              }
+            },
+            "limit": 1
+          }
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-070": [
@@ -55109,9 +55413,15 @@
       "_text": "on_attached_don n=1: 自分の場にドン!!が8枚以上ある場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分の場にドン!!が8枚以上ある場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -55497,7 +55807,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト1の特徴《空島》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 1,
+              "feature": "空島"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -56037,7 +56354,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】コスト2以下のキャラ1枚までを、持ち主の手札かデッキの下に戻す"
+          "choice": {
+            "options": [
+              [
+                {
+                  "return_to_hand": "one_opponent_character_cost_le_2cost"
+                }
+              ],
+              [
+                {
+                  "return_to_deck_bottom": "one_opponent_character_cost_le_2cost"
+                }
+              ]
+            ]
+          }
         }
       ],
       "if": {
@@ -56049,7 +56379,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "コスト2以下のキャラ1枚までを、持ち主の手札かデッキの下に戻す。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "return_to_hand": "one_opponent_character_cost_le_2cost"
+                }
+              ],
+              [
+                {
+                  "return_to_deck_bottom": "one_opponent_character_cost_le_2cost"
+                }
+              ]
+            ]
+          }
         }
       ]
     }
@@ -57186,7 +57529,13 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュの青の「ウソップ」1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "name": "ウソップ",
+              "color": "青"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57243,7 +57592,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚をトラッシュに置いてもよい。"
+          "mill_self_top": 1
         }
       ]
     }
@@ -57254,7 +57603,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_ko】自分のデッキの上から3枚をトラッシュに置いてもよい"
+          "mill_self_top": 3
         }
       ],
       "if": {
@@ -57266,7 +57615,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から3枚をトラッシュに置いてもよい。"
+          "mill_self_top": 3
         }
       ]
     }
@@ -57302,7 +57651,10 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "カード1枚を引き、自分のデッキの上から1枚をトラッシュに置いてもよい。"
+          "draw": 1
+        },
+        {
+          "mill_self_top": 1
         }
       ]
     }
@@ -57730,7 +58082,16 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のキャラ2枚までを、このターン中、コスト-2。"
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2
+          }
         }
       ]
     },
@@ -59183,7 +59544,10 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手のコスト3以下のステージ1枚までを、KOする。"
+          "ko_opp_stage": {
+            "cost_le": 3,
+            "limit": 1
+          }
         }
       ]
     }
@@ -59367,9 +59731,15 @@
       "_text": "on_attached_don n=2: 【相手のターン中】このキャラはパワー+3000",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "opp_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【相手のターン中】このキャラはパワー+3000"
+          "power_pump": {
+            "target": "self",
+            "amount": 3000
+          }
         }
       ]
     }
@@ -59715,9 +60085,17 @@
     {
       "_text": "OP01-044 on_play: 自分の「ペンギン」がいない場合、自分の手札から「ペンギン」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "ペンギン"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「ペンギン」がいない場合、自分の手札から「ペンギン」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ペンギン"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -59762,7 +60140,14 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の「ベポ」以外の特徴《ハートの海賊団》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "cost_le": 4,
+              "feature": "ハートの海賊団",
+              "exclude_name": "ベポ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -59771,9 +60156,17 @@
     {
       "_text": "OP01-050 on_play: 自分の「シャチ」がいない場合、自分の手札から「シャチ」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "シャチ"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「シャチ」がいない場合、自分の手札から「シャチ」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "シャチ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -60074,7 +60467,7 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《王下七武海》を持つ場合、コスト5以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_5cost"
         }
       ],
       "if": {
@@ -60284,9 +60677,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分の場にドン‼が8枚以上ある場合、このキャラはパワー+1000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の場にドン‼が8枚以上ある場合、このキャラはパワー+1000"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
         }
       ]
     }
@@ -60296,9 +60696,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分の場にドン!!が8枚以上ある場合、このキャラはパワー+1000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の場にドン!!が8枚以上ある場合、このキャラはパワー+1000"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
         }
       ]
     }
@@ -61105,9 +61512,12 @@
       "_text": "on_attached_don n=2: 相手のライフが3枚以下の場合、このキャラは効果でKOされない",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "opp_life_le": 3
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】相手のライフが3枚以下の場合、このキャラは効果でKOされない"
+          "set_ko_immune": "self"
         }
       ]
     },
@@ -63416,7 +63826,13 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト2以下のキャラカード1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -64259,9 +64675,12 @@
       "_text": "on_attached_don n=1: 自分のライフが2枚以下の場合、このキャラはバトルでKOされない",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のライフが2枚以下の場合、このキャラはバトルでKOされない"
+          "set_ko_immune": "self"
         }
       ]
     }
@@ -64748,7 +65167,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手は自身の手札1枚を選び、捨てる。"
+          "force_opp_discard": 1
         }
       ]
     }
@@ -64772,7 +65191,10 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "カード1枚を引き、自分のキャラは、このターン中、KOされない。"
+          "draw": 1
+        },
+        {
+          "prevent_ko": "all_self_characters"
         }
       ]
     }
@@ -66623,7 +67045,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト1の青のイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT",
+              "cost_eq": 1,
+              "color": "青"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -67634,9 +68063,15 @@
       "_text": "on_attached_don n=2: 【自分のターン中】このキャラはパワー+2000",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【自分のターン中】このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -67834,9 +68269,15 @@
       "_text": "on_attached_don n=1: 【自分のターン中】相手のキャラすべてを、コスト-2",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-2"
+          "set_base_cost": {
+            "target": "all_opponent_characters",
+            "delta": -2
+          }
         }
       ]
     }
@@ -67846,9 +68287,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分のライフが2枚以下の場合、このキャラはパワー+2000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_life_le": 2
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分のライフが2枚以下の場合、このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -67888,9 +68336,15 @@
       "_text": "on_attached_don n=2: 自分のライフが0枚の場合、このキャラはパワー+2000",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "self_life_le": 0
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】自分のライフが0枚の場合、このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -68174,7 +68628,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "このキャラカードを手札に加えることができる。"
+          "trash_to_hand": {
+            "filter": {
+              "name": "マルコ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
