@@ -7,7 +7,8 @@ export default async function MatchJobPage({
 }: {
   params: Promise<{ slug: string; job_id: string }>;
 }) {
-  const { slug, job_id } = await params;
+  const { slug: rawSlug, job_id } = await params;
+  const slug = decodeURIComponent(rawSlug);
 
   let summary: MatchSummary | null = null;
   let games: GameLog[] = [];

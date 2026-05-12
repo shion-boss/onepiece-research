@@ -12,7 +12,8 @@ export default async function DeckDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
 
   let detail: DeckDetail | null = null;
   let decks: DeckSummary[] = [];

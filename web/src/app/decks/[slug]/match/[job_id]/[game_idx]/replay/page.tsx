@@ -8,7 +8,8 @@ export default async function ReplayPage({
 }: {
   params: Promise<{ slug: string; job_id: string; game_idx: string }>;
 }) {
-  const { slug, job_id, game_idx } = await params;
+  const { slug: rawSlug, job_id, game_idx } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const idx = Number(game_idx);
 
   let replay: ReplayResponse | null = null;

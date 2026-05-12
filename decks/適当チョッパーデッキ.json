@@ -1,0 +1,66 @@
+{
+  "name": "適当チョッパーデッキ",
+  "leader": "OP08-001",
+  "main": [
+    {
+      "card_id": "EB01-005",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-018",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-001",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-005",
+      "count": 4
+    },
+    {
+      "card_id": "OP02-020",
+      "count": 4
+    },
+    {
+      "card_id": "OP02-033",
+      "count": 2
+    },
+    {
+      "card_id": "OP03-035",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-027",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-035",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-015",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-035",
+      "count": 2
+    },
+    {
+      "card_id": "OP13-010",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-008",
+      "count": 4
+    },
+    {
+      "card_id": "ST12-005",
+      "count": 4
+    }
+  ],
+  "regulation": "extra",
+  "slug": "適当チョッパーデッキ",
+  "source": "user",
+  "fetched_at": "2026-05-11T11:33:41Z"
+}

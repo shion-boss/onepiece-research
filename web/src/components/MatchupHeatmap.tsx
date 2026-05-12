@@ -37,10 +37,28 @@ export function MatchupHeatmap({ data }: { data: MatchupMatrix }) {
       );
     }
     const rowsByA = new Map(data.matrix.map((r) => [r.deck_a, r]));
-    const rows = order.map((slug) => ({
-      ...rowsByA.get(slug)!,
-      avg: avgMap.get(slug) ?? 0,
-    }));
+    const rows = order.map((slug) => {
+      const original = rowsByA.get(slug)!;
+      // 列ヘッダの順序 (order) に合わせて各行の cell も並び替え。
+      // これをしないと、 ソート時に列ヘッダの「対戦相手」 とセルの結果が対応しなくなる。
+      const cellByB = new Map(original.row.map((c) => [c.deck_b, c]));
+      const sortedRow = order.map(
+        (bSlug) =>
+          cellByB.get(bSlug) ?? {
+            deck_b: bSlug,
+            winrate: null,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            avg_turns: 0,
+          },
+      );
+      return {
+        ...original,
+        row: sortedRow,
+        avg: avgMap.get(slug) ?? 0,
+      };
+    });
     const decks = order.map(
       (slug) =>
         data.decks.find((d) => d.slug === slug) ?? { slug, name: slug },
