@@ -34,7 +34,7 @@ onepiece_research/
 │   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
 ├── web_skeleton/   # Next.js セットアップ手順 (キックオフ用ハンドオフ、現役性低)
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
-├── tests/          # pytest テスト (59 passed)
+├── tests/          # pytest テスト (270 passed + FAQ 200 placeholder skip)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 
@@ -56,26 +56,53 @@ onepiece_research/
 
 - [x] **Phase 1 完了**: カードDB(全54弾4,518枚、`cards.json` / `cards.sqlite`)
 - [x] **Phase 2 完了**: ルールエンジン(コアデータ構造、ターン進行、攻防、効果DSL)
-  - 主要トリガー実装済: 登場/アタック/起動メイン/KO時/ターン終了時/ブロック時/相手アタック時/トリガー/カウンターイベント/メインイベント
-  - DSL プリミティブ20+ 種 (draw / ko / power_pump / search / play_from_trash / give_keyword 他)
+  - 主要トリガー (R44-R64 拡張済): 登場/アタック/起動メイン/KO時/ターン終了時/ブロック時/相手アタック時/トリガー/カウンター/メインイベント
+    + **on_self_chara_leave_by_self_effect / on_self_rested / on_self_hand_discarded /
+      on_self_chara_played / on_opp_chara_played / on_self_event_played /
+      on_opp_life_taken / on_self_life_to_hand/to_trash / on_self_don_returned_to_deck /
+      on_opp_blocker_use / on_self_chara_ko / on_opp_chara_ko / opp_attack_on_leader /
+      opp_attack_on_chara**
+  - DSL プリミティブ **180+ 種** (engine/effects.py 内 elif k == "..." パターンで列挙)
 - [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
   - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
   - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
-  - **`_unimplemented` マーカー: 0 件達成 🎯 (R56 で完全消去)**
+  - **`_unimplemented` マーカー: 0 件達成 🎯 (R56 で完全消去、 残:なし)**
   - audit sev≥5 = 0、 sev=3-4 = 0 (R59) — `db/audit_acknowledged.json` で intrinsic 除外
   - engine 厳密化 audit 10/10 pass (`scripts/audit_engine_strictness.py`)
+  - cardqa vs overlay 整合性 0 漏れ (X5、 `scripts/verify_overlay_vs_cardqa.py`)
   - メタデッキ 15 リーダーは公式テキスト準拠で手書き、その他は自動生成 (近似 + fallback)
-  - DSL条件: leader_feature/color, self/opp life/hand 各種, opp_turn/self_turn,
-    self_rested, self_trash_count_ge, self_don_ge 等
-  - DSL プリミティブ: draw / ko / power_pump (動的計算 amount_per 含む) /
-    rest / return_to_hand / search / play_from_trash / give_keyword (rush/blocker/
-    ブロック不可/ダブルアタック/アクティブアタック可) / give_rush / attach_don /
-    don_minus_opp / mill / put_top_to_life / life_to_hand / add_don / untap /
-    trash_self_hand_random / **set_cannot_attack** / **stay_rested_next_refresh** /
-    **reduce_play_cost** / **prevent_ko** (turn) / **set_ko_immune** (static) /
-    **set_base_power** (元々のパワー上書き) / **set_base_cost** (元々のコスト上書き / delta) /
-    **set_attack_taunt** (キャラ taunt) / **replace_ko** (KO代替の置換効果)
-  - 残: ハンド領域からの選択登場、相手手札からの捨てなど一部
+  - DSL 条件 (eval_condition): leader_feature/color, self/opp life/hand/don 各種, opp_turn/self_turn,
+    self_rested, self_trash_count_ge, self_don_ge, victim_truly_original_power_ge,
+    victim_feature_in, played_chara_truly_original_cost_ge, played_self_chara_has_no_effect,
+    actor_source_feature_contains, self_chara_filtered_count_ge, don_diff_le 等 30+
+  - DSL プリミティブ主要カテゴリ:
+    - **draw/discard**: draw / draw_per_self_hand_discarded / trash_self_hand_random / trash_opp_hand_random
+    - **KO/離脱**: ko / ko_multi / ko_all_others / return_to_hand(_multi) / return_to_deck_bottom(_multi) /
+      chara_to_self_life / chara_to_opp_life
+    - **power**: power_pump (amount_per source × multiplier) / power_pump_per_target_attached_don /
+      set_base_power / set_base_power_timed / set_base_power_copy
+    - **cost**: set_base_cost / set_base_cost_timed / reduce_play_cost / reduce_play_cost_filtered_static
+    - **don**: attach_don / attach_rested_don / attach_active_don / add_don / add_rested_don /
+      untap_don / rest_opp_don / keep_opp_rested_don_next_refresh / rest_self_don_for_battle_buff_per_don
+    - **rest**: rest / untap_chara / rest_self_cards(_filtered) / set_cannot_rest / stay_rested_next_refresh
+    - **search/play**: search / play_from_hand(_or_trash/_named/_named_set/_named_with_dynamic_cost) /
+      play_from_trash / play_event_from_hand / summon_from_deck / reveal_top_then / reveal_top_play
+    - **life**: life_to_hand / life_top_or_bottom_to_hand / put_top_to_life / hand_to_self_life /
+      scry_life / scry_all_life_one_to_deck / scry_all_life_reorder / mill_self_life_until_n /
+      peek_self_life_top / mill_opp_life_to_hand/to_trash
+    - **キーワード付与**: give_keyword (target/keyword/keywords-choice/duration: turn|next_opp_turn_end) /
+      give_rush / give_attack_active_chara
+    - **置換効果**: replace_ko / replace_leave / replace_rest (cost 配列 + do)
+    - **KO 耐性**: prevent_ko / set_ko_immune / set_ko_immune_timed / set_ko_immune_battle_only /
+      set_immune_attribute_in_battle (negate option)
+    - **静的効果**: set_attack_taunt / set_cannot_attack_static / set_opp_protect_static /
+      cannot_attack_target_except / cannot_attack_target_cost_le
+    - **コスト/遅延**: optional_cost_then / schedule_at_opp_main_phase_start / schedule_at_self_turn_end /
+      block_self_draw_turn / block_chara_play_turn / prevent_self_life_to_hand_turn /
+      set_attack_cost_discard_hand / optional_discard_hand_for_battle_buff
+    - **その他**: redirect_attack / negate_effect / disable_effect / extra_turn / swap_opp_power /
+      draw_per_hand_to_deck_bottom / return_self_to_deck_bottom_if_condition / trash_to_deck /
+      opp_trash_to_deck_bottom / static_swords_attack_chara / 他
 - [x] **Phase 3 完了**: AI (`GreedyAI` / `RandomAI` / `LookaheadAI` / `MCTSAI`)、対戦ハーネス
   - GreedyAI 攻撃: パワー不足の確定失敗アタックを除外 / 1ドンで届く gap には DON 付与 /
     キャラ KO 狙いを優先 (相手コスト高優先)
@@ -97,8 +124,14 @@ onepiece_research/
   - **ハンド推定** (`engine/hand_estimator.py`): 隠匿情報モデル最小実装。 sample_opponent_hand /
     estimate_counter_total / determinize_state を提供 (将来 MCTS 等で活用予定)
   - MCTSAI: UCT-based、`n_simulations=30`、ロールアウト+ヒューリスティック評価。opt-in (低速)
-  - **RuleReferee**: AI vs AI 対戦中のルール違反監視。全 630 試合違反ゼロ確認済
-- [x] **Phase 4 完了**: メタデッキ DB **15 デッキ** (`decks/cardrush_*.json`)。
+  - **RuleReferee**: AI vs AI 対戦中のルール違反監視。 R60 matchup matrix 計算 (256 ペア × 20 戦 = 5120 試合) で違反ゼロ
+  - **AI 行動品質評価基盤** (R61-R64):
+    - `engine/eval.py`: 9 指標 board_eval (life/field/power/hand/don/blocker/attached_don/active_chara/lethal)
+    - `state.action_evals`: apply_action 前後で compute_score → 1 action = 1 delta 記録
+    - `scripts/report_bad_moves.py`: delta_eval が大きく負の手を抽出 → AI 改善ヒント
+    - 検証結果: 真の悪手 0.5% (= 1535 actions 中 8 件)、 AI 判断は概ね健全
+    - `engine.effects.estimate_opp_life_trigger_attacker_ko_risk`: ライフトリガー雷迎リスク見積
+- [x] **Phase 4 完了**: メタデッキ DB **16 デッキ** (`decks/cardrush_*.json` 15 件 + テストデッキ 1)。
   cardrush.media の大会上位入賞 (優勝/準優勝) を `scripts/scrape_cardrush_decks.py` で取得 →
   アーキタイプ毎に最新優勝を `select_cardrush_representatives.py` で代表選出 →
   禁止ペア違反は除外。月次更新フロー確立。
@@ -146,9 +179,11 @@ AI が意味ある効果の使い方・戦い方をしている」 こと。 評
 各手が (1) 盤面を有利に傾けたか (2) 有利に傾ける布石か (3) 効果を意味ある
 タイミング/対象で発動しているか。 詳細は memory `feedback_evaluation_axis.md`。
 
-> 注: 緑紫ルフィ (1%) / 青紫サンジ (6%) の極端な低勝率は、起動メインの「ドン-N」コストを忠実に実装した結果、
-> AI ヒューリスティックではコスト負担に見合うリターンを引き出せていないため。本来は手札のシナジーカードを
-> 引き出すコンボ前提の効果なので、デッキ自体の研究と AI 改善の余地が残る。
+> 注: 低勝率デッキ (緑紫ルフィ 13% / 青紫サンジ 20% / 黒クロコ 5% 等) の多くは、 起動メインの
+> 「ドン-N」 コストを忠実に実装した結果、 AI ヒューリスティックではコスト負担に見合うリターンを
+> 引き出せていないため。 本来は手札のシナジーカードを引き出すコンボ前提の効果なので、 デッキ自体の
+> 研究と AI 改善の余地が残る。 ただし R64 の bad_moves 分析で「真の AI 悪手は 0.5%」 と判明、
+> 残りは確率的不運 (= 雷迎ライフトリガー等) や engine の正常化による相対的変動。
 
 ## Next.js 側の方針
 
@@ -239,14 +274,32 @@ AI が意味ある効果の使い方・戦い方をしている」 こと。 評
 | `/api/faq/by-card/{card_id}` | GET | 特定カードのQA |
 | `/api/faq/sources` | GET | FAQ ソース一覧 |
 
-未実装 (計画):
-
-| エンドポイント | メソッド | 用途 |
-|---|---|---|
-| (現在 計画なし) | - | PUT/DELETE は実装済 |
-
 レスポンス型は `api/main.py` の Pydantic モデルと `web/src/lib/types.ts` の両方で定義。
 **不整合が起きたら `api/main.py` 側を真とする**。
+
+## ツール / スクリプト群
+
+主要スクリプト (`scripts/`) は以下のカテゴリ:
+
+| カテゴリ | スクリプト |
+|---|---|
+| データ更新 | scrape_official_faq.py / scrape_official_banlist.py / scrape_cardrush_decks.py / refresh_all.py |
+| overlay 拡張・監査 | suggest_overlay_from_cards.py / merge_overlay_suggestions.py / audit_overlay_vs_faq.py / verify_overlay_vs_cardqa.py / smoke_test_card_effects.py |
+| engine 厳密化 | audit_engine_strictness.py (10 項目、 R63 で追加) |
+| 対戦・分析 | compute_matchup_matrix.py / report_bad_moves.py (R63、 AI 行動品質) / tune_eval_weights.py |
+| 画像 | cache_deck_images.py / cache_all_images.py |
+
+主要データ (`db/`):
+
+- `cards.json` / `cards.sqlite`: カード DB (正は cards.json)
+- `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
+- `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
+- `matchup_matrix.json`: N×N 勝率行列 (R60 で 16×16 = 256 セルに更新)
+- `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
+- `overlay_when_missing.json`: cardqa sweep 結果 (X5、 missing 0)
+- `rules/*.pdf`: 公式ルール一次情報
+- `faq/*.json`: 公式 FAQ + cardqa (2,500+ 件)
+- `banlist/master.json`: 禁止/制限カード
 
 ## 開発コマンド
 
@@ -277,17 +330,18 @@ cd web && npm install
 .venv/bin/python scripts/scrape_cardrush_decks.py --scores 優勝 準優勝 --since 2026-01-01
 .venv/bin/python scripts/select_cardrush_representatives.py # アーキタイプ毎に1つ代表選出
 
-# === overlay 拡張 ===
+# === overlay 拡張・監査 ===
 .venv/bin/python scripts/suggest_overlay_from_cards.py # cards.json から overlay 候補を自動抽出
                                                        # → db/card_effects.suggestions.json (手動マージ)
 .venv/bin/python scripts/merge_overlay_suggestions.py  # suggestions の選択マージ
 .venv/bin/python scripts/audit_overlay_vs_faq.py       # overlay vs FAQ 突合監査
                                                        # → db/overlay_audit.md (上位80件) + .json (全件)
-                                                       # severity 順で「公式テキストにあるのに overlay 欠落」 を surface
+                                                       # acknowledged.json で intrinsic 除外、 現状 sev≥3 = 0
+.venv/bin/python scripts/verify_overlay_vs_cardqa.py   # cardqa 効果マーカー vs overlay when 整合性
+                                                       # → db/overlay_when_missing.json (現状 missing 0)
+.venv/bin/python scripts/audit_engine_strictness.py    # engine 厳密化 audit (10 項目、 現状 10/10 pass)
 .venv/bin/python scripts/smoke_test_card_effects.py    # 全カード効果スモークテスト
                                                        # 各 effect を最小ステートで発火 → 変化検出
-                                                       # → db/effect_smoke_test.md / .json
-                                                       # ERROR=0 (致命なし) / NO_CHANGE 件は条件依存
 
 # === 画像 ===
 .venv/bin/python scripts/cache_deck_images.py      # decks/ で使う画像をローカルキャッシュ
@@ -299,6 +353,9 @@ cd web && npm install
 .venv/bin/python examples/demo_smoke.py            # 単一試合のスモークテスト
 .venv/bin/python examples/demo_with_effects.py     # 効果オーバーレイ込みの対戦デモ
 .venv/bin/python scripts/compute_matchup_matrix.py --n-games 20 --seed 42  # 勝率行列再計算
+                                                                            # 16 デッキ × 256 セル × 20 戦 = 5120 試合 (約 60 分)
+.venv/bin/python scripts/report_bad_moves.py --deck-a <a> --deck-b <b> --n-games 20 --threshold -3000
+                                                                            # AI 行動品質分析 (R63、 board_eval delta が大きく負の手を抽出)
 
 # === サーバ ===
 .venv/bin/uvicorn api.main:app --reload --port 8000   # API起動
