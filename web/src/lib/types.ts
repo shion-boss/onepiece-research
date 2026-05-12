@@ -376,3 +376,41 @@ export type ExploreCounterResponse = {
   n_generated: number;
   candidates: CounterCandidate[];
 };
+
+// === デッキ改善提案 ===
+export type CardChange = {
+  card_id: string;
+  delta: number;
+  name: string;
+};
+
+export type ImprovementProposal = {
+  proposal_id: string;
+  proposal_type: "swap" | "count_decrease" | "count_increase";
+  changes: CardChange[];
+  reason: string;
+  impact_estimate: number;
+};
+
+export type CardStat = {
+  card_id: string;
+  name: string;
+  n_in_deck: number;
+  n_appearances: number;
+  n_total_plays: number;
+  winrate_when_played: number;
+};
+
+export type DeckImprovementsResponse = {
+  slug: string;
+  n_matches: number;
+  deck_winrate_baseline: number;
+  card_stats: CardStat[];
+  proposals: ImprovementProposal[];
+};
+
+export type ApplyImprovementResponse = {
+  slug: string;
+  main: DeckEntry[];
+  warnings: string[];
+};

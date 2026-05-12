@@ -1,10 +1,13 @@
 import type {
+  ApplyImprovementResponse,
   Card,
+  CardChange,
   CardFilters,
   CoreBuildRequest,
   CoreBuildResponse,
   DeckAnalysis,
   DeckDetail,
+  DeckImprovementsResponse,
   DeckSummary,
   ExploreCounterRequest,
   ExploreCounterResponse,
@@ -221,6 +224,40 @@ export async function exploreCounterDecks(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`exploreCounterDecks failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function fetchDeckImprovements(
+  slug: string,
+): Promise<DeckImprovementsResponse> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/improvements`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`fetchDeckImprovements failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function applyDeckImprovement(
+  slug: string,
+  changes: CardChange[],
+): Promise<ApplyImprovementResponse> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/apply-improvement`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ changes }),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`applyDeckImprovement failed: ${res.status} ${detail}`);
   }
   return res.json();
 }

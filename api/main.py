@@ -767,6 +767,189 @@ def explore_counter_decks(req: ExploreCounterRequest):
 
 
 # --------------------------------------------------------------------------- #
+# エンドポイント: deck improvement (改善提案)
+# --------------------------------------------------------------------------- #
+class CardChangeOut(BaseModel):
+    card_id: str
+    delta: int
+    name: str
+
+
+class ProposalOut(BaseModel):
+    proposal_id: str
+    proposal_type: str                # "swap" | "count_decrease" | "count_increase"
+    changes: list[CardChangeOut]
+    reason: str
+    impact_estimate: int
+
+
+class CardStatOut(BaseModel):
+    card_id: str
+    name: str
+    n_in_deck: int
+    n_appearances: int
+    n_total_plays: int
+    winrate_when_played: float
+
+
+class DeckImprovementsResponse(BaseModel):
+    slug: str
+    n_matches: int
+    deck_winrate_baseline: float
+    card_stats: list[CardStatOut]
+    proposals: list[ProposalOut]
+
+
+@app.get("/api/decks/{slug}/improvements", response_model=DeckImprovementsResponse)
+def deck_improvements(slug: str):
+    """指定デッキの過去対戦ログから改善提案を生成。
+
+    対戦データが無い (= 0 試合) 場合は proposals=[] で返す (= UI 側で「対戦データ無し」 表示)。
+    """
+    from engine.deck_improver import compute_card_stats, generate_proposals
+
+    deck_path = DECKS_DIR / f"{slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+    repo = get_repo()
+    try:
+        deck = make_deck_from_dict(json.loads(deck_path.read_text(encoding="utf-8")), repo)
+    except Exception as e:
+        raise HTTPException(422, f"deck load failed: {e}")
+
+    stats, n_matches, baseline = compute_card_stats(slug, deck)
+    proposals = generate_proposals(stats, deck, repo) if stats else []
+
+    return DeckImprovementsResponse(
+        slug=slug,
+        n_matches=n_matches,
+        deck_winrate_baseline=baseline,
+        card_stats=[
+            CardStatOut(
+                card_id=s.card_id,
+                name=s.name,
+                n_in_deck=s.n_in_deck,
+                n_appearances=s.n_appearances,
+                n_total_plays=s.n_total_plays,
+                winrate_when_played=s.winrate_when_played,
+            )
+            for s in stats
+        ],
+        proposals=[
+            ProposalOut(
+                proposal_id=p.proposal_id,
+                proposal_type=p.proposal_type,
+                changes=[CardChangeOut(card_id=c.card_id, delta=c.delta, name=c.name)
+                         for c in p.changes],
+                reason=p.reason,
+                impact_estimate=p.impact_estimate,
+            )
+            for p in proposals
+        ],
+    )
+
+
+class ApplyImprovementRequest(BaseModel):
+    changes: list[CardChangeOut]
+
+
+class ApplyImprovementResponse(BaseModel):
+    slug: str
+    main: list[DeckEntry]
+    warnings: list[str]
+
+
+@app.post("/api/decks/{slug}/apply-improvement", response_model=ApplyImprovementResponse)
+def apply_improvement(slug: str, req: ApplyImprovementRequest):
+    """改善提案 changes (= [card_id, delta] list) を適用してデッキを上書き保存。
+
+    検証:
+    - 全 delta の合計 = 0 (= main 50 枚を維持)
+    - 適用後、 各カード 0〜4 枚
+    - DeckList.validate() pass
+
+    失敗時 422。
+    """
+    from collections import Counter as _Counter
+
+    deck_path = DECKS_DIR / f"{slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+
+    deck_dict = json.loads(deck_path.read_text(encoding="utf-8"))
+
+    # 現 main 集計
+    counts: dict[str, int] = {}
+    for entry in deck_dict.get("main", []):
+        counts[entry["card_id"]] = counts.get(entry["card_id"], 0) + entry["count"]
+
+    # delta 適用
+    total_delta = 0
+    for ch in req.changes:
+        cur = counts.get(ch.card_id, 0)
+        new = cur + ch.delta
+        if new < 0:
+            raise HTTPException(
+                422,
+                f"カード {ch.card_id} の枚数が負になる (現 {cur} + {ch.delta:+d} = {new})",
+            )
+        if new > 4:
+            raise HTTPException(
+                422,
+                f"カード {ch.card_id} の枚数が 4 を超える (現 {cur} + {ch.delta:+d} = {new})",
+            )
+        if new == 0:
+            counts.pop(ch.card_id, None)
+        else:
+            counts[ch.card_id] = new
+        total_delta += ch.delta
+
+    if total_delta != 0:
+        raise HTTPException(
+            422, f"changes の delta 合計が 0 でない (= main 枚数が変わる: {total_delta:+d})",
+        )
+
+    # 新 main 構築 + validate
+    repo = get_repo()
+    new_main = [
+        DeckEntry(card_id=cid, count=n)
+        for cid, n in sorted(counts.items())
+    ]
+    deck_dict["main"] = [m.model_dump() for m in new_main]
+    try:
+        deck = make_deck_from_dict(deck_dict, repo)
+        issues = deck.validate()
+        if issues:
+            raise HTTPException(422, {"errors": issues})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(422, f"deck rebuild failed: {e}")
+
+    # 上書き保存 + analysis 再生成
+    deck_path.write_text(
+        json.dumps(deck_dict, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    # analysis.json も再生成 (= 統計表示用)
+    try:
+        from dataclasses import asdict
+        from engine.deck_analyzer import analyze_deck
+        from engine.effects import load_effect_overlay
+        overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+        analysis = analyze_deck(deck, overlay)
+        d = asdict(analysis)
+        d["top_features"] = [list(t) for t in d.get("top_features", [])]
+        analysis_path = DECKS_DIR / f"{slug}.analysis.json"
+        analysis_path.write_text(
+            json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass  # analysis 再生成失敗は致命的でない
+
+    return ApplyImprovementResponse(slug=slug, main=new_main, warnings=[])
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: deck analyze
 # --------------------------------------------------------------------------- #
 class CountByLabel(BaseModel):
