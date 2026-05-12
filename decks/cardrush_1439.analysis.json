@@ -11,51 +11,51 @@
   ],
   "leader_text": "【自分のターン中】【ターン1回】ライフが離れた時、発動できる。自分の手札が7枚以下の場合、カード1枚を引く。【ドン‼×1】【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：このリーダーは、このターン中、パワー+2000。",
   "total_cards": 50,
-  "n_character": 43,
-  "n_event": 7,
+  "n_character": 49,
+  "n_event": 1,
   "n_stage": 0,
-  "avg_cost": 4.6,
+  "avg_cost": 4.82,
   "cost_curve": [
     {
       "cost": 1,
-      "count": 7
+      "count": 3
     },
     {
       "cost": 2,
       "count": 8
     },
     {
+      "cost": 3,
+      "count": 2
+    },
+    {
       "cost": 4,
-      "count": 9
+      "count": 12
     },
     {
       "cost": 5,
       "count": 11
     },
     {
-      "cost": 6,
-      "count": 3
-    },
-    {
       "cost": 7,
-      "count": 4
+      "count": 5
     },
     {
       "cost": 8,
-      "count": 5
+      "count": 6
     },
     {
       "cost": 10,
       "count": 3
     }
   ],
-  "counter_total": 39000,
+  "counter_total": 41000,
   "counter_2k_count": 11,
-  "counter_1k_count": 17,
-  "blocker_count": 10,
+  "counter_1k_count": 19,
+  "blocker_count": 14,
   "color_distribution": {
-    "黄": 41,
-    "青": 9
+    "黄": 39,
+    "青": 11
   },
   "top_features": [
     [
@@ -67,23 +67,23 @@
       13
     ],
     [
-      "エッグヘッド",
-      8
-    ],
-    [
       "ワノ国",
-      7
+      9
     ],
     [
-      "ビッグ・マム海賊団",
+      "海軍",
       5
+    ],
+    [
+      "王下七武海",
+      4
     ]
   ],
   "archetype": "コントロール",
   "speed": "低速",
   "defense": "硬い",
-  "consistency": "標準",
-  "strategy_summary": "コントロールデッキ (低速)。防御 硬い・安定性 標準。",
+  "consistency": "高い",
+  "strategy_summary": "コントロールデッキ (低速)。防御 硬い・安定性 高い。",
   "mulligan_keep_card_ids": [
     "OP11-106"
   ],
@@ -117,6 +117,14 @@
       ]
     },
     {
+      "turn": 3,
+      "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
+      "candidate_cards": [
+        "OP15-047",
+        "OP15-047"
+      ]
+    },
+    {
       "turn": 4,
       "description": "4-5 コスト中堅展開、 盤面強化",
       "candidate_cards": [
@@ -141,7 +149,8 @@
   ],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
-    "ブロッカー 10 枚: 直接攻撃を抑止できる",
+    "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
+    "ブロッカー 14 枚: 直接攻撃を抑止できる",
     "除去・防御で序盤捌き、 後半フィニッシャーで決める"
   ],
   "key_cards": [
@@ -160,14 +169,6 @@
       "cost": 7,
       "role": "finisher",
       "reason": "高コスト (7)・高パワー (8000) フィニッシャー"
-    },
-    {
-      "card_id": "OP04-056",
-      "name": "ゴムゴムの業火拳銃",
-      "count": 3,
-      "cost": 6,
-      "role": "removal",
-      "reason": "相手キャラ除去 → 盤面コントロールの要"
     },
     {
       "card_id": "OP11-106",

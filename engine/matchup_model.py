@@ -70,7 +70,9 @@ def _load_leader_archetype_map() -> dict[str, str]:
     if _leader_to_archetype_cache is not None:
         return _leader_to_archetype_cache
     mapping: dict[str, str] = {}
-    for p in sorted(_DECKS_DIR.glob("cardrush_*.json")):
+    # 全 deck JSON を scan (cardrush_*, tcgportal_*, 他の prefix を区別しない)。
+    # analysis.json は対応分のみ別途読む。
+    for p in sorted(_DECKS_DIR.glob("*.json")):
         if "analysis" in p.name:
             continue
         try:

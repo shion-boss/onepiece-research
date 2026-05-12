@@ -26,8 +26,8 @@ def test_analyze_game_returns_eval_series():
     """1 試合走らせて analyze_game が eval_series を生成できる"""
     repo = _repo()
     overlay = _overlay()
-    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1429.json", repo)  # 赤紫ロジャー
-    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1273.json", repo)  # 緑紫ルフィ
+    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
+    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)  # 緑ミホーク
     rep = run_matchup(
         d1, d2, n_games=1, seed=42, effects_overlay=overlay,
         record_snapshots=True, enforce_rules=False,
@@ -54,8 +54,8 @@ def test_analyze_game_turning_points():
     """ターニングポイント検出: 大きな delta が抽出される"""
     repo = _repo()
     overlay = _overlay()
-    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1429.json", repo)
-    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)
+    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1439.json", repo)  # 青黄ナミ
+    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
     rep = run_matchup(
         d1, d2, n_games=1, seed=10, effects_overlay=overlay,
         record_snapshots=True, enforce_rules=False,

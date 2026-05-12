@@ -7,7 +7,7 @@
   "score": "tcg-portal 集計 (Tier 1, 使用率 16.0%)",
   "tournament_name": "tcg-portal aggregate",
   "tournament_date": "2026-05-12",
-  "fetched_at": "2026-05-12T14:19:08Z",
+  "fetched_at": "2026-05-12T15:00:42Z",
   "main": [
     {
       "card_id": "OP14-104",
@@ -27,10 +27,6 @@
     },
     {
       "card_id": "OP06-106",
-      "count": 4
-    },
-    {
-      "card_id": "OP07-115",
       "count": 4
     },
     {
@@ -62,11 +58,23 @@
       "count": 3
     },
     {
-      "card_id": "OP04-056",
-      "count": 3
+      "card_id": "OP10-112",
+      "count": 2
     },
     {
-      "card_id": "OP03-123",
+      "card_id": "OP15-047",
+      "count": 2
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 1
+    },
+    {
+      "card_id": "OP06-058",
       "count": 1
     }
   ],

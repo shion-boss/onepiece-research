@@ -31,7 +31,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.deck import CardRepository, DeckList, _base_id  # noqa: E402
+from engine.deck import (  # noqa: E402
+    CardRepository,
+    DeckList,
+    _base_id,
+    _load_banlist,
+    _load_max_block_by_base_id,
+)
 from engine.core import Category  # noqa: E402
 
 BASE_URL = "https://tcg-portal.jp/onepiece/deck-guides/"
@@ -98,12 +104,21 @@ def build_recipe(
     アルゴリズム:
     - 採用率降順 → avg_count 降順 でソート
     - 各カード: min(round(avg_count), 4) 枚を追加
+    - スタンダード使用不可 (block ① のみ) / 禁止カード / 禁止ペア違反は除外
     - 50 枚に到達したら打ち切り
     - 50 枚未満なら警告 (= 候補不足)
     """
     leader = repo.get(leader_id)
     leader_colors = set(leader.color)
     warnings: list[str] = []
+
+    # 禁止リスト + Standard 判定マップ
+    banlist = _load_banlist() or {}
+    forbidden_ids = {f["card_id"] for f in banlist.get("forbidden", [])}
+    forbidden_pairs = banlist.get("forbidden_pairs", [])
+    # base_id → max_block_icon (Standard 使用可は ≥ 2)
+    max_block_map = _load_max_block_by_base_id()
+    standard_min_block = banlist.get("standard_min_block", 2)
 
     # ソート: 採用率高い → 平均枚数多い
     stats_sorted = sorted(
@@ -112,6 +127,7 @@ def build_recipe(
     )
 
     main: list[dict] = []
+    selected_card_ids: set[str] = set()
     total = 0
     for s in stats_sorted:
         if total >= target_total:
@@ -132,12 +148,37 @@ def build_recipe(
         # リーダーカード自体は除外
         if card.category.value == "LEADER":
             continue
+        # 禁止カード除外
+        bid = _base_id(card.card_id)
+        if bid in forbidden_ids or cid in forbidden_ids:
+            warnings.append(f"{cid} {card.name} は禁止カード、 skip")
+            continue
+        # Standard 使用可判定 (block ≥ 2)
+        if max_block_map.get(bid, card.block_icon) < standard_min_block:
+            warnings.append(f"{cid} {card.name} は block① のみ (Standard 使用不可)、 skip")
+            continue
+        # 禁止ペア違反検出 (= 既に他方が選択済 なら skip)
+        pair_violation = False
+        for pair in forbidden_pairs:
+            a_id = pair["a"]["card_id"]
+            b_id = pair["b"]["card_id"]
+            if cid == a_id and any(_base_id(s2) == _base_id(b_id) for s2 in selected_card_ids):
+                pair_violation = True
+                warnings.append(f"{cid} は {b_id} と禁止ペア、 skip")
+                break
+            if cid == b_id and any(_base_id(s2) == _base_id(a_id) for s2 in selected_card_ids):
+                pair_violation = True
+                warnings.append(f"{cid} は {a_id} と禁止ペア、 skip")
+                break
+        if pair_violation:
+            continue
 
         # 枚数: min(round(avg), 4, 残り枠)
         n = min(int(round(s["avg_count"])), 4, target_total - total)
         if n <= 0:
             continue
         main.append({"card_id": cid, "count": n})
+        selected_card_ids.add(cid)
         total += n
 
     # 50 枚未満なら counter / synergy 札で補充 (= leader 色合致 + 既存 main 同名 4 枚以下)
@@ -147,7 +188,7 @@ def build_recipe(
             bid = _base_id(m["card_id"])
             used_counts[bid] = used_counts.get(bid, 0) + m["count"]
 
-        # 候補プール: leader 色合致 + character/event/stage + cost ≥ 1
+        # 候補プール: leader 色合致 + character/event/stage + cost ≥ 1 + Standard 使用可 + 禁止外
         pool = []
         seen_ids: set[str] = set()
         for cid, c in repo._by_id.items():  # noqa
@@ -163,6 +204,25 @@ def build_recipe(
             if not set(c.color).issubset(leader_colors):
                 continue
             if c.cost < 1:
+                continue
+            # Standard 使用可判定 + 禁止カード除外 (補充プール)
+            cb = _base_id(c.card_id)
+            if cb in forbidden_ids or c.card_id in forbidden_ids:
+                continue
+            if max_block_map.get(cb, c.block_icon) < standard_min_block:
+                continue
+            # 禁止ペア違反プールから事前排除
+            paired_with_selected = False
+            for pair in forbidden_pairs:
+                a_id = pair["a"]["card_id"]
+                b_id = pair["b"]["card_id"]
+                if c.card_id == a_id and any(_base_id(s2) == _base_id(b_id) for s2 in selected_card_ids):
+                    paired_with_selected = True
+                    break
+                if c.card_id == b_id and any(_base_id(s2) == _base_id(a_id) for s2 in selected_card_ids):
+                    paired_with_selected = True
+                    break
+            if paired_with_selected:
                 continue
             pool.append(c)
 

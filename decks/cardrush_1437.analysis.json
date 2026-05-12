@@ -13,11 +13,11 @@
   "n_character": 38,
   "n_event": 8,
   "n_stage": 4,
-  "avg_cost": 3.5869565217391304,
+  "avg_cost": 3.630434782608696,
   "cost_curve": [
     {
       "cost": 1,
-      "count": 27
+      "count": 25
     },
     {
       "cost": 2,
@@ -28,12 +28,12 @@
       "count": 3
     },
     {
-      "cost": 5,
+      "cost": 4,
       "count": 4
     },
     {
-      "cost": 6,
-      "count": 2
+      "cost": 5,
+      "count": 4
     },
     {
       "cost": 7,
@@ -52,21 +52,21 @@
       "count": 4
     }
   ],
-  "counter_total": 35000,
-  "counter_2k_count": 10,
+  "counter_total": 39000,
+  "counter_2k_count": 12,
   "counter_1k_count": 15,
-  "blocker_count": 2,
+  "blocker_count": 4,
   "color_distribution": {
     "緑": 50
   },
   "top_features": [
     [
       "超新星",
-      22
+      24
     ],
     [
       "麦わらの一味",
-      8
+      12
     ],
     [
       "海軍",
@@ -77,7 +77,7 @@
       7
     ],
     [
-      "ハートの海賊団",
+      "王下七武海",
       6
     ]
   ],
@@ -148,12 +148,12 @@
     }
   ],
   "weaknesses": [
-    "ブロッカー 2 枚のみ: 直接攻撃を止めにくい"
+    "ブロッカー 4 枚のみ: 直接攻撃を止めにくい"
   ],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "特徴《超新星》専属 (22 枚): シナジーカードで爆発力"
+    "特徴《超新星》専属 (24 枚): シナジーカードで爆発力"
   ],
   "key_cards": [
     {
@@ -205,12 +205,12 @@
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "OP04-032",
-      "name": "ベビー5",
-      "count": 3,
-      "cost": 1,
-      "role": "ramp",
-      "reason": "DON 加速 → 大型早出しの起点"
+      "card_id": "PRB02-006",
+      "name": "ロロノア・ゾロ",
+      "count": 4,
+      "cost": 4,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     },
     {
       "card_id": "OP10-032",

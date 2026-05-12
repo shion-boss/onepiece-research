@@ -119,8 +119,8 @@ def test_referee_passes_normal_match():
 
     repo = _repo()
     overlay = _overlay()
-    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1429.json", repo)  # 赤紫ロジャー
-    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1273.json", repo)  # 緑紫ルフィ
+    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
+    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)  # 緑ミホーク
 
     report = run_matchup(
         d1, d2, n_games=3, seed=42,

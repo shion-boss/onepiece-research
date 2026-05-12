@@ -52,17 +52,20 @@ def _make_state(repo, my_leader: str = "OP01-001", opp_leader: str = "OP01-001")
 # -----------------------------------------------------------------------------
 
 def test_infer_archetype_known_leader():
-    """既知 leader (decks/cardrush_*.json) は analysis.json の archetype を返す。"""
+    """既知 leader (decks/*.json) は analysis.json の archetype を返す。
+
+    V1 (2026-05-12) 以降 active set は Tier 1-3 のみ。
+    """
     repo = _repo()
     _reset_caches_for_testing()
-    # cardrush_1429 (赤紫ロジャー) = ランプ
-    state = _make_state(repo, opp_leader="OP13-003")
-    assert infer_opponent_archetype(state, 1) == "ランプ"
     # cardrush_1424 (紫エネル) = アグロ
     state = _make_state(repo, opp_leader="OP15-058")
     assert infer_opponent_archetype(state, 1) == "アグロ"
-    # cardrush_1342 (紫ドフラミンゴ) = コントロール
-    state = _make_state(repo, opp_leader="OP14-060")
+    # cardrush_1437 (緑ミホーク) = ミッドレンジ
+    state = _make_state(repo, opp_leader="OP14-020")
+    assert infer_opponent_archetype(state, 1) == "ミッドレンジ"
+    # cardrush_1439 (青黄ナミ) = コントロール
+    state = _make_state(repo, opp_leader="OP11-041")
     assert infer_opponent_archetype(state, 1) == "コントロール"
 
 
@@ -110,10 +113,11 @@ def test_role_derivation_combinations():
     assert profile.role == "control"
 
     # 同種同士 (アグロ vs アグロ) は race だが、 ミラーマッチも balance を想定
-    # ミラー: state = opp も ミッドレンジ
+    # ミラー: state = opp も ミッドレンジ (V1 以降 active set にランプは無いので
+    #         ミッドレンジ ミラーで検証)
     _reset_caches_for_testing()
-    state_mirror = _make_state(repo, opp_leader="OP13-003")  # ランプ
-    profile = build_matchup_profile(state_mirror, 0, my_archetype="ランプ")
+    state_mirror = _make_state(repo, opp_leader="OP14-020")  # ミッドレンジ
+    profile = build_matchup_profile(state_mirror, 0, my_archetype="ミッドレンジ")
     assert profile.role == "balance"  # ミラー
 
 
