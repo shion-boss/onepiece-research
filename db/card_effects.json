@@ -2438,11 +2438,29 @@
   ],
   "EB03-006": [
     {
-      "_text": "EB03-006 on_play: 自分のアクティブのリーダーを、このターン中、パワー-5000することができる：カード1枚を引く。",
+      "_text": "【登場時】自分のアクティブのリーダーを、このターン中、パワー-5000することができる：カード1枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [{"power_pump": {"target": "self_leader", "amount": -5000, "duration": "turn"}}],
+            "effect": [{"draw": 1}]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "when": "activate_main",
+      "if": {"leader_feature": "アラバスタ王国"},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -14443,66 +14461,46 @@
   ],
   "OP10-042": [
     {
-      "_text": "OP10-042 on_attached_don: ドレスローザコスト2+ キャラ全部 コスト+1 静的",
+      "_text": "自分のコスト2以上の特徴《ドレスローザ》を持つキャラすべてを、コスト+1。",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
-          "reduce_play_cost_filtered_static": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_ge": 2,
-              "feature": "ドレスローザ"
-            },
-            "amount": -1
+          "set_base_cost_filtered_static": {
+            "filter": {"category": "CHARACTER", "cost_ge": 2, "feature": "ドレスローザ"},
+            "delta": 1
           }
         }
       ]
     },
     {
-      "_text": "OP10-042 on_self_chara_leave (簡略 on_opp_chara_ko 経由): 自ターン中, 手札5以下なら 1 ドロー",
-      "when": "on_ko",
-      "if": {
-        "self_turn": false,
-        "self_hand_count_le": 5
-      },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "_text": "【相手のターン中】【ターン1回】自分の特徴《ドレスローザ》を持つキャラがKOされた時か、相手の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
+      "when": "on_self_chara_ko",
+      "if": {"opp_turn": true, "self_hand_count_le": 5},
+      "cost": {"once_per_turn": true},
+      "do": [{"draw": 1}]
     }
   ],
   "OP10-042_p1": [
     {
-      "_text": "OP10-042_p1 on_attached_don: ドレスローザコスト2+ キャラ全部 コスト+1 静的",
+      "_text": "自分のコスト2以上の特徴《ドレスローザ》を持つキャラすべてを、コスト+1。",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
-          "reduce_play_cost_filtered_static": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_ge": 2,
-              "feature": "ドレスローザ"
-            },
-            "amount": -1
+          "set_base_cost_filtered_static": {
+            "filter": {"category": "CHARACTER", "cost_ge": 2, "feature": "ドレスローザ"},
+            "delta": 1
           }
         }
       ]
     },
     {
-      "_text": "OP10-042_p1 on_self_chara_leave (簡略 on_opp_chara_ko 経由): 自ターン中, 手札5以下なら 1 ドロー",
-      "when": "on_ko",
-      "if": {
-        "self_turn": false,
-        "self_hand_count_le": 5
-      },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "_text": "【相手のターン中】【ターン1回】自分の特徴《ドレスローザ》を持つキャラがKOされた時か、相手の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
+      "when": "on_self_chara_ko",
+      "if": {"opp_turn": true, "self_hand_count_le": 5},
+      "cost": {"once_per_turn": true},
+      "do": [{"draw": 1}]
     }
   ],
   "OP09-001": [
@@ -14919,34 +14917,24 @@
   ],
   "OP10-042_p3": [
     {
-      "_text": "OP10-042_p3 on_attached_don: ドレスローザコスト2+ キャラ全部 コスト+1 静的",
+      "_text": "自分のコスト2以上の特徴《ドレスローザ》を持つキャラすべてを、コスト+1。",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
-          "reduce_play_cost_filtered_static": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_ge": 2,
-              "feature": "ドレスローザ"
-            },
-            "amount": -1
+          "set_base_cost_filtered_static": {
+            "filter": {"category": "CHARACTER", "cost_ge": 2, "feature": "ドレスローザ"},
+            "delta": 1
           }
         }
       ]
     },
     {
-      "_text": "OP10-042_p3 on_self_chara_leave (簡略 on_opp_chara_ko 経由): 自ターン中, 手札5以下なら 1 ドロー",
-      "when": "on_ko",
-      "if": {
-        "self_turn": false,
-        "self_hand_count_le": 5
-      },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "_text": "【相手のターン中】【ターン1回】自分の特徴《ドレスローザ》を持つキャラがKOされた時か、相手の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
+      "when": "on_self_chara_ko",
+      "if": {"opp_turn": true, "self_hand_count_le": 5},
+      "cost": {"once_per_turn": true},
+      "do": [{"draw": 1}]
     }
   ],
   "EB01-038": [
@@ -15927,11 +15915,28 @@
   ],
   "EB04-032": [
     {
-      "_text": "EB04-032 on_play: 自分の手札から特徴《百獣海賊団》を持つカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "【登場時】自分の手札から特徴《百獣海賊団》を持つカード1枚を捨てることができる：カード2枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [{"discard_hand_with_filter": {"feature": "百獣海賊団", "count": 1}}],
+            "effect": [{"draw": 2}]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "when": "activate_main",
+      "if": {"leader_feature": "百獣海賊団"},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 2}],
+            "effect": [{"add_rested_don": 1}]
+          }
         }
       ]
     }
@@ -17538,6 +17543,19 @@
       "if": {"leader_features_any": ["魚人族", "人魚族"]},
       "do": [
         {"rest": "one_opponent_character_cost_le_5cost"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の特徴《魚人族》か《人魚族》を持つキャラ1枚までは、登場したターンにキャラへアタックできる。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "give_keyword": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"feature_in": ["魚人族", "人魚族"]}},
+            "keyword": "速攻：キャラ"
+          }
+        }
       ]
     }
   ],
@@ -20965,13 +20983,24 @@
   ],
   "ST27-001": [
     {
-      "_text": "ST27-001 on_ko: カード1枚を引く。",
-      "when": "on_ko",
+      "_text": "【起動メイン】【ターン1回】自分の「ハチノス」1枚をレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、このターン中、パワー+4000。",
+      "when": "activate_main",
+      "if": {"leader_feature": "黒ひげ海賊団"},
+      "cost": {"once_per_turn": true, "rest_self_target_name": "ハチノス"},
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "self",
+            "amount": 4000,
+            "duration": "turn"
+          }
         }
       ]
+    },
+    {
+      "_text": "【KO時】カード1枚を引く。",
+      "when": "on_ko",
+      "do": [{"draw": 1}]
     }
   ],
   "ST27-002": [
@@ -27631,6 +27660,19 @@
       "do": [
         {"rest": "one_opponent_character_cost_le_5cost"}
       ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の特徴《魚人族》か《人魚族》を持つキャラ1枚までは、登場したターンにキャラへアタックできる。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "give_keyword": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"feature_in": ["魚人族", "人魚族"]}},
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
     }
   ],
   "OP11-047_p1": [
@@ -30746,11 +30788,29 @@
   ],
   "EB03-006_p1": [
     {
-      "_text": "EB03-006_p1 on_play: 自分のアクティブのリーダーを、このターン中、パワー-5000することができる：カード1枚を引く。",
+      "_text": "【登場時】自分のアクティブのリーダーを、このターン中、パワー-5000することができる：カード1枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [{"power_pump": {"target": "self_leader", "amount": -5000, "duration": "turn"}}],
+            "effect": [{"draw": 1}]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "when": "activate_main",
+      "if": {"leader_feature": "アラバスタ王国"},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -55901,40 +55961,64 @@
   ],
   "OP04-060": [
     {
-      "_text": "OP04-060 on_play: ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のデッキの上から1枚までを、ラ",
+      "_text": "【登場時】ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_play",
+      "if": {"leader_feature_contains": "B・W"},
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [{"return_self_don_to_deck": 2}],
+            "effect": [{"put_top_to_life": 1}]
+          }
         }
-      ],
-      "cost": {
-        "pay_don": 2
-      },
-      "if": {
-        "leader_features_any": [
-          "B・W"
-        ]
-      }
+      ]
+    },
+    {
+      "_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "opp_attack",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"return_self_don_to_deck": 1}],
+            "effect": [
+              {"draw": 1},
+              {"trash_self_hand_random": 1}
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP04-060_p1": [
     {
-      "_text": "OP04-060_p1 on_play: ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のデッキの上から1枚までを、ラ",
+      "_text": "【登場時】ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_play",
+      "if": {"leader_feature_contains": "B・W"},
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [{"return_self_don_to_deck": 2}],
+            "effect": [{"put_top_to_life": 1}]
+          }
         }
-      ],
-      "cost": {
-        "pay_don": 2
-      },
-      "if": {
-        "leader_features_any": [
-          "B・W"
-        ]
-      }
+      ]
+    },
+    {
+      "_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "opp_attack",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"return_self_don_to_deck": 1}],
+            "effect": [
+              {"draw": 1},
+              {"trash_self_hand_random": 1}
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP04-061": [
