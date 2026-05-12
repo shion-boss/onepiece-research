@@ -159,6 +159,15 @@ class InPlay:
     # 「元々のパワー」を上書き (None なら CardDef.power を使う)。
     # 静的効果でセット (on_attached_don)、evaluate_static_effects でリセット
     base_power_override: Optional[int] = None
+    # ターン中限定の「元々のパワー」上書き (= 「このターン中、 元々のパワーが X になる」)。
+    # EB01-061 Mr.2 等の power-copy 効果用。 _reset_turn_buff でクリア。
+    # 静的 base_power_override より優先される (= 効果が有効な間は静的を覆い隠す)。
+    turn_base_power_override: Optional[int] = None
+    # 「次の自分のターン開始時まで」 期限の base_power 上書き (= OP06-009 シュライヤ
+    # 「このキャラは、 次の自分のターン開始時まで、 相手のリーダーと同じパワーになる」)。
+    # 所有者の REFRESH 開始時 (= 次の自ターン開始時) にクリア。
+    # turn_base_power_override より弱い優先 (= 「このターン中」 が同時に有効なら そちら勝ち)。
+    next_turn_base_power_override: Optional[int] = None
     # 「元々のコスト」を上書き (None なら CardDef.cost を使う)
     base_cost_override: Optional[int] = None
     # 「相手はこのキャラ以外にアタックできない」常在 (taunt)。
@@ -275,7 +284,13 @@ class InPlay:
     @property
     def base_power(self) -> int:
         """現在の base power 値 (= override が無ければ card.power、あればその値)。
-        power プロパティの計算根。「元々のパワー」判定には truly_original_power を使う。"""
+        power プロパティの計算根。「元々のパワー」判定には truly_original_power を使う。
+        優先順位: turn_base_power_override (このターン中) > next_turn_base_power_override
+        (次の自ターン開始時まで) > base_power_override (静的) > card.power。"""
+        if self.turn_base_power_override is not None:
+            return self.turn_base_power_override
+        if self.next_turn_base_power_override is not None:
+            return self.next_turn_base_power_override
         return self.base_power_override if self.base_power_override is not None else self.card.power
 
     @property

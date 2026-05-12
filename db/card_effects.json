@@ -332,15 +332,32 @@
           "ko": "one_opponent_rested_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "OP06-036 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
     }
   ],
   "EB02-018": [
     {
-      "_text": "バギー (緑) トリガー: 相手キャラ1体レスト",
-      "when": "trigger",
+      "_text": "EB02-018 バギー on_play: 他の「バギー」 がいない場合、 自リーダーにダブルアタック (turn)",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_chara_unique_name": "バギー"
+        }
+      ],
       "do": [
         {
-          "rest": "any_opponent_character_le_5000"
+          "give_keyword": {
+            "target": "self_leader",
+            "keyword": "ダブルアタック"
+          }
         }
       ]
     }
@@ -1234,17 +1251,33 @@
     {
       "_text": "【KO時】カード1枚を引く。",
       "when": "on_ko",
-      "do": [{"draw": 1}]
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分のキャラ1枚を持ち主のデッキの下に置くことができる：このキャラは、このターン中、【速攻】を得る。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_chara_to_deck_bottom": {"count": 1}}],
-            "effect": [{"give_rush": "self"}]
+            "cost": [
+              {
+                "return_self_chara_to_deck_bottom": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_rush": "self"
+              }
+            ]
           }
         }
       ]
@@ -2332,6 +2365,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "EB01-046 on_play: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 1
+          }
+        }
+      ]
     }
   ],
   "EB01-049": [
@@ -2471,8 +2516,20 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"power_pump": {"target": "self_leader", "amount": -5000, "duration": "turn"}}],
-            "effect": [{"draw": 1}]
+            "cost": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]
@@ -2480,8 +2537,12 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
       "when": "activate_main",
-      "if": {"leader_feature": "アラバスタ王国"},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "leader_feature": "アラバスタ王国"
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "power_pump": {
@@ -2948,6 +3009,22 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP02-036 on_play: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
+      "when": "on_play",
+      "do": [
+        {
+          "search": {
+            "filter": {
+              "feature": "FILM",
+              "exclude_name": "ナミ"
+            },
+            "limit": 1,
+            "depth": 3
+          }
+        }
+      ]
     }
   ],
   "OP02-042": [
@@ -3287,13 +3364,36 @@
   ],
   "OP04-024": [
     {
-      "_text": "OP04-024 on_play: 相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "on_opp_chara_played",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "leader_feature": "ドンキホーテ海賊団"
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        },
+        {
+          "rest": "self"
+        }
+      ],
+      "_text": "OP04-024 on_opp_chara_played: 相手ターン中相手キャラ登場時、 ドフラ系リーダーなら相手1レスト+自レスト"
+    },
+    {
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_4cost"
+          "rest": "one_opponent_character_cost_le_4"
         }
-      ]
+      ],
+      "_text": "OP04-024 on_play: 相手コスト4以下を1レスト"
     }
   ],
   "OP04-032": [
@@ -3982,11 +4082,24 @@
   ],
   "EB01-061": [
     {
-      "_text": "Mr.2 (紫 cost4) 【登場時】ドンデッキから1アクティブ追加",
+      "_text": "EB01-061 Mr.2 on_play: ドン!!デッキからドン!!1枚までを、アクティブで追加する",
       "when": "on_play",
       "do": [
         {
           "add_don": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB01-061 Mr.2 on_attack: 相手のキャラ1枚までを選ぶ。このキャラの元々のパワーは、このターン中、選んだキャラと同じパワーになる",
+      "when": "on_attack",
+      "do": [
+        {
+          "set_base_power_copy": {
+            "from_target": "one_opponent_character_any",
+            "to_target": "self",
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -7446,11 +7559,23 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の手札から特徴《アマゾン・リリー》か《九蛇海賊団》を持つカード3枚を公開することができる：自分のリーダーとキャラすべてにレストのドン‼1枚ずつまでを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"reveal_hand_with_filter": {"feature_in": ["アマゾン・リリー", "九蛇海賊団"], "count": 3}}],
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "feature_in": [
+                    "アマゾン・リリー",
+                    "九蛇海賊団"
+                  ],
+                  "count": 3
+                }
+              }
+            ],
             "effect": [
               {
                 "attach_rested_don": {
@@ -7495,11 +7620,18 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の特徴《九蛇海賊団》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "attach_rested_don": {
-            "target": {"type": "one_self_chara_or_leader_filtered", "filter": {"feature": "九蛇海賊団"}},
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "九蛇海賊団"
+              }
+            },
             "count": 1
           }
         }
@@ -8168,6 +8300,22 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "EB03-008 on_play: 自分の特徴《SWORD》を持つ、リーダーかキャラ1枚までは、このターン中、アクティブのキャラにもアタックできる。",
+      "when": "on_play",
+      "do": [
+        {
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "SWORD"
+              }
+            }
+          }
+        }
+      ]
     }
   ],
   "EB03-037": [
@@ -9409,20 +9557,32 @@
     {
       "_text": "【登場時】自分のリーダーが「ネフェルタリ・ビビ」の場合、カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "on_play",
-      "if": {"leader_name": "ネフェルタリ・ビビ"},
+      "if": {
+        "leader_name": "ネフェルタリ・ビビ"
+      },
       "do": [
-        {"draw": 2},
-        {"trash_self_hand_random": 1}
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"trash_self_hand_random": 1}],
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
             "effect": [
               {
                 "attach_don": {
@@ -9717,28 +9877,34 @@
   ],
   "PRB01-001": [
     {
-      "_text": "サンジ 起動メイン (自動生成)",
+      "_text": "PRB01-001 PRB01-001 サンジ 起動メイン: コスト8以下の【登場時】持たないキャラに速攻 (turn, once)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "draw": 1
+          "give_keyword": {
+            "target": "one_self_chara_no_on_play_cost_le_8",
+            "keyword": "速攻"
+          }
         }
       ]
     }
   ],
   "PRB01-001_p1": [
     {
-      "_text": "サンジ 起動メイン (自動生成)",
+      "_text": "PRB01-001_p1 PRB01-001 サンジ 起動メイン: コスト8以下の【登場時】持たないキャラに速攻 (turn, once)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "draw": 1
+          "give_keyword": {
+            "target": "one_self_chara_no_on_play_cost_le_8",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -10627,7 +10793,12 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の特徴《スリラーバーク海賊団》を持つキャラ1枚をKOできる：自分のリーダーとキャラすべてを、このターン中、パワー+1000。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true, "ko_self_with_filter": {"feature": "スリラーバーク海賊団"}},
+      "cost": {
+        "once_per_turn": true,
+        "ko_self_with_filter": {
+          "feature": "スリラーバーク海賊団"
+        }
+      },
       "do": [
         {
           "power_pump": {
@@ -10644,8 +10815,16 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"trash_self_hand_random": 3}],
-            "effect": [{"put_top_to_life": 1}]
+            "cost": [
+              {
+                "trash_self_hand_random": 3
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ]
@@ -14556,7 +14735,11 @@
       "do": [
         {
           "set_base_cost_filtered_static": {
-            "filter": {"category": "CHARACTER", "cost_ge": 2, "feature": "ドレスローザ"},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_ge": 2,
+              "feature": "ドレスローザ"
+            },
             "delta": 1
           }
         }
@@ -14565,9 +14748,18 @@
     {
       "_text": "【相手のターン中】【ターン1回】自分の特徴《ドレスローザ》を持つキャラがKOされた時か、相手の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
       "when": "on_self_chara_ko",
-      "if": {"opp_turn": true, "self_hand_count_le": 5},
-      "cost": {"once_per_turn": true},
-      "do": [{"draw": 1}]
+      "if": {
+        "opp_turn": true,
+        "self_hand_count_le": 5
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP10-042_p1": [
@@ -14578,7 +14770,11 @@
       "do": [
         {
           "set_base_cost_filtered_static": {
-            "filter": {"category": "CHARACTER", "cost_ge": 2, "feature": "ドレスローザ"},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_ge": 2,
+              "feature": "ドレスローザ"
+            },
             "delta": 1
           }
         }
@@ -14587,9 +14783,18 @@
     {
       "_text": "【相手のターン中】【ターン1回】自分の特徴《ドレスローザ》を持つキャラがKOされた時か、相手の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
       "when": "on_self_chara_ko",
-      "if": {"opp_turn": true, "self_hand_count_le": 5},
-      "cost": {"once_per_turn": true},
-      "do": [{"draw": 1}]
+      "if": {
+        "opp_turn": true,
+        "self_hand_count_le": 5
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP09-001": [
@@ -14732,9 +14937,16 @@
   ],
   "OP03-076": [
     {
-      "_text": "OP03-076 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の手札2枚を捨てることができる：相手のキャラがKOされた時、このリーダーをアクティブにする。",
+      "_text": "OP03-076 ロブ・ルッチ on_opp_chara_ko: 自ターン中 1回、手札2枚捨てる → 自リーダーアクティブ",
       "when": "on_opp_chara_ko",
-      "n": 0,
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -14750,10 +14962,7 @@
             ]
           }
         }
-      ],
-      "if": {
-        "self_turn": true
-      }
+      ]
     }
   ],
   "OP03-076_p1": [
@@ -15012,7 +15221,11 @@
       "do": [
         {
           "set_base_cost_filtered_static": {
-            "filter": {"category": "CHARACTER", "cost_ge": 2, "feature": "ドレスローザ"},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_ge": 2,
+              "feature": "ドレスローザ"
+            },
             "delta": 1
           }
         }
@@ -15021,9 +15234,18 @@
     {
       "_text": "【相手のターン中】【ターン1回】自分の特徴《ドレスローザ》を持つキャラがKOされた時か、相手の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
       "when": "on_self_chara_ko",
-      "if": {"opp_turn": true, "self_hand_count_le": 5},
-      "cost": {"once_per_turn": true},
-      "do": [{"draw": 1}]
+      "if": {
+        "opp_turn": true,
+        "self_hand_count_le": 5
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "EB01-038": [
@@ -16009,8 +16231,19 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"discard_hand_with_filter": {"feature": "百獣海賊団", "count": 1}}],
-            "effect": [{"draw": 2}]
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "feature": "百獣海賊団",
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
           }
         }
       ]
@@ -16018,13 +16251,25 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "activate_main",
-      "if": {"leader_feature": "百獣海賊団"},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "leader_feature": "百獣海賊団"
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 2}],
-            "effect": [{"add_rested_don": 1}]
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
@@ -16034,20 +16279,34 @@
     {
       "_text": "【登場時】ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
-      "if": {"leader_feature": "フォクシー海賊団"},
-      "cost": {"pay_don": 1},
+      "if": {
+        "leader_feature": "フォクシー海賊団"
+      },
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
-        {"draw": 2},
-        {"trash_self_hand_random": 1},
-        {"rest": "one_opponent_character_cost_le_9cost"}
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_9cost"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"add_rested_don": 1}
+        {
+          "add_rested_don": 1
+        }
       ]
     }
   ],
@@ -16435,6 +16694,15 @@
     {
       "_text": "OP15-036 on_attack: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
       "when": "on_attack",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP15-036 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
       "do": [
         {
           "ko": "one_opponent_rested_character_cost_le_4cost"
@@ -17261,19 +17529,29 @@
     {
       "_text": "【登場時】自分のリーダーが特徴《海軍》を持つ場合、カード2枚を引く。",
       "when": "on_play",
-      "if": {"leader_feature": "海軍"},
+      "if": {
+        "leader_feature": "海軍"
+      },
       "do": [
-        {"draw": 2}
+        {
+          "draw": 2
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"trash_self_hand_random": 1}],
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
             "effect": [
               {
                 "attach_don": {
@@ -17629,19 +17907,36 @@
     {
       "_text": "【登場時】自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
-      "if": {"leader_features_any": ["魚人族", "人魚族"]},
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "人魚族"
+        ]
+      },
       "do": [
-        {"rest": "one_opponent_character_cost_le_5cost"}
+        {
+          "rest": "one_opponent_character_cost_le_5cost"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の特徴《魚人族》か《人魚族》を持つキャラ1枚までは、登場したターンにキャラへアタックできる。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "give_keyword": {
-            "target": {"type": "one_self_chara_filtered", "filter": {"feature_in": ["魚人族", "人魚族"]}},
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "魚人族",
+                  "人魚族"
+                ]
+              }
+            },
             "keyword": "速攻：キャラ"
           }
         }
@@ -18545,19 +18840,29 @@
     {
       "_text": "【登場時】自分のリーダーが特徴《ODYSSEY》を持つ場合、自分のドン!!3枚までを、アクティブにする。",
       "when": "on_play",
-      "if": {"leader_feature": "ODYSSEY"},
+      "if": {
+        "leader_feature": "ODYSSEY"
+      },
       "do": [
-        {"untap_don": 3}
+        {
+          "untap_don": 3
+        }
       ]
     },
     {
       "_text": "【相手のアタック時】【ターン1回】自分のドン!!1枚をレストにできる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
       "when": "opp_attack",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 1}],
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
             "effect": [
               {
                 "power_pump": {
@@ -19070,8 +19375,38 @@
   ],
   "OP08-007": [
     {
-      "_text": "OP08-007 on_attack: 自分のデッキの上から5枚を見て、パワー4000以下の特徴《動物》を持つキャラカード1枚までを、レストで登場させる。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP08-007 on_play: 自ターン中、 デッキ上5枚から《動物》パワー4000以下を 1 体レストで登場",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 4000,
+              "feature": "動物"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rested": true,
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP08-007 on_attack: 同上",
       "when": "on_attack",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
       "do": [
         {
           "search_top_n": {
@@ -20632,7 +20967,7 @@
         "leader_features_any": [
           "CP"
         ],
-        "leader_feature_contains": "CP"
+        "leader_feature": "CP"
       }
     }
   ],
@@ -20782,6 +21117,18 @@
     {
       "_text": "OP02-062 on_attack: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
       "when": "on_attack",
+      "do": [
+        {
+          "trash_self_hand_random": 2
+        }
+      ],
+      "cost": {
+        "discard_hand": 2
+      }
+    },
+    {
+      "_text": "OP02-062 on_play: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
+      "when": "on_play",
       "do": [
         {
           "trash_self_hand_random": 2
@@ -21046,6 +21393,15 @@
           "rest": "one_opponent_character_any"
         }
       ]
+    },
+    {
+      "_text": "ST29-002 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、レストにする。",
+      "when": "on_play",
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        }
+      ]
     }
   ],
   "ST29-003": [
@@ -21120,8 +21476,13 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の「ハチノス」1枚をレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、このターン中、パワー+4000。",
       "when": "activate_main",
-      "if": {"leader_feature": "黒ひげ海賊団"},
-      "cost": {"once_per_turn": true, "rest_self_target_name": "ハチノス"},
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      },
+      "cost": {
+        "once_per_turn": true,
+        "rest_self_target_name": "ハチノス"
+      },
       "do": [
         {
           "power_pump": {
@@ -21135,7 +21496,11 @@
     {
       "_text": "【KO時】カード1枚を引く。",
       "when": "on_ko",
-      "do": [{"draw": 1}]
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "ST27-002": [
@@ -21851,6 +22216,15 @@
     {
       "_text": "P-072 on_ko: 相手のコスト4以下のキャラ1枚までを、レストにする。",
       "when": "on_ko",
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ]
+    },
+    {
+      "_text": "P-072 on_play: 相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "on_play",
       "do": [
         {
           "rest": "one_opponent_character_cost_le_4cost"
@@ -23175,19 +23549,30 @@
       "_text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
       "n": 1,
-      "if": {"opp_turn": true, "self_rested": true},
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
       "do": [
-        {"set_attack_taunt": "self"}
+        {
+          "set_attack_taunt": "self"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true, "rest_self": true},
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true
+      },
       "do": [
         {
           "play_from_hand": {
-            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3
+            },
             "limit": 1
           }
         }
@@ -24226,6 +24611,15 @@
           "ko": "one_opponent_rested_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "OP06-036_p1 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
     }
   ],
   "OP06-036_p2": [
@@ -24237,12 +24631,30 @@
           "ko": "one_opponent_rested_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "OP06-036_p2 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
     }
   ],
   "OP06-036_p3": [
     {
       "_text": "OP06-036_p3 on_ko: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
       "when": "on_ko",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-036_p3 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
       "do": [
         {
           "ko": "one_opponent_rested_character_cost_le_4cost"
@@ -24594,7 +25006,9 @@
     {
       "_text": "【起動メイン】【ターン1回】相手のパワー8000以上のキャラがいる場合、このキャラは、このターン中、【速攻：キャラ】を得る。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "give_keyword": {
@@ -24641,20 +25055,34 @@
     {
       "_text": "【登場時】ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
-      "if": {"leader_feature": "フォクシー海賊団"},
-      "cost": {"pay_don": 1},
+      "if": {
+        "leader_feature": "フォクシー海賊団"
+      },
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
-        {"draw": 2},
-        {"trash_self_hand_random": 1},
-        {"rest": "one_opponent_character_cost_le_9cost"}
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_9cost"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"add_rested_don": 1}
+        {
+          "add_rested_don": 1
+        }
       ]
     }
   ],
@@ -24887,6 +25315,22 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "EB03-008_p1 on_play: 自分の特徴《SWORD》を持つ、リーダーかキャラ1枚までは、このターン中、アクティブのキャラにもアタックできる。",
+      "when": "on_play",
+      "do": [
+        {
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "SWORD"
+              }
+            }
+          }
+        }
+      ]
     }
   ],
   "EB03-024_p1": [
@@ -25407,6 +25851,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "EB01-046_p1 on_play: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 1
+          }
+        }
+      ]
     }
   ],
   "EB01-049_p1": [
@@ -25433,11 +25889,24 @@
   ],
   "EB01-061_p1": [
     {
-      "_text": "Mr.2 (紫 cost4) 【登場時】ドンデッキから1アクティブ追加",
+      "_text": "EB01-061 Mr.2 on_play: ドン!!デッキからドン!!1枚までを、アクティブで追加する",
       "when": "on_play",
       "do": [
         {
           "add_don": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB01-061 Mr.2 on_attack: 相手のキャラ1枚までを選ぶ。このキャラの元々のパワーは、このターン中、選んだキャラと同じパワーになる",
+      "when": "on_attack",
+      "do": [
+        {
+          "set_base_power_copy": {
+            "from_target": "one_opponent_character_any",
+            "to_target": "self",
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -25446,13 +25915,21 @@
     {
       "_text": "このキャラがKOされる場合、代わりに自分の手札からパワー6000以下のキャラカード1枚を捨てることができる。",
       "when": "replace_ko",
-      "cost": {"discard_hand_with_filter": {"category": "CHARACTER", "power_le": 6000, "count": 1}},
+      "cost": {
+        "discard_hand_with_filter": {
+          "category": "CHARACTER",
+          "power_le": 6000,
+          "count": 1
+        }
+      },
       "do": []
     },
     {
       "_text": "【起動メイン】【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "attach_rested_don": {
@@ -25818,15 +26295,36 @@
   ],
   "OP15-114_p1": [
     {
-      "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
+      "_text": "OP15-114_p1 on_play: ライフ表向き cost → 相手全員-2000, パワー0以下を全KO",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_opponent_characters",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_0"
+        }
+      ]
+    },
+    {
+      "_text": "OP15-114_p1 起動メイン: 空島リーダーかキャラ1枚にレストドン1付与 (once)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "attach_don": {
-            "target": "self_leader",
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "空島"
+              }
+            },
             "count": 1
           }
         }
@@ -26436,6 +26934,15 @@
             "limit": 1,
             "rested": true
           }
+        }
+      ]
+    },
+    {
+      "_text": "OP14-111_p1 on_play: 相手のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+      "when": "on_play",
+      "do": [
+        {
+          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
         }
       ]
     }
@@ -27821,19 +28328,36 @@
     {
       "_text": "【登場時】自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
-      "if": {"leader_features_any": ["魚人族", "人魚族"]},
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "人魚族"
+        ]
+      },
       "do": [
-        {"rest": "one_opponent_character_cost_le_5cost"}
+        {
+          "rest": "one_opponent_character_cost_le_5cost"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の特徴《魚人族》か《人魚族》を持つキャラ1枚までは、登場したターンにキャラへアタックできる。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "give_keyword": {
-            "target": {"type": "one_self_chara_filtered", "filter": {"feature_in": ["魚人族", "人魚族"]}},
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "魚人族",
+                  "人魚族"
+                ]
+              }
+            },
             "keyword": "速攻：キャラ"
           }
         }
@@ -28345,19 +28869,29 @@
     {
       "_text": "【登場時】自分のリーダーが特徴《ODYSSEY》を持つ場合、自分のドン!!3枚までを、アクティブにする。",
       "when": "on_play",
-      "if": {"leader_feature": "ODYSSEY"},
+      "if": {
+        "leader_feature": "ODYSSEY"
+      },
       "do": [
-        {"untap_don": 3}
+        {
+          "untap_don": 3
+        }
       ]
     },
     {
       "_text": "【相手のアタック時】【ターン1回】自分のドン!!1枚をレストにできる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
       "when": "opp_attack",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 1}],
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
             "effect": [
               {
                 "power_pump": {
@@ -28557,8 +29091,38 @@
   ],
   "OP08-007_p1": [
     {
-      "_text": "OP08-007_p1 on_attack: 自分のデッキの上から5枚を見て、パワー4000以下の特徴《動物》を持つキャラカード1枚までを、レストで登場させる。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP08-007_p1 on_play: 自ターン中、 デッキ上5枚から《動物》パワー4000以下を 1 体レストで登場",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 4000,
+              "feature": "動物"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rested": true,
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP08-007_p1 on_attack: 同上",
       "when": "on_attack",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
       "do": [
         {
           "search_top_n": {
@@ -29326,13 +29890,36 @@
   ],
   "OP04-024_p2": [
     {
-      "_text": "OP04-024_p2 on_play: 相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "on_opp_chara_played",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "leader_feature": "ドンキホーテ海賊団"
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        },
+        {
+          "rest": "self"
+        }
+      ],
+      "_text": "OP04-024_p2 on_opp_chara_played: 相手ターン中相手キャラ登場時、 ドフラ系リーダーなら相手1レスト+自レスト"
+    },
+    {
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_4cost"
+          "rest": "one_opponent_character_cost_le_4"
         }
-      ]
+      ],
+      "_text": "OP04-024_p2 on_play: 相手コスト4以下を1レスト"
     }
   ],
   "OP04-064_p2": [
@@ -29557,13 +30144,36 @@
   ],
   "OP04-024_p1": [
     {
-      "_text": "OP04-024_p1 on_play: 相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "on_opp_chara_played",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "leader_feature": "ドンキホーテ海賊団"
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        },
+        {
+          "rest": "self"
+        }
+      ],
+      "_text": "OP04-024_p1 on_opp_chara_played: 相手ターン中相手キャラ登場時、 ドフラ系リーダーなら相手1レスト+自レスト"
+    },
+    {
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_4cost"
+          "rest": "one_opponent_character_cost_le_4"
         }
-      ]
+      ],
+      "_text": "OP04-024_p1 on_play: 相手コスト4以下を1レスト"
     }
   ],
   "OP04-030_p1": [
@@ -29881,7 +30491,7 @@
         "leader_features_any": [
           "CP"
         ],
-        "leader_feature_contains": "CP"
+        "leader_feature": "CP"
       }
     }
   ],
@@ -29974,19 +30584,30 @@
       "_text": "【ドン!!×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
       "n": 1,
-      "if": {"opp_turn": true, "self_rested": true},
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
       "do": [
-        {"set_attack_taunt": "self"}
+        {
+          "set_attack_taunt": "self"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true, "rest_self": true},
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true
+      },
       "do": [
         {
           "play_from_hand": {
-            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3
+            },
             "limit": 1
           }
         }
@@ -30107,6 +30728,22 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP02-036_p1 on_play: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
+      "when": "on_play",
+      "do": [
+        {
+          "search": {
+            "filter": {
+              "feature": "FILM",
+              "exclude_name": "ナミ"
+            },
+            "limit": 1,
+            "depth": 3
+          }
+        }
+      ]
     }
   ],
   "OP02-058_p1": [
@@ -30131,6 +30768,18 @@
     {
       "_text": "OP02-062_p1 on_attack: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
       "when": "on_attack",
+      "do": [
+        {
+          "trash_self_hand_random": 2
+        }
+      ],
+      "cost": {
+        "discard_hand": 2
+      }
+    },
+    {
+      "_text": "OP02-062_p1 on_play: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
+      "when": "on_play",
       "do": [
         {
           "trash_self_hand_random": 2
@@ -30301,19 +30950,30 @@
       "_text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
       "n": 1,
-      "if": {"opp_turn": true, "self_rested": true},
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
       "do": [
-        {"set_attack_taunt": "self"}
+        {
+          "set_attack_taunt": "self"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true, "rest_self": true},
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true
+      },
       "do": [
         {
           "play_from_hand": {
-            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3
+            },
             "limit": 1
           }
         }
@@ -30444,6 +31104,15 @@
     {
       "_text": "ST29-002_p1 on_attack: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、レストにする。",
       "when": "on_attack",
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        }
+      ]
+    },
+    {
+      "_text": "ST29-002_p1 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、レストにする。",
+      "when": "on_play",
       "do": [
         {
           "rest": "one_opponent_character_any"
@@ -30864,12 +31533,36 @@
           }
         }
       ]
+    },
+    {
+      "_text": "EB01-046_p2 on_play: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 1
+          }
+        }
+      ]
     }
   ],
   "EB01-046_p3": [
     {
       "_text": "EB01-046_p3 on_attack: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
       "when": "on_attack",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB01-046_p3 on_play: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
+      "when": "on_play",
       "do": [
         {
           "cost_minus": {
@@ -30958,8 +31651,20 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"power_pump": {"target": "self_leader", "amount": -5000, "duration": "turn"}}],
-            "effect": [{"draw": 1}]
+            "cost": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]
@@ -30967,8 +31672,12 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
       "when": "activate_main",
-      "if": {"leader_feature": "アラバスタ王国"},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "leader_feature": "アラバスタ王国"
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "power_pump": {
@@ -32690,11 +33399,23 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の手札から特徴《アマゾン・リリー》か《九蛇海賊団》を持つカード3枚を公開することができる：自分のリーダーとキャラすべてにレストのドン‼1枚ずつまでを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"reveal_hand_with_filter": {"feature_in": ["アマゾン・リリー", "九蛇海賊団"], "count": 3}}],
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "feature_in": [
+                    "アマゾン・リリー",
+                    "九蛇海賊団"
+                  ],
+                  "count": 3
+                }
+              }
+            ],
             "effect": [
               {
                 "attach_rested_don": {
@@ -33289,6 +34010,22 @@
     {
       "_text": "OP02-036_p3 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
       "when": "on_attack",
+      "do": [
+        {
+          "search": {
+            "filter": {
+              "feature": "FILM",
+              "exclude_name": "ナミ"
+            },
+            "limit": 1,
+            "depth": 3
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP02-036_p3 on_play: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
+      "when": "on_play",
       "do": [
         {
           "search": {
@@ -34271,6 +35008,15 @@
           "rest": "one_opponent_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "P-072_p1 on_play: 相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "on_play",
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ]
     }
   ],
   "P-074_p1": [
@@ -34534,6 +35280,18 @@
     {
       "_text": "EB01-046_r1 on_attack: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
       "when": "on_attack",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB01-046_r1 on_play: 相手のキャラ1枚までを、このターン中、コスト-1。その後、相手のコスト0のキャラ1枚までを、KOする。",
+      "when": "on_play",
       "do": [
         {
           "cost_minus": {
@@ -35449,12 +36207,22 @@
     {
       "_text": "【アタック時】【ターン1回】自分のドン‼1枚をレストにできる：このキャラをアクティブにする。",
       "when": "on_attack",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 1}],
-            "effect": [{"untap": "self"}]
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
           }
         }
       ]
@@ -35462,12 +36230,22 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：このキャラをアクティブにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 2}],
-            "effect": [{"untap": "self"}]
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
           }
         }
       ]
@@ -37625,12 +38403,36 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ST14-007_p1 on_play: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
+      "when": "on_play",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 5
+          }
+        }
+      ]
     }
   ],
   "ST14-007_r1": [
     {
       "_text": "ST14-007_r1 on_attack: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
       "when": "on_attack",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 5
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST14-007_r1 on_play: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
+      "when": "on_play",
       "do": [
         {
           "cost_minus": {
@@ -38214,19 +39016,30 @@
       "_text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
       "n": 1,
-      "if": {"opp_turn": true, "self_rested": true},
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
       "do": [
-        {"set_attack_taunt": "self"}
+        {
+          "set_attack_taunt": "self"
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true, "rest_self": true},
+      "cost": {
+        "once_per_turn": true,
+        "rest_self": true
+      },
       "do": [
         {
           "play_from_hand": {
-            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3
+            },
             "limit": 1
           }
         }
@@ -39102,7 +39915,7 @@
         "leader_features_any": [
           "CP"
         ],
-        "leader_feature_contains": "CP"
+        "leader_feature": "CP"
       }
     },
     {
@@ -39145,7 +39958,7 @@
         "leader_features_any": [
           "CP"
         ],
-        "leader_feature_contains": "CP"
+        "leader_feature": "CP"
       }
     },
     {
@@ -39188,7 +40001,7 @@
         "leader_features_any": [
           "CP"
         ],
-        "leader_feature_contains": "CP"
+        "leader_feature": "CP"
       }
     },
     {
@@ -40505,6 +41318,15 @@
     {
       "_text": "OP06-036_r1 on_ko: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
       "when": "on_ko",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP06-036_r1 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
       "do": [
         {
           "ko": "one_opponent_rested_character_cost_le_4cost"
@@ -43426,10 +44248,19 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"untap_don": 1},
-        {"rest": {"type": "one_opp_chara_or_don", "cost_le": 4}}
+        {
+          "untap_don": 1
+        },
+        {
+          "rest": {
+            "type": "one_opp_chara_or_don",
+            "cost_le": 4
+          }
+        }
       ]
     },
     {
@@ -43438,11 +44269,20 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 1}],
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
             "effect": [
               {
                 "untap_chara": {
-                  "target": {"type": "one_self_chara_filtered", "filter": {"feature": "FILM"}},
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "FILM"
+                    }
+                  },
                   "limit": 1
                 }
               }
@@ -43456,10 +44296,19 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"untap_don": 1},
-        {"rest": {"type": "one_opp_chara_or_don", "cost_le": 4}}
+        {
+          "untap_don": 1
+        },
+        {
+          "rest": {
+            "type": "one_opp_chara_or_don",
+            "cost_le": 4
+          }
+        }
       ]
     },
     {
@@ -43468,11 +44317,20 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 1}],
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
             "effect": [
               {
                 "untap_chara": {
-                  "target": {"type": "one_self_chara_filtered", "filter": {"feature": "FILM"}},
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "FILM"
+                    }
+                  },
                   "limit": 1
                 }
               }
@@ -43486,10 +44344,19 @@
     {
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"untap_don": 1},
-        {"rest": {"type": "one_opp_chara_or_don", "cost_le": 4}}
+        {
+          "untap_don": 1
+        },
+        {
+          "rest": {
+            "type": "one_opp_chara_or_don",
+            "cost_le": 4
+          }
+        }
       ]
     },
     {
@@ -43498,11 +44365,20 @@
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 1}],
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
             "effect": [
               {
                 "untap_chara": {
-                  "target": {"type": "one_self_chara_filtered", "filter": {"feature": "FILM"}},
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "FILM"
+                    }
+                  },
                   "limit": 1
                 }
               }
@@ -43912,8 +44788,33 @@
   ],
   "EB02-037": [
     {
-      "_text": "EB02-037 on_attack: 自分のリーダーが特徴《麦わらの一味》を持ち、自分の場のドン‼が相手の場のドン‼の枚数以下の場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_text": "EB02-037 on_play: 自分のリーダーが《麦わらの一味》かつ自ドン<=相手ドンならドン1枚をレストで追加",
+      "when": "on_play",
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "don_diff_le": 0
+        }
+      ],
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB02-037 on_attack: 同条件",
       "when": "on_attack",
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "don_diff_le": 0
+        }
+      ],
       "do": [
         {
           "add_rested_don": 1
@@ -44156,6 +45057,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "EB02-053 on_play: 自分か相手のライフの上から1枚までを見て、ライフの上か下に置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "scry_life": {
+            "owner": "self_or_opp",
+            "depth": 1
+          }
+        }
+      ]
     }
   ],
   "EB02-054": [
@@ -44275,12 +45188,23 @@
     {
       "_text": "【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーが特徴《ワノ国》か《白ひげ海賊団》を持つ場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
       "when": "opp_attack",
-      "if": {"leader_features_any": ["ワノ国", "白ひげ海賊団"]},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "leader_features_any": [
+          "ワノ国",
+          "白ひげ海賊団"
+        ]
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"trash_self_hand_random": 1}],
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
             "effect": [
               {
                 "power_pump": {
@@ -47225,6 +48149,19 @@
           "trash_self_hand_random": 1
         }
       ]
+    },
+    {
+      "_text": "OP13-114 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
     }
   ],
   "OP13-114_p1": [
@@ -47247,6 +48184,19 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP13-114_p1 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_le_5000",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -48296,9 +49246,13 @@
   ],
   "ST13-011_p2": [
     {
-      "_text": "ST13-011_p2 on_attached_don (パターン未一致): 【登場時】自分のライフが2枚以下の場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "ST13-011_p2 on_play: ライフ2以下なら速攻を得る",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_life_le": 2
+        }
+      ],
       "do": [
         {
           "give_keyword": {
@@ -48306,10 +49260,7 @@
             "keyword": "速攻"
           }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "OP11-005": [
@@ -49036,11 +49987,20 @@
     {
       "_text": "【自分のターン中】【ターン1回】相手がイベントか【トリガー】を発動した時、発動できる。相手のライフが2枚以上の場合、お互いのライフの上から1枚をトラッシュに置く。",
       "when": "opp_event_or_trigger_fired",
-      "if": {"self_turn": true, "opp_life_ge": 2},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "self_turn": true,
+        "opp_life_ge": 2
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"mill_self_life_to_trash": 1},
-        {"mill_opp_life_to_trash": 1}
+        {
+          "mill_self_life_to_trash": 1
+        },
+        {
+          "mill_opp_life_to_trash": 1
+        }
       ]
     }
   ],
@@ -51585,13 +52545,25 @@
     {
       "_text": "【ドン‼×1】【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：このキャラは、このターン中、【速攻】を得る。",
       "when": "activate_main",
-      "if": {"self_attached_don_ge": 1},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"life_to_hand": 1}],
-            "effect": [{"give_rush": "self"}]
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_rush": "self"
+              }
+            ]
           }
         }
       ]
@@ -52548,9 +53520,23 @@
   ],
   "OP08-105": [
     {
-      "_text": "OP08-105 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
-      "when": "trigger",
+      "_text": "OP08-105 OP08-105 ボニー: 【ドン!!×1】【自分ターン】【ターン1回】相手ライフ離脱時 → 2drwa, hand1捨",
+      "when": "on_opp_life_taken",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -52559,9 +53545,23 @@
   ],
   "OP08-105_p1": [
     {
-      "_text": "OP08-105_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
-      "when": "trigger",
+      "_text": "OP08-105_p1 OP08-105 ボニー: 【ドン!!×1】【自分ターン】【ターン1回】相手ライフ離脱時 → 2drwa, hand1捨",
+      "when": "on_opp_life_taken",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -53835,16 +54835,36 @@
   ],
   "OP06-009": [
     {
-      "_text": "OP06-009 on_block: 【ターン1回】このキャラは、次の自分のターン開始時まで、相手のリーダーと同じパワーになる。",
-      "when": "on_block",
-      "do": [
-        {
-          "_unimplemented": "【ターン1回】このキャラは、次の自分のターン開始時まで、相手のリーダーと同じパワーになる。"
-        }
-      ],
+      "_text": "OP06-009 シュライヤ on_attack: 次の自ターン開始まで 元々のパワー=相手リーダー (once)",
+      "when": "on_attack",
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "set_base_power_copy": {
+            "from_target": "opponent_leader",
+            "to_target": "self",
+            "duration": "next_self_turn_start"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP06-009 シュライヤ on_block: 同上",
+      "when": "on_block",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "set_base_power_copy": {
+            "from_target": "opponent_leader",
+            "to_target": "self",
+            "duration": "next_self_turn_start"
+          }
+        }
+      ]
     }
   ],
   "OP06-009_p1": [
@@ -54316,13 +55336,21 @@
         {
           "optional_cost_then": {
             "cost": [
-              {"return_self_don_to_deck": 1},
-              {"trash_self_hand_random": 2}
+              {
+                "return_self_don_to_deck": 1
+              },
+              {
+                "trash_self_hand_random": 2
+              }
             ],
             "effect": [
               {
                 "play_multi_from_trash": {
-                  "filter": {"category": "CHARACTER", "feature": "ジェルマ66", "power_le": 4000},
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "ジェルマ66",
+                    "power_le": 4000
+                  },
                   "limit": 4,
                   "unique_name": true
                 }
@@ -54335,12 +55363,22 @@
     {
       "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_don_to_deck": 1}],
-            "effect": [{"rest_opp_don": 1}]
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest_opp_don": 1
+              }
+            ]
           }
         }
       ]
@@ -54354,13 +55392,21 @@
         {
           "optional_cost_then": {
             "cost": [
-              {"return_self_don_to_deck": 1},
-              {"trash_self_hand_random": 2}
+              {
+                "return_self_don_to_deck": 1
+              },
+              {
+                "trash_self_hand_random": 2
+              }
             ],
             "effect": [
               {
                 "play_multi_from_trash": {
-                  "filter": {"category": "CHARACTER", "feature": "ジェルマ66", "power_le": 4000},
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "ジェルマ66",
+                    "power_le": 4000
+                  },
                   "limit": 4,
                   "unique_name": true
                 }
@@ -54373,12 +55419,22 @@
     {
       "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_don_to_deck": 1}],
-            "effect": [{"rest_opp_don": 1}]
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest_opp_don": 1
+              }
+            ]
           }
         }
       ]
@@ -54592,6 +55648,21 @@
       "if": {
         "leader_feature": "スリラーバーク海賊団"
       }
+    },
+    {
+      "_text": "OP06-082 on_play: 自分のリーダーが特徴《スリラーバーク海賊団》を持つ場合、カード2枚を引き、自分の手札2枚を捨てる。",
+      "when": "on_play",
+      "do": [
+        {
+          "trash_self_hand_random": 2
+        }
+      ],
+      "cost": {
+        "discard_hand": 2
+      },
+      "if": {
+        "leader_feature": "スリラーバーク海賊団"
+      }
     }
   ],
   "OP06-083": [
@@ -54680,6 +55751,15 @@
     {
       "_text": "OP06-089 on_ko: 自分のデッキの上から3枚をトラッシュに置く。",
       "when": "on_ko",
+      "do": [
+        {
+          "mill_self_top": 3
+        }
+      ]
+    },
+    {
+      "_text": "OP06-089 on_play: 自分のデッキの上から3枚をトラッシュに置く。",
+      "when": "on_play",
       "do": [
         {
           "mill_self_top": 3
@@ -54860,12 +55940,25 @@
     {
       "_text": "【起動メイン】【ターン1回】コスト1のステージ1枚を持ち主のデッキの下に置くことができる：相手のコスト2以下のキャラ1枚までを、KOする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"stage_to_deck_bottom": {"cost_eq": 1, "count": 1}}],
-            "effect": [{"ko": "one_opponent_character_cost_le_2cost"}]
+            "cost": [
+              {
+                "stage_to_deck_bottom": {
+                  "cost_eq": 1,
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
           }
         }
       ]
@@ -54920,12 +56013,25 @@
     {
       "_text": "【起動メイン】【ターン1回】コスト1のステージ1枚を持ち主のデッキの下に置くことができる：相手のコスト4以下のキャラ1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"stage_to_deck_bottom": {"cost_eq": 1, "count": 1}}],
-            "effect": [{"rest": "one_opponent_character_cost_le_4cost"}]
+            "cost": [
+              {
+                "stage_to_deck_bottom": {
+                  "cost_eq": 1,
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_4cost"
+              }
+            ]
           }
         }
       ]
@@ -55699,6 +56805,24 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP05-090 on_play: 自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+2000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
     }
   ],
   "OP05-091": [
@@ -56434,12 +57558,24 @@
   ],
   "OP04-053": [
     {
-      "_text": "on_attached_don n=1: 【ターン1回】自分がイベントを発動した時、カード1枚を引く。その後、自分の手札1枚をデッキの下に置く",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP04-053 ページワン: 【ドン!!×1】【ターン1回】自分がイベントを発動した時、カード1枚を引き、手札1枚をデッキ下へ",
+      "when": "on_self_event_played",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【ターン1回】自分がイベントを発動した時、カード1枚を引く。その後、自分の手札1枚をデッキの下に置く"
+          "draw": 1
+        },
+        {
+          "self_hand_to_deck_bottom": {
+            "amount": 1
+          }
         }
       ]
     }
@@ -56468,12 +57604,22 @@
   ],
   "OP04-059": [
     {
-      "_text": "OP04-059 on_attached_don (パターン未一致): 【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが特徴《W7》を持つ場合、このキャラは、このター",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP04-059 アイスバーグ opp_attack: ドン-1 + W7リーダー → 自身にブロッカー (turn)",
+      "when": "opp_attack",
+      "cost": {
+        "pay_don": 1
+      },
+      "conditions": [
+        {
+          "leader_feature": "W7"
+        }
+      ],
       "do": [
         {
-          "_unimplemented": "【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが特徴《W7》を持つ場合、このキャラは、このターン中、【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
         }
       ]
     }
@@ -56482,12 +57628,22 @@
     {
       "_text": "【登場時】ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_play",
-      "if": {"leader_feature_contains": "B・W"},
+      "if": {
+        "leader_feature": "B・W"
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_don_to_deck": 2}],
-            "effect": [{"put_top_to_life": 1}]
+            "cost": [
+              {
+                "return_self_don_to_deck": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ]
@@ -56495,14 +57651,24 @@
     {
       "_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "opp_attack",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_don_to_deck": 1}],
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
             "effect": [
-              {"draw": 1},
-              {"trash_self_hand_random": 1}
+              {
+                "draw": 1
+              },
+              {
+                "trash_self_hand_random": 1
+              }
             ]
           }
         }
@@ -56513,12 +57679,22 @@
     {
       "_text": "【登場時】ドン!!-2(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_play",
-      "if": {"leader_feature_contains": "B・W"},
+      "if": {
+        "leader_feature": "B・W"
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_don_to_deck": 2}],
-            "effect": [{"put_top_to_life": 1}]
+            "cost": [
+              {
+                "return_self_don_to_deck": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ]
@@ -56526,14 +57702,24 @@
     {
       "_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "opp_attack",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"return_self_don_to_deck": 1}],
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
             "effect": [
-              {"draw": 1},
-              {"trash_self_hand_random": 1}
+              {
+                "draw": 1
+              },
+              {
+                "trash_self_hand_random": 1
+              }
             ]
           }
         }
@@ -56897,6 +58083,21 @@
       "if": {
         "leader_feature": "ドレスローザ"
       }
+    },
+    {
+      "_text": "OP04-085 on_play: 自分のリーダーが特徴《ドレスローザ》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-2。その後、自分のデッキの上から1枚をトラッシュに置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 2
+          }
+        }
+      ],
+      "if": {
+        "leader_feature": "ドレスローザ"
+      }
     }
   ],
   "OP04-086": [
@@ -57075,12 +58276,25 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト2以下のキャラ1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
-            "effect": [{"rest": "one_opponent_character_cost_le_2cost"}]
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "trigger": true,
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_2cost"
+              }
+            ]
           }
         }
       ]
@@ -57277,16 +58491,38 @@
   ],
   "OP01-078_p2": [
     {
-      "_text": "OP01-078_p2 on_block: 自分の手札が5枚以下の場合、カード1枚を引く。",
-      "when": "on_block",
+      "_text": "OP01-078_p2 OP01-078 ハンコック on_attack: ドン!!×1 で手札5以下 → 1ドロー",
+      "when": "on_attack",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "self_hand_count_le": 5
+        }
+      ],
       "do": [
         {
           "draw": 1
         }
+      ]
+    },
+    {
+      "_text": "OP01-078_p2 OP01-078 ハンコック on_block: ドン!!×1 で手札5以下 → 1ドロー",
+      "when": "on_block",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "self_hand_count_le": 5
+        }
       ],
-      "if": {
-        "self_hand_count_le": 5
-      }
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP02-085_p2": [
@@ -58080,7 +59316,7 @@
         "leader_features_any": [
           "CP"
         ],
-        "leader_feature_contains": "CP"
+        "leader_feature": "CP"
       }
     },
     {
@@ -58517,7 +59753,7 @@
       "if": {
         "self_attached_don_ge": 1,
         "self_life_le": 2,
-        "leader_feature_contains": "白ひげ海賊団"
+        "leader_feature": "白ひげ海賊団"
       }
     }
   ],
@@ -58788,12 +60024,22 @@
     {
       "_text": "【起動メイン】【ターン1回】③(コストエリアのドン‼を指定の数レストにできる)：このキャラをアクティブにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 3}],
-            "effect": [{"untap": "self"}]
+            "cost": [
+              {
+                "rest_self_don": 3
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
           }
         }
       ]
@@ -58804,11 +60050,18 @@
       "do": [
         {
           "summon_from_deck": {
-            "filter": {"cost_eq": 3, "color": "緑", "feature": "ワノ国", "category": "CHARACTER"},
+            "filter": {
+              "cost_eq": 3,
+              "color": "緑",
+              "feature": "ワノ国",
+              "category": "CHARACTER"
+            },
             "limit": 1
           }
         },
-        {"shuffle_self_deck": true}
+        {
+          "shuffle_self_deck": true
+        }
       ]
     }
   ],
@@ -58816,12 +60069,22 @@
     {
       "_text": "【起動メイン】【ターン1回】③(コストエリアのドン‼を指定の数レストにできる)：このキャラをアクティブにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"rest_self_don": 3}],
-            "effect": [{"untap": "self"}]
+            "cost": [
+              {
+                "rest_self_don": 3
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
           }
         }
       ]
@@ -58832,11 +60095,18 @@
       "do": [
         {
           "summon_from_deck": {
-            "filter": {"cost_eq": 3, "color": "緑", "feature": "ワノ国", "category": "CHARACTER"},
+            "filter": {
+              "cost_eq": 3,
+              "color": "緑",
+              "feature": "ワノ国",
+              "category": "CHARACTER"
+            },
             "limit": 1
           }
         },
-        {"shuffle_self_deck": true}
+        {
+          "shuffle_self_deck": true
+        }
       ]
     }
   ],
@@ -60037,11 +61307,16 @@
     {
       "_text": "【登場時】自分のリーダーが「光月おでん」の場合、自分の手札からコスト3以下の特徴《赤鞘九人男》を持つキャラカード1枚までを、登場させる。",
       "when": "on_play",
-      "if": {"leader_name": "光月おでん"},
+      "if": {
+        "leader_name": "光月おでん"
+      },
       "do": [
         {
           "play_from_hand": {
-            "filter": {"cost_le": 3, "feature": "赤鞘九人男"},
+            "filter": {
+              "cost_le": 3,
+              "feature": "赤鞘九人男"
+            },
             "limit": 1
           }
         }
@@ -60050,12 +61325,22 @@
     {
       "_text": "【ドン‼×1】【アタック時】【ターン1回】自分のコスト3以下の特徴《赤鞘九人男》を持つキャラ1枚までを、アクティブにする。",
       "when": "on_attack",
-      "if": {"self_attached_don_ge": 1},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "untap_chara": {
-            "target": {"type": "one_self_chara_filtered", "filter": {"cost_le": 3, "feature": "赤鞘九人男"}},
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_le": 3,
+                "feature": "赤鞘九人男"
+              }
+            },
             "limit": 1
           }
         }
@@ -60066,11 +61351,16 @@
     {
       "_text": "【登場時】自分のリーダーが「光月おでん」の場合、自分の手札からコスト3以下の特徴《赤鞘九人男》を持つキャラカード1枚までを、登場させる。",
       "when": "on_play",
-      "if": {"leader_name": "光月おでん"},
+      "if": {
+        "leader_name": "光月おでん"
+      },
       "do": [
         {
           "play_from_hand": {
-            "filter": {"cost_le": 3, "feature": "赤鞘九人男"},
+            "filter": {
+              "cost_le": 3,
+              "feature": "赤鞘九人男"
+            },
             "limit": 1
           }
         }
@@ -60079,12 +61369,22 @@
     {
       "_text": "【ドン‼×1】【アタック時】【ターン1回】自分のコスト3以下の特徴《赤鞘九人男》を持つキャラ1枚までを、アクティブにする。",
       "when": "on_attack",
-      "if": {"self_attached_don_ge": 1},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "untap_chara": {
-            "target": {"type": "one_self_chara_filtered", "filter": {"cost_le": 3, "feature": "赤鞘九人男"}},
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_le": 3,
+                "feature": "赤鞘九人男"
+              }
+            },
             "limit": 1
           }
         }
@@ -60362,30 +61662,74 @@
   ],
   "OP01-078": [
     {
-      "_text": "OP01-078 on_block: 自分の手札が5枚以下の場合、カード1枚を引く。",
-      "when": "on_block",
+      "_text": "OP01-078 OP01-078 ハンコック on_attack: ドン!!×1 で手札5以下 → 1ドロー",
+      "when": "on_attack",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "self_hand_count_le": 5
+        }
+      ],
       "do": [
         {
           "draw": 1
         }
+      ]
+    },
+    {
+      "_text": "OP01-078 OP01-078 ハンコック on_block: ドン!!×1 で手札5以下 → 1ドロー",
+      "when": "on_block",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "self_hand_count_le": 5
+        }
       ],
-      "if": {
-        "self_hand_count_le": 5
-      }
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP01-078_p1": [
     {
-      "_text": "OP01-078_p1 on_block: 自分の手札が5枚以下の場合、カード1枚を引く。",
-      "when": "on_block",
+      "_text": "OP01-078_p1 OP01-078 ハンコック on_attack: ドン!!×1 で手札5以下 → 1ドロー",
+      "when": "on_attack",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "self_hand_count_le": 5
+        }
+      ],
       "do": [
         {
           "draw": 1
         }
+      ]
+    },
+    {
+      "_text": "OP01-078_p1 OP01-078 ハンコック on_block: ドン!!×1 で手札5以下 → 1ドロー",
+      "when": "on_block",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "self_hand_count_le": 5
+        }
       ],
-      "if": {
-        "self_hand_count_le": 5
-      }
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP01-079": [
@@ -60541,19 +61885,21 @@
   ],
   "OP01-094": [
     {
-      "_text": "OP01-094 on_play: ドン‼-6(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが特徴《百獣海賊団》を持つ場合、このキャラ以外のキャラすべてを、KOする。",
+      "_text": "OP01-094 カイドウ on_play: ドン-6 + 百獣海賊団リーダー → このキャラ以外全 KO",
       "when": "on_play",
-      "do": [
+      "conditions": [
         {
-          "_unimplemented": "ドン‼-6(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが特徴《百獣海賊団》を持つ場合、このキャラ以外のキャラすべてを、KOする。"
+          "leader_feature": "百獣海賊団"
         }
       ],
       "cost": {
         "pay_don": 6
       },
-      "if": {
-        "leader_feature": "百獣海賊団"
-      }
+      "do": [
+        {
+          "ko_all_others": true
+        }
+      ]
     }
   ],
   "OP01-094_p1": [
@@ -61320,11 +62666,16 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の「モンキー・D・ルフィ」1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "attach_rested_don": {
-            "target": {"type": "self_chara_or_leader_named", "name": "モンキー・D・ルフィ"},
+            "target": {
+              "type": "self_chara_or_leader_named",
+              "name": "モンキー・D・ルフィ"
+            },
             "count": 1
           }
         }
@@ -61335,11 +62686,16 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の「モンキー・D・ルフィ」1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "attach_rested_don": {
-            "target": {"type": "self_chara_or_leader_named", "name": "モンキー・D・ルフィ"},
+            "target": {
+              "type": "self_chara_or_leader_named",
+              "name": "モンキー・D・ルフィ"
+            },
             "count": 1
           }
         }
@@ -61352,19 +62708,35 @@
       "when": "on_attached_don",
       "n": 0,
       "do": [
-        {"give_keyword": {"target": "self", "keyword": "速攻：キャラ"}}
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：カード1枚を引き、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "trigger": true,
+                  "count": 1
+                }
+              }
+            ],
             "effect": [
-              {"draw": 1},
+              {
+                "draw": 1
+              },
               {
                 "attach_rested_don": {
                   "target": "self_inplay_choice",
@@ -61383,19 +62755,35 @@
       "when": "on_attached_don",
       "n": 0,
       "do": [
-        {"give_keyword": {"target": "self", "keyword": "速攻：キャラ"}}
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：カード1枚を引き、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "trigger": true,
+                  "count": 1
+                }
+              }
+            ],
             "effect": [
-              {"draw": 1},
+              {
+                "draw": 1
+              },
               {
                 "attach_rested_don": {
                   "target": "self_inplay_choice",
@@ -63115,7 +64503,9 @@
     {
       "_text": "【登場時】自分のリーダーが「スモーカー」の場合、相手のキャラ1枚までを、このターン中、コスト-4。",
       "when": "on_play",
-      "if": {"leader_name": "スモーカー"},
+      "if": {
+        "leader_name": "スモーカー"
+      },
       "do": [
         {
           "cost_minus": {
@@ -63128,10 +64518,16 @@
     {
       "_text": "【起動メイン】【ターン1回】このキャラが登場したターンの場合、相手のコスト0のキャラ1枚までを、トラッシュに置く。",
       "when": "activate_main",
-      "if": {"self_summoning_sickness": true},
-      "cost": {"once_per_turn": true},
+      "if": {
+        "self_summoning_sickness": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
-        {"ko": "one_opponent_character_cost_le_0"}
+        {
+          "ko": "one_opponent_character_cost_le_0"
+        }
       ]
     }
   ],
@@ -63623,7 +65019,7 @@
       "if": {
         "self_attached_don_ge": 1,
         "self_life_le": 2,
-        "leader_feature_contains": "白ひげ海賊団"
+        "leader_feature": "白ひげ海賊団"
       }
     }
   ],
@@ -63782,6 +65178,18 @@
     {
       "_text": "ST14-007 on_attack: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
       "when": "on_attack",
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_le_5000",
+            "amount": 5
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST14-007 on_play: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
+      "when": "on_play",
       "do": [
         {
           "cost_minus": {
@@ -64029,9 +65437,13 @@
   ],
   "ST13-011": [
     {
-      "_text": "ST13-011 on_attached_don (パターン未一致): 【登場時】自分のライフが2枚以下の場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "ST13-011 on_play: ライフ2以下なら速攻を得る",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_life_le": 2
+        }
+      ],
       "do": [
         {
           "give_keyword": {
@@ -64039,17 +65451,18 @@
             "keyword": "速攻"
           }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "ST13-011_p1": [
     {
-      "_text": "ST13-011_p1 on_attached_don (パターン未一致): 【登場時】自分のライフが2枚以下の場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "ST13-011_p1 on_play: ライフ2以下なら速攻を得る",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_life_le": 2
+        }
+      ],
       "do": [
         {
           "give_keyword": {
@@ -64057,10 +65470,7 @@
             "keyword": "速攻"
           }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "ST13-012": [
@@ -64605,8 +66015,27 @@
   ],
   "ST10-012": [
     {
-      "_text": "ST10-012 on_attack: 相手の場のドン!!の枚数が自分の場のドン!!の枚数より多い場合、ドン!!デッキからドン!!1枚までを、レストで追加する。",
+      "_text": "ST10-012 ベポ on_play: 相手ドン > 自ドンならドン1枚をレストで追加",
+      "when": "on_play",
+      "conditions": [
+        {
+          "don_diff_le": -1
+        }
+      ],
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    },
+    {
+      "_text": "ST10-012 ベポ on_attack: 同条件",
       "when": "on_attack",
+      "conditions": [
+        {
+          "don_diff_le": -1
+        }
+      ],
       "do": [
         {
           "add_rested_don": 1
@@ -64616,8 +66045,11 @@
   ],
   "ST10-013": [
     {
-      "_text": "ST10-013 on_attack: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_attack",
+      "_text": "ST10-013 on_play: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -64626,10 +66058,23 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "ST10-013 on_attack: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_attack",
       "cost": {
         "pay_don": 1
-      }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
+        }
+      ]
     }
   ],
   "ST10-015": [
@@ -67034,7 +68479,7 @@
       "if": {
         "self_attached_don_ge": 1,
         "self_life_le": 2,
-        "leader_feature_contains": "白ひげ海賊団"
+        "leader_feature": "白ひげ海賊団"
       }
     }
   ],
@@ -68805,6 +70250,26 @@
           }
         }
       ]
+    },
+    {
+      "_text": "P-091 しらほし 起動メイン: 自身レスト cost → 海王類キャラ1枚に「速攻：キャラ」 (turn)",
+      "when": "activate_main",
+      "cost": {
+        "rest_self": true
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "海王類"
+              }
+            },
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
     }
   ],
   "P-092": [
@@ -68855,18 +70320,27 @@
       "_text": "【登場時】カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "on_play",
       "do": [
-        {"draw": 1},
-        {"trash_self_hand_random": 1}
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
       ]
     },
     {
       "_text": "【起動メイン】【ターン1回】自分の「ナミ」1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "attach_rested_don": {
-            "target": {"type": "self_chara_or_leader_named", "name": "ナミ"},
+            "target": {
+              "type": "self_chara_or_leader_named",
+              "name": "ナミ"
+            },
             "count": 1
           }
         }
@@ -68877,6 +70351,15 @@
     {
       "_text": "P-097 on_attack: 相手は、このターン中、【ブロッカー】を発動できない。",
       "when": "on_attack",
+      "do": [
+        {
+          "prevent_blocker_for_attacker": "self"
+        }
+      ]
+    },
+    {
+      "_text": "P-097 on_play: 相手は、このターン中、【ブロッカー】を発動できない。",
+      "when": "on_play",
       "do": [
         {
           "prevent_blocker_for_attacker": "self"
@@ -69853,8 +71336,11 @@
   ],
   "ST10-013_p1": [
     {
-      "_text": "ST10-013_p1 on_attack: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_attack",
+      "_text": "ST10-013_p1 on_play: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -69863,16 +71349,32 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "ST10-013_p1 on_attack: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_attack",
       "cost": {
         "pay_don": 1
-      }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
+        }
+      ]
     }
   ],
   "ST10-013_p2": [
     {
-      "_text": "ST10-013_p2 on_attack: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_attack",
+      "_text": "ST10-013_p2 on_play: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -69881,10 +71383,23 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "ST10-013_p2 on_attack: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_attack",
       "cost": {
         "pay_don": 1
-      }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
+        }
+      ]
     }
   ],
   "ST11-003_p1": [
@@ -70273,12 +71788,25 @@
     {
       "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト2以下のキャラ1枚までを、レストにする。",
       "when": "activate_main",
-      "cost": {"once_per_turn": true},
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
-            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
-            "effect": [{"rest": "one_opponent_character_cost_le_2cost"}]
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "trigger": true,
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_2cost"
+              }
+            ]
           }
         }
       ]
@@ -70449,9 +71977,23 @@
   ],
   "OP08-105_p2": [
     {
-      "_text": "OP08-105_p2 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
-      "when": "trigger",
+      "_text": "OP08-105_p2 OP08-105 ボニー: 【ドン!!×1】【自分ターン】【ターン1回】相手ライフ離脱時 → 2drwa, hand1捨",
+      "when": "on_opp_life_taken",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -70460,9 +72002,23 @@
   ],
   "OP08-105_p3": [
     {
-      "_text": "OP08-105_p3 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
-      "when": "trigger",
+      "_text": "OP08-105_p3 OP08-105 ボニー: 【ドン!!×1】【自分ターン】【ターン1回】相手ライフ離脱時 → 2drwa, hand1捨",
+      "when": "on_opp_life_taken",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -71165,12 +72721,44 @@
       "cost": {
         "pay_don": 1
       }
+    },
+    {
+      "_text": "ST10-013_p3 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
+        }
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "ST10-013_p4": [
     {
       "_text": "ST10-013_p4 on_attack: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
       "when": "on_attack",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
+        }
+      ],
+      "cost": {
+        "pay_don": 1
+      }
+    },
+    {
+      "_text": "ST10-013_p4 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
+      "when": "on_play",
       "do": [
         {
           "power_pump": {
@@ -72103,17 +73691,34 @@
     {
       "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることができる。",
       "when": "replace_leave",
-      "cost": {"once_per_turn": true, "discard_hand": 1},
+      "cost": {
+        "once_per_turn": true,
+        "discard_hand": 1
+      },
       "do": []
     },
     {
       "_text": "【相手のターン中】自分のリーダーが特徴《海軍》を持つ場合、このキャラは【ブロッカー】を得て、パワー+1000。",
       "when": "on_attached_don",
       "n": 0,
-      "if": {"opp_turn": true, "leader_feature": "海軍"},
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "海軍"
+      },
       "do": [
-        {"give_keyword": {"target": "self", "keyword": "ブロッカー"}},
-        {"power_pump": {"target": "self", "amount": 1000, "duration": "static"}}
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
       ]
     }
   ],
@@ -72300,16 +73905,40 @@
       ]
     }
   ],
-  "OP05-100": [],
+  "OP05-100": [
+    {
+      "_text": "OP05-100 エネル: 場を離れる代替で自ライフ1をトラッシュ (1回)。 ルフィ不在条件は engine 拡張待ち。",
+      "when": "replace_leave",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "mill_self_life_to_trash": 1
+        }
+      ]
+    }
+  ],
   "OP05-100_p1": [],
   "OP05-107": [
     {
-      "_text": "OP05-107 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分のライフが手札に加わった時、このキャラは、このターン中、パワー+2000。",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP05-107 スペーシー中尉: 自ターン中自ライフ手札時 → 自+2000 (1回)",
+      "when": "on_self_life_to_hand",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【自分のターン中】【ターン1回】自分のライフが手札に加わった時、このキャラは、このターン中、パワー+2000。"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }

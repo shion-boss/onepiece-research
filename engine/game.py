@@ -254,6 +254,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.cost_minus_until_turn_end = 0
             ip.attacker_prevents_blocker_until_turn_end = False
             ip.cannot_attack_target_cost_le_until_turn_end = -1
+            ip.turn_base_power_override = None
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
         player.block_self_draw_until_turn_end = False
@@ -345,10 +346,13 @@ def advance_phase(state: GameState) -> None:
             # next_turn_buff (= 「次の自分のターン開始時まで」 期限) を所有者側でクリア。
             # 自分のターン開始時 = ここで自分の InPlay の next_turn_buff を 0 に。
             me.leader.next_turn_buff = 0
+            me.leader.next_turn_base_power_override = None
             for c in me.characters:
                 c.next_turn_buff = 0
+                c.next_turn_base_power_override = None
             for s in me.stages:
                 s.next_turn_buff = 0
+                s.next_turn_base_power_override = None
             # 【ターン1回】 効果の発動済みキー集合をクリア (= 次自ターンで再発動可)。
             # effect spec の top-level `once_per_turn` を _execute_event がガードに使う。
             me.once_per_turn_used.clear()
@@ -1025,9 +1029,18 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 if fired:
                     opp.trash.append(taken)
                     state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
+                    went_to_hand = False
                 else:
                     opp.hand.append(taken)
                     state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
+                    went_to_hand = True
+                # 公式 10-1-5 直後: 「相手のライフが離れた時」 / 「自分のライフが (手札に加わった | トラッシュに置かれた) 時」
+                # OP08-105 ジュエリー・ボニー / OP05-107 スペーシー中尉 等
+                if state.effects_overlay:
+                    from .effects import trigger_on_opp_life_taken
+                    trigger_on_opp_life_taken(
+                        state, me, opp, went_to_hand, state.effects_overlay,
+                    )
         else:
             state.push_log("  blocked")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット

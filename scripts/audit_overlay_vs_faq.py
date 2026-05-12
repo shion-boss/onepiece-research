@@ -221,12 +221,20 @@ R4_KNOWN_PRIMITIVE_OPTIONS = {
 
 
 def overlay_if_keys(effects: list[dict]) -> set[str]:
+    """効果バンドル内の条件キーを集める。 単一辞書 `if` と複数条件配列 `conditions`
+    両形式に対応 (R44 で `conditions` 形式が普及したため拡張)。
+    """
     keys: set[str] = set()
     for e in effects:
         if not isinstance(e, dict):
             continue
         cond = e.get("if") or {}
         keys.update(cond.keys())
+        conditions = e.get("conditions") or []
+        if isinstance(conditions, list):
+            for c in conditions:
+                if isinstance(c, dict):
+                    keys.update(c.keys())
     return keys
 
 
@@ -292,7 +300,10 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
     ):
         issues.append("life_condition_unmodeled")
     if "リーダーが" in text and "特徴" in text and not any(
-        k in cond_keys for k in ("leader_feature", "opp_leader_feature")
+        k in cond_keys for k in (
+            "leader_feature", "leader_feature_contains", "leader_features_any",
+            "opp_leader_feature",
+        )
     ):
         issues.append("leader_feature_unmodeled")
     if "ドン!!" in text and "枚" in text and not any(

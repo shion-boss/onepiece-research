@@ -807,6 +807,29 @@ def _resolve_target(
             )
             return cands[:1]
 
+        # one_self_chara_no_on_play_cost_le_N (= 自分のキャラ コスト N 以下 で 【登場時】 効果を
+        # 「持たない」 もの、 1 体)。 PRB01-001 サンジ 等 「自分のコスト8以下の【登場時】効果を持たないキャラ1枚」。
+        # state.effects_overlay の bundle を参照し、 when=="on_play" を持たないものをフィルタ。
+        m = re.match(r"one_self_chara_no_on_play_cost_le_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            overlay = state.effects_overlay or {}
+
+            def _has_on_play(card):
+                bundle = overlay.get(card.card_id)
+                if bundle is None:
+                    return False
+                return any(e.get("when") == "on_play" for e in bundle.effects)
+
+            cands = sorted(
+                [
+                    c for c in me.characters
+                    if c.card.cost <= n and not _has_on_play(c.card)
+                ],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
         # one_opponent_rested_character_power_le_N (レスト + パワー N 以下)
         m = re.match(r"one_opponent_rested_character_power_le_(\d+)$", target_spec)
         if m:
@@ -1476,6 +1499,37 @@ def execute_effect(
             for t in targets:
                 t.granted_keywords.add(keyword)
             state.push_log(f"  効果: {keyword} 付与 → {[t.card.name for t in targets]}")
+        elif k == "set_base_power_copy":
+            # 「このキャラの元々のパワーは、 このターン中、 選んだキャラと同じパワーになる」
+            # (EB01-061 Mr.2 等)。 from_target で選んだキャラの current power を
+            # to_target (default: self_inplay) の turn_base_power_override に書き込む。
+            # spec: {"from_target": "one_opponent_character_any", "to_target": "self",
+            #        "duration": "turn"}
+            spec = v if isinstance(v, dict) else {"from_target": "one_opponent_character_any"}
+            from_target = spec.get("from_target", "one_opponent_character_any")
+            to_target = spec.get("to_target", "self")
+            duration = spec.get("duration", "turn")
+            from_cands = _resolve_target(from_target, state, me, opp, self_inplay)
+            if not from_cands:
+                state.push_log("  効果: power-copy 対象なし (不発)")
+                return False
+            source_ip = from_cands[0]
+            to_cands = _resolve_target(to_target, state, me, opp, self_inplay)
+            if not to_cands:
+                state.push_log("  効果: power-copy 適用先なし (不発)")
+                return False
+            copied_power = source_ip.power
+            for t in to_cands:
+                if duration == "turn":
+                    t.turn_base_power_override = copied_power
+                elif duration == "next_self_turn_start":
+                    t.next_turn_base_power_override = copied_power
+                else:
+                    t.base_power_override = copied_power
+            state.push_log(
+                f"  効果: 元々のパワー {copied_power} (= {source_ip.card.name}) を "
+                f"{[t.card.name for t in to_cands]} に複写 ({duration})"
+            )
         elif k == "play_from_trash" or k == "play_multi_from_trash":
             # 「自分のトラッシュからキャラ1枚を登場」 (limit>1 で複数体)
             # spec: {"filter": {"category": "CHARACTER", "feature": "...", "cost_le": N},
@@ -2158,6 +2212,59 @@ def execute_effect(
                     # ライフに加える (= KO ではないので【KO時】 不発動)
                     opp.life.append(t.card)
                     state.push_log(f"  効果: {t.card.name} を持ち主ライフへ")
+        elif k == "ko_all_others":
+            # 「このキャラ以外のキャラすべてを KO する」 (OP01-094 カイドウ 等)。
+            # 自他両陣営のキャラから self_inplay を除いて、 通常 KO 経路 (protect / immune /
+            # replace_ko / on_ko 系トリガー) を通して KO する。
+            # spec: True または辞書 (今は引数なし)。
+            ko_targets: list[tuple[Player, InPlay]] = []
+            for ip in list(me.characters):
+                if ip is self_inplay:
+                    continue
+                ko_targets.append((me, ip))
+            for ip in list(opp.characters):
+                ko_targets.append((opp, ip))
+            for owner, t in ko_targets:
+                # 自分のキャラ KO 経路 (= 自陣)
+                if owner is me:
+                    if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
+                        state.push_log(f"  KO 耐性: {t.card.name}")
+                        continue
+                    if state.effects_overlay and try_replace_ko(
+                        state, me, opp, t, state.effects_overlay, by_opp_effect=False
+                    ):
+                        continue
+                    if t in me.characters:
+                        me.characters.remove(t)
+                        me.trash.append(t.card)
+                        if t.attached_dons > 0:
+                            me.don_rested += t.attached_dons
+                        state.push_log(f"  効果: KO {t.card.name} (自陣)")
+                        if state.effects_overlay:
+                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay)
+                            trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
+                else:
+                    # 相手キャラ KO 経路
+                    if t.protect_from_opp_effect:
+                        state.push_log(f"  保護効果: {t.card.name}")
+                        continue
+                    if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
+                        state.push_log(f"  KO 耐性: {t.card.name}")
+                        continue
+                    if state.effects_overlay and try_replace_ko(
+                        state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                    ):
+                        continue
+                    if t in opp.characters:
+                        opp.characters.remove(t)
+                        opp.trash.append(t.card)
+                        if t.attached_dons > 0:
+                            opp.don_rested += t.attached_dons
+                        state.push_log(f"  効果: KO {t.card.name} (相手)")
+                        if state.effects_overlay:
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+                            trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                            trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         elif k == "ko_multi":
             # マルチターゲット KO。 v はターゲット仕様のリスト。
             # 例: [{"target": "one_opponent_character_cost_le_2"},
@@ -2924,21 +3031,52 @@ def trigger_on_play(
 
     on_play 効果が存在しないカードでも enqueue 自体は no-op コスト (= bundle 不在ですぐ return)。
     enqueue 後の auto-resolve はネスト時 (= 既に resolving 中) に no-op になる。
+
+    また、 相手側の場には「相手がキャラを登場させた時」 (on_opp_chara_played) を発火。
+    OP04-024 シュガー 等 (公式 7-1-1-7)。
     """
-    bundle = effects_overlay.get(self_inplay.card.card_id)
-    if bundle is None:
-        return
-    # on_play 効果が 1 つも無いなら enqueue 自体スキップ (キュー肥大化回避)
-    if not any(e.get("when") == "on_play" for e in bundle.effects):
-        return
     me_idx = state.players.index(me)
-    enqueue_event(
-        state,
-        when="on_play",
-        owner_idx=me_idx,
-        source_card_id=self_inplay.card.card_id,
-        source_iid=self_inplay.instance_id,
-    )
+    # 自陣営: 登場したカード自身の on_play
+    bundle = effects_overlay.get(self_inplay.card.card_id)
+    has_self_on_play = bundle is not None and any(e.get("when") == "on_play" for e in bundle.effects)
+    if has_self_on_play:
+        enqueue_event(
+            state,
+            when="on_play",
+            owner_idx=me_idx,
+            source_card_id=self_inplay.card.card_id,
+            source_iid=self_inplay.instance_id,
+        )
+    # 相手陣営: 「相手がキャラを登場させた時」 を相手の場の全カードに対し発火
+    # (キャラのみ。 ステージ/イベントは on_opp_chara_played の対象外)
+    if self_inplay.card.category == Category.CHARACTER:
+        _enqueue_field_when(state, opp, "on_opp_chara_played", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_on_opp_life_taken(
+    state: GameState,
+    attacker: Player,
+    defender: Player,
+    went_to_hand: bool,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """ライフ移動時の 2 系トリガーを発火 (公式 10-1-5 直後)。
+
+    - attacker 側: 「相手のライフが離れた時」 (on_opp_life_taken)
+    - defender 側: went_to_hand=True なら 「自分のライフが手札に加わった時」 (on_self_life_to_hand)
+                    went_to_hand=False なら 「自分のライフがトラッシュに置かれた時」
+                    (on_self_life_to_trash) — トリガー発動 or バニッシュで離脱した時
+
+    OP08-105 ジュエリー・ボニー (attacker 側) / OP05-107 スペーシー中尉 (defender 側) 等。
+    """
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, attacker, "on_opp_life_taken", effects_overlay)
+    if went_to_hand:
+        _enqueue_field_when(state, defender, "on_self_life_to_hand", effects_overlay)
+    else:
+        _enqueue_field_when(state, defender, "on_self_life_to_trash", effects_overlay)
     _maybe_resolve(state)
 
 
@@ -3246,6 +3384,26 @@ def trigger_opp_event_or_trigger_fired(
     if not effects_overlay:
         return
     _enqueue_field_when(state, opp_player, "opp_event_or_trigger_fired", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_self_event_played(
+    state: GameState,
+    actor_player: Player,
+    opp_player: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「自分がイベントを発動した時」 (on_self_event_played)。
+    actor_player = イベントを発動した側 (= 効果保有側)。
+    OP04-053 ページワン (【ドン!!×1】【ターン1回】自分がイベントを発動した時、 ...) 等。
+
+    呼び出し箇所:
+      - trigger_main_event 内 (= EVENT を発動した側の自身の場で発火)
+      - trigger_counter_event 内 (= カウンターイベント発動側でも公式 8-1-2 上は同じ「発動」)
+    """
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, actor_player, "on_self_event_played", effects_overlay)
     _maybe_resolve(state)
 
 
@@ -3677,6 +3835,9 @@ def trigger_main_event(
     # イベント発動そのもの (= bundle 有無に関わらず) で相手側の opp_event_or_trigger_fired を発火。
     # 公式 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)。
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
+    # 同イベント発動で自分側の on_self_event_played を発火。
+    # 公式 「自分がイベントを発動した時」 (OP04-053 ページワン 等)。
+    trigger_self_event_played(state, me, opp, effects_overlay)
     _maybe_resolve(state)
 
 
@@ -3701,6 +3862,8 @@ def trigger_counter_event(
         )
     # カウンターイベントも 「イベント発動」 に該当 → 相手側の opp_event_or_trigger_fired 発火。
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
+    # カウンターイベント発動側でも on_self_event_played を発火 (公式 8-1-2: 発動者基準)。
+    trigger_self_event_played(state, me, opp, effects_overlay)
     _maybe_resolve(state)
 
 
