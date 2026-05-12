@@ -143,6 +143,11 @@ class InPlay:
     # 静的に付与されるキーワード (on_attached_don 等の常在条件由来)。
     # evaluate_static_effects で毎回 False から再計算される。 ドンが外れれば消える。
     static_granted_keywords: set = field(default_factory=set)
+    # 「次の相手ターン終了時まで」 付与されたキーワード (OP09-084 カタリーナ等)。
+    # applier-tracking。 _reset_turn_buff で applier の opp ターン終了時にクリア。
+    granted_keywords_through_opp_turn: set = field(default_factory=set)
+    granted_keywords_through_opp_turn_applier_idx: int = -1
+    granted_keywords_through_opp_turn_applied_turn: int = 0
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
@@ -234,6 +239,7 @@ class InPlay:
             self.card.has_keyword(keyword)
             or keyword in self.granted_keywords
             or keyword in self.static_granted_keywords
+            or keyword in self.granted_keywords_through_opp_turn
         )
 
     @property
@@ -242,6 +248,7 @@ class InPlay:
             self.card.is_blocker
             or "ブロッカー" in self.granted_keywords
             or "ブロッカー" in self.static_granted_keywords
+            or "ブロッカー" in self.granted_keywords_through_opp_turn
         )
 
     @property
@@ -250,6 +257,7 @@ class InPlay:
             self.card.is_rush
             or "速攻" in self.granted_keywords
             or "速攻" in self.static_granted_keywords
+            or "速攻" in self.granted_keywords_through_opp_turn
         )
 
     @property
@@ -262,6 +270,8 @@ class InPlay:
             or "速攻:キャラ" in self.granted_keywords
             or "速攻：キャラ" in self.static_granted_keywords
             or "速攻:キャラ" in self.static_granted_keywords
+            or "速攻：キャラ" in self.granted_keywords_through_opp_turn
+            or "速攻:キャラ" in self.granted_keywords_through_opp_turn
         )
 
     @property
@@ -270,6 +280,7 @@ class InPlay:
             self.card.is_double_attack
             or "ダブルアタック" in self.granted_keywords
             or "ダブルアタック" in self.static_granted_keywords
+            or "ダブルアタック" in self.granted_keywords_through_opp_turn
         )
 
     @property
@@ -278,6 +289,7 @@ class InPlay:
             self.card.is_banish
             or "バニッシュ" in self.granted_keywords
             or "バニッシュ" in self.static_granted_keywords
+            or "バニッシュ" in self.granted_keywords_through_opp_turn
         )
 
     @property
@@ -286,6 +298,7 @@ class InPlay:
             self.card.has_no_block
             or "ブロック不可" in self.granted_keywords
             or "ブロック不可" in self.static_granted_keywords
+            or "ブロック不可" in self.granted_keywords_through_opp_turn
         )
 
     @property

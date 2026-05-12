@@ -1941,6 +1941,279 @@ def test_scry_life_reorders_by_value():
     assert me.life[1] is low
 
 
+def test_scry_all_life_one_to_deck():
+    """scry_all_life_one_to_deck: ライフ全体から1枚をデッキトップへ + 残りを並べ替え"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    low = repo.get("OP01-001")   # counter 0
+    mid = repo.get("OP01-013")   # counter 2000
+    high = repo.get("OP01-016")  # counter 2000 + イベント
+    me.life = [low, mid]
+    me.deck = [high]  # deck top
+    execute_effect({"scry_all_life_one_to_deck": True}, state, me, opp, None)
+    # 価値最大 (mid: counter 2000) がデッキトップへ
+    assert me.deck[0] is mid
+    # 残ったライフは low のみ
+    assert me.life == [low]
+
+
+def test_optional_discard_hand_for_battle_buff():
+    """optional_discard_hand_for_battle_buff: 手札のイベント/ステージを捨てて battle_buff"""
+    from engine.effects import execute_effect
+    from engine.core import Category
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # 手札に EVENT 系のカード 2 枚 + キャラ 1 枚
+    event_card_a = next((repo.get(cid) for cid in ["OP01-095", "OP01-091", "OP01-097"]
+                          if repo.get(cid).category == Category.EVENT), None)
+    if event_card_a is None:
+        return  # event card 探せなければスキップ
+    me.hand = [event_card_a, event_card_a, repo.get("OP01-013")]
+    leader = me.leader
+    leader.battle_buff = 0
+    execute_effect(
+        {"optional_discard_hand_for_battle_buff": {
+            "filter": {"category_in": ["EVENT", "STAGE"]},
+            "amount_per_discard": 1000,
+            "target": "self_leader",
+            "max": 3,
+        }},
+        state, me, opp, None,
+    )
+    # 2 枚 EVENT 捨て + 0 枚 STAGE → 計 2 枚 → +2000
+    assert leader.battle_buff == 2000
+    assert len(me.hand) == 1  # キャラ 1 枚残る
+
+
+def test_replace_rest_redirects_to_other_chara():
+    """replace_rest: ゾロが相手キャラ効果でレストになる代わりに他キャラを犠牲"""
+    from engine.effects import execute_effect, CardEffectBundle
+    from engine.core import InPlay
+    repo = _repo()
+    zoro_card = repo.get("PRB02-006")
+    other_card = repo.get("OP01-013")
+    src_card = repo.get("OP01-013")
+    overlay = {
+        "PRB02-006": CardEffectBundle(card_id="PRB02-006", effects=[{
+            "when": "replace_rest",
+            "if": {"target": "self", "by_opp_chara_effect": True, "opp_turn": True},
+            "do": [{"rest": "other_self_chara"}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    p0 = state.players[0]  # ゾロ所有者
+    p1 = state.players[1]  # 相手 (rest 効果の発動者)
+    zoro = InPlay.of(zoro_card)
+    other = InPlay.of(other_card)
+    p0.characters = [zoro, other]
+    state.turn_player_idx = 1  # p0 から見れば opp_turn=True
+    opp_src = InPlay.of(src_card)
+    p1.characters = [opp_src]
+    # p1 (相手 chara source) が p0 のゾロを rest しようとする
+    execute_effect(
+        {"rest": {"type": "one_opponent_character_filtered", "filter": {"name": "ロロノア・ゾロ"}}},
+        state, p1, p0, opp_src,
+    )
+    # 置換成功 → ゾロは rested ではなく other が代わりに rested
+    assert zoro.rested is False
+    assert other.rested is True
+
+
+def test_on_self_chara_leave_by_self_effect_fires_on_ko():
+    """on_self_chara_leave_by_self_effect: 自分の効果でキャラを KO すると ハンコック の場効果が発火しドロー"""
+    from engine.effects import execute_effect, CardEffectBundle
+    from engine.core import InPlay
+    repo = _repo()
+    hancock_card = repo.get("OP07-038")
+    victim_card = repo.get("OP01-013")
+    overlay = {
+        "OP07-038": CardEffectBundle(card_id="OP07-038", effects=[{
+            "when": "on_self_chara_leave_by_self_effect",
+            "cost": {"once_per_turn": True},
+            "if": {"self_turn": True, "self_hand_count_le": 5},
+            "do": [{"draw": 1}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    me.characters = [InPlay.of(hancock_card)]
+    opp.characters = [InPlay.of(victim_card)]
+    me.deck = [repo.get("OP01-013")]
+    me.hand = []
+    execute_effect({"ko": "one_opponent_character_any"}, state, me, opp, None)
+    assert len(opp.characters) == 0
+    assert len(me.hand) == 1  # ハンコック効果で 1 ドロー
+
+
+def test_optional_cost_then_trash_to_deck_payable():
+    """optional_cost_then: trash_to_deck を cost とした payability check 成立"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # トラッシュに 2 枚 → payability 成立 → cost と effect 両方発動
+    me.trash = [repo.get("OP01-013"), repo.get("OP01-013")]
+    state.turn_number = 1
+    leader = me.leader
+    base_power = leader.power
+    execute_effect(
+        {"optional_cost_then": {
+            "cost": [{"trash_to_deck": {"limit": 2, "to": "bottom"}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 1000, "duration": "next_opp_turn_end"}}]
+        }},
+        state, me, opp, None,
+    )
+    assert len(me.trash) == 0  # 2 枚 → deck bottom
+    assert leader.next_opp_turn_end_buff == 1000
+    # トラッシュ 1 枚 → payability 不成立 → 何もしない
+    state2 = _make_state(repo, "OP01-001", overlay={})
+    me2 = state2.players[0]
+    opp2 = state2.players[1]
+    me2.trash = [repo.get("OP01-013")]
+    leader2_before_buff = me2.leader.next_opp_turn_end_buff
+    execute_effect(
+        {"optional_cost_then": {
+            "cost": [{"trash_to_deck": {"limit": 2, "to": "bottom"}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 1000, "duration": "next_opp_turn_end"}}]
+        }},
+        state2, me2, opp2, None,
+    )
+    assert len(me2.trash) == 1
+    assert me2.leader.next_opp_turn_end_buff == leader2_before_buff
+
+
+def test_mill_self_life_until_n():
+    """mill_self_life_until_n: ライフを N 枚まで削減 (上から trash 排出)"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-013"), repo.get("OP01-013"), repo.get("OP01-013")]  # 3 枚
+    me.trash = []
+    execute_effect({"mill_self_life_until_n": 1}, state, me, opp, None)
+    assert len(me.life) == 1
+    assert len(me.trash) == 2
+    # 既に N 枚以下なら no-op
+    execute_effect({"mill_self_life_until_n": 1}, state, me, opp, None)
+    assert len(me.life) == 1
+
+
+def test_give_keyword_choice_picks_blocker():
+    """give_keyword: keywords リスト → AI は守備優先 (ブロッカー) を選択"""
+    from engine.effects import execute_effect
+    from engine.core import InPlay
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    chara_card = repo.get("OP01-013")
+    ip = InPlay.of(chara_card)
+    me.characters = [ip]
+    execute_effect(
+        {"give_keyword": {
+            "target": "self",
+            "keywords": ["ダブルアタック", "バニッシュ", "ブロッカー"],
+            "duration": "turn",
+        }},
+        state, me, opp, ip,
+    )
+    assert ip.is_blocker_now is True
+    assert ip.is_double_attack_now is False
+
+
+def test_give_keyword_next_opp_turn_end_persists_through_opp_turn():
+    """give_keyword duration=next_opp_turn_end: 自ターン終了 → 相手ターン中も維持 → 自分の END でクリア"""
+    from engine.effects import execute_effect
+    from engine.core import InPlay
+    from engine.game import _reset_turn_buff
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    chara_card = repo.get("OP01-013")
+    ip = InPlay.of(chara_card)
+    me.characters = [ip]
+    state.turn_number = 1
+    state.turn_player_idx = 0
+    execute_effect(
+        {"give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー",
+            "duration": "next_opp_turn_end",
+        }},
+        state, me, opp, ip,
+    )
+    assert ip.is_blocker_now is True
+    # 自ターン終了 (= ended_idx=0, applier=0 → クリアしない)
+    _reset_turn_buff(state)
+    assert ip.is_blocker_now is True
+    # 相手ターンへ (turn_player は turn_player_idx 由来の property)
+    state.turn_number = 2
+    state.turn_player_idx = 1
+    # 相手ターン終了 (= ended_idx=1, applier=0, applied_turn=1 < turn_number=2 → クリア)
+    _reset_turn_buff(state)
+    assert ip.is_blocker_now is False
+
+
+def test_chara_to_self_life():
+    """chara_to_self_life: 自キャラ1枚 → 自ライフへ移動 (場から消失、ライフ +1)"""
+    from engine.effects import execute_effect
+    from engine.core import InPlay
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # ワノ国キャラ準備 (OP02-006 ロー? いや、 ワノ国を持つカードを探す)
+    # 簡略化: 「ワノ国」 を持つカードを探して使う。 OP02 系に多数。
+    wano_card = None
+    for cid in ["OP02-066", "OP02-067", "OP02-068", "OP04-072", "OP01-002"]:
+        try:
+            c = repo.get(cid)
+            if "ワノ国" in c.features:
+                wano_card = c
+                break
+        except KeyError:
+            continue
+    if wano_card is None:
+        return  # ワノ国カードがDBに無ければスキップ
+    ip = InPlay.of(wano_card)
+    me.characters = [ip]
+    life_count_before = len(me.life)
+    execute_effect(
+        {"chara_to_self_life": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"feature": "ワノ国"}},
+            "place": "top"
+        }},
+        state, me, opp, None,
+    )
+    assert ip not in me.characters
+    assert len(me.life) == life_count_before + 1
+    assert me.life[0] is wano_card
+
+
+def test_scry_all_life_reorder():
+    """scry_all_life_reorder: ライフ全体を価値降順に並べ替え"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    low = repo.get("OP01-001")
+    high = repo.get("OP01-013")
+    me.life = [low, high]
+    execute_effect({"scry_all_life_reorder": True}, state, me, opp, None)
+    assert me.life[0] is high
+    assert me.life[1] is low
+
+
 def test_choice_picks_by_life_count():
     """choice: 自ライフ 1 以下なら option=1 を選ぶ"""
     from engine.effects import execute_effect

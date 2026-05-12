@@ -9104,14 +9104,10 @@
   ],
   "PRB02-006": [
     {
-      "_text": "PRB02-006 on_attached_don (パターン未一致): 【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】"
-        }
-      ]
+      "_text": "【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】",
+      "when": "replace_rest",
+      "if": {"target": "self", "by_opp_chara_effect": true, "opp_turn": true},
+      "do": [{"rest": "other_self_chara"}]
     }
   ],
   "PRB02-014": [
@@ -14982,14 +14978,11 @@
   ],
   "OP07-038_p2": [
     {
-      "_text": "OP07-038_p2 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。"
-        }
-      ]
+      "_text": "【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
+      "when": "on_self_chara_leave_by_self_effect",
+      "cost": {"once_per_turn": true},
+      "if": {"self_turn": true, "self_hand_count_le": 5},
+      "do": [{"draw": 1}]
     }
   ],
   "OP12-040": [
@@ -15186,26 +15179,20 @@
   ],
   "OP07-038": [
     {
-      "_text": "OP07-038 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。"
-        }
-      ]
+      "_text": "【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
+      "when": "on_self_chara_leave_by_self_effect",
+      "cost": {"once_per_turn": true},
+      "if": {"self_turn": true, "self_hand_count_le": 5},
+      "do": [{"draw": 1}]
     }
   ],
   "OP07-038_p1": [
     {
-      "_text": "OP07-038_p1 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。"
-        }
-      ]
+      "_text": "【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、発動できる。自分の手札が5枚以下の場合、カード1枚を引く。",
+      "when": "on_self_chara_leave_by_self_effect",
+      "cost": {"once_per_turn": true},
+      "if": {"self_turn": true, "self_hand_count_le": 5},
+      "do": [{"draw": 1}]
     }
   ],
   "OP06-042": [
@@ -15282,26 +15269,46 @@
   ],
   "OP03-001": [
     {
-      "_text": "OP03-001 on_attached_don (パターン未一致): このリーダーがアタックした時かアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバト",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "このリーダーがアタックした時かアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。"
-        }
-      ]
+      "_text": "このリーダーがアタックした時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。",
+      "when": "on_attack",
+      "do": [{"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3
+      }}]
+    },
+    {
+      "_text": "このリーダーがアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。",
+      "when": "opp_attack_on_leader",
+      "do": [{"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3
+      }}]
     }
   ],
   "OP03-001_p1": [
     {
-      "_text": "OP03-001_p1 on_attached_don (パターン未一致): このリーダーがアタックした時かアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバト",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "このリーダーがアタックした時かアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。"
-        }
-      ]
+      "_text": "このリーダーがアタックした時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。",
+      "when": "on_attack",
+      "do": [{"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3
+      }}]
+    },
+    {
+      "_text": "このリーダーがアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。",
+      "when": "opp_attack_on_leader",
+      "do": [{"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3
+      }}]
     }
   ],
   "OP03-076": [
@@ -15606,14 +15613,24 @@
   ],
   "OP03-001_p2": [
     {
-      "_text": "OP03-001_p2 on_attached_don (パターン未一致): このリーダーがアタックした時かアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバト",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "このリーダーがアタックした時かアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。"
-        }
-      ]
+      "_text": "このリーダーがアタックした時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。",
+      "when": "on_attack",
+      "do": [{"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3
+      }}]
+    },
+    {
+      "_text": "このリーダーがアタックされた時、自分の手札から任意の枚数イベントかステージカードを捨ててもよい。捨てたカード1枚につき、このリーダーは、このバトル中、パワー+1000。",
+      "when": "opp_attack_on_leader",
+      "do": [{"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3
+      }}]
     }
   ],
   "OP09-001_p3": [
@@ -23360,14 +23377,10 @@
   ],
   "PRB02-006_p1": [
     {
-      "_text": "PRB02-006_p1 on_attached_don (パターン未一致): 【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】"
-        }
-      ]
+      "_text": "【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】",
+      "when": "replace_rest",
+      "if": {"target": "self", "by_opp_chara_effect": true, "opp_turn": true},
+      "do": [{"rest": "other_self_chara"}]
     }
   ],
   "PRB02-007_p1": [
@@ -25740,14 +25753,10 @@
   ],
   "PRB02-006_p2": [
     {
-      "_text": "PRB02-006_p2 on_attached_don (パターン未一致): 【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】"
-        }
-      ]
+      "_text": "【相手のターン中】このキャラが相手のキャラの効果でレストになる場合、代わりに自分の他のキャラ1枚をレストにできる。【ブロッカー】",
+      "when": "replace_rest",
+      "if": {"target": "self", "by_opp_chara_effect": true, "opp_turn": true},
+      "do": [{"rest": "other_self_chara"}]
     }
   ],
   "PRB02-014_p2": [
@@ -35966,7 +35975,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の、手札かトラッシュからコスト7以下の「エネル」1枚までを、登場させる。その後、自分のライフが1枚になるようにライフの上からトラッシュに置く。"
+          "play_from_hand_or_trash": {
+            "filter": {"name": "エネル", "cost_le": 7},
+            "limit": 1
+          }
+        },
+        {
+          "mill_self_life_until_n": 1
         }
       ]
     },
@@ -35986,7 +36001,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の、手札かトラッシュからコスト7以下の「エネル」1枚までを、登場させる。その後、自分のライフが1枚になるようにライフの上からトラッシュに置く。"
+          "play_from_hand_or_trash": {
+            "filter": {"name": "エネル", "cost_le": 7},
+            "limit": 1
+          }
+        },
+        {
+          "mill_self_life_until_n": 1
         }
       ]
     },
@@ -36763,7 +36784,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の、「光月モモの助」以外の特徴《ワノ国》を持つキャラ1枚までを、持ち主のライフの上か下に表向きで加える。"
+          "chara_to_self_life": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"feature": "ワノ国", "exclude_name": "光月モモの助"}},
+            "place": "choice"
+          }
         }
       ]
     }
@@ -37751,7 +37775,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは次の相手のターン終了時まで、【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る。"
+          "give_keyword": {
+            "target": "self",
+            "keywords": ["ダブルアタック", "バニッシュ", "ブロッカー"],
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -37768,7 +37796,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは次の相手のターン終了時まで、【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る。"
+          "give_keyword": {
+            "target": "self",
+            "keywords": ["ダブルアタック", "バニッシュ", "ブロッカー"],
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -46586,7 +46618,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の、手札かトラッシュからコスト7以下の「エネル」1枚までを、登場させる。その後、自分のライフが1枚になるようにライフの上からトラッシュに置く。"
+          "play_from_hand_or_trash": {
+            "filter": {"name": "エネル", "cost_le": 7},
+            "limit": 1
+          }
+        },
+        {
+          "mill_self_life_until_n": 1
         }
       ]
     },
@@ -50938,7 +50976,10 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：自分のリーダーかキャラ1枚までを、次の相手のターン終了時まで、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [{"trash_to_deck": {"limit": 2, "to": "bottom"}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 1000, "duration": "next_opp_turn_end"}}]
+          }
         }
       ]
     }
@@ -50960,7 +51001,10 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：自分のリーダーかキャラ1枚までを、次の相手のターン終了時まで、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [{"trash_to_deck": {"limit": 2, "to": "bottom"}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 1000, "duration": "next_opp_turn_end"}}]
+          }
         }
       ]
     }
@@ -52773,7 +52817,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは次の相手のターン終了時まで、【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る。"
+          "give_keyword": {
+            "target": "self",
+            "keywords": ["ダブルアタック", "バニッシュ", "ブロッカー"],
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -56858,7 +56906,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の、「光月モモの助」以外の特徴《ワノ国》を持つキャラ1枚までを、持ち主のライフの上か下に表向きで加える。"
+          "chara_to_self_life": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"feature": "ワノ国", "exclude_name": "光月モモの助"}},
+            "place": "choice"
+          }
         }
       ]
     }
@@ -56869,7 +56920,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の、「光月モモの助」以外の特徴《ワノ国》を持つキャラ1枚までを、持ち主のライフの上か下に表向きで加える。"
+          "chara_to_self_life": {
+            "target": {"type": "one_self_chara_filtered", "filter": {"feature": "ワノ国", "exclude_name": "光月モモの助"}},
+            "place": "choice"
+          }
         }
       ]
     }
@@ -63925,7 +63979,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。"
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
@@ -66468,7 +66522,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分のライフすべてを見て、好きな順番で置く。"
+          "optional_cost_then": {
+            "cost": [{"life_top_or_bottom_to_hand": 1}],
+            "effect": [{"scry_all_life_reorder": true}]
+          }
         }
       ]
     }
@@ -66479,7 +66536,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分のライフすべてを見て、好きな順番で置く。"
+          "optional_cost_then": {
+            "cost": [{"life_top_or_bottom_to_hand": 1}],
+            "effect": [{"scry_all_life_reorder": true}]
+          }
         }
       ]
     }
@@ -66554,7 +66614,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。"
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
@@ -66565,7 +66625,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。"
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
@@ -70274,7 +70334,10 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：自分のリーダーかキャラ1枚までを、次の相手のターン終了時まで、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [{"trash_to_deck": {"limit": 2, "to": "bottom"}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 1000, "duration": "next_opp_turn_end"}}]
+          }
         }
       ]
     }
@@ -73813,7 +73876,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分のライフすべてを見て、好きな順番で置く。"
+          "optional_cost_then": {
+            "cost": [{"life_top_or_bottom_to_hand": 1}],
+            "effect": [{"scry_all_life_reorder": true}]
+          }
         }
       ]
     }

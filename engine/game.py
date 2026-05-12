@@ -306,6 +306,15 @@ def _reset_turn_buff(state: GameState) -> None:
                     ip.next_opp_turn_end_base_power_override = None
                     ip.next_opp_turn_end_base_power_override_applier_idx = -1
                     ip.next_opp_turn_end_base_power_override_applied_turn = 0
+            # granted_keywords_through_opp_turn: applier の opp ターン (= 相手ターン) 終了で消える。
+            # OP09-084 カタリーナ・デボン 「次の相手のターン終了時まで、 【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る」 等。
+            if ip.granted_keywords_through_opp_turn:
+                if (ip.granted_keywords_through_opp_turn_applier_idx >= 0
+                        and ip.granted_keywords_through_opp_turn_applied_turn < state.turn_number
+                        and ended_idx != ip.granted_keywords_through_opp_turn_applier_idx):
+                    ip.granted_keywords_through_opp_turn = set()
+                    ip.granted_keywords_through_opp_turn_applier_idx = -1
+                    ip.granted_keywords_through_opp_turn_applied_turn = 0
 
 
 def advance_phase(state: GameState) -> None:
@@ -800,10 +809,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         attacker = _find_attacker(me, action.attacker_iid)
         attacker.rested = True
         if state.effects_overlay:
-            from .effects import trigger_on_attack, trigger_on_opp_attack
+            from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
             # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
             trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
             trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+            # defender=リーダー 限定の opp_attack (OP03-001 エース等)
+            trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay)
         # アタック対象変更チェック (OP14-060 紫ドフラ等。redirect_attack プリミティブが set)
         if state.pending_attack_redirect is not None:
             redirect_iid = state.pending_attack_redirect
@@ -1061,9 +1072,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         attacker = _find_attacker(me, action.attacker_iid)
         attacker.rested = True
         if state.effects_overlay:
-            from .effects import trigger_on_attack, trigger_on_opp_attack
+            from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara
             trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
             trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+            # defender=キャラ 限定の opp_attack
+            trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay)
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),
