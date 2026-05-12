@@ -644,3 +644,49 @@ def test_look_top_reorder_legacy_to_bottom_still_works():
     # 末尾 2 枚が a, b の順
     assert me.deck[-2].card_id == a.card_id
     assert me.deck[-1].card_id == b.card_id
+
+
+# --------------------------------------------------------------------------- #
+# X3: add_don_active alias (= add_don)
+# --------------------------------------------------------------------------- #
+def test_add_don_active_alias_basic():
+    """add_don_active: add_don と同じくドンデッキから N 枚をアクティブで追加"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    active_before = me.don_active
+    rested_before = me.don_rested
+    deck_before = me.don_remaining_in_deck
+    execute_effect({"add_don_active": 2}, state, me, opp, None)
+    assert me.don_active == active_before + 2
+    assert me.don_rested == rested_before, "レスト側は変化しない"
+    assert me.don_remaining_in_deck == deck_before - 2
+
+
+def test_add_don_vs_add_rested_don_distinct():
+    """add_don (アクティブ) と add_rested_don (レスト) は別ストリーム"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    a_before = me.don_active
+    r_before = me.don_rested
+    execute_effect({"add_don": 1}, state, me, opp, None)
+    execute_effect({"add_rested_don": 1}, state, me, opp, None)
+    assert me.don_active == a_before + 1
+    assert me.don_rested == r_before + 1
+
+
+def test_add_don_active_respects_remaining_in_deck():
+    """add_don_active: ドンデッキ残量を超えて追加できない"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.don_remaining_in_deck = 1
+    me.don_active = 0
+    execute_effect({"add_don_active": 5}, state, me, opp, None)
+    # 残量 1 のみ追加
+    assert me.don_active == 1
+    assert me.don_remaining_in_deck == 0

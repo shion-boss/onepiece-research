@@ -1258,7 +1258,9 @@ def execute_effect(
                 if me.life:
                     me.hand.append(me.life.pop(0))
             state.push_log(f"  効果: ライフ{n}枚を手札へ")
-        elif k == "add_don":
+        elif k == "add_don" or k == "add_don_active":
+            # add_don_active は add_don の明示 alias (= ドンデッキから N 枚アクティブで追加)。
+            # 公式: 「自分のドン!! デッキから、 ドン!! N 枚を自分の場にアクティブで追加する」
             n = int(v)
             n = min(n, me.don_remaining_in_deck)
             me.don_active += n
