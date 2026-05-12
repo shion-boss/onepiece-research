@@ -518,6 +518,48 @@ def eval_condition(
             need = int(v)
             if not any(c.power >= need for c in me.characters):
                 return False
+        elif k == "don_count_ge":
+            # 統一 alias: 自分のドン!! 合算 (active + rested + attached) ≥ N。
+            # = self_don_ge と同義。 overlay 側で表現の揺れを吸収するため両方対応。
+            total = (
+                me.don_active + me.don_rested + me.leader.attached_dons
+                + sum(c.attached_dons for c in me.characters)
+            )
+            if total < int(v):
+                return False
+        elif k == "don_count_le":
+            # 統一 alias: 自分のドン!! 合算 ≤ N。 = self_don_le と同義。
+            total = (
+                me.don_active + me.don_rested + me.leader.attached_dons
+                + sum(c.attached_dons for c in me.characters)
+            )
+            if total > int(v):
+                return False
+        elif k == "opp_don_count_ge" and opp is not None:
+            # 相手のドン!! 合算 ≥ N。
+            total = (
+                opp.don_active + opp.don_rested + opp.leader.attached_dons
+                + sum(c.attached_dons for c in opp.characters)
+            )
+            if total < int(v):
+                return False
+        elif k == "opp_don_count_le" and opp is not None:
+            # 相手のドン!! 合算 ≤ N。
+            total = (
+                opp.don_active + opp.don_rested + opp.leader.attached_dons
+                + sum(c.attached_dons for c in opp.characters)
+            )
+            if total > int(v):
+                return False
+        elif k == "opp_leader_feature" and opp is not None:
+            # 相手リーダーが特徴 X を持つか (str or list)。 leader_feature の opp 版。
+            features = opp.leader.card.features
+            if isinstance(v, str):
+                if v not in features:
+                    return False
+            elif isinstance(v, list):
+                if not any(f in features for f in v):
+                    return False
         elif k == "_unimplemented":
             # 「未対応条件」 マーカー: True 扱いにする (= 効果は試行する、 ただし忠実でない可能性あり)
             # 上位レビューで埋める前提
