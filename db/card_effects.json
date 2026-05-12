@@ -17165,16 +17165,33 @@
   ],
   "OP12-044": [
     {
-      "_text": "OP12-044 on_play: 自分のリーダーが特徴《海軍》を持つ場合、カード2枚を引く。",
+      "_text": "【登場時】自分のリーダーが特徴《海軍》を持つ場合、カード2枚を引く。",
       "when": "on_play",
+      "if": {"leader_feature": "海軍"},
+      "do": [
+        {"draw": 2}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [{"trash_self_hand_random": 1}],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "海軍"
-      }
+      ]
     }
   ],
   "OP12-047": [
@@ -18403,16 +18420,33 @@
   ],
   "OP09-023": [
     {
-      "_text": "OP09-023 on_play: 自分のリーダーが特徴《ODYSSEY》を持つ場合、自分のドン!!3枚までを、アクティブにする。",
+      "_text": "【登場時】自分のリーダーが特徴《ODYSSEY》を持つ場合、自分のドン!!3枚までを、アクティブにする。",
       "when": "on_play",
+      "if": {"leader_feature": "ODYSSEY"},
+      "do": [
+        {"untap_don": 3}
+      ]
+    },
+    {
+      "_text": "【相手のアタック時】【ターン1回】自分のドン!!1枚をレストにできる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
+      "when": "opp_attack",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "untap_don": 3
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 1}],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "ODYSSEY"
-      }
+      ]
     }
   ],
   "OP09-026": [
@@ -28107,16 +28141,33 @@
   ],
   "OP09-023_p1": [
     {
-      "_text": "OP09-023_p1 on_play: 自分のリーダーが特徴《ODYSSEY》を持つ場合、自分のドン!!3枚までを、アクティブにする。",
+      "_text": "【登場時】自分のリーダーが特徴《ODYSSEY》を持つ場合、自分のドン!!3枚までを、アクティブにする。",
       "when": "on_play",
+      "if": {"leader_feature": "ODYSSEY"},
+      "do": [
+        {"untap_don": 3}
+      ]
+    },
+    {
+      "_text": "【相手のアタック時】【ターン1回】自分のドン!!1枚をレストにできる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
+      "when": "opp_attack",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "untap_don": 3
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 1}],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "ODYSSEY"
-      }
+      ]
     }
   ],
   "OP09-034_p1": [
