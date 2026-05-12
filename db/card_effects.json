@@ -22994,28 +22994,23 @@
   ],
   "OP01-051_p3": [
     {
-      "_text": "OP01-051_p3 on_attached_don (パターン未一致): 【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。【起動メイン】【ターン1回】このキャラをレ",
+      "_text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
-      "n": 0,
+      "n": 1,
+      "if": {"opp_turn": true, "self_rested": true},
+      "do": [
+        {"set_attack_taunt": "self"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true, "rest_self": true},
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "limit": 1
           }
         }
       ]
@@ -29769,12 +29764,24 @@
   ],
   "OP01-051_p2": [
     {
-      "_text": "OP01-051_p2 on_attached_don (パターン未一致): 【ドン!!×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。【起動メイン】【ターン1回】このキャラを",
+      "_text": "【ドン!!×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
-      "n": 0,
+      "n": 1,
+      "if": {"opp_turn": true, "self_rested": true},
+      "do": [
+        {"set_attack_taunt": "self"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true, "rest_self": true},
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "limit": 1
+          }
         }
       ]
     }
@@ -30084,28 +30091,23 @@
   ],
   "OP01-051_p1": [
     {
-      "_text": "OP01-051_p1 on_attached_don (パターン未一致): 【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。【起動メイン】【ターン1回】このキャラをレ",
+      "_text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
-      "n": 0,
+      "n": 1,
+      "if": {"opp_turn": true, "self_rested": true},
+      "do": [
+        {"set_attack_taunt": "self"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true, "rest_self": true},
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "limit": 1
           }
         }
       ]
@@ -37946,28 +37948,23 @@
   ],
   "OP01-051_r1": [
     {
-      "_text": "OP01-051_r1 on_attached_don (パターン未一致): 【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。【起動メイン】【ターン1回】このキャラをレ",
+      "_text": "【ドン‼×1】【相手のターン中】このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
       "when": "on_attached_don",
-      "n": 0,
+      "n": 1,
+      "if": {"opp_turn": true, "self_rested": true},
+      "do": [
+        {"set_attack_taunt": "self"}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】このキャラをレストにできる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true, "rest_self": true},
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {"category": "CHARACTER", "cost_le": 3},
+            "limit": 1
           }
         }
       ]
