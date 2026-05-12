@@ -45686,7 +45686,15 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手の「モンキー・Ｄ・ルフィ」以外のコスト6以下のキャラ1枚までは、このターン中、アタックできない。 (engine 拡張要: set_cannot_attack の name exclude)"
+          "set_cannot_attack": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6,
+                "exclude_name": "モンキー・Ｄ・ルフィ"
+              }
+            }
+          }
         }
       ]
     }
@@ -46925,7 +46933,23 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《超新星》を持つ場合、自分のキャラ1枚を、持ち主の手札に戻し、自分の手札から、戻したキャラと異なる色のコスト2以下のキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 2
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -47535,7 +47559,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のキャラ1枚に相手のレストのドン‼1枚までを、付与する。その後、相手のドン‼が付与されているキャラ1枚までを、このターン中、パワー-1000。"
+          "attach_rested_don": {
+            "target": "one_opponent_character_any",
+            "count": 1,
+            "to_opp": true
+          }
+        },
+        {
+          "power_pump_per_target_attached_don": {
+            "target": "one_opponent_character_any",
+            "amount_per_don": -1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -47977,7 +48012,26 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分のトラッシュが15枚以上ある場合、自分のキャラの「モンキー・Ｄ・ルフィ」1枚までは、このターン中、【速攻：キャラ】と属性(斬)を得る。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "name": "モンキー・Ｄ・ルフィ"
+                    }
+                  },
+                  "keyword": "速攻：キャラ"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -50339,7 +50393,33 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の「シルバーズ・レイリー」1枚にアクティブのドン‼2枚を付与することができる：相手は、このターン中、その付与したカードがアタックする場合【ブロッカー】を発動できない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_active_don": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "name": "シルバーズ・レイリー"
+                    }
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "prevent_blocker_for_attacker": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "name": "シルバーズ・レイリー"
+                    }
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -52126,7 +52206,31 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のリーダーが「しらほし」の場合、自分のライフの上から1枚を表向きにできる：自分の特徴《海王類》か《魚人族》か《人魚族》を持つキャラ1枚までを、このターン中、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature_in": [
+                        "海王類",
+                        "魚人族",
+                        "人魚族"
+                      ]
+                    }
+                  },
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -52586,7 +52690,26 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラと自分のトラッシュからパワー0の「錦えもん」1枚を好きな順番でデッキの下に置くことができる：自分の手札からコスト6の「錦えもん」1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_with_trash_to_deck_bottom": {
+                  "name": "錦えもん",
+                  "power_eq": 0
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "name": "錦えもん",
+                    "cost_eq": 6
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -52597,7 +52720,26 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラと自分のトラッシュからパワー1000の「錦えもん」1枚を好きな順番でデッキの下に置くことができる：自分の手札からコスト6の「錦えもん」1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_with_trash_to_deck_bottom": {
+                  "name": "錦えもん",
+                  "power_eq": 1000
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "name": "錦えもん",
+                    "cost_eq": 6
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -53482,7 +53624,11 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のパワー4000以下のリーダー1枚までを、このターン中、パワー+1000。 (engine 拡張要: 自リーダーパワー条件 / self_leader_power_le)"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -53686,7 +53832,28 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分のトラッシュからコスト4以下の、特徴《ODYSSEY》か《麦わらの一味》を持つキャラカード1枚までを、レストで登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature_in": [
+                      "ODYSSEY",
+                      "麦わらの一味"
+                    ],
+                    "cost_le": 4
+                  },
+                  "rested": true,
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -55131,7 +55298,23 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分のリーダーが特徴《百獣海賊団》を持ち、自分の場にドン‼が10枚ある場合、自分の手札からコスト7以下の「キング」1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "name": "キング",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -55392,7 +55575,25 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが特徴《百獣海賊団》か《ビッグ・マム海賊団》を持つ場合、相手のコスト6以下のキャラ2枚までを、KOする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand_multi": [
+                  {
+                    "target": "one_opponent_character_cost_le_6"
+                  },
+                  {
+                    "target": "one_opponent_character_cost_le_6"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -56620,7 +56821,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分の手札からコスト4以下の特徴《フォクシー海賊団》を持つカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "feature": "フォクシー海賊団",
+              "cost_le": 4
+            }
+          }
         }
       ]
     }
@@ -57060,7 +57266,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】このキャラは、次の自分のターン開始時まで、パワー+1000。その後、このターン終了時、自分の特徴《FILM》を持つキャラ1枚をトラッシュに置く"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
         }
       ],
       "if": {
@@ -57072,7 +57282,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "このキャラは、次の自分のターン開始時まで、パワー+1000。その後、このターン終了時、自分の特徴《FILM》を持つキャラ1枚をトラッシュに置く。"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
+          }
         }
       ]
     }
@@ -57169,7 +57383,14 @@
       "when": "opp_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札から特徴《FILM》を持つカードを任意の枚数捨ててもよい。捨てたカード1枚につき、自分のリーダーかキャラ1枚は、このバトル中、パワー+1000。"
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {
+              "feature": "FILM"
+            },
+            "amount_per_discard": 1000,
+            "target": "one_self_team_any",
+            "max": 3
+          }
         }
       ]
     }
@@ -57180,7 +57401,28 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のパワー6000以上のキャラ1枚をトラッシュに置くことができる：自分のトラッシュのパワー2000から5000の特徴《FILM》を持つキャラカード1枚までを、レストで登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_with_filter": {
+                  "power_ge": 6000
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "FILM",
+                    "power_ge": 2000,
+                    "power_le": 5000
+                  },
+                  "limit": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -58960,7 +59202,27 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分の特徴《キッド海賊団》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+5000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_team_filtered",
+                    "filter": {
+                      "feature": "キッド海賊団"
+                    }
+                  },
+                  "amount": 5000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -58994,7 +59256,31 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のトラッシュのカード20枚をデッキに戻しシャッフルできる：このキャラは、このバトル中、【ダブルアタック】を得て、パワー+10000。(このカードが与えるダメージは2になる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 20,
+                  "shuffle": true
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "ダブルアタック"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 10000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -59103,7 +59389,36 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "➀(コストエリアのドン!!を指定の数レストにできる)，このキャラと自分のキャラ1枚をレストにできる：自分のトラッシュのコスト1の黒のキャラカード1枚までを、手札に加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              },
+              {
+                "rest_self": true
+              },
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "search": {
+                  "source": "trash",
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_eq": 1,
+                    "color": "黒"
+                  },
+                  "limit": 1,
+                  "destination": "hand"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -59599,7 +59914,26 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のアクティブのリーダー1枚を、このターン中、パワー-5000することができる：このキャラは、次の自分のターン開始時まで、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "next_self_turn_start"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -60177,7 +60511,22 @@
       "when": "opp_attack",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラの元々のパワーは、このターン中、相手のアタックしているリーダーかキャラと同じパワーになる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_base_power_copy": {
+                  "from_target": "opponent_attacker",
+                  "to_target": "self",
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
