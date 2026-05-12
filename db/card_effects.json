@@ -2352,11 +2352,27 @@
   ],
   "EB02-013": [
     {
-      "_text": "EB02-013 on_play: 自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ゾウ」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手",
+      "_text": "EB02-013 on_play: 自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ゾウ」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ゾウ」1枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ゾウ」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ゾウ」1枚までを、登場させる。"
+          "search_top_n": {
+            "depth": 7,
+            "filter": {
+              "name": "ゾウ"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "ゾウ"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -3507,11 +3523,27 @@
   ],
   "OP05-101": [
     {
-      "_text": "OP05-101 on_play: 自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登",
+      "_text": "OP05-101 on_play: 自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登場させる。"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "name": "ホーリー"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "ホーリー"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -7291,7 +7323,16 @@
       "when": "end_of_turn",
       "do": [
         {
-          "_unimplemented": "自分のライフが3枚以下の場合、コスト5以下の特徴《エッグヘッド》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_le": 5,
+                "feature": "エッグヘッド"
+              }
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -8210,7 +8251,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト5以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。"
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
         }
       ]
     },
@@ -9268,7 +9312,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のドン‼が2枚以上付与されているレストのコスト8以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。"
+          "_unimplemented": "相手のドン‼が2枚以上付与されているレストのコスト8以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。 (engine 拡張要: stay_rested_next_refresh が dict target を受け入れない)"
         }
       ]
     },
@@ -16959,7 +17003,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のキャラ1枚を持ち主の手札に戻すことができる：コスト6以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "_unimplemented": "自分のキャラ1枚を持ち主の手札に戻すことができる：コスト6以下のキャラ1枚までを、持ち主の手札に戻す。 (engine 拡張要: 自キャラ1枚バウンスコスト)"
         }
       ]
     },
@@ -17925,11 +17969,27 @@
   ],
   "OP10-006": [
     {
-      "_text": "OP10-006 on_play: 自分のデッキの上から5枚を見て、「スマイリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「スマイリー」1枚までを",
+      "_text": "OP10-006 on_play: 自分のデッキの上から5枚を見て、「スマイリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「スマイリー」1枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、「スマイリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「スマイリー」1枚までを、登場させる。"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "name": "スマイリー"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "スマイリー"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -20491,7 +20551,23 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト0のキャラか、相手のコスト3以下のステージ1枚までを、KOする。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "ko": "one_opponent_character_cost_0"
+                }
+              ],
+              [
+                {
+                  "ko_opp_stage": {
+                    "cost_le": 3,
+                    "limit": 1
+                  }
+                }
+              ]
+            ]
+          }
         }
       ]
     },
@@ -20973,9 +21049,12 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：コスト3以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "ST27-005 on_ko: 自分のトラッシュから黒のカード1枚までを、手札に加える。",
@@ -24389,9 +24468,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：相手のレストのパワー8000以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_rested_character_power_le_8000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB04-025_p1": [
@@ -25910,7 +25992,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト5以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。"
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
         }
       ]
     },
@@ -32282,7 +32367,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト5以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。"
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
         }
       ]
     },
@@ -35212,7 +35300,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の、パワー3000以下のキャラ1枚までとコスト1以下のステージ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "ko_opp_stage": {
+            "cost_le": 1,
+            "limit": 1
+          }
         }
       ]
     },
@@ -35234,7 +35328,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の、パワー3000以下のキャラ1枚までとコスト1以下のステージ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "ko_opp_stage": {
+            "cost_le": 1,
+            "limit": 1
+          }
         }
       ]
     },
@@ -52542,7 +52642,13 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の、パワー3000以下のキャラ1枚までとコスト1以下のステージ1枚までを、KOする。"
+          "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "ko_opp_stage": {
+            "cost_le": 1,
+            "limit": 1
+          }
         }
       ]
     },
@@ -54616,7 +54722,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からパワー5000以下の特徴《革命軍》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 5000,
+              "feature": "革命軍"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57075,7 +57188,10 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "カード1枚を引き、自分のデッキの上から1枚をトラッシュに置いてもよい。"
+          "draw": 1
+        },
+        {
+          "mill_self_top": 1
         }
       ]
     }
