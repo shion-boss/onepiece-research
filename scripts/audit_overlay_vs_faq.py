@@ -109,6 +109,41 @@ def overlay_has_once_per_turn(effects: list[dict]) -> bool:
     return False
 
 
+# R2 拡張で engine 側に追加された新規 cost / trigger / primitive。
+# audit が「未知のキー」 と勘違いしないように知識として記録。
+# (audit が能動的にチェックする訳ではなく、 ドキュメンテーション目的。)
+R2_KNOWN_COST_KEYS = {
+    # filter 付き discard (= 「特徴X を持つカード N 枚を捨てる」)
+    "discard_hand_with_filter",
+    # name 一致キャラ/ステージを rest (= 「自分の『X』1 枚をレストにできる」)
+    "rest_self_target_name",
+    "rest_self_target",  # alias
+}
+R2_KNOWN_WHEN_VALUES = {
+    # KO された側 (自陣) の場効果発火 (OP10-042 ウソップ等)
+    "on_self_chara_ko",
+    # 相手が EVENT/COUNTER/【トリガー】 を発動した時 (OP11-102 ケイミー等)
+    "opp_event_or_trigger_fired",
+}
+R2_KNOWN_PRIMITIVE_KEYS = {
+    # 名前フィルタ付き taunt (OP01-051 ユースタス・キッド系)
+    "cannot_attack_target_except",
+    # filter 付き base_cost 静的変更 (OP10-042 ウソップ系)
+    "set_base_cost_filtered_static",
+}
+R2_KNOWN_OPTIONAL_COST_PRIMITIVES = {
+    # optional_cost_then.cost で扱える追加 primitive (R2)
+    "return_self_don_to_deck",
+    "power_pump",  # 弱体化 (リーダーパワー -N) cost
+    "rest_self_target_name",
+    "discard_hand_with_filter",
+}
+R2_KNOWN_FILTER_KEYS = {
+    # 特徴 OR フィルタ (= 「特徴《魚人族》か《人魚族》」 等)
+    "feature_in",
+}
+
+
 def overlay_if_keys(effects: list[dict]) -> set[str]:
     keys: set[str] = set()
     for e in effects:

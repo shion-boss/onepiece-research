@@ -860,12 +860,17 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             opp.don_rested += redirect_target.attached_dons
                         state.push_log(f"  KO: {redirect_target.card.name}")
                         if state.effects_overlay:
-                            from .effects import trigger_on_ko, trigger_on_opp_chara_ko
+                            from .effects import (
+                                trigger_on_ko,
+                                trigger_on_opp_chara_ko,
+                                trigger_on_self_chara_ko,
+                            )
                             trigger_on_ko(
                                 state, opp, me, redirect_target.card,
                                 state.effects_overlay,
                             )
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                            trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
                 else:
                     state.push_log("  survived")
                 _reset_battle_buffs(state)
@@ -962,12 +967,17 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         opp.don_rested += actual_target.attached_dons
                     state.push_log(f"  KO: {actual_target.card.name}")
                     if state.effects_overlay:
-                        from .effects import trigger_on_ko, trigger_on_opp_chara_ko
+                        from .effects import (
+                            trigger_on_ko,
+                            trigger_on_opp_chara_ko,
+                            trigger_on_self_chara_ko,
+                        )
                         trigger_on_ko(
                             state, opp, me, actual_target.card,
                             state.effects_overlay,
                         )
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                        trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             else:
                 state.push_log("  blocker survived")
             _reset_battle_buffs(state)
@@ -1132,9 +1142,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     else:
                         state.push_log(f"  KO: {actual_target.card.name}")
                     if state.effects_overlay:
-                        from .effects import trigger_on_ko, trigger_on_opp_chara_ko
+                        from .effects import (
+                            trigger_on_ko,
+                            trigger_on_opp_chara_ko,
+                            trigger_on_self_chara_ko,
+                        )
                         trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                        trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         else:
             state.push_log("  survived")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
