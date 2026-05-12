@@ -2107,6 +2107,25 @@ def execute_effect(
             opp.stages[:] = kept
             if removed > 0:
                 state.push_log(f"  効果: 相手ステージ {removed} 枚を KO")
+        elif k == "block_chara_play_turn":
+            # このターン中、 自分はキャラを登場できない (= 自陣 chara play 禁止)。 OP12-014 等。
+            me.block_chara_play_until_turn_end = True
+            state.push_log(f"  効果: このターン中、 自キャラ登場禁止")
+        elif k == "in_hand_cost_minus":
+            # 手札中の自身のカードコスト軽減 (= overlay の in_hand effect で使用)。
+            # execute_effect 経由ではなく _compute_in_hand_cost_minus で別経路扱い。
+            # ここでは log のみ (= placeholder)。
+            state.push_log(f"  効果: in_hand_cost_minus (= 別経路で計算済)")
+        elif k == "optional_after_battle_mutual_ko":
+            # 公式: 「【ドン!!×1】このキャラが相手のキャラとバトルしたバトル終了時、
+            # バトルした相手のキャラをKOしてもよい。 そうした場合、 このキャラをKOする」 (ST08-013)。
+            # 簡略実装: 直近のバトル相手 = state.last_battle_opponent_iid (要 game.py で記録)。
+            # 現状は no-op (= 後続 R で完全実装)。
+            state.push_log(f"  効果: optional_after_battle_mutual_ko (no-op; ST08-013)")
+        elif k == "set_don_deck_size":
+            # 公式: 「ゲーム開始時、 ドンデッキの枚数を N にする」 等の setup_modifier。
+            # execute_effect 経由ではなく setup_game で読まれる。 ここでは log のみ。
+            state.push_log(f"  効果: set_don_deck_size (setup_modifier 経由)")
         elif k == "block_self_draw_turn":
             # このターン中、 自分の効果でカードを引くことができない
             me.block_self_draw_until_turn_end = True
