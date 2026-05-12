@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveDeckToServer } from "@/lib/api";
-import type { CounterCandidate } from "@/lib/types";
+import type { CounterCandidate, Regulation } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
 
 export function CounterCandidateDetail({
@@ -17,25 +17,34 @@ export function CounterCandidateDetail({
   const [saving, setSaving] = useState(false);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [regulation, setRegulation] = useState<Regulation>("standard");
 
   const totalCount = candidate.main.reduce((sum, e) => sum + e.count, 0);
   const proposedSlug = `explore_${targetSlug}_${String(candidate.rank).padStart(2, "0")}_${candidate.leader}`;
 
-  async function handleSave() {
+  // 422 レスポンスから「block①のみ」 エラーを検出
+  const errorIsBlockOnly =
+    error != null &&
+    /スタンダード使用不可.*block/.test(error) &&
+    regulation === "standard";
+
+  async function handleSave(forceRegulation?: Regulation) {
+    const reg = forceRegulation ?? regulation;
     setSaving(true);
     setError(null);
     try {
       const ts = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const slug = `${proposedSlug}_${ts}`;
+      const slug = `${proposedSlug}_${reg === "extra" ? "ex_" : ""}${ts}`;
       const res = await saveDeckToServer({
-        name: `対策${candidate.rank}_${candidate.leader_name}_vs_${targetSlug}`,
+        name: `対策${candidate.rank}_${candidate.leader_name}_vs_${targetSlug}${reg === "extra" ? "_EX" : ""}`,
         leader: candidate.leader,
         main: candidate.main,
         slug,
-        regulation: "standard",
+        regulation: reg,
         overwrite: true,
       });
       setSavedSlug(res.slug);
+      if (forceRegulation) setRegulation(forceRegulation);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -58,7 +67,34 @@ export function CounterCandidateDetail({
             メイン {totalCount} 枚 / unique {candidate.main.length}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {!savedSlug && (
+            <fieldset className="flex items-center gap-2 rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">
+              <legend className="sr-only">保存規制</legend>
+              <label className="flex cursor-pointer items-center gap-1">
+                <input
+                  type="radio"
+                  name="regulation"
+                  value="standard"
+                  checked={regulation === "standard"}
+                  onChange={() => setRegulation("standard")}
+                  className="h-3 w-3"
+                />
+                <span>STD</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-1">
+                <input
+                  type="radio"
+                  name="regulation"
+                  value="extra"
+                  checked={regulation === "extra"}
+                  onChange={() => setRegulation("extra")}
+                  className="h-3 w-3"
+                />
+                <span>EX</span>
+              </label>
+            </fieldset>
+          )}
           {savedSlug ? (
             <button
               type="button"
@@ -70,7 +106,7 @@ export function CounterCandidateDetail({
           ) : (
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={saving}
               className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
             >
@@ -82,7 +118,17 @@ export function CounterCandidateDetail({
 
       {error && (
         <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
-          保存失敗: {error}
+          <div>保存失敗: {error}</div>
+          {errorIsBlockOnly && (
+            <button
+              type="button"
+              onClick={() => handleSave("extra")}
+              disabled={saving}
+              className="mt-2 rounded bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+            >
+              → EX デッキとして保存し直す
+            </button>
+          )}
         </div>
       )}
 
