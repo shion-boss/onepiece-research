@@ -23,7 +23,7 @@ import copy
 import random
 from typing import Optional
 
-from . import hand_estimator
+from . import hand_estimator, matchup_model
 from .ai_params import AIParams
 from .core import GameState, InPlay, Phase, Player, Category
 from .game import (
@@ -112,6 +112,12 @@ class GreedyAI:
         self.counter_aggression = "mid"
         self.keep_field_synergy_only: Optional[str] = None
         self.preferred_search_target_ids: list[str] = []
+
+        # マッチアップ別の override は state が確認できる初回 choose_action で 適用 (lazy)。
+        # __init__ では opp.leader が分からないため、 ここでは flag のみ初期化。
+        self._matchup_overrides_applied = False
+        self._matchup_profile: Optional[matchup_model.MatchupProfile] = None
+        self.finisher_hold_life: int = 3
 
         if deck_analysis:
             self._apply_archetype_profile(deck_analysis)
@@ -205,7 +211,49 @@ class GreedyAI:
             if k.get("role") == "finisher":
                 self.finisher_card_ids.add(k.get("card_id", ""))
 
+    def _ensure_matchup_overrides(self, state: GameState, me_idx: int) -> None:
+        """初回のみ MatchupProfile を構築し、 db/matchup_strategies.json の上書き値を適用。
+
+        (my, opp) ペアごとに defense_thresholds / attack_gap_tolerance /
+        finisher_hold_life を override。 該当エントリ無しなら base 値が残る。
+        opp.leader.card_id が未知なら fallback で archetype を推定 (= 安全な default)。
+        """
+        if self._matchup_overrides_applied:
+            return
+        self._matchup_overrides_applied = True  # 同一試合中は 1 度のみ
+        try:
+            profile = matchup_model.build_matchup_profile(
+                state, me_idx, self.archetype
+            )
+        except Exception:
+            return
+        self._matchup_profile = profile
+        overrides = matchup_model.lookup_matchup_overrides(
+            profile.my_archetype, profile.opp_archetype
+        )
+        if not overrides:
+            return
+        # attack_gap_tolerance 上書き
+        if "attack_gap_tolerance" in overrides:
+            self.attack_gap_tolerance = int(overrides["attack_gap_tolerance"])
+        # defense_thresholds 上書き (JSON 形式 {"2": [v, n], ...} → int キー dict へ変換)
+        dt_override = overrides.get("defense_thresholds")
+        if isinstance(dt_override, dict):
+            merged = dict(self.defense_thresholds)
+            for k, v in dt_override.items():
+                try:
+                    life = int(k)
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(v, (list, tuple)) and len(v) == 2:
+                    merged[life] = (int(v[0]), int(v[1]))
+            self.defense_thresholds = merged
+        # finisher_hold_life 上書き
+        if "finisher_hold_life" in overrides:
+            self.finisher_hold_life = int(overrides["finisher_hold_life"])
+
     def choose_action(self, state: GameState) -> Action:
+        self._ensure_matchup_overrides(state, state.turn_player_idx)
         actions = legal_actions(state)
         me = state.turn_player
         opp = state.opponent
@@ -271,8 +319,9 @@ class GreedyAI:
                 ]
                 if synergy_only_plays:
                     play_actions = synergy_only_plays
-            # フィニッシャー温存: ライフ余裕時 (>=3) なら hold 対象は除外
-            if life_left >= 3 and self.early_finisher_hold_ids:
+            # フィニッシャー温存: ライフが finisher_hold_life 以上なら hold 対象は除外。
+            # finisher_hold_life は MatchupProfile 由来 (= 相手 archetype 別調整、 default 3)。
+            if life_left >= self.finisher_hold_life and self.early_finisher_hold_ids:
                 non_hold = [
                     a for a in play_actions
                     if me.hand[a.hand_idx].card_id not in self.early_finisher_hold_ids
@@ -441,6 +490,9 @@ class GreedyAI:
         is_leader_attack: bool,
         defender: Player,
     ) -> tuple[Optional[int], tuple[int, ...]]:
+        # defender 視点で MatchupProfile 由来の override を 初回のみ適用。
+        # 防御中なので turn_player_idx は attacker、 defender_idx は その逆。
+        self._ensure_matchup_overrides(state, 1 - state.turn_player_idx)
         # attacker のリアクティブ自己強化 (= on_attack で self/self_leader +N)
         # を予測して実効攻撃力を見積もる。 これを忘れると 「6000 攻撃に 1000 counter で
         # 6000 vs 6000 = 攻撃成功」 となり counter が無駄になる。
