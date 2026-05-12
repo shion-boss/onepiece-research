@@ -141,17 +141,29 @@ def test_archetype_diversity(target_deck, repo, overlay):
 # ============================================================================ #
 
 def test_leader_filter_restricts_leaders(target_deck, repo, overlay):
-    """leader_filter 指定で対応 leader のみ返る。"""
+    """leader_filter 指定で対応 leader のみ返る。 1 leader でも variation で複数返る。"""
     target_leader = "OP09-061"  # 紫黒ルフィ
     cands = generate_counter_candidates(
         target_deck, repo, overlay,
         n_candidates=5,
         leader_filter=[target_leader],
     )
-    # 1 件 (= 1 leader しか指定してないので)
-    assert len(cands) <= 1
-    if cands:
-        assert cands[0].leader_id == target_leader
+    # variation で 1〜5 件 (= MAX_VARIATIONS = 5)
+    assert 1 <= len(cands) <= 5
+    # 全候補が指定 leader のみ
+    for c in cands:
+        assert c.leader_id == target_leader
+
+
+def test_leader_filter_with_n_one_returns_one(target_deck, repo, overlay):
+    """1 leader + n=1 なら 1 件のみ。"""
+    cands = generate_counter_candidates(
+        target_deck, repo, overlay,
+        n_candidates=1,
+        leader_filter=["OP09-061"],
+    )
+    assert len(cands) == 1
+    assert cands[0].leader_id == "OP09-061"
 
 
 # ============================================================================ #

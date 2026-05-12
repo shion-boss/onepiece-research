@@ -175,6 +175,49 @@ def _distribute_by_archetype(
 # core カード抽出 (per leader)
 # ============================================================================ #
 
+# Variation 戦略: leader_filter で同一 leader を多数候補に使う場合、 各 variation で
+# core 構成を変えて多様性を出す。 5 種類用意。
+_MAX_VARIATIONS = 5
+
+_VARIATION_PROFILES: list[dict] = [
+    {  # 0: balanced (= デフォルト、 既存挙動)
+        "name": "balanced",
+        "synergy_count": 8,
+        "role_count_each": 4,
+        "feature_index": 0,
+        "rotate_priority": 0,
+    },
+    {  # 1: synergy-heavy (= 特徴シナジー寄り)
+        "name": "synergy-heavy",
+        "synergy_count": 12,
+        "role_count_each": 2,
+        "feature_index": 0,
+        "rotate_priority": 0,
+    },
+    {  # 2: role-heavy (= 役割対策寄り)
+        "name": "role-heavy",
+        "synergy_count": 4,
+        "role_count_each": 6,
+        "feature_index": 0,
+        "rotate_priority": 0,
+    },
+    {  # 3: secondary feature (= 副次特徴軸)
+        "name": "secondary-feature",
+        "synergy_count": 8,
+        "role_count_each": 4,
+        "feature_index": 1,
+        "rotate_priority": 0,
+    },
+    {  # 4: rotated priority (= 役割優先順を入れ替え)
+        "name": "rotated-priority",
+        "synergy_count": 8,
+        "role_count_each": 4,
+        "feature_index": 0,
+        "rotate_priority": 1,
+    },
+]
+
+
 def _collect_core_cards(
     leader: CardDef,
     role_priority: list[str],
@@ -183,15 +226,25 @@ def _collect_core_cards(
     role_db: dict,
     eff_db: dict,
     top_k_per_role: int = _TOP_K_PER_ROLE,
+    variation: int = 0,
 ) -> tuple[list[str], dict[str, int], list[str]]:
     """leader 色制約下で role priority 順にカードを集める。
 
-    多様性のため、 まず leader の主要特徴 (top 1 feature) に一致するカードを
-    優先的に取り、 残りを general role-priority で埋める。
+    variation 0..4 の 5 種類で核 構成を変える (= 同 leader でも異なるレシピを生成可)。
 
     Returns:
         (core_card_ids, role_count, rationale_lines)
     """
+    profile = _VARIATION_PROFILES[variation % len(_VARIATION_PROFILES)]
+    synergy_count = profile["synergy_count"]
+    role_count_each = profile["role_count_each"]
+    feature_index = profile["feature_index"]
+    rotate = profile["rotate_priority"]
+
+    # role priority を rotate (= variation 4 で 1 つずらす)
+    if rotate > 0 and role_priority:
+        role_priority = role_priority[rotate:] + role_priority[:rotate]
+
     leader_colors = list(leader.color)
     leader_features = list(leader.features)
     collected_ids: list[str] = []
@@ -199,15 +252,20 @@ def _collect_core_cards(
     rationale: list[str] = []
     used_base_ids: set[str] = set()
 
-    # Step A: leader の主要特徴 (= top 1) シナジーカードを最優先で集める
-    # (= leader 別に異なるカードが core になり、 多様性が確保される)
+    # variation rationale (= UI で variation 識別用)
+    if variation > 0:
+        rationale.append(f"構成タイプ: {profile['name']}")
+
+    # Step A: leader の特徴 (variation で primary or secondary) シナジーカードを最優先
     if leader_features:
-        primary_feature = leader_features[0]
+        # secondary 指定時は feature[1]、 無ければ [0] にフォールバック
+        feat_idx = min(feature_index, len(leader_features) - 1)
+        focus_feature = leader_features[feat_idx]
         synergy_scores = card_role.best_cards_against(
             opp_archetype,
             color_filter=leader_colors,
-            feature_filter=[primary_feature],
-            top_k=20,
+            feature_filter=[focus_feature],
+            top_k=max(20, synergy_count + 5),
             role_db=role_db,
             eff_db=eff_db,
         )
@@ -219,13 +277,12 @@ def _collect_core_cards(
             collected_ids.append(s.card_id)
             used_base_ids.add(bid)
             added_synergy += 1
-            # primary_role を role_count にカウント
             role_count[s.primary_role] += 1
-            if added_synergy >= 8:  # シナジー軸を 8 種まで
+            if added_synergy >= synergy_count:
                 break
         if added_synergy > 0:
             rationale.append(
-                f"特徴《{primary_feature}》シナジー {added_synergy} 種採用"
+                f"特徴《{focus_feature}》シナジー {added_synergy} 種採用"
             )
 
     # Step B: 役割 priority 順に残りを埋める
@@ -249,7 +306,7 @@ def _collect_core_cards(
             used_base_ids.add(bid)
             added_for_role += 1
             role_count[role] += 1
-            if added_for_role >= 4:  # role 別 4 種までに減らす (= synergy で 8 種既に確保)
+            if added_for_role >= role_count_each:
                 break
         if added_for_role > 0:
             rationale.append(
@@ -364,63 +421,72 @@ def generate_counter_candidates(
         n_per_arche = max(1, n_candidates // 4 + 1)
         leaders = _distribute_by_archetype(leaders, archetype_map, n_per_arche)
 
-    # Step 5: 各リーダーで候補生成
+    # Step 5: 各リーダーで候補生成 (variation あり)
+    # leader が少数 (= leader_filter で絞られた等) なら 1 leader につき複数 variation を生成。
+    n_leaders = max(1, len(leaders))
+    import math
+    desired_per_leader = max(1, math.ceil(n_candidates / n_leaders))
+    variations_to_try = min(desired_per_leader, _MAX_VARIATIONS)
+
     candidates: list[CounterCandidate] = []
     seen_hashes: set[str] = set()
+    archetype_map = matchup_model._load_leader_archetype_map()
+
     for leader in leaders:
         if len(candidates) >= n_candidates * 2:  # 2x 候補生成 → 後で dedupe + top n
             break
 
-        # core カード収集
-        core_ids, role_count, rationale = _collect_core_cards(
-            leader, role_priority, target_archetype,
-            role_db=role_db, eff_db=eff_db,
-        )
-
-        # must_include 強制注入 (= 先頭に置く = build_with_core で優先採用)
-        full_core = list(must_include) + [c for c in core_ids if c not in must_include]
-
-        # deckbuilder で 50 枚に組み立て
-        try:
-            deck, warnings = deckbuilder.build_with_core(
-                leader.card_id, full_core, repo,
-                name=f"counter_{leader.card_id}_vs_{target_deck.name}",
+        for variation in range(variations_to_try):
+            # core カード収集 (variation 別に異なる構成戦略)
+            core_ids, role_count, rationale = _collect_core_cards(
+                leader, role_priority, target_archetype,
+                role_db=role_db, eff_db=eff_db,
+                variation=variation,
             )
-        except (ValueError, Exception) as e:
-            continue
 
-        # validate 通らないものは skip
-        try:
-            deck.validate()
-        except Exception:
-            continue
+            # must_include 強制注入 (= 先頭に置く = build_with_core で優先採用)
+            full_core = list(must_include) + [c for c in core_ids if c not in must_include]
 
-        # 重複排除: leader + main set のハッシュ
-        recipe_hash = hashlib.md5(
-            (
-                leader.card_id + "|" +
-                ",".join(sorted(c.card_id for c in deck.main))
-            ).encode("utf-8")
-        ).hexdigest()
-        if recipe_hash in seen_hashes:
-            continue
-        seen_hashes.add(recipe_hash)
+            # deckbuilder で 50 枚に組み立て
+            try:
+                deck, warnings = deckbuilder.build_with_core(
+                    leader.card_id, full_core, repo,
+                    name=f"counter_{leader.card_id}_v{variation}_vs_{target_deck.name}",
+                )
+            except (ValueError, Exception):
+                continue
 
-        # estimated_score 計算
-        archetype_map = matchup_model._load_leader_archetype_map()
-        leader_archetype = _infer_leader_archetype(leader, archetype_map)
-        score = _compute_estimated_score(
-            role_count, role_priority, target_archetype, eff_db
-        )
+            # validate 通らないものは skip
+            try:
+                deck.validate()
+            except Exception:
+                continue
 
-        candidates.append(CounterCandidate(
-            deck=deck,
-            leader_id=leader.card_id,
-            archetype=leader_archetype,
-            estimated_score=score,
-            rationale=rationale,
-            role_distribution=role_count,
-        ))
+            # 重複排除: leader + main set のハッシュ
+            recipe_hash = hashlib.md5(
+                (
+                    leader.card_id + "|" +
+                    ",".join(sorted(c.card_id for c in deck.main))
+                ).encode("utf-8")
+            ).hexdigest()
+            if recipe_hash in seen_hashes:
+                continue
+            seen_hashes.add(recipe_hash)
+
+            # estimated_score 計算
+            leader_archetype = _infer_leader_archetype(leader, archetype_map)
+            score = _compute_estimated_score(
+                role_count, role_priority, target_archetype, eff_db
+            )
+
+            candidates.append(CounterCandidate(
+                deck=deck,
+                leader_id=leader.card_id,
+                archetype=leader_archetype,
+                estimated_score=score,
+                rationale=rationale,
+                role_distribution=role_count,
+            ))
 
     # Step 6: estimated_score 降順、 上位 N 件
     candidates.sort(key=lambda c: -c.estimated_score)
