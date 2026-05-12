@@ -1015,7 +1015,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《海軍》を持つ場合、相手のコスト5以下のキャラ2枚までを、レストにする。"
+          "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "rest": "one_opponent_character_cost_le_5cost"
         }
       ],
       "if": {
@@ -4164,11 +4167,17 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが多色で、相手のライフが3枚以下の場合、相手の元々のパワー7000以下のキャラ1枚までを、KOする。"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "power_le": 7000
+            }
+          }
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "leader_multicolor": true
       }
     },
     {
@@ -20331,7 +20340,10 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト2以下のキャラ2枚までを、レストにする"
+          "rest": "one_opponent_character_cost_le_2cost"
+        },
+        {
+          "rest": "one_opponent_character_cost_le_2cost"
         }
       ]
     },
@@ -43325,7 +43337,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ガイモン」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ガイモン"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -44054,7 +44071,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "コスト3以下のキャラ1枚までを、持ち主のデッキの下に戻す。"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_3cost"
         }
       ]
     }
@@ -44681,7 +44698,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "このキャラカードをトラッシュから手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "name": "キュロス"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -44692,7 +44714,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ボビー・ファンク」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ボビー・ファンク"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -44833,7 +44860,13 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト8以下のキャラカード1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 8
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -47327,7 +47360,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -48837,9 +48875,17 @@
     {
       "_text": "OP10-008 on_play: 自分の「ロック」がいない場合、自分の手札から「ロック」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "ロック"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「ロック」がいない場合、自分の手札から「ロック」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ロック"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -48926,9 +48972,17 @@
     {
       "_text": "OP10-017 on_play: 自分の「スコッチ」がいない場合、自分の手札から「スコッチ」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "スコッチ"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「スコッチ」がいない場合、自分の手札から「スコッチ」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "スコッチ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -53235,7 +53289,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「リリーカーネーション」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "リリーカーネーション"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -53531,7 +53590,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のキャラすべてを、レストにする。"
+          "rest": "all_opponent_characters"
         }
       ]
     },
@@ -53658,7 +53717,13 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト2のキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 2
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -55173,7 +55238,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト1の特徴《空島》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 1,
+              "feature": "空島"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -56834,7 +56906,13 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュの青の「ウソップ」1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "name": "ウソップ",
+              "color": "青"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -59311,9 +59389,17 @@
     {
       "_text": "OP01-044 on_play: 自分の「ペンギン」がいない場合、自分の手札から「ペンギン」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "ペンギン"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「ペンギン」がいない場合、自分の手札から「ペンギン」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "ペンギン"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -59358,7 +59444,14 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の「ベポ」以外の特徴《ハートの海賊団》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "cost_le": 4,
+              "feature": "ハートの海賊団",
+              "exclude_name": "ベポ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -59367,9 +59460,17 @@
     {
       "_text": "OP01-050 on_play: 自分の「シャチ」がいない場合、自分の手札から「シャチ」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "self_chara_unique_name": "シャチ"
+      },
       "do": [
         {
-          "_unimplemented": "自分の「シャチ」がいない場合、自分の手札から「シャチ」1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "name": "シャチ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -62965,7 +63066,13 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト2以下のキャラカード1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 2
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -64297,7 +64404,7 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手は自身の手札1枚を選び、捨てる。"
+          "force_opp_discard": 1
         }
       ]
     }
@@ -64321,7 +64428,10 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "カード1枚を引き、自分のキャラは、このターン中、KOされない。"
+          "draw": 1
+        },
+        {
+          "prevent_ko": "all_self_characters"
         }
       ]
     }
@@ -66172,7 +66282,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト1の青のイベント1枚までを、手札に加える。"
+          "trash_to_hand": {
+            "filter": {
+              "category": "EVENT",
+              "cost_eq": 1,
+              "color": "青"
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -67723,7 +67840,12 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "このキャラカードを手札に加えることができる。"
+          "trash_to_hand": {
+            "filter": {
+              "name": "マルコ"
+            },
+            "limit": 1
+          }
         }
       ]
     }
