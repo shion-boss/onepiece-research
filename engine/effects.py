@@ -452,6 +452,25 @@ def eval_condition(
             count = sum(1 for c in me.characters if feature in c.card.features)
             if count < need:
                 return False
+        elif k == "victim_truly_original_power_ge":
+            # 直近の KO victim カードの 「元々のパワー」 (= card.power) が N 以上
+            # OP14-041 ハンコック 「自分の元々のパワー5000以上 + 特徴X を持つキャラが KO された時」
+            vic = getattr(state, "last_chara_ko_victim_card", None)
+            if vic is None or int(getattr(vic, "power", 0) or 0) < int(v):
+                return False
+        elif k == "victim_feature_in":
+            # 直近の KO victim カードの特徴に v (リスト) のいずれかを含むか
+            vic = getattr(state, "last_chara_ko_victim_card", None)
+            if vic is None:
+                return False
+            feats = v if isinstance(v, list) else [v]
+            if not any(f in vic.features for f in feats):
+                return False
+        elif k == "played_chara_truly_original_cost_ge":
+            # 直近の opp_chara_played カードの 「元々のコスト」 が N 以上 (OP12-081 コアラ)
+            pc = getattr(state, "last_opp_chara_played_card", None)
+            if pc is None or int(getattr(pc, "cost", 0) or 0) < int(v):
+                return False
         elif k == "actor_source_feature_contains":
             # 直近の効果発動 source カードの特徴に v を含むか (= OP12-040 クザン用)。
             # trigger_on_self_hand_discarded が state.last_discard_source_inplay を一時設定。
@@ -464,10 +483,18 @@ def eval_condition(
         elif k == "self_chara_filtered_count_ge":
             # 複合 filter (色 + 特徴 + 除外名 等) でカウント条件判定。
             # OP11-096 リッパー 「リッパー以外の自分の黒の特徴《海軍》を持つキャラがいる場合」 等。
+            # spec: {"filter": {...}, "count": N, "rested_required": false}
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
             need = int(spec.get("count", 1))
-            count = sum(1 for c in me.characters if _matches_filter(c.card, filt))
+            rested_required = bool(spec.get("rested_required", False))
+            def _ip_matches(ip):
+                if not _matches_filter(ip.card, filt):
+                    return False
+                if rested_required and not ip.rested:
+                    return False
+                return True
+            count = sum(1 for c in me.characters if _ip_matches(c))
             if count < need:
                 return False
         elif k == "self_hand_count_le":
@@ -1239,8 +1266,12 @@ def execute_effect(
                     state, v_owner, v_actor, t, state.effects_overlay, by_opp_chara_eff
                 ):
                     continue
+                was_rested = t.rested
                 t.rested = True
                 actually_rested.append(t)
+                # 「このキャラがレストになった時」 trigger (OP14-027 シャンクス等)
+                if not was_rested and state.effects_overlay and v_owner is not None:
+                    trigger_on_self_rested(state, v_owner, v_actor, t, state.effects_overlay)
             state.push_log(f"  効果: レスト → {[t.card.name for t in actually_rested]}")
         elif k == "rest_self_cards":
             # 自分のリーダー/キャラから N 枚をレスト。 AI 簡易: アクティブの中から power 低い順。
@@ -1770,6 +1801,38 @@ def execute_effect(
                 state.push_log(f"  効果: 手札から{label}任意登場 → {card.name}")
                 if state.effects_overlay:
                     trigger_on_play(state, me, opp, ip, state.effects_overlay)
+        elif k == "play_from_hand_named_with_dynamic_cost":
+            # 公式: 「自分の手札からコスト N 以上でかつ、 (動的閾値) 以下のコストを持つ 『XXX』 1 枚を登場」
+            # OP08-062 シャーロット・カタクリ起動メイン 等。
+            # spec: {"name": "シャーロット・カタクリ", "cost_ge": 3, "cost_le_source": "opp_don_total"}
+            spec = v if isinstance(v, dict) else {}
+            name = spec.get("name", "")
+            cost_ge = int(spec.get("cost_ge", 0))
+            src = spec.get("cost_le_source", "opp_don_total")
+            if src == "opp_don_total":
+                cost_le = opp.don_active + opp.don_rested + opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
+            elif src == "self_don_total":
+                cost_le = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
+            else:
+                cost_le = int(spec.get("cost_le", 99))
+            for i, card in enumerate(me.hand):
+                if card.category != Category.CHARACTER:
+                    continue
+                if card.name != name:
+                    continue
+                if card.cost < cost_ge or card.cost > cost_le:
+                    continue
+                if not me.can_play_character():
+                    me.trash_weakest_chara_for_field_full(state)
+                ip = InPlay.of(card, rested=False, sickness=True)
+                me.characters.append(ip)
+                me.hand.pop(i)
+                state.push_log(f"  効果: {name} を手札から登場 (動的cost_le={cost_le})")
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                return True
+            state.push_log(f"  効果: {name} 該当なし (cost_ge={cost_ge}, cost_le={cost_le})")
+            return False
         elif k == "play_from_hand_named_set":
             # R4: 「自分の手札から、 N1 と N2 と N3 ... それぞれ 1 枚ずつまでを、 登場させる」 (ST13-006 等)。
             # spec: {"names": ["サボ", "ポートガス・D・エース", "モンキー・D・ルフィ"],
@@ -2161,6 +2224,24 @@ def execute_effect(
                 f"  効果: 各キャラに don×{amount_per:+d} 適用 → "
                 f"{[(t.card.name, t.attached_dons) for t in targets]}"
             )
+        elif k == "set_attack_cost_discard_hand":
+            # 公式: 「対象は、 次の相手ターン終了時まで、 アタックする際、 自身の手札 N 枚を
+            # 捨てなければアタックできない」 (OP08-043 エドワード等)。
+            # spec: {"target": "all_opponent_characters", "n": 2, "duration": "next_opp_turn_end"}
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target", "all_opponent_characters")
+            n = int(spec_val.get("n", 2))
+            duration = spec_val.get("duration", "next_opp_turn_end")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            me_idx = state.players.index(me)
+            for t in targets:
+                t.attack_cost_discard_hand_n = max(t.attack_cost_discard_hand_n, n)
+                if duration == "next_opp_turn_end":
+                    t.attack_cost_discard_hand_applier_idx = me_idx
+                    t.attack_cost_discard_hand_applied_turn = state.turn_number
+            state.push_log(
+                f"  効果: アタック時手札{n}枚捨て必須 ({duration}) → {[t.card.name for t in targets]}"
+            )
         elif k == "schedule_at_opp_main_phase_start":
             # 「次の相手のメインフェイズ開始時に〜」 用 delayed effect の登録 (PRB02-005 ルフィ等)。
             # spec: {"do": [<primitive>...]}
@@ -2168,15 +2249,13 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {}
             me.delayed_at_opp_main_phase_start.append(spec_val)
             state.push_log(f"  効果: 次の相手 MAIN 開始時に発動を予約")
-        elif k == "rest_opp_don":
-            # 相手のアクティブなドン N 枚をレスト (= don_active→don_rested)。
-            # spec: int N | dict {"amount": N}
-            n_spec = v if not isinstance(v, dict) else int(v.get("amount", 1))
-            n = int(n_spec)
-            actually = min(n, opp.don_active)
-            opp.don_active -= actually
-            opp.don_rested += actually
-            state.push_log(f"  効果: 相手ドン {actually} 枚をレストへ")
+        elif k == "keep_opp_rested_don_next_refresh":
+            # 「相手のレストのドン!! N 枚までは、 次の相手のリフレッシュでアクティブにならない」
+            # OP10-033 ナミ 等。 spec: int N | dict {"amount": N}
+            n_spec = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            actually = min(n_spec, opp.don_rested)
+            opp.next_refresh_kept_rested_don += actually
+            state.push_log(f"  効果: 相手レストドン {actually} 枚 次リフレッシュで起きない")
         elif k == "set_cannot_rest":
             # 「対象は、 次の (相手) ターン終了時まで、 レストにできない」 (OP14-033 等)。
             # rest プリミティブで cannot_be_rested_buff のあるキャラはスキップされる。
@@ -3452,8 +3531,11 @@ def trigger_on_play(
     # 相手陣営: 「相手がキャラを登場させた時」 を相手の場の全カードに対し発火
     # (キャラのみ。 ステージ/イベントは on_opp_chara_played の対象外)
     if self_inplay.card.category == Category.CHARACTER:
+        # payload-aware 条件用 context (OP12-081 コアラ用)
+        state.last_opp_chara_played_card = self_inplay.card
         _enqueue_field_when(state, opp, "on_opp_chara_played", effects_overlay)
     _maybe_resolve(state)
+    state.last_opp_chara_played_card = None
 
 
 def trigger_on_opp_life_taken(
@@ -3802,6 +3884,36 @@ def trigger_on_opp_chara_ko(
     _maybe_resolve(state)
 
 
+def trigger_on_self_rested(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    rested_ip: InPlay,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「このキャラがレストになった時」 (on_self_rested)。 me = rested_ip 所有者。
+    OP14-027 シャンクス等。 rest primitive 内 / AttackLeader/AttackCharacter 後で発火。
+    """
+    if not effects_overlay:
+        return
+    bundle = effects_overlay.get(rested_ip.card.card_id)
+    if bundle is None:
+        return
+    for eff in bundle.effects:
+        if eff.get("when") != "on_self_rested":
+            continue
+        if not eval_all_conditions(eff, state, me, rested_ip):
+            continue
+        cost = eff.get("cost", {})
+        if cost.get("once_per_turn"):
+            key = f"_self_rested_{rested_ip.instance_id}"
+            if key in me.once_per_turn_used:
+                continue
+            me.once_per_turn_used.add(key)
+        for prim in eff.get("do", []):
+            execute_effect(prim, state, me, opp, rested_ip)
+
+
 def trigger_on_self_hand_discarded(
     state: GameState,
     me: Player,
@@ -3850,6 +3962,7 @@ def trigger_on_self_chara_ko(
     victim_owner: Player,
     opp: Player,
     effects_overlay: dict[str, CardEffectBundle],
+    victim_card: Optional[CardDef] = None,
 ) -> None:
     """「自分の(特徴X を持つ)キャラが KO された時」 (on_self_chara_ko)。
     KO された側 (= victim_owner) の場の効果を発火。 OP10-042 ウソップ系等で利用。
@@ -3857,11 +3970,16 @@ def trigger_on_self_chara_ko(
     on_opp_chara_ko (KO した側の発火) と対称: on_self_chara_ko は KO された側の発火。
     条件付きフィルタ (例: 「特徴X を持つキャラが KO された場合」) は overlay 側の if で
     記述するので、 トリガー自体は無条件発火 (フィルタは eval_condition で判定)。
-    trigger_on_ko / trigger_on_opp_chara_ko と並行して呼ぶ。"""
+    trigger_on_ko / trigger_on_opp_chara_ko と並行して呼ぶ。
+
+    victim_card: KO された victim カード (= 「元々のパワー X 以上」 等 payload-aware 条件で利用)。
+    state.last_chara_ko_victim_card に一時保存され、 eval_condition の victim_* 条件で読まれる。"""
     if not effects_overlay:
         return
+    state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
     _maybe_resolve(state)
+    state.last_chara_ko_victim_card = None
 
 
 def trigger_opp_event_or_trigger_fired(
@@ -4239,7 +4357,12 @@ def trigger_on_ko(
 ) -> None:
     """【KO時】を enqueue。 ko_card は既にトラッシュへ (10-2-17-2)。
     source_iid=None: 場から既に消えているので、 _execute_event 内では self_inplay=None で実行。
+
+    副作用: state.last_chara_ko_victim_card = ko_card を一時設定 (= 後続の
+    trigger_on_self_chara_ko / trigger_on_opp_chara_ko で payload-aware 条件用に使われる)。
     """
+    # payload-aware 条件用 context を先に設定 (= trigger_on_self_chara_ko より先に呼ばれる場合に備える)
+    state.last_chara_ko_victim_card = ko_card
     bundle = effects_overlay.get(ko_card.card_id)
     if bundle is None:
         return

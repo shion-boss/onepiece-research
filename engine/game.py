@@ -324,6 +324,13 @@ def _reset_turn_buff(state: GameState) -> None:
                     ip.next_opp_turn_end_base_power_override_applied_turn = 0
             # granted_keywords_through_opp_turn: applier の opp ターン (= 相手ターン) 終了で消える。
             # OP09-084 カタリーナ・デボン 「次の相手のターン終了時まで、 【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る」 等。
+            if ip.attack_cost_discard_hand_n > 0:
+                if (ip.attack_cost_discard_hand_applier_idx >= 0
+                        and ip.attack_cost_discard_hand_applied_turn < state.turn_number
+                        and ended_idx != ip.attack_cost_discard_hand_applier_idx):
+                    ip.attack_cost_discard_hand_n = 0
+                    ip.attack_cost_discard_hand_applier_idx = -1
+                    ip.attack_cost_discard_hand_applied_turn = 0
             if ip.granted_keywords_through_opp_turn:
                 if (ip.granted_keywords_through_opp_turn_applier_idx >= 0
                         and ip.granted_keywords_through_opp_turn_applied_turn < state.turn_number
@@ -365,9 +372,16 @@ def advance_phase(state: GameState) -> None:
                 for attr in list(c.__dict__.keys()):
                     if attr.startswith("_on_attack_used_"):
                         delattr(c, attr)
-            me.don_active += me.don_rested + me.leader.attached_dons
+            # 「次のリフレッシュでアクティブにならない」 ドン数 (OP10-033 ナミ等) を差し引く
+            kept_rested = me.next_refresh_kept_rested_don
+            available_rested = me.don_rested - kept_rested
+            if available_rested < 0:
+                available_rested = 0
+                kept_rested = me.don_rested
+            me.don_active += available_rested + me.leader.attached_dons
             me.leader.attached_dons = 0
-            me.don_rested = 0
+            me.don_rested = kept_rested
+            me.next_refresh_kept_rested_don = 0
             # ステージのレスト解除 (3-8 + 6-2-4)
             for s in me.stages:
                 s.rested = False
@@ -833,6 +847,23 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
 
     if isinstance(action, AttackLeader):
         attacker = _find_attacker(me, action.attacker_iid)
+        # アタック時 手札捨てコスト (OP08-043 エドワード等)
+        if attacker.attack_cost_discard_hand_n > 0:
+            n_needed = attacker.attack_cost_discard_hand_n
+            if len(me.hand) < n_needed:
+                state.push_log(
+                    f"  アタック不能: {attacker.card.name} は手札{n_needed}枚不足 ({len(me.hand)}枚)"
+                )
+                return
+            # ランダムに N 枚を trash (= 「捨てなければアタックできない」)
+            import random as _r
+            rng = state.rng if hasattr(state, "rng") else _r.Random()
+            for _ in range(n_needed):
+                if not me.hand:
+                    break
+                idx = rng.randrange(len(me.hand))
+                me.trash.append(me.hand.pop(idx))
+            state.push_log(f"  アタック前コスト: 手札{n_needed}枚捨て ({attacker.card.name})")
         attacker.rested = True
         if state.effects_overlay:
             from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
@@ -1097,6 +1128,19 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
 
     if isinstance(action, AttackCharacter):
         attacker = _find_attacker(me, action.attacker_iid)
+        if attacker.attack_cost_discard_hand_n > 0:
+            n_needed = attacker.attack_cost_discard_hand_n
+            if len(me.hand) < n_needed:
+                state.push_log(
+                    f"  アタック不能: {attacker.card.name} は手札{n_needed}枚不足 ({len(me.hand)}枚)"
+                )
+                return
+            for _ in range(n_needed):
+                if not me.hand:
+                    break
+                idx = state.rng.randrange(len(me.hand))
+                me.trash.append(me.hand.pop(idx))
+            state.push_log(f"  アタック前コスト: 手札{n_needed}枚捨て ({attacker.card.name})")
         attacker.rested = True
         if state.effects_overlay:
             from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara

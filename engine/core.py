@@ -148,6 +148,11 @@ class InPlay:
     granted_keywords_through_opp_turn: set = field(default_factory=set)
     granted_keywords_through_opp_turn_applier_idx: int = -1
     granted_keywords_through_opp_turn_applied_turn: int = 0
+    # 「アタックする際、 自身の手札 N 枚を捨てなければアタックできない」 (OP08-043 等)。
+    # 次の相手ターン終了時までの applier-tracking 制約。 N=0 で無効。
+    attack_cost_discard_hand_n: int = 0
+    attack_cost_discard_hand_applier_idx: int = -1
+    attack_cost_discard_hand_applied_turn: int = 0
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
@@ -389,6 +394,9 @@ class Player:
     # 「次の相手のメインフェイズ開始時に発動」 する遅延効果リスト (PRB02-005 ルフィ等)。
     # 自陣 player に登録 → 「相手の MAIN 開始時 (= 自分の opp 視点)」 に flush。
     delayed_at_opp_main_phase_start: list = field(default_factory=list)
+    # 「次のリフレッシュフェイズでアクティブにならないドン数」 (OP10-033 ナミ等)。
+    # REFRESH 時に この数だけ don_rested から差し引かれず残る。 適用後 0 にリセット。
+    next_refresh_kept_rested_don: int = 0
     # 【ターン1回】効果の発動済みキー集合。
     # キー形式: f"{card_id}:{when}:{idx}" もしくは effect spec で指定された明示キー文字列。
     # 自分の REFRESH で全クリア (= 次の自ターンで再発動可)。
@@ -483,6 +491,11 @@ class GameState:
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
     last_discard_source_inplay: Optional[object] = None
     last_discard_count: int = 0
+    # 直近の「自分のキャラが KO された」 イベントの victim カード (= payload-aware 条件用)。
+    # OP14-041 ハンコック 「元々のパワー5000以上 + 特徴《アマゾン・リリー》《九蛇海賊団》」 等。
+    last_chara_ko_victim_card: Optional[object] = None
+    # 直近の「相手のキャラが登場した」 イベントの played カード (= OP12-081 コアラ用)。
+    last_opp_chara_played_card: Optional[object] = None
 
     @property
     def turn_player(self):

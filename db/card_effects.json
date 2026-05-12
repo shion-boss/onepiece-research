@@ -1915,24 +1915,15 @@
   ],
   "OP14-041": [
     {
-      "_text": "OP14-041 ハンコック on_self_chara_ko: ドン!!×1 + 1回 + power>=5000 + 特徴 condition で 相手ライフ手札へ (on_self_chara_ko 用 payload-aware filter は engine 未対応のため _unimplemented で残置)",
+      "_text": "【ドン!!×1】【ターン1回】自分の元々のパワー5000以上の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、相手のライフの上から1枚までを、持ち主の手札に加える。",
       "when": "on_self_chara_ko",
       "conditions": [
-        {
-          "self_attached_don_ge": 1
-        }
+        {"self_attached_don_ge": 1},
+        {"victim_truly_original_power_ge": 5000},
+        {"victim_feature_in": ["アマゾン・リリー", "九蛇海賊団"]}
       ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "_unimplemented": "公式: 自分の 元々のパワー5000以上 かつ 特徴《アマゾン・リリー》か《九蛇海賊団》 を持つキャラが KO された時 限定 (payload-aware filter 未対応)。 \"相手のライフの上から1枚までを持ち主の手札に加える\" を mill_opp_life_to_hand で表現。"
-        },
-        {
-          "mill_opp_life_to_hand": 1
-        }
-      ]
+      "cost": {"once_per_turn": true},
+      "do": [{"mill_opp_life_to_hand": 1}]
     }
   ],
   "OP14-060": [
@@ -9849,14 +9840,17 @@
   ],
   "OP14-027": [
     {
-      "_text": "OP14-027 on_attached_don (パターン未一致): 【自分のターン中】このキャラがレストになった時、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。【相手のターン中】このキャラがレストの場合、相手",
+      "_text": "【自分のターン中】このキャラがレストになった時、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。",
+      "when": "on_self_rested",
+      "if": {"self_turn": true},
+      "do": [{"rest": {"type": "one_opponent_character_filtered", "filter": {"power_le": 7000}}}]
+    },
+    {
+      "_text": "【相手のターン中】このキャラがレストの場合、相手のキャラすべてを、パワー-1000。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【自分のターン中】このキャラがレストになった時、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。【相手のターン中】このキャラがレストの場合、相手のキャラすべてを、パワー-1000。"
-        }
-      ]
+      "if": {"opp_turn": true, "self_rested": true},
+      "do": [{"power_pump": {"target": "all_opponent_characters", "amount": -1000, "duration": "static"}}]
     }
   ],
   "OP15-092": [
@@ -10898,24 +10892,15 @@
   ],
   "OP14-041_p1": [
     {
-      "_text": "OP14-041_p1 ハンコック on_self_chara_ko: ドン!!×1 + 1回 + power>=5000 + 特徴 condition で 相手ライフ手札へ (on_self_chara_ko 用 payload-aware filter は engine 未対応のため _unimplemented で残置)",
+      "_text": "【ドン!!×1】【ターン1回】自分の元々のパワー5000以上の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、相手のライフの上から1枚までを、持ち主の手札に加える。",
       "when": "on_self_chara_ko",
       "conditions": [
-        {
-          "self_attached_don_ge": 1
-        }
+        {"self_attached_don_ge": 1},
+        {"victim_truly_original_power_ge": 5000},
+        {"victim_feature_in": ["アマゾン・リリー", "九蛇海賊団"]}
       ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "_unimplemented": "公式: 自分の 元々のパワー5000以上 かつ 特徴《アマゾン・リリー》か《九蛇海賊団》 を持つキャラが KO された時 限定 (payload-aware filter 未対応)。 \"相手のライフの上から1枚までを持ち主の手札に加える\" を mill_opp_life_to_hand で表現。"
-        },
-        {
-          "mill_opp_life_to_hand": 1
-        }
-      ]
+      "cost": {"once_per_turn": true},
+      "do": [{"mill_opp_life_to_hand": 1}]
     }
   ],
   "OP14-060_p1": [
@@ -15021,19 +15006,11 @@
       ]
     },
     {
-      "_text": "OP12-081 コアラ on_opp_chara_played: 【ターン1回】相手キャラ登場時 → 相手ライフ上を相手手札へ",
+      "_text": "【ターン1回】相手が、元々のコスト8以上のキャラを登場させた時、発動できる。相手は自身のライフの上から1枚を、手札に加える。",
       "when": "on_opp_chara_played",
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "_unimplemented": "公式: 相手が 元々のコスト8以上のキャラを登場させた時 か キャラの効果でキャラを登場させた時 限定 (条件未対応 — payload-aware 条件が必要)。発動できるは optional だが現状必発火。"
-        },
-        {
-          "mill_opp_life_to_hand": 1
-        }
-      ]
+      "if": {"played_chara_truly_original_cost_ge": 8},
+      "cost": {"once_per_turn": true},
+      "do": [{"mill_opp_life_to_hand": 1}]
     }
   ],
   "OP12-081_p1": [
@@ -15055,19 +15032,11 @@
       ]
     },
     {
-      "_text": "OP12-081_p1 コアラ on_opp_chara_played: 【ターン1回】相手キャラ登場時 → 相手ライフ上を相手手札へ",
+      "_text": "【ターン1回】相手が、元々のコスト8以上のキャラを登場させた時、発動できる。相手は自身のライフの上から1枚を、手札に加える。",
       "when": "on_opp_chara_played",
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "_unimplemented": "公式: 相手が 元々のコスト8以上のキャラを登場させた時 か キャラの効果でキャラを登場させた時 限定 (条件未対応 — payload-aware 条件が必要)。発動できるは optional だが現状必発火。"
-        },
-        {
-          "mill_opp_life_to_hand": 1
-        }
-      ]
+      "if": {"played_chara_truly_original_cost_ge": 8},
+      "cost": {"once_per_turn": true},
+      "do": [{"mill_opp_life_to_hand": 1}]
     }
   ],
   "OP10-042": [
@@ -27140,14 +27109,17 @@
   ],
   "OP14-027_p1": [
     {
-      "_text": "OP14-027_p1 on_attached_don (パターン未一致): 【自分のターン中】このキャラがレストになった時、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。【相手のターン中】このキャラがレストの場合、相手",
+      "_text": "【自分のターン中】このキャラがレストになった時、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。",
+      "when": "on_self_rested",
+      "if": {"self_turn": true},
+      "do": [{"rest": {"type": "one_opponent_character_filtered", "filter": {"power_le": 7000}}}]
+    },
+    {
+      "_text": "【相手のターン中】このキャラがレストの場合、相手のキャラすべてを、パワー-1000。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "_unimplemented": "【自分のターン中】このキャラがレストになった時、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。【相手のターン中】このキャラがレストの場合、相手のキャラすべてを、パワー-1000。"
-        }
-      ]
+      "if": {"opp_turn": true, "self_rested": true},
+      "do": [{"power_pump": {"target": "all_opponent_characters", "amount": -1000, "duration": "static"}}]
     }
   ],
   "OP14-031_p1": [
@@ -51408,13 +51380,10 @@
   ],
   "OP10-033": [
     {
-      "_text": "OP10-033 on_play: 自分のレストの特徴《ODYSSEY》を持つキャラが2枚以上いる場合、相手のレストのドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+      "_text": "自分のレストの特徴《ODYSSEY》を持つキャラが2枚以上いる場合、相手のレストのドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
       "when": "on_play",
-      "do": [
-        {
-          "_unimplemented": "自分のレストの特徴《ODYSSEY》を持つキャラが2枚以上いる場合、相手のレストのドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。"
-        }
-      ]
+      "if": {"self_chara_filtered_count_ge": {"filter": {"feature": "ODYSSEY"}, "count": 2, "rested_required": true}},
+      "do": [{"keep_opp_rested_don_next_refresh": 1}]
     }
   ],
   "OP10-037": [
@@ -53685,11 +53654,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが『白ひげ海賊団』を含む特徴を持ち、自分のライフが2枚以下の場合、相手のキャラすべては、次の相手のターン終了時まで、アタックする際、自身の手札2枚を捨てなければアタックすることができない。"
+          "set_attack_cost_discard_hand": {
+            "target": "all_opponent_characters",
+            "n": 2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
-        "self_life_le": 2
+        "self_life_le": 2,
+        "leader_feature_contains": "白ひげ海賊団"
       }
     }
   ],
@@ -53699,7 +53673,11 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが『白ひげ海賊団』を含む特徴を持ち、自分のライフが2枚以下の場合、相手のキャラすべては、次の相手のターン終了時まで、アタックする際、自身の手札2枚を捨てなければアタックすることができない。"
+          "set_attack_cost_discard_hand": {
+            "target": "all_opponent_characters",
+            "n": 2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -53841,7 +53819,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、自分の手札からコスト3以上でかつ、相手の場のドン‼の枚数以下のコストを持つ「シャーロット・カタクリ」1枚までを、登場させる。"
+          "play_from_hand_named_with_dynamic_cost": {
+            "name": "シャーロット・カタクリ",
+            "cost_ge": 3,
+            "cost_le_source": "opp_don_total"
+          }
         }
       ],
       "cost": {
@@ -66372,7 +66354,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚をトラッシュに置くことができる：自分の手札のコスト5のキャラカード1枚までを公開し、ライフの上に裏向きで加える。"
+          "optional_cost_then": {
+            "cost": [{"mill_self_life_to_trash": 1}],
+            "effect": [{"hand_to_self_life": {"filter": {"category": "CHARACTER", "cost_eq": 5}, "count": 1}}]
+          }
         }
       ]
     }
@@ -66383,7 +66368,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚をトラッシュに置くことができる：自分の手札のコスト5のキャラカード1枚までを公開し、ライフの上に裏向きで加える。"
+          "optional_cost_then": {
+            "cost": [{"mill_self_life_to_trash": 1}],
+            "effect": [{"hand_to_self_life": {"filter": {"category": "CHARACTER", "cost_eq": 5}, "count": 1}}]
+          }
         }
       ]
     }
@@ -66394,7 +66382,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト2の、「サボ」と「ポートガス・D・エース」と「モンキー・D・ルフィ」それぞれ1枚ずつまでを、登場させる。"
+          "play_from_hand_named_set": {
+            "names": ["サボ", "ポートガス・D・エース", "モンキー・D・ルフィ"],
+            "cost_eq": 2
+          }
         }
       ]
     }
@@ -66405,7 +66396,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト2の、「サボ」と「ポートガス・D・エース」と「モンキー・D・ルフィ」それぞれ1枚ずつまでを、登場させる。"
+          "play_from_hand_named_set": {
+            "names": ["サボ", "ポートガス・D・エース", "モンキー・D・ルフィ"],
+            "cost_eq": 2
+          }
         }
       ]
     }
@@ -70047,7 +70041,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、自分の手札からコスト3以上でかつ、相手の場のドン‼の枚数以下のコストを持つ「シャーロット・カタクリ」1枚までを、登場させる。"
+          "play_from_hand_named_with_dynamic_cost": {
+            "name": "シャーロット・カタクリ",
+            "cost_ge": 3,
+            "cost_le_source": "opp_don_total"
+          }
         }
       ],
       "cost": {
@@ -70273,13 +70271,10 @@
   ],
   "OP10-033_p1": [
     {
-      "_text": "OP10-033_p1 on_play: 自分のレストの特徴《ODYSSEY》を持つキャラが2枚以上いる場合、相手のレストのドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+      "_text": "自分のレストの特徴《ODYSSEY》を持つキャラが2枚以上いる場合、相手のレストのドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
       "when": "on_play",
-      "do": [
-        {
-          "_unimplemented": "自分のレストの特徴《ODYSSEY》を持つキャラが2枚以上いる場合、相手のレストのドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。"
-        }
-      ]
+      "if": {"self_chara_filtered_count_ge": {"filter": {"feature": "ODYSSEY"}, "count": 2, "rested_required": true}},
+      "do": [{"keep_opp_rested_don_next_refresh": 1}]
     }
   ],
   "OP10-107_p1": [
