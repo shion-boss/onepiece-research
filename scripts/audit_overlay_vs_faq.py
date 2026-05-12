@@ -284,7 +284,16 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
         issues.append("missing_end_of_turn")
     if "【相手のターン終了時】" in text and "opp_end_of_turn" not in when_set:
         issues.append("missing_opp_end_of_turn")
-    if "【トリガー】" in text and "trigger" not in when_set:
+    # 「【トリガー】」 のうち
+    #   - 「【トリガー】を持つ」 (= filter 参照): trigger 宣言ではない (OP14-110 ホグバック等)
+    #   - 「イベントか【トリガー】を発動した」 (= opp event/trigger fired): 別 trigger 機構
+    #   - 「【トリガー】効果」 (= filter 参照)
+    # これらを除いて素の「【トリガー】」 が残るか確認。
+    text_for_trigger = (text or "")
+    text_for_trigger = text_for_trigger.replace("【トリガー】を持つ", "")
+    text_for_trigger = text_for_trigger.replace("【トリガー】効果", "")
+    text_for_trigger = text_for_trigger.replace("【トリガー】を発動", "")
+    if "【トリガー】" in text_for_trigger and "trigger" not in when_set:
         issues.append("missing_trigger")
     if "【ターン1回】" in text and not overlay_has_once_per_turn(effects):
         issues.append("missing_once_per_turn")

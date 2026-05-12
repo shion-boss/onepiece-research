@@ -269,7 +269,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 if eff.get("when") != when:
                     continue
                 # cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)
-                if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                if not eval_all_conditions(eff, state, me, self_inplay):
                     continue
                 # 【ターン1回】 ガード (cost 経由ではない top-level once_per_turn)。
                 # cost 持ち効果は trigger_on_attack/fire_activate_main 側で支払い時にチェック済み。
@@ -284,7 +284,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
         for idx, eff in enumerate(bundle.effects):
             if eff.get("when") != when:
                 continue
-            if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+            if not eval_all_conditions(eff, state, me, self_inplay):
                 continue
             # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
             if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
@@ -338,6 +338,29 @@ def _maybe_resolve(state: GameState) -> None:
 # --------------------------------------------------------------------------- #
 # 条件評価
 # --------------------------------------------------------------------------- #
+def eval_all_conditions(
+    eff: dict[str, Any],
+    state: GameState,
+    me: Player,
+    self_inplay: Optional[InPlay] = None,
+) -> bool:
+    """effect dict から `if` (単一辞書) と `conditions` (辞書のリスト) を両方評価。
+    AND 結合。 両方未指定なら True。
+
+    R44 で conditions リスト形式が普及したため、 すべての call site で
+    この関数を経由させて互換性を担保する。
+    """
+    if_cond = eff.get("if") or {}
+    conditions = eff.get("conditions") or []
+    if if_cond and not eval_condition(if_cond, state, me, self_inplay):
+        return False
+    if isinstance(conditions, list):
+        for c in conditions:
+            if isinstance(c, dict) and not eval_condition(c, state, me, self_inplay):
+                return False
+    return True
+
+
 def eval_condition(
     cond: dict[str, Any],
     state: GameState,
@@ -2155,7 +2178,7 @@ def execute_effect(
                 for eff in bundle.effects:
                     if eff.get("when") != when_kind:
                         continue
-                    if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                    if not eval_all_conditions(eff, state, me, self_inplay):
                         continue
                     for prim in eff.get("do", []):
                         execute_effect(prim, state, me, opp, self_inplay)
@@ -3200,7 +3223,7 @@ def evaluate_static_effects(
                 n_required = int(eff.get("n", 1))
                 if inplay.attached_dons < n_required:
                     continue
-                if not eval_condition(eff.get("if", {}), state, me, inplay):
+                if not eval_all_conditions(eff, state, me, inplay):
                     continue
                 for primitive in eff.get("do", []):
                     # 常在内の power_pump は static として扱う (duration を強制上書き)
@@ -3825,7 +3848,7 @@ def trigger_lifecard_trigger(
         return False
     # 発動可能な効果が 1 つでもあるか (= 発動成立判定)
     fireable_exists = any(
-        eval_condition(e.get("if", {}), state, defender, None) for e in trigger_effects
+        eval_all_conditions(e, state, defender, None) for e in trigger_effects
     )
     if not fireable_exists:
         return False
@@ -3873,7 +3896,7 @@ def should_fire_trigger(
         return False
     # 条件を満たす発動可能な効果が 1 つでもあるか
     for eff in trigger_effects:
-        if not eval_condition(eff.get("if", {}), state, defender, None):
+        if not eval_all_conditions(eff, state, defender, None):
             continue
         # ヒューリスティック: 強力な効果 (除去/ドロー/ライフ復元) が含まれるなら発動
         for prim in eff.get("do", []):
@@ -3963,7 +3986,7 @@ def trigger_on_attack(
         if not cost:
             has_costless = True
             continue
-        if not eval_condition(eff.get("if", {}), state, me, attacker):
+        if not eval_all_conditions(eff, state, me, attacker):
             continue
         # once_per_turn 判定
         per_turn_key = f"_on_attack_used_{idx}"
@@ -4104,7 +4127,7 @@ def estimate_attacker_self_buff(
     for eff in bundle.effects:
         if eff.get("when") != "on_attack":
             continue
-        if not eval_condition(eff.get("if", {}), state, me, attacker):
+        if not eval_all_conditions(eff, state, me, attacker):
             continue
         for prim in eff.get("do", []):
             pp = prim.get("power_pump")
@@ -4146,7 +4169,7 @@ def estimate_opp_attack_buff_to_leader(
             if eff.get("when") != "opp_attack":
                 continue
             # if 句 を opp 視点で評価 (opp 側 leader_feature 等)
-            if not eval_condition(eff.get("if", {}), state, opp, inplay):
+            if not eval_all_conditions(eff, state, opp, inplay):
                 continue
             for prim in eff.get("do", []):
                 pp = prim.get("power_pump")
@@ -4184,7 +4207,7 @@ def list_activate_main_effects(
             if not _can_pay_activate_cost(state, me, inplay, cost):
                 continue
             # if 条件 (例: 場にコスト5+キャラいる、leader_feature 等) も評価
-            if not eval_condition(eff.get("if", {}), state, me, inplay):
+            if not eval_all_conditions(eff, state, me, inplay):
                 continue
             out.append((inplay, eff))
     return out

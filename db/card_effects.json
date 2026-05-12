@@ -165,6 +165,11 @@
             "duration": "static"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -1220,9 +1225,14 @@
           "ko": "one_opponent_character_power_le_6000"
         }
       ],
-      "if": {
-        "leader_feature": "東の海"
-      }
+      "conditions": [
+        {
+          "leader_feature": "東の海"
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP15-024": [
@@ -1232,6 +1242,11 @@
       "do": [
         {
           "rest": "one_opponent_inplay_cost_le_7"
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     }
@@ -1301,6 +1316,11 @@
       "do": [
         {
           "draw": 2
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     },
@@ -1458,7 +1478,10 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP06-022": [
@@ -1892,12 +1915,22 @@
   ],
   "OP14-041": [
     {
-      "_text": "on_attached_don n=1: 【ターン1回】自分の元々のパワー5000以上の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、相手",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP14-041 ハンコック on_self_chara_ko: ドン!!×1 + 1回 + power>=5000 + 特徴 condition で 相手ライフ手札へ (on_self_chara_ko 用 payload-aware filter は engine 未対応のため _unimplemented で残置)",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【ターン1回】自分の元々のパワー5000以上の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、相手のライフの上から1枚までを、持ち主の手札に加える"
+          "_unimplemented": "公式: 自分の 元々のパワー5000以上 かつ 特徴《アマゾン・リリー》か《九蛇海賊団》 を持つキャラが KO された時 限定 (payload-aware filter 未対応)。 \"相手のライフの上から1枚までを持ち主の手札に加える\" を mill_opp_life_to_hand で表現。"
+        },
+        {
+          "mill_opp_life_to_hand": 1
         }
       ]
     }
@@ -1959,12 +1992,17 @@
           "rest": "one_opponent_character_attached_don_ge_2"
         }
       ],
-      "if": {
-        "self_attached_don_ge": 1
-      },
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "OP15-001 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする。",
@@ -2642,9 +2680,14 @@
           "draw": 1
         }
       ],
-      "if": {
-        "self_life_le": 2
-      }
+      "conditions": [
+        {
+          "self_life_le": 2
+        },
+        {
+          "self_turn": true
+        }
+      ]
     },
     {
       "_text": "EB03-058 trigger: 自分のリーダーが「ベガパンク」の場合、このカードを登場させる。",
@@ -4322,9 +4365,14 @@
           "mill_self_life_to_trash": 1
         }
       ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "EB03-055 on_ko: 相手に1ダメージを与えてもよい。",
@@ -5016,7 +5064,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "PRB02-012": [
@@ -5466,7 +5519,12 @@
       ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "OP12-119 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
@@ -6063,9 +6121,14 @@
           "draw": 1
         }
       ],
-      "if": {
-        "self_hand_count_le": 6
-      }
+      "conditions": [
+        {
+          "self_hand_count_le": 6
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB02-056": [
@@ -6719,6 +6782,11 @@
       "do": [
         {
           "draw": 2
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     }
@@ -8882,12 +8950,17 @@
       "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
       "when": "on_attached_don",
       "n": 0,
-      "if": {
-        "self_trash_count_ge": 7
-      },
       "do": [
         {
           "set_ko_immune": "self"
+        }
+      ],
+      "conditions": [
+        {
+          "self_trash_count_ge": 7
+        },
+        {
+          "self_turn": true
         }
       ]
     }
@@ -9299,9 +9372,6 @@
       "_text": "虚の玉座 static: トラッシュ19枚以上で leader +1000",
       "when": "on_attached_don",
       "n": 0,
-      "if": {
-        "self_trash_count_ge": 19
-      },
       "do": [
         {
           "power_pump": {
@@ -9309,6 +9379,14 @@
             "amount": 1000,
             "duration": "static"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_trash_count_ge": 19
+        },
+        {
+          "self_turn": true
         }
       ]
     },
@@ -9951,9 +10029,14 @@
       "cost": {
         "once_per_turn": true
       },
-      "if": {
-        "self_life_ge": 2
-      }
+      "conditions": [
+        {
+          "self_life_ge": 2
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB03-001_p1": [
@@ -10557,12 +10640,17 @@
           "rest": "one_opponent_character_attached_don_ge_2"
         }
       ],
-      "if": {
-        "self_attached_don_ge": 1
-      },
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "OP15-001_p1 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする。",
@@ -10945,6 +11033,11 @@
         {
           "draw": 1
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -10955,6 +11048,11 @@
       "do": [
         {
           "draw": 1
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -11125,7 +11223,12 @@
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "OP11-062": [
@@ -11201,6 +11304,11 @@
         {
           "untap_don": 1
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -11214,6 +11322,11 @@
       "do": [
         {
           "untap_don": 1
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     }
@@ -11287,7 +11400,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP10-003_p1": [
@@ -11301,7 +11419,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP10-022": [
@@ -12846,6 +12969,11 @@
             "duration": "static"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -13801,6 +13929,11 @@
             "duration": "battle"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -14199,6 +14332,11 @@
             "duration": "static"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -14214,6 +14352,11 @@
             "amount": 1000,
             "duration": "static"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -14448,7 +14591,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP12-020_p2": [
@@ -14592,7 +14740,10 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP15-098_p1": [
@@ -14692,7 +14843,10 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP05-098_p2": [
@@ -14709,7 +14863,10 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP05-098_p4": [
@@ -14726,17 +14883,27 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP06-042_p2": [
     {
-      "_text": "OP06-042_p2 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、カード1枚を引く。",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP06-042_p2 on_self_don_returned_to_deck: 自ターン1回 → 1ドロー",
+      "when": "on_self_don_returned_to_deck",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、カード1枚を引く。"
+          "draw": 1
         }
       ]
     }
@@ -15114,6 +15281,11 @@
             "amount": 1
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -15128,6 +15300,11 @@
             "target": "one_opponent_character_cost_le_7cost",
             "amount": 1
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -16007,6 +16184,11 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_eq_0"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -18461,6 +18643,11 @@
         {
           "draw": 1
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -20826,6 +21013,11 @@
         {
           "draw": 1
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     },
     {
@@ -21585,6 +21777,11 @@
             "limit": 1,
             "depth": 5
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -22380,6 +22577,11 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -22571,12 +22773,19 @@
   ],
   "OP06-076_p2": [
     {
-      "_text": "OP06-076_p2 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、相手のコスト2以下のキャラ1枚までを、KOする。",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP06-076_p2 on_self_don_returned_to_deck: 自ターン1回 → 相手コスト2以下を KO",
+      "when": "on_self_don_returned_to_deck",
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、相手のコスト2以下のキャラ1枚までを、KOする。"
+          "ko": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -22969,9 +23178,14 @@
           "draw": 1
         }
       ],
-      "if": {
-        "self_hand_count_le": 6
-      }
+      "conditions": [
+        {
+          "self_hand_count_le": 6
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "PRB02-003_p1": [
@@ -23836,6 +24050,11 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_eq_0"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -25490,6 +25709,11 @@
         {
           "draw": 2
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -25571,9 +25795,14 @@
           "mill_self_life_to_trash": 1
         }
       ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "EB03-055_p1 on_ko: 相手に1ダメージを与えてもよい。",
@@ -25709,9 +25938,14 @@
           "mill_self_life_to_trash": 1
         }
       ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "EB03-055_p2 on_ko: 相手に1ダメージを与えてもよい。",
@@ -25766,7 +26000,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "EB02-036_p1": [
@@ -27558,12 +27797,17 @@
       "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
       "when": "on_attached_don",
       "n": 0,
-      "if": {
-        "self_trash_count_ge": 7
-      },
       "do": [
         {
           "set_ko_immune": "self"
+        }
+      ],
+      "conditions": [
+        {
+          "self_trash_count_ge": 7
+        },
+        {
+          "self_turn": true
         }
       ]
     }
@@ -27573,12 +27817,17 @@
       "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
       "when": "on_attached_don",
       "n": 0,
-      "if": {
-        "self_trash_count_ge": 7
-      },
       "do": [
         {
           "set_ko_immune": "self"
+        }
+      ],
+      "conditions": [
+        {
+          "self_trash_count_ge": 7
+        },
+        {
+          "self_turn": true
         }
       ]
     }
@@ -28242,7 +28491,12 @@
       ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     },
     {
       "_text": "OP12-119_p1 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
@@ -28706,6 +28960,11 @@
       "do": [
         {
           "draw": 1
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -30498,6 +30757,11 @@
         {
           "ko": "one_opponent_character_power_le_3000"
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     },
     {
@@ -30980,6 +31244,11 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_eq_0"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -31764,7 +32033,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "EB03-006_p1": [
@@ -32269,6 +32543,11 @@
       "do": [
         {
           "ko": "one_opponent_character_power_le_3000"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     },
@@ -33083,6 +33362,11 @@
       "do": [
         {
           "draw": 1
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -34196,6 +34480,11 @@
       "do": [
         {
           "ko": "one_opponent_character_power_le_3000"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     },
@@ -36409,6 +36698,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -36426,6 +36720,11 @@
             "amount": 2000,
             "duration": "turn"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -37968,6 +38267,11 @@
         {
           "return_to_deck_bottom": "one_opponent_character_any"
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -37978,6 +38282,11 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -39706,6 +40015,11 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_eq_0"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -42949,6 +43263,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -43074,9 +43393,14 @@
           }
         }
       ],
-      "if": {
-        "leader_feature": "ミンク族"
-      }
+      "conditions": [
+        {
+          "leader_feature": "ミンク族"
+        },
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "EB04-019": [
@@ -43843,7 +44167,12 @@
       ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB03-018_p1": [
@@ -43857,7 +44186,12 @@
       ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB03-020": [
@@ -44061,6 +44395,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -44185,6 +44524,11 @@
             "limit": 1
           }
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -44210,6 +44554,11 @@
             },
             "limit": 1
           }
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     }
@@ -44537,7 +44886,12 @@
       ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB03-026_p2": [
@@ -44615,6 +44969,11 @@
             "limit": 1
           }
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -44656,9 +45015,14 @@
           }
         }
       ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB02-003_p1": [
@@ -44674,9 +45038,14 @@
           }
         }
       ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      "conditions": [
+        {
+          "leader_feature": "麦わらの一味"
+        },
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "EB02-006": [
@@ -46186,6 +46555,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -46967,7 +47341,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP14-017": [
@@ -47379,6 +47758,11 @@
         {
           "put_top_to_life": 1
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     },
     {
@@ -47506,7 +47890,12 @@
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "OP14-119_p1": [
@@ -47528,7 +47917,12 @@
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "OP14-119_p2": [
@@ -47550,7 +47944,12 @@
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
-      }
+      },
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "EB01-003_p3": [
@@ -48255,6 +48654,11 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     },
@@ -49255,6 +49659,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -49265,6 +49674,11 @@
       "do": [
         {
           "put_top_to_life": 1
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     }
@@ -51043,7 +51457,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP10-087": [
@@ -52603,6 +53022,11 @@
             ]
           }
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -53083,6 +53507,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -53325,7 +53754,12 @@
       ],
       "cost": {
         "pay_don": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP08-073": [
@@ -53339,7 +53773,12 @@
       ],
       "cost": {
         "pay_don": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP08-074": [
@@ -54180,6 +54619,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -54392,6 +54836,11 @@
             "amount": 2000,
             "duration": "turn"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -54620,7 +55069,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP07-071_p1": [
@@ -54634,7 +55088,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP07-073": [
@@ -54817,6 +55276,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -54978,9 +55442,14 @@
           "trash_opp_hand_random": 2
         }
       ],
-      "if": {
-        "opp_hand_count_ge": 6
-      }
+      "conditions": [
+        {
+          "opp_hand_count_ge": 6
+        },
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "OP06-004": [
@@ -58652,6 +59121,11 @@
             ]
           }
         }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
+        }
       ]
     }
   ],
@@ -58680,6 +59154,11 @@
               }
             ]
           }
+        }
+      ],
+      "conditions": [
+        {
+          "opp_turn": true
         }
       ]
     }
@@ -58731,7 +59210,12 @@
       ],
       "cost": {
         "pay_don": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP03-002": [
@@ -59367,9 +59851,14 @@
           "trash_opp_hand_random": 2
         }
       ],
-      "if": {
-        "opp_hand_count_ge": 6
-      }
+      "conditions": [
+        {
+          "opp_hand_count_ge": 6
+        },
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "OP03-078_p1": [
@@ -59381,9 +59870,14 @@
           "trash_opp_hand_random": 2
         }
       ],
-      "if": {
-        "opp_hand_count_ge": 6
-      }
+      "conditions": [
+        {
+          "opp_hand_count_ge": 6
+        },
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "OP03-079": [
@@ -60718,7 +61212,12 @@
       ],
       "cost": {
         "pay_don": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP02-085_p1": [
@@ -60732,7 +61231,12 @@
       ],
       "cost": {
         "pay_don": 1
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "OP02-086": [
@@ -61121,12 +61625,22 @@
   ],
   "OP01-004": [
     {
-      "_text": "on_attached_don n=1: 【自分のターン中】【ターン1回】相手がイベントを発動した時、カード1枚を引く",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP01-004 opp_event_or_trigger_fired: ドン!!×1 + 自ターン + 1回 + 相手イベント発動時 → 1ドロー",
+      "when": "opp_event_or_trigger_fired",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】【ターン1回】相手がイベントを発動した時、カード1枚を引く"
+          "draw": 1
         }
       ]
     }
@@ -64131,6 +64645,11 @@
             "duration": "turn"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -64145,6 +64664,11 @@
             "amount": 2000,
             "duration": "turn"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -64784,7 +65308,12 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "opp_turn": true
+        }
+      ]
     }
   ],
   "ST19-005": [
@@ -67412,9 +67941,6 @@
     {
       "_text": "ホーキンス アタック時: ドン1+ で自身アクティブ化",
       "when": "on_attack",
-      "if": {
-        "self_don_active_ge": 1
-      },
       "do": [
         {
           "untap": "self"
@@ -67422,7 +67948,15 @@
       ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "conditions": [
+        {
+          "self_don_active_ge": 1
+        },
+        {
+          "self_turn": true
+        }
+      ]
     }
   ],
   "ST02-013": [
@@ -68442,12 +68976,22 @@
   ],
   "OP01-004_p2": [
     {
-      "_text": "on_attached_don n=1: 【自分のターン中】【ターン1回】相手がイベントを発動した時、カード1枚を引く",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP01-004 opp_event_or_trigger_fired: ドン!!×1 + 自ターン + 1回 + 相手イベント発動時 → 1ドロー",
+      "when": "opp_event_or_trigger_fired",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】【ターン1回】相手がイベントを発動した時、カード1枚を引く"
+          "draw": 1
         }
       ]
     }
@@ -70422,6 +70966,11 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -73761,6 +74310,11 @@
             "amount": 1
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -73780,6 +74334,11 @@
             "amount": 1
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
       ]
     }
   ],
@@ -73798,6 +74357,11 @@
             },
             "amount": 1
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
@@ -74142,6 +74706,11 @@
             },
             "amount": 1
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
         }
       ]
     }
