@@ -271,20 +271,61 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 # cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)
                 if not eval_condition(eff.get("if", {}), state, me, self_inplay):
                     continue
+                # 【ターン1回】 ガード (cost 経由ではない top-level once_per_turn)。
+                # cost 持ち効果は trigger_on_attack/fire_activate_main 側で支払い時にチェック済み。
+                # ここは「cost 不要の once_per_turn」 (= on_play / on_attack 非コスト等) を扱う。
+                if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
+                    continue
                 for primitive in eff.get("do", []):
                     execute_effect(primitive, state, me, opp, self_inplay)
             return
 
         # 通常の when 一致 effects を全て発火
-        for eff in bundle.effects:
+        for idx, eff in enumerate(bundle.effects):
             if eff.get("when") != when:
                 continue
             if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                continue
+            # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
+            if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
                 continue
             for primitive in eff.get("do", []):
                 execute_effect(primitive, state, me, opp, self_inplay)
     finally:
         state.current_source_card_id = prev_src_cid
+
+
+def _check_and_set_once_per_turn(
+    state: GameState,
+    me: Player,
+    eff: EffectSpec,
+    card_id: str,
+    idx: int,
+) -> bool:
+    """effect spec の `once_per_turn` をチェックし、 未使用なら使用済みフラグを立てる。
+
+    戻り値:
+    - True: once_per_turn 指定なし、 もしくは未使用 → 発動許可
+    - False: 既に使用済み → 発動拒否 (= 呼び出し元は continue でスキップ)
+
+    once_per_turn の値:
+    - True: 自動キー (= f"{card_id}:{when}:{idx}")
+    - "<str>": 明示キー (= 複数 effect で同一キーを共有可)
+
+    cost 経由の once_per_turn (= activate_main / on_attack の `cost.once_per_turn`) は
+    InPlay 側のフラグで別管理されているのでここでは触れない。
+    """
+    opt = eff.get("once_per_turn")
+    if not opt:
+        return True
+    if opt is True:
+        key = f"{card_id}:{eff.get('when', '')}:{idx}"
+    else:
+        key = f"key:{opt}"
+    if key in me.once_per_turn_used:
+        return False
+    me.once_per_turn_used.add(key)
+    return True
 
 
 def _maybe_resolve(state: GameState) -> None:

@@ -339,6 +339,11 @@ class Player:
     block_chara_play_until_turn_end: bool = False
     # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット
     block_self_draw_until_turn_end: bool = False
+    # 【ターン1回】効果の発動済みキー集合。
+    # キー形式: f"{card_id}:{when}:{idx}" もしくは effect spec で指定された明示キー文字列。
+    # 自分の REFRESH で全クリア (= 次の自ターンで再発動可)。
+    # _execute_event が effect spec の once_per_turn を見て set / check する。
+    once_per_turn_used: set = field(default_factory=set)
 
     MAX_CHARACTERS = 5
     MAX_STAGES = 1     # 公式 3-8-5

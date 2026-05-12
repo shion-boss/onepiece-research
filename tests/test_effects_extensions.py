@@ -136,3 +136,132 @@ def test_opp_leader_feature_list():
     assert eval_condition(
         {"opp_leader_feature": ["存在しない_A", "存在しない_B"]}, state, me
     ) is False
+
+
+# --------------------------------------------------------------------------- #
+# once_per_turn guard (top-level effect spec)
+# --------------------------------------------------------------------------- #
+def _make_overlay_bundle(card_id, effects):
+    """簡易 CardEffectBundle ファクトリ (テスト用)。"""
+    from engine.effects import CardEffectBundle
+    return CardEffectBundle(card_id=card_id, effects=effects)
+
+
+def test_once_per_turn_blocks_second_fire():
+    """once_per_turn=True の効果は同一ターン中、 同一カードで 2 回目発火しない。"""
+    from engine.effects import trigger_on_play
+    repo = _repo()
+    overlay = {
+        "OP01-013": _make_overlay_bundle("OP01-013", [{
+            "when": "on_play",
+            "once_per_turn": True,
+            "do": [{"draw": 1}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-003")
+    state.effects_overlay = overlay
+    me = state.players[0]
+    opp = state.players[1]
+    hand_before = len(me.hand)
+    # 1 体目: 発動
+    ip1 = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip1)
+    trigger_on_play(state, me, opp, ip1, overlay)
+    assert len(me.hand) == hand_before + 1
+    # 2 体目 (同 card_id): once_per_turn でブロック
+    ip2 = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip2)
+    trigger_on_play(state, me, opp, ip2, overlay)
+    assert len(me.hand) == hand_before + 1, "2 体目は once_per_turn でスキップ"
+
+
+def test_once_per_turn_explicit_key_shared():
+    """once_per_turn=<str>: 異なる効果でも同一キーを共有でき、 排他制御できる。"""
+    from engine.effects import trigger_on_play
+    repo = _repo()
+    overlay = {
+        "OP01-013": _make_overlay_bundle("OP01-013", [
+            {
+                "when": "on_play",
+                "once_per_turn": "shared_key_X",
+                "do": [{"draw": 1}],
+            },
+            {
+                "when": "on_play",
+                "once_per_turn": "shared_key_X",
+                "do": [{"draw": 2}],
+            },
+        ]),
+    }
+    state = _make_state(repo, "OP01-003")
+    state.effects_overlay = overlay
+    me = state.players[0]
+    opp = state.players[1]
+    hand_before = len(me.hand)
+    ip = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip)
+    trigger_on_play(state, me, opp, ip, overlay)
+    # 同キーなので片方しか発火しない (draw 1 のみ)
+    assert len(me.hand) == hand_before + 1
+
+
+def test_once_per_turn_resets_on_refresh():
+    """once_per_turn のフラグは REFRESH 時にクリアされる。"""
+    from engine.effects import trigger_on_play
+    repo = _repo()
+    overlay = {
+        "OP01-013": _make_overlay_bundle("OP01-013", [{
+            "when": "on_play",
+            "once_per_turn": True,
+            "do": [{"draw": 1}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-003")
+    state.effects_overlay = overlay
+    me = state.players[0]
+    opp = state.players[1]
+    hand_before = len(me.hand)
+    ip1 = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip1)
+    trigger_on_play(state, me, opp, ip1, overlay)
+    assert me.once_per_turn_used, "発動後はフラグセット"
+    # 直接 set をクリアして再発動を確認 (REFRESH 相当)
+    me.once_per_turn_used.clear()
+    ip2 = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip2)
+    trigger_on_play(state, me, opp, ip2, overlay)
+    assert len(me.hand) == hand_before + 2, "クリア後は再発動"
+
+
+def test_once_per_turn_per_player_isolated():
+    """once_per_turn のフラグはプレイヤー毎に独立。 相手の発動は自分に影響しない。"""
+    from engine.effects import trigger_on_play
+    repo = _repo()
+    overlay = {
+        "OP01-013": _make_overlay_bundle("OP01-013", [{
+            "when": "on_play",
+            "once_per_turn": True,
+            "do": [{"draw": 1}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-003")
+    state.effects_overlay = overlay
+    me = state.players[0]
+    opp = state.players[1]
+    me_hand_before = len(me.hand)
+    opp_hand_before = len(opp.hand)
+    # me 側で発動
+    ip_me = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip_me)
+    trigger_on_play(state, me, opp, ip_me, overlay)
+    assert len(me.hand) == me_hand_before + 1
+    # opp 側でも同カードを発動 (相手プレイヤーの set は独立)
+    ip_opp = InPlay.of(repo.get("OP01-013"), sickness=True)
+    opp.characters.append(ip_opp)
+    trigger_on_play(state, opp, me, ip_opp, overlay)
+    assert len(opp.hand) == opp_hand_before + 1
+    # me 側はそのまま再発動できない (使用済み)
+    ip_me2 = InPlay.of(repo.get("OP01-013"), sickness=True)
+    me.characters.append(ip_me2)
+    trigger_on_play(state, me, opp, ip_me2, overlay)
+    assert len(me.hand) == me_hand_before + 1, "me 側は使用済みのまま"
