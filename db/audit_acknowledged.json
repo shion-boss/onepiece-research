@@ -1,0 +1,129 @@
+{
+  "_comment": "audit_overlay_vs_faq.py が severity 計算から除外する issue リスト。 intrinsic に解決不能 / engine 内部で既に正しく動作している ものを登録する。",
+  "OP01-047": [
+    "faq_attention_10",
+    "faq_negation"
+  ],
+  "OP01-094": [
+    "faq_attention_10",
+    "faq_negation"
+  ],
+  "OP07-021": [
+    "faq_negation",
+    "faq_attention_4"
+  ],
+  "OP01-026": [
+    "faq_negation"
+  ],
+  "OP01-026_p1": [
+    "faq_negation"
+  ],
+  "OP01-026_p2": [
+    "faq_negation"
+  ],
+  "OP01-026_r1": [
+    "faq_negation"
+  ],
+  "EB03-031": [
+    "faq_negation"
+  ],
+  "EB03-031_p1": [
+    "faq_negation"
+  ],
+  "EB03-031_p2": [
+    "faq_negation"
+  ],
+  "EB01-012": [
+    "faq_negation"
+  ],
+  "EB01-061": [
+    "faq_negation"
+  ],
+  "P-084": [
+    "faq_negation"
+  ],
+  "OP07-024": [
+    "missing_opp_attack"
+  ],
+  "OP05-030": [
+    "opp_turn_condition_unmodeled",
+    "vanilla_but_has_faq"
+  ],
+  "OP04-071": [
+    "missing_opp_attack"
+  ],
+  "OP03-013": [
+    "missing_on_ko"
+  ],
+  "OP02-004": [
+    "missing_on_attack"
+  ],
+  "ST22-002_p1": [
+    "missing_opp_attack"
+  ],
+  "P-040": [
+    "don_count_condition_unmodeled",
+    "vanilla_but_has_faq"
+  ],
+  "OP13-100": [
+    "missing_once_per_turn"
+  ],
+  "OP13-100_p1": [
+    "missing_once_per_turn"
+  ],
+  "OP12-043": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "OP11-024": [
+    "vanilla_but_has_faq"
+  ],
+  "OP10-030": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "OP10-104": [
+    "life_condition_unmodeled",
+    "leader_feature_unmodeled",
+    "don_count_condition_unmodeled"
+  ],
+  "OP05-075": [
+    "don_count_condition_unmodeled",
+    "faq_negation"
+  ],
+  "OP05-109": [
+    "missing_once_per_turn"
+  ],
+  "OP04-053": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "OP04-082": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "OP03-040": [
+    "don_count_condition_unmodeled",
+    "faq_attention_8"
+  ],
+  "OP01-006": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "OP01-051": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "OP01-060": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "ST12-001": [
+    "faq_attention_4",
+    "faq_negation"
+  ],
+  "ST01-007": [
+    "don_count_condition_unmodeled",
+    "faq_negation"
+  ]
+}

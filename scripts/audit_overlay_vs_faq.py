@@ -422,6 +422,15 @@ def main():
             except Exception:
                 continue
 
+    # Acknowledged list: 「intrinsic 解決不能」 として severity 計算から除外する
+    # card_id → set(issue_name) のマッピング。 db/audit_acknowledged.json に保存。
+    ack_path = Path(__file__).resolve().parent.parent / "db" / "audit_acknowledged.json"
+    acknowledged: dict[str, set[str]] = {}
+    if ack_path.exists():
+        ack_raw = json.loads(ack_path.read_text(encoding="utf-8"))
+        for cid, issues in ack_raw.items():
+            acknowledged[cid] = set(issues) if isinstance(issues, list) else set()
+
     rows: list[dict] = []
     for cid, card in cards.items():
         if cid in meta_leaders:
@@ -433,7 +442,10 @@ def main():
         issues = detect_issues(card, effects, qa_list)
         if not issues and not args.all:
             continue
-        severity = sum(issue_severity(i) for i in issues)
+        # acknowledged な issue を severity 計算から除外
+        ack_set = acknowledged.get(cid, set())
+        scoring_issues = [i for i in issues if i not in ack_set]
+        severity = sum(issue_severity(i) for i in scoring_issues)
         rows.append({
             "card_id": cid,
             "name": card.get("name", ""),

@@ -282,6 +282,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "when": "end_of_turn",
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ]
     }
   ],
   "OP06-045": [
@@ -313,6 +322,18 @@
       "do": [
         {
           "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "【アタック時】リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
+      "when": "on_attack",
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 1
+          }
         }
       ]
     }
@@ -1658,7 +1679,10 @@
         {
           "static_swords_attack_chara": true
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP11-040": [
@@ -11172,7 +11196,10 @@
         {
           "redirect_attack": "self_leader"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP14-079_p1": [
@@ -11439,6 +11466,18 @@
               "cost_le": 3
             }
           }
+        }
+      ]
+    },
+    {
+      "_text": "【アタック時】自分の場のドン‼が相手の場のドン‼の枚数以下の場合、 ドン‼デッキからドン‼1枚までを、 レストで追加する。",
+      "when": "on_attack",
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -13139,6 +13178,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "when": "end_of_turn",
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ]
     }
   ],
   "OP02-025": [
@@ -13674,7 +13722,10 @@
         {
           "rest": "one_opponent_character_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "ST22-001": [
@@ -13934,6 +13985,15 @@
             "amount": 1000,
             "duration": "turn"
           }
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "when": "end_of_turn",
+      "do": [
+        {
+          "life_to_hand": 1
         }
       ]
     }
@@ -14750,6 +14810,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "when": "end_of_turn",
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ]
     }
   ],
   "OP06-021_p3": [
@@ -15179,7 +15248,10 @@
         {
           "static_swords_attack_chara": true
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP11-040_p1": [
@@ -15480,7 +15552,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP09-001_p1": [
@@ -15495,7 +15570,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP07-038": [
@@ -15959,7 +16037,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "ST08-001": [
@@ -16050,7 +16131,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP10-042_p2": [
@@ -40620,6 +40704,19 @@
       "if": {
         "self_hand_count_le": 5
       }
+    },
+    {
+      "_text": "【ドン‼×1】【アタック時】自分の手札が5枚以下の場合、 カード1枚を引く。",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_hand_count_le": 5
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP01-078_r1": [
@@ -40634,6 +40731,19 @@
       "if": {
         "self_hand_count_le": 5
       }
+    },
+    {
+      "_text": "【ドン‼×1】【アタック時】自分の手札が5枚以下の場合、 カード1枚を引く。",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_hand_count_le": 5
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP01-120_p5": [
@@ -64127,7 +64237,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP02-101": [
@@ -67674,7 +67787,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "ST22-012_p1": [
@@ -67700,7 +67816,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "ST21-002": [
