@@ -887,6 +887,40 @@ def _resolve_target(
             target_name = m.group(1)
             return [c for c in me.characters if c.card.name == target_name]
 
+        # one_self_character_feature_X (= 自分の特徴 X を持つキャラ 1 体、 power 高い順)
+        # OP11-031 ジンベエ系。
+        m = re.match(r"one_self_character_feature_(.+)$", target_spec)
+        if m:
+            feat = m.group(1)
+            cands = sorted(
+                [c for c in me.characters if feat in c.card.features],
+                key=lambda c: -c.power,
+            )
+            return cands[:1]
+
+        # all_self_characters_feature_X (= 自分の特徴 X を持つキャラ 全員)
+        m = re.match(r"all_self_characters_feature_(.+)$", target_spec)
+        if m:
+            feat = m.group(1)
+            return [c for c in me.characters if feat in c.card.features]
+
+        # one_self_inplay_feature_X (= 自分のリーダーかキャラ 特徴 X を持つ 1 体)
+        # OP14-114 ラン 等。
+        m = re.match(r"one_self_inplay_feature_(.+)$", target_spec)
+        if m:
+            feat = m.group(1)
+            cands = [me.leader] + list(me.characters)
+            cands = [c for c in cands if feat in c.card.features]
+            cands.sort(key=lambda c: -c.power)
+            return cands[:1]
+
+        # all_self_inplay_feature_X (= 自分のリーダーかキャラ 特徴 X を持つ 全員)
+        m = re.match(r"all_self_inplay_feature_(.+)$", target_spec)
+        if m:
+            feat = m.group(1)
+            cands = [me.leader] + list(me.characters)
+            return [c for c in cands if feat in c.card.features]
+
         # one_opponent_inplay_cost_le_N (= 相手のリーダーかコスト N 以下のキャラ 1 体)
         # 脅威優先: パワー高いキャラ → なければリーダー
         m = re.match(r"one_opponent_inplay_cost_le_(\d+)(?:cost)?$", target_spec)
@@ -990,6 +1024,8 @@ def execute_effect(
                         trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
                         # 「相手のキャラが KO された時」 (= 自分の効果で KO した側)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                        # 「自分のキャラが KO された時」 (= KO された側の場効果)
+                        trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         elif k == "power_pump":
             # {"target": "self", "amount": 2000, "duration": "turn"|"static",
             #  "feature": "麦わらの一味" (特徴フィルタ),
@@ -1308,8 +1344,21 @@ def execute_effect(
                 t.rested = False
             state.push_log(f"  効果: アクティブ化 → {[t.card.name for t in targets]}")
         elif k == "give_rush":
-            # 速攻付与 (登場ターン中もアタック可)。target = self / one_self_character
-            target_spec = v if isinstance(v, str) else "self"
+            # 速攻付与 (登場ターン中もアタック可)。target = str (parametric) / dict (filter)
+            # dict 形式は give_keyword と同様に target_spec を _resolve_target に渡す。
+            # 例: {"type": "one_self_chara_filtered", "filter": {"feature_in": [...]}}
+            # 例: {"target": "one_self_character_feature_X"}
+            if isinstance(v, dict):
+                if "type" in v:
+                    target_spec = v
+                elif "target" in v:
+                    target_spec = v.get("target", "self")
+                else:
+                    target_spec = "self"
+            elif isinstance(v, str):
+                target_spec = v
+            else:
+                target_spec = "self"
             targets = _resolve_target(target_spec, state, me, opp, self_inplay)
             for t in targets:
                 t.summoning_sickness = False
@@ -1986,6 +2035,7 @@ def execute_effect(
                         if state.effects_overlay:
                             trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                            trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         elif k == "return_to_hand_multi":
             # マルチターゲット bounce (手札戻し)。
             if not isinstance(v, list):
@@ -2085,6 +2135,8 @@ def execute_effect(
                 state.push_log(f"  効果: {ip.card.name} を trash へ")
                 if state.effects_overlay:
                     trigger_on_ko(state, me, opp, ip.card, state.effects_overlay)
+                    # 自KO なので on_self_chara_ko (= me 側) を発火
+                    trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
         elif k == "extra_turn":
             # 「このターンの後に自分のターンを追加で得る」。
             # 簡略実装: state.extra_turn_pending を True に。 advance_phase の END 時に
@@ -2319,6 +2371,62 @@ def execute_effect(
                     if self_inplay is None or self_inplay not in me.characters:
                         can_pay = False
                         break
+                elif "return_self_don_to_deck" in cs:
+                    # 公式 「ドン!! -N (自分の場のドンを N 枚ドンデッキに戻すことができる)」
+                    # optional cost として支払可。 場のドン (active+rested) が N 枚以上必要。
+                    n_spec = cs["return_self_don_to_deck"]
+                    n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
+                    if (me.don_active + me.don_rested) < n:
+                        can_pay = False
+                        break
+                elif "power_pump" in cs:
+                    # 公式 「自分のアクティブのリーダーを、 このターン中、 パワー-N することができる：効果」
+                    # 自リーダー弱体化を optional cost として扱う (EB03-006 ナミ系)。
+                    # target がアクティブの場合 OK (rested 中は当然 OK だが効果意味は薄い)。
+                    pp = cs["power_pump"]
+                    tgt = pp.get("target", "self") if isinstance(pp, dict) else "self"
+                    if tgt in ("self_leader", "self"):
+                        # self はアタッカー (self_inplay)、 self_leader は me.leader。
+                        # cost としてのアタックリーダー弱体は当然リーダー必要 → always present。
+                        pass
+                    # 弱体 (amount<0) の場合は実態あるか確認
+                    amt = int(pp.get("amount", 0)) if isinstance(pp, dict) else 0
+                    if amt < 0 and not me.characters and tgt == "self":
+                        # self target で chara が無く self_inplay も無い場合 不可
+                        if self_inplay is None:
+                            can_pay = False
+                            break
+                elif "rest_self" in cs:
+                    # 自身 (self_inplay) を rest する cost。 アクティブが必要。
+                    if self_inplay is None or self_inplay.rested:
+                        can_pay = False
+                        break
+                elif "rest_self_target_name" in cs or "rest_self_target" in cs:
+                    # 自場の name 一致 アクティブが必要。
+                    spec_n = cs.get("rest_self_target_name") or cs.get("rest_self_target")
+                    target_name = (
+                        spec_n.get("name", "") if isinstance(spec_n, dict)
+                        else str(spec_n)
+                    )
+                    cands = [
+                        ip for ip in (list(me.characters) + list(me.stages))
+                        if (ip.card.name == target_name and not ip.rested)
+                    ]
+                    if not cands:
+                        can_pay = False
+                        break
+                elif "discard_hand_with_filter" in cs:
+                    # filter 付き discard cost。 手札に filter 一致が count 以上必要。
+                    df_spec = cs["discard_hand_with_filter"]
+                    if "filter" in df_spec:
+                        d_filt = df_spec.get("filter", {})
+                    else:
+                        d_filt = {k: v for k, v in df_spec.items() if k != "count"}
+                    d_count = int(df_spec.get("count", 1))
+                    matching = [c for c in me.hand if _matches_filter(c, d_filt)]
+                    if len(matching) < d_count:
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -2330,6 +2438,45 @@ def execute_effect(
                 state.push_log(f"  効果: optional_cost_then 不発 (cost不能 or 効果空)")
                 return False
             for cs in cost_specs:
+                # 一部 cost は execute_effect の通常パスでは正しく動かない:
+                #   - rest_self_target_name / rest_self_target はそのキャラを rest にする
+                #     primitive が存在しないので、 ここで直接処理する。
+                if "rest_self_target_name" in cs or "rest_self_target" in cs:
+                    spec_n = cs.get("rest_self_target_name") or cs.get("rest_self_target")
+                    target_name = (
+                        spec_n.get("name", "") if isinstance(spec_n, dict)
+                        else str(spec_n)
+                    )
+                    for ip in (list(me.characters) + list(me.stages)):
+                        if ip.card.name == target_name and not ip.rested:
+                            ip.rested = True
+                            state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                            break
+                    continue
+                if "rest_self" in cs and not isinstance(cs.get("rest_self"), (dict, int, str)):
+                    # rest_self: True 形式 (= self_inplay を rest)
+                    if self_inplay is not None and not self_inplay.rested:
+                        self_inplay.rested = True
+                        state.push_log(f"  効果コスト: 自身レスト {self_inplay.card.name}")
+                    continue
+                if "discard_hand_with_filter" in cs:
+                    df_spec = cs["discard_hand_with_filter"]
+                    if "filter" in df_spec:
+                        d_filt = df_spec.get("filter", {})
+                    else:
+                        d_filt = {k: v for k, v in df_spec.items() if k != "count"}
+                    d_count = int(df_spec.get("count", 1))
+                    discarded = 0
+                    new_hand = []
+                    for c in me.hand:
+                        if discarded < d_count and _matches_filter(c, d_filt):
+                            me.trash.append(c)
+                            discarded += 1
+                            state.push_log(f"  効果コスト: 手札捨て (filter) → {c.name}")
+                        else:
+                            new_hand.append(c)
+                    me.hand = new_hand
+                    continue
                 execute_effect(cs, state, me, opp, self_inplay)
             for es in effect_specs:
                 execute_effect(es, state, me, opp, self_inplay)
@@ -2434,6 +2581,13 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "feature" in filt and filt["feature"] not in card.features:
         return False
+    if "feature_in" in filt:
+        # 特徴 OR (例: 「特徴《魚人族》か《人魚族》」)。
+        feats = filt["feature_in"]
+        if isinstance(feats, str):
+            feats = [feats]
+        if not any(f in card.features for f in feats):
+            return False
     if "color" in filt and filt["color"] not in card.color:
         return False
     if "exclude_name" in filt and card.name == filt["exclude_name"]:
@@ -2577,6 +2731,16 @@ def evaluate_static_effects(
                         for t in targets:
                             t.attack_taunt = True
                         continue
+                    # 「相手はキャラの『X』以外にアタックできない」 (= name フィルタ付き taunt)
+                    # OP01-051 ユースタス・キッド系。 場の me.characters のうち name 一致を
+                    # attack_taunt=True に。 0 体なら制約なし (= 自然な動作)。
+                    if "cannot_attack_target_except" in primitive:
+                        spec = primitive["cannot_attack_target_except"]
+                        target_name = spec.get("name", "") if isinstance(spec, dict) else str(spec)
+                        for t in me.characters:
+                            if t.card.name == target_name:
+                                t.attack_taunt = True
+                        continue
                     # 「このカードはアタックできない」常在 (OP11-022 緑黄しらほし リーダー)
                     if "set_cannot_attack_static" in primitive:
                         target_spec = primitive["set_cannot_attack_static"] if isinstance(primitive["set_cannot_attack_static"], str) else "self"
@@ -2633,6 +2797,29 @@ def evaluate_static_effects(
                             for t in targets:
                                 cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
                                 t.base_cost_override = max(0, cur + delta)
+                        continue
+                    # filter 付きの 場のキャラ コスト変更 静的効果 (OP10-042 ウソップ系)
+                    # 公式 「自分のコスト2以上の特徴《ドレスローザ》を持つキャラすべてを、 コスト+1」 等。
+                    # spec: {"filter": {"feature": "ドレスローザ", "cost_ge": 2}, "delta": 1,
+                    #        "scope": "self" | "opp" (省略時 = "self")}
+                    if "set_base_cost_filtered_static" in primitive:
+                        spec = primitive["set_base_cost_filtered_static"]
+                        filt = spec.get("filter", {})
+                        scope = spec.get("scope", "self")
+                        targets_pool = me.characters if scope == "self" else opp.characters
+                        if "delta" in spec:
+                            delta = int(spec["delta"])
+                            for t in targets_pool:
+                                if not _matches_filter(t.card, filt):
+                                    continue
+                                cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
+                                t.base_cost_override = max(0, cur + delta)
+                        elif "amount" in spec:
+                            amount = int(spec["amount"])
+                            for t in targets_pool:
+                                if not _matches_filter(t.card, filt):
+                                    continue
+                                t.base_cost_override = amount
                         continue
                     execute_effect(primitive, state, me, opp, inplay)
 
@@ -2728,6 +2915,46 @@ def trigger_on_opp_chara_ko(
     if not effects_overlay:
         return
     _enqueue_field_when(state, me, "on_opp_chara_ko", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_on_self_chara_ko(
+    state: GameState,
+    victim_owner: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「自分の(特徴X を持つ)キャラが KO された時」 (on_self_chara_ko)。
+    KO された側 (= victim_owner) の場の効果を発火。 OP10-042 ウソップ系等で利用。
+
+    on_opp_chara_ko (KO した側の発火) と対称: on_self_chara_ko は KO された側の発火。
+    条件付きフィルタ (例: 「特徴X を持つキャラが KO された場合」) は overlay 側の if で
+    記述するので、 トリガー自体は無条件発火 (フィルタは eval_condition で判定)。
+    trigger_on_ko / trigger_on_opp_chara_ko と並行して呼ぶ。"""
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_opp_event_or_trigger_fired(
+    state: GameState,
+    opp_player: Player,
+    actor_player: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「相手がイベントか【トリガー】を発動した時」 (opp_event_or_trigger_fired)。
+    opp_player = 効果保有側 (= イベント/トリガーを「相手として」見る側)。
+    actor_player = イベントを発動 / トリガーを発火した側 (= opp_player から見た相手)。
+    OP11-102 ケイミー 等。
+
+    呼び出し箇所:
+      - trigger_main_event 内 (= EVENT を発動した側の opp 側で発火)
+      - trigger_lifecard_trigger 内 (= TRIGGER 発動した defender 側の opp 側で発火)
+    """
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, opp_player, "opp_event_or_trigger_fired", effects_overlay)
     _maybe_resolve(state)
 
 
@@ -2991,6 +3218,11 @@ def trigger_lifecard_trigger(
         source_card_id=card.card_id,
         source_iid=None,
     )
+    # 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)
+    # defender = トリガー発火側 → attacker_player 側を opp として発火させる。
+    trigger_opp_event_or_trigger_fired(
+        state, attacker_player, defender, effects_overlay,
+    )
     _maybe_resolve(state)
     return True
 
@@ -3041,18 +3273,19 @@ def trigger_main_event(
 ) -> None:
     """【メイン】イベントを enqueue。 コストは呼び出し側で支払い済み。"""
     bundle = effects_overlay.get(card.card_id)
-    if bundle is None:
-        return
-    if not any(e.get("when") == "main" for e in bundle.effects):
-        return
-    me_idx = state.players.index(me)
-    enqueue_event(
-        state,
-        when="main",
-        owner_idx=me_idx,
-        source_card_id=card.card_id,
-        source_iid=None,
-    )
+    has_main = bundle is not None and any(e.get("when") == "main" for e in bundle.effects)
+    if has_main:
+        me_idx = state.players.index(me)
+        enqueue_event(
+            state,
+            when="main",
+            owner_idx=me_idx,
+            source_card_id=card.card_id,
+            source_iid=None,
+        )
+    # イベント発動そのもの (= bundle 有無に関わらず) で相手側の opp_event_or_trigger_fired を発火。
+    # 公式 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)。
+    trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
     _maybe_resolve(state)
 
 
@@ -3065,18 +3298,18 @@ def trigger_counter_event(
 ) -> None:
     """【カウンター】イベントを enqueue (7-1-3-1-2)。 me=防御側。 コスト既払い。"""
     bundle = effects_overlay.get(card.card_id)
-    if bundle is None:
-        return
-    if not any(e.get("when") == "counter" for e in bundle.effects):
-        return
-    me_idx = state.players.index(me)
-    enqueue_event(
-        state,
-        when="counter",
-        owner_idx=me_idx,
-        source_card_id=card.card_id,
-        source_iid=None,
-    )
+    has_counter = bundle is not None and any(e.get("when") == "counter" for e in bundle.effects)
+    if has_counter:
+        me_idx = state.players.index(me)
+        enqueue_event(
+            state,
+            when="counter",
+            owner_idx=me_idx,
+            source_card_id=card.card_id,
+            source_iid=None,
+        )
+    # カウンターイベントも 「イベント発動」 に該当 → 相手側の opp_event_or_trigger_fired 発火。
+    trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
     _maybe_resolve(state)
 
 
@@ -3169,11 +3402,39 @@ def _can_pay_activate_cost(
     discard_n = int(cost.get("discard_hand", 0))
     if discard_n > 0 and len(me.hand) < discard_n:
         return False
+    # filter 付き discard cost (= 「自分の手札から特徴X を持つカード N 枚を捨てることができる」)
+    # spec: {"discard_hand_with_filter": {"filter": {"feature": "百獣海賊団"}, "count": 1}}
+    #   or 旧簡略形 {"discard_hand_with_filter": {"feature": "...", "count": N}}
+    discard_filter_spec = cost.get("discard_hand_with_filter")
+    if discard_filter_spec:
+        if "filter" in discard_filter_spec:
+            d_filt = discard_filter_spec.get("filter", {})
+        else:
+            # 旧簡略形を filter dict に変換
+            d_filt = {k: v for k, v in discard_filter_spec.items() if k != "count"}
+        d_count = int(discard_filter_spec.get("count", 1))
+        matching = [c for c in me.hand if _matches_filter(c, d_filt)]
+        if len(matching) < d_count:
+            return False
     ko_filter = cost.get("ko_self_with_filter")
     if ko_filter:
         # filter 一致の自キャラが少なくとも 1 枚必要
         candidates = [c for c in me.characters if _matches_filter(c.card, ko_filter)]
         if not candidates:
+            return False
+    rest_filter_name = cost.get("rest_self_target_name") or cost.get("rest_self_target")
+    if rest_filter_name:
+        # 自分の場のキャラ/ステージで name 一致 + アクティブが 1 枚以上必要。
+        # spec の形式: "ハチノス" (= name) または {"name": "X"}
+        target_name = (
+            rest_filter_name.get("name", "") if isinstance(rest_filter_name, dict)
+            else str(rest_filter_name)
+        )
+        cands = [
+            ip for ip in (list(me.characters) + list(me.stages))
+            if (ip.card.name == target_name and not ip.rested)
+        ]
+        if not cands:
             return False
     once_per_turn = cost.get("once_per_turn", True)
     if once_per_turn and getattr(inplay, "_act_used", False):
@@ -3345,6 +3606,24 @@ def fire_activate_main(
         idx = state.rng.randrange(len(me.hand))
         me.trash.append(me.hand.pop(idx))
         state.push_log(f"  起動メインコスト: 手札1捨て")
+    # filter 付き discard cost (= 「自分の手札から特徴X を持つカード N 枚を捨てる」)
+    discard_filter_spec = cost.get("discard_hand_with_filter")
+    if discard_filter_spec:
+        if "filter" in discard_filter_spec:
+            d_filt = discard_filter_spec.get("filter", {})
+        else:
+            d_filt = {k: v for k, v in discard_filter_spec.items() if k != "count"}
+        d_count = int(discard_filter_spec.get("count", 1))
+        discarded = 0
+        new_hand = []
+        for c in me.hand:
+            if discarded < d_count and _matches_filter(c, d_filt):
+                me.trash.append(c)
+                discarded += 1
+                state.push_log(f"  起動メインコスト: 手札捨て (filter) → {c.name}")
+            else:
+                new_hand.append(c)
+        me.hand = new_hand
     # ko_self_with_filter: 自場の該当キャラ1枚KO
     ko_filter = cost.get("ko_self_with_filter")
     if ko_filter:
@@ -3358,6 +3637,21 @@ def fire_activate_main(
             state.push_log(f"  起動メインコスト: 自KO {target.card.name}")
             if state.effects_overlay:
                 trigger_on_ko(state, me, opp, target.card, state.effects_overlay)
+                # 自KO なので on_self_chara_ko (= me 側) を発火
+                trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
+    # rest_self_target_name: 自場の name 一致キャラ/ステージを 1 枚 rest
+    # 公式: 「自分の『ハチノス』1枚をレストにできる：効果」 (ST27-001 アバロ・ピサロ等)
+    rest_filter_name = cost.get("rest_self_target_name") or cost.get("rest_self_target")
+    if rest_filter_name:
+        target_name = (
+            rest_filter_name.get("name", "") if isinstance(rest_filter_name, dict)
+            else str(rest_filter_name)
+        )
+        for ip in (list(me.characters) + list(me.stages)):
+            if ip.card.name == target_name and not ip.rested:
+                ip.rested = True
+                state.push_log(f"  起動メインコスト: 自レスト {ip.card.name}")
+                break
     # once_per_turn フラグ
     if cost.get("once_per_turn", True):
         setattr(inplay, "_act_used", True)
