@@ -674,6 +674,8 @@ class CounterCandidateOut(BaseModel):
     rationale: list[str]
     role_distribution: dict[str, int]
     main: list[DeckEntry]
+    regulation_required: str           # "standard" or "extra" (= block-1 含むなら extra)
+    extra_only_cards: list[str]        # block-1 のみ (Standard 使用不可) のカード ID list
 
 
 class ExploreCounterResponse(BaseModel):
@@ -717,6 +719,12 @@ def explore_counter_decks(req: ExploreCounterRequest):
     except Exception as e:
         raise HTTPException(500, f"explore failed: {e}")
 
+    # Standard 規制 判定用 (= block-1 のみのカードは Extra 必須)
+    from engine.deck import _load_max_block_by_base_id, _base_id, _load_banlist
+    max_block_map = _load_max_block_by_base_id()
+    banlist = _load_banlist() or {}
+    standard_min_block = banlist.get("standard_min_block", 2)
+
     out_candidates: list[CounterCandidateOut] = []
     for rank, cand in enumerate(candidates, 1):
         counts = _Counter(c.card_id for c in cand.deck.main)
@@ -724,6 +732,19 @@ def explore_counter_decks(req: ExploreCounterRequest):
             DeckEntry(card_id=cid, count=n)
             for cid, n in sorted(counts.items())
         ]
+        # 各カードの Standard 使用可否を判定
+        extra_only: list[str] = []
+        for cid in counts:
+            try:
+                card = repo.get(cid)
+                bid = _base_id(cid)
+                max_block = max_block_map.get(bid, card.block_icon)
+                if max_block < standard_min_block:
+                    extra_only.append(cid)
+            except KeyError:
+                continue
+        regulation_required = "extra" if extra_only else "standard"
+
         out_candidates.append(CounterCandidateOut(
             rank=rank,
             leader=cand.leader_id,
@@ -733,6 +754,8 @@ def explore_counter_decks(req: ExploreCounterRequest):
             rationale=cand.rationale,
             role_distribution=cand.role_distribution,
             main=main_entries,
+            regulation_required=regulation_required,
+            extra_only_cards=extra_only,
         ))
 
     return ExploreCounterResponse(

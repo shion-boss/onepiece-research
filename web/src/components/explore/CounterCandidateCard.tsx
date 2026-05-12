@@ -37,6 +37,20 @@ export function CounterCandidateCard({
             <span className="text-xs text-zinc-500">{candidate.leader}</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                candidate.regulation_required === "extra"
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                  : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              }`}
+              title={
+                candidate.regulation_required === "extra"
+                  ? `EX 必須 (block① カード含: ${candidate.extra_only_cards.slice(0, 3).join(", ")}${candidate.extra_only_cards.length > 3 ? " ほか" : ""})`
+                  : "Standard 使用可"
+              }
+            >
+              {candidate.regulation_required === "extra" ? "EX" : "STD"}
+            </span>
             <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
               {candidate.archetype}
             </span>

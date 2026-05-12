@@ -359,6 +359,8 @@ export type CounterCandidate = {
   rationale: string[];
   role_distribution: Record<string, number>;
   main: DeckEntry[];
+  regulation_required: Regulation;   // "standard" or "extra"
+  extra_only_cards: string[];        // block① のみのカード ID
 };
 
 export type ExploreCounterRequest = {

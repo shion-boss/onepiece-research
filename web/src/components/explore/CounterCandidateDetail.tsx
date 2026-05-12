@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveDeckToServer } from "@/lib/api";
-import type { CounterCandidate, Regulation } from "@/lib/types";
+import type { CounterCandidate } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
 
 export function CounterCandidateDetail({
@@ -17,34 +17,26 @@ export function CounterCandidateDetail({
   const [saving, setSaving] = useState(false);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [regulation, setRegulation] = useState<Regulation>("standard");
 
   const totalCount = candidate.main.reduce((sum, e) => sum + e.count, 0);
   const proposedSlug = `explore_${targetSlug}_${String(candidate.rank).padStart(2, "0")}_${candidate.leader}`;
+  const regulation = candidate.regulation_required; // auto-pick
 
-  // 422 レスポンスから「block①のみ」 エラーを検出
-  const errorIsBlockOnly =
-    error != null &&
-    /スタンダード使用不可.*block/.test(error) &&
-    regulation === "standard";
-
-  async function handleSave(forceRegulation?: Regulation) {
-    const reg = forceRegulation ?? regulation;
+  async function handleSave() {
     setSaving(true);
     setError(null);
     try {
       const ts = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const slug = `${proposedSlug}_${reg === "extra" ? "ex_" : ""}${ts}`;
+      const slug = `${proposedSlug}_${regulation === "extra" ? "ex_" : ""}${ts}`;
       const res = await saveDeckToServer({
-        name: `対策${candidate.rank}_${candidate.leader_name}_vs_${targetSlug}${reg === "extra" ? "_EX" : ""}`,
+        name: `対策${candidate.rank}_${candidate.leader_name}_vs_${targetSlug}${regulation === "extra" ? "_EX" : ""}`,
         leader: candidate.leader,
         main: candidate.main,
         slug,
-        regulation: reg,
+        regulation,
         overwrite: true,
       });
       setSavedSlug(res.slug);
-      if (forceRegulation) setRegulation(forceRegulation);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -56,45 +48,33 @@ export function CounterCandidateDetail({
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
-          <div className="text-lg font-semibold">
-            #{candidate.rank} {candidate.leader_name}
-            <span className="ml-2 text-sm font-normal text-zinc-500">
-              ({candidate.leader}) — {candidate.archetype} / score{" "}
-              {candidate.estimated_score}
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            <span>
+              #{candidate.rank} {candidate.leader_name}
             </span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                regulation === "extra"
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                  : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              }`}
+              title={
+                regulation === "extra"
+                  ? `EX 必須 (block① カード ${candidate.extra_only_cards.length} 種含)`
+                  : "Standard 使用可"
+              }
+            >
+              {regulation === "extra" ? "EX" : "STD"}
+            </span>
+          </div>
+          <div className="mt-0.5 text-sm text-zinc-500">
+            ({candidate.leader}) — {candidate.archetype} / score {candidate.estimated_score}
           </div>
           <div className="mt-1 text-xs text-zinc-500">
             メイン {totalCount} 枚 / unique {candidate.main.length}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!savedSlug && (
-            <fieldset className="flex items-center gap-2 rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">
-              <legend className="sr-only">保存規制</legend>
-              <label className="flex cursor-pointer items-center gap-1">
-                <input
-                  type="radio"
-                  name="regulation"
-                  value="standard"
-                  checked={regulation === "standard"}
-                  onChange={() => setRegulation("standard")}
-                  className="h-3 w-3"
-                />
-                <span>STD</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-1">
-                <input
-                  type="radio"
-                  name="regulation"
-                  value="extra"
-                  checked={regulation === "extra"}
-                  onChange={() => setRegulation("extra")}
-                  className="h-3 w-3"
-                />
-                <span>EX</span>
-              </label>
-            </fieldset>
-          )}
           {savedSlug ? (
             <button
               type="button"
@@ -106,11 +86,15 @@ export function CounterCandidateDetail({
           ) : (
             <button
               type="button"
-              onClick={() => handleSave()}
+              onClick={handleSave}
               disabled={saving}
-              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              className={`rounded px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
+                regulation === "extra"
+                  ? "bg-purple-600 hover:bg-purple-500"
+                  : "bg-blue-600 hover:bg-blue-500"
+              }`}
             >
-              {saving ? "保存中…" : "デッキとして保存"}
+              {saving ? "保存中…" : `${regulation === "extra" ? "EX" : "STD"} デッキとして保存`}
             </button>
           )}
         </div>
@@ -118,17 +102,14 @@ export function CounterCandidateDetail({
 
       {error && (
         <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
-          <div>保存失敗: {error}</div>
-          {errorIsBlockOnly && (
-            <button
-              type="button"
-              onClick={() => handleSave("extra")}
-              disabled={saving}
-              className="mt-2 rounded bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-500 disabled:opacity-50"
-            >
-              → EX デッキとして保存し直す
-            </button>
-          )}
+          保存失敗: {error}
+        </div>
+      )}
+
+      {regulation === "extra" && candidate.extra_only_cards.length > 0 && (
+        <div className="mb-3 rounded bg-purple-50 p-2 text-xs text-purple-800 dark:bg-purple-950/30 dark:text-purple-300">
+          <span className="font-medium">EX 必須カード ({candidate.extra_only_cards.length} 種): </span>
+          <span>{candidate.extra_only_cards.join(", ")}</span>
         </div>
       )}
 
@@ -144,24 +125,34 @@ export function CounterCandidateDetail({
       )}
 
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
-        {candidate.main.map((entry) => (
-          <div
-            key={entry.card_id}
-            className="relative overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800"
-            title={`${entry.card_id} ×${entry.count}`}
-          >
-            <div className="aspect-[5/7]">
-              <CardImage
-                cardId={entry.card_id}
-                alt={entry.card_id}
-                className="h-full w-full object-cover"
-              />
+        {candidate.main.map((entry) => {
+          const isExtraOnly = candidate.extra_only_cards.includes(entry.card_id);
+          return (
+            <div
+              key={entry.card_id}
+              className={`relative overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800 ${
+                isExtraOnly ? "ring-2 ring-purple-500" : ""
+              }`}
+              title={`${entry.card_id} ×${entry.count}${isExtraOnly ? " (EX 必須)" : ""}`}
+            >
+              <div className="aspect-[5/7]">
+                <CardImage
+                  cardId={entry.card_id}
+                  alt={entry.card_id}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="absolute right-1 top-1 rounded bg-black/70 px-1 text-xs font-bold text-white">
+                ×{entry.count}
+              </div>
+              {isExtraOnly && (
+                <div className="absolute left-1 top-1 rounded bg-purple-600 px-1 text-[10px] font-bold text-white">
+                  EX
+                </div>
+              )}
             </div>
-            <div className="absolute right-1 top-1 rounded bg-black/70 px-1 text-xs font-bold text-white">
-              ×{entry.count}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
