@@ -2290,7 +2290,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す"
+          "return_to_hand": "one_opponent_character_cost_le_3cost"
         }
       ],
       "if": {
@@ -2303,7 +2303,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_3cost"
         }
       ],
       "if": {
@@ -2692,7 +2692,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_ko】自分の手札1枚を相手が選び、捨てる"
+          "trash_self_hand_random": 1
         }
       ],
       "if": {
@@ -2713,7 +2713,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札1枚を相手が選び、捨てる。"
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -49924,7 +49924,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のパワー4000以下のリーダー1枚までを、このターン中、パワー+1000。"
+          "_unimplemented": "自分のパワー4000以下のリーダー1枚までを、このターン中、パワー+1000。 (engine 拡張要: 自リーダーパワー条件 / self_leader_power_le)"
         }
       ]
     }
@@ -51823,9 +51823,15 @@
       "_text": "on_attached_don n=1: 【自分のターン中】相手のキャラすべてを、コスト-1",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-1"
+          "set_base_cost": {
+            "target": "all_opponent_characters",
+            "delta": -1
+          }
         }
       ]
     }
@@ -51895,7 +51901,13 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト4以下の「うるティ」1枚までを、登場させる。"
+          "play_from_trash": {
+            "filter": {
+              "name": "うるティ",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -51907,7 +51919,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラのコスト+2"
+          "set_base_cost": {
+            "target": "self",
+            "delta": 2
+          }
         }
       ]
     }
@@ -53056,9 +53071,15 @@
       "_text": "on_attached_don n=1: 【自分のターン中】相手のキャラすべてを、コスト-1",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-1"
+          "set_base_cost": {
+            "target": "all_opponent_characters",
+            "delta": -1
+          }
         }
       ]
     }
@@ -55785,7 +55806,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】コスト2以下のキャラ1枚までを、持ち主の手札かデッキの下に戻す"
+          "choice": {
+            "options": [
+              [
+                {
+                  "return_to_hand": "one_opponent_character_cost_le_2cost"
+                }
+              ],
+              [
+                {
+                  "return_to_deck_bottom": "one_opponent_character_cost_le_2cost"
+                }
+              ]
+            ]
+          }
         }
       ],
       "if": {
@@ -55797,7 +55831,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "コスト2以下のキャラ1枚までを、持ち主の手札かデッキの下に戻す。"
+          "choice": {
+            "options": [
+              [
+                {
+                  "return_to_hand": "one_opponent_character_cost_le_2cost"
+                }
+              ],
+              [
+                {
+                  "return_to_deck_bottom": "one_opponent_character_cost_le_2cost"
+                }
+              ]
+            ]
+          }
         }
       ]
     }
@@ -56969,7 +57016,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚をトラッシュに置いてもよい。"
+          "mill_self_top": 1
         }
       ]
     }
@@ -56980,7 +57027,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_ko】自分のデッキの上から3枚をトラッシュに置いてもよい"
+          "mill_self_top": 3
         }
       ],
       "if": {
@@ -56992,7 +57039,7 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から3枚をトラッシュに置いてもよい。"
+          "mill_self_top": 3
         }
       ]
     }
@@ -57456,7 +57503,16 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のキャラ2枚までを、このターン中、コスト-2。"
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2
+          }
         }
       ]
     },
@@ -58875,7 +58931,10 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "相手のコスト3以下のステージ1枚までを、KOする。"
+          "ko_opp_stage": {
+            "cost_le": 3,
+            "limit": 1
+          }
         }
       ]
     }
@@ -59059,9 +59118,15 @@
       "_text": "on_attached_don n=2: 【相手のターン中】このキャラはパワー+3000",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "opp_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【相手のターン中】このキャラはパワー+3000"
+          "power_pump": {
+            "target": "self",
+            "amount": 3000
+          }
         }
       ]
     }
@@ -59771,7 +59836,7 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《王下七武海》を持つ場合、コスト5以下のキャラ1枚までを、持ち主の手札に戻す。"
+          "return_to_hand": "one_opponent_character_cost_le_5cost"
         }
       ],
       "if": {
@@ -59981,9 +60046,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分の場にドン‼が8枚以上ある場合、このキャラはパワー+1000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の場にドン‼が8枚以上ある場合、このキャラはパワー+1000"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
         }
       ]
     }
@@ -59993,9 +60065,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分の場にドン!!が8枚以上ある場合、このキャラはパワー+1000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_don_ge": 8
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の場にドン!!が8枚以上ある場合、このキャラはパワー+1000"
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
         }
       ]
     }
@@ -60762,9 +60841,12 @@
       "_text": "on_attached_don n=2: 相手のライフが3枚以下の場合、このキャラは効果でKOされない",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "opp_life_le": 3
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】相手のライフが3枚以下の場合、このキャラは効果でKOされない"
+          "set_ko_immune": "self"
         }
       ]
     },
@@ -63915,9 +63997,12 @@
       "_text": "on_attached_don n=1: 自分のライフが2枚以下の場合、このキャラはバトルでKOされない",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_life_le": 2
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のライフが2枚以下の場合、このキャラはバトルでKOされない"
+          "set_ko_immune": "self"
         }
       ]
     }
@@ -67300,9 +67385,15 @@
       "_text": "on_attached_don n=2: 【自分のターン中】このキャラはパワー+2000",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【自分のターン中】このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -67500,9 +67591,15 @@
       "_text": "on_attached_don n=1: 【自分のターン中】相手のキャラすべてを、コスト-2",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-2"
+          "set_base_cost": {
+            "target": "all_opponent_characters",
+            "delta": -2
+          }
         }
       ]
     }
@@ -67512,9 +67609,16 @@
       "_text": "on_attached_don n=1: 【自分のターン中】自分のライフが2枚以下の場合、このキャラはパワー+2000",
       "when": "on_attached_don",
       "n": 1,
+      "if": {
+        "self_turn": true,
+        "self_life_le": 2
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分のライフが2枚以下の場合、このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
@@ -67554,9 +67658,15 @@
       "_text": "on_attached_don n=2: 自分のライフが0枚の場合、このキャラはパワー+2000",
       "when": "on_attached_don",
       "n": 2,
+      "if": {
+        "self_life_le": 0
+      },
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】自分のライフが0枚の場合、このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
         }
       ]
     }
