@@ -61,6 +61,9 @@ onepiece_research/
 - [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
   - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
   - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
+  - **`_unimplemented` マーカー: 0 件達成 🎯 (R56 で完全消去)**
+  - audit sev≥5 = 0、 sev=3-4 = 0 (R59) — `db/audit_acknowledged.json` で intrinsic 除外
+  - engine 厳密化 audit 10/10 pass (`scripts/audit_engine_strictness.py`)
   - メタデッキ 15 リーダーは公式テキスト準拠で手書き、その他は自動生成 (近似 + fallback)
   - DSL条件: leader_feature/color, self/opp life/hand 各種, opp_turn/self_turn,
     self_rested, self_trash_count_ge, self_don_ge 等
