@@ -1,0 +1,93 @@
+{
+  "deck_a": "cardrush_1342",
+  "deck_b": "cardrush_1308",
+  "n_games": 10,
+  "total_evaluated_actions": 1631,
+  "threshold": -5000.0,
+  "bad_per_player": {
+    "0": {
+      "count": 4,
+      "avg_delta": -6499.999877060267,
+      "samples": [
+        {
+          "turn": 7,
+          "player_idx": 0,
+          "log": "T7 P0:   効果: 手札から登場 → ナミ",
+          "eval_before": 2750.0,
+          "eval_after": -4450.0,
+          "delta": -7200.0,
+          "game_idx": 0
+        },
+        {
+          "turn": 11,
+          "player_idx": 0,
+          "log": "T11 P0:   効果: 手札から登場 → サンジ",
+          "eval_before": 11112.26641045375,
+          "eval_after": 5912.26641045375,
+          "delta": -5200.000000000001,
+          "game_idx": 2
+        },
+        {
+          "turn": 17,
+          "player_idx": 0,
+          "log": "T17 P0:   効果: 手札から登場 → ボルサリーノ",
+          "eval_before": -3750.0,
+          "eval_after": -11750.0,
+          "delta": -8000.0,
+          "game_idx": 2
+        },
+        {
+          "turn": 23,
+          "player_idx": 0,
+          "log": "T23 P0: atk: モンキー・D・ルフィ(P=12000) -> ヴェルゴ(P=7000)",
+          "eval_before": 25453.98489813048,
+          "eval_after": 19853.98538988941,
+          "delta": -5599.999508241068,
+          "game_idx": 3
+        }
+      ]
+    },
+    "1": {
+      "count": 4,
+      "avg_delta": -7351.61301494826,
+      "samples": [
+        {
+          "turn": 14,
+          "player_idx": 1,
+          "log": "T14 P1:   アタック対象変更: → ドンキホーテ・ドフラミンゴ",
+          "eval_before": 21903.52070587071,
+          "eval_after": 16900.0,
+          "delta": -5003.520705870709,
+          "game_idx": 0
+        },
+        {
+          "turn": 10,
+          "player_idx": 1,
+          "log": "T10 P1:   効果: KO ドンキホーテ・ドフラミンゴ",
+          "eval_before": 10053.985389889413,
+          "eval_after": -1146.0146101105877,
+          "delta": -11200.0,
+          "game_idx": 1
+        },
+        {
+          "turn": 16,
+          "player_idx": 1,
+          "log": "T16 P1:   アタック対象変更: → ドンキホーテ・ドフラミンゴ",
+          "eval_before": 5152.931353922331,
+          "eval_after": 150.0,
+          "delta": -5002.931353922331,
+          "game_idx": 6
+        },
+        {
+          "turn": 8,
+          "player_idx": 1,
+          "log": "T8 P1:   効果: KO ヴェルゴ",
+          "eval_before": 8300.0,
+          "eval_after": 100.0,
+          "delta": -8200.0,
+          "game_idx": 9
+        }
+      ]
+    }
+  }
+}

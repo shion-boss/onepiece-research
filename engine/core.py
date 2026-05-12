@@ -540,7 +540,7 @@ class GameState:
         """現在の state をリプレイ可能な dict に直列化。push_log で都度呼ばれる。"""
         event = self.pending_event
         self.pending_event = None  # 1 回限り
-        return {
+        snap = {
             "turn": self.turn_number,
             "turn_player_idx": self.turn_player_idx,
             "phase": self.phase.name if hasattr(self.phase, "name") else str(self.phase),
@@ -550,6 +550,15 @@ class GameState:
             "event": event,
             "players": [_player_snapshot(p) for p in self.players],
         }
+        # AI 行動品質評価用: ターンプレイヤー視点の盤面評価値 (= self - opp)。
+        # action ごとの delta_eval を後段で計算可能にする (R62-R63)。
+        try:
+            from .eval import compute_score
+            snap["board_eval"] = compute_score(self, self.turn_player_idx)
+        except Exception:
+            # eval 計算失敗時は snapshot 自体は壊さない (= optional フィールド)
+            pass
+        return snap
 
 
 def _inplay_snapshot(ip) -> dict:
