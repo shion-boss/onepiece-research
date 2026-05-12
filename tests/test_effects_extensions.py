@@ -363,3 +363,96 @@ def test_trash_to_deck_respects_limit():
     )
     assert len(me.deck) == 2
     assert len(me.trash) == 3
+
+
+# --------------------------------------------------------------------------- #
+# X3: play_from_hand_choice primitive
+# --------------------------------------------------------------------------- #
+def test_play_from_hand_choice_basic():
+    """play_from_hand_choice: 手札から filter 一致のキャラ 1 枚を 0 コストで登場"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.hand = [repo.get("OP01-013"), repo.get("OP01-016")]
+    hand_before = len(me.hand)
+    chara_before = len(me.characters)
+    execute_effect(
+        {"play_from_hand_choice": {"filter": {"cost_le": 5}, "limit": 1}},
+        state, me, opp, None,
+    )
+    assert len(me.characters) == chara_before + 1
+    assert len(me.hand) == hand_before - 1
+
+
+def test_play_from_hand_choice_picks_highest_cost():
+    """play_from_hand_choice: 複数候補があれば cost 降順で 1 枚を選ぶ (ヒューリスティック)"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    # cost が異なる 2 種のキャラ
+    low_cost = repo.get("OP01-016")  # cost 2
+    high_cost = repo.get("OP01-013")  # cost 2 だが power 異なる
+    me.hand = [low_cost, high_cost]
+    execute_effect(
+        {"play_from_hand_choice": {"filter": {}, "limit": 1}},
+        state, me, opp, None,
+    )
+    assert len(me.characters) == 1
+    # cost 同点なら power 高い方が選ばれる
+    chosen = me.characters[0].card
+    expected = max([low_cost, high_cost], key=lambda c: (c.cost, c.power))
+    assert chosen.card_id == expected.card_id
+
+
+def test_play_from_hand_choice_no_match_returns_false():
+    """play_from_hand_choice: 一致なしなら False (場に変化なし)"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.hand = [repo.get("OP01-013")]
+    hand_before = len(me.hand)
+    chara_before = len(me.characters)
+    result = execute_effect(
+        {"play_from_hand_choice": {"filter": {"feature": "存在しない_XYZ"}}},
+        state, me, opp, None,
+    )
+    assert result is False
+    assert len(me.characters) == chara_before
+    assert len(me.hand) == hand_before
+
+
+def test_play_from_hand_choice_rested():
+    """play_from_hand_choice: rested=True なら登場時レスト"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.hand = [repo.get("OP01-013")]
+    execute_effect(
+        {"play_from_hand_choice": {"filter": {}, "limit": 1, "rested": True}},
+        state, me, opp, None,
+    )
+    assert len(me.characters) == 1
+    assert me.characters[0].rested is True
+
+
+def test_play_from_hand_choice_skips_events():
+    """play_from_hand_choice: 既定 category=CHARACTER なのでイベントは選ばれない"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    # OP01-013 はキャラ、 OP01-029 (ゴムゴムのジェットピストル) はイベント
+    chara_card = repo.get("OP01-013")
+    event_card = repo.get("OP01-029")
+    me.hand = [event_card, chara_card]
+    execute_effect(
+        {"play_from_hand_choice": {"filter": {}, "limit": 1}},
+        state, me, opp, None,
+    )
+    # キャラ 1 体のみ場に
+    assert len(me.characters) == 1
+    assert me.characters[0].card.card_id == chara_card.card_id

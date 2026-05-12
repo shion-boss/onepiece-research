@@ -1410,6 +1410,44 @@ def execute_effect(
                 else:
                     new_hand.append(card)
             me.hand[:] = new_hand
+        elif k == "play_from_hand_choice":
+            # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
+            # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
+            # 候補が複数あれば最も影響の大きいキャラ (cost 高 → power 高) を 1 体選ぶヒューリスティック。
+            # filter 一致 0 件は False (公式 4-10 「場合」 前文不実行)。
+            # spec: {"filter": {...}, "limit": N (default 1), "rested": bool, "category": "CHARACTER" (default)}
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            rested = bool(spec.get("rested", False))
+            target_category = spec.get("category", "CHARACTER")
+            # 候補抽出 (= (original_index, card) のリスト)
+            candidates: list[tuple[int, CardDef]] = []
+            for i, card in enumerate(me.hand):
+                if target_category == "CHARACTER" and card.category != Category.CHARACTER:
+                    continue
+                if not _matches_filter(card, filt):
+                    continue
+                candidates.append((i, card))
+            if not candidates:
+                state.push_log(f"  効果: play_from_hand_choice 該当なし (不発)")
+                return False
+            # ヒューリスティック並び: cost 降順 → power 降順 → name (安定)
+            candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+            chosen = candidates[:limit]
+            chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
+            chosen_cards: list[CardDef] = []
+            for i in chosen_indexes:
+                chosen_cards.append(me.hand.pop(i))
+            for card in chosen_cards:
+                if not me.can_play_character():
+                    me.trash_weakest_chara_for_field_full(state)
+                ip = InPlay.of(card, rested=rested, sickness=True)
+                me.characters.append(ip)
+                label = "レストで" if rested else ""
+                state.push_log(f"  効果: 手札から{label}任意登場 → {card.name}")
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
         elif k == "mill_opp_life_to_hand":
             # 相手のライフ上から N 枚を相手の手札へ (= ライフ削り、 相手リーダーに対するダメージとほぼ等価)
             # 公式: ヒット時にトリガー判定するが、 「効果で」 ライフを取る場合は trigger は発動しない (10-1-5)。
