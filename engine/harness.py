@@ -36,6 +36,7 @@ class GameResult:
     log: list[str] = field(default_factory=list)   # keep_logs=True で埋まる
     snapshots: list[dict] = field(default_factory=list)  # record_snapshots=True で埋まる
     rule_violations: list[str] = field(default_factory=list)  # referee 違反ログ
+    action_evals: list[dict] = field(default_factory=list)  # R64+ AI 行動品質評価
 
 
 @dataclass
@@ -250,6 +251,7 @@ def run_matchup(
             log=list(state.log) if keep_logs else [],
             snapshots=list(state.snapshots) if record_snapshots else [],
             rule_violations=(list(referee.violations) if referee else []),
+            action_evals=list(state.action_evals),
         )
         report.games.append(result)
 

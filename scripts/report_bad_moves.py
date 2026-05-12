@@ -39,19 +39,22 @@ from engine.harness import run_matchup  # noqa: E402
 from engine.replay_recorder import load_replay, list_replays  # noqa: E402
 
 
+def extract_bad_moves_from_action_evals(
+    action_evals: list[dict],
+    threshold: float = -3000.0,
+) -> list[dict]:
+    """action 単位の eval 履歴から悪手抽出 (R62 で actor 視点の delta を計算済)。
+
+    apply_action 開始/終了の差分なので「1 action = 1 delta」 で snapshot 粒度より精度高い。
+    """
+    return [a for a in action_evals if a.get("delta", 0) <= threshold]
+
+
 def extract_bad_moves(
     snapshots: list[dict],
     threshold: float = -3000.0,
 ) -> list[dict]:
-    """連続 snapshot 間の delta_eval を計算し、 threshold 以下の手を抽出。
-
-    各 bad move には:
-      - turn: ターン番号
-      - player_idx: そのターンの actor (= snapshot[i].turn_player_idx)
-      - log: snapshot[i+1] のログ行 (= 何が起きたか)
-      - eval_before / eval_after: board_eval 値
-      - delta: 差分 (negative = 自陣が不利になった)
-    """
+    """[deprecated] snapshot 連続差分版。 action_evals に切替推奨。"""
     bad = []
     prev_eval = None
     prev_player = None
@@ -60,8 +63,6 @@ def extract_bad_moves(
         cur_player = snap.get("turn_player_idx")
         if cur_eval is None:
             continue
-        # 同一プレイヤーのターン内での連続評価のみ比較
-        # (= ターン切替で player_idx 変わると視点が反転するので delta 不正)
         if prev_eval is not None and prev_player == cur_player:
             delta = cur_eval - prev_eval
             if delta <= threshold:
@@ -116,24 +117,36 @@ def report_from_replays(
 
 
 def _aggregate_games(games, threshold: float, deck_a: str, deck_b: str) -> dict:
-    """game 一覧から悪手を集計。"""
+    """game 一覧から悪手を集計。 action_evals (R64+ 正式) を優先、 無ければ snapshots fallback。"""
     per_player_bad = defaultdict(list)
     total_actions = 0
+    action_type_bad = defaultdict(int)
     for gi, g in enumerate(games):
-        snaps = g.snapshots if hasattr(g, "snapshots") else g.get("snapshots", [])
-        if not snaps:
-            continue
-        total_actions += sum(1 for s in snaps if s.get("board_eval") is not None)
-        bad = extract_bad_moves(snaps, threshold=threshold)
-        for b in bad:
-            b["game_idx"] = gi
-            per_player_bad[b["player_idx"]].append(b)
+        action_evals = g.action_evals if hasattr(g, "action_evals") else g.get("action_evals", [])
+        if action_evals:
+            total_actions += len(action_evals)
+            bad = extract_bad_moves_from_action_evals(action_evals, threshold=threshold)
+            for b in bad:
+                b["game_idx"] = gi
+                per_player_bad[b["player_idx"]].append(b)
+                action_type_bad[b.get("action", "?")] += 1
+        else:
+            # 後方互換 fallback
+            snaps = g.snapshots if hasattr(g, "snapshots") else g.get("snapshots", [])
+            if not snaps:
+                continue
+            total_actions += sum(1 for s in snaps if s.get("board_eval") is not None)
+            bad = extract_bad_moves(snaps, threshold=threshold)
+            for b in bad:
+                b["game_idx"] = gi
+                per_player_bad[b["player_idx"]].append(b)
     return {
         "deck_a": deck_a,
         "deck_b": deck_b,
         "n_games": len(games),
         "total_evaluated_actions": total_actions,
         "threshold": threshold,
+        "action_type_breakdown": dict(action_type_bad),
         "bad_per_player": {
             "0": {
                 "count": len(per_player_bad.get(0, [])),

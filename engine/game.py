@@ -695,6 +695,14 @@ def apply_action(state: GameState, action: Action) -> None:
         return
     if state.phase != Phase.MAIN:
         raise ValueError("apply_action MAIN only")
+    # AI 行動品質評価 (R62+): action 開始時の eval を記録
+    actor_idx = state.turn_player_idx
+    eval_before = None
+    try:
+        from .eval import compute_score
+        eval_before = compute_score(state, actor_idx)
+    except Exception:
+        pass
     try:
         _apply_action_impl(state, action)
     finally:
@@ -705,6 +713,21 @@ def apply_action(state: GameState, action: Action) -> None:
             from .effects import resolve_triggers
             resolve_triggers(state)
         _recompute_static(state)
+        # action 完了後の eval (actor 視点) — delta を記録
+        if eval_before is not None:
+            try:
+                from .eval import compute_score
+                eval_after = compute_score(state, actor_idx)
+                state.action_evals.append({
+                    "turn": state.turn_number,
+                    "player_idx": actor_idx,
+                    "action": type(action).__name__,
+                    "eval_before": eval_before,
+                    "eval_after": eval_after,
+                    "delta": eval_after - eval_before,
+                })
+            except Exception:
+                pass
 
 
 def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:

@@ -1,0 +1,207 @@
+{
+  "deck_a": "cardrush_1342",
+  "deck_b": "cardrush_1308",
+  "n_games": 20,
+  "total_evaluated_actions": 1535,
+  "threshold": -3000.0,
+  "action_type_breakdown": {
+    "EndPhase": 57,
+    "AttackLeader": 6,
+    "AttackCharacter": 1,
+    "PlayCharacter": 1
+  },
+  "bad_per_player": {
+    "0": {
+      "count": 34,
+      "avg_delta": -5022.842919724653,
+      "samples": [
+        {
+          "turn": 12,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 16150.0,
+          "eval_after": 10036.361569465875,
+          "delta": -6113.638430534125,
+          "game_idx": 0
+        },
+        {
+          "turn": 14,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": -100.0,
+          "eval_after": -6553.985389541277,
+          "delta": -6453.985389541277,
+          "game_idx": 0
+        },
+        {
+          "turn": 10,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 14896.014610110587,
+          "eval_after": 11377.485820595137,
+          "delta": -3518.5287895154506,
+          "game_idx": 1
+        },
+        {
+          "turn": 17,
+          "player_idx": 0,
+          "action": "AttackCharacter",
+          "eval_before": -8750.0,
+          "eval_after": -13000.0,
+          "delta": -4250.0,
+          "game_idx": 2
+        },
+        {
+          "turn": 18,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": -13000.0,
+          "eval_after": -19726.354610056485,
+          "delta": -6726.354610056485,
+          "game_idx": 2
+        },
+        {
+          "turn": 20,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 12100.0,
+          "eval_after": 7786.549218638212,
+          "delta": -4313.450781361788,
+          "game_idx": 3
+        },
+        {
+          "turn": 22,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 9050.0,
+          "eval_after": 5817.140049150412,
+          "delta": -3232.859950849588,
+          "game_idx": 3
+        },
+        {
+          "turn": 24,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 28053.98538988941,
+          "eval_after": 23583.333752633494,
+          "delta": -4470.651637255916,
+          "game_idx": 3
+        },
+        {
+          "turn": 14,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 13450.0,
+          "eval_after": 7614.237378723794,
+          "delta": -5835.762621276206,
+          "game_idx": 4
+        },
+        {
+          "turn": 16,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": -6350.0,
+          "eval_after": -14803.449240299517,
+          "delta": -8453.449240299517,
+          "game_idx": 4
+        }
+      ]
+    },
+    "1": {
+      "count": 31,
+      "avg_delta": -4984.327277421053,
+      "samples": [
+        {
+          "turn": 13,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 19350.0,
+          "eval_after": 16322.336088418244,
+          "delta": -3027.663911581756,
+          "game_idx": 0
+        },
+        {
+          "turn": 10,
+          "player_idx": 1,
+          "action": "AttackLeader",
+          "eval_before": 7943.1073005273165,
+          "eval_after": -1146.0146101105877,
+          "delta": -9089.121910637905,
+          "game_idx": 1
+        },
+        {
+          "turn": 11,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -1146.0146101105877,
+          "eval_after": -4812.751758839744,
+          "delta": -3666.7371487291566,
+          "game_idx": 1
+        },
+        {
+          "turn": 13,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -24100.0,
+          "eval_after": -28794.40476025895,
+          "delta": -4694.404760258949,
+          "game_idx": 1
+        },
+        {
+          "turn": 7,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 4296.0146101105875,
+          "eval_after": 850.0,
+          "delta": -3446.0146101105875,
+          "game_idx": 2
+        },
+        {
+          "turn": 21,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 18200.0,
+          "eval_after": 11192.59440683592,
+          "delta": -7007.40559316408,
+          "game_idx": 3
+        },
+        {
+          "turn": 23,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 8796.014610110587,
+          "eval_after": 2346.0150896841797,
+          "delta": -6449.999520426408,
+          "game_idx": 3
+        },
+        {
+          "turn": 11,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 11600.0,
+          "eval_after": 7324.090803983497,
+          "delta": -4275.909196016503,
+          "game_idx": 5
+        },
+        {
+          "turn": 17,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -12353.985389889413,
+          "eval_after": -18677.49315313438,
+          "delta": -6323.507763244967,
+          "game_idx": 5
+        },
+        {
+          "turn": 9,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 13250.0,
+          "eval_after": 7260.782730445182,
+          "delta": -5989.217269554818,
+          "game_idx": 6
+        }
+      ]
+    }
+  }
+}

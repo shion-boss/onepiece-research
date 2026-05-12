@@ -508,6 +508,9 @@ class GameState:
     last_opp_chara_played_card: Optional[object] = None
     # 直近の「自分のキャラが登場した」 イベントの played カード (= OP02-026 サンジ用)。
     last_self_chara_played_card: Optional[object] = None
+    # action 単位の board_eval 履歴 (R64+ AI 行動品質評価用)。
+    # apply_action 開始時 / 終了時に push される dict: {turn, player_idx, action, eval_before, eval_after, delta}
+    action_evals: list = field(default_factory=list)
 
     @property
     def turn_player(self):
