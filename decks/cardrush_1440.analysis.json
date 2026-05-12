@@ -86,13 +86,12 @@
   "mulligan_keep_card_ids": [
     "ST02-007",
     "EB01-015",
-    "ST24-002",
-    "OP10-032"
+    "ST24-002"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《超新星/ボニー海賊団》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《ボニー海賊団/超新星》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -155,14 +154,6 @@
   ],
   "key_cards": [
     {
-      "card_id": "OP13-031",
-      "name": "トラファルガー・ロー",
-      "count": 4,
-      "cost": 6,
-      "role": "removal",
-      "reason": "相手キャラ除去 → 盤面コントロールの要"
-    },
-    {
       "card_id": "ST24-002",
       "name": "キッド＆キラー",
       "count": 4,
@@ -183,16 +174,8 @@
       "name": "ジュエリー・ボニー",
       "count": 4,
       "cost": 5,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP10-032",
-      "name": "たしぎ",
-      "count": 4,
-      "cost": 3,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+      "role": "ramp",
+      "reason": "DON 加速 → 大型早出しの起点"
     },
     {
       "card_id": "EB01-012",
@@ -217,6 +200,22 @@
       "cost": 1,
       "role": "synergy",
       "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP13-031",
+      "name": "トラファルガー・ロー",
+      "count": 4,
+      "cost": 6,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
+    },
+    {
+      "card_id": "OP10-032",
+      "name": "たしぎ",
+      "count": 4,
+      "cost": 3,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
     },
     {
       "card_id": "OP15-035",

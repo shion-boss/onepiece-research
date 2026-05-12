@@ -161,8 +161,8 @@
       "name": "ジョズ",
       "count": 4,
       "cost": 6,
-      "role": "removal",
-      "reason": "相手キャラ除去 → 盤面コントロールの要"
+      "role": "finisher",
+      "reason": "高コスト (6)・高パワー (7000) フィニッシャー"
     },
     {
       "card_id": "ST22-002",
@@ -236,7 +236,8 @@
       "type": "early_finisher_hold",
       "value": [
         "ST22-015",
-        "EB04-007"
+        "EB04-007",
+        "OP08-047"
       ]
     },
     {

@@ -156,16 +156,16 @@
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
     {
-      "card_id": "OP15-066",
-      "name": "サトリ",
-      "count": 4,
-      "cost": 1,
-      "role": "search",
-      "reason": "デッキからサーチ → 安定性向上の柱"
-    },
-    {
       "card_id": "OP15-061",
       "name": "オーム",
+      "count": 4,
+      "cost": 1,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP15-066",
+      "name": "サトリ",
       "count": 4,
       "cost": 1,
       "role": "draw",
@@ -212,12 +212,12 @@
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "OP05-077",
-      "name": "ガンマナイフ",
-      "count": 3,
-      "cost": 2,
-      "role": "ramp",
-      "reason": "DON 加速 → 大型早出しの起点"
+      "card_id": "OP15-071",
+      "name": "ホーリー",
+      "count": 4,
+      "cost": 3,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
     }
   ],
   "ai_hints": [

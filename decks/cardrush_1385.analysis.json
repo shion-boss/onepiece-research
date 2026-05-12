@@ -142,14 +142,6 @@
       "reason": "高コスト (7)・高パワー (7000) フィニッシャー"
     },
     {
-      "card_id": "OP14-083",
-      "name": "ミス・ウェンズデー",
-      "count": 4,
-      "cost": 1,
-      "role": "removal",
-      "reason": "相手キャラ除去 → 盤面コントロールの要"
-    },
-    {
       "card_id": "OP14-087",
       "name": "ミス・バレンタイン(ミキータ)",
       "count": 4,
@@ -174,36 +166,44 @@
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "OP14-094",
-      "name": "Mr.5(ジェム)",
-      "count": 3,
-      "cost": 5,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP05-082",
-      "name": "しらほし",
-      "count": 3,
-      "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP05-094",
-      "name": "高級仕立パッチ★ワーク",
-      "count": 3,
-      "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
       "card_id": "OP14-091",
       "name": "Mr.2・ボン・クレー(ベンサム)",
       "count": 4,
       "cost": 4,
       "role": "synergy",
       "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP14-083",
+      "name": "ミス・ウェンズデー",
+      "count": 4,
+      "cost": 1,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP14-096",
+      "name": "浸食輪廻",
+      "count": 4,
+      "cost": 1,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP14-094",
+      "name": "Mr.5(ジェム)",
+      "count": 3,
+      "cost": 5,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
+    },
+    {
+      "card_id": "OP05-082",
+      "name": "しらほし",
+      "count": 3,
+      "cost": 1,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
     }
   ],
   "ai_hints": [

@@ -167,20 +167,20 @@
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
     {
-      "card_id": "OP10-071",
-      "name": "ドンキホーテ・ドフラミンゴ",
-      "count": 4,
-      "cost": 8,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
       "card_id": "OP14-074",
       "name": "モネ",
       "count": 4,
       "cost": 5,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP10-071",
+      "name": "ドンキホーテ・ドフラミンゴ",
+      "count": 4,
+      "cost": 8,
+      "role": "ramp",
+      "reason": "DON 加速 → 大型早出しの起点"
     },
     {
       "card_id": "OP14-071",
@@ -203,8 +203,8 @@
       "name": "ベビー５",
       "count": 4,
       "cost": 4,
-      "role": "synergy",
-      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+      "role": "ramp",
+      "reason": "DON 加速 → 大型早出しの起点"
     }
   ],
   "ai_hints": [

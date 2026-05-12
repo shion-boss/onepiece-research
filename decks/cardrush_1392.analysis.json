@@ -78,9 +78,7 @@
     "OP13-083",
     "OP13-089",
     "OP13-086",
-    "OP13-092",
-    "OP13-096",
-    "OP13-098"
+    "OP13-096"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
@@ -143,6 +141,14 @@
   ],
   "key_cards": [
     {
+      "card_id": "OP13-082",
+      "name": "五老星",
+      "count": 4,
+      "cost": 10,
+      "role": "finisher",
+      "reason": "高コスト (10)・高パワー (12000) フィニッシャー"
+    },
+    {
       "card_id": "OP13-084",
       "name": "シェパード・十・ピーター聖",
       "count": 4,
@@ -163,14 +169,6 @@
       "name": "マーカス・マーズ聖",
       "count": 4,
       "cost": 6,
-      "role": "removal",
-      "reason": "相手キャラ除去 → 盤面コントロールの要"
-    },
-    {
-      "card_id": "OP13-098",
-      "name": "元々…ないではないか…",
-      "count": 4,
-      "cost": 1,
       "role": "removal",
       "reason": "相手キャラ除去 → 盤面コントロールの要"
     },
@@ -199,10 +197,10 @@
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
     {
-      "card_id": "OP13-082",
-      "name": "五老星",
+      "card_id": "OP13-089",
+      "name": "トップマン・ウォーキュリー聖",
       "count": 4,
-      "cost": 10,
+      "cost": 4,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
@@ -211,16 +209,16 @@
       "name": "サボ",
       "count": 4,
       "cost": 6,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     },
     {
-      "card_id": "OP13-089",
-      "name": "トップマン・ウォーキュリー聖",
+      "card_id": "OP13-092",
+      "name": "ミョスガルド聖",
       "count": 4,
-      "cost": 4,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+      "cost": 2,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
     }
   ],
   "ai_hints": [
@@ -241,6 +239,7 @@
     {
       "type": "early_finisher_hold",
       "value": [
+        "OP13-082",
         "OP13-084",
         "OP13-080"
       ]

@@ -156,6 +156,14 @@
   ],
   "key_cards": [
     {
+      "card_id": "OP14-104",
+      "name": "ゲッコー・モリア",
+      "count": 4,
+      "cost": 8,
+      "role": "finisher",
+      "reason": "高コスト (8)・高パワー (10000) フィニッシャー"
+    },
+    {
       "card_id": "EB03-055",
       "name": "ニコ・ロビン",
       "count": 4,
@@ -176,14 +184,6 @@
       "name": "エドワード・ニューゲート",
       "count": 3,
       "cost": 10,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP14-104",
-      "name": "ゲッコー・モリア",
-      "count": 4,
-      "cost": 8,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
@@ -237,6 +237,7 @@
     {
       "type": "early_finisher_hold",
       "value": [
+        "OP14-104",
         "EB03-055"
       ]
     },

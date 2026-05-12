@@ -30,6 +30,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Optional
 
+from . import card_role
 from .core import CardDef, Category
 from .deck import DeckList
 
@@ -112,53 +113,26 @@ class DeckAnalysis:
 
 
 # ----------------------------------------------------------------------------- #
-# ユーティリティ
+# ユーティリティ (engine.card_role 経由で単一情報源化、 R65)
 # ----------------------------------------------------------------------------- #
 def _is_search_card(card: CardDef, overlay: Optional[dict]) -> bool:
-    """search 系効果を持つか (overlay の `search` プリミティブ or text 一致)。"""
-    if overlay and card.card_id in overlay:
-        bundle = overlay[card.card_id]
-        for eff in bundle.effects:
-            for prim in eff.get("do", []):
-                if "search" in prim or "summon_from_deck" in prim:
-                    return True
-    text = card.text or ""
-    return ("デッキ" in text and "見て" in text) or ("デッキから" in text and "公開" in text)
+    return card_role.has_role_or_tag(card, overlay, "search")
 
 
 def _is_draw_card(card: CardDef, overlay: Optional[dict]) -> bool:
-    if overlay and card.card_id in overlay:
-        bundle = overlay[card.card_id]
-        for eff in bundle.effects:
-            for prim in eff.get("do", []):
-                if "draw" in prim:
-                    return True
-    return "カード1枚を引く" in (card.text or "") or "カード2枚を引く" in (card.text or "")
+    return card_role.has_role_or_tag(card, overlay, "draw")
 
 
 def _is_removal_card(card: CardDef, overlay: Optional[dict]) -> bool:
-    if overlay and card.card_id in overlay:
-        bundle = overlay[card.card_id]
-        for eff in bundle.effects:
-            for prim in eff.get("do", []):
-                if "ko" in prim or "return_to_hand" in prim:
-                    return True
-    return "KOする" in (card.text or "") or "手札に戻す" in (card.text or "")
+    return card_role.has_role_or_tag(card, overlay, "removal")
 
 
 def _is_ramp_card(card: CardDef, overlay: Optional[dict]) -> bool:
-    """DON 加速系。"""
-    if overlay and card.card_id in overlay:
-        bundle = overlay[card.card_id]
-        for eff in bundle.effects:
-            for prim in eff.get("do", []):
-                if any(k in prim for k in ("add_don", "add_rested_don", "untap_don")):
-                    return True
-    return False
+    return card_role.has_role_or_tag(card, overlay, "ramp")
 
 
 def _has_blocker(card: CardDef) -> bool:
-    return "ブロッカー" in (card.text or "")
+    return card_role.has_role_or_tag(card, None, "blocker")
 
 
 # ----------------------------------------------------------------------------- #

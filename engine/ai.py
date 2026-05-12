@@ -23,7 +23,7 @@ import copy
 import random
 from typing import Optional
 
-from . import hand_estimator, matchup_model
+from . import card_role, hand_estimator, matchup_model
 from .ai_params import AIParams
 from .core import GameState, InPlay, Phase, Player, Category
 from .game import (
@@ -118,6 +118,10 @@ class GreedyAI:
         self._matchup_overrides_applied = False
         self._matchup_profile: Optional[matchup_model.MatchupProfile] = None
         self.finisher_hold_life: int = 3
+
+        # role priority (R67): MatchupProfile 確定後に opp_archetype をキャッシュ。
+        # choose_action / choose_defense で _get_role_priority() 経由で参照する。
+        self._opp_archetype_for_priority: Optional[str] = None
 
         if deck_analysis:
             self._apply_archetype_profile(deck_analysis)
@@ -251,6 +255,42 @@ class GreedyAI:
         # finisher_hold_life 上書き
         if "finisher_hold_life" in overrides:
             self.finisher_hold_life = int(overrides["finisher_hold_life"])
+        # role priority (R67) 用に opp_archetype をキャッシュ
+        self._apply_role_priorities(profile.opp_archetype)
+
+    def _apply_role_priorities(self, opp_archetype: str) -> None:
+        """相手 archetype を保存し、 以降 choose_action で role 別 effectiveness を参照可能に。
+
+        既存ヒント (synergy_feature / early_finisher_hold / lethal) は破壊しない。
+        role priority は同点候補のタイブレーク + 高 effectiveness カードの優先選択に使う。
+        """
+        self._opp_archetype_for_priority = opp_archetype
+
+    def _get_role_priority(self, card_id: str) -> int:
+        """カード ID の対戦相手アーキタイプに対する有効性スコア (0..100)。
+
+        相手 archetype 未確定 / role_db 未登録の場合は中性 50 を返す。
+        """
+        opp_arche = self._opp_archetype_for_priority
+        if not opp_arche:
+            return 50
+        role_db = card_role.load_card_role_db()
+        v = role_db.get(card_id)
+        if not isinstance(v, dict):
+            return 50
+        return card_role.compute_effectiveness(
+            v.get("primary_role", "synergy"),
+            v.get("tags", []),
+            opp_arche,
+        )
+
+    def _get_card_primary_role(self, card_id: str) -> Optional[str]:
+        """カード ID の primary_role を返す。 未登録は None。"""
+        role_db = card_role.load_card_role_db()
+        v = role_db.get(card_id)
+        if not isinstance(v, dict):
+            return None
+        return v.get("primary_role")
 
     def choose_action(self, state: GameState) -> Action:
         self._ensure_matchup_overrides(state, state.turn_player_idx)
@@ -329,14 +369,22 @@ class GreedyAI:
                 if non_hold:
                     play_actions = non_hold
             # synergy 優先: 該当特徴を持つカードがあれば、 そこから最大コストを
+            # role priority (R67): 同点候補のタイブレーク + effectiveness ≥ 70 の
+            # カードがあれば cost より effectiveness を優先 (= 役割理解した選択)
+            def _play_sort_key(a: PlayCharacter):
+                cid = me.hand[a.hand_idx].card_id
+                eff = self._get_role_priority(cid)
+                # effectiveness ≥ 70 を上位ティアに、 同ティア内では cost 降順
+                tier = 1 if eff >= 70 else 0
+                return (tier, eff, me.hand[a.hand_idx].cost)
             if self.synergy_feature:
                 synergy_plays = [
                     a for a in play_actions
                     if self.synergy_feature in me.hand[a.hand_idx].features
                 ]
                 if synergy_plays:
-                    return max(synergy_plays, key=lambda a: me.hand[a.hand_idx].cost)
-            return max(play_actions, key=lambda a: me.hand[a.hand_idx].cost)
+                    return max(synergy_plays, key=_play_sort_key)
+            return max(play_actions, key=_play_sort_key)
 
         # 2) アタック判断
         atk_char_actions: list[AttackCharacter] = [a for a in actions if isinstance(a, AttackCharacter)]
@@ -357,6 +405,9 @@ class GreedyAI:
             return None
 
         # 2a) キャラ KO 狙い: atk.power >= target.power のものから (相手コスト高優先)
+        # role priority (R67): target の primary_role が finisher / removal / negation
+        # の場合は KO 優先度を上げる (= 相手の鍵カードを潰す)。 既存の cost/power 並びに
+        # 補助 boost として加算する形。
         viable_char: list[tuple[AttackCharacter, InPlay, InPlay]] = []
         for a in atk_char_actions:
             attacker = _atk_inplay(a.attacker_iid)
@@ -364,7 +415,15 @@ class GreedyAI:
             if attacker and target and attacker.power >= target.power:
                 viable_char.append((a, attacker, target))
         if viable_char:
-            a, _, _ = max(viable_char, key=lambda x: (x[2].card.cost, x[2].power))
+            _high_value_roles = {"finisher", "removal", "negation"}
+
+            def _atk_char_sort_key(x: tuple[AttackCharacter, InPlay, InPlay]):
+                _, _, target = x
+                role_boost = 1 if (
+                    self._get_card_primary_role(target.card.card_id) in _high_value_roles
+                ) else 0
+                return (role_boost, target.card.cost, target.power)
+            a, _, _ = max(viable_char, key=_atk_char_sort_key)
             return a
 
         # 防御側のリアクティブ buff (opp_attack で opp.leader を強化する効果) を見積。
@@ -573,6 +632,11 @@ class GreedyAI:
                 max_cards = max_cards + 1
             elif self.tank_lifeup_ok:
                 max_total = int(max_total * 0.7)
+            # role priority (R67): attacker の primary_role が finisher なら
+            # 「決め手は通すな」 で防御閾値を 1.3x 緩和 (= より積極的に counter を切る)
+            if self._get_card_primary_role(attacker.card.card_id) == "finisher":
+                max_total = int(max_total * 1.3)
+                max_cards = max_cards + 1
             if life_left <= 1:
                 return block_iid, tuple(spent)
             if counter_total <= max_total and len(spent) <= max_cards:
