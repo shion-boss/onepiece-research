@@ -2317,6 +2317,28 @@ def execute_effect(
             for sub_spec in inner:
                 execute_effect(sub_spec, state, me, opp, self_inplay)
             state.push_log(f"  効果: choice (option={idx}/{len(options)})")
+        elif k == "replace_ko_complex":
+            # 既存 replace_ko (when="replace_ko" の do 配列内 primitive) を条件分岐対応に拡張。
+            # 「リーダーが特徴X なら~、 それ以外なら~」 等の分岐を 1 effect 内で表現する。
+            # spec: {"branches": [{"if": {...}, "do": [<primitive>...]}, ...]}
+            # 上から順に if を評価し、 最初に True になった branch の do を実行 (排他)。
+            # どの branch も成立せず、 default branch (= if 空 / 未指定) も無い場合は False を返す
+            # (= 公式 4-10 「場合」 前文不実行)。
+            spec_val = v if isinstance(v, dict) else {"branches": v if isinstance(v, list) else []}
+            branches = spec_val.get("branches", [])
+            chosen_branch = None
+            for br in branches:
+                cond = br.get("if", {}) if isinstance(br, dict) else {}
+                if eval_condition(cond, state, me, self_inplay):
+                    chosen_branch = br
+                    break
+            if chosen_branch is None:
+                state.push_log(f"  効果: replace_ko_complex 該当 branch なし (不発)")
+                return False
+            do_spec = chosen_branch.get("do", []) if isinstance(chosen_branch, dict) else []
+            for sub in do_spec:
+                execute_effect(sub, state, me, opp, self_inplay)
+            state.push_log(f"  効果: replace_ko_complex branch 実行")
         else:
             # 未対応はスキップ
             pass

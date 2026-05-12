@@ -456,3 +456,91 @@ def test_play_from_hand_choice_skips_events():
     # キャラ 1 体のみ場に
     assert len(me.characters) == 1
     assert me.characters[0].card.card_id == chara_card.card_id
+
+
+# --------------------------------------------------------------------------- #
+# X3: replace_ko_complex primitive (条件分岐 replace_ko)
+# --------------------------------------------------------------------------- #
+def test_replace_ko_complex_first_match_wins():
+    """replace_ko_complex: 上から順に if を評価し、 最初に True になった branch のみ実行"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")  # 麦わらの一味 リーダー
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-001")] * 3
+    me.hand = []
+    execute_effect(
+        {"replace_ko_complex": {
+            "branches": [
+                {
+                    "if": {"leader_feature": "麦わらの一味"},
+                    "do": [{"life_to_hand": 1}],  # ライフ→手札
+                },
+                {
+                    "if": {},
+                    "do": [{"draw": 2}],  # フォールバック
+                },
+            ],
+        }},
+        state, me, opp, None,
+    )
+    # branch_a (life_to_hand) が選ばれた → ライフ 2 / 手札 1
+    assert len(me.life) == 2
+    assert len(me.hand) == 1
+
+
+def test_replace_ko_complex_fallback_default():
+    """replace_ko_complex: 最初の branch が不成立 → 次の (default) branch を実行"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-001")] * 3
+    me.hand = []
+    execute_effect(
+        {"replace_ko_complex": {
+            "branches": [
+                {
+                    "if": {"leader_feature": "存在しない_XYZ"},
+                    "do": [{"life_to_hand": 1}],
+                },
+                {
+                    "if": {},  # default
+                    "do": [{"draw": 2}],
+                },
+            ],
+        }},
+        state, me, opp, None,
+    )
+    # branch_b (draw 2) が選ばれた → ライフ 3 / 手札 2
+    assert len(me.life) == 3
+    assert len(me.hand) == 2
+
+
+def test_replace_ko_complex_no_default_returns_false():
+    """replace_ko_complex: どの branch も不成立で default も無い → False (不発)"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = [repo.get("OP01-001")] * 3
+    me.hand = []
+    result = execute_effect(
+        {"replace_ko_complex": {
+            "branches": [
+                {
+                    "if": {"leader_feature": "存在しない_A"},
+                    "do": [{"draw": 1}],
+                },
+                {
+                    "if": {"leader_feature": "存在しない_B"},
+                    "do": [{"draw": 1}],
+                },
+            ],
+        }},
+        state, me, opp, None,
+    )
+    assert result is False
+    # 何も実行されず、 ライフ / 手札も変化なし
+    assert len(me.life) == 3
+    assert len(me.hand) == 0
