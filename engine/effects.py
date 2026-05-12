@@ -2524,6 +2524,57 @@ def execute_effect(
             opp.trash[:] = new_trash
             opp.deck.extend(picked)
             state.push_log(f"  効果: 相手トラッシュ {len(picked)}枚 → 相手デッキ下")
+        elif k == "draw_per_hand_to_deck_bottom":
+            # 公式: 「自分の手札すべてを好きな順番でデッキの下に置いてもよい。
+            # そうした場合、 置いた枚数分カードを引く」 (P-046 等)。
+            n_returned = len(me.hand)
+            if n_returned == 0:
+                return False
+            # AI 簡易: 全部戻す (= 手札リフレッシュ)
+            me.deck.extend(me.hand)
+            me.hand = []
+            if getattr(me, "block_self_draw_until_turn_end", False):
+                state.push_log(f"  効果: 手札 {n_returned} 枚 → デッキ下 (ドロー禁止のためドロー無し)")
+                return True
+            drawn = me.draw(n_returned)
+            state.push_log(f"  効果: 手札 {n_returned} 枚 → デッキ下、 {len(drawn)} 枚ドロー")
+        elif k == "return_self_to_deck_bottom_if_condition":
+            # 「(条件) でない場合、 このキャラを持ち主のデッキの下に置く」 (P-098 等)。
+            # spec: {"if_not": <condition>} (= 条件を満たさない場合に発動)
+            spec_val = v if isinstance(v, dict) else {}
+            cond = spec_val.get("if_not", {})
+            if cond and eval_condition(cond, state, me, self_inplay):
+                # 条件を満たす → 発動しない
+                state.push_log(f"  効果: 条件成立 → デッキ下戻し不発")
+                return False
+            # 条件不成立 → 自身をデッキ下へ
+            if self_inplay is None or self_inplay not in me.characters:
+                return False
+            me.characters.remove(self_inplay)
+            if self_inplay.attached_dons > 0:
+                me.don_rested += self_inplay.attached_dons
+            me.deck.append(self_inplay.card)
+            state.push_log(f"  効果: {self_inplay.card.name} を自デッキ下へ (条件不成立)")
+        elif k == "swap_opp_power":
+            # 公式: 「相手の (filter) キャラ 2 枚を選ぶ。 選んだキャラそれぞれの元々のパワーを、
+            # このターン中、 入れ替える」 (OP14-017 等)。
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {"power_le": 9000})
+            cands = [c for c in opp.characters if _matches_filter(c.card, filt)]
+            if len(cands) < 2:
+                state.push_log(f"  効果: swap_opp_power 該当 2 枚未満 (不発)")
+                return False
+            # AI 簡易: 最強 + 最弱 を選んでスワップ (= 弱体化最大化)
+            cands.sort(key=lambda c: c.card.power)
+            weakest = cands[0]
+            strongest = cands[-1]
+            w_power = weakest.card.power
+            s_power = strongest.card.power
+            weakest.turn_base_power_override = s_power
+            strongest.turn_base_power_override = w_power
+            state.push_log(
+                f"  効果: 元々のパワー入れ替え {weakest.card.name}↔{strongest.card.name} ({w_power}↔{s_power})"
+            )
         elif k == "attach_active_don":
             # アクティブドンを N 枚付与 (= attach_rested_don の active 版)。
             # spec: {"target": "self_leader", "count": 2}
@@ -3869,6 +3920,7 @@ def evaluate_static_effects(
             ip.protect_from_opp_effect = False
             ip.ko_immune_battle_attributes_in.clear()
             ip.ko_immune_battle_attributes_not_in.clear()
+            ip.battle_ko_immune_static = False
             # static-granted keywords は毎回再計算 (= 条件外れたら消える)
             ip.static_granted_keywords.clear()
         # 静的 filter 付き cost reduction も毎回再構築
@@ -3951,6 +4003,18 @@ def evaluate_static_effects(
                     # 「属性 X を持つカードとのバトルで KO されない」 (P-052 ミホーク等)
                     # spec: {"target": "self", "attributes": ["斬"], "negate": false}
                     #   negate=True なら 「属性 X を持たない」 限定 (P-025 スモーカー)
+                    if "set_ko_immune_battle_only" in primitive:
+                        # 「バトルで KO されない」 (= 効果 KO は通る) 静的効果。
+                        # OP10-104 / OP10-035 等。 spec: True | {"target": ...}
+                        spec = primitive["set_ko_immune_battle_only"]
+                        if isinstance(spec, dict):
+                            target_spec = spec.get("target", "self")
+                        else:
+                            target_spec = "self"
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            t.battle_ko_immune_static = True
+                        continue
                     if "set_immune_attribute_in_battle" in primitive:
                         spec = primitive["set_immune_attribute_in_battle"]
                         if isinstance(spec, dict):

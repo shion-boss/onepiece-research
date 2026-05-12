@@ -236,6 +236,8 @@ def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
     P-052 ミホーク 「属性(斬)を持つカードとのバトルで KO されない」 等。
     """
     atk_attr = attacker.card.attribute or ""
+    if defender.battle_ko_immune_static:
+        return True
     if atk_attr and atk_attr in defender.ko_immune_battle_attributes_in:
         return True
     if defender.ko_immune_battle_attributes_not_in:

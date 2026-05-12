@@ -153,6 +153,9 @@ class InPlay:
     attack_cost_discard_hand_n: int = 0
     attack_cost_discard_hand_applier_idx: int = -1
     attack_cost_discard_hand_applied_turn: int = 0
+    # 「このキャラはバトルで KO されない」 (= 効果による KO は通る)。 OP10-104 / OP10-035 等。
+    # 静的効果でセット、 evaluate_static_effects でリセット。
+    battle_ko_immune_static: bool = False
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
