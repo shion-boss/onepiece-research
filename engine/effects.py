@@ -1521,6 +1521,41 @@ def execute_effect(
             me.trash[:] = new_trash
             if found > 0:
                 state.push_log(f"  効果: trash {found} 枚を手札へ")
+        elif k == "trash_to_deck":
+            # 自分のトラッシュから filter 一致のカード N 枚をデッキに戻す。
+            # spec: {"filter": {...}, "limit": N, "to": "top"|"bottom" (default bottom),
+            #        "shuffle": bool (default False)}
+            # 公式: 「自分のトラッシュからカード N 枚を好きな順番でデッキの下/上に置く」 等。
+            # 一致 0 件なら False (= 公式 4-10 「場合」 前文不実行 → 後文不実行)。
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            to_pos = spec.get("to", "bottom")
+            shuffle_after = bool(spec.get("shuffle", False))
+            picked: list[CardDef] = []
+            new_trash: list[CardDef] = []
+            for card in me.trash:
+                if len(picked) < limit and _matches_filter(card, filt):
+                    picked.append(card)
+                else:
+                    new_trash.append(card)
+            if not picked:
+                # 公式 4-10: 対象 0 枚 → 解決不能 (前文不実行)
+                state.push_log(f"  効果: trash_to_deck 該当なし (不発)")
+                return False
+            me.trash[:] = new_trash
+            if to_pos == "top":
+                # デッキ先頭 (= 上) に挿入。 順序は picked のまま (= 先頭が一番上)
+                me.deck = picked + me.deck
+            else:
+                # bottom (default)
+                me.deck.extend(picked)
+            if shuffle_after:
+                state.rng.shuffle(me.deck)
+            state.push_log(
+                f"  効果: trash → deck {to_pos} {len(picked)} 枚"
+                f"{' (shuffle)' if shuffle_after else ''}"
+            )
         elif k == "self_hand_to_size":
             # 自分の手札が N 枚になるように手札を捨てる
             target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))

@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
-"""効果 DSL 拡張ユニットテスト (X2: 条件評価器 拡張)。
+"""効果 DSL 拡張ユニットテスト (X2: 条件評価器 + X3: プリミティブ拡張)。
 
-追加条件:
+X2 追加条件:
 - don_count_ge / don_count_le (alias of self_don_ge / self_don_le)
 - opp_don_count_ge / opp_don_count_le (相手のドン合算)
 - opp_leader_feature (leader_feature の opp 版)
+- once_per_turn (top-level effect spec の【ターン1回】 guard)
+
+X3 追加プリミティブ:
+- trash_to_deck (trash → deck top/bottom + filter + shuffle)
+- play_from_hand_choice (手札から filter 一致 1 枚を選んで登場)
+- replace_ko 分岐 (= replace_ko_complex)
+- look_top_reorder 拡張 (split: match を一方向、 残りを他方向へ)
+- add_don_active (add_don の alias 確認)
 """
 
 from __future__ import annotations
@@ -14,7 +22,7 @@ from pathlib import Path
 
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
-from engine.effects import eval_condition
+from engine.effects import eval_condition, execute_effect
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -265,3 +273,93 @@ def test_once_per_turn_per_player_isolated():
     me.characters.append(ip_me2)
     trigger_on_play(state, me, opp, ip_me2, overlay)
     assert len(me.hand) == me_hand_before + 1, "me 側は使用済みのまま"
+
+
+# --------------------------------------------------------------------------- #
+# X3: trash_to_deck primitive
+# --------------------------------------------------------------------------- #
+def test_trash_to_deck_bottom_default():
+    """trash_to_deck: 既定で trash → deck bottom (デッキ末尾) に N 枚"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.trash = [repo.get("OP01-013"), repo.get("OP01-016")]
+    me.deck = [repo.get("OP01-001")] * 3
+    deck_len_before = len(me.deck)
+    execute_effect(
+        {"trash_to_deck": {"limit": 1, "filter": {}}},
+        state, me, opp, None,
+    )
+    assert len(me.deck) == deck_len_before + 1
+    assert len(me.trash) == 1
+    # 戻ったカードは deck の末尾
+    assert me.deck[-1].card_id in ("OP01-013", "OP01-016")
+
+
+def test_trash_to_deck_top():
+    """trash_to_deck: to='top' で deck 先頭に挿入"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    target = repo.get("OP01-013")
+    me.trash = [target]
+    sentinel = repo.get("OP01-001")
+    me.deck = [sentinel, sentinel, sentinel]
+    execute_effect(
+        {"trash_to_deck": {"limit": 1, "to": "top"}},
+        state, me, opp, None,
+    )
+    # 先頭が trash から戻ったカード
+    assert me.deck[0].card_id == "OP01-013"
+
+
+def test_trash_to_deck_shuffle():
+    """trash_to_deck: shuffle=True で戻した後シャッフル (deck 件数は同じ)"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.trash = [repo.get("OP01-013")] * 3
+    me.deck = [repo.get("OP01-001")] * 2
+    execute_effect(
+        {"trash_to_deck": {"limit": 3, "to": "bottom", "shuffle": True}},
+        state, me, opp, None,
+    )
+    assert len(me.deck) == 5
+    assert len(me.trash) == 0
+
+
+def test_trash_to_deck_no_match_returns_false():
+    """trash_to_deck: filter 一致 0 件で False (公式 4-10 「場合」 不発)"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.trash = [repo.get("OP01-013")]
+    deck_len_before = len(me.deck)
+    trash_len_before = len(me.trash)
+    result = execute_effect(
+        {"trash_to_deck": {"limit": 1, "filter": {"feature": "存在しない_XYZ"}}},
+        state, me, opp, None,
+    )
+    assert result is False
+    assert len(me.deck) == deck_len_before  # 変化なし
+    assert len(me.trash) == trash_len_before
+
+
+def test_trash_to_deck_respects_limit():
+    """trash_to_deck: limit を超えるカードは残す"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-003")
+    me = state.players[0]
+    opp = state.players[1]
+    me.trash = [repo.get("OP01-013")] * 5
+    me.deck = []
+    execute_effect(
+        {"trash_to_deck": {"limit": 2, "to": "bottom"}},
+        state, me, opp, None,
+    )
+    assert len(me.deck) == 2
+    assert len(me.trash) == 3
