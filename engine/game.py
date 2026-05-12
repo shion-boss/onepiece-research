@@ -349,6 +349,9 @@ def advance_phase(state: GameState) -> None:
                 c.next_turn_buff = 0
             for s in me.stages:
                 s.next_turn_buff = 0
+            # 【ターン1回】 効果の発動済みキー集合をクリア (= 次自ターンで再発動可)。
+            # effect spec の top-level `once_per_turn` を _execute_event がガードに使う。
+            me.once_per_turn_used.clear()
         # 公式 6-2-1-1-2: ターン開始時の自動効果を発動 (turn_number==1 含む全ターン)
         if state.effects_overlay:
             from .effects import trigger_turn_start

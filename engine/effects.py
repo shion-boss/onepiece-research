@@ -271,20 +271,61 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 # cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)
                 if not eval_condition(eff.get("if", {}), state, me, self_inplay):
                     continue
+                # 【ターン1回】 ガード (cost 経由ではない top-level once_per_turn)。
+                # cost 持ち効果は trigger_on_attack/fire_activate_main 側で支払い時にチェック済み。
+                # ここは「cost 不要の once_per_turn」 (= on_play / on_attack 非コスト等) を扱う。
+                if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
+                    continue
                 for primitive in eff.get("do", []):
                     execute_effect(primitive, state, me, opp, self_inplay)
             return
 
         # 通常の when 一致 effects を全て発火
-        for eff in bundle.effects:
+        for idx, eff in enumerate(bundle.effects):
             if eff.get("when") != when:
                 continue
             if not eval_condition(eff.get("if", {}), state, me, self_inplay):
+                continue
+            # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
+            if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
                 continue
             for primitive in eff.get("do", []):
                 execute_effect(primitive, state, me, opp, self_inplay)
     finally:
         state.current_source_card_id = prev_src_cid
+
+
+def _check_and_set_once_per_turn(
+    state: GameState,
+    me: Player,
+    eff: EffectSpec,
+    card_id: str,
+    idx: int,
+) -> bool:
+    """effect spec の `once_per_turn` をチェックし、 未使用なら使用済みフラグを立てる。
+
+    戻り値:
+    - True: once_per_turn 指定なし、 もしくは未使用 → 発動許可
+    - False: 既に使用済み → 発動拒否 (= 呼び出し元は continue でスキップ)
+
+    once_per_turn の値:
+    - True: 自動キー (= f"{card_id}:{when}:{idx}")
+    - "<str>": 明示キー (= 複数 effect で同一キーを共有可)
+
+    cost 経由の once_per_turn (= activate_main / on_attack の `cost.once_per_turn`) は
+    InPlay 側のフラグで別管理されているのでここでは触れない。
+    """
+    opt = eff.get("once_per_turn")
+    if not opt:
+        return True
+    if opt is True:
+        key = f"{card_id}:{eff.get('when', '')}:{idx}"
+    else:
+        key = f"key:{opt}"
+    if key in me.once_per_turn_used:
+        return False
+    me.once_per_turn_used.add(key)
+    return True
 
 
 def _maybe_resolve(state: GameState) -> None:
@@ -518,6 +559,48 @@ def eval_condition(
             need = int(v)
             if not any(c.power >= need for c in me.characters):
                 return False
+        elif k == "don_count_ge":
+            # 統一 alias: 自分のドン!! 合算 (active + rested + attached) ≥ N。
+            # = self_don_ge と同義。 overlay 側で表現の揺れを吸収するため両方対応。
+            total = (
+                me.don_active + me.don_rested + me.leader.attached_dons
+                + sum(c.attached_dons for c in me.characters)
+            )
+            if total < int(v):
+                return False
+        elif k == "don_count_le":
+            # 統一 alias: 自分のドン!! 合算 ≤ N。 = self_don_le と同義。
+            total = (
+                me.don_active + me.don_rested + me.leader.attached_dons
+                + sum(c.attached_dons for c in me.characters)
+            )
+            if total > int(v):
+                return False
+        elif k == "opp_don_count_ge" and opp is not None:
+            # 相手のドン!! 合算 ≥ N。
+            total = (
+                opp.don_active + opp.don_rested + opp.leader.attached_dons
+                + sum(c.attached_dons for c in opp.characters)
+            )
+            if total < int(v):
+                return False
+        elif k == "opp_don_count_le" and opp is not None:
+            # 相手のドン!! 合算 ≤ N。
+            total = (
+                opp.don_active + opp.don_rested + opp.leader.attached_dons
+                + sum(c.attached_dons for c in opp.characters)
+            )
+            if total > int(v):
+                return False
+        elif k == "opp_leader_feature" and opp is not None:
+            # 相手リーダーが特徴 X を持つか (str or list)。 leader_feature の opp 版。
+            features = opp.leader.card.features
+            if isinstance(v, str):
+                if v not in features:
+                    return False
+            elif isinstance(v, list):
+                if not any(f in features for f in v):
+                    return False
         elif k == "_unimplemented":
             # 「未対応条件」 マーカー: True 扱いにする (= 効果は試行する、 ただし忠実でない可能性あり)
             # 上位レビューで埋める前提
@@ -1175,7 +1258,9 @@ def execute_effect(
                 if me.life:
                     me.hand.append(me.life.pop(0))
             state.push_log(f"  効果: ライフ{n}枚を手札へ")
-        elif k == "add_don":
+        elif k == "add_don" or k == "add_don_active":
+            # add_don_active は add_don の明示 alias (= ドンデッキから N 枚アクティブで追加)。
+            # 公式: 「自分のドン!! デッキから、 ドン!! N 枚を自分の場にアクティブで追加する」
             n = int(v)
             n = min(n, me.don_remaining_in_deck)
             me.don_active += n
@@ -1327,6 +1412,44 @@ def execute_effect(
                 else:
                     new_hand.append(card)
             me.hand[:] = new_hand
+        elif k == "play_from_hand_choice":
+            # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
+            # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
+            # 候補が複数あれば最も影響の大きいキャラ (cost 高 → power 高) を 1 体選ぶヒューリスティック。
+            # filter 一致 0 件は False (公式 4-10 「場合」 前文不実行)。
+            # spec: {"filter": {...}, "limit": N (default 1), "rested": bool, "category": "CHARACTER" (default)}
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            rested = bool(spec.get("rested", False))
+            target_category = spec.get("category", "CHARACTER")
+            # 候補抽出 (= (original_index, card) のリスト)
+            candidates: list[tuple[int, CardDef]] = []
+            for i, card in enumerate(me.hand):
+                if target_category == "CHARACTER" and card.category != Category.CHARACTER:
+                    continue
+                if not _matches_filter(card, filt):
+                    continue
+                candidates.append((i, card))
+            if not candidates:
+                state.push_log(f"  効果: play_from_hand_choice 該当なし (不発)")
+                return False
+            # ヒューリスティック並び: cost 降順 → power 降順 → name (安定)
+            candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+            chosen = candidates[:limit]
+            chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
+            chosen_cards: list[CardDef] = []
+            for i in chosen_indexes:
+                chosen_cards.append(me.hand.pop(i))
+            for card in chosen_cards:
+                if not me.can_play_character():
+                    me.trash_weakest_chara_for_field_full(state)
+                ip = InPlay.of(card, rested=rested, sickness=True)
+                me.characters.append(ip)
+                label = "レストで" if rested else ""
+                state.push_log(f"  効果: 手札から{label}任意登場 → {card.name}")
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
         elif k == "mill_opp_life_to_hand":
             # 相手のライフ上から N 枚を相手の手札へ (= ライフ削り、 相手リーダーに対するダメージとほぼ等価)
             # 公式: ヒット時にトリガー判定するが、 「効果で」 ライフを取る場合は trigger は発動しない (10-1-5)。
@@ -1438,6 +1561,41 @@ def execute_effect(
             me.trash[:] = new_trash
             if found > 0:
                 state.push_log(f"  効果: trash {found} 枚を手札へ")
+        elif k == "trash_to_deck":
+            # 自分のトラッシュから filter 一致のカード N 枚をデッキに戻す。
+            # spec: {"filter": {...}, "limit": N, "to": "top"|"bottom" (default bottom),
+            #        "shuffle": bool (default False)}
+            # 公式: 「自分のトラッシュからカード N 枚を好きな順番でデッキの下/上に置く」 等。
+            # 一致 0 件なら False (= 公式 4-10 「場合」 前文不実行 → 後文不実行)。
+            spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("limit", 1))
+            to_pos = spec.get("to", "bottom")
+            shuffle_after = bool(spec.get("shuffle", False))
+            picked: list[CardDef] = []
+            new_trash: list[CardDef] = []
+            for card in me.trash:
+                if len(picked) < limit and _matches_filter(card, filt):
+                    picked.append(card)
+                else:
+                    new_trash.append(card)
+            if not picked:
+                # 公式 4-10: 対象 0 枚 → 解決不能 (前文不実行)
+                state.push_log(f"  効果: trash_to_deck 該当なし (不発)")
+                return False
+            me.trash[:] = new_trash
+            if to_pos == "top":
+                # デッキ先頭 (= 上) に挿入。 順序は picked のまま (= 先頭が一番上)
+                me.deck = picked + me.deck
+            else:
+                # bottom (default)
+                me.deck.extend(picked)
+            if shuffle_after:
+                state.rng.shuffle(me.deck)
+            state.push_log(
+                f"  効果: trash → deck {to_pos} {len(picked)} 枚"
+                f"{' (shuffle)' if shuffle_after else ''}"
+            )
         elif k == "self_hand_to_size":
             # 自分の手札が N 枚になるように手札を捨てる
             target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))
@@ -1592,11 +1750,16 @@ def execute_effect(
             state.push_log(f"  効果: 自デッキ {len(milled)} 枚 trash → {milled}")
         elif k == "look_top_reorder":
             # 自分のデッキ上 N 枚を見て、 好きな順番で デッキの上/下 に置く。
-            # spec: {"depth": N, "to": "top"|"bottom"|"choice"} (choice = AI が片方選ぶ; 現実装は top)
+            # spec:
+            #   {"depth": N, "to": "top"|"bottom"|"choice"|"split"}
             # 公開情報のみで決まる効果なので AI に判断させる余地は少ない。 簡略実装:
             #   to="top": 順番そのままで戻す (= no-op の安全選択)
             #   to="bottom": 上 N 枚をデッキ末尾に移動
             #   to="choice": ヒューリスティック → トリガー持ち / コスト低が手前に来るよう並び替え
+            #   to="split": match_filter 一致は match_to、 残りは remain_to へ分割 (拡張)
+            #     spec: {"depth": N, "to": "split",
+            #            "match_filter": {...}, "match_to": "top"|"bottom"|"trash"|"hand",
+            #            "remain_to": "top"|"bottom"|"trash"}
             spec = v if isinstance(v, dict) else {"depth": int(v), "to": "top"}
             depth = int(spec.get("depth", 1))
             to_pos = spec.get("to", "top")
@@ -1612,6 +1775,45 @@ def execute_effect(
                 top_n.sort(key=lambda c: (c.cost, c.name))
                 me.deck = top_n + rest
                 state.push_log(f"  効果: デッキ上 {len(top_n)} 枚をコスト昇順に並び替え")
+            elif to_pos == "split":
+                # 公式表現例: 「デッキ上 5 枚を見て、 トリガー持ちカードを手札に加え、
+                #              残りを好きな順番でデッキの下に置く」
+                # match_filter で抽出、 match_to (= 一致先) と remain_to (= 残り先) に振り分ける。
+                # 「hand」「trash」 へは順序問わず、 「top」「bottom」 はそのままの順で挿入。
+                match_filter = spec.get("match_filter", {})
+                match_to = spec.get("match_to", "hand")
+                remain_to = spec.get("remain_to", "bottom")
+                # 後で deck に戻す残り = rest を起点にする
+                me.deck = rest
+                matched: list[CardDef] = []
+                remain: list[CardDef] = []
+                for c in top_n:
+                    if _matches_filter(c, match_filter):
+                        matched.append(c)
+                    else:
+                        remain.append(c)
+                # matched 振り分け
+                if match_to == "hand":
+                    me.hand.extend(matched)
+                elif match_to == "trash":
+                    me.trash.extend(matched)
+                elif match_to == "top":
+                    me.deck = matched + me.deck
+                elif match_to == "bottom":
+                    me.deck.extend(matched)
+                # remain 振り分け
+                if remain_to == "trash":
+                    me.trash.extend(remain)
+                elif remain_to == "top":
+                    me.deck = remain + me.deck
+                elif remain_to == "hand":
+                    me.hand.extend(remain)
+                else:  # bottom (default)
+                    me.deck.extend(remain)
+                state.push_log(
+                    f"  効果: デッキ上 {depth} 枚 split"
+                    f" (match={len(matched)}→{match_to}, remain={len(remain)}→{remain_to})"
+                )
             else:
                 # to="top": 順番維持 (= no-op)
                 state.push_log(f"  効果: デッキ上 {len(top_n)} 枚を確認 (順番維持)")
@@ -2161,6 +2363,28 @@ def execute_effect(
             for sub_spec in inner:
                 execute_effect(sub_spec, state, me, opp, self_inplay)
             state.push_log(f"  効果: choice (option={idx}/{len(options)})")
+        elif k == "replace_ko_complex":
+            # 既存 replace_ko (when="replace_ko" の do 配列内 primitive) を条件分岐対応に拡張。
+            # 「リーダーが特徴X なら~、 それ以外なら~」 等の分岐を 1 effect 内で表現する。
+            # spec: {"branches": [{"if": {...}, "do": [<primitive>...]}, ...]}
+            # 上から順に if を評価し、 最初に True になった branch の do を実行 (排他)。
+            # どの branch も成立せず、 default branch (= if 空 / 未指定) も無い場合は False を返す
+            # (= 公式 4-10 「場合」 前文不実行)。
+            spec_val = v if isinstance(v, dict) else {"branches": v if isinstance(v, list) else []}
+            branches = spec_val.get("branches", [])
+            chosen_branch = None
+            for br in branches:
+                cond = br.get("if", {}) if isinstance(br, dict) else {}
+                if eval_condition(cond, state, me, self_inplay):
+                    chosen_branch = br
+                    break
+            if chosen_branch is None:
+                state.push_log(f"  効果: replace_ko_complex 該当 branch なし (不発)")
+                return False
+            do_spec = chosen_branch.get("do", []) if isinstance(chosen_branch, dict) else []
+            for sub in do_spec:
+                execute_effect(sub, state, me, opp, self_inplay)
+            state.push_log(f"  効果: replace_ko_complex branch 実行")
         else:
             # 未対応はスキップ
             pass

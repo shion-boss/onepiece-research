@@ -95,11 +95,16 @@ def overlay_when_set(effects: list[dict]) -> set[str]:
 
 
 def overlay_has_once_per_turn(effects: list[dict]) -> bool:
+    """cost.once_per_turn (= activate_main / on_attack の所有コスト) もしくは
+    top-level once_per_turn (= 任意 when の trigger ガード) のどちらかが指定されているか判定。"""
     for e in effects:
         if not isinstance(e, dict):
             continue
         cost = e.get("cost") or {}
         if cost.get("once_per_turn"):
+            return True
+        # top-level (= cost 不要の trigger ガード、 engine の _check_and_set_once_per_turn 経由)
+        if e.get("once_per_turn"):
             return True
     return False
 
@@ -175,11 +180,15 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
         )
     ):
         issues.append("life_condition_unmodeled")
-    if "リーダーが" in text and "特徴" in text and "leader_feature" not in cond_keys:
+    if "リーダーが" in text and "特徴" in text and not any(
+        k in cond_keys for k in ("leader_feature", "opp_leader_feature")
+    ):
         issues.append("leader_feature_unmodeled")
     if "ドン!!" in text and "枚" in text and not any(
         k in cond_keys for k in (
             "self_don_ge", "self_don_active_ge", "self_attached_don_ge",
+            "self_don_le", "don_count_ge", "don_count_le",
+            "opp_don_count_ge", "opp_don_count_le",
         )
     ):
         # ドン!! 枚数条件の可能性
