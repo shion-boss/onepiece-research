@@ -4,26 +4,71 @@
   "leader": "OP15-058",
   "leader_name": "エネル",
   "source": "https://tcg-portal.jp/onepiece/deck-guides/%E7%B4%AB%E3%82%A8%E3%83%8D%E3%83%AB",
-  "score": "tcg-portal 集計 (8 大会、 2026/3/12〜2026/4/11、 採用率×平均枚数 から再構成)",
+  "score": "tcg-portal 集計 (Tier 1, 使用率 16.0%)",
   "tournament_name": "tcg-portal aggregate",
-  "tournament_date": "2026-04-27",
-  "fetched_at": "2026-05-12T22:00:00Z",
+  "tournament_date": "2026-05-12",
+  "fetched_at": "2026-05-12T14:19:12Z",
   "main": [
-    { "card_id": "OP15-076", "count": 4 },
-    { "card_id": "OP15-078", "count": 4 },
-    { "card_id": "OP15-077", "count": 4 },
-    { "card_id": "OP15-075", "count": 4 },
-    { "card_id": "OP15-071", "count": 4 },
-    { "card_id": "OP15-066", "count": 4 },
-    { "card_id": "OP15-061", "count": 4 },
-    { "card_id": "OP15-118", "count": 4 },
-    { "card_id": "OP15-060", "count": 3 },
-    { "card_id": "OP12-071", "count": 4 },
-    { "card_id": "OP15-067", "count": 3 },
-    { "card_id": "OP07-064", "count": 3 },
-    { "card_id": "OP13-076", "count": 2 },
-    { "card_id": "OP15-074", "count": 2 },
-    { "card_id": "OP05-077", "count": 1 }
+    {
+      "card_id": "OP15-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-077",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-066",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-118",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-060",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-067",
+      "count": 3
+    },
+    {
+      "card_id": "OP07-064",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-076",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-074",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-063",
+      "count": 1
+    }
   ],
   "regulation": "standard"
 }

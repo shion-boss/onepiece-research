@@ -10,72 +10,85 @@
   ],
   "leader_text": "相手のリーダーが属性(斬)を持つ場合、このリーダーのパワー+1000。【起動メイン】【ターン1回】自分のカード1枚をレストにできる：コスト5以上のキャラがいる場合、自分のドン‼3枚までを、アクティブにする。その後、自分は、このターン中、キャラカードを登場できない。",
   "total_cards": 50,
-  "n_character": 39,
-  "n_event": 9,
-  "n_stage": 2,
-  "avg_cost": 3.3958333333333335,
+  "n_character": 38,
+  "n_event": 8,
+  "n_stage": 4,
+  "avg_cost": 3.5869565217391304,
   "cost_curve": [
     {
       "cost": 1,
-      "count": 21
+      "count": 27
     },
     {
       "cost": 2,
-      "count": 4
+      "count": 3
     },
     {
-      "cost": 4,
-      "count": 8
+      "cost": 3,
+      "count": 3
     },
     {
       "cost": 5,
-      "count": 10
-    },
-    {
-      "cost": 6,
       "count": 4
     },
     {
-      "cost": 10,
+      "cost": 6,
+      "count": 2
+    },
+    {
+      "cost": 7,
       "count": 3
+    },
+    {
+      "cost": 8,
+      "count": 2
+    },
+    {
+      "cost": 9,
+      "count": 2
+    },
+    {
+      "cost": 10,
+      "count": 4
     }
   ],
-  "counter_total": 40000,
+  "counter_total": 35000,
   "counter_2k_count": 10,
-  "counter_1k_count": 20,
-  "blocker_count": 16,
+  "counter_1k_count": 15,
+  "blocker_count": 2,
   "color_distribution": {
     "緑": 50
   },
   "top_features": [
     [
       "超新星",
-      35
+      22
     ],
     [
       "麦わらの一味",
-      17
-    ],
-    [
-      "ボニー海賊団",
       8
     ],
     [
-      "ハートの海賊団",
+      "海軍",
       7
     ],
     [
-      "シッケアール王国",
-      4
+      "東の海",
+      7
+    ],
+    [
+      "ハートの海賊団",
+      6
     ]
   ],
   "archetype": "ミッドレンジ",
-  "speed": "中速",
+  "speed": "低速",
   "defense": "硬い",
-  "consistency": "標準",
-  "strategy_summary": "特徴《超新星》軸のミッドレンジデッキ (中速)。防御 硬い・安定性 標準。",
+  "consistency": "高い",
+  "strategy_summary": "特徴《超新星》軸のミッドレンジデッキ (低速)。防御 硬い・安定性 高い。",
   "mulligan_keep_card_ids": [
-    "ST24-002"
+    "ST02-007",
+    "OP14-039"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
@@ -107,12 +120,21 @@
       ]
     },
     {
+      "turn": 3,
+      "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
+      "candidate_cards": [
+        "OP10-032",
+        "OP10-032",
+        "OP10-032"
+      ]
+    },
+    {
       "turn": 4,
       "description": "4-5 コスト中堅展開、 盤面強化",
       "candidate_cards": [
-        "OP10-030",
-        "OP10-030",
-        "OP07-026"
+        "OP14-029",
+        "OP14-029",
+        "OP14-029"
       ]
     },
     {
@@ -125,60 +147,78 @@
       ]
     }
   ],
-  "weaknesses": [],
+  "weaknesses": [
+    "ブロッカー 2 枚のみ: 直接攻撃を止めにくい"
+  ],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
-    "ブロッカー 16 枚: 直接攻撃を抑止できる",
-    "特徴《超新星》専属 (35 枚): シナジーカードで爆発力"
+    "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
+    "特徴《超新星》専属 (22 枚): シナジーカードで爆発力"
   ],
   "key_cards": [
     {
       "card_id": "ST24-004",
       "name": "ロー＆ベポ",
-      "count": 3,
+      "count": 4,
       "cost": 10,
       "role": "finisher",
       "reason": "高コスト (10)・高パワー (11000) フィニッシャー"
     },
     {
+      "card_id": "OP14-027",
+      "name": "シャンクス",
+      "count": 3,
+      "cost": 7,
+      "role": "finisher",
+      "reason": "高コスト (7)・高パワー (9000) フィニッシャー"
+    },
+    {
+      "card_id": "OP06-038",
+      "name": "一大・三千・大千・世界",
+      "count": 3,
+      "cost": 1,
+      "role": "removal",
+      "reason": "相手キャラ除去 → 盤面コントロールの要"
+    },
+    {
       "card_id": "ST24-002",
       "name": "キッド＆キラー",
-      "count": 4,
+      "count": 3,
       "cost": 2,
       "role": "search",
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
     {
-      "card_id": "OP12-118",
+      "card_id": "ST02-007",
       "name": "ジュエリー・ボニー",
       "count": 4,
-      "cost": 5,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP14-039",
+      "name": "棺船",
+      "count": 4,
+      "cost": 1,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP04-032",
+      "name": "ベビー5",
+      "count": 3,
+      "cost": 1,
       "role": "ramp",
       "reason": "DON 加速 → 大型早出しの起点"
     },
     {
-      "card_id": "OP13-031",
-      "name": "トラファルガー・ロー",
-      "count": 4,
-      "cost": 6,
-      "role": "blocker",
-      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
-    },
-    {
-      "card_id": "PRB02-006",
-      "name": "ロロノア・ゾロ",
-      "count": 4,
-      "cost": 4,
-      "role": "blocker",
-      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
-    },
-    {
-      "card_id": "P-114",
-      "name": "ロロノア・ゾロ",
-      "count": 4,
-      "cost": 4,
-      "role": "blocker",
-      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
+      "card_id": "OP10-032",
+      "name": "たしぎ",
+      "count": 3,
+      "cost": 3,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
     },
     {
       "card_id": "EB01-015",
@@ -191,6 +231,7 @@
   ],
   "ai_hints": [
     "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
+    "ブロッカー少ないので、 リーダー攻撃を許容してライフで受ける選択も",
     "特徴《超新星》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
   ],
@@ -202,11 +243,16 @@
     {
       "type": "early_finisher_hold",
       "value": [
-        "ST24-004"
+        "ST24-004",
+        "OP14-027"
       ]
     },
     {
       "type": "tank_lifeup_ok",
+      "value": true
+    },
+    {
+      "type": "blocker_scarce",
       "value": true
     }
   ]

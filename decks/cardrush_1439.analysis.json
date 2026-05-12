@@ -11,30 +11,30 @@
   ],
   "leader_text": "【自分のターン中】【ターン1回】ライフが離れた時、発動できる。自分の手札が7枚以下の場合、カード1枚を引く。【ドン‼×1】【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：このリーダーは、このターン中、パワー+2000。",
   "total_cards": 50,
-  "n_character": 48,
-  "n_event": 2,
+  "n_character": 43,
+  "n_event": 7,
   "n_stage": 0,
-  "avg_cost": 4.58,
+  "avg_cost": 4.6,
   "cost_curve": [
     {
       "cost": 1,
-      "count": 4
+      "count": 7
     },
     {
       "cost": 2,
-      "count": 6
-    },
-    {
-      "cost": 3,
-      "count": 1
+      "count": 8
     },
     {
       "cost": 4,
-      "count": 20
+      "count": 9
     },
     {
       "cost": 5,
-      "count": 8
+      "count": 11
+    },
+    {
+      "cost": 6,
+      "count": 3
     },
     {
       "cost": 7,
@@ -42,52 +42,50 @@
     },
     {
       "cost": 8,
-      "count": 4
+      "count": 5
     },
     {
       "cost": 10,
       "count": 3
     }
   ],
-  "counter_total": 41000,
-  "counter_2k_count": 12,
+  "counter_total": 39000,
+  "counter_2k_count": 11,
   "counter_1k_count": 17,
-  "blocker_count": 12,
+  "blocker_count": 10,
   "color_distribution": {
-    "黄": 40,
-    "青": 10
+    "黄": 41,
+    "青": 9
   },
   "top_features": [
     [
-      "スリラーバーク海賊団",
-      16
+      "麦わらの一味",
+      14
     ],
     [
-      "麦わらの一味",
-      10
+      "スリラーバーク海賊団",
+      13
+    ],
+    [
+      "エッグヘッド",
+      8
     ],
     [
       "ワノ国",
       7
     ],
     [
-      "海軍",
-      6
-    ],
-    [
-      "元白ひげ海賊団",
-      4
+      "ビッグ・マム海賊団",
+      5
     ]
   ],
   "archetype": "コントロール",
   "speed": "低速",
   "defense": "硬い",
-  "consistency": "高い",
-  "strategy_summary": "特徴《スリラーバーク海賊団》軸のコントロールデッキ (低速)。防御 硬い・安定性 高い。",
+  "consistency": "標準",
+  "strategy_summary": "コントロールデッキ (低速)。防御 硬い・安定性 標準。",
   "mulligan_keep_card_ids": [
-    "PRB02-008",
-    "OP11-106",
-    "OP12-112"
+    "OP11-106"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
@@ -119,19 +117,12 @@
       ]
     },
     {
-      "turn": 3,
-      "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
-      "candidate_cards": [
-        "OP15-047"
-      ]
-    },
-    {
       "turn": 4,
       "description": "4-5 コスト中堅展開、 盤面強化",
       "candidate_cards": [
-        "OP15-113",
-        "PRB02-008",
-        "PRB02-008"
+        "OP06-104",
+        "OP06-104",
+        "OP06-104"
       ]
     },
     {
@@ -150,8 +141,7 @@
   ],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
-    "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "ブロッカー 12 枚: 直接攻撃を抑止できる",
+    "ブロッカー 10 枚: 直接攻撃を抑止できる",
     "除去・防御で序盤捌き、 後半フィニッシャーで決める"
   ],
   "key_cards": [
@@ -172,6 +162,14 @@
       "reason": "高コスト (7)・高パワー (8000) フィニッシャー"
     },
     {
+      "card_id": "OP04-056",
+      "name": "ゴムゴムの業火拳銃",
+      "count": 3,
+      "cost": 6,
+      "role": "removal",
+      "reason": "相手キャラ除去 → 盤面コントロールの要"
+    },
+    {
       "card_id": "OP11-106",
       "name": "ゼウス",
       "count": 4,
@@ -188,18 +186,10 @@
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "PRB02-008",
-      "name": "マルコ",
-      "count": 4,
-      "cost": 4,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP12-112",
-      "name": "ベビー５",
-      "count": 4,
-      "cost": 4,
+      "card_id": "OP11-054",
+      "name": "ナミ",
+      "count": 3,
+      "cost": 5,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
@@ -212,9 +202,17 @@
       "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     },
     {
+      "card_id": "OP06-106",
+      "name": "光月日和",
+      "count": 4,
+      "cost": 2,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
+    },
+    {
       "card_id": "OP14-102",
       "name": "クマシー",
-      "count": 4,
+      "count": 3,
       "cost": 1,
       "role": "counter",
       "reason": "2k カウンター → 防御リソース"

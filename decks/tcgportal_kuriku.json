@@ -1,0 +1,78 @@
+{
+  "name": "赤緑クリーク",
+  "slug": "tcgportal_kuriku",
+  "leader": "OP15-001",
+  "leader_name": "赤クリーク",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E8%B5%A4%E7%B7%91%E3%82%AF%E3%83%AA%E3%83%BC%E3%82%AF",
+  "score": "tcg-portal 集計 (Tier 3, 使用率 8.0%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-12",
+  "fetched_at": "2026-05-12T14:19:30Z",
+  "main": [
+    {
+      "card_id": "OP15-008",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-025",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-007",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-026",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-023",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-027",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-017",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-028",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-037",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-038",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-036",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-028",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-003",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-011",
+      "count": 2
+    },
+    {
+      "card_id": "EB01-015",
+      "count": 2
+    }
+  ],
+  "regulation": "standard"
+}

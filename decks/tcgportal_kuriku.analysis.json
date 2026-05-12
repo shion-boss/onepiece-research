@@ -1,88 +1,95 @@
 {
-  "deck_name": "黒クロコダイル",
-  "leader_id": "OP14-079",
-  "leader_name": "クロコダイル",
+  "deck_name": "赤緑クリーク",
+  "leader_id": "OP15-001",
+  "leader_name": "クリーク",
   "leader_color": [
-    "黒"
+    "赤",
+    "緑"
   ],
   "leader_features": [
-    "王下七武海",
-    "B・W"
+    "東の海",
+    "クリーク海賊団"
   ],
-  "leader_text": "相手のキャラすべては、自分の効果で場を離れない。【起動メイン】【ターン1回】自分の『B・W』を含む特徴を持つキャラ1枚をKOできる：相手のキャラ1枚までを、このターン中、コスト-10。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
+  "leader_text": "【ドン‼×1】【相手のターン中】自分のキャラが特徴《東の海》を持つキャラのみの場合、相手のキャラすべてを、パワー-2000。【起動メイン】【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする。",
   "total_cards": 50,
   "n_character": 40,
   "n_event": 10,
   "n_stage": 0,
-  "avg_cost": 3.56,
+  "avg_cost": 3.72,
   "cost_curve": [
     {
       "cost": 1,
-      "count": 25
+      "count": 18
+    },
+    {
+      "cost": 3,
+      "count": 2
     },
     {
       "cost": 4,
-      "count": 6
+      "count": 12
     },
     {
       "cost": 5,
-      "count": 7
+      "count": 6
+    },
+    {
+      "cost": 6,
+      "count": 4
     },
     {
       "cost": 7,
-      "count": 6
+      "count": 4
     },
     {
       "cost": 8,
       "count": 4
-    },
-    {
-      "cost": 10,
-      "count": 2
     }
   ],
-  "counter_total": 42000,
-  "counter_2k_count": 11,
-  "counter_1k_count": 20,
-  "blocker_count": 5,
+  "counter_total": 46000,
+  "counter_2k_count": 10,
+  "counter_1k_count": 26,
+  "blocker_count": 10,
   "color_distribution": {
-    "黒": 50
+    "赤": 16,
+    "緑": 34
   },
   "top_features": [
     [
-      "B・W",
-      39
+      "東の海",
+      44
     ],
     [
-      "王下七武海",
-      11
+      "クリーク海賊団",
+      16
     ],
     [
-      "人魚族",
-      3
+      "クロネコ海賊団",
+      12
     ],
     [
-      "麦わらの一味",
-      3
+      "魚人族",
+      4
     ],
     [
-      "トンタッタ族",
-      3
+      "アーロン一味",
+      4
     ]
   ],
   "archetype": "ミッドレンジ",
   "speed": "低速",
   "defense": "硬い",
   "consistency": "高い",
-  "strategy_summary": "特徴《B・W》軸のミッドレンジデッキ (低速)。防御 硬い・安定性 高い。",
+  "strategy_summary": "特徴《東の海》軸のミッドレンジデッキ (低速)。防御 硬い・安定性 高い。",
   "mulligan_keep_card_ids": [
-    "OP14-083",
-    "OP14-087"
+    "OP15-026",
+    "OP15-028",
+    "OP15-037"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《王下七武海/B・W》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《東の海/クリーク海賊団》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -94,27 +101,27 @@
       "turn": 1,
       "description": "1 コストキャラを展開、 序盤テンポ確保",
       "candidate_cards": [
-        "OP14-085",
-        "OP14-085",
-        "OP14-087"
+        "OP15-026",
+        "OP15-026",
+        "OP15-026"
       ]
     },
     {
       "turn": 4,
       "description": "4-5 コスト中堅展開、 盤面強化",
       "candidate_cards": [
-        "OP14-090",
-        "OP14-090",
-        "OP14-090"
+        "OP15-017",
+        "OP15-017",
+        "OP15-017"
       ]
     },
     {
       "turn": 6,
       "description": "フィニッシャー展開、 リーサル準備",
       "candidate_cards": [
-        "P-100",
-        "P-100",
-        "OP14-120"
+        "OP15-008",
+        "OP15-008",
+        "OP15-008"
       ]
     }
   ],
@@ -122,93 +129,86 @@
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "特徴《B・W》専属 (39 枚): シナジーカードで爆発力"
+    "ブロッカー 10 枚: 直接攻撃を抑止できる",
+    "特徴《東の海》専属 (44 枚): シナジーカードで爆発力"
   ],
   "key_cards": [
     {
-      "card_id": "OP14-084",
-      "name": "ミス・オールサンデー",
-      "count": 3,
-      "cost": 7,
-      "role": "finisher",
-      "reason": "高コスト (7)・高パワー (8000) フィニッシャー"
-    },
-    {
-      "card_id": "OP15-092",
-      "name": "モンキー・Ｄ・ルフィ",
-      "count": 3,
-      "cost": 7,
-      "role": "finisher",
-      "reason": "高コスト (7)・高パワー (7000) フィニッシャー"
-    },
-    {
-      "card_id": "OP14-087",
-      "name": "ミス・バレンタイン(ミキータ)",
-      "count": 4,
-      "cost": 1,
-      "role": "search",
-      "reason": "デッキからサーチ → 安定性向上の柱"
-    },
-    {
-      "card_id": "OP14-099",
-      "name": "不服か？",
-      "count": 3,
-      "cost": 1,
-      "role": "search",
-      "reason": "デッキからサーチ → 安定性向上の柱"
-    },
-    {
-      "card_id": "OP14-120",
-      "name": "クロコダイル",
+      "card_id": "OP15-008",
+      "name": "クリーク",
       "count": 4,
       "cost": 8,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+      "role": "finisher",
+      "reason": "高コスト (8)・高パワー (9000) フィニッシャー"
     },
     {
-      "card_id": "OP14-091",
-      "name": "Mr.2・ボン・クレー(ベンサム)",
+      "card_id": "OP15-007",
+      "name": "ギン",
+      "count": 4,
+      "cost": 6,
+      "role": "finisher",
+      "reason": "高コスト (6)・高パワー (7000) フィニッシャー"
+    },
+    {
+      "card_id": "OP15-026",
+      "name": "ジャンゴ",
+      "count": 4,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP15-037",
+      "name": "強ェ弱ェは結果が決めるのさ",
+      "count": 4,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP15-023",
+      "name": "アーロン",
       "count": 4,
       "cost": 4,
       "role": "synergy",
       "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
     },
     {
-      "card_id": "OP14-083",
-      "name": "ミス・ウェンズデー",
+      "card_id": "OP15-027",
+      "name": "ジュラキュール・ミホーク",
+      "count": 4,
+      "cost": 4,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP15-028",
+      "name": "ニャーバン兄弟",
       "count": 4,
       "cost": 1,
       "role": "synergy",
       "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
     },
     {
-      "card_id": "OP14-096",
-      "name": "浸食輪廻",
+      "card_id": "OP15-025",
+      "name": "クロ",
       "count": 4,
-      "cost": 1,
-      "role": "synergy",
-      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
-    },
-    {
-      "card_id": "OP14-094",
-      "name": "Mr.5(ジェム)",
-      "count": 3,
-      "cost": 5,
+      "cost": 7,
       "role": "blocker",
       "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     },
     {
-      "card_id": "OP05-082",
-      "name": "しらほし",
-      "count": 3,
-      "cost": 1,
-      "role": "counter",
-      "reason": "2k カウンター → 防御リソース"
+      "card_id": "OP15-017",
+      "name": "モーガン",
+      "count": 4,
+      "cost": 5,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     }
   ],
   "ai_hints": [
     "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
-    "特徴《B・W》専属: シナジーカードを優先プレイ"
+    "特徴《東の海》専属: シナジーカードを優先プレイ"
   ],
   "ai_hint_signals": [
     {
@@ -217,13 +217,13 @@
     },
     {
       "type": "synergy_feature_priority",
-      "value": "B・W"
+      "value": "東の海"
     },
     {
       "type": "early_finisher_hold",
       "value": [
-        "OP14-084",
-        "OP15-092"
+        "OP15-008",
+        "OP15-007"
       ]
     },
     {
