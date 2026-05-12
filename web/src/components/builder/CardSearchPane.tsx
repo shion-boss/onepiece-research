@@ -8,14 +8,20 @@ import { useDeckBuilderStore } from "@/stores/deckBuilder";
 
 const CATEGORIES: CardCategory[] = ["CHARACTER", "EVENT", "STAGE"];
 
+type ContextMenuState = { card: Card; x: number; y: number };
+
 export function CardSearchPane({
   leaderColors,
   onAdd,
   countOf,
+  onMarkCore,
+  coreCardIds,
 }: {
   leaderColors: string[];
   onAdd: (card: Card) => void;
   countOf: (cardId: string) => number;
+  onMarkCore?: (card: Card) => void;
+  coreCardIds?: Set<string>;
 }) {
   const regulation = useDeckBuilderStore((s) => s.regulation);
   const [cards, setCards] = useState<Card[]>([]);
@@ -26,6 +32,19 @@ export function CardSearchPane({
   const [costGe, setCostGe] = useState("");
   const [costLe, setCostLe] = useState("");
   const [name, setName] = useState("");
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const escClose = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", escClose);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", escClose);
+    };
+  }, [contextMenu]);
 
   useEffect(() => {
     if (leaderColors.length === 0) {
@@ -45,7 +64,6 @@ export function CardSearchPane({
       limit: 200,
     })
       .then((all) => {
-        // リーダー色のいずれかに合うものだけ表示。LEADER は除外。
         const colorSet = new Set(leaderColors);
         const filtered = all.filter(
           (c) =>
@@ -167,18 +185,40 @@ export function CardSearchPane({
         </div>
       )}
 
+      {onMarkCore && (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          右クリック or Ctrl+クリックでコアカードに指定 / 解除
+        </p>
+      )}
+
       <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-auto sm:grid-cols-4 md:grid-cols-5">
         {cards.map((c) => {
           const used = countOf(c.card_id);
           const disabled = used >= 4;
+          const isCore = coreCardIds?.has(c.card_id) ?? false;
           return (
             <button
               key={c.card_id}
               type="button"
-              onClick={() => onAdd(c)}
-              disabled={disabled}
+              onClick={(e) => {
+                if ((e.ctrlKey || e.metaKey) && onMarkCore) {
+                  e.preventDefault();
+                  onMarkCore(c);
+                  return;
+                }
+                onAdd(c);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContextMenu({ card: c, x: e.clientX, y: e.clientY });
+              }}
+              disabled={disabled && !onMarkCore}
               title={c.text || c.name}
-              className="group relative flex flex-col gap-1 rounded border border-zinc-200 p-1 text-left transition hover:border-zinc-400 disabled:opacity-40 dark:border-zinc-800 dark:hover:border-zinc-500"
+              className={`group relative flex flex-col gap-1 rounded border p-1 text-left transition ${
+                isCore
+                  ? "border-amber-400 dark:border-amber-500"
+                  : "border-zinc-200 hover:border-zinc-400 disabled:opacity-40 dark:border-zinc-800 dark:hover:border-zinc-500"
+              } ${disabled && !isCore ? "opacity-40" : ""}`}
             >
               <CardImage
                 cardId={c.card_id}
@@ -194,10 +234,49 @@ export function CardSearchPane({
                   ×{used}
                 </span>
               )}
+              {isCore && (
+                <span className="absolute left-1 top-1 text-sm leading-none">
+                  ⭐
+                </span>
+              )}
             </button>
           );
         })}
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 min-w-[148px] overflow-hidden rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            disabled={countOf(contextMenu.card.card_id) >= 4}
+            className="w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+            onClick={() => {
+              onAdd(contextMenu.card);
+              setContextMenu(null);
+            }}
+          >
+            デッキに追加
+          </button>
+          {onMarkCore && (
+            <button
+              type="button"
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              onClick={() => {
+                onMarkCore(contextMenu.card);
+                setContextMenu(null);
+              }}
+            >
+              {coreCardIds?.has(contextMenu.card.card_id)
+                ? "★ コアを解除"
+                : "⭐ コアに指定"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

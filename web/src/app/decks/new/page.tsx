@@ -102,6 +102,19 @@ function NewDeckPageContent() {
   const total = entries.reduce((s, e) => s + e.count, 0);
   const valid = total === 50 && leader !== null;
 
+  const coreCardIds = new Set(
+    coreInput.split(/[\s,、]+/).map((s) => s.trim()).filter(Boolean),
+  );
+
+  const onToggleCore = (card: { card_id: string }) => {
+    const id = card.card_id;
+    setCoreInput((prev) => {
+      const ids = prev.split(/[\s,、]+/).map((s) => s.trim()).filter(Boolean);
+      if (ids.includes(id)) return ids.filter((x) => x !== id).join(" ");
+      return prev.trim() ? `${prev.trim()} ${id}` : id;
+    });
+  };
+
   const showFlash = (msg: string, ttlMs = 2000) => {
     setFlash(msg);
     setTimeout(() => setFlash(null), ttlMs);
@@ -355,6 +368,8 @@ function NewDeckPageContent() {
               if (err) showFlash(err);
             }}
             countOf={(cid) => countByBaseId(cid)}
+            onMarkCore={onToggleCore}
+            coreCardIds={coreCardIds}
           />
         </section>
       </div>
