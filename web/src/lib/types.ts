@@ -348,3 +348,29 @@ export type DeckStrategy = {
   key_cards: DeckKeyCard[];
   ai_hints: string[];
 };
+
+// === Phase B.5: 対策デッキ探索 ===
+export type CounterCandidate = {
+  rank: number;
+  leader: string;
+  leader_name: string;
+  archetype: string;
+  estimated_score: number;
+  rationale: string[];
+  role_distribution: Record<string, number>;
+  main: DeckEntry[];
+};
+
+export type ExploreCounterRequest = {
+  target_slug: string;
+  leader_filter?: string[];
+  must_include?: string[];
+  n_candidates?: number;
+};
+
+export type ExploreCounterResponse = {
+  target_slug: string;
+  target_name: string;
+  n_generated: number;
+  candidates: CounterCandidate[];
+};

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/cards", label: "カード" },
   { href: "/decks", label: "デッキ" },
+  { href: "/explore", label: "対策デッキ探索" },
   { href: "/meta", label: "メタ分析" },
   { href: "/faq", label: "Q&A" },
 ] as const;

@@ -6,6 +6,8 @@ import type {
   DeckAnalysis,
   DeckDetail,
   DeckSummary,
+  ExploreCounterRequest,
+  ExploreCounterResponse,
   FaqHit,
   FaqSource,
   GameLog,
@@ -203,6 +205,22 @@ export async function validateDeckOnServer(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`validateDeckOnServer failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function exploreCounterDecks(
+  req: ExploreCounterRequest,
+): Promise<ExploreCounterResponse> {
+  const res = await fetch(`${API}/api/explore/counter-decks`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(req),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`exploreCounterDecks failed: ${res.status} ${detail}`);
   }
   return res.json();
 }

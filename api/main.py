@@ -656,6 +656,94 @@ def build_deck(req: CoreBuildRequest):
 
 
 # --------------------------------------------------------------------------- #
+# エンドポイント: explore counter decks (Phase B.5)
+# --------------------------------------------------------------------------- #
+class ExploreCounterRequest(BaseModel):
+    target_slug: str
+    leader_filter: Optional[list[str]] = None
+    must_include: Optional[list[str]] = None
+    n_candidates: int = 20
+
+
+class CounterCandidateOut(BaseModel):
+    rank: int
+    leader: str
+    leader_name: str
+    archetype: str
+    estimated_score: int
+    rationale: list[str]
+    role_distribution: dict[str, int]
+    main: list[DeckEntry]
+
+
+class ExploreCounterResponse(BaseModel):
+    target_slug: str
+    target_name: str
+    n_generated: int
+    candidates: list[CounterCandidateOut]
+
+
+@app.post("/api/explore/counter-decks", response_model=ExploreCounterResponse)
+def explore_counter_decks(req: ExploreCounterRequest):
+    """対策デッキ候補を N 件生成 (engine.explorer.generate_counter_candidates ラッパー)。
+
+    target_slug の deck JSON が無ければ 404。 explorer 内部で発生する例外は
+    422 (= 候補不足、 リーダー枚挙失敗 等) で返す。
+    """
+    from collections import Counter as _Counter
+    from engine.explorer import generate_counter_candidates
+
+    # target deck をロード
+    target_path = DECKS_DIR / f"{req.target_slug}.json"
+    if not target_path.exists():
+        raise HTTPException(404, f"target deck not found: {req.target_slug}")
+    repo = get_repo()
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    try:
+        target_deck = make_deck_from_dict(
+            json.loads(target_path.read_text(encoding="utf-8")), repo
+        )
+    except Exception as e:
+        raise HTTPException(422, f"target deck load failed: {e}")
+
+    try:
+        candidates = generate_counter_candidates(
+            target_deck, repo, overlay,
+            n_candidates=max(1, min(req.n_candidates, 50)),
+            leader_filter=req.leader_filter,
+            must_include=req.must_include,
+            diversity="archetype",
+        )
+    except Exception as e:
+        raise HTTPException(500, f"explore failed: {e}")
+
+    out_candidates: list[CounterCandidateOut] = []
+    for rank, cand in enumerate(candidates, 1):
+        counts = _Counter(c.card_id for c in cand.deck.main)
+        main_entries = [
+            DeckEntry(card_id=cid, count=n)
+            for cid, n in sorted(counts.items())
+        ]
+        out_candidates.append(CounterCandidateOut(
+            rank=rank,
+            leader=cand.leader_id,
+            leader_name=cand.deck.leader.name,
+            archetype=cand.archetype,
+            estimated_score=cand.estimated_score,
+            rationale=cand.rationale,
+            role_distribution=cand.role_distribution,
+            main=main_entries,
+        ))
+
+    return ExploreCounterResponse(
+        target_slug=req.target_slug,
+        target_name=target_deck.name,
+        n_generated=len(out_candidates),
+        candidates=out_candidates,
+    )
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: deck analyze
 # --------------------------------------------------------------------------- #
 class CountByLabel(BaseModel):
