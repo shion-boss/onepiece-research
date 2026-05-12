@@ -144,6 +144,51 @@ R2_KNOWN_FILTER_KEYS = {
 }
 
 
+# R3 拡張で engine 側に追加された新規 cost / trigger / primitive。
+# audit が「未知のキー」 と勘違いしないように知識として記録。
+R3_KNOWN_COST_KEYS = {
+    # optional_cost_then.cost で扱える追加 cost (R3)
+    # 「自分のステージ1枚を持ち主のデッキの下に置くことができる」 (OP06-102 / OP06-111)
+    "stage_to_deck_bottom",
+    # 「自分のキャラ1枚を持ち主のデッキの下に置くことができる」 (OP15-041 オオロンブス)
+    "return_self_chara_to_deck_bottom",
+}
+R3_KNOWN_WHEN_VALUES = {
+    # 「相手の効果で場を離れる場合、 代わりに〜できる」 (OP12-053 ボルサリーノ系)
+    # replace_ko の上位互換: KO + return_to_hand + return_to_deck_bottom で発火。
+    "replace_leave",
+}
+R3_KNOWN_PRIMITIVE_KEYS = {
+    # 相手のライフ N 枚をトラッシュへ (OP11-102 ケイミー)
+    "mill_opp_life_to_trash",
+    # トラッシュから複数体登場 (unique_name 対応) (OP06-062 ヴィンスモーク・ジャッジ)
+    # 既存 play_from_trash と内部統合済 (limit + unique_name 拡張)。 別名としても受け付ける。
+    "play_multi_from_trash",
+}
+R3_KNOWN_OPTIONAL_COST_PRIMITIVES = {
+    # R3 で追加された optional_cost_then.cost 用 primitive。
+    "stage_to_deck_bottom",
+    "return_self_chara_to_deck_bottom",
+}
+R3_KNOWN_REPLACE_KO_COST_PRIMITIVES = {
+    # replace_ko / replace_leave の cost 配列で扱える primitive (R3)。
+    "discard_hand_with_filter",  # OP15-003_p1 アルビダ, OP12-053 ボルサリーノ
+    "trash_self_hand_random",
+    "discard_hand",
+}
+R3_KNOWN_FILTER_KEYS = {
+    # cards.json の trigger フィールド (= 【トリガー】持ちカード) を選別する alias。
+    # 既存 has_trigger と同等。 overlay 側の表記揺れ吸収。
+    "trigger",
+}
+R3_KNOWN_TARGET_SPECS = {
+    # rest primitive 専用の特殊 target spec (= 相手キャラ or ドン 1 枚)。
+    # 相手ドンは InPlay ではないので汎用 target ではなく primitive 拡張で対応。
+    # (EB03-061 ウタ系)
+    "one_opp_chara_or_don",
+}
+
+
 def overlay_if_keys(effects: list[dict]) -> set[str]:
     keys: set[str] = set()
     for e in effects:
