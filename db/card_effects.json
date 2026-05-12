@@ -2528,7 +2528,30 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ドンキホーテ・ロシナンテ」の場合、自分のデッキの上から5枚を見て、コスト2以下のキャラカード1枚までを、レストで登場させる。その後、残りを好きな順番でデッキの下に置く。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "search": {
+                  "source": "deck",
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 2
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "depth": 5
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -9772,7 +9795,15 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のドン‼が2枚以上付与されているレストのコスト8以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。 (engine 拡張要: stay_rested_next_refresh が dict target を受け入れない)"
+          "keep_opp_rested_chara_next_refresh": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 8,
+                "attached_don_ge": 2
+              }
+            }
+          }
         }
       ]
     },
@@ -17328,7 +17359,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン‼が3枚以上ある場合、自分のデッキの上から7枚を見て、「ガレーラカンパニー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ガレーラカンパニー」1枚までを、登場させる。"
+          "search": {
+            "source": "deck",
+            "filter": {
+              "name": "ガレーラカンパニー"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "depth": 7
+          }
         }
       ],
       "if": {
@@ -18640,7 +18679,26 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このステージを持ち主のデッキの下に置くことができる：自分のリーダーが「サンジ」の場合、自分のデッキの上から3枚を見て、イベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_to_deck_bottom": true
+              }
+            ],
+            "effect": [
+              {
+                "search": {
+                  "source": "deck",
+                  "filter": {
+                    "category": "EVENT"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "depth": 3
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -20518,7 +20576,18 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、自分のデッキの上から3枚を見て、『白ひげ海賊団』を含む特徴を持つカードか「モンキー・D・ルフィ」1枚までを公開し、手札に加える。その後、残りを好きな順番で並び替え、デッキの上か下に置く。"
+          "search": {
+            "source": "deck",
+            "filter": {
+              "feature_or_name": {
+                "feature": "白ひげ海賊団",
+                "name": "モンキー・D・ルフィ"
+              }
+            },
+            "limit": 1,
+            "destination": "hand",
+            "depth": 3
+          }
         }
       ],
       "if": {
@@ -21003,7 +21072,13 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分のコスト1の特徴《ヴィンスモーク家》を持つキャラ1枚までを、持ち主の手札に戻す。 (engine 拡張要: return_to_hand に自キャラ対象)"
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "feature": "ヴィンスモーク家",
+              "cost_eq": 1
+            }
+          }
         }
       ]
     }
@@ -21791,7 +21866,29 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "②(コストエリアのドン!!を指定の数レストにできる),このステージをレストにできる：自分のリーダーが「ポートガス・D・エース」の場合、自分のデッキの上から5枚を見て、イベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "search": {
+                  "source": "deck",
+                  "filter": {
+                    "category": "CHARACTER"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "depth": 5
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -45529,7 +45626,24 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のドン‼7枚をレストにできる：自分のリーダーが「ペローナ」の場合、自分の手札かトラッシュから特徴《スリラーバーク海賊団》を持つ、コスト6以下とコスト4以下のキャラカード1枚ずつまでを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 7
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand_or_trash": {
+                  "filter": {
+                    "feature": "スリラーバーク海賊団",
+                    "cost_le": 6
+                  },
+                  "limit": 2
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -46347,7 +46461,31 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の手札からパワー4000以下の特徴《ジェルマ66》を持つキャラカード1枚を捨てることができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分のトラッシュのパワー5000から7000の捨てたカードと同じカード名を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "ジェルマ66",
+                    "power_le": 4000
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "ジェルマ66",
+                    "cost_le": 6
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -47097,7 +47235,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが特徴《W7》を持つ場合、自分の手札かトラッシュから「ブルーノ」以外のコスト5の特徴《W7》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand_or_trash": {
+                  "filter": {
+                    "feature": "W7",
+                    "exclude_name": "ブルーノ",
+                    "cost_le": 6
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -47243,7 +47399,32 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュの『CP』を含む特徴を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のトラッシュから「スパンダイン」以外のコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature_contains": "CP",
+                    "cost_le": 4,
+                    "exclude_name": "スパンダイン"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -47913,7 +48094,24 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のトラッシュから「トニートニー・チョッパー」以外の特徴《麦わらの一味》を持つキャラカード1枚までを、手札に加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "麦わらの一味",
+                    "exclude_name": "トニートニー・チョッパー"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -50458,7 +50656,34 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のキャラか「シルバーズ・レイリー」1枚までを、このバトル中、パワー+2000。その後、自分のドン‼1枚をレストにできる。そうした場合、相手のリーダーとキャラすべてを、このターン中、パワー-1000。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "シルバーズ・レイリー"
+              }
+            },
+            "amount": 2000,
+            "duration": "battle"
+          }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "opponent_leader",
+                  "amount": -3000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -56526,7 +56751,27 @@
       "n": 0,
       "do": [
         {
-          "_unimplemented": "【相手のアタック時】このキャラをレストにできる：自分のコスト5以下の特徴《魚人族》を持つキャラ1枚までは、このターン中、【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "魚人族",
+                      "cost_le": 5
+                    }
+                  },
+                  "keyword": "ブロッカー"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -57034,7 +57279,34 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュの特徴《スリラーバーク海賊団》を持つカード4枚を好きな順番でデッキの下に置くことができる：このキャラは、このターン中、【バニッシュ】を得て、パワー+1000。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature": "スリラーバーク海賊団"
+                  },
+                  "limit": 4,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "バニッシュ"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -57139,7 +57411,18 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のライフの上か下から1枚を手札に加えることができる：相手のコスト4以下のキャラ1枚までを、レストにできる。その後、自分のライフが1枚以下の場合、デッキの上から1枚までを、ライフの上に加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_4"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -58092,7 +58375,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる)：自分のリーダーが特徴《FILM》を持つ場合、自分のトラッシュの特徴《FILM》を持つコスト4以下のキャラカード2枚までを、手札に加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "FILM"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -58355,7 +58654,20 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のリーダーは、このターン中、パワー+1000。その後、自分のコスト2以下の特徴《スリラーバーク海賊団》を持つキャラを任意の枚数KOしてもよい。KOしたキャラ1枚につき、自分のリーダーは、このターン中、パワー+1000。"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "ko": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "cost_le": 2
+            }
+          }
         }
       ]
     },
@@ -58419,7 +58731,26 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "➀(コストエリアのドン !!を指定の数レストにできる),このステージをレストにできる：自分のリーダーが特徴《スリラーバーク海賊団》を持つ場合、自分のトラッシュのコスト2以下の特徴《スリラーバーク海賊団》を持つキャラカード1枚までを、レストで登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "スリラーバーク海賊団"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -60569,7 +60900,28 @@
       "n": 0,
       "do": [
         {
-          "_unimplemented": "【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【ブロッカー】を得て、パワー+1000。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "ブロッカー"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 10000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -60830,7 +61182,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラのバトルによって相手のキャラをKOした時、カード2枚を引き、自分の手札2枚を捨てる"
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 2
         }
       ]
     }
@@ -60883,7 +61238,16 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+6000。その後、自分のトラッシュが15枚以上ある場合、そのカードは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "amount": 6000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -60933,7 +61297,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のコスト3以下の、特徴《動物》か《SMILE》を持つキャラ1枚までを、相手のライフの上に表向きで加える。"
+          "chara_to_opp_life": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "feature_in": [
+                "動物",
+                "SMILE"
+              ]
+            }
+          }
         }
       ]
     }
@@ -61085,7 +61458,31 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラ以外の自分の特徴《ホーミーズ》を持つキャラ1枚をトラッシュに置き、このキャラをレストにできる：自分のキャラの「シャーロット・リンリン」1枚までを、アクティブにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_with_filter": {
+                  "feature": "ホーミーズ"
+                }
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "name": "シャーロット・リンリン"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -61105,7 +61502,26 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分の特徴《ワノ国》を持つキャラ1枚までは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "ワノ国"
+                    }
+                  },
+                  "keyword": "ダブルアタック"
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -61709,7 +62125,21 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【バニッシュ】を得る。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "バニッシュ"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -61989,7 +62419,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_ko】自分のトラッシュからコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる"
+          "play_from_trash": {
+            "filter": {
+              "feature_contains": "CP",
+              "cost_le": 4
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ],
       "if": {
@@ -62001,7 +62438,14 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュからコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる。"
+          "play_from_trash": {
+            "filter": {
+              "feature_contains": "CP",
+              "cost_le": 4
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ]
     }
@@ -62012,7 +62456,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手の元々の効果のないキャラ1枚までを、このターン中、コスト0にする。"
+          "set_base_cost": {
+            "target": {
+              "type": "one_opp_chara_no_effect"
+            },
+            "amount": 0
+          }
         }
       ]
     }
@@ -62871,7 +63320,27 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "②(コストエリアのドン‼を指定の数レストにできる)：自分のコスト5以下の特徴《ミンク族》を持つキャラ1枚までを、アクティブにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "ミンク族",
+                      "cost_le": 5
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -62982,7 +63451,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「ワンダ」以外のコスト3以下の特徴《ミンク族》を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "ミンク族",
+              "cost_le": 3,
+              "exclude_name": "ワンダ"
+            }
+          }
         }
       ]
     }
@@ -63002,7 +63478,12 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からコスト4以下の元々の効果のないキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4
+            }
+          }
         }
       ]
     }
@@ -63110,7 +63591,10 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札が1枚以下の場合、相手は、このバトル中、コスト5以下のキャラの【ブロッカー】を発動できない。"
+          "prevent_opp_blocker_for_cost_le": {
+            "cost_le": 5,
+            "duration": "battle"
+          }
         }
       ],
       "if": {
@@ -63241,7 +63725,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の手札から「ダイフゴー」以外のコスト3以下の特徴《SMILE》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 2
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "SMILE",
+                    "cost_le": 3,
+                    "exclude_name": "ダイフゴー"
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -63428,7 +63930,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【ターン1回】このキャラのバトルによって相手のキャラをKOした時、このキャラをアクティブにする"
+          "untap_chara": {
+            "target": "self",
+            "limit": 1
+          }
         }
       ]
     }
@@ -63439,7 +63944,10 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "コスト0のキャラがいる場合、相手は、このバトル中、コスト5以下のキャラの【ブロッカー】を発動できない。"
+          "prevent_opp_blocker_for_cost_le": {
+            "cost_le": 5,
+            "duration": "battle"
+          }
         }
       ]
     }
@@ -63521,7 +64029,7 @@
       "when": "on_block",
       "do": [
         {
-          "_unimplemented": "相手のコスト6以下のキャラ1枚までを選ぶ。選んだキャラは、このターン中、アタックできない。"
+          "set_cannot_attack": "one_opponent_character_cost_le_6"
         }
       ]
     }
@@ -63532,7 +64040,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の「ジャンゴ」がいる場合、このバトル中、このカードのパワー+3000。"
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "battle"
+          }
         }
       ]
     }
@@ -64023,7 +64535,11 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】相手のレストのキャラが2枚以上いる場合、このキャラはパワー+2000"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -64172,7 +64688,27 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "③(コストエリアのドン‼を指定の数レストにできる)：自分のリーダーが「光月おでん」の場合、自分のコスト3以下の特徴《ワノ国》を持つキャラ1枚までを、アクティブにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 3
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "ワノ国",
+                      "cost_le": 3
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -64315,7 +64851,32 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の手札から特徴《ワノ国》を持つカード1枚を捨てることができる：自分のコスト3以下の特徴《ワノ国》を持つキャラ1枚までを、アクティブにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "feature": "ワノ国"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "ワノ国",
+                      "cost_le": 3
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -64330,7 +64891,18 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【activate_main】このキャラをレストにできる：相手の手札1枚を選び、公開する。公開したカードがイベントの場合、相手のライフ1枚までを、持ち主のデッキの下に置く"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "reveal_opp_hand_and_if_event_mill_life": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -64342,7 +64914,18 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：相手の手札1枚を選び、公開する。公開したカードがイベントの場合、相手のライフ1枚までを、持ち主のデッキの下に置く。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "reveal_opp_hand_and_if_event_mill_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -64424,7 +65007,16 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分の手札1枚につき、このキャラはパワー+1000"
+          "power_pump": {
+            "target": "self",
+            "amount": 0,
+            "amount_per": {
+              "source": "self_hand_count",
+              "multiplier": 1000,
+              "divisor": 1
+            },
+            "duration": "static"
+          }
         }
       ]
     }
@@ -64545,7 +65137,16 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】自分のリーダーが特徴《B・W》を持つ場合、自分のトラッシュにあるイベント2枚につき、このキャラはパワー+1000"
+          "power_pump": {
+            "target": "self",
+            "amount": 0,
+            "amount_per": {
+              "source": "self_trash_event_count",
+              "multiplier": 1000,
+              "divisor": 2
+            },
+            "duration": "static"
+          }
         }
       ]
     }
@@ -64556,7 +65157,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《B・W》を持つ場合、相手のコスト4以下のキャラ1枚までを選ぶ。次の相手のターン終了時まで、選んだキャラはアタックできない。"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_4",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -64806,7 +65410,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手の手札2枚を選び、公開する。"
+          "reveal_opp_hand": 2
         }
       ]
     }
@@ -64955,7 +65559,17 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、コスト3以下の特徴《SMILE》を持つキャラカード1枚までを、登場させる。その後、残りを好きな順番でデッキの下に置く。"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "SMILE",
+              "cost_le": 3
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "bottom"
+          }
         }
       ]
     },
@@ -65849,7 +66463,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "【ドン!!×2】【on_play】自分の特徴《ワノ国》を持つリーダーは、このターン中、【バニッシュ】を得る"
+          "give_keyword": {
+            "target": "self_leader",
+            "keyword": "バニッシュ"
+          }
         }
       ],
       "if": {
@@ -65861,7 +66478,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ワノ国》を持つリーダーは、このターン中、【バニッシュ】を得る。"
+          "give_keyword": {
+            "target": "self_leader",
+            "keyword": "バニッシュ"
+          }
         }
       ]
     }
@@ -65872,7 +66492,28 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分の付与されているドン‼合計2枚をコストエリアにレストで戻すことができる：このキャラは、このターン中、【速攻】を得て、パワー+1000。(このカードは登場したターンにアタックできる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_attached_don_to_cost_rested": 2
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -66102,7 +66743,19 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の、「サン五郎」と「サンジ」すべてを、持ち主の手札に戻す。"
+          "return_to_hand_multi": [
+            {
+              "target": {
+                "type": "all_self_chara_filtered",
+                "filter": {
+                  "name_in": [
+                    "サン五郎",
+                    "サンジ"
+                  ]
+                }
+              }
+            }
+          ]
         }
       ]
     }
@@ -66113,7 +66766,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手の、コスト1以下のキャラかドン‼1枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 2
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opp_chara_or_don"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -67408,7 +68072,27 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から黒の特徴《海軍》を持つカード1枚を捨てることができる：相手のコスト4以下のキャラ2枚までは、次の相手のターン終了時まで、アタックできない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "color": "黒",
+                    "feature": "海軍"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "any_opponent_character_cost_le_4",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -67721,7 +68405,21 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚を公開し、そのカードが特徴《王下七武海》を持つ場合、カード2枚を引き、自分の手札1枚をデッキの上に置く。"
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature": "王下七武海"
+            },
+            "then": [
+              {
+                "draw": 2
+              },
+              {
+                "discard_self_to_deck_top": 1
+              }
+            ],
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -67864,7 +68562,18 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の「ウタ」1枚をレストにできる：相手のドン‼2枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_target_name": "ウタ"
+              }
+            ],
+            "effect": [
+              {
+                "rest_opp_don": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -67945,7 +68654,14 @@
       "when": "opp_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札から特徴《音楽》を持つカードを任意の枚数捨ててもよい。捨てたカード1枚につき、自分のリーダーかキャラ1枚は、このバトル中、パワー+1000。"
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {
+              "feature": "音楽"
+            },
+            "amount_per_discard": 1000,
+            "target": "one_self_team_any",
+            "max": 3
+          }
         }
       ]
     }
@@ -68090,7 +68806,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「エドワード・ニューゲート」の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。"
+          "prevent_self_life_to_hand_turn": true
         }
       ],
       "if": {
@@ -68127,7 +68843,17 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分の黒の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。"
+          "set_base_cost_timed": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "color": "黒",
+                "feature": "麦わらの一味"
+              }
+            },
+            "delta": 2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -68182,7 +68908,17 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【相手のターン中】自分のコスト6以上のキャラがいる場合、このキャラは相手の効果でKOされず、パワー+2000"
+          "set_ko_immune_timed": {
+            "target": "self",
+            "duration": "turn"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -68193,7 +68929,28 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の黒の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "set_base_cost_timed": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "color": "黒",
+                      "feature": "麦わらの一味"
+                    }
+                  },
+                  "delta": 2,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -68726,7 +69483,27 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "➁(コストエリアのドン!!を指定の数レストにできる)：相手のライフが3枚以上の場合、自分のコスト4以下の属性(斬)を持つキャラ1枚までを、アクティブにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "attribute": "斬",
+                      "cost_le": 4
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -69223,7 +70000,24 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト4以下の黄の特徴《ワノ国》を持つキャラカード1枚までを、登場させる"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "color": "黄",
+                    "feature": "ワノ国",
+                    "cost_le": 4
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -69235,7 +70029,24 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト4以下の黄の特徴《ワノ国》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "color": "黄",
+                    "feature": "ワノ国",
+                    "cost_le": 4
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
