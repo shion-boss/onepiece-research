@@ -58,13 +58,19 @@ def load_cardqa():
 
 
 def extract_when_mentions(text: str) -> set[str]:
-    """Q&A テキストから言及された when を抽出 (= 効果マーカーから)。"""
+    """Q&A テキストから言及された when を抽出 (= 効果マーカー 【X】 のみ厳密マッチ)。
+
+    誤検知対策:
+    - 【X】 括りのみマッチ (= 「メイン」 単独の文字列マッチを避ける)
+    - 「次の~まで」 等 duration 表現は除外 (= ターン終了時 mark の濫検出を防ぐ)
+    """
     whens = set()
-    for marker, when in EFFECT_MARKER_TO_WHEN.items():
-        # 【X】 or 「X」 で囲まれる、 もしくは効果に直結する形 (= X効果 / X時に)
-        # シンプル: 文字列 marker が含まれていれば when 候補
-        if marker in text:
-            whens.add(when)
+    # 【X】 形式の effect marker のみ正規表現で抽出
+    markers_found = set(re.findall(r"【([^】]+)】", text))
+    for marker_text in markers_found:
+        # 厳密マッチ: 「【ABC】」 の ABC が EFFECT_MARKER_TO_WHEN にあるか
+        if marker_text in EFFECT_MARKER_TO_WHEN:
+            whens.add(EFFECT_MARKER_TO_WHEN[marker_text])
     return whens
 
 
