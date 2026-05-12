@@ -10551,19 +10551,30 @@
   ],
   "OP14-080_p1": [
     {
-      "_text": "OP14-080_p1 on_attack: 自分の手札3枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "【起動メイン】【ターン1回】自分の特徴《スリラーバーク海賊団》を持つキャラ1枚をKOできる：自分のリーダーとキャラすべてを、このターン中、パワー+1000。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true, "ko_self_with_filter": {"feature": "スリラーバーク海賊団"}},
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【アタック時】自分の手札3枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_attack",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 3
+          "optional_cost_then": {
+            "cost": [{"trash_self_hand_random": 3}],
+            "effect": [{"put_top_to_life": 1}]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 3
-      }
+      ]
     }
   ],
   "OP13-001_p2": [
@@ -51222,7 +51233,7 @@
   ],
   "OP08-008": [
     {
-      "_text": "OP08-008 on_play: 相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "_text": "【登場時】相手のキャラ1枚までを、このターン中、パワー-1000。",
       "when": "on_play",
       "do": [
         {
@@ -51230,6 +51241,20 @@
             "target": "one_opponent_character_le_5000",
             "amount": -1000,
             "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【ドン‼×1】【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：このキャラは、このターン中、【速攻】を得る。",
+      "when": "activate_main",
+      "if": {"self_attached_don_ge": 1},
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"life_to_hand": 1}],
+            "effect": [{"give_rush": "self"}]
           }
         }
       ]
