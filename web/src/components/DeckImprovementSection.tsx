@@ -7,6 +7,7 @@ import type {
   ImprovementProposal,
 } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
+import { useDeckSimulationStore } from "@/stores/deckSimulation";
 
 export function DeckImprovementSection({ slug }: { slug: string }) {
   const [data, setData] = useState<DeckImprovementsResponse | null>(null);
@@ -16,6 +17,9 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [applyError, setApplyError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const externalRefreshKey = useDeckSimulationStore(
+    (s) => s.improvementsRefreshKey,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +40,8 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
     return () => {
       cancelled = true;
     };
-  }, [slug, reloadKey]);
+    // 内部 reloadKey (= apply 後) と 外部 store key (= 探索後) の両方で再取得
+  }, [slug, reloadKey, externalRefreshKey]);
 
   async function handleApply(proposal: ImprovementProposal) {
     if (!confirm(
