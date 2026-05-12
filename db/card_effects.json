@@ -974,7 +974,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札から「トラファルガー・ロー」以外のコスト3以下の特徴《ODYSSEY》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "ODYSSEY",
+                    "cost_le": 3,
+                    "exclude_name": "トラファルガー・ロー"
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -2679,7 +2697,22 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、「鬼ヶ島」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「鬼ヶ島」1枚までを、登場させる。"
+          "search": {
+            "source": "deck",
+            "filter": {
+              "name": "鬼ヶ島"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "depth": 5
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "鬼ヶ島"
+            }
+          }
         }
       ]
     }
@@ -3408,7 +3441,22 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のアクティブのリーダー1枚を、このターン中、パワー-5000することができる：このターン終了時、このキャラを持ち主の手札に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_self_to_hand": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -8561,7 +8609,26 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分の手札かトラッシュから「ヘルメッポ」以外のコスト3以下の特徴《SWORD》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand_or_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "SWORD",
+                    "cost_le": 3,
+                    "exclude_name": "ヘルメッポ"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -9105,7 +9172,7 @@
       "n": 0,
       "do": [
         {
-          "_unimplemented": "このキャラはアタックできない。効果で自分の手札が捨てられた時、このキャラは、このターン中、効果が無効になる。"
+          "set_cannot_attack_static": "self"
         }
       ]
     }
@@ -14012,7 +14079,31 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】【ターン1回】自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のパワー7000以下のキャラ1枚までを、アクティブにする"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "power_le": 7000
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -14027,7 +14118,31 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のパワー7000以下のキャラ1枚までを、アクティブにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "power_le": 7000
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -15928,7 +16043,18 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のキャラ1枚を選ぶ。選んだキャラにアタックの対象を変更する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "redirect_attack": "one_self_character_any"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -17147,7 +17273,19 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の特徴《麦わらの一味》を持つキャラ1枚までを、このターン中、パワー+6000。その後、選んだキャラは、次の自分のリフレッシュフェイズでアクティブにならない。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "麦わらの一味"
+              }
+            },
+            "amount": 6000,
+            "duration": "turn"
+          }
+        },
+        {
+          "stay_rested_next_refresh": "self_just_buffed"
         }
       ]
     },
@@ -17319,7 +17457,18 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚を公開し、公開したカードがコスト4以上だった場合、自分のキャラ1枚までを、持ち主の手札に戻す。その後、公開したカードをデッキの下に置く。"
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "cost_ge": 4
+            },
+            "then": [
+              {
+                "return_to_hand": "one_self_character_any"
+              }
+            ],
+            "rest_remain": "bottom"
+          }
         }
       ]
     },
@@ -17453,7 +17602,21 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "ドン‼-2,このキャラをレストにできる：自分の「サトリ」と「ホトリ」がいる場合、相手のパワー5000以下のキャラ1枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 2
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_le_5000"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -17617,7 +17780,18 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、「バジル・ホーキンス」以外のパワー2000以下の特徴《超新星》を持つキャラカード1枚までを、登場させる。その後、残りを好きな順番でデッキの下に置く。"
+          "search": {
+            "source": "deck",
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "超新星",
+              "power_le": 2000,
+              "exclude_name": "バジル・ホーキンス"
+            },
+            "limit": 1,
+            "destination": "play",
+            "depth": 5
+          }
         }
       ]
     }
@@ -17821,7 +17995,31 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手の元々のパワー6000以下のキャラ1枚までを、KOするか、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "choice": {
+                  "options": [
+                    [
+                      {
+                        "ko": "one_opponent_character_filtered_by_truly_power_le_6000"
+                      }
+                    ],
+                    [
+                      {
+                        "rest": "one_opponent_character_filtered_by_truly_power_le_6000"
+                      }
+                    ]
+                  ]
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -18021,7 +18219,18 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のキャラ1枚を持ち主の手札に戻すことができる：コスト6以下のキャラ1枚までを、持ち主の手札に戻す。 (engine 拡張要: 自キャラ1枚バウンスコスト)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_6"
+              }
+            ]
+          }
         }
       ]
     },
@@ -18392,7 +18601,26 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の「トラファルガー・ロー」1枚までを選び、このターン中、パワー+2000。その後、相手は、このターン中、選んだカードがアタックする場合【ブロッカー】を発動できない。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "トラファルガー・ロー"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
+        },
+        {
+          "prevent_blocker_for_attacker": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "トラファルガー・ロー"
+              }
+            }
+          }
         }
       ]
     },
@@ -18468,7 +18696,19 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、特徴《シャンドラの戦士》を持つキャラカードか「モンブラン・ノーランド」合計2枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。"
+          "search": {
+            "source": "deck",
+            "filter": {
+              "category": "CHARACTER",
+              "feature_or_name": {
+                "feature": "シャンドラの戦士",
+                "name": "モンブラン・ノーランド"
+              }
+            },
+            "limit": 2,
+            "destination": "hand",
+            "depth": 5
+          }
         }
       ]
     },
@@ -20710,7 +20950,29 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "自分の手札1枚を捨て、このステージをレストにできる：自分のリーダーが特徴《九蛇海賊団》を持つ場合、自分の特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラ1枚までを、持ち主の手札に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {
+                    "feature_in": [
+                      "アマゾン・リリー",
+                      "九蛇海賊団"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -21354,7 +21616,18 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から3枚を見て、「ステューシー」以外の『CP』を含む特徴を持つコスト2以下のキャラカード1枚までを、登場させる。その後、残りをトラッシュに置く。"
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "category": "CHARACTER",
+              "feature_contains": "CP",
+              "cost_le": 2,
+              "exclude_name": "ステューシー"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "trash"
+          }
         }
       ]
     }
@@ -21397,7 +21670,7 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手のコスト4以下のキャラ1枚までを選び、KOする。自分のトラッシュが15枚以上ある場合、相手のコスト4以下のキャラの代わりに相手のコスト6以下のキャラを選ぶ。"
+          "ko": "one_opponent_character_cost_le_4"
         }
       ],
       "if": {
@@ -22340,7 +22613,22 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー＋4000。"
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "one_self_team_any",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ],
+            "rest_remain": "bottom"
+          }
         }
       ]
     },
@@ -43964,7 +44252,24 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分のカード1枚をレストにできる：自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、自分の手札からコスト6以下の緑のキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "color": "緑",
+                    "cost_le": 6
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -44698,7 +45003,27 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：相手の、コスト3以下の、特徴《動物》か《SMILE》を持つキャラかドン‼1枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "rest": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "cost_le": 3,
+                    "feature_in": [
+                      "動物",
+                      "SMILE"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -44919,7 +45244,27 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のドン‼4枚をレストにできる：自分のリーダーが「ボア・ハンコック」の場合、自分の手札からコスト6以下の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 4
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 6,
+                    "feature_in": [
+                      "アマゾン・リリー",
+                      "九蛇海賊団"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -46085,7 +46430,29 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のトラッシュから「ブルーノ」以外のコスト5以下の『CP』を含む特徴を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              },
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand_or_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature_contains": "CP",
+                    "cost_le": 5,
+                    "exclude_name": "ブルーノ"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -46326,7 +46693,30 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このステージをレストにし、自分のライフの上から1枚を表向きにできる：自分の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "麦わらの一味"
+                    }
+                  },
+                  "amount": 1000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -47604,7 +47994,30 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のドン‼1枚をレストにできる：自分のトラッシュが15枚以上ある場合、自分の特徴《麦わらの一味》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+3000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_team_any",
+                    "filter": {
+                      "feature": "麦わらの一味"
+                    }
+                  },
+                  "amount": 3000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "if_extra": {
+              "self_trash_count_ge": 15
+            }
+          }
         }
       ],
       "if": {
@@ -49321,7 +49734,25 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のドン‼3枚をレストにできる：自分の付与されているドン‼がある場合、相手の元々の、パワー4000以下のキャラ1枚までとパワー3000以下のキャラ1枚までを、KOする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 3
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  {
+                    "target": "one_opponent_character_filtered_by_truly_power_le_4000"
+                  },
+                  {
+                    "target": "one_opponent_character_filtered_by_truly_power_le_3000"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     },
@@ -49764,7 +50195,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「シャンクス」以外の『ロジャー海賊団』を含む特徴を持つキャラ1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)"
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_contains": "ロジャー海賊団",
+                "exclude_name": "シャンクス"
+              }
+            },
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -50371,7 +50811,31 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：自分の特徴《SMILE》を持つキャラ2枚までを、このターン中、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "all_self_chara_filtered",
+                    "filter": {
+                      "feature": "SMILE"
+                    },
+                    "limit": 2
+                  },
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -50590,7 +51054,18 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のドン‼5枚をレストにできる：自分のリーダーが特徴《超新星》を持つ場合、コスト9以下のキャラ1枚までを、持ち主のライフの上か下に裏向きで加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 5
+              }
+            ],
+            "effect": [
+              {
+                "chara_to_opp_life": "one_opponent_character_cost_le_9"
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -50987,7 +51462,18 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト3以下のキャラ1枚までは、次の相手のターン終了時まで、レストにできない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_rest": "one_opponent_character_cost_le_3"
+              }
+            ]
+          }
         }
       ]
     }
@@ -51076,7 +51562,21 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札から特徴《ファイアタンク海賊団》を持つカード1枚を捨てることができる：コスト1以下のキャラ1枚までを、持ち主の手札かデッキの下に戻す。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "feature": "ファイアタンク海賊団",
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_1"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -51806,7 +52306,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる)：自分の手札からコスト5以下の紫の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "color": "紫",
+                    "feature": "麦わらの一味",
+                    "cost_le": 5
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -52586,7 +53104,16 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+2000。その後、自分のトラッシュが10枚以上ある場合、そのカードは、このターン中、【バニッシュ】を得る。"
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
