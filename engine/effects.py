@@ -2524,6 +2524,41 @@ def execute_effect(
             opp.trash[:] = new_trash
             opp.deck.extend(picked)
             state.push_log(f"  効果: 相手トラッシュ {len(picked)}枚 → 相手デッキ下")
+        elif k == "set_ko_immune_timed":
+            # 公式: 「(target) は、 次の相手のターン終了時まで、 (バトル/効果) で KO されない」
+            # spec: {"target": ..., "duration": "next_opp_turn_end", "scope": "battle"|"effect"|"any"}
+            # 既存の prevent_ko (turn) と give_ko_immune_through_opp_turn の汎用版。
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target", "self")
+            duration = spec_val.get("duration", "next_opp_turn_end")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                if duration == "next_opp_turn_end":
+                    t.ko_immune_through_opp_turn = True
+                else:
+                    t.ko_immune_until_turn_end = True
+            state.push_log(
+                f"  効果: KO耐性 ({duration}) → {[t.card.name for t in targets]}"
+            )
+        elif k == "rest_self_cards_filtered":
+            # 公式: 「自分の (filter) カード N 枚をレストにできる」 (cost 用簡略 primitive)。
+            # spec: {"count": 2, "filter": {...}}
+            spec_val = v if isinstance(v, dict) else {"count": int(v)}
+            count = int(spec_val.get("count", 1))
+            filt = spec_val.get("filter", {})
+            cands = [
+                ip for ip in [me.leader, *me.characters, *me.stages]
+                if not ip.rested and _matches_filter(ip.card, filt)
+            ]
+            if len(cands) < count:
+                state.push_log(f"  効果: レスト不能 (active 不足)")
+                return False
+            cands.sort(key=lambda ip: ip.power)
+            for ip in cands[:count]:
+                ip.rested = True
+            state.push_log(
+                f"  効果: 自カード {count}枚レスト → {[ip.card.name for ip in cands[:count]]}"
+            )
         elif k == "chara_to_opp_life":
             # 公式: 「相手のキャラ1枚までを、 相手のライフの上か下に表向きで置く」 EB01-053 等。
             # 場のキャラを取り除き、 持ち主 (= opp) のライフへ。

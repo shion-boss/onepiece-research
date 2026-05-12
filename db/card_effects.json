@@ -6404,7 +6404,23 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：相手のキャラ1枚に相手のレストのドン‼1枚までを、付与する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "one_opponent_character_any",
+                  "count": 1,
+                  "rested": true,
+                  "to_opp": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -8210,7 +8226,22 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のカード2枚をレストにできる：このキャラは、次の相手のエンドフェイズ終了時まで、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards": 2
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -9041,7 +9072,11 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《東の海》を持つ場合、相手のキャラ1枚に相手のコストエリアのドン‼1枚までを、付与する。"
+          "attach_rested_don": {
+            "target": "one_opponent_character_any",
+            "count": 1,
+            "to_opp": true
+          }
         }
       ],
       "if": {
@@ -12771,7 +12806,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このリーダーのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から1枚をトラッシュに置いてもよい"
+          "mill_self_top": 1
         }
       ]
     }
@@ -13757,7 +13792,18 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のキャラすべてを、コスト+1。自分のコスト8以上のキャラがいる場合、このリーダーのパワー+1000"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "static"
+          }
+        },
+        {
+          "set_base_cost_timed": {
+            "target": "all_self_characters",
+            "delta": 1,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -20198,7 +20244,21 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のキャラ2枚をレストにできる：自分のキャラすべては、次の相手のターン終了時まで、相手の効果でKOされない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards": 2
+              }
+            ],
+            "effect": [
+              {
+                "set_ko_immune_timed": {
+                  "target": "all_self_characters",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -21051,7 +21111,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "_unimplemented": "自分の場のドン!!が10枚ある場合、レストのコスト5以下のキャラすべてを、KOする。その後、このステージをトラッシュに置く。"
+          "ko": "any_opponent_character_cost_le_5"
         }
       ]
     }
@@ -21619,7 +21679,12 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から5枚を見て、カード2枚までを、トラッシュに置く。その後、残りを好きな順番でデッキの下に置く。"
+          "search_top_n": {
+            "depth": 5,
+            "limit": 2,
+            "destination": "trash",
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -44607,7 +44672,22 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の元々の効果のないキャラ1枚までを、このターン中、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_self_chara_no_effect",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -45649,7 +45729,20 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このステージをレストにできる：自分の付与されているドン‼1枚までを、自分の特徴《麦わらの一味》を持つキャラ1枚に付与する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "transfer_attached_don_to_feature": {
+                  "feature": "麦わらの一味"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -46167,7 +46260,18 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：相手のコスト3以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "chara_to_opp_life": "one_opponent_character_cost_le_3"
+              }
+            ]
+          }
         }
       ]
     }
@@ -47091,7 +47195,9 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のレストのキャラ1枚までを選ぶ。選んだキャラのコストがそのキャラに付与されているドン‼の枚数と同じ場合、KOする。"
+          "ko": {
+            "type": "one_opp_chara_with_don_eq_cost"
+          }
         }
       ]
     }
@@ -47929,7 +48035,9 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "相手の元々のパワー9000以下のキャラ2枚を選ぶ。選んだキャラそれぞれの元々のパワーを、このターン中、入れ替える。"
+          "swap_opp_power": {
+            "target_pair": "one_opponent_character_le_9000"
+          }
         }
       ]
     }
@@ -48041,7 +48149,26 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のカード2枚をレストにできる：カード1枚を引き、相手の元々のパワー7000以下のキャラ1枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards": 2
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "rest": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "power_le": 7000
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -48238,7 +48365,16 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の特徴《スリラーバーク海賊団》を持つキャラすべてを、次の相手のエンドフェイズ終了時まで、コスト+4。"
+          "set_base_cost_timed": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "スリラーバーク海賊団"
+              }
+            },
+            "delta": 4,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -48315,7 +48451,16 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "コスト0か8以上のキャラがいる場合、自分の『B・W』を含む特徴を持つキャラすべてを、次の相手のエンドフェイズ終了時まで、コスト+3。"
+          "set_base_cost_timed": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature_contains": "B・W"
+              }
+            },
+            "delta": 3,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -48733,7 +48878,27 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このステージをレストにできる：自分の元々のパワー2000以下のキャラ1枚までを、このターン中、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "power_le": 2000
+                    }
+                  },
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -48816,7 +48981,22 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のドン‼1枚をレストにできる：このキャラは、次の相手のターン終了時まで、パワー+2000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -48994,7 +49174,16 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分の手札が4枚以下の場合、自分の『白ひげ海賊団』を含む特徴を持つキャラすべてを、このターン中、パワー+1000。"
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature_contains": "白ひげ海賊団"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -49525,7 +49714,28 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "自分の手札からイベント2枚を公開することができる：自分の手札からパワー3000以下の赤のキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "color": "赤",
+                    "power_le": 3000
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -49623,7 +49833,17 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の「バギー」以外の『ロジャー海賊団』を含む特徴を持つキャラ1枚までは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。"
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_contains": "ロジャー海賊団",
+                "exclude_name": "バギー"
+              }
+            },
+            "keyword": "ブロッカー",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -50245,7 +50465,23 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の特徴《超新星》を持つリーダーは、次の相手のターン終了時まで、パワー+1000。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "next_opp_turn_end",
+                  "feature": "超新星"
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -51164,7 +51400,24 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分のトラッシュからコスト4以下の「カリブー」1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "name": "カリブー",
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -51837,7 +52090,17 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のレストのキャラが2枚以上いる場合、自分のレストのコスト5以下の特徴《ODYSSEY》を持つキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ODYSSEY",
+                "cost_le": 5
+              },
+              "rested_required": true
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -52028,7 +52291,15 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "次の相手のターン終了時まで、自分の元々のパワー1000以下のキャラすべては、相手の効果でKOされない。"
+          "set_ko_immune_timed": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "power_le": 1000
+              }
+            },
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -52234,7 +52505,27 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをトラッシュに置くことができる：自分の黒のキャラ1枚までを、次の相手のターン終了時まで、コスト+3。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self": true
+              }
+            ],
+            "effect": [
+              {
+                "set_base_cost_timed": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "color": "黒"
+                    }
+                  },
+                  "delta": 3,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -52318,7 +52609,14 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のキャラが相手のキャラより2枚以上少ない場合、相手の元々の、コスト6以下のキャラ1枚までとコスト4以下のキャラ1枚までを、KOする。"
+          "ko_multi": [
+            {
+              "target": "one_opponent_character_cost_le_6"
+            },
+            {
+              "target": "one_opponent_character_cost_le_4"
+            }
+          ]
         }
       ]
     },
@@ -52379,7 +52677,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のリーダーが特徴《超新星》を持ち、相手のライフが3枚以上の場合、このキャラはバトルでKOされない"
+          "set_ko_immune_battle_only": true
         }
       ]
     }
@@ -52790,7 +53088,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分のリーダーが、パワー7000以上でかつ特徴《キッド海賊団》を持つ場合、このキャラは【速攻】を得る"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -52939,7 +53240,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のレストのキャラが2枚以上いる場合、相手のコスト6以下のキャラ1枚かドン‼1枚までを、レストにする。"
+          "rest": "one_opp_chara_or_don"
         }
       ]
     }
@@ -53891,7 +54192,12 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【activate_main】【ターン1回】このキャラ以外の自分の特徴《動物》を持つキャラ1枚までを、このターン中、パワー+1000"
+          "power_pump": {
+            "target": "other_self_chara",
+            "amount": 1000,
+            "duration": "turn",
+            "feature": "動物"
+          }
         }
       ],
       "if": {
@@ -53906,7 +54212,12 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】このキャラ以外の自分の特徴《動物》を持つキャラ1枚までを、このターン中、パワー+1000。"
+          "power_pump": {
+            "target": "other_self_chara",
+            "amount": 1000,
+            "duration": "turn",
+            "feature": "動物"
+          }
         }
       ],
       "cost": {
@@ -55282,7 +55593,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のコスト1の赤のキャラ1枚までは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)"
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "color": "赤",
+                "cost_eq": 1
+              }
+            },
+            "keyword": "ダブルアタック"
+          }
         }
       ]
     }
@@ -55854,7 +56174,18 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手のリーダーとキャラ1枚までを、このターン中、パワー-2000。"
+          "power_pump": {
+            "target": "opponent_leader",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -55896,7 +56227,15 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分の「フォクシー」1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "フォクシー"
+              }
+            },
+            "limit": 1
+          }
         }
       ]
     },
@@ -56381,7 +56720,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のコスト4以下の属性(斬)を持つキャラ1枚までを、アクティブにする。その後、自分は、このターン中、リーダーにアタックできない。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "attribute": "斬",
+                "cost_le": 4
+              }
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -57069,7 +57417,23 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "自分の特徴《スリラーバーク海賊団》を持つキャラ1枚をKOできる：このキャラは、このターン中、効果が無効になる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_with_filter": {
+                  "feature": "スリラーバーク海賊団"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "効果無効"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -57761,7 +58125,15 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ターン1回】自分のレストのキャラが2枚以上いる場合、自分のレストのコスト1のキャラ1枚までを、アクティブにする。"
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_eq": 1
+              }
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -58366,7 +58738,22 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札から「コトリ」1枚を、登場できる：相手のコスト3以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "play_from_hand_named_set": {
+                  "names": [
+                    "コトリ"
+                  ]
+                }
+              }
+            ],
+            "effect": [
+              {
+                "chara_to_opp_life": "one_opponent_character_cost_le_3"
+              }
+            ]
+          }
         }
       ]
     }
@@ -58654,7 +59041,27 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の特徴《アラバスタ王国》を持つキャラすべてにレストのドン!!1枚ずつまでを、付与する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": {
+                    "type": "all_self_chara_filtered",
+                    "filter": {
+                      "feature": "アラバスタ王国"
+                    }
+                  },
+                  "count": 1,
+                  "per_target": true
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -59454,7 +59861,14 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の特徴《ドレスローザ》を持つキャラ1枚までは、このターン中、アクティブのキャラにもアタックできる。"
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            }
+          }
         }
       ]
     }
