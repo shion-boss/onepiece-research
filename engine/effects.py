@@ -1262,6 +1262,47 @@ def execute_effect(
                 me.deck.extend(remaining)
             if not picked:
                 state.push_log(f"  効果: search_top_n 該当なし")
+        elif k == "reveal_top_then":
+            # R4: 公式 「自分のデッキの上から N 枚を公開し、 (filter 条件) の場合、 効果X」 ;
+            #       その後、 公開したカードを デッキの (上/下/トラッシュ) に置く。
+            # ST22-016 / ST22-012 / ST17-001 / EB01-029 等 (5+ 枚)。
+            # spec: {"depth": 1, "filter": {...},
+            #        "then": [<do_spec>...],
+            #        "else": [<do_spec>...]  (optional),
+            #        "rest_remain": "bottom"|"top"|"trash"  (default bottom)}
+            # 条件は depth=1 のとき公開 1 枚が filter にマッチすれば then を発動。
+            # depth>1 なら 1 枚でも マッチ で then 発動 (= 公式 「~の場合」 個別条件)。
+            spec_val = v if isinstance(v, dict) else {}
+            depth = int(spec_val.get("depth", 1))
+            filt = spec_val.get("filter", {})
+            then_specs = spec_val.get("then", [])
+            else_specs = spec_val.get("else", [])
+            rest_remain = spec_val.get("rest_remain", "bottom")
+            if not me.deck:
+                state.push_log(f"  効果: reveal_top_then デッキ空 (不発)")
+                return False
+            revealed_cards = me.deck[:depth]
+            me.deck = me.deck[depth:]
+            matched = any(_matches_filter(c, filt) for c in revealed_cards)
+            state.push_log(
+                f"  効果: デッキ上 {depth} 枚公開 → {[c.name for c in revealed_cards]} "
+                f"(マッチ={matched})"
+            )
+            if matched:
+                for spec in then_specs:
+                    execute_effect(spec, state, me, opp, self_inplay)
+            else:
+                for spec in else_specs:
+                    execute_effect(spec, state, me, opp, self_inplay)
+            # 公開済カードを rest_remain へ
+            if rest_remain == "top":
+                # 公開順を保持して 上へ戻す (公式: 「~好きな順」 は AI 簡易で revealed 順)
+                me.deck = list(revealed_cards) + me.deck
+            elif rest_remain == "trash":
+                me.trash.extend(revealed_cards)
+            else:
+                # bottom (default)
+                me.deck.extend(revealed_cards)
         elif k == "reveal_top_play":
             # 公式: 「デッキの一番上を公開し、 (条件) の場合、 登場させてもよい。 残りをデッキの下/上下に置く」
             # spec: {"filter": {...}, "rested": false, "rest_remain": "bottom"|"top_or_bottom"|"top"}
@@ -1532,6 +1573,49 @@ def execute_effect(
                 state.push_log(f"  効果: 手札から{label}任意登場 → {card.name}")
                 if state.effects_overlay:
                     trigger_on_play(state, me, opp, ip, state.effects_overlay)
+        elif k == "play_from_hand_named_set":
+            # R4: 「自分の手札から、 N1 と N2 と N3 ... それぞれ 1 枚ずつまでを、 登場させる」 (ST13-006 等)。
+            # spec: {"names": ["サボ", "ポートガス・D・エース", "モンキー・D・ルフィ"],
+            #        "cost_eq": 2, "rested": false, "filter": {...}}
+            # - cost_eq/cost_le 制約を filter として追加可。
+            # - filter は names 制約とAND結合。
+            # 各 name について 手札先頭の 1 枚を取り出し登場 (= AI 簡易: 最も若い index)。
+            spec = v if isinstance(v, dict) else {"names": []}
+            names = list(spec.get("names", []))
+            rested = bool(spec.get("rested", False))
+            extra_filt = spec.get("filter", {})
+            # cost 制約も filter 互換に統合
+            if "cost_eq" in spec:
+                extra_filt = {**extra_filt, "cost_eq": spec["cost_eq"]}
+            if "cost_le" in spec:
+                extra_filt = {**extra_filt, "cost_le": spec["cost_le"]}
+            played: list[str] = []
+            consumed_indexes: set[int] = set()
+            for nm in names:
+                for i, card in enumerate(me.hand):
+                    if i in consumed_indexes:
+                        continue
+                    if card.category != Category.CHARACTER:
+                        continue
+                    if card.name != nm:
+                        continue
+                    if not _matches_filter(card, extra_filt):
+                        continue
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state)
+                    ip = InPlay.of(card, rested=rested, sickness=True)
+                    me.characters.append(ip)
+                    consumed_indexes.add(i)
+                    played.append(card.name)
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                    break
+            # 消費インデックス降順で手札から除去
+            for i in sorted(consumed_indexes, reverse=True):
+                me.hand.pop(i)
+            state.push_log(
+                f"  効果: play_from_hand_named_set → {played} (該当 {len(played)}/{len(names)})"
+            )
         elif k == "mill_opp_life_to_hand":
             # 相手のライフ上から N 枚を相手の手札へ (= ライフ削り、 相手リーダーに対するダメージとほぼ等価)
             # 公式: ヒット時にトリガー判定するが、 「効果で」 ライフを取る場合は trigger は発動しない (10-1-5)。
@@ -1787,37 +1871,67 @@ def execute_effect(
         elif k == "attach_don":
             # 自キャラ/リーダーにアクティブドン N 付与。
             # 構造: {"target": "self_leader", "count": 2}
+            #        {"target": "all_self_team", "count": 1, "per_target": true}
+            # per_target=true は 各 target に count 枚ずつ付与 (= R4 拡張)。
+            # 公式: 「自分のリーダーとキャラすべてにレストのドン!!1枚ずつまでを付与」 (OP14-105) や
+            # 「自分の特徴Xを持つキャラすべてにレストのドン!!1枚ずつまでを付与」 (OP04-004) 用。
             spec = v if isinstance(v, dict) else {"target": "self_leader", "count": 1}
             target_spec = spec.get("target", "self_leader")
             n = int(spec.get("count", 1))
-            n = min(n, me.don_active)
-            if n <= 0:
-                continue
+            per_target = bool(spec.get("per_target", False))
             targets = _resolve_target(target_spec, state, me, opp, self_inplay)
             if not targets:
                 continue
-            # 1 体目に全部付与する単純実装 (複数対象は max +N 分散)
-            target = targets[0]
-            me.don_active -= n
-            target.attached_dons += n
-            state.push_log(f"  効果: ドン{n}付与 → {target.card.name} (P={target.power})")
+            if per_target:
+                # 各 target に min(n, 残り don_active) を付与。 1 体ずつ消費。
+                attached_log: list[str] = []
+                for t in targets:
+                    give = min(n, me.don_active)
+                    if give <= 0:
+                        break
+                    me.don_active -= give
+                    t.attached_dons += give
+                    attached_log.append(f"{t.card.name}+{give}")
+                state.push_log(f"  効果: ドン付与 (per_target) → {attached_log}")
+            else:
+                n = min(n, me.don_active)
+                if n <= 0:
+                    continue
+                # 1 体目に全部付与する単純実装 (複数対象は max +N 分散)
+                target = targets[0]
+                me.don_active -= n
+                target.attached_dons += n
+                state.push_log(f"  効果: ドン{n}付与 → {target.card.name} (P={target.power})")
         elif k == "attach_rested_don":
             # 「自キャラ/リーダーに レストのドン N 枚を付与」 (ST08-001 等)。
             # ソースは me.don_rested。 付与後は attached_dons の一部として保持
             # (= レフレッシュ時にコストエリアに戻る = 通常の attached_dons と同じ動作)。
+            # per_target=true: 各 target に count 枚ずつ付与 (R4 拡張、 OP14-105 用)。
             spec = v if isinstance(v, dict) else {"target": "self_leader", "count": 1}
             target_spec = spec.get("target", "self_leader")
             n = int(spec.get("count", 1))
-            n = min(n, me.don_rested)
-            if n <= 0:
-                continue
+            per_target = bool(spec.get("per_target", False))
             targets = _resolve_target(target_spec, state, me, opp, self_inplay)
             if not targets:
                 continue
-            target = targets[0]
-            me.don_rested -= n
-            target.attached_dons += n
-            state.push_log(f"  効果: レストドン{n}付与 → {target.card.name}")
+            if per_target:
+                attached_log: list[str] = []
+                for t in targets:
+                    give = min(n, me.don_rested)
+                    if give <= 0:
+                        break
+                    me.don_rested -= give
+                    t.attached_dons += give
+                    attached_log.append(f"{t.card.name}+{give}")
+                state.push_log(f"  効果: レストドン付与 (per_target) → {attached_log}")
+            else:
+                n = min(n, me.don_rested)
+                if n <= 0:
+                    continue
+                target = targets[0]
+                me.don_rested -= n
+                target.attached_dons += n
+                state.push_log(f"  効果: レストドン{n}付与 → {target.card.name}")
         elif k == "set_cannot_rest":
             # 「対象は、 次の (相手) ターン終了時まで、 レストにできない」 (OP14-033 等)。
             # rest プリミティブで cannot_be_rested_buff のあるキャラはスキップされる。
@@ -2395,6 +2509,14 @@ def execute_effect(
                     if not me.life:
                         can_pay = False
                         break
+                elif "mill_self_life_to_trash" in cs:
+                    # R4: 「自分のライフの上か下から N 枚をトラッシュに置くことができる」 cost。
+                    # 公式: ST13-005 / 等。 ライフが N 枚以上必要 (= 効果ライフ削りなのでトリガー判定なし)。
+                    n_spec = cs["mill_self_life_to_trash"]
+                    n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
+                    if len(me.life) < n:
+                        can_pay = False
+                        break
                 elif "trash_self_hand_random" in cs:
                     if not me.hand:
                         can_pay = False
@@ -2471,6 +2593,20 @@ def execute_effect(
                     d_count = int(df_spec.get("count", 1))
                     matching = [c for c in me.hand if _matches_filter(c, d_filt)]
                     if len(matching) < d_count:
+                        can_pay = False
+                        break
+                elif "reveal_hand_with_filter" in cs:
+                    # R4: 「自分の手札から特徴X を持つカード N 枚を公開することができる」 cost。
+                    # 手札に filter 一致が count 以上必要 (実消費なし)。
+                    # 影響カード: OP12-003 / OP12-009 / OP12-015 / OP08-040 等 23+ 枚。
+                    rf_spec = cs["reveal_hand_with_filter"]
+                    if "filter" in rf_spec:
+                        r_filt = rf_spec.get("filter", {})
+                    else:
+                        r_filt = {k: v for k, v in rf_spec.items() if k != "count"}
+                    r_count = int(rf_spec.get("count", 1))
+                    matching = [c for c in me.hand if _matches_filter(c, r_filt)]
+                    if len(matching) < r_count:
                         can_pay = False
                         break
                 elif "stage_to_deck_bottom" in cs:
@@ -2552,6 +2688,21 @@ def execute_effect(
                         else:
                             new_hand.append(c)
                     me.hand = new_hand
+                    continue
+                if "reveal_hand_with_filter" in cs:
+                    # R4: 「自分の手札から特徴X を持つカード N 枚を公開することができる」 cost。
+                    # 実消費なし (公開のみ)。 payability で確認済なのでログのみ。
+                    rf_spec = cs["reveal_hand_with_filter"]
+                    if "filter" in rf_spec:
+                        r_filt = rf_spec.get("filter", {})
+                    else:
+                        r_filt = {k: v for k, v in rf_spec.items() if k != "count"}
+                    r_count = int(rf_spec.get("count", 1))
+                    revealed: list[str] = []
+                    for c in me.hand:
+                        if len(revealed) < r_count and _matches_filter(c, r_filt):
+                            revealed.append(c.name)
+                    state.push_log(f"  効果コスト: 手札公開 (実消費なし) → {revealed}")
                     continue
                 if "stage_to_deck_bottom" in cs:
                     # 公式: 自場のステージ N 枚を持ち主 (= me) のデッキの下へ。
@@ -3656,6 +3807,20 @@ def _can_pay_activate_cost(
         matching = [c for c in me.hand if _matches_filter(c, d_filt)]
         if len(matching) < d_count:
             return False
+    # R4: reveal_hand_with_filter cost (= 公開のみ、 実消費なし)
+    # 公式: 「自分の手札から特徴X を持つカード N 枚を公開することができる：効果」 (OP14-105, OP12-003 等)
+    # spec: {"reveal_hand_with_filter": {"filter": {...}, "count": N}}
+    #   or {"reveal_hand_with_filter": {"feature_in": [...], "count": N}}
+    reveal_filter_spec = cost.get("reveal_hand_with_filter")
+    if reveal_filter_spec:
+        if "filter" in reveal_filter_spec:
+            r_filt = reveal_filter_spec.get("filter", {})
+        else:
+            r_filt = {k: v for k, v in reveal_filter_spec.items() if k != "count"}
+        r_count = int(reveal_filter_spec.get("count", 1))
+        matching = [c for c in me.hand if _matches_filter(c, r_filt)]
+        if len(matching) < r_count:
+            return False
     ko_filter = cost.get("ko_self_with_filter")
     if ko_filter:
         # filter 一致の自キャラが少なくとも 1 枚必要
@@ -3864,6 +4029,21 @@ def fire_activate_main(
             else:
                 new_hand.append(c)
         me.hand = new_hand
+    # R4: reveal_hand_with_filter (公開のみ、 実消費なし)。
+    # 公式: 「自分の手札から特徴X を持つカード N 枚を公開することができる：効果」 (OP14-105 等)。
+    # payability で hand に N 枚以上あることは確認済。 ここでは公開ログのみ。
+    reveal_filter_spec = cost.get("reveal_hand_with_filter")
+    if reveal_filter_spec:
+        if "filter" in reveal_filter_spec:
+            r_filt = reveal_filter_spec.get("filter", {})
+        else:
+            r_filt = {k: v for k, v in reveal_filter_spec.items() if k != "count"}
+        r_count = int(reveal_filter_spec.get("count", 1))
+        revealed = []
+        for c in me.hand:
+            if len(revealed) < r_count and _matches_filter(c, r_filt):
+                revealed.append(c.name)
+        state.push_log(f"  起動メインコスト: 手札公開 (実消費なし) → {revealed}")
     # ko_self_with_filter: 自場の該当キャラ1枚KO
     ko_filter = cost.get("ko_self_with_filter")
     if ko_filter:
