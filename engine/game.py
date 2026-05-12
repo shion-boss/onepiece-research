@@ -322,6 +322,13 @@ def _reset_turn_buff(state: GameState) -> None:
                     ip.next_opp_turn_end_base_power_override = None
                     ip.next_opp_turn_end_base_power_override_applier_idx = -1
                     ip.next_opp_turn_end_base_power_override_applied_turn = 0
+            if ip.next_opp_turn_end_base_cost_override is not None:
+                if (ip.next_opp_turn_end_base_cost_override_applier_idx >= 0
+                        and ip.next_opp_turn_end_base_cost_override_applied_turn < state.turn_number
+                        and ended_idx != ip.next_opp_turn_end_base_cost_override_applier_idx):
+                    ip.next_opp_turn_end_base_cost_override = None
+                    ip.next_opp_turn_end_base_cost_override_applier_idx = -1
+                    ip.next_opp_turn_end_base_cost_override_applied_turn = 0
             # granted_keywords_through_opp_turn: applier の opp ターン (= 相手ターン) 終了で消える。
             # OP09-084 カタリーナ・デボン 「次の相手のターン終了時まで、 【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る」 等。
             if ip.attack_cost_discard_hand_n > 0:

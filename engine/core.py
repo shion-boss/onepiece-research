@@ -187,6 +187,11 @@ class InPlay:
     next_opp_turn_end_base_power_override_applied_turn: int = 0
     # 「元々のコスト」を上書き (None なら CardDef.cost を使う)
     base_cost_override: Optional[int] = None
+    # 「次の相手のターン終了時まで、 コスト +N」 (EB02-041 メリー号等)。
+    # applier-tracking。 _reset_turn_buff でクリア。
+    next_opp_turn_end_base_cost_override: Optional[int] = None
+    next_opp_turn_end_base_cost_override_applier_idx: int = -1
+    next_opp_turn_end_base_cost_override_applied_turn: int = 0
     # 「相手はこのキャラ以外にアタックできない」常在 (taunt)。
     # 静的効果でセット、evaluate_static_effects でリセット
     attack_taunt: bool = False
@@ -338,7 +343,9 @@ class InPlay:
         """元々のコスト (override があればそちら、ターン中の cost_minus を反映)。
         「元々のコスト X 以下」判定 (KO 効果など) はこの値を使う。"""
         raw = (
-            self.base_cost_override
+            self.next_opp_turn_end_base_cost_override
+            if self.next_opp_turn_end_base_cost_override is not None
+            else self.base_cost_override
             if self.base_cost_override is not None
             else self.card.cost
         )
@@ -496,6 +503,8 @@ class GameState:
     last_chara_ko_victim_card: Optional[object] = None
     # 直近の「相手のキャラが登場した」 イベントの played カード (= OP12-081 コアラ用)。
     last_opp_chara_played_card: Optional[object] = None
+    # 直近の「自分のキャラが登場した」 イベントの played カード (= OP02-026 サンジ用)。
+    last_self_chara_played_card: Optional[object] = None
 
     @property
     def turn_player(self):

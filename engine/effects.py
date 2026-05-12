@@ -445,6 +445,15 @@ def eval_condition(
         elif k == "self_don_active_ge":
             if me.don_active < int(v):
                 return False
+        elif k == "self_don_active_le":
+            if me.don_active > int(v):
+                return False
+        elif k == "self_chara_count_le":
+            if len(me.characters) > int(v):
+                return False
+        elif k == "self_chara_count_ge":
+            if len(me.characters) < int(v):
+                return False
         elif k == "self_chara_feature_count_ge":
             spec = v if isinstance(v, dict) else {}
             feature = spec.get("feature", "")
@@ -470,6 +479,23 @@ def eval_condition(
             # 直近の opp_chara_played カードの 「元々のコスト」 が N 以上 (OP12-081 コアラ)
             pc = getattr(state, "last_opp_chara_played_card", None)
             if pc is None or int(getattr(pc, "cost", 0) or 0) < int(v):
+                return False
+        elif k == "played_self_chara_has_no_effect":
+            # 直近の self_chara_played カードに overlay 効果が無いか (OP02-026 サンジ用)。
+            # 公式: 「元々の効果のないキャラ」 = カードテキストが効果文を持たないバニラ。
+            # 簡略: overlay にエントリが無い or 空配列 (= []) なら 効果なし扱い。
+            pc = getattr(state, "last_self_chara_played_card", None)
+            if pc is None:
+                return False
+            ov = state.effects_overlay.get(pc.card_id) if state.effects_overlay else None
+            if ov is None:
+                # 効果オーバーレイ未登録 = vanilla
+                effects_count = 0
+            else:
+                # CardEffectBundle なら .effects、 list なら自身
+                eff_list = getattr(ov, "effects", ov)
+                effects_count = len(eff_list) if hasattr(eff_list, "__len__") else 0
+            if bool(v) != (effects_count == 0):
                 return False
         elif k == "actor_source_feature_contains":
             # 直近の効果発動 source カードの特徴に v を含むか (= OP12-040 クザン用)。
@@ -1181,6 +1207,10 @@ def execute_effect(
                     src_val = len(me.characters)
                 elif src == "self_trash_count":
                     src_val = len(me.trash)
+                elif src == "self_trash_event_count":
+                    src_val = sum(1 for c in me.trash if c.category == Category.EVENT)
+                elif src == "self_trash_chara_count":
+                    src_val = sum(1 for c in me.trash if c.category == Category.CHARACTER)
                 elif src == "self_chara_feature_count":
                     feat = amount_per.get("feature", "")
                     src_val = sum(1 for c in me.characters if feat in c.card.features)
@@ -2249,6 +2279,63 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {}
             me.delayed_at_opp_main_phase_start.append(spec_val)
             state.push_log(f"  効果: 次の相手 MAIN 開始時に発動を予約")
+        elif k == "peek_self_life_top":
+            # 公式: 「自分のライフの上から N 枚を表向きにできる」 (OP12-102 しらほし等)。
+            # ゲーム的には情報公開のみで状態変化なし。 シンプル実装で log のみ。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            peeked = me.life[:n]
+            state.push_log(f"  効果: ライフ上 {n} 枚を表向き → {[c.name for c in peeked]}")
+        elif k == "set_base_cost_timed":
+            # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
+            # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}
+            # 既存 set_base_cost (static) と異なり期間限定。 cost_override は absolute or delta。
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target", "self")
+            duration = spec_val.get("duration", "next_opp_turn_end")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            me_idx = state.players.index(me)
+            for t in targets:
+                if "amount" in spec_val:
+                    amount = int(spec_val["amount"])
+                    cur = t.next_opp_turn_end_base_cost_override
+                    if cur is None:
+                        cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
+                    new_val = amount
+                else:
+                    delta = int(spec_val.get("delta", 0))
+                    cur = t.next_opp_turn_end_base_cost_override
+                    if cur is None:
+                        cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
+                    new_val = max(0, cur + delta)
+                t.next_opp_turn_end_base_cost_override = new_val
+                if duration == "next_opp_turn_end":
+                    t.next_opp_turn_end_base_cost_override_applier_idx = me_idx
+                    t.next_opp_turn_end_base_cost_override_applied_turn = state.turn_number
+            state.push_log(
+                f"  効果: コスト変更 ({duration}) → {[(t.card.name, t.next_opp_turn_end_base_cost_override) for t in targets]}"
+            )
+        elif k == "rest_self_don_for_battle_buff_per_don":
+            # 公式: 「自分のドン!! を任意の枚数レストにできる。 レストにしたドン!! 1 枚につき、
+            # (target) は、 このバトル中、 パワー+N」 (OP13-001 ルフィ等)。
+            # spec: {"target": "self_leader", "amount_per_rest": 2000, "max": 5}
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target", "self_leader")
+            amount_per = int(spec_val.get("amount_per_rest", 2000))
+            max_n = int(spec_val.get("max", 5))
+            # AI 簡易: don_active を最大数まで rest (= 防御強化最大化)
+            rest_n = min(me.don_active, max_n)
+            if rest_n <= 0:
+                state.push_log(f"  効果: ドンrest不可 (active=0)")
+                return False
+            me.don_active -= rest_n
+            me.don_rested += rest_n
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            buff = amount_per * rest_n
+            for t in targets:
+                t.battle_buff += buff
+            state.push_log(
+                f"  効果: 自don {rest_n} 枚 rest → battle_buff +{buff} 付与"
+            )
         elif k == "keep_opp_rested_don_next_refresh":
             # 「相手のレストのドン!! N 枚までは、 次の相手のリフレッシュでアクティブにならない」
             # OP10-033 ナミ 等。 spec: int N | dict {"amount": N}
@@ -2415,6 +2502,43 @@ def execute_effect(
             opp.don_active -= taken
             opp.don_rested += taken
             state.push_log(f"  効果: 相手ドン{taken}枚レスト")
+        elif k == "opp_trash_to_deck_bottom":
+            # 公式: 「相手は自身のトラッシュから (filter) カード N 枚を、 好きな順番でデッキの下に置く」
+            # OP15-091 / OP05-079 / OP11-091 等。 spec: int N | {"count": N, "filter": {...}}
+            if isinstance(v, dict):
+                count = int(v.get("count", 1))
+                filt = v.get("filter", {})
+            else:
+                count = int(v)
+                filt = {}
+            picked = []
+            new_trash = []
+            for c in opp.trash:
+                if len(picked) < count and _matches_filter(c, filt):
+                    picked.append(c)
+                else:
+                    new_trash.append(c)
+            if not picked:
+                state.push_log(f"  効果: 相手トラッシュ → デッキ下 (該当なし)")
+                return False
+            opp.trash[:] = new_trash
+            opp.deck.extend(picked)
+            state.push_log(f"  効果: 相手トラッシュ {len(picked)}枚 → 相手デッキ下")
+        elif k == "chara_to_opp_life":
+            # 公式: 「相手のキャラ1枚までを、 相手のライフの上か下に表向きで置く」 EB01-053 等。
+            # 場のキャラを取り除き、 持ち主 (= opp) のライフへ。
+            target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_character_any")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            if not targets:
+                return False
+            for t in targets:
+                if t in opp.characters:
+                    opp.characters.remove(t)
+                    if t.attached_dons > 0:
+                        opp.don_rested += t.attached_dons
+                        t.attached_dons = 0
+                    opp.life.insert(0, t.card)
+                    state.push_log(f"  効果: 相手キャラ {t.card.name} → 相手ライフ上")
         elif k == "return_opp_don":
             # 相手は自身の場のドン N 枚をドンデッキに戻す。 active 優先、 不足は rested から。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -3517,6 +3641,8 @@ def trigger_on_play(
     OP04-024 シュガー 等 (公式 7-1-1-7)。
     """
     me_idx = state.players.index(me)
+    # payload-aware context: 自分の場の効果 (= OP02-026 サンジ等) が played カードを参照可
+    state.last_self_chara_played_card = self_inplay.card
     # 自陣営: 登場したカード自身の on_play
     bundle = effects_overlay.get(self_inplay.card.card_id)
     has_self_on_play = bundle is not None and any(e.get("when") == "on_play" for e in bundle.effects)
@@ -3528,6 +3654,9 @@ def trigger_on_play(
             source_card_id=self_inplay.card.card_id,
             source_iid=self_inplay.instance_id,
         )
+    # 自陣営: 「自分のキャラが登場した時」 (= on_self_chara_played) を自分の場の全カードに発火
+    if self_inplay.card.category == Category.CHARACTER:
+        _enqueue_field_when(state, me, "on_self_chara_played", effects_overlay)
     # 相手陣営: 「相手がキャラを登場させた時」 を相手の場の全カードに対し発火
     # (キャラのみ。 ステージ/イベントは on_opp_chara_played の対象外)
     if self_inplay.card.category == Category.CHARACTER:
