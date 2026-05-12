@@ -2524,6 +2524,121 @@ def execute_effect(
             opp.trash[:] = new_trash
             opp.deck.extend(picked)
             state.push_log(f"  効果: 相手トラッシュ {len(picked)}枚 → 相手デッキ下")
+        elif k == "attach_active_don":
+            # アクティブドンを N 枚付与 (= attach_rested_don の active 版)。
+            # spec: {"target": "self_leader", "count": 2}
+            spec = v if isinstance(v, dict) else {}
+            target_spec = spec.get("target", "self_leader")
+            count = int(spec.get("count", 1))
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            if not targets:
+                return False
+            n = min(count, me.don_active)
+            if n <= 0:
+                return False
+            target = targets[0]
+            me.don_active -= n
+            target.attached_dons += n
+            state.push_log(f"  効果: アクティブドン {n} 枚付与 → {target.card.name}")
+        elif k == "prevent_opp_blocker_for_cost_le":
+            # 「相手は、 このバトル中、 コスト N 以下のキャラの【ブロッカー】を発動できない」
+            # OP02-061 / OP02-101 等。 cost N 以下のキャラに「ブロック不可」 flag を立てる。
+            spec = v if isinstance(v, dict) else {}
+            cost_le = int(spec.get("cost_le", 5))
+            duration = spec.get("duration", "battle")
+            for c in opp.characters:
+                if c.card.cost <= cost_le:
+                    if duration == "turn":
+                        c.granted_keywords.add("ブロック不可")
+                    else:
+                        c.granted_keywords.add("ブロック不可")
+            state.push_log(
+                f"  効果: 相手コスト{cost_le}以下キャラのブロック不可 ({duration})"
+            )
+        elif k == "reveal_opp_hand":
+            # 「相手の手札 N 枚を公開する」 OP01-105 等。 公開のみ (= 情報公開)、 効果なし。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 2))
+            revealed = opp.hand[:n]
+            state.push_log(f"  効果: 相手手札 {n} 枚公開 → {[c.name for c in revealed]}")
+        elif k == "discard_self_to_deck_top":
+            # 自分の手札 N 枚をデッキの上に置く (ST17-001 等)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            if not me.hand:
+                return False
+            # AI 簡易: 弱いカードをデッキ上 (= 次ドローを犠牲)
+            # 公式は任意選択だが、 シンプル: index 0 のカード (= 古い手札)
+            moved = []
+            for _ in range(min(n, len(me.hand))):
+                c = me.hand.pop(0)
+                me.deck.insert(0, c)
+                moved.append(c.name)
+            state.push_log(f"  効果: 自手札 {len(moved)} 枚 → デッキ上 ({moved})")
+        elif k == "return_attached_don_to_cost_rested":
+            # 「自分の付与されているドン!! N 枚を、 コストエリアにレストで戻す」 (ST28-004 等)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            removed = 0
+            # AI 簡易: self_inplay の attached_dons から優先消費
+            if self_inplay is not None and self_inplay.attached_dons > 0:
+                take = min(self_inplay.attached_dons, n)
+                self_inplay.attached_dons -= take
+                removed += take
+            if removed < n:
+                # 他キャラ/リーダーから補充
+                for ip in [me.leader, *me.characters]:
+                    if ip is self_inplay:
+                        continue
+                    if ip.attached_dons > 0:
+                        take = min(ip.attached_dons, n - removed)
+                        ip.attached_dons -= take
+                        removed += take
+                        if removed >= n:
+                            break
+            me.don_rested += removed
+            state.push_log(f"  効果: 付与ドン {removed} 枚 → コストエリアレスト")
+        elif k == "schedule_at_self_turn_end":
+            # 「このターン終了時に〜」 delayed effect (= 自ターン終了で発動)。
+            # OP15-025 クロ等。 me.scheduled_at_self_turn_end に append → END phase で flush。
+            spec_val = v if isinstance(v, dict) else {}
+            if not hasattr(me, "scheduled_at_self_turn_end"):
+                me.scheduled_at_self_turn_end = []
+            me.scheduled_at_self_turn_end.append(spec_val)
+            state.push_log(f"  効果: 自ターン終了時に発動を予約")
+        elif k == "static_swords_attack_chara":
+            # 公式 静的: 「自分の特徴《SWORD》を持つキャラは、 登場したターンにキャラへアタックできる」
+            # OP11-001 コビー リーダー等。 evaluate_static_effects で対応するため
+            # ここでは on_attached_don n=0 経由で呼ばれた時に SWORD キャラに 速攻:キャラ flag を立てる。
+            for ip in me.characters:
+                if "SWORD" in ip.card.features:
+                    ip.granted_keywords.add("速攻：キャラ")
+            state.push_log(f"  効果: SWORDキャラに速攻:キャラ付与")
+        elif k == "keep_opp_rested_chara_next_refresh":
+            # 「相手の (filter) レストのキャラ N 枚は、 次の相手のリフレッシュフェイズで
+            # アクティブにならない」 (OP15-038 等)。 該当キャラに stay_rested_next_refresh フラグ。
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target", "one_opponent_character_any")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                if t.rested:
+                    t.stay_rested_next_refresh = True
+            state.push_log(
+                f"  効果: 相手レストキャラ stay_rested → {[t.card.name for t in targets]}"
+            )
+        elif k == "keep_opp_rested_inplay_next_refresh":
+            # 「相手のレストのリーダーとキャラ N 枚は、 次の相手のリフレッシュフェイズで
+            # アクティブにならない」 OP07-059 フォクシー等。
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target_rest", "one_opp_chara_or_leader")
+            # target_rest は「one_opp_chara_or_leader」 想定。 シンプル: opp.leader + chara から rested 1 枚
+            cands = []
+            if opp.leader.rested:
+                cands.append(opp.leader)
+            for c in opp.characters:
+                if c.rested:
+                    cands.append(c)
+            if cands:
+                cands.sort(key=lambda ip: -ip.power)
+                cands[0].stay_rested_next_refresh = True
+                state.push_log(f"  効果: {cands[0].card.name} stay_rested")
         elif k == "set_ko_immune_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 (バトル/効果) で KO されない」
             # spec: {"target": ..., "duration": "next_opp_turn_end", "scope": "battle"|"effect"|"any"}
