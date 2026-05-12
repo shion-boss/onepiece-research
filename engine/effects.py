@@ -2709,6 +2709,11 @@ def execute_effect(
                 cands.sort(key=lambda ip: -ip.power)
                 cands[0].stay_rested_next_refresh = True
                 state.push_log(f"  効果: {cands[0].card.name} stay_rested")
+        elif k == "to_hand_self_trigger":
+            # 公式: 「このカードを手札に加える」 (ST09-002 雨月天ぷら等の trigger 内)。
+            # state にフラグを立て、 game.py の AttackLeader/Character 処理が trash の代わりに hand に置く。
+            state.last_trigger_kept_in_hand = True
+            state.push_log(f"  効果: このカードを手札に加える (trigger keep)")
         elif k == "set_ko_immune_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 (バトル/効果) で KO されない」
             # spec: {"target": ..., "duration": "next_opp_turn_end", "scope": "battle"|"effect"|"any"}

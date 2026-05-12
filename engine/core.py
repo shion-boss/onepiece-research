@@ -508,6 +508,9 @@ class GameState:
     last_opp_chara_played_card: Optional[object] = None
     # 直近の「自分のキャラが登場した」 イベントの played カード (= OP02-026 サンジ用)。
     last_self_chara_played_card: Optional[object] = None
+    # 直近のトリガー処理で「このカードを手札に加える」 効果が発動したか (ST09-002 雨月天ぷら等)。
+    # trigger_lifecard_trigger 後に game.py が読んで trash 移動 → 手札 へ振替。
+    last_trigger_kept_in_hand: bool = False
     # action 単位の board_eval 履歴 (R64+ AI 行動品質評価用)。
     # apply_action 開始時 / 終了時に push される dict: {turn, player_idx, action, eval_before, eval_after, delta}
     action_evals: list = field(default_factory=list)

@@ -1129,18 +1129,27 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     )
                     continue
                 fired = False
+                kept_in_hand = False
                 if state.effects_overlay:
                     from .effects import trigger_lifecard_trigger, should_fire_trigger
                     # 公式 10-1-5: 防御側プレイヤーが発動するか選択
                     auto_fire = should_fire_trigger(state, opp, taken, state.effects_overlay)
+                    state.last_trigger_kept_in_hand = False  # reset before
                     fired = trigger_lifecard_trigger(
                         state, opp, me, taken, state.effects_overlay,
                         auto_fire=auto_fire,
                     )
-                if fired:
+                    kept_in_hand = state.last_trigger_kept_in_hand
+                    state.last_trigger_kept_in_hand = False  # reset after
+                if fired and not kept_in_hand:
                     opp.trash.append(taken)
                     state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
                     went_to_hand = False
+                elif fired and kept_in_hand:
+                    # ST09-002 雨月天ぷら等: トリガー効果で「このカードを手札に加える」
+                    opp.hand.append(taken)
+                    state.push_log(f"  hit: {opp.name} trigger->hand ({taken.name})")
+                    went_to_hand = True
                 else:
                     opp.hand.append(taken)
                     state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
