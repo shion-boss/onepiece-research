@@ -1229,11 +1229,20 @@
   ],
   "OP15-041": [
     {
-      "_text": "OP15-041 on_ko: カード1枚を引く。",
+      "_text": "【KO時】カード1枚を引く。",
       "when": "on_ko",
+      "do": [{"draw": 1}]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分のキャラ1枚を持ち主のデッキの下に置くことができる：このキャラは、このターン中、【速攻】を得る。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [{"return_self_chara_to_deck_bottom": {"count": 1}}],
+            "effect": [{"give_rush": "self"}]
+          }
         }
       ]
     }
@@ -25307,14 +25316,24 @@
   ],
   "OP15-003_p1": [
     {
-      "_text": "OP15-003_p1 on_attached_don (パターン未一致): このキャラがKOされる場合、代わりに自分の手札からパワー6000以下のキャラカード1枚を捨てることができる。【起動メイン】【ターン1回】相手のキャラ1枚に相手の",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "このキャラがKOされる場合、代わりに自分の手札からパワー6000以下のキャラカード1枚を捨てることができる。",
+      "when": "replace_ko",
+      "cost": {"discard_hand_with_filter": {"category": "CHARACTER", "power_le": 6000, "count": 1}},
+      "do": []
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "_unimplemented": "このキャラがKOされる場合、代わりに自分の手札からパワー6000以下のキャラカード1枚を捨てることができる。【起動メイン】【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。"
+          "attach_rested_don": {
+            "target": "self_inplay_choice",
+            "count": 1
+          }
         }
-      ]
+      ],
+      "_note": "公式: 相手キャラに相手レストドン1枚付与 cost は engine 拡張待ち、 現状は cost なしで効果のみ実行"
     }
   ],
   "OP15-007_p1": [
@@ -43198,13 +43217,29 @@
   ],
   "EB03-061": [
     {
-      "_text": "EB03-061 end_of_turn: 自分のドン‼1枚をレストにできる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {"untap_don": 1},
+        {"rest": {"type": "one_opp_chara_or_don", "cost_le": 4}}
+      ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のドン‼1枚をレストにできる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": "one_self_character_any",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 1}],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {"type": "one_self_chara_filtered", "filter": {"feature": "FILM"}},
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -43212,13 +43247,29 @@
   ],
   "EB03-061_p1": [
     {
-      "_text": "EB03-061_p1 end_of_turn: 自分のドン‼1枚をレストにできる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {"untap_don": 1},
+        {"rest": {"type": "one_opp_chara_or_don", "cost_le": 4}}
+      ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のドン‼1枚をレストにできる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": "one_self_character_any",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 1}],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {"type": "one_self_chara_filtered", "filter": {"feature": "FILM"}},
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -43226,13 +43277,29 @@
   ],
   "EB03-061_p2": [
     {
-      "_text": "EB03-061_p2 end_of_turn: 自分のドン‼1枚をレストにできる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {"untap_don": 1},
+        {"rest": {"type": "one_opp_chara_or_don", "cost_le": 4}}
+      ]
+    },
+    {
+      "_text": "【自分のターン終了時】自分のドン‼1枚をレストにできる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": "one_self_character_any",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [{"rest_self_don": 1}],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {"type": "one_self_chara_filtered", "filter": {"feature": "FILM"}},
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -48719,13 +48786,13 @@
   ],
   "OP11-102": [
     {
-      "_text": "OP11-102 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】相手がイベントか【トリガー】を発動した時、発動できる。相手のライフが2枚以上の場合、お互いのライフの上から1枚をトラッシュに置く",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "【自分のターン中】【ターン1回】相手がイベントか【トリガー】を発動した時、発動できる。相手のライフが2枚以上の場合、お互いのライフの上から1枚をトラッシュに置く。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {"self_turn": true, "opp_life_ge": 2},
+      "cost": {"once_per_turn": true},
       "do": [
-        {
-          "_unimplemented": "【自分のターン中】【ターン1回】相手がイベントか【トリガー】を発動した時、発動できる。相手のライフが2枚以上の場合、お互いのライフの上から1枚をトラッシュに置く。"
-        }
+        {"mill_self_life_to_trash": 1},
+        {"mill_opp_life_to_trash": 1}
       ]
     }
   ],
@@ -53935,30 +54002,78 @@
   ],
   "OP06-062": [
     {
-      "_text": "OP06-062 on_play: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),自分の手札2枚を捨てることができる：自分のトラッシュのカード名が異なるパワー",
+      "_text": "【登場時】ドン!!-1,自分の手札2枚を捨てることができる：自分のトラッシュのカード名が異なるパワー4000以下の特徴《ジェルマ66》を持つキャラカード4枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {"return_self_don_to_deck": 1},
+              {"trash_self_hand_random": 2}
+            ],
+            "effect": [
+              {
+                "play_multi_from_trash": {
+                  "filter": {"category": "CHARACTER", "feature": "ジェルマ66", "power_le": 4000},
+                  "limit": 4,
+                  "unique_name": true
+                }
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"return_self_don_to_deck": 1}],
+            "effect": [{"rest_opp_don": 1}]
+          }
+        }
+      ]
     }
   ],
   "OP06-062_p1": [
     {
-      "_text": "OP06-062_p1 on_play: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),自分の手札2枚を捨てることができる：自分のトラッシュのカード名が異なるパワー",
+      "_text": "【登場時】ドン!!-1,自分の手札2枚を捨てることができる：自分のトラッシュのカード名が異なるパワー4000以下の特徴《ジェルマ66》を持つキャラカード4枚までを、登場させる。",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {"return_self_don_to_deck": 1},
+              {"trash_self_hand_random": 2}
+            ],
+            "effect": [
+              {
+                "play_multi_from_trash": {
+                  "filter": {"category": "CHARACTER", "feature": "ジェルマ66", "power_le": 4000},
+                  "limit": 4,
+                  "unique_name": true
+                }
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [{"return_self_don_to_deck": 1}],
+            "effect": [{"rest_opp_don": 1}]
+          }
+        }
+      ]
     }
   ],
   "OP06-063": [
@@ -54435,11 +54550,15 @@
   ],
   "OP06-102": [
     {
-      "_text": "OP06-102 trigger: 自分のライフが2枚以下の場合、このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】コスト1のステージ1枚を持ち主のデッキの下に置くことができる：相手のコスト2以下のキャラ1枚までを、KOする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "optional_cost_then": {
+            "cost": [{"stage_to_deck_bottom": {"cost_eq": 1, "count": 1}}],
+            "effect": [{"ko": "one_opponent_character_cost_le_2cost"}]
+          }
         }
       ]
     }
@@ -54491,11 +54610,15 @@
   ],
   "OP06-111": [
     {
-      "_text": "OP06-111 trigger: 自分のライフが2枚以下の場合、このカードを登場させる。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】コスト1のステージ1枚を持ち主のデッキの下に置くことができる：相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "play_self": true
+          "optional_cost_then": {
+            "cost": [{"stage_to_deck_bottom": {"cost_eq": 1, "count": 1}}],
+            "effect": [{"rest": "one_opponent_character_cost_le_4cost"}]
+          }
         }
       ]
     }
@@ -56583,11 +56706,15 @@
   ],
   "OP04-105": [
     {
-      "_text": "OP04-105 trigger: を持つカード1枚を捨てることができる：相手のコスト2以下のキャラ1枚までを、レストにする。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト2以下のキャラ1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
+            "effect": [{"rest": "one_opponent_character_cost_le_2cost"}]
+          }
         }
       ]
     }
@@ -60790,14 +60917,30 @@
   ],
   "ST29-014": [
     {
-      "_text": "ST29-014 trigger: を持つカード1枚を捨てることができる：カード1枚を引き、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
-      "when": "trigger",
+      "_text": "【速攻：キャラ】(このカードは登場したターンにキャラへアタックできる)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {"give_keyword": {"target": "self", "keyword": "速攻：キャラ"}}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：カード1枚を引き、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
+            "effect": [
+              {"draw": 1},
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -60805,14 +60948,30 @@
   ],
   "ST29-014_p1": [
     {
-      "_text": "ST29-014_p1 trigger: を持つカード1枚を捨てることができる：カード1枚を引き、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
-      "when": "trigger",
+      "_text": "【速攻：キャラ】(このカードは登場したターンにキャラへアタックできる)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {"give_keyword": {"target": "self", "keyword": "速攻：キャラ"}}
+      ]
+    },
+    {
+      "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：カード1枚を引き、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
+            "effect": [
+              {"draw": 1},
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -69629,11 +69788,15 @@
   ],
   "OP04-105_p2": [
     {
-      "_text": "OP04-105_p2 trigger: を持つカード1枚を捨てることができる：相手のコスト2以下のキャラ1枚までを、レストにする。",
-      "when": "trigger",
+      "_text": "【起動メイン】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト2以下のキャラ1枚までを、レストにする。",
+      "when": "activate_main",
+      "cost": {"once_per_turn": true},
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [{"discard_hand_with_filter": {"trigger": true, "count": 1}}],
+            "effect": [{"rest": "one_opponent_character_cost_le_2cost"}]
+          }
         }
       ]
     }
@@ -71453,7 +71616,24 @@
   "OP12-021": [],
   "OP12-036": [],
   "OP12-048": [],
-  "OP12-053": [],
+  "OP12-053": [
+    {
+      "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることができる。",
+      "when": "replace_leave",
+      "cost": {"once_per_turn": true, "discard_hand": 1},
+      "do": []
+    },
+    {
+      "_text": "【相手のターン中】自分のリーダーが特徴《海軍》を持つ場合、このキャラは【ブロッカー】を得て、パワー+1000。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {"opp_turn": true, "leader_feature": "海軍"},
+      "do": [
+        {"give_keyword": {"target": "self", "keyword": "ブロッカー"}},
+        {"power_pump": {"target": "self", "amount": 1000, "duration": "static"}}
+      ]
+    }
+  ],
   "OP12-066": [],
   "OP12-070": [
     {
