@@ -452,6 +452,24 @@ def eval_condition(
             count = sum(1 for c in me.characters if feature in c.card.features)
             if count < need:
                 return False
+        elif k == "actor_source_feature_contains":
+            # 直近の効果発動 source カードの特徴に v を含むか (= OP12-040 クザン用)。
+            # trigger_on_self_hand_discarded が state.last_discard_source_inplay を一時設定。
+            src = getattr(state, "last_discard_source_inplay", None)
+            if src is None:
+                return False
+            features_text = "/".join(src.card.features)
+            if v not in features_text:
+                return False
+        elif k == "self_chara_filtered_count_ge":
+            # 複合 filter (色 + 特徴 + 除外名 等) でカウント条件判定。
+            # OP11-096 リッパー 「リッパー以外の自分の黒の特徴《海軍》を持つキャラがいる場合」 等。
+            spec = v if isinstance(v, dict) else {}
+            filt = spec.get("filter", {})
+            need = int(spec.get("count", 1))
+            count = sum(1 for c in me.characters if _matches_filter(c.card, filt))
+            if count < need:
+                return False
         elif k == "self_hand_count_le":
             if len(me.hand) > int(v):
                 return False
@@ -673,10 +691,15 @@ def _resolve_target(
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "all_self_chara_filtered":
-            # 自キャラ全員 (filter マッチ)
+            # 自キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
             filt = target_spec.get("filter", {})
-            return [ip for ip in me.characters
-                    if _matches_filter(ip.card, filt)]
+            cands = [ip for ip in me.characters if _matches_filter(ip.card, filt)]
+            limit = target_spec.get("limit")
+            if limit is not None:
+                # AI 簡易: power 高い順 (= 強いキャラ優先)
+                cands.sort(key=lambda ip: -ip.power)
+                return cands[:int(limit)]
+            return cands
         if t == "all_self_team_filtered":
             # 自リーダー + キャラ全員 (filter マッチ)
             filt = target_spec.get("filter", {})
@@ -736,6 +759,11 @@ def _resolve_target(
         return cands[:1]
     if target_spec == "one_opponent_character_any":
         cands = sorted(opp.characters, key=lambda c: -c.power)
+        return cands[:1]
+    if target_spec == "one_opp_chara_blocker":
+        # 相手の【ブロッカー】 を持つキャラ 1 枚 (power 高い順)。 ST30-012 ルフィ等。
+        cands = [c for c in opp.characters if c.is_blocker_now]
+        cands.sort(key=lambda ip: -ip.power)
         return cands[:1]
     if target_spec == "one_opponent_inplay_any":
         # リーダー or キャラ 1 枚 (= 「相手のリーダーかキャラ 1 枚まで」)。
@@ -1028,14 +1056,31 @@ def execute_effect(
                 continue
             drawn = me.draw(n)
             state.push_log(f"  効果: ドロー {n} → {[c.name for c in drawn]}")
+        elif k == "draw_per_self_hand_discarded":
+            # OP12-040 クザン等: 「捨てた枚数分カードを引く」 動的 N ドロー。
+            # state.last_discard_count を読み取る。 trigger_on_self_hand_discarded で設定済み。
+            n = int(getattr(state, "last_discard_count", 0))
+            if n <= 0:
+                return False
+            if getattr(me, "block_self_draw_until_turn_end", False):
+                state.push_log(f"  効果: 動的ドロー {n} 不発 (ドロー禁止)")
+                continue
+            drawn = me.draw(n)
+            state.push_log(f"  効果: 動的ドロー {n} → {[c.name for c in drawn]}")
         elif k == "trash_self_hand_random":
             n = int(v)
+            actually_discarded = 0
             for _ in range(n):
                 if not me.hand:
                     break
                 idx = state.rng.randrange(len(me.hand))
                 me.trash.append(me.hand.pop(idx))
+                actually_discarded += 1
             state.push_log(f"  効果: 手札{n}枚捨て")
+            if actually_discarded > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, me, opp, self_inplay, actually_discarded, state.effects_overlay
+                )
         elif k == "trash_opp_hand_random":
             # 相手手札からランダム N 枚捨て (公式の「相手の手札から〜捨てさせる」表現)。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -1431,6 +1476,9 @@ def execute_effect(
             state.rng.shuffle(me.deck)
             state.push_log(f"  効果: サーチ → {[c.name for c in picked]}")
         elif k == "life_to_hand":
+            if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
+                state.push_log(f"  効果: ライフ→手札 禁止 (OP02-023 効果中)")
+                return False
             n = int(v)
             for _ in range(n):
                 if me.life:
@@ -1970,6 +2018,10 @@ def execute_effect(
             # このターン中、 自分の効果でカードを引くことができない
             me.block_self_draw_until_turn_end = True
             state.push_log(f"  効果: このターン中、 自効果ドロー禁止")
+        elif k == "prevent_self_life_to_hand_turn":
+            # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
+            me.prevent_self_life_to_hand_until_turn_end = True
+            state.push_log(f"  効果: このターン中、 自効果ライフ→手札 禁止")
         elif k == "prevent_ko":
             # ターン終了時まで KO 耐性付与。target = self / all_self_characters 等
             target_spec = v if isinstance(v, str) else "self"
@@ -2086,6 +2138,45 @@ def execute_effect(
                 me.don_rested -= n
                 target.attached_dons += n
                 state.push_log(f"  効果: レストドン{n}付与 → {target.card.name}")
+        elif k == "power_pump_per_target_attached_don":
+            # 公式: 「相手のキャラすべては、 そのキャラに付与されているドン‼1枚につき、
+            # このターン中、 パワー-1000。」 (OP15-008 クリーク等)。
+            # spec: {"target": "all_opponent_characters", "amount_per_don": -1000, "duration": "turn"}
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = spec_val.get("target", "all_opponent_characters")
+            amount_per = int(spec_val.get("amount_per_don", -1000))
+            duration = spec_val.get("duration", "turn")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            for t in targets:
+                buff = amount_per * t.attached_dons
+                if buff == 0:
+                    continue
+                if duration == "static":
+                    t.static_buff += buff
+                elif duration == "battle":
+                    t.battle_buff += buff
+                else:
+                    t.turn_buff += buff
+            state.push_log(
+                f"  効果: 各キャラに don×{amount_per:+d} 適用 → "
+                f"{[(t.card.name, t.attached_dons) for t in targets]}"
+            )
+        elif k == "schedule_at_opp_main_phase_start":
+            # 「次の相手のメインフェイズ開始時に〜」 用 delayed effect の登録 (PRB02-005 ルフィ等)。
+            # spec: {"do": [<primitive>...]}
+            # 効果保有側 (= me) の delayed_at_opp_main_phase_start に append → 相手 MAIN 開始時に flush。
+            spec_val = v if isinstance(v, dict) else {}
+            me.delayed_at_opp_main_phase_start.append(spec_val)
+            state.push_log(f"  効果: 次の相手 MAIN 開始時に発動を予約")
+        elif k == "rest_opp_don":
+            # 相手のアクティブなドン N 枚をレスト (= don_active→don_rested)。
+            # spec: int N | dict {"amount": N}
+            n_spec = v if not isinstance(v, dict) else int(v.get("amount", 1))
+            n = int(n_spec)
+            actually = min(n, opp.don_active)
+            opp.don_active -= actually
+            opp.don_rested += actually
+            state.push_log(f"  効果: 相手ドン {actually} 枚をレストへ")
         elif k == "set_cannot_rest":
             # 「対象は、 次の (相手) ターン終了時まで、 レストにできない」 (OP14-033 等)。
             # rest プリミティブで cannot_be_rested_buff のあるキャラはスキップされる。
@@ -2636,6 +2727,12 @@ def execute_effect(
             count = int(spec_val.get("count", 1))
             place = spec_val.get("place", "choice")
             target_pl = me if owner == "self" else opp
+            if (
+                owner == "self"
+                and getattr(me, "prevent_self_life_to_hand_until_turn_end", False)
+            ):
+                state.push_log(f"  効果: 自ライフ上下→手札 禁止 (OP02-023 効果中)")
+                return False
             if not target_pl.life:
                 return False
             moved = 0
@@ -2706,6 +2803,10 @@ def execute_effect(
             state.push_log(
                 f"  効果: {len(discarded)}枚捨て (filter={filt}) → battle_buff +{buff}"
             )
+            if state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, me, opp, self_inplay, len(discarded), state.effects_overlay
+                )
         elif k == "mill_self_life_until_n":
             # 公式: 「自分のライフが N 枚になるようにライフの上からトラッシュに置く」
             # EB01-060 我が神なり 「ライフを 1 枚になるようにトラッシュ」 等。
@@ -3269,6 +3370,10 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "feature" in filt and filt["feature"] not in card.features:
         return False
+    if "feature_contains" in filt:
+        # 部分一致: card.features の中に文字列 v を含む特徴があるか (= 公式『X』を含む特徴)
+        if not any(filt["feature_contains"] in f for f in card.features):
+            return False
     if "feature_in" in filt:
         # 特徴 OR (例: 「特徴《魚人族》か《人魚族》」)。
         feats = filt["feature_in"]
@@ -3401,6 +3506,8 @@ def evaluate_static_effects(
             ip.attack_taunt = False
             ip.cannot_attack_static = False
             ip.protect_from_opp_effect = False
+            ip.ko_immune_battle_attributes_in.clear()
+            ip.ko_immune_battle_attributes_not_in.clear()
             # static-granted keywords は毎回再計算 (= 条件外れたら消える)
             ip.static_granted_keywords.clear()
         # 静的 filter 付き cost reduction も毎回再構築
@@ -3479,6 +3586,26 @@ def evaluate_static_effects(
                     if "set_opp_protect_static" in primitive:
                         for t in opp.characters:
                             t.protect_from_opp_effect = True
+                        continue
+                    # 「属性 X を持つカードとのバトルで KO されない」 (P-052 ミホーク等)
+                    # spec: {"target": "self", "attributes": ["斬"], "negate": false}
+                    #   negate=True なら 「属性 X を持たない」 限定 (P-025 スモーカー)
+                    if "set_immune_attribute_in_battle" in primitive:
+                        spec = primitive["set_immune_attribute_in_battle"]
+                        if isinstance(spec, dict):
+                            target_spec = spec.get("target", "self")
+                            attrs = spec.get("attributes", [])
+                            if isinstance(attrs, str):
+                                attrs = [attrs]
+                            negate = bool(spec.get("negate", False))
+                        else:
+                            target_spec, attrs, negate = "self", [str(spec)], False
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            if negate:
+                                t.ko_immune_battle_attributes_not_in.update(attrs)
+                            else:
+                                t.ko_immune_battle_attributes_in.update(attrs)
                         continue
                     # filter 付き cost reduction static (OP05-097 天竜人 等)
                     if "reduce_play_cost_filtered_static" in primitive:
@@ -3673,6 +3800,29 @@ def trigger_on_opp_chara_ko(
         return
     _enqueue_field_when(state, me, "on_opp_chara_ko", effects_overlay)
     _maybe_resolve(state)
+
+
+def trigger_on_self_hand_discarded(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    source_inplay: Optional[InPlay],
+    discard_count: int,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「自分の手札からカードが捨てられた時」 (on_self_hand_discarded)。
+    OP12-040 クザン 等。 actor (= 効果発動者) 視点で発火。
+    source_inplay = 効果 source カード (= 「特徴《海軍》を持つカード」 判定用)。
+    discard_count = 捨てた枚数 (= draw 枚数の動的 N)。
+    """
+    if not effects_overlay or discard_count <= 0:
+        return
+    state.last_discard_source_inplay = source_inplay
+    state.last_discard_count = discard_count
+    _enqueue_field_when(state, me, "on_self_hand_discarded", effects_overlay)
+    _maybe_resolve(state)
+    state.last_discard_source_inplay = None
+    state.last_discard_count = 0
 
 
 def trigger_on_self_chara_leave_by_self_effect(

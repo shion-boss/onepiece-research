@@ -1960,6 +1960,40 @@ def test_scry_all_life_one_to_deck():
     assert me.life == [low]
 
 
+def test_battle_ko_immune_by_attribute():
+    """set_immune_attribute_in_battle: 属性 X を持つカードとのバトルで KO されない (P-052 ミホーク)"""
+    from engine.game import _battle_ko_immune_by_attribute
+    from engine.core import InPlay
+    repo = _repo()
+    miho = repo.get("P-052")
+    # 属性 = 斬 / 打 のカードを探す
+    san_card = None
+    da_card = None
+    import sqlite3
+    conn = sqlite3.connect('db/cards.sqlite')
+    for cid, attr in conn.execute(
+        "SELECT card_id, attribute FROM cards WHERE attribute IN ('斬', '打') LIMIT 50"
+    ).fetchall():
+        try:
+            c = repo.get(cid)
+            if c.attribute == "斬" and san_card is None:
+                san_card = c
+            if c.attribute == "打" and da_card is None:
+                da_card = c
+        except KeyError:
+            continue
+        if san_card and da_card:
+            break
+    if san_card is None or da_card is None:
+        return  # 環境 skip
+    miho_ip = InPlay.of(miho)
+    miho_ip.ko_immune_battle_attributes_in.add("斬")
+    san_ip = InPlay.of(san_card)
+    da_ip = InPlay.of(da_card)
+    assert _battle_ko_immune_by_attribute(miho_ip, san_ip) is True
+    assert _battle_ko_immune_by_attribute(miho_ip, da_ip) is False
+
+
 def test_optional_discard_hand_for_battle_buff():
     """optional_discard_hand_for_battle_buff: 手札のイベント/ステージを捨てて battle_buff"""
     from engine.effects import execute_effect

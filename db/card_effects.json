@@ -8773,7 +8773,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】このキャラが登場したターンの場合、相手のキャラすべては、そのキャラに付与されているドン‼1枚につき、このターン中、パワー-1000。"
+          "power_pump_per_target_attached_don": {
+            "target": "all_opponent_characters",
+            "amount_per_don": -1000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -9077,14 +9081,11 @@
   ],
   "OP11-096": [
     {
-      "_text": "OP11-096 on_attached_don (パターン未一致): 「リッパー」以外の自分の黒の特徴《海軍》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象を",
+      "_text": "「リッパー」以外の自分の黒の特徴《海軍》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "_unimplemented": "「リッパー」以外の自分の黒の特徴《海軍》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)"
-        }
-      ]
+      "if": {"self_chara_filtered_count_ge": {"filter": {"color": "黒", "feature": "海軍", "exclude_name": "リッパー"}, "count": 1}},
+      "do": [{"give_keyword": {"target": "self", "keyword": "ブロッカー"}}]
     }
   ],
   "OP12-093": [
@@ -14987,26 +14988,18 @@
   ],
   "OP12-040": [
     {
-      "_text": "OP12-040 on_attached_don (パターン未一致): 自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。"
-        }
-      ]
+      "_text": "自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。",
+      "when": "on_self_hand_discarded",
+      "if": {"actor_source_feature_contains": "海軍"},
+      "do": [{"draw_per_self_hand_discarded": true}]
     }
   ],
   "OP12-040_p1": [
     {
-      "_text": "OP12-040_p1 on_attached_don (パターン未一致): 自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "_unimplemented": "自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。"
-        }
-      ]
+      "_text": "自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。",
+      "when": "on_self_hand_discarded",
+      "if": {"actor_source_feature_contains": "海軍"},
+      "do": [{"draw_per_self_hand_discarded": true}]
     }
   ],
   "OP12-081": [
@@ -26506,7 +26499,11 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "【ターン1回】このキャラが登場したターンの場合、相手のキャラすべては、そのキャラに付与されているドン‼1枚につき、このターン中、パワー-1000。"
+          "power_pump_per_target_attached_don": {
+            "target": "all_opponent_characters",
+            "amount_per_don": -1000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -33578,14 +33575,11 @@
   ],
   "OP11-096_p1": [
     {
-      "_text": "OP11-096_p1 on_attached_don (パターン未一致): 「リッパー」以外の自分の黒の特徴《海軍》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象を",
+      "_text": "「リッパー」以外の自分の黒の特徴《海軍》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "_unimplemented": "「リッパー」以外の自分の黒の特徴《海軍》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)"
-        }
-      ]
+      "if": {"self_chara_filtered_count_ge": {"filter": {"color": "黒", "feature": "海軍", "exclude_name": "リッパー"}, "count": 1}},
+      "do": [{"give_keyword": {"target": "self", "keyword": "ブロッカー"}}]
     }
   ],
   "OP12-028_p1": [
@@ -38612,24 +38606,18 @@
   ],
   "PRB02-005": [
     {
-      "_text": "PRB02-005 on_play: 自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。",
+      "_text": "自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。",
       "when": "on_play",
-      "do": [
-        {
-          "_unimplemented": "自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。"
-        }
-      ]
+      "if": {"leader_multicolor": true, "opp_don_count_le": 7},
+      "do": [{"schedule_at_opp_main_phase_start": {"do": [{"rest_opp_don": 1}]}}]
     }
   ],
   "PRB02-005_p1": [
     {
-      "_text": "PRB02-005_p1 on_play: 自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。",
+      "_text": "自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。",
       "when": "on_play",
-      "do": [
-        {
-          "_unimplemented": "自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。"
-        }
-      ]
+      "if": {"leader_multicolor": true, "opp_don_count_le": 7},
+      "do": [{"schedule_at_opp_main_phase_start": {"do": [{"rest_opp_don": 1}]}}]
     }
   ],
   "PRB02-011": [
@@ -45344,7 +45332,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《魚人族》か《東の海》を持つ場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までは、次の相手のターン終了時まで、レストにできない。"
+          "attach_don": {"target": "self_leader", "count": 1, "rested": true}
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -45355,7 +45346,10 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《魚人族》か《東の海》を持つ場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までは、次の相手のターン終了時まで、レストにできない。"
+          "attach_don": {"target": "self_leader", "count": 1, "rested": true}
+        },
+        {
+          "set_cannot_rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -60937,11 +60931,12 @@
   ],
   "OP02-023": [
     {
-      "_text": "OP02-023 main: 自分のライフが3以下の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。",
+      "_text": "自分のライフが3以下の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。",
       "when": "main",
+      "if": {"self_life_le": 3},
       "do": [
         {
-          "_unimplemented": "自分のライフが3以下の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。"
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     },
@@ -62549,7 +62544,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分の手札の青のイベントを、コスト-1"
+          "reduce_play_cost_filtered_static": {
+            "filter": {"color": "青", "category": "EVENT"},
+            "amount": 1
+          }
         }
       ]
     }
@@ -62561,7 +62559,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】自分の手札の青のイベントを、コスト-1"
+          "reduce_play_cost_filtered_static": {
+            "filter": {"color": "青", "category": "EVENT"},
+            "amount": 1
+          }
         }
       ]
     }
@@ -63420,7 +63421,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "相手の【ブロッカー】を持つキャラ1枚までを、レストにする。"
+          "rest": "one_opp_chara_blocker"
         }
       ]
     }
@@ -63443,7 +63444,7 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "相手の【ブロッカー】を持つキャラ1枚までを、レストにする。"
+          "rest": "one_opp_chara_blocker"
         }
       ]
     }
@@ -63454,7 +63455,14 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の元々のパワー6000のキャラ2枚までにレストのドン!!2枚ずつまでを、付与する。"
+          "optional_cost_then": {
+            "cost": [{"rest_self": true}],
+            "effect": [{"attach_rested_don": {
+              "target": {"type": "all_self_chara_filtered", "filter": {"power_eq": 6000}, "limit": 2},
+              "count": 2,
+              "per_target": true
+            }}]
+          }
         }
       ]
     }
@@ -63465,7 +63473,14 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このキャラをレストにできる：自分の元々のパワー6000のキャラ2枚までにレストのドン!!2枚ずつまでを、付与する。"
+          "optional_cost_then": {
+            "cost": [{"rest_self": true}],
+            "effect": [{"attach_rested_don": {
+              "target": {"type": "all_self_chara_filtered", "filter": {"power_eq": 6000}, "limit": 2},
+              "count": 2,
+              "per_target": true
+            }}]
+          }
         }
       ]
     }
@@ -64942,7 +64957,12 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。"
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {"feature_contains": "白ひげ海賊団"},
+            "then": [{"power_pump": {"target": "self", "amount": 1000, "duration": "next_opp_turn_end"}}],
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -64953,7 +64973,12 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。"
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {"feature_contains": "白ひげ海賊団"},
+            "then": [{"power_pump": {"target": "self", "amount": 1000, "duration": "next_opp_turn_end"}}],
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -65904,7 +65929,10 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ウタ」の場合、このターン終了時、自分の特徴《FILM》を持つキャラすべてを、アクティブにする。"
+          "untap_chara": {
+            "target": {"type": "all_self_chara_filtered", "filter": {"feature": "FILM"}},
+            "limit": 99
+          }
         }
       ],
       "if": {
@@ -65935,7 +65963,10 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ウタ」の場合、自分の場のキャラを任意の枚数手札に戻してもよい。自分のリーダーかキャラ1枚までは、このバトル中、戻したキャラ1枚につきパワー+2000。"
+          "optional_cost_then": {
+            "cost": [{"return_self_chara_to_hand": {"count": 1, "filter": {}}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 2000, "duration": "battle"}}]
+          }
         }
       ],
       "if": {
@@ -66109,11 +66140,12 @@
   ],
   "OP02-023_r1": [
     {
-      "_text": "OP02-023_r1 main: 自分のライフが3以下の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。",
+      "_text": "自分のライフが3以下の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。",
       "when": "main",
+      "if": {"self_life_le": 3},
       "do": [
         {
-          "_unimplemented": "自分のライフが3以下の場合、自分は、このターン中、自分の効果でライフを手札に加えられない。"
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     },
@@ -68259,7 +68291,11 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】このキャラがレストの場合、自分の特徴《超新星》か《海軍》を持つリーダーとキャラのパワー+1000"
+          "power_pump": {
+            "target": {"type": "all_self_team_filtered", "filter": {"feature_in": ["超新星", "海軍"]}},
+            "amount": 1000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -68936,7 +68972,11 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【自分のターン中】このキャラがレストの場合、自分の特徴《超新星》か《海軍》を持つリーダーとキャラのパワー+1000"
+          "power_pump": {
+            "target": {"type": "all_self_team_filtered", "filter": {"feature_in": ["超新星", "海軍"]}},
+            "amount": 1000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -70634,7 +70674,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラは属性(打)を持つリーダーとキャラとのバトルでKOされない"
+          "set_immune_attribute_in_battle": {"target": "self", "attributes": ["打"]}
         }
       ]
     }
@@ -70756,7 +70796,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラは属性(特)を持たないキャラとのバトルでKOされない"
+          "set_immune_attribute_in_battle": {"target": "self", "attributes": ["特"], "negate": true}
         }
       ]
     }
@@ -71000,7 +71040,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラは属性(斬)を持つカードとのバトルでKOされない"
+          "set_immune_attribute_in_battle": {"target": "self", "attributes": ["斬"]}
         }
       ]
     }
@@ -71012,7 +71052,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラは属性(打)を持つカードとのバトルでKOされない"
+          "set_immune_attribute_in_battle": {"target": "self", "attributes": ["打"]}
         }
       ]
     }
@@ -71062,7 +71102,10 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ウタ」の場合、このターン終了時、自分の特徴《FILM》を持つキャラすべてを、アクティブにする。"
+          "untap_chara": {
+            "target": {"type": "all_self_chara_filtered", "filter": {"feature": "FILM"}},
+            "limit": 99
+          }
         }
       ],
       "if": {
@@ -71093,7 +71136,10 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが「ウタ」の場合、自分の場のキャラを任意の枚数手札に戻してもよい。自分のリーダーかキャラ1枚までは、このバトル中、戻したキャラ1枚につきパワー+2000。"
+          "optional_cost_then": {
+            "cost": [{"return_self_chara_to_hand": {"count": 1, "filter": {}}}],
+            "effect": [{"power_pump": {"target": "one_self_team_any", "amount": 2000, "duration": "battle"}}]
+          }
         }
       ],
       "if": {
@@ -71784,13 +71830,10 @@
   ],
   "PRB02-005_p2": [
     {
-      "_text": "PRB02-005_p2 on_play: 自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。",
+      "_text": "自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。",
       "when": "on_play",
-      "do": [
-        {
-          "_unimplemented": "自分のリーダーが多色で、相手の場のドン‼が7枚以下の場合、次の相手のメインフェイズ開始時、相手は自身のアクティブのドン‼1枚をレストにする。"
-        }
-      ]
+      "if": {"leader_multicolor": true, "opp_don_count_le": 7},
+      "do": [{"schedule_at_opp_main_phase_start": {"do": [{"rest_opp_don": 1}]}}]
     }
   ],
   "ST01-002_p2": [
@@ -73448,7 +73491,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラは属性(斬)を持つカードとのバトルでKOされない"
+          "set_immune_attribute_in_battle": {"target": "self", "attributes": ["斬"]}
         }
       ]
     }

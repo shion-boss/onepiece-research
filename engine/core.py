@@ -192,6 +192,12 @@ class InPlay:
     # 静的効果でセット、evaluate_static_effects でリセット。
     # 相手の効果 (ko / return_to_hand) からこのキャラを除外する保護。
     protect_from_opp_effect: bool = False
+    # 「属性 X を持つ (リーダー or キャラ) とのバトルで KO されない」 (P-052 ミホーク等)。
+    # 静的効果でセット、 evaluate_static_effects でリセット。 set として複数 attribute をサポート。
+    ko_immune_battle_attributes_in: set = field(default_factory=set)
+    # 「属性 X を持たないキャラとのバトルで KO されない」 (P-025 スモーカー等)。
+    # 同上、 negate 版。
+    ko_immune_battle_attributes_not_in: set = field(default_factory=set)
     # 「次の相手のターン終了時まで」効果無効 (OP09-093 黒ひげ等)。
     # 所有者ターンの END で _reset_turn_buff がクリア (= ちょうど「次の相手ターン終了時」と一致)
     effect_disabled_through_opp_turn: bool = False
@@ -377,6 +383,12 @@ class Player:
     block_chara_play_until_turn_end: bool = False
     # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット
     block_self_draw_until_turn_end: bool = False
+    # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
+    # _reset_turn_buff で False に。 life_to_hand / life_top_or_bottom_to_hand (owner=self) が抑制される。
+    prevent_self_life_to_hand_until_turn_end: bool = False
+    # 「次の相手のメインフェイズ開始時に発動」 する遅延効果リスト (PRB02-005 ルフィ等)。
+    # 自陣 player に登録 → 「相手の MAIN 開始時 (= 自分の opp 視点)」 に flush。
+    delayed_at_opp_main_phase_start: list = field(default_factory=list)
     # 【ターン1回】効果の発動済みキー集合。
     # キー形式: f"{card_id}:{when}:{idx}" もしくは effect spec で指定された明示キー文字列。
     # 自分の REFRESH で全クリア (= 次の自ターンで再発動可)。
@@ -466,6 +478,11 @@ class GameState:
     # 「このターンの後に自分のターンを追加で得る」 フラグ。 END phase で消費され、
     # turn_player_idx を切り替えずに REFRESH に戻ることで「もう 1 回ターン」 を実現。
     extra_turn_pending: bool = False
+    # 直近の「自分の手札からカードが捨てられた」 イベントの context (OP12-040 クザン等)。
+    # trigger_on_self_hand_discarded で一時的に保存され、 eval_condition で参照される。
+    # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
+    last_discard_source_inplay: Optional[object] = None
+    last_discard_count: int = 0
 
     @property
     def turn_player(self):

@@ -231,6 +231,21 @@ def _recompute_static(state: GameState) -> None:
         evaluate_static_effects(state, state.effects_overlay)
 
 
+def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
+    """defender が attacker の attribute によってバトル KO 不可かどうか判定。
+    P-052 ミホーク 「属性(斬)を持つカードとのバトルで KO されない」 等。
+    """
+    atk_attr = attacker.card.attribute or ""
+    if atk_attr and atk_attr in defender.ko_immune_battle_attributes_in:
+        return True
+    if defender.ko_immune_battle_attributes_not_in:
+        # 「属性 X を持たないカードとのバトルで KO されない」 (P-025 スモーカー等)
+        # = attacker が ko_immune_battle_attributes_not_in に含まれない attribute なら KO 不可
+        if atk_attr not in defender.ko_immune_battle_attributes_not_in:
+            return True
+    return False
+
+
 def _reset_battle_buffs(state: GameState) -> None:
     """バトル終了時 (公式 7-1-5-1) に全 InPlay の battle_buff (このバトル中効果) をクリア。
 
@@ -258,6 +273,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
         player.block_self_draw_until_turn_end = False
+        player.prevent_self_life_to_hand_until_turn_end = False
     # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン
     # 終了時にクリア (= 自分が相手ターン中に解除される動きを実現)。
     # ターン主のキャラ/リーダーのみクリア対象とする。
@@ -420,6 +436,16 @@ def advance_phase(state: GameState) -> None:
                                 f"  自動付与: {me.name} リーダーにドン {attach_n} 枚"
                             )
         state.phase = Phase.MAIN
+        # 「次の相手のメインフェイズ開始時」 効果 (PRB02-005 ルフィ等)
+        # me = 現在 turn_player、 opp_player = me の相手 = 効果保有側 (= PRB02-005 持ち)。
+        # effect の "me" 視点は opp_player (= 効果保有側)、 "opp" は me (= turn_player)。
+        opp_player = state.players[1 - state.turn_player_idx]
+        if opp_player.delayed_at_opp_main_phase_start and state.effects_overlay:
+            from .effects import execute_effect
+            for spec in opp_player.delayed_at_opp_main_phase_start:
+                for prim in spec.get("do", []):
+                    execute_effect(prim, state, opp_player, me, None)
+            opp_player.delayed_at_opp_main_phase_start = []
 
     elif cur == Phase.MAIN:
         state.phase = Phase.END
@@ -985,6 +1011,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 if (
                     not actual_target.ko_immune_until_turn_end
                     and not actual_target.static_ko_immune
+                    and not _battle_ko_immune_by_attribute(actual_target, attacker)
                 ):
                     opp.characters.remove(actual_target)
                     opp.trash.append(actual_target.card)
@@ -1155,6 +1182,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         if atk_power >= defender_power:
             if actual_target.ko_immune_until_turn_end:
                 state.push_log(f"  KO 耐性: {actual_target.card.name} は KO されない")
+            elif _battle_ko_immune_by_attribute(actual_target, attacker):
+                state.push_log(
+                    f"  バトル KO 耐性 (属性): {actual_target.card.name} は"
+                    f" 属性({attacker.card.attribute}) との バトルで KO されない"
+                )
             else:
                 # 置換効果 (KOされる場合、代わりに〜)。バトルKO は by_opp_effect=False
                 replaced = False
