@@ -1247,7 +1247,10 @@ def execute_effect(
                     t.next_self_turn_end_applied_turn = state.turn_number
                 else:
                     t.turn_buff += amount
-            state.push_log(f"  効果: パワー{amount:+d} → {[t.card.name for t in targets]}")
+            # 静的効果 (= on_attached_don) は evaluate_static_effects で
+            # 毎回 リセット → 再加算されるためログ noise になる。 値は正常 (= +amount 一定)。
+            if duration != "static":
+                state.push_log(f"  効果: パワー{amount:+d} → {[t.card.name for t in targets]}")
         elif k == "rest":
             # 「相手のキャラかドン1枚までを、 レストにする」 用 特殊 target spec。
             # 通常の target spec で相手のドンは表現できないため (ドンは InPlay ではない)、

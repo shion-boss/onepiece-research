@@ -1,5 +1,5 @@
 {
-  "computed_at": "2026-05-12T13:36:29Z",
+  "computed_at": "2026-05-12T14:09:25Z",
   "n_games": 20,
   "seed": 42,
   "decks": [
@@ -139,11 +139,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.35,
-          "wins": 7,
-          "losses": 13,
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
           "draws": 0,
-          "avg_turns": 17.55
+          "avg_turns": 18.55
         },
         {
           "deck_b": "cardrush_1429",
@@ -277,7 +277,7 @@
           "wins": 0,
           "losses": 20,
           "draws": 0,
-          "avg_turns": 12.9
+          "avg_turns": 12.7
         },
         {
           "deck_b": "cardrush_1429",
@@ -407,11 +407,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.75,
-          "wins": 15,
-          "losses": 5,
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
           "draws": 0,
-          "avg_turns": 14.45
+          "avg_turns": 13.95
         },
         {
           "deck_b": "cardrush_1429",
@@ -545,7 +545,7 @@
           "wins": 1,
           "losses": 19,
           "draws": 0,
-          "avg_turns": 12.55
+          "avg_turns": 11.85
         },
         {
           "deck_b": "cardrush_1429",
@@ -679,7 +679,7 @@
           "wins": 1,
           "losses": 19,
           "draws": 0,
-          "avg_turns": 14.05
+          "avg_turns": 14.55
         },
         {
           "deck_b": "cardrush_1429",
@@ -813,7 +813,7 @@
           "wins": 0,
           "losses": 20,
           "draws": 0,
-          "avg_turns": 12.7
+          "avg_turns": 12.4
         },
         {
           "deck_b": "cardrush_1429",
@@ -947,7 +947,7 @@
           "wins": 0,
           "losses": 20,
           "draws": 0,
-          "avg_turns": 13.1
+          "avg_turns": 12.7
         },
         {
           "deck_b": "cardrush_1429",
@@ -1081,7 +1081,7 @@
           "wins": 0,
           "losses": 20,
           "draws": 0,
-          "avg_turns": 14
+          "avg_turns": 12.9
         },
         {
           "deck_b": "cardrush_1429",
@@ -1147,19 +1147,19 @@
       "row": [
         {
           "deck_b": "cardrush_1223",
-          "winrate": 0.65,
-          "wins": 13,
-          "losses": 7,
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
           "draws": 0,
-          "avg_turns": 18.5
+          "avg_turns": 17.7
         },
         {
           "deck_b": "cardrush_1273",
-          "winrate": 0.95,
-          "wins": 19,
-          "losses": 1,
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
           "draws": 0,
-          "avg_turns": 12.95
+          "avg_turns": 12.5
         },
         {
           "deck_b": "cardrush_1308",
@@ -1171,19 +1171,19 @@
         },
         {
           "deck_b": "cardrush_1339",
-          "winrate": 0.85,
-          "wins": 17,
-          "losses": 3,
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
           "draws": 0,
-          "avg_turns": 12.75
+          "avg_turns": 13.1
         },
         {
           "deck_b": "cardrush_1342",
-          "winrate": 0.85,
-          "wins": 17,
-          "losses": 3,
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
           "draws": 0,
-          "avg_turns": 14.55
+          "avg_turns": 13.95
         },
         {
           "deck_b": "cardrush_1385",
@@ -1191,15 +1191,15 @@
           "wins": 20,
           "losses": 0,
           "draws": 0,
-          "avg_turns": 12.6
+          "avg_turns": 12.1
         },
         {
           "deck_b": "cardrush_1392",
-          "winrate": 0.95,
-          "wins": 19,
-          "losses": 1,
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
           "draws": 0,
-          "avg_turns": 12.65
+          "avg_turns": 13.2
         },
         {
           "deck_b": "cardrush_1399",
@@ -1207,7 +1207,7 @@
           "wins": 20,
           "losses": 0,
           "draws": 0,
-          "avg_turns": 14.3
+          "avg_turns": 14
         },
         {
           "deck_b": "cardrush_1424",
@@ -1219,59 +1219,59 @@
         },
         {
           "deck_b": "cardrush_1429",
-          "winrate": 0.3,
-          "wins": 6,
-          "losses": 14,
-          "draws": 0,
-          "avg_turns": 13.9
-        },
-        {
-          "deck_b": "cardrush_1436",
-          "winrate": 0.3,
-          "wins": 6,
-          "losses": 14,
-          "draws": 0,
-          "avg_turns": 14.2
-        },
-        {
-          "deck_b": "cardrush_1437",
-          "winrate": 0.65,
-          "wins": 13,
-          "losses": 7,
-          "draws": 0,
-          "avg_turns": 13.65
-        },
-        {
-          "deck_b": "cardrush_1438",
           "winrate": 0.4,
           "wins": 8,
           "losses": 12,
           "draws": 0,
-          "avg_turns": 12.7
+          "avg_turns": 15
+        },
+        {
+          "deck_b": "cardrush_1436",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 14.25
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 14.05
+        },
+        {
+          "deck_b": "cardrush_1438",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 13.55
         },
         {
           "deck_b": "cardrush_1439",
-          "winrate": 0.1,
-          "wins": 2,
-          "losses": 18,
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
           "draws": 0,
-          "avg_turns": 14.5
+          "avg_turns": 14.15
         },
         {
           "deck_b": "cardrush_1440",
-          "winrate": 0.7,
-          "wins": 14,
-          "losses": 6,
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
           "draws": 0,
           "avg_turns": 15.2
         },
         {
           "deck_b": "適当チョッパーデッキ",
-          "winrate": 0.55,
-          "wins": 11,
-          "losses": 9,
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
           "draws": 0,
-          "avg_turns": 14.55
+          "avg_turns": 13.9
         }
       ]
     },
@@ -1345,11 +1345,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.7,
-          "wins": 14,
-          "losses": 6,
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
           "draws": 0,
-          "avg_turns": 14.2
+          "avg_turns": 14.75
         },
         {
           "deck_b": "cardrush_1429",
@@ -1479,11 +1479,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.95,
-          "wins": 19,
-          "losses": 1,
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
           "draws": 0,
-          "avg_turns": 14.25
+          "avg_turns": 13.45
         },
         {
           "deck_b": "cardrush_1429",
@@ -1613,11 +1613,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.4,
-          "wins": 8,
-          "losses": 12,
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
           "draws": 0,
-          "avg_turns": 13.4
+          "avg_turns": 13.5
         },
         {
           "deck_b": "cardrush_1429",
@@ -1747,11 +1747,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.45,
-          "wins": 9,
-          "losses": 11,
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
           "draws": 0,
-          "avg_turns": 13.55
+          "avg_turns": 13.4
         },
         {
           "deck_b": "cardrush_1429",
@@ -1885,7 +1885,7 @@
           "wins": 14,
           "losses": 6,
           "draws": 0,
-          "avg_turns": 13.9
+          "avg_turns": 14.2
         },
         {
           "deck_b": "cardrush_1429",
@@ -2015,11 +2015,11 @@
         },
         {
           "deck_b": "cardrush_1424",
-          "winrate": 0.25,
-          "wins": 5,
-          "losses": 15,
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
           "draws": 0,
-          "avg_turns": 15.05
+          "avg_turns": 15.3
         },
         {
           "deck_b": "cardrush_1429",
