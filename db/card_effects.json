@@ -1551,7 +1551,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "ドン‼-3(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の特徴《フォクシー海賊団》を持つキャラが3枚以上いる場合、相手のレストの、リーダーとキャラ1枚までを選ぶ。選んだカードは次の相手のリフレッシュフェイズでアクティブにならない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 3
+              }
+            ],
+            "effect": [
+              {
+                "keep_opp_rested_inplay_next_refresh": {
+                  "target_rest": "one_opp_chara_or_leader"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -1643,7 +1656,7 @@
       "n": 0,
       "do": [
         {
-          "_unimplemented": "自分の特徴《SWORD》を持つキャラは、登場したターンにキャラへアタックできる。【ターン1回】自分の元々のパワー7000以下の特徴《海軍》を持つキャラが相手の効果で場を離れる場合、代わりに自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる。"
+          "static_swords_attack_chara": true
         }
       ]
     }
@@ -9293,7 +9306,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のキャラ1枚に相手のコストエリアのドン‼2枚までを、付与する。その後、このターン終了時、相手のドン‼が3枚以上付与されているレストのキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。"
+          "attach_rested_don": {
+            "target": "one_opponent_character_any",
+            "count": 2,
+            "to_opp": true,
+            "from_cost_area": true
+          }
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "keep_opp_rested_chara_with_don_ge_next_refresh": {
+                  "don_ge": 3
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -10570,7 +10599,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "ドン‼-3(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の特徴《フォクシー海賊団》を持つキャラが3枚以上いる場合、相手のレストの、リーダーとキャラ1枚までを選ぶ。選んだカードは次の相手のリフレッシュフェイズでアクティブにならない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 3
+              }
+            ],
+            "effect": [
+              {
+                "keep_opp_rested_inplay_next_refresh": {
+                  "target_rest": "one_opp_chara_or_leader"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -12176,7 +12218,20 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "ドン‼-3(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の特徴《フォクシー海賊団》を持つキャラが3枚以上いる場合、相手のレストの、リーダーとキャラ1枚までを選ぶ。選んだカードは次の相手のリフレッシュフェイズでアクティブにならない。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 3
+              }
+            ],
+            "effect": [
+              {
+                "keep_opp_rested_inplay_next_refresh": {
+                  "target_rest": "one_opp_chara_or_leader"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -15122,7 +15177,7 @@
       "n": 0,
       "do": [
         {
-          "_unimplemented": "自分の特徴《SWORD》を持つキャラは、登場したターンにキャラへアタックできる。【ターン1回】自分の元々のパワー7000以下の特徴《海軍》を持つキャラが相手の効果で場を離れる場合、代わりに自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる。"
+          "static_swords_attack_chara": true
         }
       ]
     }
@@ -23422,7 +23477,18 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のキャラ1枚を選ぶ。選んだキャラにアタックの対象を変更する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "redirect_attack": "one_self_character_any"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -27184,7 +27250,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "相手のキャラ1枚に相手のコストエリアのドン‼2枚までを、付与する。その後、このターン終了時、相手のドン‼が3枚以上付与されているレストのキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。"
+          "attach_rested_don": {
+            "target": "one_opponent_character_any",
+            "count": 2,
+            "to_opp": true,
+            "from_cost_area": true
+          }
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "keep_opp_rested_chara_with_don_ge_next_refresh": {
+                  "don_ge": 3
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -27642,7 +27724,10 @@
       "n": 0,
       "do": [
         {
-          "_unimplemented": "自分の場のドン‼が6枚以上ある場合、このキャラは【速攻】を得る。相手がイベントか【ブロッカー】を発動した時、自分のライフの上から1枚までを公開する。公開したカードのコスト1につき、このキャラは、このターン中、パワー+1000。"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
         }
       ]
     }
@@ -36574,7 +36659,18 @@
       "when": "counter",
       "do": [
         {
-          "_unimplemented": "ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダーが『B・W』を含む特徴を持つ場合、自分のキャラ1枚を選ぶ。選んだキャラにアタックの対象を変更する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "redirect_attack": "one_self_character_any"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -45391,7 +45487,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_event_from_hand": {
+                  "filter": {
+                    "category": "EVENT",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -45406,7 +45518,23 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "効果を発動する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_event_from_hand": {
+                  "filter": {
+                    "category": "EVENT",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -45417,7 +45545,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_event_from_hand": {
+                  "filter": {
+                    "category": "EVENT",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -45432,7 +45576,23 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "効果を発動する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_event_from_hand": {
+                  "filter": {
+                    "category": "EVENT",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -46008,7 +46168,23 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_event_from_hand": {
+                  "filter": {
+                    "category": "EVENT",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -46023,7 +46199,23 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "効果を発動する。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_event_from_hand": {
+                  "filter": {
+                    "category": "EVENT",
+                    "cost_le": 7
+                  }
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -68285,7 +68477,25 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "ドン!!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる)：自分の手札からコスト5以下の紫の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "color": "紫",
+                    "feature": "麦わらの一味",
+                    "cost_le": 5
+                  }
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -70156,7 +70366,7 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】このキャラが相手のキャラとバトルしたバトル終了時、バトルした相手のキャラをKOしてもよい。そうした場合、このキャラをKOする"
+          "optional_after_battle_mutual_ko": true
         }
       ]
     }
@@ -70213,7 +70423,28 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】【on_attack】自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "バニッシュ"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -70225,7 +70456,28 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "バニッシュ"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -70370,7 +70622,13 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "カード1枚を引き、自分か相手のライフの上から1枚までを見て、ライフの上か下に置く。"
+          "draw": 1
+        },
+        {
+          "scry_life": {
+            "owner": "self_or_opp",
+            "depth": 1
+          }
         }
       ]
     }
@@ -70381,7 +70639,29 @@
       "when": "activate_main",
       "do": [
         {
-          "_unimplemented": "このステージをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のコスト3のキャラ1枚までを、持ち主のライフの上に表向きで加える。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "chara_to_self_life": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "cost_eq": 3
+                    }
+                  },
+                  "place": "top"
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -70402,7 +70682,10 @@
       "n": 1,
       "do": [
         {
-          "_unimplemented": "【ドン!!×1】コスト0のキャラがいる場合、このキャラは【ダブルアタック】を得る。(このカードが与えるダメージは2になる)"
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ダブルアタック"
+          }
         }
       ]
     }
@@ -73581,7 +73864,16 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分のリーダーは、このターン中、自分のキャラ1枚につきパワー+1000。"
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 0,
+            "amount_per": {
+              "source": "self_field_count",
+              "multiplier": 1000,
+              "divisor": 1
+            },
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -73782,7 +74074,7 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分の手札すべてを好きな順番でデッキの下に置いてもよい。そうした場合、置いた枚数分カードを引く。"
+          "draw_per_hand_to_deck_bottom": true
         }
       ]
     }
@@ -73999,7 +74291,18 @@
       "when": "main",
       "do": [
         {
-          "_unimplemented": "自分の「ウタ」1枚をレストにできる：相手のドン!!2枚までを、レストにする。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_target_name": "ウタ"
+              }
+            ],
+            "effect": [
+              {
+                "rest_opp_don": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -74024,7 +74327,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "相手のコスト0のキャラがいる場合、このキャラは、次の自分のターン開始時まで、パワー+2000。"
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
         }
       ]
     }
@@ -74198,7 +74505,25 @@
       "when": "on_ko",
       "do": [
         {
-          "_unimplemented": "ドン‼-1：自分の手札から「シャーロット・スムージー」以外の相手の場のドン‼の枚数以下のコストを持ち、特徴《ビッグ・マム海賊団》を持つキャラカード1枚までを、登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand_named_with_dynamic_cost": {
+                  "name_filter": {
+                    "feature": "ビッグ・マム海賊団",
+                    "exclude_name": "シャーロット・スムージー"
+                  },
+                  "cost_ge": 0,
+                  "cost_le_source": "opp_don_total"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -74257,7 +74582,11 @@
       "when": "on_attack",
       "do": [
         {
-          "_unimplemented": "自分のリーダーが特徴《海軍》を持つ場合、自分のリーダーを、次の相手のターン終了時まで、元々のパワー7000にする。"
+          "set_base_power_timed": {
+            "target": "self_leader",
+            "amount": 7000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -74352,7 +74681,16 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。"
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
@@ -74601,7 +74939,14 @@
       "when": "trigger",
       "do": [
         {
-          "_unimplemented": "自分の手札からパワー5000以下の黄の【トリガー】を持つキャラカード1枚までを、登場させる。"
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "黄",
+              "power_le": 5000,
+              "has_trigger": true
+            }
+          }
         }
       ]
     }
@@ -75492,7 +75837,33 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュの『CP』を含む特徴を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のトラッシュから「スパンダイン」以外のコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature_contains": "CP",
+                    "cost_le": 4,
+                    "exclude_name": "スパンダイン"
+                  },
+                  "limit": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -75503,7 +75874,33 @@
       "when": "on_play",
       "do": [
         {
-          "_unimplemented": "自分のトラッシュの『CP』を含む特徴を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のトラッシュから「スパンダイン」以外のコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる。"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature_contains": "CP",
+                    "cost_le": 4,
+                    "exclude_name": "スパンダイン"
+                  },
+                  "limit": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ]
     }
