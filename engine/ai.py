@@ -23,7 +23,7 @@ import copy
 import random
 from typing import Optional
 
-from . import card_role, hand_estimator, matchup_model
+from . import card_intents, card_role, hand_estimator, matchup_model
 from .ai_params import AIParams
 from .core import GameState, InPlay, Phase, Player, Category
 from .game import (
@@ -292,6 +292,18 @@ class GreedyAI:
             return None
         return v.get("primary_role")
 
+    def _intent_score(self, card_id: str, state: GameState) -> int:
+        """card_intents.json メタデータから現状況に対する適合スコアを返す。
+
+        annotate 無いカードは 0 (= 既存挙動を変えない)。
+        """
+        try:
+            return card_intents.compute_intent_score(
+                card_id, state, state.turn_player, state.opponent,
+            )
+        except Exception:
+            return 0
+
     def choose_action(self, state: GameState) -> Action:
         self._ensure_matchup_overrides(state, state.turn_player_idx)
         actions = legal_actions(state)
@@ -371,12 +383,17 @@ class GreedyAI:
             # synergy 優先: 該当特徴を持つカードがあれば、 そこから最大コストを
             # role priority (R67): 同点候補のタイブレーク + effectiveness ≥ 70 の
             # カードがあれば cost より effectiveness を優先 (= 役割理解した選択)
+            # intent score (Phase Intent): card_intents.json metadata で「使うべき盤面か」 を加味
+            #   (純 tiebreaker、 cost が同じ複数候補から選ぶ時のみ使用)
             def _play_sort_key(a: PlayCharacter):
                 cid = me.hand[a.hand_idx].card_id
                 eff = self._get_role_priority(cid)
-                # effectiveness ≥ 70 を上位ティアに、 同ティア内では cost 降順
+                cost = me.hand[a.hand_idx].cost
+                # 主軸: tier (= 効果性 70+ なら上位)、 cost 降順
                 tier = 1 if eff >= 70 else 0
-                return (tier, eff, me.hand[a.hand_idx].cost)
+                # tiebreak: intent score (= 同 cost 同 tier 内での選択基準)
+                intent = self._intent_score(cid, state)
+                return (tier, eff, cost, intent)
             if self.synergy_feature:
                 synergy_plays = [
                     a for a in play_actions

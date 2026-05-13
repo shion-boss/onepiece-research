@@ -1,0 +1,425 @@
+{
+  "_meta": {
+    "version": "2026-05-13",
+    "scheme": "card_intents v1",
+    "description": "重要カードの意図 metadata。 AI choose_action で boost/penalty として加算。 4,518 全カード必須でなく、 タイミング判断が重要なカードのみ手動 annotate。",
+    "schema": {
+      "play_when": [
+        {"_note": "match 時に boost を加算 (= cards 価値高)。 default 10。"}
+      ],
+      "play_avoid": [
+        {"_note": "match 時に penalty を減算 (= card 価値低、 出すべきでない)。 default 10。"}
+      ]
+    }
+  },
+
+  "OP15-076": {
+    "_text": "紫エネル: 雷獣 (event) — relov -1000 + draw",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 25, "_note": "弱体化目標が居る"},
+      {"self_don_active_ge": 2, "boost": 5}
+    ],
+    "play_avoid": [
+      {"opp_chara_count_le": 0, "penalty": 30, "_note": "対象なしで発動はドン無駄"}
+    ]
+  },
+  "OP15-078": {
+    "_text": "紫エネル: 万雷 (event) — power 5000以下 rest + draw",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 25, "_note": "rest 対象あり"}
+    ],
+    "play_avoid": [
+      {"opp_chara_count_le": 0, "penalty": 30}
+    ]
+  },
+  "OP15-077": {
+    "_text": "紫エネル: 雷龍 — レストキャラ keep_rested + draw",
+    "play_when": [
+      {"opp_chara_count_ge": 2, "boost": 30, "_note": "相手レストの可能性高"}
+    ]
+  },
+  "OP15-075": {
+    "_text": "紫エネル: 神の裁き — リーダー +1000 + 自キャラ pump",
+    "play_when": [
+      {"opp_life_le": 2, "boost": 30, "_note": "押し込み打点 必要"},
+      {"self_chara_count_ge": 1, "boost": 10}
+    ]
+  },
+  "OP15-118": {
+    "_text": "紫エネル: エネル (cost 6) — search + 削り、 ドン6以下で immune+2000",
+    "play_when": [
+      {"self_don_active_ge": 6, "boost": 25, "_note": "ドン 6 でプレイ可"},
+      {"turn_ge": 4, "boost": 15, "_note": "中盤以降の主力"}
+    ],
+    "play_avoid": [
+      {"turn_le": 2, "penalty": 40, "_note": "序盤に出すと テンポ ロス"}
+    ]
+  },
+  "OP15-060": {
+    "_text": "紫エネル: エネル (cost 6) — 起動メイン pump、 ドン 6 以下で immune+2000",
+    "play_when": [
+      {"self_don_active_ge": 6, "boost": 25},
+      {"turn_ge": 4, "boost": 15}
+    ],
+    "play_avoid": [
+      {"turn_le": 2, "penalty": 40}
+    ]
+  },
+  "OP15-071": {
+    "_text": "紫エネル: ホーリー (cost 3) — DA + ドン+1で更にDA、 大型のサポート",
+    "play_when": [
+      {"self_chara_with_feature": "空島", "boost": 20, "_note": "オーム共生"}
+    ]
+  },
+  "OP15-066": {
+    "_text": "紫エネル: サトリ (cost 1) — 登場時 draw + アタック時 search",
+    "play_when": [
+      {"turn_le": 4, "boost": 25, "_note": "序盤プレイで draw 加速"},
+      {"self_hand_le": 4, "boost": 10}
+    ]
+  },
+  "OP15-061": {
+    "_text": "紫エネル: オーム (cost 1) — 登場時 draw + アタック時 -2000 (ドン 6 以下)",
+    "play_when": [
+      {"turn_le": 4, "boost": 25}
+    ]
+  },
+  "OP15-067": {
+    "_text": "紫エネル: シュラ (cost 1) — 速攻 (ドン 6 以下)",
+    "play_when": [
+      {"opp_life_le": 2, "boost": 35, "_note": "速攻で詰めに行く"},
+      {"turn_le": 4, "boost": 15}
+    ]
+  },
+  "OP12-071": {
+    "_text": "紫エネル/他: シャーロット・プリン (cost 1) — search サンジ/ビッグマム",
+    "play_when": [
+      {"turn_le": 5, "boost": 30, "_note": "序盤〜中盤の安定供給"},
+      {"self_hand_le": 4, "boost": 10}
+    ]
+  },
+  "OP07-064": {
+    "_text": "紫エネル: サンジ (cost 6) — ブロッカー、 ドン差 -3 で安く",
+    "play_when": [
+      {"self_life_le": 2, "boost": 30, "_note": "防御必要"},
+      {"opp_chara_count_ge": 2, "boost": 15}
+    ]
+  },
+  "OP13-076": {
+    "_text": "紫エネル/他: 神避 — ドン5レスト → 相手キャラ -2000",
+    "play_when": [
+      {"opp_chara_cost_ge": 4, "boost": 35, "_note": "高 cost キャラ削る価値"},
+      {"opp_life_le": 2, "boost": 20}
+    ],
+    "play_avoid": [
+      {"opp_chara_count_le": 0, "penalty": 50}
+    ]
+  },
+  "OP15-074": {
+    "_text": "紫エネル: 放電 — 自キャラに次相手エンドまで keyword 付与 + draw",
+    "play_when": [
+      {"self_chara_count_ge": 1, "boost": 20}
+    ],
+    "play_avoid": [
+      {"self_chara_count_le": 0, "penalty": 30}
+    ]
+  },
+
+  "OP14-104": {
+    "_text": "青黄ナミ: ゲッコー・モリア (cost 8) — trashから cost4以下 スリラーバーク をライフに",
+    "play_when": [
+      {"turn_ge": 5, "boost": 30, "_note": "ドン 8 必要"},
+      {"self_life_le": 3, "boost": 15, "_note": "ライフ補充"}
+    ],
+    "play_avoid": [
+      {"turn_le": 4, "penalty": 40}
+    ]
+  },
+  "EB03-055": {
+    "_text": "青黄ナミ: ニコ・ロビン (cost 7) — ライフ削り + 麦わら removal",
+    "play_when": [
+      {"opp_chara_cost_ge": 5, "boost": 30, "_note": "高コスト相手の処理"},
+      {"turn_ge": 5, "boost": 15}
+    ],
+    "play_avoid": [
+      {"turn_le": 4, "penalty": 35}
+    ]
+  },
+  "EB04-058": {
+    "_text": "青黄ナミ/他: ボルサリーノ (cost 5) — ブロッカー + ライフ 2 以下で removal",
+    "play_when": [
+      {"self_life_le": 3, "boost": 30, "_note": "防御も攻撃も"},
+      {"opp_chara_count_ge": 1, "boost": 10}
+    ]
+  },
+  "EB03-053": {
+    "_text": "青黄ナミ: ナミ (cost 5) — リーダーに rested ドン + 相手ライフ→hand",
+    "play_when": [
+      {"turn_ge": 4, "boost": 25},
+      {"self_don_active_ge": 5, "boost": 15}
+    ]
+  },
+  "OP14-111": {
+    "_text": "青黄ナミ: ペローナ (cost 4) — 相手 cost 6 以下 アタック禁止",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 30, "_note": "脅威を封じる"}
+    ]
+  },
+  "OP14-110": {
+    "_text": "青黄ナミ: ドクトル・ホグバック (cost 4) — KO 時に下敷き召喚",
+    "play_when": [
+      {"turn_ge": 3, "boost": 15}
+    ]
+  },
+  "OP06-104": {
+    "_text": "青黄ナミ: 菊之丞 (cost 4) — KO 時相手 life 3 以下でライフ +1",
+    "play_when": [
+      {"opp_life_le": 3, "boost": 30, "_note": "KO されたら追加ライフ"}
+    ]
+  },
+  "EB03-055_p1": {"_text": "alias", "play_when": [{"opp_chara_cost_ge": 5, "boost": 30}]},
+  "OP13-042": {
+    "_text": "青黄ナミ: エドワード・ニューゲート (cost 10) — finisher",
+    "play_when": [
+      {"self_don_active_ge": 10, "boost": 40, "_note": "ドン 10 必要"},
+      {"opp_life_le": 2, "boost": 20, "_note": "詰め筋"}
+    ],
+    "play_avoid": [
+      {"turn_le": 6, "penalty": 50}
+    ]
+  },
+  "OP10-112": {
+    "_text": "青黄ナミ: ユースタス・キッド (cost 8) — ライフ削り",
+    "play_when": [
+      {"turn_ge": 6, "boost": 30}
+    ]
+  },
+
+  "OP15-040": {
+    "_text": "赤青ルーシー: ヴィオラ (cost 1) — search ドレスローザ",
+    "play_when": [
+      {"turn_le": 5, "boost": 30}
+    ]
+  },
+  "OP15-053": {
+    "_text": "赤青ルーシー: レベッカ (cost 1) — ドン+1 で blocker、 search",
+    "play_when": [
+      {"turn_le": 5, "boost": 25}
+    ]
+  },
+  "OP15-046": {
+    "_text": "赤青ルーシー: サボ (cost 7) — ブロッカー + ドレスローザ event search",
+    "play_when": [
+      {"turn_ge": 5, "boost": 30},
+      {"self_life_le": 3, "boost": 20, "_note": "ブロッカー必要"}
+    ]
+  },
+  "OP15-054": {
+    "_text": "赤青ルーシー: 誰にも渡さねェよ (cost 4 event)",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 20}
+    ]
+  },
+  "OP10-045": {
+    "_text": "赤青ルーシー: キャベンディッシュ (cost 4) — アタック時 draw 1 捨て 1",
+    "play_when": [
+      {"turn_ge": 3, "boost": 20},
+      {"self_hand_le": 4, "boost": 15}
+    ]
+  },
+  "OP15-020": {
+    "_text": "赤青ルーシー: 火拳 (cost 7 event) — リーダー pump + 相手休眠",
+    "play_when": [
+      {"opp_life_le": 2, "boost": 35, "_note": "押し込み"},
+      {"opp_chara_count_ge": 1, "boost": 15}
+    ]
+  },
+  "OP10-060": {
+    "_text": "赤青ルーシー: バリバリの銃 (cost 5 event) — 6000 以下デッキ底",
+    "play_when": [
+      {"opp_chara_with_cost_ge_count": {"cost": 4, "count": 1}, "boost": 35, "_note": "高コスト相手の処理"}
+    ],
+    "play_avoid": [
+      {"opp_chara_count_le": 0, "penalty": 50}
+    ]
+  },
+  "OP15-021": {
+    "_text": "赤青ルーシー: 見てろよエース (event)",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 25}
+    ]
+  },
+  "OP09-118": {
+    "_text": "赤青ルーシー: ゴール・D・ロジャー (cost 10) — 速攻 finisher",
+    "play_when": [
+      {"opp_life_le": 1, "boost": 50, "_note": "lethal 圏内"},
+      {"self_don_active_ge": 10, "boost": 30}
+    ],
+    "play_avoid": [
+      {"turn_le": 6, "penalty": 50}
+    ]
+  },
+
+  "ST24-004": {
+    "_text": "緑ミホーク: ロー&ベポ (cost 10) — finisher、 rest + ドン抑制",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 30},
+      {"self_don_active_ge": 10, "boost": 30}
+    ],
+    "play_avoid": [
+      {"turn_le": 5, "penalty": 50}
+    ]
+  },
+  "OP14-119": {
+    "_text": "緑ミホーク: ジュラキュール・ミホーク (cost 9) — レスト時 cost 9 以下封印",
+    "play_when": [
+      {"opp_chara_cost_ge": 5, "boost": 35},
+      {"self_don_active_ge": 9, "boost": 20}
+    ]
+  },
+  "OP14-029": {
+    "_text": "緑ミホーク: たしぎ (cost 5) — 効果離脱に身代わり + 起動メイン",
+    "play_when": [
+      {"turn_ge": 3, "boost": 20},
+      {"self_chara_count_ge": 1, "boost": 15, "_note": "守る対象が居る"}
+    ]
+  },
+  "OP14-027": {
+    "_text": "緑ミホーク: シャンクス (cost 7) — レスト時 7000 以下 rest",
+    "play_when": [
+      {"opp_chara_count_ge": 2, "boost": 35},
+      {"turn_ge": 5, "boost": 15}
+    ]
+  },
+  "OP13-040": {
+    "_text": "緑ミホーク/他: 強ェとわかってんだから (event) — 7 以下 rest 凍結",
+    "play_when": [
+      {"opp_chara_count_ge": 2, "boost": 30},
+      {"opp_life_le": 2, "boost": 15}
+    ]
+  },
+  "ST02-007": {
+    "_text": "緑ミホーク: ジュエリー・ボニー (cost 1) — 起動メイン search",
+    "play_when": [
+      {"turn_le": 5, "boost": 30}
+    ]
+  },
+  "OP14-039": {
+    "_text": "緑ミホーク: 棺船 (stage、 cost 1) — リーダー一致で draw",
+    "play_when": [
+      {"self_chara_count_le": 2, "boost": 20, "_note": "場に余裕がある時"}
+    ]
+  },
+  "EB01-015": {
+    "_text": "緑ミホーク/他: スクラッチメン・アプー (cost 1) — cost 2 以下 rest",
+    "play_when": [
+      {"opp_chara_with_cost_ge_count": {"cost": 1, "count": 1}, "boost": 20}
+    ]
+  },
+
+  "OP15-108": {
+    "_text": "黄ルフィ(OP15): ナミ (cost 1) — 空島 search",
+    "play_when": [
+      {"turn_le": 5, "boost": 30}
+    ]
+  },
+  "OP05-106": {
+    "_text": "黄ルフィ(OP15): シュラ (cost 2) — 空島 search",
+    "play_when": [
+      {"turn_le": 5, "boost": 25}
+    ]
+  },
+  "OP11-106": {
+    "_text": "黄ルフィ(OP15)/青黄ナミ: ゼウス (cost 2) — ライフ操作で removal",
+    "play_when": [
+      {"opp_chara_with_cost_ge_count": {"cost": 1, "count": 1}, "boost": 25, "_note": "5 以下 KO"}
+    ]
+  },
+  "OP15-114": {
+    "_text": "黄ルフィ(OP15): ワイパー (cost 5) — 全体 -2000",
+    "play_when": [
+      {"opp_chara_count_ge": 2, "boost": 35, "_note": "全体除去価値高"}
+    ]
+  },
+  "OP15-119": {
+    "_text": "黄ルフィ(OP15): ルフィ (cost 5) — 速攻 + ライフ操作",
+    "play_when": [
+      {"opp_life_le": 2, "boost": 35, "_note": "詰め筋"},
+      {"self_don_active_ge": 6, "boost": 15}
+    ]
+  },
+  "OP15-109": {
+    "_text": "黄ルフィ(OP15): ニコ・ロビン (cost 7) — 麦わら removal",
+    "play_when": [
+      {"turn_ge": 5, "boost": 25},
+      {"opp_chara_cost_ge": 4, "boost": 25}
+    ]
+  },
+  "EB02-052": {
+    "_text": "黄ルフィ(OP15): エネル (cost 10) — 速攻 finisher",
+    "play_when": [
+      {"opp_life_le": 2, "boost": 50, "_note": "lethal 圏内"},
+      {"self_don_active_ge": 10, "boost": 30}
+    ]
+  },
+  "OP05-102": {
+    "_text": "黄ルフィ(OP15): ゲダツ (cost 5) — 相手ライフ以下のコストキャラ KO",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 30}
+    ]
+  },
+
+  "OP15-008": {
+    "_text": "赤緑クリーク: クリーク (cost 8) — 相手にレスト ドン+3 + 速攻",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 30, "_note": "ドン渡せる対象"},
+      {"self_don_active_ge": 8, "boost": 25}
+    ],
+    "play_avoid": [
+      {"turn_le": 5, "penalty": 40}
+    ]
+  },
+  "OP15-007": {
+    "_text": "赤緑クリーク: ギン (cost 6) — 5 以下を手札からタダプレイ",
+    "play_when": [
+      {"self_hand_ge": 3, "boost": 30, "_note": "ハンドにキャラあり想定"},
+      {"turn_ge": 4, "boost": 15}
+    ]
+  },
+  "OP15-026": {
+    "_text": "赤緑クリーク: ジャンゴ (cost 1) — 東の海 search",
+    "play_when": [
+      {"turn_le": 5, "boost": 30}
+    ]
+  },
+  "OP15-023": {
+    "_text": "赤緑クリーク: アーロン (cost 4) — KO 時 rest 凍結 + 起動メイン",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 20}
+    ]
+  },
+  "OP15-027": {
+    "_text": "赤緑クリーク: ジュラキュール・ミホーク (cost 4) — 相手ドン付与キャラを rest",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 25}
+    ]
+  },
+  "OP15-038": {
+    "_text": "赤緑クリーク: 命令してるんだ (event) — ドン2付与 cost8以下 凍結",
+    "play_when": [
+      {"opp_chara_count_ge": 1, "boost": 30}
+    ]
+  },
+  "OP08-036": {
+    "_text": "赤緑クリーク: エレクトリカルルナ (event) — 相手 全レスト凍結",
+    "play_when": [
+      {"opp_chara_count_ge": 2, "boost": 40, "_note": "全凍結価値高"}
+    ]
+  },
+  "OP15-011": {
+    "_text": "赤緑クリーク: パール (cost 4) — 相手ターン ブロッカー +2000",
+    "play_when": [
+      {"self_life_le": 2, "boost": 25, "_note": "防御強化"}
+    ]
+  }
+}
