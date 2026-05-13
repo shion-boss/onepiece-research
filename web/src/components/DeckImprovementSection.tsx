@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   applyDeckImprovement,
@@ -17,6 +18,7 @@ import { CardImage } from "@/components/CardImage";
 import { useDeckSimulationStore } from "@/stores/deckSimulation";
 
 export function DeckImprovementSection({ slug }: { slug: string }) {
+  const router = useRouter();
   const [data, setData] = useState<DeckImprovementsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +105,9 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
       setAppliedIds((prev) => new Set(prev).add(proposal.proposal_id));
       // 改善提案を再取得 (= 適用後のデッキ状態で再評価)
       setReloadKey((k) => k + 1);
+      // ページ全体 (= /decks/[slug] の Server Component) を refresh
+      // → 下部のメインデッキ grid + ヘッダー枚数 等が更新後の内容を表示
+      router.refresh();
     } catch (e) {
       setApplyError(String(e));
     } finally {
