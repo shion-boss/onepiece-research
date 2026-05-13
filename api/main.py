@@ -323,6 +323,24 @@ def get_card(card_id: str):
     return _to_out(c)
 
 
+# 全カードの primary_role を card_id → role の compact map で返す。
+# board_eval (chara_quality / hand_quality) の TS 側計算用 (R69)。
+# 元 db/card_roles.json は 2MB 超だが、 primary_role のみなら ~200KB。
+@app.get("/api/cards/roles")
+def get_card_roles():
+    from engine import card_role as _cr
+    db = _cr.load_card_role_db()
+    out: dict[str, str] = {}
+    for cid, v in db.items():
+        if cid.startswith("_"):  # _meta 等のメタキー除外
+            continue
+        if isinstance(v, dict):
+            role = v.get("primary_role")
+            if isinstance(role, str):
+                out[cid] = role
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # エンドポイント: decks (decks/*.json をディレクトリから読む)
 # --------------------------------------------------------------------------- #

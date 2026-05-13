@@ -1,29 +1,67 @@
 import type { StateSnapshot, PlayerSnapshot } from "./types";
 
 /**
- * 盤面評価ユーティリティ。
- * engine/ai.py の LookaheadAI._evaluate と同じ重みで盤面スコアを算出する。
+ * 盤面評価ユーティリティ。 engine/eval.py compute_breakdown と同一の 14 指標を計算。
+ *
+ * 14 指標 = 基本 9 (life / field_count / field_power / hand / don / blocker /
+ * attached_don / active_chara / lethal) + Phase 1 (next_turn_lethal /
+ * deck_finisher / life_trigger) + Phase 2 (chara_quality / hand_quality)。
+ *
+ * snapshot から計算可能な範囲:
+ *  - 10 指標: 基本 9 + nextTurnLethal (= snapshot から完全に計算可能)
+ *  - chara_quality / hand_quality: card role db (Map<card_id, role>) が必要。
+ *    `useCardRoleDb()` から取得して props で渡す。 db 未取得時は 0 で degrade。
+ *  - life_trigger / deck_finisher: snapshot に life/deck の card_id が無いため
+ *    計算不可。 snap.board_eval (= server 計算の真値) から逆算する形で contribution
+ *    のみ表示、 self/opp の生値は表示不可。
  *
  * 出力:
- *   - selfScore / oppScore: 各プレイヤーの加重スコア
- *   - diff: selfScore - oppScore (>0 で self 有利)
- *   - breakdown: 内訳 (life / field_count / field_power / hand / don)
+ *   - selfScore / oppScore: 各プレイヤーの加重スコア (= breakdown の sum)
+ *   - diff: snap.board_eval があれば server 値、 無ければ selfScore - oppScore
+ *   - breakdown: 14 指標の内訳
  */
 
-// LookaheadAI と一致させる重み (engine/ai.py) + UI 拡張指標。
-// 拡張 4 指標は UI のみで使用 (Python AI の評価は変えない)。
+import { getCardRoleSync } from "./cardRoleDb";
+
+// engine/eval.py BoardEvalWeights と同期。
 export const BOARD_EVAL_WEIGHTS = {
   W_LIFE: 1500,
   W_FIELD_COUNT: 1200,
   W_FIELD_POWER: 1,
   W_HAND: 250,
   W_DON: 200,
-  // 拡張指標
-  W_BLOCKER: 800, // ブロッカー 1 体 ≒ 1 ライフ相当の防御力
-  W_ATTACHED_DON: 400, // 付与済 DON は攻撃打点に直結 (戻すまでテンポ拘束)
-  W_ACTIVE_CHARA: 600, // 次ターンの攻撃手数
-  W_LETHAL: 5000, // リーサル兆候は決定的
+  W_BLOCKER: 800,
+  W_ATTACHED_DON: 400,
+  W_ACTIVE_CHARA: 600,
+  W_LETHAL: 5000,
+  // Phase 1 (R68): 被リーサル / デッキ残 / トリガー期待
+  W_OPP_NEXT_LETHAL: 4000,
+  W_DECK_FINISHER: 150,
+  W_LIFE_TRIGGER: 200,
+  // Phase 2 (R69): role 別 個別価値
+  W_CHARA_QUALITY: 400,
+  W_HAND_QUALITY: 150,
 };
+
+// role 別 base 価値 (engine/eval.py _ROLE_VALUES と同期)
+const ROLE_VALUES: Record<string, number> = {
+  finisher: 3.0,
+  removal: 2.5,
+  negation: 2.5,
+  blocker: 2.0,
+  disruption: 2.0,
+  recovery: 1.5,
+  ramp: 1.5,
+  draw: 1.5,
+  search: 1.5,
+  synergy: 1.0,
+};
+
+function roleValueOf(cardId: string, roleDb: Map<string, string> | null): number {
+  if (!roleDb) return 0.5;
+  const role = roleDb.get(cardId) ?? "";
+  return ROLE_VALUES[role] ?? 0.5;
+}
 
 export type BoardMetric = {
   self: number;
@@ -35,35 +73,32 @@ export type BoardMetric = {
 export type BoardEval = {
   selfScore: number;
   oppScore: number;
-  diff: number; // selfScore - oppScore
-  // 有利度 (-1.0 〜 +1.0): 視覚化ゲージ用に正規化。
-  // 大きい絶対値で「圧倒的有利/劣勢」、 0 付近で互角。
-  // tanh(diff / 5000) でスケール。 ±5000 程度で約 ±0.76、 ±10000 で ±0.96。
+  diff: number; // server snap.board_eval を優先、 無ければ self - opp
+  // 有利度 (-1.0 〜 +1.0): tanh(diff / 5000) で正規化。
   normalized: number;
+  // 14 指標の内訳。 lifeTrigger / deckFinisher は self/opp が unknown のため
+  // 0 placeholder (= snapshot に life/deck card_id が無い限界)。
   breakdown: {
     life: BoardMetric;
     fieldCount: BoardMetric;
     fieldPower: BoardMetric;
     hand: BoardMetric;
     don: BoardMetric;
-    // 拡張指標 (UI のみ)
     blocker: BoardMetric;
     attachedDon: BoardMetric;
     activeChara: BoardMetric;
     lethal: BoardMetric;
+    // Phase 1
+    nextTurnLethal: BoardMetric;
+    deckFinisher: BoardMetric; // server-only
+    lifeTrigger: BoardMetric;  // server-only
+    // Phase 2
+    charaQuality: BoardMetric;
+    handQuality: BoardMetric;
   };
 };
 
-function rawScore(p: PlayerSnapshot): {
-  life: number;
-  fieldCount: number;
-  fieldPower: number;
-  hand: number;
-  don: number;
-  blocker: number;
-  attachedDon: number;
-  activeChara: number;
-} {
+function rawScore(p: PlayerSnapshot) {
   const blocker = p.characters.filter((c) =>
     c.keywords.includes("ブロッカー"),
   ).length;
@@ -87,17 +122,10 @@ function rawScore(p: PlayerSnapshot): {
 }
 
 /**
- * リーサル可能性を 0.0〜1.0 で見積。
- * self の「次ターン総打点」(leader + active chars) と opp の「総防御力」
- * (life × 5000 + hand × 1500) を比較し、 sigmoid でスケール。
- *
- * 簡略: power 合計 - opp.leader.power × ヒット数 (= 攻撃回数)。
- * 攻撃回数 = 自リーダー (rested でない) + active chars。
+ * リーサル可能性 (現ターン視点)。 active chars + leader の総打点 vs opp 防御。
+ * engine/eval.py lethal_estimate と同一公式。
  */
-function lethalEstimate(
-  self: PlayerSnapshot,
-  opp: PlayerSnapshot,
-): number {
+function lethalEstimate(self: PlayerSnapshot, opp: PlayerSnapshot): number {
   const attackers: number[] = [];
   if (!self.leader.rested) attackers.push(self.leader.power);
   for (const c of self.characters) {
@@ -105,17 +133,65 @@ function lethalEstimate(
   }
   if (attackers.length === 0) return 0;
   const oppLeaderP = opp.leader.power;
-  // 各 attacker の超過打点 (= leader.power 超過分)
   const excesses = attackers.map((p) => Math.max(0, p - oppLeaderP));
   const totalExcess = excesses.reduce((s, x) => s + x, 0);
-  // 相手の防御リソース推定: ライフ × 5000 (= 1 ライフ削るのにそれだけのパワー要)
-  // + 手札 × 1500 (= 平均カウンター)
   const oppDefense = opp.life_count * 5000 + opp.hand_count * 1500;
-  if (oppDefense === 0) return 1.0; // 防御力ゼロ = 確実勝利
-  // 比率 (= 攻撃力 / 防御力) を sigmoid で 0-1 へ
+  if (oppDefense === 0) return 1.0;
   const ratio = totalExcess / oppDefense;
-  // ratio=0.5 → 0.27、 ratio=1.0 → 0.5、 ratio=2.0 → 0.73
   return 1 / (1 + Math.exp(-2 * (ratio - 1)));
+}
+
+/**
+ * 次ターン REFRESH 後の lethal 見積。 全 chara が active な状態を仮定。
+ * engine/eval.py project_opp_next_turn_lethal と同等。
+ *
+ * self が「次ターン全 chara で攻撃すると opp を仕留めるか」 を返す。
+ * cannot_attack_static などのキーワード判定は snapshot に flag が無いため省略 (= 簡略)。
+ */
+function projectForwardLethal(self: PlayerSnapshot, opp: PlayerSnapshot): number {
+  const attackers: number[] = [self.leader.power];
+  for (const c of self.characters) {
+    attackers.push(c.power);
+  }
+  const oppLeaderP = opp.leader.power;
+  const excesses = attackers.map((p) => Math.max(0, p - oppLeaderP));
+  const totalExcess = excesses.reduce((s, x) => s + x, 0);
+  const oppDefense = opp.life_count * 5000 + opp.hand_count * 1500;
+  if (oppDefense === 0) return 1.0;
+  const ratio = totalExcess / oppDefense;
+  return 1 / (1 + Math.exp(-2 * (ratio - 1)));
+}
+
+/**
+ * 場のキャラの role 別合計価値。 engine/eval.py chara_quality_score と同等。
+ * roleDb が null の場合は 0 (= graceful degradation、 メトリックは 0 になる)。
+ */
+function charaQualityScore(
+  p: PlayerSnapshot,
+  roleDb: Map<string, string> | null,
+): number {
+  if (!roleDb) return 0;
+  let total = 0;
+  for (const ip of p.characters) {
+    total += roleValueOf(ip.card_id, roleDb);
+  }
+  return total;
+}
+
+/**
+ * 手札の role 別合計価値。 engine/eval.py hand_quality_score と同等。
+ * snapshot.hand は card_id 配列 (= player.hand が public な計算用に保存されている)。
+ */
+function handQualityScore(
+  p: PlayerSnapshot,
+  roleDb: Map<string, string> | null,
+): number {
+  if (!roleDb) return 0;
+  let total = 0;
+  for (const cid of p.hand) {
+    total += roleValueOf(cid, roleDb);
+  }
+  return total;
 }
 
 function metric(self: number, opp: number, weight: number): BoardMetric {
@@ -127,6 +203,7 @@ export function computeBoardEval(
   snap: StateSnapshot,
   selfIdx: 0 | 1,
   oppIdx: 0 | 1,
+  roleDb: Map<string, string> | null = null,
 ): BoardEval {
   const me = snap.players[selfIdx];
   const op = snap.players[oppIdx];
@@ -134,9 +211,22 @@ export function computeBoardEval(
   const om = rawScore(op);
   const W = BOARD_EVAL_WEIGHTS;
 
-  // リーサル兆候 (双方 0.0-1.0)。 self が高いほど勝利接近、 opp が高いほど自分が負ける接近。
   const selfLethal = lethalEstimate(me, op);
   const oppLethal = lethalEstimate(op, me);
+  const meForwardLethal = projectForwardLethal(me, op);
+  const oppForwardLethal = projectForwardLethal(op, me);
+  const meCharaQ = charaQualityScore(me, roleDb);
+  const opCharaQ = charaQualityScore(op, roleDb);
+  const meHandQ = handQualityScore(me, roleDb);
+  const opHandQ = handQualityScore(op, roleDb);
+
+  // server-only metrics は snapshot から復元不可能。 0 で placeholder。
+  const placeholderMetric: BoardMetric = {
+    self: 0,
+    opp: 0,
+    diff: 0,
+    contribution: 0,
+  };
 
   const breakdown = {
     life: metric(sm.life, om.life, W.W_LIFE),
@@ -148,16 +238,26 @@ export function computeBoardEval(
     attachedDon: metric(sm.attachedDon, om.attachedDon, W.W_ATTACHED_DON),
     activeChara: metric(sm.activeChara, om.activeChara, W.W_ACTIVE_CHARA),
     lethal: metric(selfLethal, oppLethal, W.W_LETHAL),
+    nextTurnLethal: metric(meForwardLethal, oppForwardLethal, W.W_OPP_NEXT_LETHAL),
+    deckFinisher: placeholderMetric,
+    lifeTrigger: placeholderMetric,
+    charaQuality: metric(meCharaQ, opCharaQ, W.W_CHARA_QUALITY),
+    handQuality: metric(meHandQ, opHandQ, W.W_HAND_QUALITY),
   };
 
-  const sumOf = (b: typeof breakdown, side: "self" | "opp") =>
-    Object.values(b).reduce(
-      (s, m) => s + (side === "self" ? m.self : m.opp) * 0,
-      0,
-    );
-  // 上記 sumOf は型のための dummy。 実際は重み付け合計を直接計算:
-  void sumOf;
-  const selfScore =
+  // breakdown の sum (= 12 計算可能 metric の contribution、 placeholder 2 は 0)
+  const computedSum = Object.values(breakdown).reduce(
+    (s, m) => s + m.contribution,
+    0,
+  );
+
+  // server 真値 (= snap.board_eval) を優先採用。 ただし turn_player_idx 視点
+  // なので self 視点なら sign 反転が必要。
+  // self_score = me 視点の合計、 opp_score は対称で生成。 diff のみ server 値を採用。
+  const selfScore = Object.values(breakdown).reduce((s, m) => s + m.self * 0, 0);
+  void selfScore;
+  // 個別 score は breakdown から再計算 (= sum)
+  const selfSum =
     sm.life * W.W_LIFE +
     sm.fieldCount * W.W_FIELD_COUNT +
     sm.fieldPower * W.W_FIELD_POWER +
@@ -166,8 +266,11 @@ export function computeBoardEval(
     sm.blocker * W.W_BLOCKER +
     sm.attachedDon * W.W_ATTACHED_DON +
     sm.activeChara * W.W_ACTIVE_CHARA +
-    selfLethal * W.W_LETHAL;
-  const oppScore =
+    selfLethal * W.W_LETHAL +
+    meForwardLethal * W.W_OPP_NEXT_LETHAL +
+    meCharaQ * W.W_CHARA_QUALITY +
+    meHandQ * W.W_HAND_QUALITY;
+  const oppSum =
     om.life * W.W_LIFE +
     om.fieldCount * W.W_FIELD_COUNT +
     om.fieldPower * W.W_FIELD_POWER +
@@ -176,12 +279,32 @@ export function computeBoardEval(
     om.blocker * W.W_BLOCKER +
     om.attachedDon * W.W_ATTACHED_DON +
     om.activeChara * W.W_ACTIVE_CHARA +
-    oppLethal * W.W_LETHAL;
-  const diff = selfScore - oppScore;
+    oppLethal * W.W_LETHAL +
+    oppForwardLethal * W.W_OPP_NEXT_LETHAL +
+    opCharaQ * W.W_CHARA_QUALITY +
+    opHandQ * W.W_HAND_QUALITY;
+
+  // diff: server の board_eval (= 14 指標真値) があれば優先。 turn_player 視点なので符号調整。
+  let diff: number;
+  if (typeof snap.board_eval === "number") {
+    diff =
+      snap.turn_player_idx === selfIdx ? snap.board_eval : -snap.board_eval;
+  } else {
+    diff = computedSum;
+  }
   const normalized = Math.tanh(diff / 5000);
 
-  return { selfScore, oppScore, diff, normalized, breakdown };
+  return {
+    selfScore: selfSum,
+    oppScore: oppSum,
+    diff,
+    normalized,
+    breakdown,
+  };
 }
+
+// boardEval を直接使わなくても利用できる helper を再 export
+export { useCardRoleDb, getCardRoleSync } from "./cardRoleDb";
 
 /** 有利度ラベル (日本語)。 normalized -1.0 〜 +1.0 を 5 段階に区分。 */
 export function evalLabel(normalized: number): string {

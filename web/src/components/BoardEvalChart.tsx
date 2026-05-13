@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { computeBoardEval, evalLabel } from "@/lib/boardEval";
+import { computeBoardEval, evalLabel, useCardRoleDb } from "@/lib/boardEval";
 import type { StateSnapshot } from "@/lib/types";
 
 /**
@@ -36,11 +36,12 @@ export function BoardEvalChart({
   currentIdx: number;
   onJump?: (idx: number) => void;
 }) {
-  // データ計算 (snapshots / selfIdx / oppIdx に依存)
+  const roleDb = useCardRoleDb();
+  // データ計算 (snapshots / selfIdx / oppIdx / roleDb に依存)
   const data = useMemo(
     () =>
       snapshots.map((snap, i) => {
-        const ev = computeBoardEval(snap, selfIdx, oppIdx);
+        const ev = computeBoardEval(snap, selfIdx, oppIdx, roleDb);
         return {
           idx: i,
           turn: snap.turn,
@@ -48,7 +49,7 @@ export function BoardEvalChart({
           diff: ev.diff,
         };
       }),
-    [snapshots, selfIdx, oppIdx],
+    [snapshots, selfIdx, oppIdx, roleDb],
   );
 
   // ターン境界 (各ターン開始 index)

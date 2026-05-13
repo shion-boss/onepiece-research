@@ -239,6 +239,9 @@ export type StateSnapshot = {
   winner: number | null;
   event: AttackEvent | null;
   players: PlayerSnapshot[];
+  // turn_player_idx 視点の board_eval (= compute_score 14 指標)。
+  // engine/core.py:_build_snapshot が R62+ で埋め込む。 古い snapshot には欠ける。
+  board_eval?: number;
 };
 
 export type ReplayResponse = {

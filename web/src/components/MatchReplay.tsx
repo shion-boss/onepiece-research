@@ -16,6 +16,7 @@ import {
   computeBoardEval,
   evalLabel,
   evalColorClass,
+  useCardRoleDb,
 } from "@/lib/boardEval";
 import { BoardEvalChart } from "./BoardEvalChart";
 import type {
@@ -1231,7 +1232,8 @@ function BoardEvalPanel({
     };
   }, [tab, jobId, gameIndex, analysis]);
 
-  const ev = computeBoardEval(snap, selfIdx, oppIdx);
+  const roleDb = useCardRoleDb();
+  const ev = computeBoardEval(snap, selfIdx, oppIdx, roleDb);
   const label = evalLabel(ev.normalized);
   const colorClass = evalColorClass(ev.normalized);
   // ゲージ: -1.0 〜 +1.0 を 0% 〜 100% に変換 (50% が互角)
@@ -1241,6 +1243,7 @@ function BoardEvalPanel({
     name: string;
     m: { self: number; opp: number; diff: number; contribution: number };
     formatNum?: (n: number) => string;
+    note?: string;
   };
   const fmtFloat = (n: number) => n.toFixed(2);
   const rows: Row[] = [
@@ -1253,6 +1256,33 @@ function BoardEvalPanel({
     { name: "付与 DON 合計", m: ev.breakdown.attachedDon },
     { name: "アクティブキャラ数", m: ev.breakdown.activeChara },
     { name: "リーサル兆候", m: ev.breakdown.lethal, formatNum: fmtFloat },
+    {
+      name: "次ターン リーサル",
+      m: ev.breakdown.nextTurnLethal,
+      formatNum: fmtFloat,
+    },
+    {
+      name: "キャラの質 (role)",
+      m: ev.breakdown.charaQuality,
+      formatNum: fmtFloat,
+      note: roleDb ? undefined : "role db 読込中",
+    },
+    {
+      name: "手札の質 (role)",
+      m: ev.breakdown.handQuality,
+      formatNum: fmtFloat,
+      note: roleDb ? undefined : "role db 読込中",
+    },
+    {
+      name: "残デッキ finisher",
+      m: ev.breakdown.deckFinisher,
+      note: "server only",
+    },
+    {
+      name: "ライフ trigger",
+      m: ev.breakdown.lifeTrigger,
+      note: "server only",
+    },
   ];
 
   return (
@@ -1318,9 +1348,22 @@ function BoardEvalPanel({
               {rows.map((r) => {
                 const fmt =
                   r.formatNum ?? ((n: number) => n.toLocaleString());
+                const dim = r.note != null;
                 return (
-                  <tr key={r.name} className="border-t border-white/10">
-                    <td className="text-zinc-200">{r.name}</td>
+                  <tr
+                    key={r.name}
+                    className={`border-t border-white/10 ${
+                      dim ? "opacity-50" : ""
+                    }`}
+                  >
+                    <td className="text-zinc-200">
+                      {r.name}
+                      {r.note ? (
+                        <span className="ml-1 text-[9px] text-zinc-500">
+                          ({r.note})
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="text-right font-mono">{fmt(r.m.self)}</td>
                     <td className="text-right font-mono">{fmt(r.m.opp)}</td>
                     <td
