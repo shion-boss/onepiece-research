@@ -454,6 +454,79 @@ export type McctsGameResponse = {
   mcts_turns: McctsTurn[];
 };
 
+// === Phase R: 研究セッション ===
+export type ResearchSessionConfig = {
+  target_slug: string;
+  leader_filter?: string[] | null;
+  must_include?: string[] | null;
+  target_winrate?: number;
+  max_generations?: number;
+  n_games_per_eval?: number;
+  initial_population?: number;
+  mutations_per_top?: number;
+  top_k?: number;
+  seed?: number;
+};
+
+export type ResearchSessionStartResponse = {
+  session_id: string;
+  status: string;
+};
+
+export type ResearchSessionSummary = {
+  id: string;
+  target_slug: string;
+  status: "running" | "paused" | "completed" | "stopped";
+  created_at: string;
+  updated_at: string;
+  current_generation: number;
+  best_winrate: number | null;
+  completion_reason: string | null;
+};
+
+export type ResearchGenerationHistory = {
+  generation: number;
+  n_candidates: number;
+  best_winrate: number | null;
+  avg_winrate: number | null;
+};
+
+export type ResearchSessionDetail = {
+  id: string;
+  target_slug: string;
+  config: Record<string, unknown>;
+  status: "running" | "paused" | "completed" | "stopped";
+  created_at: string;
+  updated_at: string;
+  current_generation: number;
+  best_winrate: number | null;
+  best_deck: { leader: string; main: DeckEntry[]; name?: string; leader_name?: string } | null;
+  completion_reason: string | null;
+  generation_history: ResearchGenerationHistory[];
+};
+
+export type ResearchCandidate = {
+  id: number;
+  generation: number;
+  candidate_idx: number;
+  deck: { leader: string; main: DeckEntry[]; name?: string; leader_name?: string };
+  parent_id: number | null;
+  mutation_type: string | null;
+  winrate: number | null;
+  n_games: number | null;
+  evaluated_at: string | null;
+};
+
+export type ResearchBestDeckResponse = {
+  session_id: string;
+  candidate_id: number;
+  generation: number;
+  winrate: number;
+  n_games: number;
+  mutation_type: string;
+  deck: { leader: string; main: DeckEntry[]; name?: string; leader_name?: string };
+};
+
 // MCTS rerank (Explorer 候補の MCTS 評価、 U3)
 export type RerankResult = {
   leader: string;

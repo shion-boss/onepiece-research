@@ -57,7 +57,26 @@ export function DeckResearchWorkflow({
       </div>
 
       {goal === "improve" && (
-        <ImproveWorkflow selfSlug={selfSlug} selfName={selfName} opponents={opponents} />
+        <>
+          {/* 🔬 研究ラボへの導線 (= 長時間自動研究) */}
+          <div className="flex items-center justify-between rounded-lg border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-blue-50 p-3 dark:border-purple-700 dark:from-purple-950/30 dark:to-blue-950/30">
+            <div>
+              <div className="text-sm font-semibold">
+                🔬 真の対策デッキを研究する (= 進化的探索)
+              </div>
+              <div className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                数時間かけて世代交代で自動探索 → 最強対策デッキを発見
+              </div>
+            </div>
+            <Link
+              href={`/research/new?target=${encodeURIComponent(selfSlug)}`}
+              className="rounded bg-purple-600 px-3 py-2 text-xs font-medium text-white hover:bg-purple-500"
+            >
+              研究セッション開始 →
+            </Link>
+          </div>
+          <ImproveWorkflow selfSlug={selfSlug} selfName={selfName} opponents={opponents} />
+        </>
       )}
       {goal === "evaluate" && (
         <EvaluateWorkflow selfSlug={selfSlug} selfName={selfName} opponents={opponents} />

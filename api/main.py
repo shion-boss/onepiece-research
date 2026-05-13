@@ -767,6 +767,188 @@ def explore_counter_decks(req: ExploreCounterRequest):
 
 
 # --------------------------------------------------------------------------- #
+# エンドポイント: 研究セッション (Phase R)
+# --------------------------------------------------------------------------- #
+class ResearchSessionConfig(BaseModel):
+    target_slug: str
+    leader_filter: Optional[list[str]] = None
+    must_include: Optional[list[str]] = None
+    target_winrate: float = 0.7
+    max_generations: int = 50
+    n_games_per_eval: int = 50
+    initial_population: int = 20
+    mutations_per_top: int = 3
+    top_k: int = 5
+    seed: int = 42
+
+
+class ResearchSessionStartResponse(BaseModel):
+    session_id: str
+    status: str
+
+
+class ResearchSessionSummary(BaseModel):
+    id: str
+    target_slug: str
+    status: str
+    created_at: str
+    updated_at: str
+    current_generation: int
+    best_winrate: Optional[float]
+    completion_reason: Optional[str]
+
+
+class ResearchGenerationHistory(BaseModel):
+    generation: int
+    n_candidates: int
+    best_winrate: Optional[float]
+    avg_winrate: Optional[float]
+
+
+class ResearchSessionDetail(BaseModel):
+    id: str
+    target_slug: str
+    config: dict
+    status: str
+    created_at: str
+    updated_at: str
+    current_generation: int
+    best_winrate: Optional[float]
+    best_deck: Optional[dict]
+    completion_reason: Optional[str]
+    generation_history: list[ResearchGenerationHistory]
+
+
+class ResearchCandidate(BaseModel):
+    id: int
+    generation: int
+    candidate_idx: int
+    deck: dict
+    parent_id: Optional[int]
+    mutation_type: Optional[str]
+    winrate: Optional[float]
+    n_games: Optional[int]
+    evaluated_at: Optional[str]
+
+
+@app.post("/api/research/sessions", response_model=ResearchSessionStartResponse)
+def start_research_session(config: ResearchSessionConfig):
+    """新規研究セッション起動。 backend で thread spawn → 即時 session_id 返却。"""
+    from engine.research_session import start_research
+
+    target_path = DECKS_DIR / f"{config.target_slug}.json"
+    if not target_path.exists():
+        raise HTTPException(404, f"target deck not found: {config.target_slug}")
+
+    session_id = start_research(
+        target_slug=config.target_slug,
+        leader_filter=config.leader_filter,
+        must_include=config.must_include,
+        target_winrate=config.target_winrate,
+        max_generations=config.max_generations,
+        n_games_per_eval=config.n_games_per_eval,
+        initial_population=config.initial_population,
+        mutations_per_top=config.mutations_per_top,
+        top_k=config.top_k,
+        seed=config.seed,
+    )
+    return ResearchSessionStartResponse(session_id=session_id, status="running")
+
+
+@app.get("/api/research/sessions", response_model=list[ResearchSessionSummary])
+def list_research_sessions(
+    limit: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None, regex="^(running|paused|completed|stopped)$"),
+):
+    from engine import research_storage
+    sessions = research_storage.list_sessions(limit=limit, status=status)
+    return [ResearchSessionSummary(**s) for s in sessions]
+
+
+@app.get("/api/research/sessions/{session_id}", response_model=ResearchSessionDetail)
+def get_research_session(session_id: str):
+    from engine import research_storage
+    s = research_storage.get_session(session_id)
+    if s is None:
+        raise HTTPException(404, f"session not found: {session_id}")
+    history = research_storage.get_generation_history(session_id)
+    return ResearchSessionDetail(
+        id=s["id"],
+        target_slug=s["target_slug"],
+        config=s["config"],
+        status=s["status"],
+        created_at=s["created_at"],
+        updated_at=s["updated_at"],
+        current_generation=s["current_generation"],
+        best_winrate=s["best_winrate"],
+        best_deck=s["best_deck"],
+        completion_reason=s["completion_reason"],
+        generation_history=[ResearchGenerationHistory(**h) for h in history],
+    )
+
+
+@app.post("/api/research/sessions/{session_id}/pause")
+def pause_research_session(session_id: str):
+    from engine.research_session import pause_session
+    if not pause_session(session_id):
+        raise HTTPException(404, f"session not found or not active: {session_id}")
+    return {"session_id": session_id, "status": "paused"}
+
+
+@app.post("/api/research/sessions/{session_id}/resume")
+def resume_research_session(session_id: str):
+    from engine.research_session import resume_session
+    if not resume_session(session_id):
+        raise HTTPException(404, f"session not resumable: {session_id}")
+    return {"session_id": session_id, "status": "running"}
+
+
+@app.post("/api/research/sessions/{session_id}/stop")
+def stop_research_session(session_id: str):
+    from engine.research_session import stop_session
+    if not stop_session(session_id):
+        raise HTTPException(404, f"session not found: {session_id}")
+    return {"session_id": session_id, "status": "stopped"}
+
+
+@app.get("/api/research/sessions/{session_id}/best-deck")
+def get_research_best_deck(session_id: str):
+    from engine import research_storage
+    best = research_storage.get_best_candidate(session_id)
+    if best is None:
+        raise HTTPException(404, f"no evaluated candidate yet for session: {session_id}")
+    return {
+        "session_id": session_id,
+        "candidate_id": best["id"],
+        "generation": best["generation"],
+        "winrate": best["winrate"],
+        "n_games": best["n_games"],
+        "mutation_type": best["mutation_type"],
+        "deck": best["deck"],
+    }
+
+
+@app.get("/api/research/sessions/{session_id}/candidates", response_model=list[ResearchCandidate])
+def get_research_candidates(
+    session_id: str,
+    generation: Optional[int] = Query(None, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    from engine import research_storage
+    cands = research_storage.get_candidates(
+        session_id, generation=generation, only_evaluated=True, limit=limit,
+    )
+    return [ResearchCandidate(**c) for c in cands]
+
+
+@app.delete("/api/research/sessions/{session_id}")
+def delete_research_session(session_id: str):
+    from engine import research_storage
+    research_storage.delete_session(session_id)
+    return {"session_id": session_id, "deleted": True}
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: deck improvement (改善提案)
 # --------------------------------------------------------------------------- #
 class CardChangeOut(BaseModel):

@@ -72,6 +72,12 @@ db/match_history.jsonl
 db/match_replays.sqlite
 db/match_replays.sqlite-journal
 
+# 研究セッション (Phase R)
+db/research_sessions.sqlite
+db/research_sessions.sqlite-journal
+db/research_sessions.sqlite-wal
+db/research_sessions.sqlite-shm
+
 # matchup_matrix の一時バックアップ (= 適用前の snapshot)
 db/matchup_matrix.before.json
 

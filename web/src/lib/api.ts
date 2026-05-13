@@ -26,6 +26,12 @@ import type {
   DeckStrategy,
   GameAnalysisResponse,
   ReplayResponse,
+  ResearchBestDeckResponse,
+  ResearchCandidate,
+  ResearchSessionConfig,
+  ResearchSessionDetail,
+  ResearchSessionStartResponse,
+  ResearchSessionSummary,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -245,6 +251,103 @@ export async function fetchDeckImprovements(
     throw new Error(`fetchDeckImprovements failed: ${res.status} ${detail}`);
   }
   return res.json();
+}
+
+// === Phase R: 研究セッション ===
+export async function startResearchSession(
+  config: ResearchSessionConfig,
+): Promise<ResearchSessionStartResponse> {
+  const res = await fetch(`${API}/api/research/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(config),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`startResearchSession failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function listResearchSessions(opts?: {
+  limit?: number;
+  status?: "running" | "paused" | "completed" | "stopped";
+}): Promise<ResearchSessionSummary[]> {
+  const params = new URLSearchParams();
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  if (opts?.status) params.set("status", opts.status);
+  const url = `${API}/api/research/sessions${params.toString() ? "?" + params : ""}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`listResearchSessions failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchResearchSession(
+  sessionId: string,
+): Promise<ResearchSessionDetail> {
+  const res = await fetch(
+    `${API}/api/research/sessions/${encodeURIComponent(sessionId)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`fetchResearchSession failed: ${res.status}`);
+  return res.json();
+}
+
+export async function pauseResearchSession(sessionId: string): Promise<void> {
+  const res = await fetch(
+    `${API}/api/research/sessions/${encodeURIComponent(sessionId)}/pause`,
+    { method: "POST", cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`pauseResearchSession failed: ${res.status}`);
+}
+
+export async function resumeResearchSession(sessionId: string): Promise<void> {
+  const res = await fetch(
+    `${API}/api/research/sessions/${encodeURIComponent(sessionId)}/resume`,
+    { method: "POST", cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`resumeResearchSession failed: ${res.status}`);
+}
+
+export async function stopResearchSession(sessionId: string): Promise<void> {
+  const res = await fetch(
+    `${API}/api/research/sessions/${encodeURIComponent(sessionId)}/stop`,
+    { method: "POST", cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`stopResearchSession failed: ${res.status}`);
+}
+
+export async function fetchResearchBestDeck(
+  sessionId: string,
+): Promise<ResearchBestDeckResponse> {
+  const res = await fetch(
+    `${API}/api/research/sessions/${encodeURIComponent(sessionId)}/best-deck`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`fetchResearchBestDeck failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchResearchCandidates(
+  sessionId: string,
+  opts?: { generation?: number; limit?: number },
+): Promise<ResearchCandidate[]> {
+  const params = new URLSearchParams();
+  if (opts?.generation !== undefined) params.set("generation", String(opts.generation));
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  const url = `${API}/api/research/sessions/${encodeURIComponent(sessionId)}/candidates${params.toString() ? "?" + params : ""}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchResearchCandidates failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteResearchSession(sessionId: string): Promise<void> {
+  const res = await fetch(
+    `${API}/api/research/sessions/${encodeURIComponent(sessionId)}`,
+    { method: "DELETE", cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`deleteResearchSession failed: ${res.status}`);
 }
 
 export async function rerankWithMcts(req: {
