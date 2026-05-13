@@ -1,7 +1,7 @@
 {
   "version": "1",
-  "saved_at": "2026-05-12T00:00:00Z",
-  "note": "initial default — matches hardcoded values in engine/eval.py and engine/ai.py",
+  "saved_at": "2026-05-13T00:00:00Z",
+  "note": "R68+R69: board_eval を 9 → 14 指標に拡張。 default 重みは engine/eval.py BoardEvalWeights と同期",
   "params": {
     "w_life": 1500,
     "w_field_count": 1200,
@@ -12,6 +12,11 @@
     "w_attached_don": 400,
     "w_active_chara": 600,
     "w_lethal": 5000,
+    "w_opp_next_lethal": 4000,
+    "w_deck_finisher": 150,
+    "w_life_trigger": 200,
+    "w_chara_quality": 400,
+    "w_hand_quality": 150,
     "activate_main_min_payoff_global": 0,
     "activate_main_don_compensated_strict": false,
     "defense_threshold_life_le_1": 99999,

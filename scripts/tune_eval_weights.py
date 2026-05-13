@@ -5,8 +5,8 @@
 approach (粗いが軽量):
 1. 全 cardrush デッキ × 数試合 を record_snapshots=True で実行
 2. 各試合の最終 winner を ラベルにし、 中盤 (snapshot index 半ば) の eval が winner を予測するか評価
-3. 各重み (W_LIFE, W_FIELD_COUNT, W_FIELD_POWER, W_HAND, W_DON, W_BLOCKER, W_ATTACHED_DON,
-   W_ACTIVE_CHARA, W_LETHAL) を係数 0.5x / 1.0x / 1.5x / 2.0x で grid search
+3. 各重み (14 指標、 R68-R69 で拡張: 基本 9 指標 + W_OPP_NEXT_LETHAL / W_DECK_FINISHER /
+   W_LIFE_TRIGGER / W_CHARA_QUALITY / W_HAND_QUALITY) を係数 0.5x / 0.7x / 1.0x / 1.3x / 1.7x / 2.0x で grid search
 4. 最高予測精度の重み倍率を出力 (auto-apply はせず、 提案のみ)
 
 実行:
@@ -123,6 +123,10 @@ def main():
     weight_names = [
         "W_LIFE", "W_FIELD_COUNT", "W_FIELD_POWER", "W_HAND", "W_DON",
         "W_BLOCKER", "W_ATTACHED_DON", "W_ACTIVE_CHARA", "W_LETHAL",
+        # Phase 1 (R68)
+        "W_OPP_NEXT_LETHAL", "W_DECK_FINISHER", "W_LIFE_TRIGGER",
+        # Phase 2 (R69)
+        "W_CHARA_QUALITY", "W_HAND_QUALITY",
     ]
     multipliers = [0.5, 0.7, 1.0, 1.3, 1.7, 2.0]
     print(f"\n=== weight 倍率の予測精度 (他は default) ===")

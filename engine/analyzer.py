@@ -126,7 +126,11 @@ def _score_from_snap(
     me_idx: int,
     weights: BoardEvalWeights = DEFAULT_WEIGHTS,
 ) -> float:
-    """snapshot dict から me_idx 視点のスコアを計算。"""
+    """snapshot dict から me_idx 視点のスコアを計算。
+
+    snap["board_eval"] が存在すれば、 それを優先採用 (= 14 指標 compute_score の
+    真値、 turn_player_idx 視点)。 me_idx != turn_player_idx の場合は符号反転。
+    """
     if snap.get("game_over"):
         winner = snap.get("winner")
         if winner == me_idx:
@@ -134,6 +138,12 @@ def _score_from_snap(
         elif winner is not None:
             return float(-weights.W_GAME_OVER)
         return 0.0
+    # board_eval を埋め込み済 (R62+)。 14 指標の真値を使う。
+    be = snap.get("board_eval")
+    if be is not None:
+        turn_player = snap.get("turn_player_idx", 0)
+        return float(be) if turn_player == me_idx else -float(be)
+    # legacy snapshot (= board_eval なし) 用の 9 指標 fallback
     me = snap["players"][me_idx]
     opp = snap["players"][1 - me_idx]
     sm = _player_metrics_from_snap(me)

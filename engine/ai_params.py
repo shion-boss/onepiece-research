@@ -48,6 +48,13 @@ class AIParams:
     w_attached_don: int = 400
     w_active_chara: int = 600
     w_lethal: int = 5000
+    # Phase 1 (R68): 被リーサル / デッキ残 / トリガー期待
+    w_opp_next_lethal: int = 4000
+    w_deck_finisher: int = 150
+    w_life_trigger: int = 200
+    # Phase 2 (R69): role 別 個別価値
+    w_chara_quality: int = 400
+    w_hand_quality: int = 150
 
     # === 意思決定閾値 (engine/ai.py) ===
     # 起動メイン: ドン相殺型でも eval delta が min_payoff 未満なら発動しない (0 = チェック無効)
@@ -121,6 +128,11 @@ class AIParams:
             W_ATTACHED_DON=self.w_attached_don,
             W_ACTIVE_CHARA=self.w_active_chara,
             W_LETHAL=self.w_lethal,
+            W_OPP_NEXT_LETHAL=self.w_opp_next_lethal,
+            W_DECK_FINISHER=self.w_deck_finisher,
+            W_LIFE_TRIGGER=self.w_life_trigger,
+            W_CHARA_QUALITY=self.w_chara_quality,
+            W_HAND_QUALITY=self.w_hand_quality,
             # W_GAME_OVER は学習対象外 (固定 1_000_000)
         )
 
