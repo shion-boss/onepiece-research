@@ -275,5 +275,6 @@ def make_deck_from_dict(d: dict, repo: CardRepository) -> DeckList:
         name=d.get("name", "(no name)"),
         leader=leader,
         main=main,
+        slug=d.get("slug"),
         regulation=d.get("regulation", "standard"),
     )

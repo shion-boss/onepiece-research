@@ -307,6 +307,57 @@ def generate_proposals(
     out: list[Proposal] = []
 
     for stat in stats:
+        avg_plays = stat.n_total_plays / stat.n_matches if stat.n_matches > 0 else 0.0
+        # === Dead card swap: n_in_deck >= 2 + 0 出現 + n_matches >= 5
+        # (= 引いてすらいない / 引いても使えない、 swap 対象として最優先)
+        is_dead_card = (
+            stat.n_appearances == 0
+            and stat.n_in_deck >= 2
+            and stat.n_matches >= 5
+        )
+        if is_dead_card:
+            try:
+                card = repo.get(stat.card_id)
+                role_info = role_db.get(stat.card_id, {})
+                primary_role = role_info.get("primary_role", "synergy")
+                cost_lo = max(1, card.cost - 1)
+                cost_hi = card.cost + 1
+                alts = card_role.best_cards_against(
+                    target_archetype,
+                    target_role=primary_role,
+                    color_filter=leader_colors,
+                    cost_range=(cost_lo, cost_hi),
+                    top_k=10,
+                    role_db=role_db,
+                    eff_db=eff_db,
+                )
+                alt = next(
+                    (a for a in alts if _base_id(a.card_id) not in used_base_ids
+                     and a.card_id != deck.leader.card_id
+                     and a.name != stat.name),
+                    None,
+                )
+                if alt:
+                    proposal_id = f"dead_swap_{stat.card_id}_{alt.card_id}"
+                    out.append(Proposal(
+                        proposal_id=proposal_id,
+                        proposal_type="swap",
+                        changes=[
+                            CardChange(card_id=stat.card_id, delta=-stat.n_in_deck,
+                                       name=stat.name),
+                            CardChange(card_id=alt.card_id, delta=stat.n_in_deck,
+                                       name=alt.name),
+                        ],
+                        reason=(
+                            f"💀 {stat.name} は {stat.n_matches} 試合で 1 度もプレイされず (= 引いても使えない or 引いてさえいない)。 "
+                            f"同 role の {alt.name} (effectiveness {alt.effectiveness}) に全 {stat.n_in_deck} 枚差替え提案。"
+                        ),
+                        impact_estimate=80,
+                    ))
+                    continue  # dead card は他の判定 skip
+            except KeyError:
+                pass
+
         # === Swap 提案: 弱いカードを同 role 高 effectiveness と差し替え ===
         is_swap_candidate = (
             stat.n_appearances >= _MIN_APPEARANCES_FOR_SWAP
@@ -389,11 +440,12 @@ def generate_proposals(
             ))
 
         # === Count 減少提案: 試合あたりプレイ頻度低 = ドローされにくい ===
-        avg_plays = stat.n_total_plays / stat.n_matches if stat.n_matches > 0 else 0
+        # (avg_plays は上で再利用)
         if (
             avg_plays < _DECREASE_PLAY_RATIO_THRESHOLD
             and stat.n_in_deck >= 2
             and stat.n_matches >= 5
+            and stat.n_appearances > 0  # dead card はもう上で扱った
         ):
             # 増やす相手 (= よく使われて勝つカード) を探す
             increment_target = _find_increment_target(stats, baseline, exclude_cid=stat.card_id)

@@ -1502,11 +1502,23 @@ def run_match(req: MatchRequest):
             f"deck validation failed: a={a_issues}, b={b_issues}",
         )
 
+    # deck.slug を req.deck_a_id / req.deck_b_id から補完
+    # (= make_deck_from_dict が dict に slug が無い場合 None を返すため、
+    # request の id を fallback で採用。 これがないと record_replays で
+    # 試合履歴が deck slug 無しで保存され、 後で improvements 取得時に
+    # 該当試合が見つからない)
+    if req.deck_a_id and not getattr(deck_a, "slug", None):
+        deck_a.slug = req.deck_a_id
+    if req.deck_b_id and not getattr(deck_b, "slug", None):
+        deck_b.slug = req.deck_b_id
+
     report = run_matchup(
         deck_a, deck_b,
         n_games=req.n_games,
         seed=req.seed,
         keep_logs=True,
+        record_replays=True,        # 改善提案で利用するため必ず replay 保存
+        record_snapshots=True,
     )
 
     job_id = uuid.uuid4().hex[:12]
