@@ -14,6 +14,8 @@ import type {
   FaqHit,
   FaqSource,
   GameLog,
+  McctsGameRequest,
+  McctsGameResponse,
   MatchHistoryEntry,
   MatchRequest,
   MatchSummary,
@@ -238,6 +240,26 @@ export async function fetchDeckImprovements(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`fetchDeckImprovements failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function runMctsGame(
+  slug: string,
+  req: McctsGameRequest,
+): Promise<McctsGameResponse> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/mcts-game`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(req),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`runMctsGame failed: ${res.status} ${detail}`);
   }
   return res.json();
 }

@@ -414,3 +414,39 @@ export type ApplyImprovementResponse = {
   main: DeckEntry[];
   warnings: string[];
 };
+
+// === MCTS 思考ツリー (Phase B.7 戦い方の探索) ===
+export type McctsNode = {
+  action_label: string;
+  visits: number;
+  avg_value: number;
+  is_chosen: boolean;
+  n_children: number;
+  children: McctsNode[];
+};
+
+export type McctsTurn = {
+  turn: number;
+  player_idx: number;
+  action_index: number;
+  chosen_action_label: string;
+  root_tree: McctsNode;
+};
+
+export type McctsGameRequest = {
+  opponent_slug: string;
+  seed?: number;
+  n_simulations?: number;
+  max_tree_depth?: number;
+};
+
+export type McctsGameResponse = {
+  deck_mcts: string;
+  deck_opp: string;
+  seed: number;
+  n_simulations: number;
+  winner: number | null;
+  total_turns: number;
+  total_actions: number;
+  mcts_turns: McctsTurn[];
+};

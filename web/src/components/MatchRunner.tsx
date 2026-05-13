@@ -1,17 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { runMatch } from "@/lib/api";
 import type { DeckSummary, MatchSummary } from "@/lib/types";
 import { useDeckSimulationStore } from "@/stores/deckSimulation";
-
-type Mode = "explore" | "evaluate";
-
-const MODE_DEFAULT_N: Record<Mode, number> = {
-  explore: 10,    // 探索: 軽量、 改善ヒント向け
-  evaluate: 50,   // 実践: 検証、 勝率精度向け
-};
 
 export function MatchRunner({
   selfSlug,
@@ -22,37 +16,96 @@ export function MatchRunner({
   selfName: string;
   opponents: DeckSummary[];
 }) {
+  const router = useRouter();
   const [opponent, setOpponent] = useState(opponents[0]?.slug ?? "");
   const [seed, setSeed] = useState(42);
-  const [exploreN, setExploreN] = useState(MODE_DEFAULT_N.explore);
-  const [evaluateN, setEvaluateN] = useState(MODE_DEFAULT_N.evaluate);
-  const [busy, setBusy] = useState<Mode | null>(null);
+  const [exploreSeeds, setExploreSeeds] = useState(10);     // 並列 seed 数
+  const [exploreNGames, setExploreNGames] = useState(10);   // 1 seed あたりの試合数
+  const [evaluateN, setEvaluateN] = useState(50);
+  const [mctsNSim, setMctsNSim] = useState(30);
+  const [busy, setBusy] = useState<"explore" | "evaluate" | null>(null);
+  const [exploreProgress, setExploreProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MatchSummary | null>(null);
-  const [resultMode, setResultMode] = useState<Mode | null>(null);
   const triggerImprovementsRefresh = useDeckSimulationStore(
     (s) => s.triggerImprovementsRefresh,
   );
 
-  async function runMode(mode: Mode) {
+  // 戦い方の探索 (= MCTS) は別ページに遷移
+  function handleStrategyExplore() {
     if (!opponent) return;
-    setBusy(mode);
+    const url = `/decks/${encodeURIComponent(selfSlug)}/mcts?opp=${encodeURIComponent(opponent)}&seed=${seed}&n_sim=${mctsNSim}`;
+    router.push(url);
+  }
+
+  // 改善探索 (= 多 seed 並列)
+  async function handleImprovementExplore() {
+    if (!opponent) return;
+    setBusy("explore");
+    setError(null);
+    setResult(null);
+    setExploreProgress({ done: 0, total: exploreSeeds });
+    try {
+      let done = 0;
+      const promises = Array.from({ length: exploreSeeds }, (_, i) => {
+        const s = seed + i; // seed, seed+1, ..., seed+9
+        return runMatch({
+          deck_a_id: selfSlug,
+          deck_b_id: opponent,
+          n_games: exploreNGames,
+          seed: s,
+        }).then((r) => {
+          done += 1;
+          setExploreProgress({ done, total: exploreSeeds });
+          return r;
+        });
+      });
+      const results = await Promise.all(promises);
+      // 全完了 → 改善提案 refresh + 集計表示
+      triggerImprovementsRefresh();
+      // 集計: 全 seed の合計勝率
+      const totalGames = results.reduce((s, r) => s + r.n_games, 0);
+      const totalWins = results.reduce((s, r) => s + r.deck_a_wins, 0);
+      const totalLosses = results.reduce((s, r) => s + r.deck_b_wins, 0);
+      const totalDraws = results.reduce((s, r) => s + r.draws, 0);
+      // 表示用に集計を MatchSummary 形式で組み立て
+      setResult({
+        job_id: `multi-seed-${seed}`,
+        deck_a_name: selfName,
+        deck_b_name: results[0]?.deck_b_name ?? opponent,
+        deck_a_winrate: totalWins / totalGames,
+        deck_a_wins: totalWins,
+        deck_b_wins: totalLosses,
+        draws: totalDraws,
+        n_games: totalGames,
+        avg_turns: results.reduce((s, r) => s + r.avg_turns, 0) / results.length,
+        median_turns: results.reduce((s, r) => s + r.median_turns, 0) / results.length,
+        avg_life_left_winner: results.reduce((s, r) => s + r.avg_life_left_winner, 0) / results.length,
+        deck_a_first_wins: results.reduce((s, r) => s + r.deck_a_first_wins, 0),
+        deck_a_second_wins: results.reduce((s, r) => s + r.deck_a_second_wins, 0),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+      setExploreProgress(null);
+    }
+  }
+
+  // 実践 (= 単一 seed N=50)
+  async function handleEvaluate() {
+    if (!opponent) return;
+    setBusy("evaluate");
     setError(null);
     setResult(null);
     try {
-      const n = mode === "explore" ? exploreN : evaluateN;
       const r = await runMatch({
         deck_a_id: selfSlug,
         deck_b_id: opponent,
-        n_games: n,
+        n_games: evaluateN,
         seed,
       });
       setResult(r);
-      setResultMode(mode);
-      // 探索 mode は 改善提案を refresh
-      if (mode === "explore") {
-        triggerImprovementsRefresh();
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -89,7 +142,7 @@ export function MatchRunner({
         </label>
 
         <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-          seed
+          seed (= 起点)
           <input
             type="number"
             value={seed}
@@ -99,78 +152,122 @@ export function MatchRunner({
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {/* 探索 ボタン (= 軽量、 改善ヒント向け) */}
-        <div className="rounded border border-orange-200 bg-orange-50/50 p-3 dark:border-orange-900 dark:bg-orange-950/20">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <div className="text-sm font-medium">🔍 探索</div>
-              <div className="text-xs text-zinc-500">
-                戦い方の模索 + デッキ改善箇所の発見
-              </div>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        {/* 戦い方の探索 (= MCTS) */}
+        <div className="rounded border border-purple-200 bg-purple-50/50 p-3 dark:border-purple-900 dark:bg-purple-950/20">
+          <div className="mb-2">
+            <div className="text-sm font-medium">🧠 戦い方の探索</div>
+            <div className="mt-0.5 text-xs text-zinc-500">
+              MCTSAI で 1 試合 + 思考ツリー可視化 (= AI が深く考える)
             </div>
-            <label className="flex flex-col text-[10px] text-zinc-500">
-              試合数
+          </div>
+          <label className="mb-2 flex items-center gap-2 text-[10px] text-zinc-500">
+            n_simulations
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={mctsNSim}
+              onChange={(e) => setMctsNSim(Number(e.target.value) || 30)}
+              className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-sm dark:border-zinc-700"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleStrategyExplore}
+            disabled={busy != null || !opponent}
+            className="w-full rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+          >
+            🧠 ツリー可視化ページを開く
+          </button>
+          <div className="mt-1 text-[10px] text-zinc-500">
+            別ページで実行 (1 試合 30〜120 秒)
+          </div>
+        </div>
+
+        {/* 改善探索 (= 多 seed) */}
+        <div className="rounded border border-orange-200 bg-orange-50/50 p-3 dark:border-orange-900 dark:bg-orange-950/20">
+          <div className="mb-2">
+            <div className="text-sm font-medium">🔍 改善探索</div>
+            <div className="mt-0.5 text-xs text-zinc-500">
+              多 seed で広範データ収集 → 改善提案を更新
+            </div>
+          </div>
+          <div className="mb-2 flex items-center gap-2 text-[10px] text-zinc-500">
+            <label className="flex items-center gap-1">
+              seeds
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={exploreSeeds}
+                onChange={(e) => setExploreSeeds(Number(e.target.value) || 10)}
+                className="w-12 rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-sm dark:border-zinc-700"
+              />
+            </label>
+            <span>×</span>
+            <label className="flex items-center gap-1">
+              N
               <input
                 type="number"
                 min={2}
                 max={50}
-                step={2}
-                value={exploreN}
-                onChange={(e) => setExploreN(Number(e.target.value) || 10)}
-                className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-sm dark:border-zinc-700"
+                value={exploreNGames}
+                onChange={(e) => setExploreNGames(Number(e.target.value) || 10)}
+                className="w-12 rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-sm dark:border-zinc-700"
               />
             </label>
+            <span className="font-bold">= {exploreSeeds * exploreNGames} 試合</span>
           </div>
           <button
             type="button"
-            onClick={() => runMode("explore")}
+            onClick={handleImprovementExplore}
             disabled={busy != null || !opponent}
-            className="w-full rounded bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-500 disabled:opacity-50"
+            className="w-full rounded bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
           >
             {busy === "explore"
-              ? "探索中…"
-              : `🔍 探索を実行 (${exploreN} 試合)`}
+              ? exploreProgress
+                ? `探索中… ${exploreProgress.done}/${exploreProgress.total}`
+                : "探索中…"
+              : `🔍 改善探索を実行`}
           </button>
           <div className="mt-1 text-[10px] text-zinc-500">
-            完了後、 下の「改善提案」 セクションが自動更新されます
+            完了後、 改善提案セクションが自動更新
           </div>
         </div>
 
-        {/* 実践 ボタン (= 本番、 勝率検証向け) */}
+        {/* 実践 */}
         <div className="rounded border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <div className="text-sm font-medium">⚔️ 実践</div>
-              <div className="text-xs text-zinc-500">
-                勝率測定 + 戦い方の詳細分析
-              </div>
+          <div className="mb-2">
+            <div className="text-sm font-medium">⚔️ 実践</div>
+            <div className="mt-0.5 text-xs text-zinc-500">
+              N 試合で勝率測定 (= 検証、 勝つための戦い方)
             </div>
-            <label className="flex flex-col text-[10px] text-zinc-500">
-              試合数
-              <input
-                type="number"
-                min={10}
-                max={500}
-                step={10}
-                value={evaluateN}
-                onChange={(e) => setEvaluateN(Number(e.target.value) || 50)}
-                className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-sm dark:border-zinc-700"
-              />
-            </label>
           </div>
+          <label className="mb-2 flex items-center gap-2 text-[10px] text-zinc-500">
+            試合数
+            <input
+              type="number"
+              min={10}
+              max={500}
+              step={10}
+              value={evaluateN}
+              onChange={(e) => setEvaluateN(Number(e.target.value) || 50)}
+              className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-sm dark:border-zinc-700"
+            />
+          </label>
           <button
             type="button"
-            onClick={() => runMode("evaluate")}
+            onClick={handleEvaluate}
             disabled={busy != null || !opponent}
-            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
           >
             {busy === "evaluate"
               ? "実戦中…"
               : `⚔️ 実践を実行 (${evaluateN} 試合)`}
           </button>
           <div className="mt-1 text-[10px] text-zinc-500">
-            完了後、 詳細勝率 + 試合ログへのリンクが表示されます
+            勝率 + 試合ログへのリンク
           </div>
         </div>
       </div>
@@ -184,18 +281,17 @@ export function MatchRunner({
 
       {result && (
         <>
-          <div className="text-xs text-zinc-500">
-            {resultMode === "explore" ? "🔍 探索結果 (= 改善提案も更新済)" : "⚔️ 実践結果"}
-          </div>
           <MatchResult selfName={selfName} result={result} />
-          <div className="text-right text-sm">
-            <Link
-              href={`/decks/${encodeURIComponent(selfSlug)}/match/${encodeURIComponent(result.job_id)}`}
-              className="text-blue-600 hover:underline dark:text-blue-400"
-            >
-              📜 試合ログを見る ({result.job_id}) →
-            </Link>
-          </div>
+          {!result.job_id.startsWith("multi-seed-") && (
+            <div className="text-right text-sm">
+              <Link
+                href={`/decks/${encodeURIComponent(selfSlug)}/match/${encodeURIComponent(result.job_id)}`}
+                className="text-blue-600 hover:underline dark:text-blue-400"
+              >
+                📜 試合ログを見る ({result.job_id}) →
+              </Link>
+            </div>
+          )}
         </>
       )}
     </div>

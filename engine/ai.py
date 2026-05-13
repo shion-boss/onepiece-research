@@ -1016,16 +1016,26 @@ class MCTSAI(GreedyAI):
         c_uct: float = 1.41,
         rollout_depth: int = 12,
         deck_analysis: Optional[dict] = None,
+        expose_root_tree: bool = False,
     ):
         super().__init__(rng, deck_analysis=deck_analysis)
         self.n_simulations = n_simulations
         self.c_uct = c_uct
         self.rollout_depth = rollout_depth
+        # tree 可視化用 (Phase B.7): True なら choose_action 後に self.last_root を保存
+        self.expose_root_tree = expose_root_tree
+        self.last_root: Optional["_MCTSNode"] = None
+        self.last_chosen_action: Optional["Action"] = None
 
     def choose_action(self, state: "GameState") -> "Action":
         actions = legal_actions(state)
         if len(actions) <= 1:
-            return actions[0] if actions else EndPhase()
+            chosen = actions[0] if actions else EndPhase()
+            if self.expose_root_tree:
+                # tree 不要なので簡易 root 保存
+                self.last_root = _MCTSNode(parent=None, action=None)
+                self.last_chosen_action = chosen
+            return chosen
 
         me_idx = state.turn_player_idx
         # ルートノード: state は各 simulation で deepcopy するため保存しない
@@ -1081,8 +1091,15 @@ class MCTSAI(GreedyAI):
 
         # 最も訪問された子を選ぶ (探索ではなく実プレイ用なので robust)
         if not root.children:
-            return self.rng.choice(actions)
+            chosen = self.rng.choice(actions)
+            if self.expose_root_tree:
+                self.last_root = root
+                self.last_chosen_action = chosen
+            return chosen
         best = max(root.children, key=lambda c: c.visits)
+        if self.expose_root_tree:
+            self.last_root = root
+            self.last_chosen_action = best.action
         return best.action
 
     def _best_child(self, node: "_MCTSNode", math_mod) -> "_MCTSNode":
@@ -1140,6 +1157,93 @@ class _MCTSNode:
         self.unexpanded: list[Action] = []
         self.visits: int = 0
         self.total_value: float = 0.0
+
+
+def serialize_mcts_tree(
+    root: "_MCTSNode",
+    chosen_action: Optional["Action"] = None,
+    state: Optional["GameState"] = None,
+    max_depth: int = 2,
+) -> dict:
+    """_MCTSNode の root を JSON シリアライズ可能な dict に変換。
+
+    Args:
+        root: ルートノード
+        chosen_action: 最終選択された action (= is_chosen フラグ用)
+        state: 元 state (= action label 生成用、 任意)
+        max_depth: 子の最大深度 (default 2、 root + 子 + 孫)
+
+    Returns:
+        {
+          "visits": int, "avg_value": float,
+          "children": [
+            {"action_label": str, "visits": int, "avg_value": float, "is_chosen": bool, "children": [...]}, ...
+          ]
+        }
+    """
+    def _action_label(action: Optional["Action"], owner_state: Optional["GameState"] = None) -> str:
+        if action is None:
+            return "(root)"
+        from .game import (
+            ActivateMain, AttachDonToCharacter, AttachDonToLeader,
+            AttackCharacter, AttackLeader, EndPhase, PlayCharacter,
+            PlayEvent, PlayStage,
+        )
+        if isinstance(action, EndPhase):
+            return "EndPhase"
+        if isinstance(action, AttachDonToLeader):
+            return f"AttachDonLeader(n={action.n})"
+        if isinstance(action, AttachDonToCharacter):
+            return f"AttachDonChar(iid={action.target_iid}, n={action.n})"
+        if isinstance(action, PlayCharacter):
+            if owner_state:
+                me = owner_state.turn_player
+                if 0 <= action.hand_idx < len(me.hand):
+                    return f"play: {me.hand[action.hand_idx].name}"
+            return f"PlayChar(hand={action.hand_idx})"
+        if isinstance(action, PlayEvent):
+            if owner_state:
+                me = owner_state.turn_player
+                if 0 <= action.hand_idx < len(me.hand):
+                    return f"event: {me.hand[action.hand_idx].name}"
+            return f"PlayEvent(hand={action.hand_idx})"
+        if isinstance(action, PlayStage):
+            if owner_state:
+                me = owner_state.turn_player
+                if 0 <= action.hand_idx < len(me.hand):
+                    return f"stage: {me.hand[action.hand_idx].name}"
+            return f"PlayStage(hand={action.hand_idx})"
+        if isinstance(action, ActivateMain):
+            return f"ActivateMain(src_iid={action.source_iid})"
+        if isinstance(action, AttackLeader):
+            return f"AttackLeader(atk_iid={action.attacker_iid})"
+        if isinstance(action, AttackCharacter):
+            return f"AttackChar(atk_iid={action.attacker_iid} → tgt_iid={action.target_iid})"
+        return type(action).__name__
+
+    def _recurse(node: "_MCTSNode", depth: int, owner_state: Optional["GameState"]) -> dict:
+        avg = (node.total_value / node.visits) if node.visits > 0 else 0.0
+        is_chosen = (
+            chosen_action is not None
+            and node.action is not None
+            and node.action == chosen_action
+        )
+        children_serialized: list[dict] = []
+        if depth < max_depth:
+            # visits 降順で並べる
+            sorted_children = sorted(node.children, key=lambda c: -c.visits)
+            for child in sorted_children:
+                children_serialized.append(_recurse(child, depth + 1, None))
+        return {
+            "action_label": _action_label(node.action, owner_state),
+            "visits": node.visits,
+            "avg_value": round(avg, 3),
+            "is_chosen": is_chosen,
+            "n_children": len(node.children),
+            "children": children_serialized,
+        }
+
+    return _recurse(root, 0, state)
 
 
 class LookaheadAI(GreedyAI):

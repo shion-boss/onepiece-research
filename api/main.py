@@ -950,6 +950,93 @@ def apply_improvement(slug: str, req: ApplyImprovementRequest):
 
 
 # --------------------------------------------------------------------------- #
+# エンドポイント: MCTS 思考ツリー (Phase B.7 戦い方の探索)
+# --------------------------------------------------------------------------- #
+class McctsGameRequest(BaseModel):
+    opponent_slug: str
+    seed: int = 42
+    n_simulations: int = 30
+    max_tree_depth: int = 2
+
+
+class McctsTurnOut(BaseModel):
+    turn: int
+    player_idx: int
+    action_index: int
+    chosen_action_label: str
+    root_tree: dict
+
+
+class McctsGameResponse(BaseModel):
+    deck_mcts: str
+    deck_opp: str
+    seed: int
+    n_simulations: int
+    winner: Optional[int]
+    total_turns: int
+    total_actions: int
+    mcts_turns: list[McctsTurnOut]
+
+
+@app.post("/api/decks/{slug}/mcts-game", response_model=McctsGameResponse)
+def mcts_game(slug: str, req: McctsGameRequest):
+    """MCTSAI で 1 試合実行し、 各 MCTS choose_action のツリーを返す (戦い方の探索)。
+
+    実行時間: n_simulations=30 で 1 試合 ~30-60 秒 + アクション数依存。
+    """
+    from engine.mcts_replay import play_mcts_game
+
+    deck_a_path = DECKS_DIR / f"{slug}.json"
+    deck_b_path = DECKS_DIR / f"{req.opponent_slug}.json"
+    if not deck_a_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+    if not deck_b_path.exists():
+        raise HTTPException(404, f"opponent deck not found: {req.opponent_slug}")
+
+    repo = get_repo()
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    try:
+        deck_mcts = make_deck_from_dict(json.loads(deck_a_path.read_text(encoding="utf-8")), repo)
+        deck_opp = make_deck_from_dict(json.loads(deck_b_path.read_text(encoding="utf-8")), repo)
+    except Exception as e:
+        raise HTTPException(422, f"deck load failed: {e}")
+
+    n_sim = max(1, min(req.n_simulations, 200))
+    depth = max(1, min(req.max_tree_depth, 4))
+
+    try:
+        rec = play_mcts_game(
+            deck_mcts, deck_opp,
+            effects_overlay=overlay,
+            seed=req.seed,
+            n_simulations=n_sim,
+            max_tree_depth=depth,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"mcts game failed: {e}")
+
+    return McctsGameResponse(
+        deck_mcts=rec.deck_mcts,
+        deck_opp=rec.deck_opp,
+        seed=rec.seed,
+        n_simulations=rec.n_simulations,
+        winner=rec.winner,
+        total_turns=rec.total_turns,
+        total_actions=rec.total_actions,
+        mcts_turns=[
+            McctsTurnOut(
+                turn=t.turn,
+                player_idx=t.player_idx,
+                action_index=t.action_index,
+                chosen_action_label=t.chosen_action_label,
+                root_tree=t.root_tree,
+            )
+            for t in rec.mcts_turns
+        ],
+    )
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: deck analyze
 # --------------------------------------------------------------------------- #
 class CountByLabel(BaseModel):
