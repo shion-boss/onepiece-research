@@ -1452,6 +1452,53 @@ class LookaheadAI(GreedyAI):
         return compute_score(state, me_idx)
 
 
+class HybridLookaheadAI(GreedyAI):
+    """GreedyAI baseline + threshold 超え時のみ同 type 候補で 1-ply override。
+
+    GreedyAI の choose_action を super() 呼んで baseline (= 単一 action) を取得。
+    legal_actions から baseline と「同 action type」 の候補を抜き出し、 1-ply
+    シミュレーション → board_eval で比較。 ただし baseline_score + override_threshold
+    を超えた場合のみ採用 (= conservative override)。 これにより Greedy heuristic を
+    広く尊重しつつ、 明らかに優位な alternative のみ採用する。
+
+    naive LookaheadAI (= 0% 勝率) と naive Hybrid (= -30pt 劣化) の反省から、
+    板上 eval が Greedy の domain knowledge に届かない領域ではあえて Greedy を
+    優先する設計。 override_threshold は W_LIFE (= 1500) より小さい場合、 ほぼ
+    全候補で override が起き、 大きい場合は Greedy とほぼ同じ挙動になる。
+    """
+
+    name = "HybridLookahead"
+    override_threshold: float = 1000.0
+
+    def choose_action(self, state: "GameState") -> "Action":
+        baseline = super().choose_action(state)
+        all_actions = legal_actions(state)
+        same_type = [a for a in all_actions if type(a) is type(baseline)]
+        if len(same_type) <= 1:
+            return baseline
+
+        me_idx = state.turn_player_idx
+        baseline_score = self._sim_score(state, baseline, me_idx)
+        best_action = baseline
+        # threshold を超えた候補のみ採用候補に。 採用候補内では最高スコアを取る。
+        best_alt_score = baseline_score + self.override_threshold
+        for action in same_type:
+            score = self._sim_score(state, action, me_idx)
+            if score > best_alt_score:
+                best_alt_score = score
+                best_action = action
+        return best_action
+
+    def _sim_score(self, state: "GameState", action: "Action", me_idx: int) -> float:
+        sim = copy.deepcopy(state)
+        try:
+            apply_action(sim, action)
+        except Exception:
+            return -float("inf")
+        from .eval import compute_score
+        return compute_score(sim, me_idx)
+
+
 # --------------------------------------------------------------------------- #
 # 攻撃時の防御を組み込んだ apply ラッパー
 # --------------------------------------------------------------------------- #
