@@ -17,7 +17,13 @@ import type {
 import { CardImage } from "@/components/CardImage";
 import { useDeckSimulationStore } from "@/stores/deckSimulation";
 
-export function DeckImprovementSection({ slug }: { slug: string }) {
+export function DeckImprovementSection({
+  slug,
+  opponentSlug,
+}: {
+  slug: string;
+  opponentSlug?: string;       // 親から渡された相手デッキ (= 統一 UX)、 無ければ内部 state を使う
+}) {
   const router = useRouter();
   const [data, setData] = useState<DeckImprovementsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,17 +41,20 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
   const [mctsData, setMctsData] = useState<McctsImprovementsResponse | null>(null);
   const [mctsError, setMctsError] = useState<string | null>(null);
   const [opponents, setOpponents] = useState<DeckSummary[]>([]);
-  const [mctsOpponent, setMctsOpponent] = useState<string>("");
+  const [internalMctsOpponent, setInternalMctsOpponent] = useState<string>("");
+  // 親から prop で渡されていればそれを優先、 無ければ内部 state
+  const mctsOpponent = opponentSlug ?? internalMctsOpponent;
+  const setMctsOpponent = setInternalMctsOpponent;
 
   useEffect(() => {
     fetchDecks().then((decks) => {
       const filtered = decks.filter((d) => d.slug !== slug);
       setOpponents(filtered);
-      if (!mctsOpponent && filtered.length > 0) {
-        setMctsOpponent(filtered[0].slug);
+      if (!internalMctsOpponent && filtered.length > 0) {
+        setInternalMctsOpponent(filtered[0].slug);
       }
     }).catch(() => {});
-  }, [slug, mctsOpponent]);
+  }, [slug, internalMctsOpponent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +156,7 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
           running={mctsRunning}
           onRun={handleMctsAnalyze}
           error={mctsError}
+          opponentLocked={opponentSlug != null}
         />
       </div>
     );
@@ -167,6 +177,7 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
         onRun={handleMctsAnalyze}
         error={mctsError}
         mctsData={mctsData}
+        opponentLocked={opponentSlug != null}
       />
 
       {applyError && (
@@ -270,6 +281,7 @@ function McctsAnalyzePanel({
   onRun,
   error,
   mctsData,
+  opponentLocked = false,
 }: {
   opponents: DeckSummary[];
   mctsOpponent: string;
@@ -278,7 +290,11 @@ function McctsAnalyzePanel({
   onRun: () => void;
   error: string | null;
   mctsData?: McctsImprovementsResponse | null;
+  opponentLocked?: boolean;       // true なら opponent select 非表示 (= 親が制御)
 }) {
+  const lockedOppName = opponentLocked
+    ? opponents.find((o) => o.slug === mctsOpponent)?.name ?? mctsOpponent
+    : null;
   return (
     <div className="rounded-lg border border-purple-200 bg-purple-50/30 p-3 dark:border-purple-900 dark:bg-purple-950/20">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -291,17 +307,23 @@ function McctsAnalyzePanel({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={mctsOpponent}
-          onChange={(e) => setMctsOpponent(e.target.value)}
-          className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700"
-        >
-          {opponents.map((o) => (
-            <option key={o.slug} value={o.slug}>
-              vs {o.name}
-            </option>
-          ))}
-        </select>
+        {opponentLocked ? (
+          <span className="text-xs text-zinc-500">
+            相手: <span className="font-medium">{lockedOppName}</span> (= Step 1 と同じ)
+          </span>
+        ) : (
+          <select
+            value={mctsOpponent}
+            onChange={(e) => setMctsOpponent(e.target.value)}
+            className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700"
+          >
+            {opponents.map((o) => (
+              <option key={o.slug} value={o.slug}>
+                vs {o.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           type="button"
           onClick={onRun}

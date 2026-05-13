@@ -201,11 +201,11 @@ function ImproveWorkflow({
         }
       />
 
-      {/* Step 2: 改善提案 (= ImprovementSection 埋込) */}
+      {/* Step 2: 改善提案 (= ImprovementSection 埋込、 opponent は Step 1 と統一) */}
       <Step
         n={2}
         title="改善提案を確認・適用 (= MCTS 補強で精度 up)"
-        body={<DeckImprovementSection slug={selfSlug} />}
+        body={<DeckImprovementSection slug={selfSlug} opponentSlug={opponent} />}
       />
 
       {/* Step 3: 実践検証 */}
