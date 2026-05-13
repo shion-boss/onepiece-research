@@ -4,9 +4,8 @@ import { fetchCard, fetchDeck, fetchDecks } from "@/lib/api";
 import type { Card, DeckDetail, DeckSummary } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
 import { ColorChip } from "@/components/ColorChip";
-import { DeckImprovementSection } from "@/components/DeckImprovementSection";
+import { DeckResearchWorkflow } from "@/components/DeckResearchWorkflow";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
-import { MatchRunner } from "@/components/MatchRunner";
 
 export default async function DeckDetailPage({
   params,
@@ -109,7 +108,7 @@ export default async function DeckDetailPage({
         </div>
       </header>
 
-      <MatchRunner
+      <DeckResearchWorkflow
         selfSlug={slug}
         selfName={detail.name ?? slug}
         opponents={opponents}
@@ -118,11 +117,6 @@ export default async function DeckDetailPage({
       <section className="space-y-2">
         <h2 className="text-lg font-medium">直近の対戦履歴</h2>
         <MatchHistorySection deckSlug={slug} />
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">改善提案</h2>
-        <DeckImprovementSection slug={slug} />
       </section>
 
       {/* メインデッキ カードグリッド */}
