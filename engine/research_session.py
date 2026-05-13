@@ -246,6 +246,14 @@ def _run_session(
             if stop_flag.is_set():
                 break
 
+            # 世代開始時に current_generation を即更新 (= UI の「実行中の世代」 を最新化)
+            best_now = research_storage.get_best_candidate(session_id)
+            research_storage.update_session_progress(
+                session_id, generation=gen,
+                best_winrate=best_now["winrate"] if best_now else None,
+                best_deck=best_now["deck"] if best_now else None,
+            )
+
             # === 世代 0: 初期母集団 (explorer) ===
             if gen == 0 and not current_top:
                 candidates = _generate_initial(
@@ -263,6 +271,8 @@ def _run_session(
                     )
                     winrate = _evaluate(cand_deck, target_deck, overlay, n_games, rng)
                     research_storage.update_candidate_evaluation(cid, winrate, n_games)
+                    # 各候補評価後に best 更新 (= UI live progress)
+                    _maybe_update_best(session_id, gen)
                 # 上位 K 取得
                 current_top = research_storage.get_top_candidates_in_generation(
                     session_id, 0, top_k=top_k,
@@ -297,6 +307,8 @@ def _run_session(
                     )
                     winrate = _evaluate(new_deck, target_deck, overlay, n_games, rng)
                     research_storage.update_candidate_evaluation(cid, winrate, n_games)
+                    # 各候補評価後に best 更新 (= UI live progress)
+                    _maybe_update_best(session_id, gen)
 
                 # 親 + 子 を結合し、 上位 K 選択
                 # (= 親も評価済みなので、 mutation で改善しなければ親が残る = elitism)
@@ -364,6 +376,21 @@ def _generate_initial(
         eff_db=eff_db,
     )
     return [c.deck for c in candidates]
+
+
+def _maybe_update_best(session_id: str, gen: int) -> None:
+    """各候補評価後の進捗更新 (= 現状ベスト + 進行中世代を即時反映)。
+
+    target_reached 判定もここで行う (= 早期完了)。
+    """
+    best = research_storage.get_best_candidate(session_id)
+    if not best:
+        return
+    research_storage.update_session_progress(
+        session_id, generation=gen,
+        best_winrate=best["winrate"],
+        best_deck=best["deck"],
+    )
 
 
 def _evaluate(
