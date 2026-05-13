@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { exploreCounterDecks } from "@/lib/api";
+import { exploreCounterDecks, rerankWithMcts } from "@/lib/api";
 import { useExploreStore } from "@/stores/explore";
 import { MetaDeckPicker } from "@/components/explore/MetaDeckPicker";
 import { CardPickerModal } from "@/components/explore/CardPickerModal";
@@ -31,6 +31,9 @@ export default function ExplorePage() {
   const [showLeaderPicker, setShowLeaderPicker] = useState(false);
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [nCandidates, setNCandidates] = useState(20);
+  const [rerankRunning, setRerankRunning] = useState(false);
+  const [rerankError, setRerankError] = useState<string | null>(null);
+  const [mctsWinrates, setMctsWinrates] = useState<Map<number, number> | null>(null);
 
   const selectedCandidate =
     selectedRank != null
@@ -44,6 +47,7 @@ export default function ExplorePage() {
     }
     setLoading(true);
     setError(null);
+    setMctsWinrates(null);
     try {
       const res = await exploreCounterDecks({
         target_slug: target.slug,
@@ -59,6 +63,35 @@ export default function ExplorePage() {
       setError(String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRerank() {
+    if (!target || candidates.length === 0) return;
+    setRerankRunning(true);
+    setRerankError(null);
+    try {
+      const r = await rerankWithMcts({
+        target_slug: target.slug,
+        candidates: candidates.map((c) => ({
+          leader: c.leader,
+          main: c.main,
+          name: c.leader_name,
+        })),
+        seed: 42,
+        n_simulations: 5,
+        n_games_per_candidate: 1,
+      });
+      // mctsWinrates map: original_index → mcts_winrate
+      const m = new Map<number, number>();
+      for (const res of r.results) {
+        m.set(res.original_index, res.mcts_winrate);
+      }
+      setMctsWinrates(m);
+    } catch (e) {
+      setRerankError(String(e));
+    } finally {
+      setRerankRunning(false);
     }
   }
 
@@ -199,17 +232,57 @@ export default function ExplorePage() {
       {candidates.length > 0 && target && (
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-[420px_1fr]">
           <div>
-            <h2 className="mb-3 text-lg font-semibold">
-              ④ 候補 ({candidates.length} 件) — クリックで詳細
-            </h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">
+                ④ 候補 ({candidates.length} 件)
+              </h2>
+              <button
+                type="button"
+                onClick={handleRerank}
+                disabled={rerankRunning}
+                className="rounded bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+                title={`MCTS で 1 試合ずつ評価して並び替え (= ${candidates.length * 1} 試合 ≈ ${Math.round(candidates.length * 50 / 60)} 分)`}
+              >
+                {rerankRunning
+                  ? `🧠 MCTS rerank 中… (${Math.round(candidates.length * 50 / 60)}分)`
+                  : `🧠 MCTS で rerank`}
+              </button>
+            </div>
+            {rerankError && (
+              <div className="mb-2 rounded bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                {rerankError}
+              </div>
+            )}
+            {mctsWinrates && (
+              <div className="mb-2 rounded bg-purple-50 p-2 text-xs text-purple-800 dark:bg-purple-950/30 dark:text-purple-300">
+                ✓ MCTS rerank 完了 (= 各候補に MCTS winrate を表示)。
+                MCTS 勝率順に並び替え:
+              </div>
+            )}
             <div className="space-y-2">
-              {candidates.map((cand) => (
+              {(mctsWinrates
+                ? [...candidates].sort((a, b) => {
+                    const wA = mctsWinrates.get(candidates.indexOf(a)) ?? 0;
+                    const wB = mctsWinrates.get(candidates.indexOf(b)) ?? 0;
+                    return wB - wA;
+                  })
+                : candidates
+              ).map((cand) => (
+                <div key={cand.rank} className="space-y-1">
+                  {mctsWinrates && (
+                    <div className="ml-2 text-xs">
+                      <span className="rounded bg-purple-100 px-2 py-0.5 font-bold text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                        🧠 MCTS WR: {((mctsWinrates.get(candidates.indexOf(cand)) ?? 0) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  )}
                 <CounterCandidateCard
                   key={cand.rank}
                   candidate={cand}
                   selected={selectedRank === cand.rank}
                   onSelect={() => setSelectedRank(cand.rank)}
                 />
+                </div>
               ))}
             </div>
           </div>

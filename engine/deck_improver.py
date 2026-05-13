@@ -450,3 +450,191 @@ def _find_increment_target(
     ]
     candidates.sort(key=lambda s: -s.winrate_when_played)
     return candidates[0] if candidates else None
+
+
+# ============================================================================ #
+# MCTS-based 提案 (Phase B.7 U2)
+# ============================================================================ #
+
+def _name_to_card_id_with_leader(deck: DeckList) -> dict[str, str]:
+    """name → card_id (= main + leader 含む)。"""
+    out = _name_to_card_id(deck)
+    if deck.leader.name not in out:
+        out[deck.leader.name] = deck.leader.card_id
+    return out
+
+
+def generate_mcts_proposals(
+    deck: DeckList,
+    opp_deck: DeckList,
+    repo: CardRepository,
+    *,
+    overlay: Optional[dict] = None,
+    n_simulations: int = 10,
+    seed: int = 42,
+    role_db: Optional[dict] = None,
+    eff_db: Optional[dict] = None,
+) -> tuple[list[Proposal], list[dict]]:
+    """1 試合 MCTS を走らせ、 MCTS と Greedy のカード選好差分から提案を生成。
+
+    Returns:
+        (proposals: list[Proposal], card_stats: list[dict])
+        card_stats は UI 表示用 (name, mcts_plays, greedy_plays, mcts_preference)
+    """
+    from .mcts_replay import play_mcts_game
+
+    if role_db is None:
+        role_db = card_role.load_card_role_db()
+    if eff_db is None:
+        eff_db = card_role.load_effectiveness_db()
+
+    rec = play_mcts_game(
+        deck, opp_deck,
+        effects_overlay=overlay,
+        seed=seed,
+        n_simulations=n_simulations,
+        max_tree_depth=1,  # tree 詳細不要、 軽量化
+    )
+    if not rec.mcts_turns:
+        return [], []
+
+    # name → card_id マップ (deck の main 内のみ)
+    name_to_cid = _name_to_card_id_with_leader(deck)
+
+    # action_label "play: シュラ" / "event: 神避" / "stage: ホーリー" 形式から
+    # カード名を抽出
+    def _extract_card_name(label: str) -> Optional[str]:
+        for prefix in ("play: ", "event: ", "stage: "):
+            if label.startswith(prefix):
+                return label[len(prefix):].strip()
+        return None
+
+    # MCTS / Greedy の choice 集計 (= 全 turn にわたる)
+    mcts_plays: Counter[str] = Counter()
+    greedy_plays: Counter[str] = Counter()
+    for t in rec.mcts_turns:
+        m_name = _extract_card_name(t.chosen_action_label)
+        g_name = _extract_card_name(t.greedy_action_label)
+        if m_name:
+            mcts_plays[m_name] += 1
+        if g_name:
+            greedy_plays[g_name] += 1
+
+    # main 内カードに限定して stats 化
+    counts_in_deck: Counter[str] = Counter()
+    for c in deck.main:
+        counts_in_deck[c.card_id] += 1
+
+    card_stats_out = []
+    for c in deck.main:
+        if c.card_id not in counts_in_deck:
+            continue
+        if c.card_id in [s["card_id"] for s in card_stats_out]:
+            continue
+        m_n = mcts_plays.get(c.name, 0)
+        g_n = greedy_plays.get(c.name, 0)
+        # MCTS preference: -1..+1 (= MCTS が Greedy より好む方向)
+        denom = max(1, m_n + g_n)
+        preference = (m_n - g_n) / denom
+        card_stats_out.append({
+            "card_id": c.card_id,
+            "name": c.name,
+            "n_in_deck": counts_in_deck.get(c.card_id, 0),
+            "mcts_plays": m_n,
+            "greedy_plays": g_n,
+            "mcts_preference": round(preference, 3),
+        })
+
+    # 提案生成
+    leader_colors = list(deck.leader.color)
+    used_base_ids: set[str] = {_base_id(c.card_id) for c in deck.main}
+    proposals: list[Proposal] = []
+
+    # 集計ベースで候補抽出
+    # (a) MCTS が好む (= preference > 0.3) カードで n_in_deck < 4 → +1 提案
+    # (b) Greedy が好む (= preference < -0.3) カードで n_in_deck >= 2 → -1 (or swap) 提案
+    target_archetype = "ミッドレンジ"  # 簡易、 opp の archetype は別途取得可能だが省略
+
+    for s in card_stats_out:
+        pref = s["mcts_preference"]
+        n_total_choices = s["mcts_plays"] + s["greedy_plays"]
+        if n_total_choices < 2:
+            continue  # 1 試合内で 2 回以上選択場面がないと信頼性低
+        # (a) MCTS が好む → +1
+        if pref >= 0.4 and s["n_in_deck"] < 4:
+            decrement = _find_decrement_for_mcts(
+                card_stats_out, exclude_cid=s["card_id"]
+            )
+            if decrement is None:
+                continue
+            proposals.append(Proposal(
+                proposal_id=f"mcts_inc_{s['card_id']}",
+                proposal_type="count_increase",
+                changes=[
+                    CardChange(card_id=s["card_id"], delta=+1, name=s["name"]),
+                    CardChange(card_id=decrement["card_id"], delta=-1, name=decrement["name"]),
+                ],
+                reason=(
+                    f"🧠 MCTS は {s['name']} を {s['mcts_plays']} 回選択 (Greedy {s['greedy_plays']} 回)。 "
+                    f"深い思考で重要視されているカードを +1 枚、 代わりに "
+                    f"{decrement['name']} (MCTS={decrement['mcts_plays']}, Greedy={decrement['greedy_plays']}) を -1 枚。"
+                ),
+                impact_estimate=min(100, max(20, int(pref * 80) + 20)),
+            ))
+        # (b) Greedy が好む → swap で MCTS 候補に置き換え
+        elif pref <= -0.4 and s["n_in_deck"] >= 2:
+            try:
+                card = repo.get(s["card_id"])
+                role_info = role_db.get(s["card_id"], {})
+                primary_role = role_info.get("primary_role", "synergy")
+                cost_lo = max(1, card.cost - 1)
+                cost_hi = card.cost + 1
+                alts = card_role.best_cards_against(
+                    target_archetype,
+                    target_role=primary_role,
+                    color_filter=leader_colors,
+                    cost_range=(cost_lo, cost_hi),
+                    top_k=10,
+                    role_db=role_db,
+                    eff_db=eff_db,
+                )
+                alt = next(
+                    (a for a in alts if _base_id(a.card_id) not in used_base_ids
+                     and a.card_id != deck.leader.card_id
+                     and a.name != s["name"]),
+                    None,
+                )
+                if alt:
+                    proposals.append(Proposal(
+                        proposal_id=f"mcts_swap_{s['card_id']}_{alt.card_id}",
+                        proposal_type="swap",
+                        changes=[
+                            CardChange(card_id=s["card_id"], delta=-s["n_in_deck"], name=s["name"]),
+                            CardChange(card_id=alt.card_id, delta=s["n_in_deck"], name=alt.name),
+                        ],
+                        reason=(
+                            f"🧠 MCTS は {s['name']} を {s['mcts_plays']} 回しか選ばず "
+                            f"(Greedy {s['greedy_plays']} 回)。 深い思考では選ばれない = 本当に弱い可能性。 "
+                            f"同 role の {alt.name} (effectiveness {alt.effectiveness}) に差替え提案。"
+                        ),
+                        impact_estimate=min(100, max(20, int(abs(pref) * 80) + 20)),
+                    ))
+            except KeyError:
+                pass
+
+    proposals.sort(key=lambda p: -p.impact_estimate)
+    return proposals[:10], card_stats_out
+
+
+def _find_decrement_for_mcts(
+    card_stats: list[dict], exclude_cid: str
+) -> Optional[dict]:
+    """MCTS が好まない (= preference 低) 採用 ≥ 2 枚カードを返す。"""
+    candidates = [
+        s for s in card_stats
+        if s["card_id"] != exclude_cid
+        and s["n_in_deck"] >= 2
+        and s["mcts_preference"] <= -0.2
+    ]
+    candidates.sort(key=lambda s: s["mcts_preference"])
+    return candidates[0] if candidates else None

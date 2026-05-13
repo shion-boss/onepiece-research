@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { applyDeckImprovement, fetchDeckImprovements } from "@/lib/api";
+import {
+  applyDeckImprovement,
+  fetchDecks,
+  fetchDeckImprovements,
+  runMctsImprovements,
+} from "@/lib/api";
 import type {
   DeckImprovementsResponse,
+  DeckSummary,
   ImprovementProposal,
+  McctsImprovementsResponse,
 } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
 import { useDeckSimulationStore } from "@/stores/deckSimulation";
@@ -20,6 +27,23 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
   const externalRefreshKey = useDeckSimulationStore(
     (s) => s.improvementsRefreshKey,
   );
+
+  // MCTS 補強分析 (U2)
+  const [mctsRunning, setMctsRunning] = useState(false);
+  const [mctsData, setMctsData] = useState<McctsImprovementsResponse | null>(null);
+  const [mctsError, setMctsError] = useState<string | null>(null);
+  const [opponents, setOpponents] = useState<DeckSummary[]>([]);
+  const [mctsOpponent, setMctsOpponent] = useState<string>("");
+
+  useEffect(() => {
+    fetchDecks().then((decks) => {
+      const filtered = decks.filter((d) => d.slug !== slug);
+      setOpponents(filtered);
+      if (!mctsOpponent && filtered.length > 0) {
+        setMctsOpponent(filtered[0].slug);
+      }
+    }).catch(() => {});
+  }, [slug, mctsOpponent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +66,25 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
     };
     // 内部 reloadKey (= apply 後) と 外部 store key (= 探索後) の両方で再取得
   }, [slug, reloadKey, externalRefreshKey]);
+
+  async function handleMctsAnalyze() {
+    if (!mctsOpponent) return;
+    setMctsRunning(true);
+    setMctsError(null);
+    setMctsData(null);
+    try {
+      const r = await runMctsImprovements(slug, {
+        opponent_slug: mctsOpponent,
+        seed: 42,
+        n_simulations: 10,
+      });
+      setMctsData(r);
+    } catch (e) {
+      setMctsError(String(e));
+    } finally {
+      setMctsRunning(false);
+    }
+  }
 
   async function handleApply(proposal: ImprovementProposal) {
     if (!confirm(
@@ -79,10 +122,27 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
   }
   if (!data) return null;
 
-  if (data.n_matches === 0) {
+  // 提案を統合: log ベース (data.proposals) + MCTS ベース (mctsData?.proposals)
+  const combinedProposals: Array<ImprovementProposal & { source: "log" | "mcts" }> = [
+    ...data.proposals.map((p) => ({ ...p, source: "log" as const })),
+    ...(mctsData?.proposals.map((p) => ({ ...p, source: "mcts" as const })) ?? []),
+  ];
+
+  if (data.n_matches === 0 && !mctsData) {
     return (
-      <div className="rounded bg-zinc-50 p-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-        対戦履歴がまだありません。 上の「対戦」 セクションから N 試合走らせると改善提案が表示されます。
+      <div className="space-y-3">
+        <div className="rounded bg-zinc-50 p-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+          対戦履歴がまだありません。 上の「対戦」 セクションから N 試合走らせると改善提案が表示されます。
+        </div>
+        {/* MCTS 補強だけは履歴無くても利用可能 */}
+        <McctsAnalyzePanel
+          opponents={opponents}
+          mctsOpponent={mctsOpponent}
+          setMctsOpponent={setMctsOpponent}
+          running={mctsRunning}
+          onRun={handleMctsAnalyze}
+          error={mctsError}
+        />
       </div>
     );
   }
@@ -94,19 +154,29 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
         弱いカードの差替え + 枚数調整を提案 (= 上位 {data.proposals.length} 件)
       </div>
 
+      <McctsAnalyzePanel
+        opponents={opponents}
+        mctsOpponent={mctsOpponent}
+        setMctsOpponent={setMctsOpponent}
+        running={mctsRunning}
+        onRun={handleMctsAnalyze}
+        error={mctsError}
+        mctsData={mctsData}
+      />
+
       {applyError && (
         <div className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
           適用失敗: {applyError}
         </div>
       )}
 
-      {data.proposals.length === 0 ? (
+      {combinedProposals.length === 0 ? (
         <div className="rounded bg-zinc-50 p-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
           改善提案無し (= 全カードがデッキ平均並み or データ不足)
         </div>
       ) : (
         <ul className="space-y-2">
-          {data.proposals.map((p) => {
+          {combinedProposals.map((p) => {
             const applied = appliedIds.has(p.proposal_id);
             return (
               <li
@@ -127,6 +197,11 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
                       >
                         impact {p.impact_estimate}
                       </span>
+                      {p.source === "mcts" && (
+                        <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                          🧠 MCTS 根拠
+                        </span>
+                      )}
                     </div>
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                       {p.changes.map((c, i) => (
@@ -177,6 +252,69 @@ export function DeckImprovementSection({ slug }: { slug: string }) {
             );
           })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function McctsAnalyzePanel({
+  opponents,
+  mctsOpponent,
+  setMctsOpponent,
+  running,
+  onRun,
+  error,
+  mctsData,
+}: {
+  opponents: DeckSummary[];
+  mctsOpponent: string;
+  setMctsOpponent: (s: string) => void;
+  running: boolean;
+  onRun: () => void;
+  error: string | null;
+  mctsData?: McctsImprovementsResponse | null;
+}) {
+  return (
+    <div className="rounded-lg border border-purple-200 bg-purple-50/30 p-3 dark:border-purple-900 dark:bg-purple-950/20">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-medium">🧠 MCTS で補強分析</div>
+          <div className="mt-0.5 text-xs text-zinc-500">
+            1 試合 MCTS を走らせ、 「Greedy が使うが MCTS は使わないカード」 を提案
+            (= 本当に弱い可能性)
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={mctsOpponent}
+          onChange={(e) => setMctsOpponent(e.target.value)}
+          className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700"
+        >
+          {opponents.map((o) => (
+            <option key={o.slug} value={o.slug}>
+              vs {o.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={running || !mctsOpponent}
+          className="rounded bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+        >
+          {running ? "MCTS 解析中… (30〜90秒)" : "🧠 MCTS で補強分析"}
+        </button>
+        {mctsData && (
+          <span className="text-[10px] text-zinc-500">
+            {mctsData.n_mcts_turns} action 解析、 {mctsData.proposals.length} 提案追加
+          </span>
+        )}
+      </div>
+      {error && (
+        <div className="mt-2 rounded bg-red-50 p-1.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+          {error}
+        </div>
       )}
     </div>
   );

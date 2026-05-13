@@ -97,7 +97,9 @@ def play_mcts_game(
     else:
         d_first, d_second = deck_opp, deck_mcts
 
-    state = setup_game(d_first, d_second, effects_overlay=effects_overlay)
+    # first_player=0 を明示 (= setup_game のデフォルトはランダムで、 d_first/d_second が
+    # state.players の順序と一致しないため、 MCTS と OPP が逆になるバグを回避)
+    state = setup_game(d_first, d_second, first_player=0, effects_overlay=effects_overlay)
     play_until_main(state)  # REFRESH/DRAW/DON フェーズを進める (= 最初の MAIN まで)
     rng = random.Random(seed)
 

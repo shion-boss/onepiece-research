@@ -16,6 +16,9 @@ import type {
   GameLog,
   McctsGameRequest,
   McctsGameResponse,
+  McctsImprovementsRequest,
+  McctsImprovementsResponse,
+  RerankResponse,
   MatchHistoryEntry,
   MatchRequest,
   MatchSummary,
@@ -240,6 +243,46 @@ export async function fetchDeckImprovements(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`fetchDeckImprovements failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function rerankWithMcts(req: {
+  target_slug: string;
+  candidates: { leader: string; main: { card_id: string; count: number }[]; name?: string }[];
+  seed?: number;
+  n_simulations?: number;
+  n_games_per_candidate?: number;
+}): Promise<RerankResponse> {
+  const res = await fetch(`${API}/api/explore/rerank-with-mcts`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(req),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`rerankWithMcts failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export async function runMctsImprovements(
+  slug: string,
+  req: McctsImprovementsRequest,
+): Promise<McctsImprovementsResponse> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/improvements/mcts`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(req),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`runMctsImprovements failed: ${res.status} ${detail}`);
   }
   return res.json();
 }

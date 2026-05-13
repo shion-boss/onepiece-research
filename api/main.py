@@ -981,6 +981,199 @@ class McctsGameResponse(BaseModel):
     mcts_turns: list[McctsTurnOut]
 
 
+class CandidateDeckSpec(BaseModel):
+    leader: str
+    main: list[DeckEntry]
+    name: Optional[str] = None
+
+
+class RerankRequest(BaseModel):
+    target_slug: str
+    candidates: list[CandidateDeckSpec]
+    seed: int = 42
+    n_simulations: int = 10
+    n_games_per_candidate: int = 1
+
+
+class RerankResultOut(BaseModel):
+    leader: str
+    name: str
+    original_index: int
+    mcts_wins: int
+    mcts_total: int
+    mcts_winrate: float
+
+
+class RerankResponse(BaseModel):
+    target_slug: str
+    target_name: str
+    n_candidates: int
+    n_games_per_candidate: int
+    results: list[RerankResultOut]
+    elapsed_seconds: float
+
+
+@app.post("/api/explore/rerank-with-mcts", response_model=RerankResponse)
+def rerank_with_mcts(req: RerankRequest):
+    """対策候補デッキ list を MCTS で 1 試合ずつ評価 → MCTS 勝率順に rerank (U3)。
+
+    実行時間: candidates 数 × n_simulations × turns で 5〜30 分。 frontend で
+    progress 表示推奨。
+    """
+    import time as _time
+    from engine.mcts_replay import play_mcts_game
+
+    target_path = DECKS_DIR / f"{req.target_slug}.json"
+    if not target_path.exists():
+        raise HTTPException(404, f"target deck not found: {req.target_slug}")
+    repo = get_repo()
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    try:
+        target_deck = make_deck_from_dict(json.loads(target_path.read_text(encoding="utf-8")), repo)
+    except Exception as e:
+        raise HTTPException(422, f"target deck load failed: {e}")
+
+    n_sim = max(1, min(req.n_simulations, 30))
+    n_games = max(1, min(req.n_games_per_candidate, 5))
+
+    t0 = _time.time()
+    results: list[RerankResultOut] = []
+    for i, cand_spec in enumerate(req.candidates):
+        # candidate を DeckList 化
+        try:
+            cand_deck = make_deck_from_dict({
+                "name": cand_spec.name or f"candidate_{i}",
+                "leader": cand_spec.leader,
+                "main": [m.model_dump() for m in cand_spec.main],
+                "regulation": "standard",
+            }, repo)
+        except Exception:
+            results.append(RerankResultOut(
+                leader=cand_spec.leader,
+                name=cand_spec.name or f"candidate_{i}",
+                original_index=i,
+                mcts_wins=0,
+                mcts_total=0,
+                mcts_winrate=0.0,
+            ))
+            continue
+
+        wins = 0
+        total = 0
+        for g in range(n_games):
+            try:
+                rec = play_mcts_game(
+                    cand_deck, target_deck,
+                    effects_overlay=overlay,
+                    seed=req.seed + g,
+                    n_simulations=n_sim,
+                    max_tree_depth=1,  # rerank なのでツリー詳細不要
+                )
+                total += 1
+                if rec.winner == 0:  # candidate (= MCTS player) が勝ち
+                    wins += 1
+            except Exception:
+                continue
+
+        winrate = wins / total if total > 0 else 0.0
+        results.append(RerankResultOut(
+            leader=cand_spec.leader,
+            name=cand_spec.name or f"candidate_{i}",
+            original_index=i,
+            mcts_wins=wins,
+            mcts_total=total,
+            mcts_winrate=round(winrate, 3),
+        ))
+
+    # winrate 降順で rerank
+    results.sort(key=lambda r: -r.mcts_winrate)
+    return RerankResponse(
+        target_slug=req.target_slug,
+        target_name=target_deck.name,
+        n_candidates=len(req.candidates),
+        n_games_per_candidate=n_games,
+        results=results,
+        elapsed_seconds=round(_time.time() - t0, 2),
+    )
+
+
+class McctsImprovementsRequest(BaseModel):
+    opponent_slug: str
+    seed: int = 42
+    n_simulations: int = 10
+
+
+class McctsCardStatOut(BaseModel):
+    card_id: str
+    name: str
+    n_in_deck: int
+    mcts_plays: int
+    greedy_plays: int
+    mcts_preference: float       # -1..+1 (MCTS 好み度)
+
+
+class McctsImprovementsResponse(BaseModel):
+    slug: str
+    opponent_slug: str
+    n_mcts_turns: int
+    card_stats: list[McctsCardStatOut]
+    proposals: list[ProposalOut]
+
+
+@app.post("/api/decks/{slug}/improvements/mcts", response_model=McctsImprovementsResponse)
+def mcts_improvements(slug: str, req: McctsImprovementsRequest):
+    """MCTS 1 試合を走らせ、 MCTS と Greedy のカード選好差分から追加提案を生成 (U2)。
+
+    実行時間: n_simulations=10 で ~30-60 秒。 既存 improvements とは別系統。
+    """
+    from engine.deck_improver import generate_mcts_proposals
+
+    deck_path = DECKS_DIR / f"{slug}.json"
+    opp_path = DECKS_DIR / f"{req.opponent_slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck not found: {slug}")
+    if not opp_path.exists():
+        raise HTTPException(404, f"opponent deck not found: {req.opponent_slug}")
+    repo = get_repo()
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    try:
+        deck = make_deck_from_dict(json.loads(deck_path.read_text(encoding="utf-8")), repo)
+        opp_deck = make_deck_from_dict(json.loads(opp_path.read_text(encoding="utf-8")), repo)
+    except Exception as e:
+        raise HTTPException(422, f"deck load failed: {e}")
+
+    n_sim = max(1, min(req.n_simulations, 50))
+    try:
+        proposals, card_stats = generate_mcts_proposals(
+            deck, opp_deck, repo,
+            overlay=overlay,
+            n_simulations=n_sim,
+            seed=req.seed,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"mcts improvements failed: {e}")
+
+    return McctsImprovementsResponse(
+        slug=slug,
+        opponent_slug=req.opponent_slug,
+        n_mcts_turns=sum(s["mcts_plays"] + s["greedy_plays"] for s in card_stats),
+        card_stats=[
+            McctsCardStatOut(**s) for s in card_stats
+        ],
+        proposals=[
+            ProposalOut(
+                proposal_id=p.proposal_id,
+                proposal_type=p.proposal_type,
+                changes=[CardChangeOut(card_id=c.card_id, delta=c.delta, name=c.name)
+                         for c in p.changes],
+                reason=p.reason,
+                impact_estimate=p.impact_estimate,
+            )
+            for p in proposals
+        ],
+    )
+
+
 @app.post("/api/decks/{slug}/mcts-game", response_model=McctsGameResponse)
 def mcts_game(slug: str, req: McctsGameRequest):
     """MCTSAI で 1 試合実行し、 各 MCTS choose_action のツリーを返す (戦い方の探索)。

@@ -453,3 +453,46 @@ export type McctsGameResponse = {
   total_actions: number;
   mcts_turns: McctsTurn[];
 };
+
+// MCTS rerank (Explorer 候補の MCTS 評価、 U3)
+export type RerankResult = {
+  leader: string;
+  name: string;
+  original_index: number;
+  mcts_wins: number;
+  mcts_total: number;
+  mcts_winrate: number;
+};
+
+export type RerankResponse = {
+  target_slug: string;
+  target_name: string;
+  n_candidates: number;
+  n_games_per_candidate: number;
+  results: RerankResult[];
+  elapsed_seconds: number;
+};
+
+// MCTS-based 改善提案 (= U2)
+export type McctsCardStat = {
+  card_id: string;
+  name: string;
+  n_in_deck: number;
+  mcts_plays: number;
+  greedy_plays: number;
+  mcts_preference: number;       // -1..+1
+};
+
+export type McctsImprovementsRequest = {
+  opponent_slug: string;
+  seed?: number;
+  n_simulations?: number;
+};
+
+export type McctsImprovementsResponse = {
+  slug: string;
+  opponent_slug: string;
+  n_mcts_turns: number;
+  card_stats: McctsCardStat[];
+  proposals: ImprovementProposal[];
+};
