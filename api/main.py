@@ -35,6 +35,21 @@ from engine.harness import run_matchup  # noqa: E402
 
 app = FastAPI(title="One Piece Research API", version="0.2")
 
+
+@app.on_event("startup")
+def _on_startup():
+    """API server 起動時: "running" 状態の研究セッションを auto-resume。
+
+    dev server --reload で thread が消失した場合の復活機構。
+    """
+    try:
+        from engine.research_session import auto_resume_on_startup
+        n = auto_resume_on_startup()
+        if n > 0:
+            print(f"[startup] Resumed {n} research session(s) from DB")
+    except Exception as e:
+        print(f"[startup] auto_resume failed: {e}")
+
 # Next.js dev server からのアクセスを許可
 app.add_middleware(
     CORSMiddleware,

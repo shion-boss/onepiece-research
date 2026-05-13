@@ -134,7 +134,7 @@ def pause_session(session_id: str) -> bool:
 
 
 def resume_session(session_id: str) -> bool:
-    """一時停止セッションを再開。"""
+    """一時停止 / 死亡 (= server 再起動で thread 消失) セッションを再開。"""
     with _REGISTRY_LOCK:
         flag = _PAUSE_FLAGS.get(session_id)
     if flag is None:
@@ -142,12 +142,58 @@ def resume_session(session_id: str) -> bool:
         s = research_storage.get_session(session_id)
         if s is None:
             return False
-        if s["status"] not in ("paused", "stopped"):
+        # "running" でも flag 無いなら thread が死んでる (= server 再起動) → resume 許可
+        if s["status"] not in ("paused", "stopped", "running"):
             return False
+        if s["status"] == "running":
+            # 既に "running" 表示なら status 更新不要、 thread だけ再 spawn
+            return _resume_from_db_no_status_update(session_id, s)
         return _resume_from_db(session_id, s)
     flag.clear()
     research_storage.update_session_status(session_id, "running")
     return True
+
+
+def _resume_from_db_no_status_update(session_id: str, session_dict: dict) -> bool:
+    """status 更新なしで thread 再 spawn (= 既に "running" 状態の死亡 session 用)。"""
+    config = session_dict["config"]
+    target_slug = session_dict["target_slug"]
+    pause_flag = threading.Event()
+    stop_flag = threading.Event()
+    with _REGISTRY_LOCK:
+        if session_id in _ACTIVE_THREADS:
+            return False  # 既に thread 動作中
+        _PAUSE_FLAGS[session_id] = pause_flag
+        _STOP_FLAGS[session_id] = stop_flag
+        # 次の世代から resume (= +1)
+        next_gen = session_dict["current_generation"] + 1 if session_dict["current_generation"] > 0 else 0
+        thread = threading.Thread(
+            target=_run_session,
+            args=(session_id, target_slug, config, next_gen),
+            daemon=True,
+        )
+        _ACTIVE_THREADS[session_id] = thread
+        thread.start()
+    return True
+
+
+def auto_resume_on_startup() -> int:
+    """API server 起動時に呼ぶ: DB の "running" status セッションを全部 resume。
+
+    Returns: 復活させた session 数
+    """
+    sessions = research_storage.list_sessions(limit=100, status="running")
+    resumed = 0
+    for s in sessions:
+        with _REGISTRY_LOCK:
+            already = s["id"] in _ACTIVE_THREADS
+        if already:
+            continue
+        # _resume_from_db_no_status_update を呼ぶ (= status は既に running)
+        full = research_storage.get_session(s["id"])
+        if full and _resume_from_db_no_status_update(s["id"], full):
+            resumed += 1
+    return resumed
 
 
 def stop_session(session_id: str) -> bool:
