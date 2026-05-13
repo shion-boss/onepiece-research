@@ -1159,6 +1159,48 @@ class _MCTSNode:
         self.total_value: float = 0.0
 
 
+def action_label(action: Optional["Action"], owner_state: Optional["GameState"] = None) -> str:
+    """Action を人間可読 string に変換。 owner_state があれば手札カード名で表示。"""
+    if action is None:
+        return "(root)"
+    from .game import (
+        ActivateMain, AttachDonToCharacter, AttachDonToLeader,
+        AttackCharacter, AttackLeader, EndPhase, PlayCharacter,
+        PlayEvent, PlayStage,
+    )
+    if isinstance(action, EndPhase):
+        return "EndPhase"
+    if isinstance(action, AttachDonToLeader):
+        return f"AttachDonLeader(n={action.n})"
+    if isinstance(action, AttachDonToCharacter):
+        return f"AttachDonChar(iid={action.target_iid}, n={action.n})"
+    if isinstance(action, PlayCharacter):
+        if owner_state:
+            me = owner_state.turn_player
+            if 0 <= action.hand_idx < len(me.hand):
+                return f"play: {me.hand[action.hand_idx].name}"
+        return f"PlayChar(hand={action.hand_idx})"
+    if isinstance(action, PlayEvent):
+        if owner_state:
+            me = owner_state.turn_player
+            if 0 <= action.hand_idx < len(me.hand):
+                return f"event: {me.hand[action.hand_idx].name}"
+        return f"PlayEvent(hand={action.hand_idx})"
+    if isinstance(action, PlayStage):
+        if owner_state:
+            me = owner_state.turn_player
+            if 0 <= action.hand_idx < len(me.hand):
+                return f"stage: {me.hand[action.hand_idx].name}"
+        return f"PlayStage(hand={action.hand_idx})"
+    if isinstance(action, ActivateMain):
+        return f"ActivateMain(src_iid={action.source_iid})"
+    if isinstance(action, AttackLeader):
+        return f"AttackLeader(atk_iid={action.attacker_iid})"
+    if isinstance(action, AttackCharacter):
+        return f"AttackChar(atk_iid={action.attacker_iid} → tgt_iid={action.target_iid})"
+    return type(action).__name__
+
+
 def serialize_mcts_tree(
     root: "_MCTSNode",
     chosen_action: Optional["Action"] = None,
@@ -1170,7 +1212,8 @@ def serialize_mcts_tree(
     Args:
         root: ルートノード
         chosen_action: 最終選択された action (= is_chosen フラグ用)
-        state: 元 state (= action label 生成用、 任意)
+        state: 元 state (= action label 生成用、 任意)。 root から depth 1 (= 直接の子) までは
+               この state で label するが、 depth ≥ 2 は state 不明で fallback label
         max_depth: 子の最大深度 (default 2、 root + 子 + 孫)
 
     Returns:
@@ -1181,45 +1224,6 @@ def serialize_mcts_tree(
           ]
         }
     """
-    def _action_label(action: Optional["Action"], owner_state: Optional["GameState"] = None) -> str:
-        if action is None:
-            return "(root)"
-        from .game import (
-            ActivateMain, AttachDonToCharacter, AttachDonToLeader,
-            AttackCharacter, AttackLeader, EndPhase, PlayCharacter,
-            PlayEvent, PlayStage,
-        )
-        if isinstance(action, EndPhase):
-            return "EndPhase"
-        if isinstance(action, AttachDonToLeader):
-            return f"AttachDonLeader(n={action.n})"
-        if isinstance(action, AttachDonToCharacter):
-            return f"AttachDonChar(iid={action.target_iid}, n={action.n})"
-        if isinstance(action, PlayCharacter):
-            if owner_state:
-                me = owner_state.turn_player
-                if 0 <= action.hand_idx < len(me.hand):
-                    return f"play: {me.hand[action.hand_idx].name}"
-            return f"PlayChar(hand={action.hand_idx})"
-        if isinstance(action, PlayEvent):
-            if owner_state:
-                me = owner_state.turn_player
-                if 0 <= action.hand_idx < len(me.hand):
-                    return f"event: {me.hand[action.hand_idx].name}"
-            return f"PlayEvent(hand={action.hand_idx})"
-        if isinstance(action, PlayStage):
-            if owner_state:
-                me = owner_state.turn_player
-                if 0 <= action.hand_idx < len(me.hand):
-                    return f"stage: {me.hand[action.hand_idx].name}"
-            return f"PlayStage(hand={action.hand_idx})"
-        if isinstance(action, ActivateMain):
-            return f"ActivateMain(src_iid={action.source_iid})"
-        if isinstance(action, AttackLeader):
-            return f"AttackLeader(atk_iid={action.attacker_iid})"
-        if isinstance(action, AttackCharacter):
-            return f"AttackChar(atk_iid={action.attacker_iid} → tgt_iid={action.target_iid})"
-        return type(action).__name__
 
     def _recurse(node: "_MCTSNode", depth: int, owner_state: Optional["GameState"]) -> dict:
         avg = (node.total_value / node.visits) if node.visits > 0 else 0.0
@@ -1232,10 +1236,12 @@ def serialize_mcts_tree(
         if depth < max_depth:
             # visits 降順で並べる
             sorted_children = sorted(node.children, key=lambda c: -c.visits)
+            # depth 1 (= root の直接の子) は owner_state で label できる
+            child_state = owner_state if depth == 0 else None
             for child in sorted_children:
-                children_serialized.append(_recurse(child, depth + 1, None))
+                children_serialized.append(_recurse(child, depth + 1, child_state))
         return {
-            "action_label": _action_label(node.action, owner_state),
+            "action_label": action_label(node.action, owner_state),
             "visits": node.visits,
             "avg_value": round(avg, 3),
             "is_chosen": is_chosen,

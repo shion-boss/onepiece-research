@@ -965,6 +965,9 @@ class McctsTurnOut(BaseModel):
     action_index: int
     chosen_action_label: str
     root_tree: dict
+    greedy_action_label: str = ""
+    agree_with_greedy: bool = False
+    mcts_confidence: float = 0.0
 
 
 class McctsGameResponse(BaseModel):
@@ -1030,6 +1033,9 @@ def mcts_game(slug: str, req: McctsGameRequest):
                 action_index=t.action_index,
                 chosen_action_label=t.chosen_action_label,
                 root_tree=t.root_tree,
+                greedy_action_label=t.greedy_action_label,
+                agree_with_greedy=t.agree_with_greedy,
+                mcts_confidence=t.mcts_confidence,
             )
             for t in rec.mcts_turns
         ],

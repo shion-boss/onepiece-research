@@ -431,6 +431,9 @@ export type McctsTurn = {
   action_index: number;
   chosen_action_label: string;
   root_tree: McctsNode;
+  greedy_action_label: string;
+  agree_with_greedy: boolean;
+  mcts_confidence: number;       // 0..1
 };
 
 export type McctsGameRequest = {
