@@ -404,16 +404,52 @@ class GreedyAI:
                     return c
             return None
 
+        # 防御側のリアクティブ buff (opp_attack で opp.leader を強化する効果) を見積。
+        # 例: 紫ドフラ / 赤青エース 等の「相手アタック時 リーダー +N」効果が発動した時、
+        # 実際の defender_power は opp.leader.power + est_buff になる。
+        est_opp_buff = 0
+        if state.effects_overlay:
+            from .effects import estimate_opp_attack_buff_to_leader
+            est_opp_buff = estimate_opp_attack_buff_to_leader(
+                state, opp, state.effects_overlay
+            )
+        est_defender_power = opp.leader.power + est_opp_buff
+
+        # ============================================================ #
+        # 2-pre) リーサル判定 (= キャラ KO より優先)
+        # ============================================================ #
+        # 「リーサル圏内なのにキャラ攻撃」 を防ぐため、 まず「このターン勝てるか」 を判定。
+        # DON ブーストも考慮 (= 不足分を DON で埋めれば成立する attacker も含める)。
+        if atk_leader_actions:
+            lethal_action = self._compute_lethal_action(
+                state, atk_leader_actions, est_defender_power, _atk_inplay,
+            )
+            if lethal_action is not None:
+                return lethal_action
+
         # 2a) キャラ KO 狙い: atk.power >= target.power のものから (相手コスト高優先)
         # role priority (R67): target の primary_role が finisher / removal / negation
         # の場合は KO 優先度を上げる (= 相手の鍵カードを潰す)。 既存の cost/power 並びに
         # 補助 boost として加算する形。
+        # 注: opp.life ≤ 1 の near-lethal 局面では、 リーダー攻撃 viable があれば
+        # キャラ KO より leader 攻撃を優先 (= 1 ヒットで勝ちに王手)。
+        opp_life = len(opp.life)
+        near_lethal = (opp_life <= 1)
         viable_char: list[tuple[AttackCharacter, InPlay, InPlay]] = []
         for a in atk_char_actions:
             attacker = _atk_inplay(a.attacker_iid)
             target = _opp_chara(a.target_iid)
             if attacker and target and attacker.power >= target.power:
                 viable_char.append((a, attacker, target))
+
+        # near-lethal で viable_leader があれば leader 優先 (= 詰めに行く)
+        if near_lethal and atk_leader_actions:
+            quick_leader = self._pick_best_leader_attack(
+                atk_leader_actions, est_defender_power, _atk_inplay,
+            )
+            if quick_leader is not None:
+                return quick_leader
+
         if viable_char:
             _high_value_roles = {"finisher", "removal", "negation"}
 
@@ -425,17 +461,6 @@ class GreedyAI:
                 return (role_boost, target.card.cost, target.power)
             a, _, _ = max(viable_char, key=_atk_char_sort_key)
             return a
-
-        # 防御側のリアクティブ buff (opp_attack で opp.leader を強化する効果) を見積。
-        # 例: 紫ドフラ / 赤青エース 等の「相手アタック時 リーダー +N」効果が発動した時、
-        # 実際の defender_power は opp.leader.power + est_buff になる。
-        est_opp_buff = 0
-        if state.effects_overlay:
-            from .effects import estimate_opp_attack_buff_to_leader
-            est_opp_buff = estimate_opp_attack_buff_to_leader(
-                state, opp, state.effects_overlay
-            )
-        est_defender_power = opp.leader.power + est_opp_buff
 
         # 2b) ドン付与で leader 攻撃を成立させる
         # 候補: gap=est_defender_power - attacker.power が 0 < gap <= 1000 (1ドンで届く)
@@ -534,6 +559,117 @@ class GreedyAI:
 
         # 4) フェーズ終了
         return EndPhase()
+
+    def _compute_lethal_action(
+        self,
+        state: GameState,
+        atk_leader_actions: list[AttackLeader],
+        est_defender_power: int,
+        get_inplay,
+    ) -> Optional[Action]:
+        """このターンで相手 leader を倒せる (= 勝てる) なら、 最初の 1 アクションを返す。
+
+        DON ブースト考慮: power 不足の attacker でも DON で届けば候補に入れる。
+        全 attacker での合計 excess > 推定 counter なら lethal 判定。
+
+        勝てない場合 None を返す。
+        """
+        import math
+
+        me = state.turn_player
+        opp = state.opponent
+        opp_life = len(opp.life)
+        # life=0 は次の 1 ヒットで勝ち、 life=N は N+1 ヒット必要 (= life を 0 にしてから 1)
+        hits_needed = max(1, opp_life)
+
+        # 全 leader 攻撃候補を「DON 必要枚数」 と共にリスト化
+        # candidate: (action, attacker, dons_needed_to_succeed, excess_after_don)
+        candidates: list[tuple[AttackLeader, InPlay, int, int]] = []
+        for a in atk_leader_actions:
+            attacker = get_inplay(a.attacker_iid)
+            if attacker is None:
+                continue
+            gap = est_defender_power - attacker.power
+            if gap <= 0:
+                # 既に届く
+                dons_needed = 0
+                excess = -gap  # ≥ 0
+            else:
+                # DON で埋める必要
+                dons_needed = math.ceil(gap / 1000)
+                # 上限 4 DON / キャラ
+                if attacker.attached_dons + dons_needed > 4:
+                    continue
+                excess = dons_needed * 1000 - gap  # 0 or +1000 余り
+            candidates.append((a, attacker, dons_needed, excess))
+
+        if len(candidates) < hits_needed:
+            return None
+
+        # DON 予算 = me.don_active
+        don_budget = me.don_active
+        # 必要 DON が安い順 (= 余裕を残す) でソート
+        candidates.sort(key=lambda x: x[2])
+        feasible: list[tuple[AttackLeader, InPlay, int, int]] = []
+        don_used = 0
+        for cand in candidates:
+            _, _, dons, _ = cand
+            if don_used + dons > don_budget:
+                continue
+            feasible.append(cand)
+            don_used += dons
+
+        if len(feasible) < hits_needed:
+            return None
+
+        # 上位 hits_needed 攻撃の合計 excess を計算 (= 大 excess 優先)
+        feasible.sort(key=lambda x: -x[3])
+        top_n = feasible[:hits_needed]
+        total_excess = sum(x[3] for x in top_n)
+
+        # 相手 counter 推定
+        opp_idx = 1 - state.turn_player_idx
+        est_counter_per_card = hand_estimator.expected_counter_per_card(state, opp_idx)
+        est_max_defense = int(est_counter_per_card * len(opp.hand))
+        # 戦略バフ: defender が hand を全 counter に費やすと仮定 (= 強気の lethal 判定)
+        # 上振れ余裕を見て 1.2x マージン
+        est_max_defense = int(est_max_defense * 1.2)
+
+        if total_excess < est_max_defense:
+            return None
+
+        # 🎯 リーサル成立! 最初のアクション決定:
+        # - feasible 内で「DON 必要」 attacker があれば、 まず DON を 1 枚付与
+        # - 全 attacker が直接届くなら、 弱い attacker (= 低 excess) から攻撃 (= counter 消耗)
+        # ただし lethal が確定してるなら強い attacker から行く (= 確実に通す)
+        first = feasible[0]  # 最大 excess
+        # DON 必要なら付与優先
+        for a, attacker, dons, _ in feasible:
+            if dons > 0:
+                # 1 枚 DON 付与 (= 1 ターン 1 アクション、 連続して呼ばれる)
+                if attacker is me.leader:
+                    return AttachDonToLeader(n=1)
+                else:
+                    return AttachDonToCharacter(target_iid=attacker.instance_id, n=1)
+        # 全部 DON 不要 → 直接 leader 攻撃 (= 高 excess から行く、 確実に通す)
+        return first[0]
+
+    def _pick_best_leader_attack(
+        self,
+        atk_leader_actions: list[AttackLeader],
+        est_defender_power: int,
+        get_inplay,
+    ) -> Optional[AttackLeader]:
+        """near-lethal 用: 最も power 高い attacker で leader を attack。"""
+        viable: list[tuple[AttackLeader, InPlay]] = []
+        for a in atk_leader_actions:
+            attacker = get_inplay(a.attacker_iid)
+            if attacker and attacker.power >= est_defender_power:
+                viable.append((a, attacker))
+        if not viable:
+            return None
+        viable.sort(key=lambda x: -x[1].power)
+        return viable[0][0]
 
     def _has_useless_untap(self, eff: dict, me: Player) -> bool:
         """この起動メイン効果が untap_don を含み、 現状 don_rested 不足で発動しても
