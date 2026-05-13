@@ -55,6 +55,8 @@ class AIParams:
     # Phase 2 (R69): role 別 個別価値
     w_chara_quality: int = 400
     w_hand_quality: int = 150
+    # Phase 3 (R70): 相手手札の隠匿脅威 (ハンド剥がし価値判断用)
+    w_opp_hand_threat: int = 300
 
     # === 意思決定閾値 (engine/ai.py) ===
     # 起動メイン: ドン相殺型でも eval delta が min_payoff 未満なら発動しない (0 = チェック無効)
@@ -133,6 +135,7 @@ class AIParams:
             W_LIFE_TRIGGER=self.w_life_trigger,
             W_CHARA_QUALITY=self.w_chara_quality,
             W_HAND_QUALITY=self.w_hand_quality,
+            W_OPP_HAND_THREAT=self.w_opp_hand_threat,
             # W_GAME_OVER は学習対象外 (固定 1_000_000)
         )
 

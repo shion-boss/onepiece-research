@@ -198,6 +198,10 @@ def run_matchup(
             ai_first = _construct_ai(ai_factory_2, rng, deck2_analysis)
             ai_second = _construct_ai(ai_factory_1, rng, deck1_analysis)
         ais = [ai_first, ai_second]
+        # PlanningAI 等が plan_search 内で choose_defense sim を呼ぶための ai_opp 注入
+        for i, ai in enumerate(ais):
+            if hasattr(ai, "set_ai_opp"):
+                ai.set_ai_opp(ais[1 - i])
 
         # ルール違反監視 referee (オプション)
         referee = None

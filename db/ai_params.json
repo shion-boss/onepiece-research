@@ -1,7 +1,7 @@
 {
   "version": "1",
   "saved_at": "2026-05-13T00:00:00Z",
-  "note": "R68+R69: board_eval を 9 → 14 指標に拡張。 default 重みは engine/eval.py BoardEvalWeights と同期",
+  "note": "R70: board_eval を 14 → 15 指標に拡張 (opp_hand_threat 追加)。 default 重みは engine/eval.py BoardEvalWeights と同期",
   "params": {
     "w_life": 1500,
     "w_field_count": 1200,
@@ -17,6 +17,7 @@
     "w_life_trigger": 200,
     "w_chara_quality": 400,
     "w_hand_quality": 150,
+    "w_opp_hand_threat": 300,
     "activate_main_min_payoff_global": 0,
     "activate_main_don_compensated_strict": false,
     "defense_threshold_life_le_1": 99999,

@@ -50,6 +50,10 @@ class BoardEvalWeights:
     # 不足を補う。 コスト効率は role_value が低 (= vanilla の場合 0.5) で実質吸収。
     W_CHARA_QUALITY: int = 400      # 場のキャラの role 別合計価値
     W_HAND_QUALITY: int = 150       # 手札の role 別合計価値
+    # Phase 3 新規 (R70): 相手手札の隠匿脅威推定
+    # opp.hand は隠匿だが、 未公開プール (opp.deck + opp.hand) の役割分布から
+    # 平均役割価値 × 手札枚数で期待脅威度を推定。 ハンド剥がし系の価値判断に効く。
+    W_OPP_HAND_THREAT: int = 300
     # ゲーム終了 (decisive)
     W_GAME_OVER: int = 1_000_000
 
@@ -83,6 +87,7 @@ def _load_weights_from_ai_params() -> BoardEvalWeights:
             W_LIFE_TRIGGER=int(p.get("w_life_trigger", 200)),
             W_CHARA_QUALITY=int(p.get("w_chara_quality", 400)),
             W_HAND_QUALITY=int(p.get("w_hand_quality", 150)),
+            W_OPP_HAND_THREAT=int(p.get("w_opp_hand_threat", 300)),
         )
     except Exception:
         return BoardEvalWeights()
@@ -313,6 +318,33 @@ def hand_quality_score(player: Player) -> float:
     return total
 
 
+def opp_hand_threat_estimate(state: GameState, me_idx: int) -> float:
+    """opp の手札脅威度を隠匿モデルで期待値推定 (R70 / Phase 3)。
+
+    opp.hand は本来隠匿情報なので、 直接 hand 内容を見ない。 代わりに未公開プール
+    (= opp.deck + opp.hand) の役割別平均価値を計算し、 hand 枚数倍で期待脅威を返す。
+
+    高いほど me に不利 (= opp が finisher/removal を多く隠し持っている)。 AI が
+    ハンド剥がし (trash_opp_hand_random) の価値判断に使う。
+
+    me 視点の compute_breakdown では「opp 側のみ寄与」 = self は 0 で固定。
+    """
+    opp = state.players[1 - me_idx]
+    if not opp.hand:
+        return 0.0
+    pool = list(opp.deck) + list(opp.hand)
+    if not pool:
+        return 0.0
+    from . import card_role
+    try:
+        role_db = card_role.load_card_role_db()
+    except Exception:
+        return 0.0
+    pool_total = sum(_role_value_of(c.card_id, role_db) for c in pool)
+    avg_value = pool_total / len(pool)
+    return avg_value * len(opp.hand)
+
+
 def compute_breakdown(
     state: GameState,
     me_idx: int,
@@ -363,6 +395,14 @@ def compute_breakdown(
     self_hand_q = hand_quality_score(me)
     opp_hand_q = hand_quality_score(opp)
 
+    # Phase 3 新規メトリック (R70): 相手手札の隠匿脅威
+    # self_score - opp_score 形式の整合性を保つため、 me 視点では「opp の脅威」 を
+    # opp 側に置く (= self=0)。 me 視点では「自分の手札脅威」 を計算する必要はない
+    # (= 既に hand_quality で扱う = 公開情報想定)。 ただし AI は両側のスコアを比較
+    # するので、 対称性のため me_idx 視点で「opp の脅威」 を計算 = opp.hand の隠匿推定。
+    opp_hand_threat = opp_hand_threat_estimate(state, me_idx)
+    self_hand_threat = opp_hand_threat_estimate(state, 1 - me_idx)  # 対称: opp 視点での 自分
+
     metrics = [
         ("life", sm["life"], om["life"], weights.W_LIFE),
         ("field_count", sm["field_count"], om["field_count"], weights.W_FIELD_COUNT),
@@ -378,6 +418,7 @@ def compute_breakdown(
         ("life_trigger", self_life_trig, opp_life_trig, weights.W_LIFE_TRIGGER),
         ("chara_quality", self_chara_q, opp_chara_q, weights.W_CHARA_QUALITY),
         ("hand_quality", self_hand_q, opp_hand_q, weights.W_HAND_QUALITY),
+        ("opp_hand_threat", self_hand_threat, opp_hand_threat, weights.W_OPP_HAND_THREAT),
     ]
     out = {}
     for name, sv, ov, w in metrics:

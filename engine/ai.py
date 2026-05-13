@@ -1499,6 +1499,73 @@ class HybridLookaheadAI(GreedyAI):
         return compute_score(sim, me_idx)
 
 
+class PlanningAI(GreedyAI):
+    """ターン全体プランを beam search する AI (R70+ / Phase 4)。
+
+    MAIN フェーズ開始時に EndPhase までの行動列を探索 (search_turn_plan)、
+    終端 board_eval が最良のプランの 1 手目を返す。 次手は再計画 (= receding horizon)。
+
+    GreedyAI の choose_action が「event 全部 → キャラ play 全部 → attack 全部」 と
+    ジャンル別に固まる構造を捨て、 「event → attack → event」 のコンボや「ハンド剥がし
+    後に通すアタック」 のような連動を pricing する。
+
+    Tradeoff: deepcopy が重い (= 70ms × 数百回/ターン) ため、 GreedyAI の数倍〜数十倍 slow。
+    matrix 全体再計算は数時間〜半日かかる。 ただし「強さ重視」 用途で opt-in 化。
+
+    防御 (choose_defense) は GreedyAI を継承。 攻撃時の defense sim は plan_search 内で
+    ai_opp.choose_defense を呼ぶ。 ai_opp が None の場合は self を defense sim にも使う
+    (= self-play 想定)。
+    """
+
+    name = "Planning"
+
+    def __init__(
+        self,
+        rng=None,
+        deck_analysis=None,
+        beam_width: int = 4,
+        max_depth: int = 8,
+        ai_opp=None,
+    ):
+        super().__init__(rng=rng, deck_analysis=deck_analysis)
+        self.beam_width = beam_width
+        self.max_depth = max_depth
+        # ai_opp が未指定なら self を defense sim 用に流用 (= self-play 簡略モデル)
+        self._ai_opp = ai_opp
+
+    def set_ai_opp(self, ai_opp) -> None:
+        """harness 側で対戦相手 AI を渡す用。 plan_search 内の choose_defense sim に使う。"""
+        self._ai_opp = ai_opp
+
+    def choose_action(self, state: GameState) -> Action:
+        from .plan_search import search_turn_plan
+
+        # MatchupProfile / role priority のロード (= GreedyAI._ensure_matchup_overrides)
+        self._ensure_matchup_overrides(state, state.turn_player_idx)
+
+        actions = legal_actions(state)
+        if not actions:
+            return EndPhase()
+        if len(actions) == 1:
+            return actions[0]
+
+        ai_opp = self._ai_opp if self._ai_opp is not None else self
+        try:
+            best_plan, _best_score = search_turn_plan(
+                state,
+                ai_opp,
+                beam_width=self.beam_width,
+                max_depth=self.max_depth,
+            )
+        except Exception:
+            # search 失敗時は GreedyAI 動作に fallback
+            return super().choose_action(state)
+
+        if not best_plan:
+            return super().choose_action(state)
+        return best_plan[0]
+
+
 # --------------------------------------------------------------------------- #
 # 攻撃時の防御を組み込んだ apply ラッパー
 # --------------------------------------------------------------------------- #
