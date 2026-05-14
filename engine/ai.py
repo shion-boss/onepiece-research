@@ -447,6 +447,34 @@ class GreedyAI:
         if play_stage_actions and len(me.stages) == 0:
             return min(play_stage_actions, key=lambda a: me.hand[a.hand_idx].cost)
 
+        # 0.8) Phase 7K: リーダー攻撃を PlayCharacter より先行 (= 不確実性最大化、 ノーリスク機会)
+        # OPTCG コミュニティ知見: 「ドンを使う順番を間違えると相手の読みが容易になる」
+        # → リーダー攻撃は手札を消費せず、 相手のブロッカー / 手札を削れる ノーリスク機会
+        # 条件: リーダー active + 単独で opp.leader 超え (or 1 DON で届く)
+        # desperate bluff モード時 / 起動メイン後回しケースは skip (= 既に上で処理済)
+        # 防御側の reactive buff を見越して est_defender_power を計算
+        if not me.leader.rested and not me.leader.summoning_sickness:
+            est_opp_buff_for_leader = 0
+            if state.effects_overlay:
+                from .effects import estimate_opp_attack_buff_to_leader
+                est_opp_buff_for_leader = estimate_opp_attack_buff_to_leader(
+                    state, opp, state.effects_overlay
+                )
+            est_def_for_early = opp.leader.power + est_opp_buff_for_leader
+            early_leader_attacks = [
+                a for a in actions
+                if isinstance(a, AttackLeader) and a.attacker_iid == me.leader.instance_id
+            ]
+            if early_leader_attacks:
+                la = early_leader_attacks[0]
+                # 単独で届く (= 即攻撃)
+                if me.leader.power >= est_def_for_early:
+                    return la
+                # 1 DON で届く (= DON 付与で攻撃成立)
+                gap = est_def_for_early - me.leader.power
+                if 0 < gap <= 1000 and me.don_active >= 1 and me.leader.attached_dons < 4:
+                    return AttachDonToLeader(n=1)
+
         # 1) 出せるキャラがあれば優先順位で選ぶ:
         #    (a) synergy_feature_priority があれば該当特徴のキャラを優先
         #    (b) early_finisher_hold: 高コストフィニッシャーは life>=3 では温存 (= プレイ候補から外す)

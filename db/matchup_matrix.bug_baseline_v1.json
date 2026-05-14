@@ -1,0 +1,2217 @@
+{
+  "computed_at": "2026-05-14T07:36:35Z",
+  "n_games": 20,
+  "seed": 42,
+  "decks": [
+    {
+      "slug": "cardrush_1342",
+      "name": "紫ドフラミンゴ"
+    },
+    {
+      "slug": "cardrush_1385",
+      "name": "黒クロコダイル"
+    },
+    {
+      "slug": "cardrush_1392",
+      "name": "黒イム"
+    },
+    {
+      "slug": "cardrush_1399",
+      "name": "赤青ルーシー"
+    },
+    {
+      "slug": "cardrush_1407",
+      "name": "青黄ハンコック"
+    },
+    {
+      "slug": "cardrush_1439",
+      "name": "青黄ナミ"
+    },
+    {
+      "slug": "cardrush_1453",
+      "name": "緑ミホーク"
+    },
+    {
+      "slug": "cardrush_1454",
+      "name": "紫エネル"
+    },
+    {
+      "slug": "cardrush_1455",
+      "name": "空島ルフィ"
+    },
+    {
+      "slug": "cardrush_1456",
+      "name": "赤青エース"
+    },
+    {
+      "slug": "tcgportal_bonney",
+      "name": "赤黄ボニー"
+    },
+    {
+      "slug": "tcgportal_calgara",
+      "name": "黄カルガラ"
+    },
+    {
+      "slug": "tcgportal_coby",
+      "name": "赤黒コビー"
+    },
+    {
+      "slug": "tcgportal_corazon",
+      "name": "紫黄ロシナンテ"
+    },
+    {
+      "slug": "tcgportal_op11_luffy",
+      "name": "青紫ルフィ"
+    },
+    {
+      "slug": "tcgportal_op13_luffy",
+      "name": "赤緑ルフィ（OP13）"
+    }
+  ],
+  "matrix": [
+    {
+      "deck_a": "cardrush_1342",
+      "deck_a_name": "紫ドフラミンゴ",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 17.9
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 17.15
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 22.25
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 18.4
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 16.95
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 17.4
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 17.45
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.1
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 14.05
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 14.25
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 17.25
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 16.7
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 15.05
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_a_name": "黒クロコダイル",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 17
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.3
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 18.55
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 17.9
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 16.95
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 13.7
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 18.2
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 15.95
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 15.7
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 14.7
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_a_name": "黒イム",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 16.7
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 16.65
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.2
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 16.15
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.1
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 17.3
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 15.95
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 16.9
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 11.8
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 13.75
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 17.5
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 17.4
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 14.2
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 13.65
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_a_name": "赤青ルーシー",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 17.9
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 19
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 16.7
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 21.65
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 18.5
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 14.7
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 18.65
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 21.95
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 13.15
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 14.85
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 16.85
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 16.65
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 17.85
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 17.45
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 14.3
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1407",
+      "deck_a_name": "青黄ハンコック",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 20.05
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 17.95
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 16
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 22.4
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 20.15
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 15
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 18.7
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 28.1
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 16.5
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 17.35
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 15
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 18.15
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 18.9
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 17
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 14.65
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_a_name": "青黄ナミ",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 17.45
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 15.8
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 15.5
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 17.5
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 19.45
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.4
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 19.6
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 17.7
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 16.4
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.9
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.8
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 16.4
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 13.05
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_a_name": "緑ミホーク",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 15.15
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 15
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 17
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 15.05
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 15.25
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.1
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 15.7
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 16
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 12
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 12.7
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 18.4
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 18.45
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.3
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 14
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_a_name": "紫エネル",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 16.4
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 16.8
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 17.6
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 19.05
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 18.1
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.7
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 17.5
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 15.1
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 16.65
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 18.35
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 14.4
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 13.95
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1455",
+      "deck_a_name": "空島ルフィ",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 21.2
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 18.25
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 16.95
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 22.45
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 29.65
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 21.3
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 15.65
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 18.8
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 17.4
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 21.8
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 15.35
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 16.3
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 16.4
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 17.1
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 15.2
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1456",
+      "deck_a_name": "赤青エース",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.7
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 12.7
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 12.5
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 14.2
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 18.2
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 11.7
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.75
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 19.45
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 15.6
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.1
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.4
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 12.9
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 18.85
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 12.4
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_bonney",
+      "deck_a_name": "赤黄ボニー",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 17.35
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 15.35
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.4
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 16.8
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 16.65
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.9,
+          "wins": 18,
+          "losses": 2,
+          "draws": 0,
+          "avg_turns": 14.2
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 16.65
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 21.9
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 15.2
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 12.95
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 15.4
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 14.6
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 13.35
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_a_name": "黄カルガラ",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 14.05
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 13.75
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.85,
+          "wins": 17,
+          "losses": 3,
+          "draws": 0,
+          "avg_turns": 13.55
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 13.95
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 13.55
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 19.75
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 15.65
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 15.5
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.1
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.6
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 14.25
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 15.3
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 14.4
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_a_name": "赤黒コビー",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 16.25
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 16.2
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 17.95
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 17.2
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 16.05
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.5
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 17.35
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 17.95
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 15.55
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 14.3
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.8
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 14.35
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 19.45
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 15.8
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 15.35
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_a_name": "紫黄ロシナンテ",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 16.85
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 16.35
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 19.1
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 16.6
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 17.85
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 14.75
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 16.05
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 18.6
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 17.05
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 12.8
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 13.85
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 14.95
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 14.7
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 15.25
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_a_name": "青紫ルフィ",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 16.45
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 15.2
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.8,
+          "wins": 16,
+          "losses": 4,
+          "draws": 0,
+          "avg_turns": 14.2
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 16.55
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 17.6
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 16.7
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 13.5
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 14.7
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 17.6
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 18.05
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.2,
+          "wins": 4,
+          "losses": 16,
+          "draws": 0,
+          "avg_turns": 16.6
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 15.1
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 15.2
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 15.7
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 14.85
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_a_name": "赤緑ルフィ（OP13）",
+      "row": [
+        {
+          "deck_b": "cardrush_1342",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 13.95
+        },
+        {
+          "deck_b": "cardrush_1385",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 14.65
+        },
+        {
+          "deck_b": "cardrush_1392",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 15.55
+        },
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.15,
+          "wins": 3,
+          "losses": 17,
+          "draws": 0,
+          "avg_turns": 13.75
+        },
+        {
+          "deck_b": "cardrush_1407",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 14.55
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.6
+        },
+        {
+          "deck_b": "cardrush_1453",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 14.05
+        },
+        {
+          "deck_b": "cardrush_1454",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 14.6
+        },
+        {
+          "deck_b": "cardrush_1455",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 14.7
+        },
+        {
+          "deck_b": "cardrush_1456",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 12.3
+        },
+        {
+          "deck_b": "tcgportal_bonney",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 12.6
+        },
+        {
+          "deck_b": "tcgportal_calgara",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 13.45
+        },
+        {
+          "deck_b": "tcgportal_coby",
+          "winrate": 0.75,
+          "wins": 15,
+          "losses": 5,
+          "draws": 0,
+          "avg_turns": 14.75
+        },
+        {
+          "deck_b": "tcgportal_corazon",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 15.5
+        },
+        {
+          "deck_b": "tcgportal_op11_luffy",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 14.1
+        },
+        {
+          "deck_b": "tcgportal_op13_luffy",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        }
+      ]
+    }
+  ]
+}
