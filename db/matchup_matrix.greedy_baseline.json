@@ -1,0 +1,357 @@
+{
+  "computed_at": "2026-05-12T14:26:26Z",
+  "n_games": 20,
+  "seed": 42,
+  "decks": [
+    {
+      "slug": "cardrush_1399",
+      "name": "赤青ルーシー"
+    },
+    {
+      "slug": "cardrush_1424",
+      "name": "紫エネル"
+    },
+    {
+      "slug": "cardrush_1437",
+      "name": "緑ミホーク"
+    },
+    {
+      "slug": "cardrush_1439",
+      "name": "青黄ナミ"
+    },
+    {
+      "slug": "tcgportal_kuriku",
+      "name": "赤緑クリーク"
+    },
+    {
+      "slug": "tcgportal_op15_lufy",
+      "name": "黄ルフィ（OP15）"
+    }
+  ],
+  "matrix": [
+    {
+      "deck_a": "cardrush_1399",
+      "deck_a_name": "赤青ルーシー",
+      "row": [
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.2
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 16.3
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.1,
+          "wins": 2,
+          "losses": 18,
+          "draws": 0,
+          "avg_turns": 17.05
+        },
+        {
+          "deck_b": "tcgportal_kuriku",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 14.9
+        },
+        {
+          "deck_b": "tcgportal_op15_lufy",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 15.1
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1424",
+      "deck_a_name": "紫エネル",
+      "row": [
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.4
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 13.55
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 14.15
+        },
+        {
+          "deck_b": "tcgportal_kuriku",
+          "winrate": 0.6,
+          "wins": 12,
+          "losses": 8,
+          "draws": 0,
+          "avg_turns": 13.4
+        },
+        {
+          "deck_b": "tcgportal_op15_lufy",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 15
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1437",
+      "deck_a_name": "緑ミホーク",
+      "row": [
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.4,
+          "wins": 8,
+          "losses": 12,
+          "draws": 0,
+          "avg_turns": 16.9
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 13.1
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.05,
+          "wins": 1,
+          "losses": 19,
+          "draws": 0,
+          "avg_turns": 14.75
+        },
+        {
+          "deck_b": "tcgportal_kuriku",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 15.8
+        },
+        {
+          "deck_b": "tcgportal_op15_lufy",
+          "winrate": 0.0,
+          "wins": 0,
+          "losses": 20,
+          "draws": 0,
+          "avg_turns": 12.1
+        }
+      ]
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_a_name": "青黄ナミ",
+      "row": [
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 17.55
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 14.45
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.95,
+          "wins": 19,
+          "losses": 1,
+          "draws": 0,
+          "avg_turns": 15.85
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_kuriku",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 17.05
+        },
+        {
+          "deck_b": "tcgportal_op15_lufy",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 16.85
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_kuriku",
+      "deck_a_name": "赤緑クリーク",
+      "row": [
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 0.55,
+          "wins": 11,
+          "losses": 9,
+          "draws": 0,
+          "avg_turns": 14.75
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.35,
+          "wins": 7,
+          "losses": 13,
+          "draws": 0,
+          "avg_turns": 13.15
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 0.65,
+          "wins": 13,
+          "losses": 7,
+          "draws": 0,
+          "avg_turns": 15.45
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.3,
+          "wins": 6,
+          "losses": 14,
+          "draws": 0,
+          "avg_turns": 17.35
+        },
+        {
+          "deck_b": "tcgportal_kuriku",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        },
+        {
+          "deck_b": "tcgportal_op15_lufy",
+          "winrate": 0.25,
+          "wins": 5,
+          "losses": 15,
+          "draws": 0,
+          "avg_turns": 14.95
+        }
+      ]
+    },
+    {
+      "deck_a": "tcgportal_op15_lufy",
+      "deck_a_name": "黄ルフィ（OP15）",
+      "row": [
+        {
+          "deck_b": "cardrush_1399",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13.9
+        },
+        {
+          "deck_b": "cardrush_1424",
+          "winrate": 0.45,
+          "wins": 9,
+          "losses": 11,
+          "draws": 0,
+          "avg_turns": 14.65
+        },
+        {
+          "deck_b": "cardrush_1437",
+          "winrate": 1.0,
+          "wins": 20,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 13
+        },
+        {
+          "deck_b": "cardrush_1439",
+          "winrate": 0.5,
+          "wins": 10,
+          "losses": 10,
+          "draws": 0,
+          "avg_turns": 16.6
+        },
+        {
+          "deck_b": "tcgportal_kuriku",
+          "winrate": 0.7,
+          "wins": 14,
+          "losses": 6,
+          "draws": 0,
+          "avg_turns": 15
+        },
+        {
+          "deck_b": "tcgportal_op15_lufy",
+          "winrate": null,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "avg_turns": 0.0
+        }
+      ]
+    }
+  ]
+}

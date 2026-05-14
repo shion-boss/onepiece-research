@@ -1,0 +1,70 @@
+{
+  "name": "黄カルガラ",
+  "slug": "tcgportal_calgara",
+  "leader": "OP08-098",
+  "leader_name": "カルガラ",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%BB%84%E3%82%AB%E3%83%AB%E3%82%AC%E3%83%A9",
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.2%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:42Z",
+  "main": [
+    {
+      "card_id": "OP15-101",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-114",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-109",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-099",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-117",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-115",
+      "count": 3
+    },
+    {
+      "card_id": "OP08-099",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-106",
+      "count": 3
+    },
+    {
+      "card_id": "OP15-119",
+      "count": 1
+    }
+  ],
+  "regulation": "standard"
+}

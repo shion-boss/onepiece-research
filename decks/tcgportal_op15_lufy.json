@@ -4,10 +4,10 @@
   "leader": "OP15-098",
   "leader_name": "ルフィ（OP15）",
   "source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%BB%84%E3%83%AB%E3%83%95%E3%82%A3%EF%BC%88OP15%EF%BC%89",
-  "score": "tcg-portal 集計 (Tier 2, 使用率 12.0%)",
+  "score": "tcg-portal 集計 (Tier 3, 使用率 5.4%)",
   "tournament_name": "tcg-portal aggregate",
-  "tournament_date": "2026-05-12",
-  "fetched_at": "2026-05-12T15:00:49Z",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:03Z",
   "main": [
     {
       "card_id": "OP15-108",

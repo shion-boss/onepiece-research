@@ -4,13 +4,13 @@
   "leader": "OP15-058",
   "leader_name": "エネル",
   "source": "https://tcg-portal.jp/onepiece/deck-guides/%E7%B4%AB%E3%82%A8%E3%83%8D%E3%83%AB",
-  "score": "tcg-portal 集計 (Tier 1, 使用率 16.0%)",
+  "score": "tcg-portal 集計 (Tier 1, 使用率 12.7%)",
   "tournament_name": "tcg-portal aggregate",
-  "tournament_date": "2026-05-12",
-  "fetched_at": "2026-05-12T15:00:46Z",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:33:47Z",
   "main": [
     {
-      "card_id": "OP15-076",
+      "card_id": "OP15-075",
       "count": 4
     },
     {
@@ -22,15 +22,7 @@
       "count": 4
     },
     {
-      "card_id": "OP15-075",
-      "count": 4
-    },
-    {
-      "card_id": "OP15-071",
-      "count": 4
-    },
-    {
-      "card_id": "OP15-066",
+      "card_id": "OP15-076",
       "count": 4
     },
     {
@@ -42,23 +34,35 @@
       "count": 4
     },
     {
-      "card_id": "OP15-060",
+      "card_id": "OP15-066",
       "count": 3
-    },
-    {
-      "card_id": "OP12-071",
-      "count": 4
     },
     {
       "card_id": "OP15-067",
       "count": 3
     },
     {
-      "card_id": "OP07-064",
+      "card_id": "OP05-077",
       "count": 3
     },
     {
-      "card_id": "OP13-076",
+      "card_id": "OP12-063",
+      "count": 3
+    },
+    {
+      "card_id": "ST10-010",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-064",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-060",
       "count": 2
     },
     {
@@ -66,7 +70,11 @@
       "count": 2
     },
     {
-      "card_id": "OP12-063",
+      "card_id": "OP13-076",
+      "count": 1
+    },
+    {
+      "card_id": "OP15-071",
       "count": 1
     }
   ],

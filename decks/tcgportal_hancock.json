@@ -1,0 +1,74 @@
+{
+  "name": "青黄ハンコック",
+  "slug": "tcgportal_hancock",
+  "leader": "OP14-041",
+  "leader_name": "ハンコック",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%9D%92%E9%BB%84%E3%83%8F%E3%83%B3%E3%82%B3%E3%83%83%E3%82%AF",
+  "score": "tcg-portal 集計 (Tier 2, 使用率 9.8%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:33:55Z",
+  "main": [
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-107",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-105",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-113",
+      "count": 4
+    },
+    {
+      "card_id": "ST17-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-106",
+      "count": 3
+    },
+    {
+      "card_id": "OP08-050",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-103",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-119",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-102",
+      "count": 2
+    },
+    {
+      "card_id": "OP07-057",
+      "count": 1
+    },
+    {
+      "card_id": "OP14-114",
+      "count": 3
+    }
+  ],
+  "regulation": "standard"
+}

@@ -1,0 +1,74 @@
+{
+  "name": "紫ドフラミンゴ",
+  "slug": "tcgportal_doflamingo",
+  "leader": "OP14-060",
+  "leader_name": "ドフラミンゴ",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E7%B4%AB%E3%83%89%E3%83%95%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B4",
+  "score": "tcg-portal 集計 (Tier 4, 使用率 3.1%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:30Z",
+  "main": [
+    {
+      "card_id": "OP14-074",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-065",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-067",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-063",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-069",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-072",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-068",
+      "count": 3
+    },
+    {
+      "card_id": "OP10-072",
+      "count": 2
+    },
+    {
+      "card_id": "OP10-078",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-067",
+      "count": 1
+    }
+  ],
+  "regulation": "standard"
+}

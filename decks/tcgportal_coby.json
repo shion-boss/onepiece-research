@@ -1,0 +1,70 @@
+{
+  "name": "赤黒コビー",
+  "slug": "tcgportal_coby",
+  "leader": "OP11-001",
+  "leader_name": "赤黒コビー",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E8%B5%A4%E9%BB%92%E3%82%B3%E3%83%93%E3%83%BC",
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.0%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:53Z",
+  "main": [
+    {
+      "card_id": "EB04-047",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-007",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-092",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-044",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-099",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-008",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-008",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-004",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-018",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-082",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-041",
+      "count": 3
+    },
+    {
+      "card_id": "OP11-013",
+      "count": 1
+    }
+  ],
+  "regulation": "standard"
+}

@@ -4,10 +4,10 @@
   "leader": "OP11-041",
   "leader_name": "ナミ",
   "source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%9D%92%E9%BB%84%E3%83%8A%E3%83%9F",
-  "score": "tcg-portal 集計 (Tier 1, 使用率 16.0%)",
+  "score": "tcg-portal 集計 (Tier 2, 使用率 8.5%)",
   "tournament_name": "tcg-portal aggregate",
-  "tournament_date": "2026-05-12",
-  "fetched_at": "2026-05-12T15:00:42Z",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:33:59Z",
   "main": [
     {
       "card_id": "OP14-104",

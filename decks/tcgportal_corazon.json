@@ -1,0 +1,78 @@
+{
+  "name": "紫黄ロシナンテ",
+  "slug": "tcgportal_corazon",
+  "leader": "OP12-061",
+  "leader_name": "ロシナンテ",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E7%B4%AB%E9%BB%84%E3%83%AD%E3%82%B7%E3%83%8A%E3%83%B3%E3%83%86",
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.0%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:57Z",
+  "main": [
+    {
+      "card_id": "OP12-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-065",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-038",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-062",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-115",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-073",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-069",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-077",
+      "count": 2
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-061",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-078",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-077",
+      "count": 1
+    },
+    {
+      "card_id": "OP06-063",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-056",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-032",
+      "count": 2
+    }
+  ],
+  "regulation": "standard"
+}

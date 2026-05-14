@@ -1,0 +1,70 @@
+{
+  "name": "黒クロコダイル",
+  "slug": "tcgportal_crocodile",
+  "leader": "OP14-079",
+  "leader_name": "黒クロコダイル",
+  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%BB%92%E3%82%AF%E3%83%AD%E3%82%B3%E3%83%80%E3%82%A4%E3%83%AB",
+  "score": "tcg-portal 集計 (Tier 4, 使用率 3.4%)",
+  "tournament_name": "tcg-portal aggregate",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:26Z",
+  "main": [
+    {
+      "card_id": "OP14-120",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-084",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-090",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-087",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-088",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-094",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-086",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-085",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-094",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-093",
+      "count": 2
+    }
+  ],
+  "regulation": "standard"
+}

@@ -43,16 +43,27 @@ from engine.core import Category  # noqa: E402
 BASE_URL = "https://tcg-portal.jp/onepiece/deck-guides/"
 
 
-# Tier 1-3 の (leader_name, leader_id, slug) リスト。
-# meta-analysis ページから手動マッピング (= card ID は Tier ページに無いので逆引き)。
+# tcg-portal /onepiece/meta-analysis の上位 16 リーダー (2026-02-14 〜 2026-05-13, 大会 1,040 集計)。
+# card_id は cards.json から色 + 名前 で一意に逆引き済 (= 紫エネルは OP15-058 等)。
+# Tier は使用率帯による分類 (= 公式 Tier 表記)。 月次更新で再取得推奨。
 DEFAULT_TIER_LIST = [
     # (leader_name, leader_id, slug, tier, usage_pct)
-    ("青黄ナミ", "OP11-041", "cardrush_1439", 1, 16.0),
-    ("紫エネル", "OP15-058", "cardrush_1424", 1, 16.0),
-    ("黄ルフィ（OP15）", "OP15-098", "tcgportal_op15_lufy", 2, 12.0),
-    ("緑ミホーク", "OP14-020", "cardrush_1437", 3, 8.0),
-    ("赤青ルーシー", "OP15-002", "cardrush_1399", 3, 8.0),
-    ("赤緑クリーク", "OP15-001", "tcgportal_kuriku", 3, 8.0),
+    ("紫エネル", "OP15-058", "cardrush_1424", 1, 12.7),
+    ("赤青ルーシー", "OP15-002", "cardrush_1399", 1, 11.3),
+    ("青黄ハンコック", "OP14-041", "tcgportal_hancock", 2, 9.8),
+    ("青黄ナミ", "OP11-041", "cardrush_1439", 2, 8.5),
+    ("黄ルフィ（OP15）", "OP15-098", "tcgportal_op15_lufy", 3, 5.4),
+    ("緑ミホーク", "OP14-020", "cardrush_1437", 3, 5.3),
+    ("赤青エース", "OP13-002", "tcgportal_ace", 3, 4.5),
+    ("黒イム", "OP13-079", "tcgportal_im", 3, 3.6),
+    ("黒クロコダイル", "OP14-079", "tcgportal_crocodile", 4, 3.4),
+    ("紫ドフラミンゴ", "OP14-060", "tcgportal_doflamingo", 4, 3.1),
+    ("青紫ルフィ", "OP11-040", "tcgportal_op11_luffy", 4, 2.5),
+    ("赤黄ボニー", "EB04-001", "tcgportal_bonney", 4, 2.3),
+    ("黄カルガラ", "OP08-098", "tcgportal_calgara", 4, 2.2),
+    ("赤緑ルフィ（OP13）", "OP13-001", "tcgportal_op13_luffy", 4, 2.2),
+    ("赤黒コビー", "OP11-001", "tcgportal_coby", 4, 2.0),
+    ("紫黄ロシナンテ", "OP12-061", "tcgportal_corazon", 4, 2.0),
 ]
 
 

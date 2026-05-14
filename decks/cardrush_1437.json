@@ -4,78 +4,74 @@
   "leader": "OP14-020",
   "leader_name": "ミホーク",
   "source": "https://tcg-portal.jp/onepiece/deck-guides/%E7%B7%91%E3%83%9F%E3%83%9B%E3%83%BC%E3%82%AF",
-  "score": "tcg-portal 集計 (Tier 3, 使用率 8.0%)",
+  "score": "tcg-portal 集計 (Tier 3, 使用率 5.3%)",
   "tournament_name": "tcg-portal aggregate",
-  "tournament_date": "2026-05-12",
-  "fetched_at": "2026-05-12T15:00:53Z",
+  "tournament_date": "2026-05-14",
+  "fetched_at": "2026-05-14T00:34:07Z",
   "main": [
     {
       "card_id": "OP12-034",
       "count": 4
     },
     {
-      "card_id": "ST24-004",
-      "count": 4
-    },
-    {
-      "card_id": "OP14-119",
-      "count": 2
-    },
-    {
-      "card_id": "OP14-029",
-      "count": 4
-    },
-    {
       "card_id": "ST24-002",
-      "count": 3
+      "count": 4
     },
     {
-      "card_id": "OP14-027",
-      "count": 3
+      "card_id": "OP13-031",
+      "count": 4
     },
     {
       "card_id": "OP13-040",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-015",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-118",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-006",
       "count": 3
+    },
+    {
+      "card_id": "OP07-026",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-119",
+      "count": 3
+    },
+    {
+      "card_id": "ST24-004",
+      "count": 3
+    },
+    {
+      "card_id": "OP10-030",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-038",
+      "count": 2
     },
     {
       "card_id": "OP12-037",
       "count": 2
     },
     {
-      "card_id": "ST02-007",
-      "count": 4
-    },
-    {
       "card_id": "OP14-039",
-      "count": 4
-    },
-    {
-      "card_id": "OP06-038",
-      "count": 3
-    },
-    {
-      "card_id": "OP10-032",
-      "count": 3
-    },
-    {
-      "card_id": "EB01-015",
-      "count": 3
-    },
-    {
-      "card_id": "OP01-051",
       "count": 2
     },
     {
-      "card_id": "PRB02-006",
-      "count": 4
-    },
-    {
-      "card_id": "EB01-015",
-      "count": 1
+      "card_id": "ST02-007",
+      "count": 2
     },
     {
       "card_id": "EB02-013",
-      "count": 1
+      "count": 4
     }
   ],
   "regulation": "standard"
