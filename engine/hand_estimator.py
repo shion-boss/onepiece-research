@@ -391,6 +391,41 @@ def estimate_counter_total(state: GameState, opp_idx: int) -> int:
     return expected_counter_total(state, opp_idx)
 
 
+def expected_counter_from_don_bluff(
+    state: GameState,
+    opp_idx: int,
+    don_value_per_unit: int = 1000,
+    max_event_don: int = 2,
+) -> int:
+    """opp の visible active DON から counter event の期待寄与を見積 (Phase 7G、 2026-05-14)。
+
+    OPTCG では event カード (= 「魔法のキャベツ」 等の counter event) が DON を消費して
+    opp アタック時に発動できる。 visible active DON があれば、 これらの event を打たれる
+    可能性が高まり、 リーサル計算の counter 総量推定 を上方修正する必要がある。
+
+    計算式:
+        P(counter event in hand) = min(1.0, hand_size × 0.1)   # 10% per card 簡略
+        expected = P × min(active_don, max_event_don) × don_value_per_unit
+
+    Args:
+        don_value_per_unit: 1 DON 当たり counter event の平均寄与 (default 1000 = 1 DON cost で +1000 程度)
+        max_event_don: 1 つの counter event が消費する最大 DON (= 2 で大体カバー)
+
+    Returns: 追加期待 counter 量 (= 0 以上の整数)
+    """
+    opp = state.players[opp_idx]
+    visible_active_don = opp.don_active
+    if visible_active_don <= 0:
+        return 0
+    hand_size = len(opp.hand)
+    if hand_size == 0:
+        return 0
+    p_has_event = min(1.0, hand_size * 0.1)
+    usable_don = min(visible_active_don, max_event_don)
+    expected = p_has_event * usable_don * don_value_per_unit
+    return int(expected)
+
+
 def determinize_state(
     state: GameState,
     opp_idx: int,

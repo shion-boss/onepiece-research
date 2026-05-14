@@ -331,9 +331,81 @@ class GreedyAI:
         except Exception:
             return 0
 
+    def _is_desperate_losing_position(self, state: GameState, me_idx: int) -> bool:
+        """負け確定気味の状況か判定 (Phase 7G、 2026-05-14)。
+
+        判定基準 (両方満たす場合 = desperate):
+        - 今ターンリーサル確率 < 0.4 (= 詰めれない)
+        - 相手次ターンリーサル確率 ≥ 0.6 (= 受けきれない)
+
+        desperate なら「bluff モード」: 攻撃放棄 + DON 温存 で 相手のリーサル計算を
+        妨害する (= 「カウンターイベント持ってるかも」 と思わせる)。
+
+        AI vs AI 対戦では直接効果薄い (= 我々の AI は opp の visible DON を読まない)
+        が、 人間相手 / 将来の self-play 学習で 「visible DON 読み」 を実装すれば効く。
+        """
+        try:
+            from .eval import lethal_estimate, project_opp_next_turn_lethal
+            my_lethal = lethal_estimate(state, me_idx)
+            opp_next_lethal = project_opp_next_turn_lethal(state, me_idx)
+        except Exception:
+            return False
+        if my_lethal >= 0.4:
+            return False  # 詰めれる可能性 → 全力で行く
+        if opp_next_lethal < 0.6:
+            return False  # まだ受けれそう → 普通プレイ
+        return True
+
+    # Phase 7G: counter event bluff 用に温存する active DON の最低数
+    BLUFF_DON_RESERVE: int = 2
+
+    def _bluff_filter_actions(
+        self, state: GameState, actions: list,
+    ) -> list:
+        """bluff モードで DON 温存を保つための action filter (Phase 7G)。
+
+        ユーザー指摘 (= counter event は DON 必要なので 1-2 DON を残す bluff):
+        - 攻撃は許容 (= 相手キャラ削減等の積極的価値あり)
+        - AttachDon は active DON が BLUFF_DON_RESERVE を割らない範囲で許容
+        - DON cost ActivateMain も同様
+
+        除外する action:
+        - AttachDonToLeader / AttachDonToCharacter で active DON が BLUFF_DON_RESERVE 以下になる
+        - DON cost ActivateMain で 同上
+
+        残す action:
+        - 攻撃 (= 既にパワー十分なら DON 不要、 そのまま実行可)
+        - PlayCharacter / PlayEvent / PlayStage (= 場の構築は別 cost、 DON 直接消費しない)
+        - 無料 ActivateMain
+        - EndPhase
+        """
+        me = state.turn_player
+        filtered = []
+        for a in actions:
+            if isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
+                # 付与すると active DON が reserve 以下になる → skip
+                n = getattr(a, "n", 1)
+                if me.don_active - n < self.BLUFF_DON_RESERVE:
+                    continue
+            elif isinstance(a, ActivateMain):
+                pay = self._activate_main_pay_don(state, a)
+                if pay > 0 and me.don_active - pay < self.BLUFF_DON_RESERVE:
+                    continue
+            filtered.append(a)
+        return filtered
+
     def choose_action(self, state: GameState) -> Action:
         self._ensure_matchup_overrides(state, state.turn_player_idx)
         actions = legal_actions(state)
+        # Phase 7G: 負け確定気味なら bluff モード (= 攻撃放棄 + DON 温存)
+        if self._is_desperate_losing_position(state, state.turn_player_idx):
+            filtered = self._bluff_filter_actions(state, actions)
+            if filtered:
+                # bluff モード残された候補で 既存ロジック (= play / blocker 優先) に流す
+                actions = filtered
+            else:
+                # 何もできない (= 場も手札も空) → EndPhase
+                return EndPhase()
         me = state.turn_player
         opp = state.opponent
 
@@ -570,8 +642,11 @@ class GreedyAI:
             )
             top_n = damage_potentials[:hits_to_lethal]
             total_excess = sum(d for _, d in top_n)
+            # Phase 7G: counter event bluff を加味
+            bluff_counter = hand_estimator.expected_counter_from_don_bluff(state, opp_idx)
+            effective_excess = max(0, total_excess - bluff_counter)
             p_block = hand_estimator.probability_counter_total_at_least(
-                state, opp_idx, total_excess,
+                state, opp_idx, effective_excess,
             )
             p_lethal = 1.0 - p_block
             is_lethal = (
@@ -671,22 +746,19 @@ class GreedyAI:
         top_n = feasible[:hits_needed]
         total_excess = sum(x[3] for x in top_n)
 
-        # 相手 counter の確率分布で「リーサル成立確率」 を計算 (Phase 7B)。
+        # 相手 counter の確率分布で「リーサル成立確率」 を計算 (Phase 7B + 7G 改修)。
         #
-        # 旧実装: avg × 1.2 マージン の ad-hoc 計算
-        #   est_max_defense = avg_counter × hand_size × 1.2
-        #   if total_excess < est_max_defense: 諦め
-        #
-        # 新実装: ハイパージオメトリック分布で P(opp が止められる) を直接計算
-        #   P_block = P(hand counter total >= total_excess)
-        #   P_lethal = 1 - P_block
-        #   if P_lethal < lethal_threshold: 諦め
-        #
-        # lethal_threshold = 0.70 (= 70% 以上の成功率でリーサル行く)。
-        # 旧 1.2x マージン と概ね対応 (= 上振れ 20% を弾く)。
+        # 旧実装 (R67 まで): avg × 1.2 マージン の ad-hoc 計算
+        # Phase 7B: ハイパージオメトリック分布で P(opp が止める) を直接計算
+        # Phase 7G: opp の visible active DON から counter event 寄与を加算
+        #   (= bluff モードで温存された DON は counter event 打つかもしれない)
         opp_idx = 1 - state.turn_player_idx
+        # Counter event bluff: visible active DON から期待 counter を追加
+        bluff_counter = hand_estimator.expected_counter_from_don_bluff(state, opp_idx)
+        # 必要 excess を bluff 分上乗せ (= P(止める) も上方修正)
+        effective_excess = max(0, total_excess - bluff_counter)
         p_block = hand_estimator.probability_counter_total_at_least(
-            state, opp_idx, total_excess,
+            state, opp_idx, effective_excess,
         )
         p_lethal = 1.0 - p_block
         LETHAL_THRESHOLD = 0.70
@@ -1668,6 +1740,12 @@ class PlanningAI(GreedyAI):
             return EndPhase()
         if len(actions) == 1:
             return actions[0]
+
+        # Phase 7G: 負け確定気味なら bluff モード (= GreedyAI fallback、 plan search skip)
+        # plan_search は最適手探索なので「絶望時に DON 温存」 という心理戦的判断はしない。
+        # GreedyAI の bluff filter を経由させる。
+        if self._is_desperate_losing_position(state, state.turn_player_idx):
+            return super().choose_action(state)
 
         ai_opp = self._ai_opp if self._ai_opp is not None else self
         try:
