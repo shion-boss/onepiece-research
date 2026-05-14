@@ -718,6 +718,16 @@ class GreedyAI:
         is_leader_attack: bool,
         defender: Player,
     ) -> tuple[Optional[int], tuple[int, ...]]:
+        """Phase 7A 改修: 3-tier ブロッカー選択 (= safe / rescue / sacrifice) + 既存防御閾値ロジック。
+
+        ブロッカー選択を 3 候補で並列評価:
+        - Tier 1 (block_safe): 自力で生存 (= c.power > atk_p、 公式 7-1-4 準拠) → counter 不要
+        - Tier 2 (block_rescue): counter で救う (= valuable blocker + cost reasonable) → 強制 counter
+        - Tier 3 (block_sacrifice): life ≤ 1 の特攻 (= blocker 失うが leader 守る)
+
+        rule fix: 旧 `c.power >= atk_p` (= 同値生存) → `c.power > atk_p` (= strictly greater)。
+        公式 7-1-4: atk ≥ def で攻撃側勝ち、 defender は atk より strictly higher な power が必要。
+        """
         # defender 視点で MatchupProfile 由来の override を 初回のみ適用。
         # 防御中なので turn_player_idx は attacker、 defender_idx は その逆。
         self._ensure_matchup_overrides(state, 1 - state.turn_player_idx)
@@ -733,29 +743,55 @@ class GreedyAI:
         atk_p = attacker.power + est_attacker_buff
         life_left = len(defender.life)
 
-        # ステップ1: ブロッカー候補を評価 (実効 atk_p で生存判定)
+        # === ブロッカー選択 (3-tier) ===
         block_iid: Optional[int] = None
-        if (
-            not attacker.has_no_block_now
-            and not attacker.attacker_prevents_blocker_until_turn_end
-            and is_leader_attack
-        ):
-            best = None
-            for c in defender.characters:
-                if c.rested or c.summoning_sickness or not c.is_blocker_now:
-                    continue
-                survives = c.power >= atk_p
-                score = (1 if survives else 0, c.power)
-                if best is None or score > best[0]:
-                    best = (score, c)
-            if best is not None:
-                survives, blocker = best[0][0], best[1]
-                if survives:
-                    block_iid = blocker.instance_id
-                elif life_left <= 1:
-                    block_iid = blocker.instance_id
+        forced_counter: tuple[int, ...] = ()  # rescue 戦略時の確定 counter
 
-        # ステップ2: 防御パワー算出 (ブロッカー切ってたらブロッカー、それ以外は元の対象)
+        can_block = (
+            is_leader_attack
+            and not attacker.has_no_block_now
+            and not attacker.attacker_prevents_blocker_until_turn_end
+        )
+        if can_block:
+            available = [
+                c for c in defender.characters
+                if not c.rested and not c.summoning_sickness and c.is_blocker_now
+            ]
+            # Tier 1: 自力生存 (= 公式 7-1-4: c.power > atk_p で defender 勝ち)
+            safe = [c for c in available if c.power > atk_p]
+            if safe:
+                block_iid = max(safe, key=lambda c: c.power).instance_id
+
+            # Tier 2: counter で救う (= 価値ある blocker を温存)
+            if block_iid is None:
+                rescue_options = []
+                for c in available:
+                    if not self._is_valuable_blocker(c):
+                        continue
+                    rescue_gap = atk_p - c.power
+                    if rescue_gap < 0:
+                        continue  # Tier 1 で拾われるはずだが念のため
+                    combo = self._optimal_counter_combo(defender.hand, rescue_gap)
+                    if not combo:
+                        continue
+                    rescue_total = sum(defender.hand[i].counter for i in combo)
+                    if self._is_rescue_worthwhile(c, rescue_total, len(combo), life_left):
+                        rescue_options.append((c, tuple(combo), rescue_total))
+                if rescue_options:
+                    # 最安 rescue を採用
+                    chosen_c, chosen_combo, _ = min(rescue_options, key=lambda x: x[2])
+                    block_iid = chosen_c.instance_id
+                    forced_counter = chosen_combo
+
+            # Tier 3: 特攻 (= life ≤ 1 で blocker 失っても leader 守る)
+            if block_iid is None and life_left <= 1 and available:
+                block_iid = max(available, key=lambda c: c.power).instance_id
+
+        # rescue で counter 確定済なら直接返す (= 防御閾値 check をスキップ)
+        if forced_counter:
+            return block_iid, forced_counter
+
+        # === 既存 防御閾値ロジック (= leader / chara 攻撃別) ===
         target_power = defender.leader.power if is_leader_attack else target.power
         if block_iid is not None:
             blocker = next(c for c in defender.characters if c.instance_id == block_iid)
@@ -800,6 +836,51 @@ class GreedyAI:
         if target.card.cost >= 4 and len(spent) <= 1 and counter_total <= 2000:
             return block_iid, tuple(spent)
         return block_iid, ()
+
+    def _is_valuable_blocker(self, c: InPlay) -> bool:
+        """ブロッカーを「counter で救う価値あり」 と判定するか (Phase 7A)。
+
+        以下のいずれかなら True:
+        - power ≥ 5000: 次ターン攻撃に使える戦力
+        - role が finisher / removal / blocker: 戦略的重要カード
+        - cost ≥ 4: 投資コストが高い (= 再展開コスト高)
+        """
+        if c.power >= 5000:
+            return True
+        role = self._get_card_primary_role(c.card.card_id)
+        if role in ("finisher", "removal", "blocker"):
+            return True
+        if c.card.cost >= 4:
+            return True
+        return False
+
+    def _is_rescue_worthwhile(
+        self,
+        blocker: InPlay,
+        rescue_total: int,
+        rescue_count: int,
+        life_left: int,
+    ) -> bool:
+        """この blocker を rescue_total / rescue_count で救う価値があるか (Phase 7A)。
+
+        判定基準:
+        - power ≥ 5000: 2 枚 / 2000 counter まで許容 (= 高 power blocker は積極温存)
+        - power 3000-4999: 1 枚 / 1000 counter まで (= 控えめ)
+        - life ≤ 2 で finisher/blocker role: 2 枚 / 3000 まで (= 場のキャラ死守)
+        - その他: rescue しない (= sacrifice 待ち)
+        """
+        if blocker.power >= 5000:
+            if rescue_total <= 2000 and rescue_count <= 2:
+                return True
+        if blocker.power >= 3000:
+            if rescue_total <= 1000 and rescue_count <= 1:
+                return True
+        if life_left <= 2:
+            role = self._get_card_primary_role(blocker.card.card_id)
+            if role in ("finisher", "blocker"):
+                if rescue_total <= 3000 and rescue_count <= 2:
+                    return True
+        return False
 
     def _get_activate_eff(self, state: GameState, act: ActivateMain) -> Optional[dict]:
         """ActivateMain の対応 effect dict を返す。 失敗時 None。"""
