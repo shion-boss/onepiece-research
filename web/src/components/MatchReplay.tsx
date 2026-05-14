@@ -263,35 +263,21 @@ function computeActingState(
 }
 
 
-// hover preview のクリアタイマー (= module-level で共有)。
-// snapshot 更新で BoardCard が re-render → mouseLeave 即発火 → 数 ms 後に再 mouseEnter
-// という flicker が起きるため、 clear は 200ms 遅延させて 同一/別カードへの再 enter で
-// cancel できるようにする。 「カード読んでる最中に消える」 問題への対応。
-let _hoverClearTimer: ReturnType<typeof setTimeout> | null = null;
-
+// hover handler は mouseEnter のみで更新。 個別 card の mouseLeave では clear しない:
+// snapshot 更新で CSS transform 変化 (= rest/untap で rotate) → 視覚位置がずれて
+// 「カーソル下から外れる」 → mouseLeave 連発 → debounce でも追いつかない、 という
+// 連鎖が ログ進行時に発生するため。 代わりに 大きな MatchReplay container 全体に
+// onMouseLeave を一括で当てて、 観戦エリアから 完全に出た時のみ clear する。
+// カード間の切替は mouseEnter の上書きで自然に動く。
 function useHoverHandlers(info: HoverInfo | null | undefined) {
   const setHovered = useContext(HoverContext);
   const setAnchor = useContext(HoverAnchorContext);
   if (!info) return {};
   return {
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-      // 既存 clear timer を cancel (= snapshot 更新 → remount → 再 enter で消えない)
-      if (_hoverClearTimer !== null) {
-        clearTimeout(_hoverClearTimer);
-        _hoverClearTimer = null;
-      }
       setHovered(info);
       const r = e.currentTarget.getBoundingClientRect();
       setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
-    },
-    onMouseLeave: () => {
-      // 200ms 後に消す。 同期間内に mouseEnter が来たら上記で cancel される。
-      if (_hoverClearTimer !== null) clearTimeout(_hoverClearTimer);
-      _hoverClearTimer = setTimeout(() => {
-        setHovered(null);
-        setAnchor(null);
-        _hoverClearTimer = null;
-      }, 200);
     },
   };
 }
@@ -1163,7 +1149,17 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   };
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+    <div
+      className="relative flex min-h-0 flex-1 flex-col gap-2"
+      // 観戦エリア全体から cursor が出た時のみ hover/anchor を clear。
+      // 個別 card の onMouseLeave では clear しない (= snapshot 進行で CSS rotate
+      // 変化 → 視覚位置ズレ → mouseLeave 連発 で ちらつく問題を回避)。
+      // カード間移動は mouseEnter の上書きで自然に動く。
+      onMouseLeave={() => {
+        setHovered(null);
+        setHoverAnchor(null);
+      }}
+    >
       {/* 上端: フェーズストリップ (画面の上に固定表示) */}
       <PhaseStrip
         snap={snap}
