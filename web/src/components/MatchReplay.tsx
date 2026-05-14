@@ -47,16 +47,29 @@ type HoverInfo = {
   summoningSickness?: boolean;
 };
 
+// 浮遊大型プレビューの anchor (= ホバー中カードの bounding rect)。
+// 大型プレビューを「カードの隣」 に固定配置するために使う。
+type HoverAnchorRect = { x: number; y: number; width: number; height: number };
+
 const HoverContext = createContext<(info: HoverInfo | null) => void>(() => {});
+const HoverAnchorContext = createContext<
+  (rect: HoverAnchorRect | null) => void
+>(() => {});
 
 function useHoverHandlers(info: HoverInfo | null | undefined) {
   const setHovered = useContext(HoverContext);
+  const setAnchor = useContext(HoverAnchorContext);
   if (!info) return {};
   // mouseLeave で null にしない: スナップショット更新中に DOM が remount すると
   // hover している要素が一瞬 unmount → mouseLeave が走ってプレビューがちらつく。
-  // 別カードを hover すると上書きされるのでクリア不要。
+  // 別カードを hover すると上書きされるのでクリア不要。 anchor も同様に維持し、
+  // 別 card の hover で上書きされる方針。
   return {
-    onMouseEnter: () => setHovered(info),
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      setHovered(info);
+      const r = e.currentTarget.getBoundingClientRect();
+      setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
+    },
   };
 }
 
@@ -150,6 +163,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   const [speedIdx, setSpeedIdx] = useState(1);
   const [followLog, setFollowLog] = useState(true);
   const [hovered, setHovered] = useState<HoverInfo | null>(null);
+  // 浮遊大型プレビューの anchor (= 拡大版を配置する起点となるカードの rect)。
+  const [hoverAnchor, setHoverAnchor] = useState<HoverAnchorRect | null>(null);
   const [showBoardEval, setShowBoardEval] = useState(false);
   // log アノテーション (= サーバ永続、 友達共有用 author + 👍 同意あり)。
   // user/友達が「ここ悪手」 を書き留める → 私 (Claude) が db/spectate_comments.json を
@@ -939,6 +954,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
             └──────────────┴─────────────┴──────────────┘
       */}
       <HoverContext.Provider value={setHovered}>
+      <HoverAnchorContext.Provider value={setHoverAnchor}>
       <CardRefContext.Provider value={cardRegistry}>
       <ZoneRefContext.Provider value={zoneRegistry}>
       <div className="flex min-h-0 w-full flex-1 gap-2">
@@ -1337,7 +1353,87 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           onClose={() => setActiveCommentIdx(null)}
         />
       ) : null}
+
+      {/* 浮遊大型プレビュー (= ホバーしたカードの隣に固定配置)。
+          position: fixed + z-50 で layout に影響なし。 pointer-events-none で
+          下の要素のクリックを妨げない。 anchor の rect に対して右側に出すが、
+          画面端 (= viewport.width 超過) なら左側に回避する。 */}
+      <HoverFloatingPreview hovered={hovered} anchor={hoverAnchor} />
+      </HoverAnchorContext.Provider>
       </HoverContext.Provider>
+    </div>
+  );
+}
+
+// 浮遊大型プレビュー本体。 hovered + anchor が両方ある時のみ表示。
+function HoverFloatingPreview({
+  hovered,
+  anchor,
+}: {
+  hovered: HoverInfo | null;
+  anchor: HoverAnchorRect | null;
+}) {
+  if (!hovered || !anchor) return null;
+  // 大型プレビューサイズ (= 通常 80px の 約 3.5x)
+  const PREVIEW_W = 280;
+  const PREVIEW_H = 392; // 7:10 縦比
+  const GAP = 12;
+  // viewport 幅 (= SSR safe)
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+  // 右側に出すと画面外に出るなら左側 fallback
+  let left = anchor.x + anchor.width + GAP;
+  if (left + PREVIEW_W > vw) {
+    left = anchor.x - GAP - PREVIEW_W;
+  }
+  if (left < 0) left = 8; // 左端にも入らない極小画面は左寄せ
+  // anchor の上端に合わせるが、 下に溢れるなら上にずらす
+  let top = anchor.y;
+  if (top + PREVIEW_H > vh) {
+    top = Math.max(8, vh - PREVIEW_H - 8);
+  }
+  return (
+    <div
+      className="pointer-events-none fixed z-[80] flex flex-col gap-1 rounded-lg bg-zinc-900/95 p-2 shadow-2xl ring-2 ring-amber-400/80 backdrop-blur-sm"
+      style={{ left, top, width: PREVIEW_W }}
+    >
+      <CardImage
+        cardId={hovered.cardId}
+        alt={hovered.name ?? hovered.cardId}
+        loading="eager"
+        className="block w-full rounded ring-1 ring-amber-900/40"
+      />
+      {hovered.name ? (
+        <div className="truncate text-[13px] font-medium text-amber-50">
+          {hovered.name}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-100/90">
+        <span className="font-mono text-amber-200/60">{hovered.cardId}</span>
+        {hovered.power !== undefined ? (
+          <span className="font-mono">P={hovered.power}</span>
+        ) : null}
+        {hovered.attachedDons !== undefined && hovered.attachedDons > 0 ? (
+          <span className="rounded bg-amber-500/30 px-1 font-mono">
+            DON×{hovered.attachedDons}
+          </span>
+        ) : null}
+        {hovered.summoningSickness ? (
+          <span className="rounded bg-zinc-500/30 px-1 text-[10px]">召喚酔</span>
+        ) : null}
+      </div>
+      {hovered.keywords && hovered.keywords.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {hovered.keywords.map((k) => (
+            <span
+              key={k}
+              className="rounded bg-amber-200/20 px-1 text-[10px] text-amber-100"
+            >
+              {k}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
