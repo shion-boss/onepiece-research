@@ -203,12 +203,71 @@ def _is_attach_don_wasteful(state: GameState, action) -> bool:
     return False
 
 
+def _is_attack_confirmed_fail_no_effect(
+    state: GameState, action, overlay: dict
+) -> bool:
+    """attack が「確定失敗 + on_attack 効果なし」 = 完全な空打ち か判定。
+
+    cluster #2 由来: P=2000 chara で P=5000-6000 のリーダー/キャラに突撃 → 失敗
+    で attacker は rested になるだけ、 副次効果もなし。 user 視点で「この攻撃の意味は？」
+    と言われる典型的な悪手。 plan_search の eval では「attacker tap」 を ペナルティに
+    計上してない (= field_count 不変、 power 不変) ため、 抑制が効きにくい。
+
+    判定条件 (= 全部満たす時のみ mask):
+    - attacker.power < target_power (= counter 無くても KO 不可、 確定 fail)
+    - attacker.card の overlay に when=on_attack 効果がない (= 攻撃そのものの副次効果なし)
+
+    Trade-off:
+    - 厳しめにすると bluff (= 意図的な空打ち) を消す可能性。 ただし bluff は別 logic
+      (= GreedyAI._is_desperate_losing_position 経由) で扱うのでここでは厳しめに ok。
+    - on_attack 効果ありなら mask しない (= 弱体化 follow-up 期待。 task #12 領域)。
+    """
+    me = state.turn_player
+    opp = state.opponent
+    # attacker 取得
+    attacker = None
+    if me.leader.instance_id == action.attacker_iid:
+        attacker = me.leader
+    else:
+        for c in me.characters:
+            if c.instance_id == action.attacker_iid:
+                attacker = c
+                break
+    if attacker is None:
+        return False
+    # target_power 取得
+    if isinstance(action, AttackLeader):
+        target_power = opp.leader.power
+    else:  # AttackCharacter
+        target = None
+        for c in opp.characters:
+            if c.instance_id == action.target_iid:
+                target = c
+                break
+        if target is None:
+            return False
+        target_power = target.power
+    # 確定失敗判定 (= 公式 7-1-4: attacker.power < target_power なら 失敗。 同値は attacker 勝ち)
+    if attacker.power >= target_power:
+        return False
+    # on_attack 効果あり → mask しない (= 副次効果に期待)
+    if overlay:
+        bundle = overlay.get(attacker.card.card_id)
+        if bundle:
+            for eff in bundle.effects:
+                if eff.get("when") == "on_attack":
+                    return False
+    # 確定失敗 + 副次効果なし → 空打ち
+    return True
+
+
 def prune_mechanical_waste(state: GameState, actions: list) -> list:
     """機械的悪手を action リストから除外。 副作用なし。
 
     現在排除する手:
     - PlayEvent: 過剰除去判定 (_is_event_overkill が True)
     - AttachDonToLeader / AttachDonToCharacter: 今ターン attack 不可な target への attach
+    - AttackLeader / AttackCharacter: 確定失敗 + on_attack 効果なし の空打ち attack
 
     全 action が剪定されたら元リストを返す (= AI を破綻させない safety)。
     """
@@ -226,6 +285,9 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
                     continue
         elif isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
             if _is_attach_don_wasteful(state, a):
+                continue
+        elif isinstance(a, (AttackLeader, AttackCharacter)):
+            if _is_attack_confirmed_fail_no_effect(state, a, overlay):
                 continue
         pruned.append(a)
     if not pruned:

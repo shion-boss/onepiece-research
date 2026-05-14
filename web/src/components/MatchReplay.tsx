@@ -1094,7 +1094,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
         <div className="flex min-h-0 flex-1 flex-col gap-2">
           {/* 左上: Acting Card / Battle Cards。
               通常は 1 枚 (= attach/play/event/起動メイン等の対象)、
-              攻撃時は attacker vs defender の 2 枚を VS 風に並べる (= バトル局面 一目把握)。 */}
+              攻撃時は attacker vs defender の 2 枚を VS 風に並べる (= バトル局面 一目把握)。
+              内側のカード画像は hover で 浮遊大型プレビュー (= z-200) も発火する。 */}
           <div className="flex min-h-0 flex-[3] flex-col gap-1 rounded bg-amber-950/40 p-2 ring-1 ring-amber-950/60">
             <div className="text-[10px] uppercase tracking-wide text-amber-200/70">
               {actingCards?.type === "vs" ? "Battle Cards" : "Acting Card"}
@@ -1103,12 +1104,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               {actingCards?.type === "vs" ? (
                 <ActingVsView attacker={actingCards.attacker} defender={actingCards.defender} />
               ) : actingCards?.type === "single" ? (
-                <CardImage
-                  cardId={actingCards.card.cardId}
-                  alt={actingCards.card.name ?? actingCards.card.cardId}
-                  loading="eager"
-                  className="block h-full w-auto max-w-full rounded object-contain shadow-lg ring-1 ring-amber-900/40"
-                />
+                <ActingCardSingleImage card={actingCards.card} />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-[11px] text-amber-200/40">
                   (この snap では特定の行動カードなし)
@@ -1457,6 +1453,21 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   );
 }
 
+// Acting Card single 画像 (= hover で浮遊大型プレビューも発火)。
+function ActingCardSingleImage({ card }: { card: HoverInfo }) {
+  const hover = useHoverHandlers(card);
+  return (
+    <div {...hover} className="block h-full">
+      <CardImage
+        cardId={card.cardId}
+        alt={card.name ?? card.cardId}
+        loading="eager"
+        className="block h-full w-auto max-w-full rounded object-contain shadow-lg ring-1 ring-amber-900/40"
+      />
+    </div>
+  );
+}
+
 // Acting Card 単体表示用の info パネル (= 名前/cardId/P/attached DON/keywords)。
 function ActingCardInfo({ card }: { card: HoverInfo }) {
   return (
@@ -1544,9 +1555,13 @@ function ActingCardMini({
   accent: "atk" | "def";
 }) {
   const ring = accent === "atk" ? "ring-rose-400/80" : "ring-sky-400/80";
+  const hover = useHoverHandlers(card);
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-start gap-0.5 overflow-hidden">
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+      <div
+        {...hover}
+        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+      >
         <CardImage
           cardId={card.cardId}
           alt={card.name ?? card.cardId}

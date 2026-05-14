@@ -293,23 +293,30 @@ export function detectBadges(
 
   if (attachCharaMatch && !isAttachToLeader) {
     const charaName = attachCharaMatch[1].trim();
-    // turn_player の場の同名キャラを探す (= 同名複数は最も rested を優先 = 最悪ケース表示)
+    // turn_player の場の同名キャラ全部を取得。 同名複数 (= dup) があり、 1 つでも
+    // active なら user の意図した target は active 側の可能性が高い (= log には iid 無し
+    // → 名前から特定不可)。 そのため: 全 同名キャラが rested の時だけ badge を出す
+    // (= false positive を抑える、 観戦コメント #7 由来の修正)。
     const me = snap.players[snap.turn_player_idx];
     if (me && me.characters) {
-      const target = me.characters.find((c) => c.name === charaName);
-      if (target) {
-        if (target.rested) {
+      const targets = me.characters.filter((c) => c.name === charaName);
+      if (targets.length > 0) {
+        const allRested = targets.every((c) => c.rested);
+        const allSickness = targets.every(
+          (c) => c.summoning_sickness && !c.rested,
+        );
+        if (allRested) {
           badges.push({
             label: "rested target",
             tone: "warn",
-            title: `${charaName} は既に rested (= 攻撃済 or sickness)。 このターン中に追加 attack できないため、 attached DON は次ターンまで活用されない (機会損失の可能性)。`,
+            title: `${charaName} は ${targets.length === 1 ? "" : `${targets.length} 体すべて`}rested (= 攻撃済 or sickness)。 このターン中に追加 attack できないため、 attached DON は次ターンまで活用されない (機会損失の可能性)。`,
           });
         }
-        if (target.summoning_sickness && !target.rested) {
+        if (allSickness) {
           badges.push({
             label: "sickness target",
             tone: "warn",
-            title: `${charaName} は summoning sickness 中。 Rush キーワード等がなければこのターン attack できない (= attach DON は次ターン以降の効果)。`,
+            title: `${charaName} は ${targets.length === 1 ? "" : `${targets.length} 体すべて`}summoning sickness 中。 Rush キーワード等がなければこのターン attack できない (= attach DON は次ターン以降の効果)。`,
           });
         }
       }
