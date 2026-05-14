@@ -56,10 +56,16 @@ const HoverAnchorContext = createContext<
   (rect: HoverAnchorRect | null) => void
 >(() => {});
 
+// Acting Card 表示用の型。 通常は 1 枚、 攻撃時は attacker vs defender の 2 枚で
+// 「VS 風」 レイアウト (= 観戦時にバトル局面が一目で分かる)。
+type ActingCards =
+  | { type: "single"; card: HoverInfo }
+  | { type: "vs"; attacker: HoverInfo; defender: HoverInfo };
+
 // 進行中アクションのカードを snapshot から検出 (= 左サイド Card Preview 表示用)。
 // log + event + players から、 「今何のカードに対する行動か」 を逆引きする。
-// 失敗時 null (= 左サイドに「行動なし」 を表示)。
-function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
+// 失敗時は手番リーダー (= 何も映ってない状態を避ける fallback)。
+function detectActingCards(snap: StateSnapshot | null): ActingCards | null {
   if (!snap) return null;
   const log = snap.log || "";
 
@@ -72,22 +78,43 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
     keywords: c.keywords,
   });
 
-  // pattern 1: atk: <attacker>(P=...) -> ... → attacker_iid から逆引き (= 確実)
-  if (snap.event?.type === "attack" && snap.event.attacker_iid !== undefined) {
-    const iid = snap.event.attacker_iid;
+  // 任意 player の leader/characters/stages から iid を見つけて HoverInfo を返す。
+  const findByIid = (iid: number): HoverInfo | null => {
     for (const p of snap.players) {
       if (p.leader.instance_id === iid) return fromChar(p.leader);
       for (const c of p.characters) {
         if (c.instance_id === iid) return fromChar(c);
       }
+      for (const s of p.stages) {
+        if (s.instance_id === iid) return fromChar(s);
+      }
+    }
+    return null;
+  };
+
+  // pattern 1: 攻撃 (= snap.event.type === "attack")
+  // attacker と target を両方検出して VS 表示。 リーダー攻撃 / キャラ攻撃 / ブロッカー
+  // 経由 (= target_kind=blocker) どれも target_iid から逆引きできる。
+  if (snap.event?.type === "attack" && snap.event.attacker_iid !== undefined) {
+    const atk = findByIid(snap.event.attacker_iid);
+    const def =
+      snap.event.target_iid !== undefined && snap.event.target_iid !== null
+        ? findByIid(snap.event.target_iid)
+        : null;
+    if (atk && def) {
+      return { type: "vs", attacker: atk, defender: def };
+    }
+    if (atk) {
+      return { type: "single", card: atk };
     }
   }
 
   const turn = snap.players[snap.turn_player_idx];
+  const single = (card: HoverInfo): ActingCards => ({ type: "single", card });
 
   // pattern 2: attach don to leader (= turn_player の leader)
   if (/attach don to leader/.test(log)) {
-    return fromChar(turn.leader);
+    return single(fromChar(turn.leader));
   }
 
   // pattern 3: attach don to <name> x
@@ -95,7 +122,7 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
   if (m) {
     const name = m[1].trim();
     const c = turn.characters.find((c) => c.name === name);
-    if (c) return fromChar(c);
+    if (c) return single(fromChar(c));
   }
 
   // pattern 4: play: <name> (cost ...) → turn_player の characters から最新の同名を探す
@@ -103,7 +130,7 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
   if (m) {
     const name = m[1].trim();
     for (let i = turn.characters.length - 1; i >= 0; i--) {
-      if (turn.characters[i].name === name) return fromChar(turn.characters[i]);
+      if (turn.characters[i].name === name) return single(fromChar(turn.characters[i]));
     }
   }
 
@@ -112,7 +139,7 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
   if (m) {
     const name = m[1].trim();
     if (turn.trash.length > 0) {
-      return { cardId: turn.trash[turn.trash.length - 1], name };
+      return single({ cardId: turn.trash[turn.trash.length - 1], name });
     }
   }
 
@@ -120,11 +147,11 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
   m = log.match(/起動メイン: (.+?)$/);
   if (m) {
     const name = m[1].trim();
-    if (turn.leader.name === name) return fromChar(turn.leader);
+    if (turn.leader.name === name) return single(fromChar(turn.leader));
     const c = turn.characters.find((c) => c.name === name);
-    if (c) return fromChar(c);
+    if (c) return single(fromChar(c));
     const s = turn.stages.find((s) => s.name === name);
-    if (s) return fromChar(s);
+    if (s) return single(fromChar(s));
   }
 
   // pattern 7: stage: <name> (cost ...) → stages 末尾
@@ -132,13 +159,13 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
   if (m) {
     const name = m[1].trim();
     for (let i = turn.stages.length - 1; i >= 0; i--) {
-      if (turn.stages[i].name === name) return fromChar(turn.stages[i]);
+      if (turn.stages[i].name === name) return single(fromChar(turn.stages[i]));
     }
   }
 
   // fallback: 特定の行動カードが取れない snap (= phase 切替や trigger 解決等) は
   // 手番リーダーを表示。 「観戦中に何も映ってない」 状態を避ける。
-  return fromChar(turn.leader);
+  return single(fromChar(turn.leader));
 }
 
 
@@ -982,8 +1009,9 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
   const snap = snapshots[idx];
   const acting = snap.turn_player_idx;
-  // この snapshot で「進行中のアクション対象カード」 を log + event + players から逆引き
-  const activeCard = useMemo(() => detectActiveCard(snap), [snap]);
+  // この snapshot で「進行中のアクション対象カード」 を log + event + players から逆引き。
+  // 攻撃時は attacker + defender の 2 枚 (= VS 風表示)、 それ以外は 1 枚。
+  const actingCards = useMemo(() => detectActingCards(snap), [snap]);
 
   const onPrev = () => {
     setPlaying(false);
@@ -1049,19 +1077,20 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       <div className="flex min-h-0 w-full flex-1 gap-2">
         {/* 左サイド: 上=Preview (3) / 下=自分手札 (2) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {/* 左上: Acting Card (= 進行中アクションのカード)。
-              以前はホバー追従だったが、 ホバー拡大は浮遊プレビューに移したので、
-              この枠は「今 log で動いているカード」 専用に。 atk: → attacker、
-              attach don to <name> → 対象キャラ、 play/event/起動メイン → そのカード。 */}
+          {/* 左上: Acting Card / Battle Cards。
+              通常は 1 枚 (= attach/play/event/起動メイン等の対象)、
+              攻撃時は attacker vs defender の 2 枚を VS 風に並べる (= バトル局面 一目把握)。 */}
           <div className="flex min-h-0 flex-[3] flex-col gap-1 rounded bg-amber-950/40 p-2 ring-1 ring-amber-950/60">
             <div className="text-[10px] uppercase tracking-wide text-amber-200/70">
-              Acting Card
+              {actingCards?.type === "vs" ? "Battle Cards" : "Acting Card"}
             </div>
             <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden">
-              {activeCard ? (
+              {actingCards?.type === "vs" ? (
+                <ActingVsView attacker={actingCards.attacker} defender={actingCards.defender} />
+              ) : actingCards?.type === "single" ? (
                 <CardImage
-                  cardId={activeCard.cardId}
-                  alt={activeCard.name ?? activeCard.cardId}
+                  cardId={actingCards.card.cardId}
+                  alt={actingCards.card.name ?? actingCards.card.cardId}
                   loading="eager"
                   className="block h-full w-auto max-w-full rounded object-contain shadow-lg ring-1 ring-amber-900/40"
                 />
@@ -1071,53 +1100,9 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                 </div>
               )}
             </div>
-            {activeCard && (
-              <div className="space-y-0.5 text-amber-100/90">
-                {activeCard.name && (
-                  <div className="truncate text-[12px] font-medium">
-                    {activeCard.name}
-                  </div>
-                )}
-                <div className="font-mono text-[10px] text-amber-200/60">
-                  {activeCard.cardId}
-                </div>
-                {(activeCard.power !== undefined ||
-                  (activeCard.attachedDons !== undefined &&
-                    activeCard.attachedDons > 0) ||
-                  activeCard.summoningSickness) && (
-                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    {activeCard.power !== undefined && (
-                      <span className="font-mono text-amber-100">
-                        P={activeCard.power}
-                      </span>
-                    )}
-                    {activeCard.attachedDons !== undefined &&
-                      activeCard.attachedDons > 0 && (
-                        <span className="rounded bg-amber-500/20 px-1 font-mono text-amber-200">
-                          DON×{activeCard.attachedDons}
-                        </span>
-                      )}
-                    {activeCard.summoningSickness && (
-                      <span className="rounded bg-zinc-500/20 px-1 text-[10px] text-zinc-200">
-                        召喚酔
-                      </span>
-                    )}
-                  </div>
-                )}
-                {activeCard.keywords && activeCard.keywords.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {activeCard.keywords.map((k) => (
-                      <span
-                        key={k}
-                        className="rounded bg-amber-200/20 px-1 text-[10px] text-amber-100"
-                      >
-                        {k}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {actingCards?.type === "single" ? (
+              <ActingCardInfo card={actingCards.card} />
+            ) : null}
           </div>
 
           {/* 左下: 自分の手札 (flex-2) — selfIdx 固定 */}
@@ -1457,6 +1442,110 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   );
 }
 
+// Acting Card 単体表示用の info パネル (= 名前/cardId/P/attached DON/keywords)。
+function ActingCardInfo({ card }: { card: HoverInfo }) {
+  return (
+    <div className="space-y-0.5 text-amber-100/90">
+      {card.name ? (
+        <div className="truncate text-[12px] font-medium">{card.name}</div>
+      ) : null}
+      <div className="font-mono text-[10px] text-amber-200/60">{card.cardId}</div>
+      {card.power !== undefined ||
+      (card.attachedDons !== undefined && card.attachedDons > 0) ||
+      card.summoningSickness ? (
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          {card.power !== undefined ? (
+            <span className="font-mono text-amber-100">P={card.power}</span>
+          ) : null}
+          {card.attachedDons !== undefined && card.attachedDons > 0 ? (
+            <span className="rounded bg-amber-500/20 px-1 font-mono text-amber-200">
+              DON×{card.attachedDons}
+            </span>
+          ) : null}
+          {card.summoningSickness ? (
+            <span className="rounded bg-zinc-500/20 px-1 text-[10px] text-zinc-200">
+              召喚酔
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {card.keywords && card.keywords.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {card.keywords.map((k) => (
+            <span
+              key={k}
+              className="rounded bg-amber-200/20 px-1 text-[10px] text-amber-100"
+            >
+              {k}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// VS 風 表示: attacker と defender を左右に並べて 中央に「VS」 配置。
+// 両カードは縦比 7:10 で w-[42%] 程度に縮小、 名前 + P を 下に小さく表示。
+function ActingVsView({
+  attacker,
+  defender,
+}: {
+  attacker: HoverInfo;
+  defender: HoverInfo;
+}) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-1">
+      <div className="flex min-h-0 flex-1 w-full items-center justify-center gap-1.5">
+        <ActingCardMini card={attacker} accent="atk" />
+        <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">
+          <span
+            className="font-mono font-black text-amber-300"
+            style={{
+              fontSize: "22px",
+              textShadow:
+                "0 0 4px rgba(251,191,36,0.7), 0 0 8px rgba(251,191,36,0.4)",
+            }}
+          >
+            VS
+          </span>
+          <span className="font-mono text-[9px] text-amber-200/60">
+            atk{attacker.power !== undefined ? ` ${attacker.power}` : ""}
+            {" vs "}
+            def{defender.power !== undefined ? ` ${defender.power}` : ""}
+          </span>
+        </div>
+        <ActingCardMini card={defender} accent="def" />
+      </div>
+    </div>
+  );
+}
+
+function ActingCardMini({
+  card,
+  accent,
+}: {
+  card: HoverInfo;
+  accent: "atk" | "def";
+}) {
+  const ring = accent === "atk" ? "ring-rose-400/80" : "ring-sky-400/80";
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-start gap-0.5 overflow-hidden">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+        <CardImage
+          cardId={card.cardId}
+          alt={card.name ?? card.cardId}
+          loading="eager"
+          className={`block h-full w-auto max-w-full rounded object-contain shadow-lg ring-2 ${ring}`}
+        />
+      </div>
+      <div className="w-full truncate text-center text-[10px] font-medium text-amber-100">
+        {card.name ?? card.cardId}
+      </div>
+    </div>
+  );
+}
+
 // 浮遊大型プレビュー本体。 hovered + anchor が両方ある時のみ表示。
 function HoverFloatingPreview({
   hovered,
@@ -1486,7 +1575,7 @@ function HoverFloatingPreview({
   }
   return (
     <div
-      className="pointer-events-none fixed z-[80] flex flex-col gap-1 rounded-lg bg-zinc-900/95 p-2 shadow-2xl ring-2 ring-amber-400/80 backdrop-blur-sm"
+      className="pointer-events-none fixed z-[200] flex flex-col gap-1 rounded-lg bg-zinc-900/95 p-2 shadow-2xl ring-2 ring-amber-400/80 backdrop-blur-sm"
       style={{ left, top, width: PREVIEW_W }}
     >
       <CardImage
