@@ -56,116 +56,210 @@ const HoverAnchorContext = createContext<
   (rect: HoverAnchorRect | null) => void
 >(() => {});
 
-// Acting Card 表示用の型。 通常は 1 枚、 攻撃時は attacker vs defender の 2 枚で
-// 「VS 風」 レイアウト (= 観戦時にバトル局面が一目で分かる)。
-type ActingCards =
+// Acting Card 表示用の型。
+// - single: 1 枚 (= attach/play/event/起動メイン/前 attack の勝者 等)
+// - battle: 攻撃中の VS 表示 (= attacker / defender + counter 累計 + 確定勝敗)
+type ActingState =
   | { type: "single"; card: HoverInfo }
-  | { type: "vs"; attacker: HoverInfo; defender: HoverInfo };
+  | {
+      type: "battle";
+      attacker: HoverInfo;
+      defender: HoverInfo;
+      atkPower: number;
+      defPowerBase: number;     // counter 加算前
+      counterAdded: number;     // 累計 (= 0 なら counter なし)
+      outcome: "ongoing" | "atk_wins" | "def_wins";
+    };
 
-// 進行中アクションのカードを snapshot から検出 (= 左サイド Card Preview 表示用)。
-// log + event + players から、 「今何のカードに対する行動か」 を逆引きする。
-// 失敗時は手番リーダー (= 何も映ってない状態を避ける fallback)。
-function detectActingCards(snap: StateSnapshot | null): ActingCards | null {
-  if (!snap) return null;
-  const log = snap.log || "";
-
-  const fromChar = (c: CharSnapshot): HoverInfo => ({
+function _fromChar(c: CharSnapshot): HoverInfo {
+  return {
     cardId: c.card_id,
     name: c.name,
     power: c.power,
     attachedDons: c.attached_dons,
     summoningSickness: c.summoning_sickness,
     keywords: c.keywords,
-  });
-
-  // 任意 player の leader/characters/stages から iid を見つけて HoverInfo を返す。
-  const findByIid = (iid: number): HoverInfo | null => {
-    for (const p of snap.players) {
-      if (p.leader.instance_id === iid) return fromChar(p.leader);
-      for (const c of p.characters) {
-        if (c.instance_id === iid) return fromChar(c);
-      }
-      for (const s of p.stages) {
-        if (s.instance_id === iid) return fromChar(s);
-      }
-    }
-    return null;
   };
+}
 
-  // pattern 1: 攻撃 (= snap.event.type === "attack")
-  // attacker と target を両方検出して VS 表示。 リーダー攻撃 / キャラ攻撃 / ブロッカー
-  // 経由 (= target_kind=blocker) どれも target_iid から逆引きできる。
-  if (snap.event?.type === "attack" && snap.event.attacker_iid !== undefined) {
-    const atk = findByIid(snap.event.attacker_iid);
-    const def =
-      snap.event.target_iid !== undefined && snap.event.target_iid !== null
-        ? findByIid(snap.event.target_iid)
-        : null;
-    if (atk && def) {
-      return { type: "vs", attacker: atk, defender: def };
+function _findByIid(snap: StateSnapshot, iid: number): HoverInfo | null {
+  for (const p of snap.players) {
+    if (p.leader.instance_id === iid) return _fromChar(p.leader);
+    for (const c of p.characters) {
+      if (c.instance_id === iid) return _fromChar(c);
     }
-    if (atk) {
-      return { type: "single", card: atk };
+    for (const s of p.stages) {
+      if (s.instance_id === iid) return _fromChar(s);
     }
   }
+  return null;
+}
 
+// 1 snap から「single 行動カード」 (= attach/play/event/起動メイン/stage) を抽出。
+// 攻撃系 (= atk:) は computeActingState で別途扱うのでここでは false 返し。
+// trigger 解決 / phase 切替 等 は null。
+function _detectSingleActionFromSnap(snap: StateSnapshot): HoverInfo | null {
+  const log = snap.log || "";
   const turn = snap.players[snap.turn_player_idx];
-  const single = (card: HoverInfo): ActingCards => ({ type: "single", card });
 
-  // pattern 2: attach don to leader (= turn_player の leader)
-  if (/attach don to leader/.test(log)) {
-    return single(fromChar(turn.leader));
-  }
+  if (/attach don to leader/.test(log)) return _fromChar(turn.leader);
 
-  // pattern 3: attach don to <name> x
   let m = log.match(/attach don to (.+?) x\d+/);
   if (m) {
     const name = m[1].trim();
     const c = turn.characters.find((c) => c.name === name);
-    if (c) return single(fromChar(c));
+    if (c) return _fromChar(c);
   }
 
-  // pattern 4: play: <name> (cost ...) → turn_player の characters から最新の同名を探す
   m = log.match(/play: (.+?) \(cost/);
   if (m) {
     const name = m[1].trim();
     for (let i = turn.characters.length - 1; i >= 0; i--) {
-      if (turn.characters[i].name === name) return single(fromChar(turn.characters[i]));
+      if (turn.characters[i].name === name) return _fromChar(turn.characters[i]);
     }
   }
 
-  // pattern 5: event: <name> (cost ...) → trash 末尾の card_id (= 直前 trash 追加)
   m = log.match(/event: (.+?) \(cost/);
   if (m) {
     const name = m[1].trim();
     if (turn.trash.length > 0) {
-      return single({ cardId: turn.trash[turn.trash.length - 1], name });
+      return { cardId: turn.trash[turn.trash.length - 1], name };
     }
   }
 
-  // pattern 6: 起動メイン: <name> → leader/characters/stages から逆引き
   m = log.match(/起動メイン: (.+?)$/);
   if (m) {
     const name = m[1].trim();
-    if (turn.leader.name === name) return single(fromChar(turn.leader));
+    if (turn.leader.name === name) return _fromChar(turn.leader);
     const c = turn.characters.find((c) => c.name === name);
-    if (c) return single(fromChar(c));
+    if (c) return _fromChar(c);
     const s = turn.stages.find((s) => s.name === name);
-    if (s) return single(fromChar(s));
+    if (s) return _fromChar(s);
   }
 
-  // pattern 7: stage: <name> (cost ...) → stages 末尾
   m = log.match(/stage: (.+?) \(cost/);
   if (m) {
     const name = m[1].trim();
     for (let i = turn.stages.length - 1; i >= 0; i--) {
-      if (turn.stages[i].name === name) return single(fromChar(turn.stages[i]));
+      if (turn.stages[i].name === name) return _fromChar(turn.stages[i]);
     }
   }
 
-  // fallback: 特定の行動カードが取れない snap (= phase 切替や trigger 解決等) は
-  // 手番リーダーを表示。 「観戦中に何も映ってない」 状態を避ける。
-  return single(fromChar(turn.leader));
+  return null;
+}
+
+// snapshots[0..idx] を走査して 現在の Acting State を決定 (= user 要望:
+// 「次のアクションが来るまで前のカード表示を保持」)。
+// 戦闘中は battle (= VS + counter 累計)、 終わった瞬間に勝者を single 化、 次の
+// 別 action が来るまでその勝者を表示し続ける。 初期は手番リーダー。
+function computeActingState(
+  snapshots: StateSnapshot[],
+  idx: number,
+): ActingState | null {
+  if (snapshots.length === 0 || idx < 0) return null;
+  const limit = Math.min(idx, snapshots.length - 1);
+
+  let battle: Extract<ActingState, { type: "battle" }> | null = null;
+  let lastSingle: HoverInfo | null = null;
+
+  for (let i = 0; i <= limit; i++) {
+    const s = snapshots[i];
+    const log = s.log || "";
+
+    // 攻撃宣言: snap.event.type === "attack" (= "atk: ..." 行)
+    // 引用元 engine: state.pending_event はこの snap で 1 回限り消費される。
+    if (
+      s.event?.type === "attack" &&
+      s.event.attacker_iid !== undefined &&
+      /\batk:/.test(log)
+    ) {
+      const atk = _findByIid(s, s.event.attacker_iid);
+      const def =
+        s.event.target_iid !== undefined && s.event.target_iid !== null
+          ? _findByIid(s, s.event.target_iid)
+          : null;
+      if (atk && def) {
+        battle = {
+          type: "battle",
+          attacker: atk,
+          defender: def,
+          atkPower: s.event.atk_power ?? atk.power ?? 0,
+          defPowerBase: s.event.defender_power ?? def.power ?? 0,
+          counterAdded: 0,
+          outcome: "ongoing",
+        };
+      }
+      continue;
+    }
+
+    // 戦闘中の追加情報: counter / blocker / resolution
+    if (battle) {
+      // counter 加算: "  counter +<n> → ..."。 engine 側 push_log と 同形。
+      // 連続 counter (= 複数枚) は各 push 毎に snap が立つので 各回累積。
+      const cm = log.match(/counter \+(\d+)/);
+      if (cm) {
+        battle.counterAdded += parseInt(cm[1], 10);
+        // engine の pending_event は counter 加算後の defender_power を埋め直す
+        // ので、 そっち優先 (= 私の累計が overlap しないように上書き)。
+        if (s.event?.defender_power !== undefined) {
+          battle.counterAdded = Math.max(
+            0,
+            s.event.defender_power - battle.defPowerBase,
+          );
+        }
+        continue;
+      }
+      // blocker 介在: "  blocker: <name>" — target を blocker に切替。
+      // engine 側 pending_event も blocker.iid に target_iid 更新済のはず。
+      if (/\bblocker:/.test(log) && s.event?.target_iid !== undefined) {
+        const newDef = _findByIid(s, s.event.target_iid);
+        if (newDef) {
+          battle.defender = newDef;
+          battle.defPowerBase = s.event.defender_power ?? newDef.power ?? 0;
+          // counter は blocker 切替後 0 リセット (= 再仕切り直し)
+          battle.counterAdded = 0;
+        }
+        continue;
+      }
+      // 勝敗確定:
+      //   "  KO: <name>"  → defender KO = attacker 勝ち (attacker self-KO は稀、 ここでは無視)
+      //   "  survived"    → defender 生存 = attacker 負け (= leader attack fail / blocker survive)
+      //   "  blocked"     → blocker が attack 吸収 (= attacker 負け、 blocker は別途 KO/survived)
+      if (/^.*KO:\s/.test(log)) {
+        battle.outcome = "atk_wins";
+        lastSingle = battle.attacker;
+        battle = null;
+        continue;
+      }
+      if (/\bsurvived\b/.test(log)) {
+        battle.outcome = "def_wins";
+        lastSingle = battle.defender;
+        battle = null;
+        continue;
+      }
+      if (/\bblocked\b/.test(log)) {
+        battle.outcome = "def_wins";
+        lastSingle = battle.defender;
+        battle = null;
+        continue;
+      }
+      // hit: ライフ damage 等は 戦闘継続の補助情報、 battle 状態維持
+    }
+
+    // single action: attach/play/event/起動メイン/stage
+    const det = _detectSingleActionFromSnap(s);
+    if (det) {
+      lastSingle = det;
+      battle = null; // 新行動 → 残ってる battle は破棄 (= 戦闘途中で別 action は無いが念のため)
+    }
+    // それ以外 (= trigger 解決等) は state 維持
+  }
+
+  if (battle) return battle;
+  if (lastSingle) return { type: "single", card: lastSingle };
+  // 初期 snap 群: 手番リーダーを fallback
+  const turn = snapshots[limit].players[snapshots[limit].turn_player_idx];
+  return { type: "single", card: _fromChar(turn.leader) };
 }
 
 
@@ -1024,9 +1118,14 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
   const snap = snapshots[idx];
   const acting = snap.turn_player_idx;
-  // この snapshot で「進行中のアクション対象カード」 を log + event + players から逆引き。
-  // 攻撃時は attacker + defender の 2 枚 (= VS 風表示)、 それ以外は 1 枚。
-  const actingCards = useMemo(() => detectActingCards(snap), [snap]);
+  // 「Acting State」: snapshots[0..idx] 走査で battle / single を持続的に追跡。
+  // - 攻撃中: VS + counter 加算 + outcome 表示
+  // - 戦闘終了後: 勝者 single 表示
+  // - 次の別 action が来るまで現状維持
+  const actingState = useMemo(
+    () => computeActingState(snapshots, idx),
+    [snapshots, idx],
+  );
 
   const onPrev = () => {
     setPlaying(false);
@@ -1092,27 +1191,28 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       <div className="flex min-h-0 w-full flex-1 gap-2">
         {/* 左サイド: 上=Preview (3) / 下=自分手札 (2) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {/* 左上: Acting Card / Battle Cards。
-              通常は 1 枚 (= attach/play/event/起動メイン等の対象)、
-              攻撃時は attacker vs defender の 2 枚を VS 風に並べる (= バトル局面 一目把握)。
-              内側のカード画像は hover で 浮遊大型プレビュー (= z-200) も発火する。 */}
+          {/* 左上: Acting State 表示。
+              - single: 1 枚 (= attach/play/event/起動メイン/前 attack 勝者 等)
+              - battle: 攻撃中の VS + counter 累計 + outcome
+              次の action が来るまで前のカードを保持。 内側カード hover で 浮遊大型
+              プレビュー (z-200) も発火。 */}
           <div className="flex min-h-0 flex-[3] flex-col gap-1 rounded bg-amber-950/40 p-2 ring-1 ring-amber-950/60">
             <div className="text-[10px] uppercase tracking-wide text-amber-200/70">
-              {actingCards?.type === "vs" ? "Battle Cards" : "Acting Card"}
+              {actingState?.type === "battle" ? "Battle" : "Acting Card"}
             </div>
             <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden">
-              {actingCards?.type === "vs" ? (
-                <ActingVsView attacker={actingCards.attacker} defender={actingCards.defender} />
-              ) : actingCards?.type === "single" ? (
-                <ActingCardSingleImage card={actingCards.card} />
+              {actingState?.type === "battle" ? (
+                <ActingBattleView state={actingState} />
+              ) : actingState?.type === "single" ? (
+                <ActingCardSingleImage card={actingState.card} />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-[11px] text-amber-200/40">
-                  (この snap では特定の行動カードなし)
+                  (まだ行動なし)
                 </div>
               )}
             </div>
-            {actingCards?.type === "single" ? (
-              <ActingCardInfo card={actingCards.card} />
+            {actingState?.type === "single" ? (
+              <ActingCardInfo card={actingState.card} />
             ) : null}
           </div>
 
@@ -1511,37 +1611,67 @@ function ActingCardInfo({ card }: { card: HoverInfo }) {
   );
 }
 
-// VS 風 表示: attacker と defender を左右に並べて 中央に「VS」 配置。
-// 両カードは縦比 7:10 で w-[42%] 程度に縮小、 名前 + P を 下に小さく表示。
-function ActingVsView({
-  attacker,
-  defender,
-}: {
-  attacker: HoverInfo;
-  defender: HoverInfo;
-}) {
+// 戦闘 View (= ongoing は VS + counter、 確定後は「勝者にメダル」 + 敗者は薄表示)。
+type BattleStateProp = Extract<ActingState, { type: "battle" }>;
+
+function ActingBattleView({ state }: { state: BattleStateProp }) {
+  const defTotal = state.defPowerBase + state.counterAdded;
+  const atkWon = state.outcome === "atk_wins";
+  const defWon = state.outcome === "def_wins";
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-1">
-      <div className="flex min-h-0 flex-1 w-full items-center justify-center gap-1.5">
-        <ActingCardMini card={attacker} accent="atk" />
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-1.5">
+        <ActingCardMini
+          card={state.attacker}
+          accent="atk"
+          dim={defWon}
+          winnerBadge={atkWon ? "WIN" : undefined}
+        />
         <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">
           <span
-            className="font-mono font-black text-amber-300"
+            className="font-mono font-black"
             style={{
               fontSize: "22px",
+              color: state.outcome === "ongoing" ? "#fcd34d" : "#fb923c",
               textShadow:
                 "0 0 4px rgba(251,191,36,0.7), 0 0 8px rgba(251,191,36,0.4)",
             }}
           >
             VS
           </span>
-          <span className="font-mono text-[9px] text-amber-200/60">
-            atk{attacker.power !== undefined ? ` ${attacker.power}` : ""}
-            {" vs "}
-            def{defender.power !== undefined ? ` ${defender.power}` : ""}
-          </span>
+          <div className="text-center text-[9px] font-mono text-amber-200/80">
+            <span className={atkWon ? "text-rose-300 font-bold" : ""}>
+              {state.atkPower}
+            </span>
+            <span className="text-amber-200/40"> vs </span>
+            <span className={defWon ? "text-sky-300 font-bold" : ""}>
+              {state.defPowerBase}
+              {state.counterAdded > 0 ? (
+                <span className="ml-0.5 rounded bg-sky-500/30 px-0.5 text-[8px] text-sky-100">
+                  +{state.counterAdded}
+                </span>
+              ) : null}
+            </span>
+          </div>
+          {state.outcome !== "ongoing" ? (
+            <span
+              className={`mt-0.5 rounded px-1 text-[9px] font-bold ${
+                atkWon
+                  ? "bg-rose-400 text-rose-950"
+                  : "bg-sky-400 text-sky-950"
+              }`}
+            >
+              {atkWon ? "ATK WIN" : "DEF WIN"}
+            </span>
+          ) : null}
         </div>
-        <ActingCardMini card={defender} accent="def" />
+        <ActingCardMini
+          card={state.defender}
+          accent="def"
+          dim={atkWon}
+          winnerBadge={defWon ? "WIN" : undefined}
+          counterAdded={state.counterAdded}
+        />
       </div>
     </div>
   );
@@ -1550,17 +1680,25 @@ function ActingVsView({
 function ActingCardMini({
   card,
   accent,
+  dim,
+  winnerBadge,
+  counterAdded,
 }: {
   card: HoverInfo;
   accent: "atk" | "def";
+  dim?: boolean;        // 敗者 (= 確定後、 反対側が勝利) なら薄く
+  winnerBadge?: string; // "WIN" 等の上書きラベル
+  counterAdded?: number; // defender 側、 カウンター累積。 「+N」 を画像横に重ねる
 }) {
   const ring = accent === "atk" ? "ring-rose-400/80" : "ring-sky-400/80";
   const hover = useHoverHandlers(card);
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-start gap-0.5 overflow-hidden">
+    <div
+      className={`relative flex min-h-0 flex-1 flex-col items-center justify-start gap-0.5 overflow-hidden ${dim ? "opacity-40" : ""}`}
+    >
       <div
         {...hover}
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
       >
         <CardImage
           cardId={card.cardId}
@@ -1568,6 +1706,23 @@ function ActingCardMini({
           loading="eager"
           className={`block h-full w-auto max-w-full rounded object-contain shadow-lg ring-2 ${ring}`}
         />
+        {/* counter 累積: defender 側カード上に「+N」 オーバーレイ表示 */}
+        {counterAdded && counterAdded > 0 ? (
+          <span
+            className="pointer-events-none absolute right-0.5 top-0.5 rounded bg-sky-500 px-1 py-0.5 font-mono text-[11px] font-black text-white shadow-md ring-1 ring-sky-300"
+            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
+          >
+            +{counterAdded}
+          </span>
+        ) : null}
+        {/* 勝者バッジ (= "WIN") を カード中央に重ねる */}
+        {winnerBadge ? (
+          <span
+            className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded bg-amber-400 px-1.5 py-0.5 text-[11px] font-black text-amber-950 shadow-lg ring-2 ring-amber-100"
+          >
+            {winnerBadge}
+          </span>
+        ) : null}
       </div>
       <div className="w-full truncate text-center text-[10px] font-medium text-amber-100">
         {card.name ?? card.cardId}
