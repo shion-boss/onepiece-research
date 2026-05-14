@@ -499,8 +499,16 @@ analysis.json の `ai_hint_signals` 配列で個別フラグを立てられる:
 
 ### 9.1 ルール解釈の懸念
 
-- **ブロッカー生存判定の `>=` バグ**: blocker.power == attacker.power で「生存扱い」。
-  公式 7-1-4 では同値で攻撃側勝ちなので、 本来は blocker は KO される
+- **ブロッカー生存判定の `>=` バグ**: `engine/ai.py:747` で `survives = c.power >= atk_p` (= 同値で生存扱い)。
+  公式 7-1-4 では同値で攻撃側勝ち = blocker は KO される。 engine 側 (`game.py` の battle 判定) は
+  正しく `>=` で attacker 勝ちなので、 **AI heuristic だけのバグ**。
+  - 実害: 5000 vs 5000 等の同値マッチで、 AI は「生存」 と誤判定 → counter で救う判断を skip
+  - 結果: blocker を捨て駒として消費。 上級者なら 1000 counter 1 枚で blocker 生存させる
+- **「block + counter で救う」 戦略が未実装** (ユーザー指摘 2026-05-14):
+  - 現状: AI は「blocker 単体で生存できるか」 でブロック判断、 「block 後の counter で救う」 を考慮していない
+  - 実例: 5000 blocker / 6000 attacker / 手札に 2000 counter → 上級者なら block + 2000 counter で blocker 生存
+  - 5000+ blocker や finisher role 持ちは次ターン攻撃に使える価値あり、 sacrifice より rescue 優先すべき
+  - fix 設計: `choose_defense` を 4 候補並列評価 (= no_block / block_safe / block_rescue / block_sacrifice) に再構築
 - **ダブルアタック** が打点 2 で計算されてない (= lethal 推定が甘くなる)
 - **バニッシュ** がライフ→手札の差を反映してない
 - **同時発火トリガー順序** は engine 側で公式準拠だが、 AI 側で「先発火させたい」 選択肢を見てない
