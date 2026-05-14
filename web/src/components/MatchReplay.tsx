@@ -263,45 +263,22 @@ function computeActingState(
 }
 
 
-// Hover freeze 状態 + 直近 mousemove time。 「再生中の layout shift 偽 leave」 vs
-// 「ユーザ意図の leave」 を区別するため、 mouseLeave 時に直近 mousemove からの
-// 経過時間を見る (= 100ms 以内なら user 移動由来、 それ以上なら snapshot 由来)。
-const _hoverFrozenRef = { current: false };
-let _hoverFreezeTimer: ReturnType<typeof setTimeout> | null = null;
-let _lastMouseMoveTime = 0;
-
-function freezeHoverBriefly(ms: number = 300) {
-  _hoverFrozenRef.current = true;
-  if (_hoverFreezeTimer !== null) clearTimeout(_hoverFreezeTimer);
-  _hoverFreezeTimer = setTimeout(() => {
-    _hoverFrozenRef.current = false;
-    _hoverFreezeTimer = null;
-  }, ms);
-}
-
-// 「freeze 中だが ユーザが直近に動かしてない」 = layout shift 由来の偽 leave で
-// 無視すべき、 を判定。 直近に動いてれば freeze 中でもユーザ意図なので尊重。
-function shouldIgnoreMouseLeave(): boolean {
-  if (!_hoverFrozenRef.current) return false;
-  return Date.now() - _lastMouseMoveTime > 100;
-}
-
+// ズーム表示は click トリガに変更 (= 観戦中の hover で勝手に出るのが煩わしいため)。
+// - カードクリック → そのカードをズーム表示 + 他カードの click で切替
+// - カード以外をクリック → ズーム非表示
+// useHoverHandlers の名前は歴史的経緯で維持 (= 中身は click base)。
 function useHoverHandlers(info: HoverInfo | null | undefined) {
   const setHovered = useContext(HoverContext);
   const setAnchor = useContext(HoverAnchorContext);
   if (!info) return {};
   return {
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+      // 親 (= MatchReplay 外側 onClick で clear) には伝搬させない、
+      // 親 click handler が後で発火して即 clear する事故を防ぐ。
+      e.stopPropagation();
       setHovered(info);
       const r = e.currentTarget.getBoundingClientRect();
       setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
-    },
-    onMouseLeave: () => {
-      // freeze + マウス静止 → layout shift 由来、 無視。
-      // それ以外 (= freeze OFF または 直近に user 移動) → 即 clear。
-      if (shouldIgnoreMouseLeave()) return;
-      setHovered(null);
-      setAnchor(null);
     },
   };
 }
@@ -508,51 +485,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   const atEnd = idx >= snapshots.length - 1;
   const playingActive = playing && !atEnd;
 
-  // 直近 mousemove 時刻を track (= layout shift 由来の偽 leave と区別するため)。
-  // module-level の _lastMouseMoveTime を更新。 install は MatchReplay マウント時のみ。
-  useEffect(() => {
-    const onMove = () => {
-      _lastMouseMoveTime = Date.now();
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
-  // Hover freeze 戦略:
-  // - 再生中 (= playingActive): freeze 常時 ON。 layout shift で mouseLeave が
-  //   偽発火しても無視 → ホバー維持。 stationary cursor 想定。
-  // - 一時停止 (= playingActive=false): 300ms grace 後 freeze OFF →
-  //   mouseLeave で即 clear (= user 要望: ホバー外したらすぐ消す)。
-  // - 手動 step (= 一時停止 中の idx 変化): 500ms freeze で layout settle 中の
-  //   偽 mouseLeave を吸収。
-  //
-  // タイミング: useLayoutEffect は commit 直後 / paint 前に走るので、 paint で
-  // 発生する layout-shift mouseLeave より先に freeze 状態が確定する。
-  useLayoutEffect(() => {
-    if (playingActive) {
-      // 再生中: freeze 常時 ON。 既存 unfreeze timer は cancel。
-      _hoverFrozenRef.current = true;
-      if (_hoverFreezeTimer !== null) {
-        clearTimeout(_hoverFreezeTimer);
-        _hoverFreezeTimer = null;
-      }
-    } else {
-      // 一時停止: 300ms grace で OFF。
-      if (_hoverFreezeTimer !== null) clearTimeout(_hoverFreezeTimer);
-      _hoverFreezeTimer = setTimeout(() => {
-        _hoverFrozenRef.current = false;
-        _hoverFreezeTimer = null;
-      }, 300);
-    }
-  }, [playingActive]);
-
-  useLayoutEffect(() => {
-    // 手動 step (= 一時停止 中の idx 変化): 500ms 限定 freeze。
-    // 再生中の idx 変化は上の effect が既に freeze 維持してるので二重不要。
-    if (!playingActive) {
-      freezeHoverBriefly(500);
-    }
-  }, [idx]);
+  // (旧 hover freeze / mousemove リスナは廃止。 ズーム表示は click 起点で完結
+  // するので snapshot 進行による偽 leave 問題は本質的に発生しない。)
 
   useEffect(() => {
     if (!playingActive) return;
@@ -1228,10 +1162,10 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col gap-2"
-      // 観戦エリア外退出時の clear。 freeze + マウス静止 (= layout shift 由来) なら
-      // 無視。 ユーザが実際に動かして外に出た時は即 clear。
-      onMouseLeave={() => {
-        if (shouldIgnoreMouseLeave()) return;
+      // カード以外をクリックしたらズーム表示を非表示。 カードクリックは
+      // useHoverHandlers の onClick が stopPropagation() で吸収するので、
+      // ここに伝搬してくる click = 「カード以外をクリック」 と判定できる。
+      onClick={() => {
         setHovered(null);
         setHoverAnchor(null);
       }}
