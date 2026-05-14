@@ -1,0 +1,254 @@
+{
+  "deck_name": "紫黄ロシナンテ",
+  "leader_id": "OP12-061",
+  "leader_name": "ドンキホーテ・ロシナンテ",
+  "leader_color": [
+    "紫",
+    "黄"
+  ],
+  "leader_features": [
+    "海軍",
+    "ドンキホーテ海賊団"
+  ],
+  "leader_text": "【ターン1回】自分の「トラファルガー・ロー」がKOされる場合、代わりに自分のライフの上から1枚を手札に加えることができる。【起動メイン】【ターン1回】ドン‼-1：このターン中、次に自分が手札から登場させるコスト4以上の「トラファルガー・ロー」の支払うコストは2少なくなる。",
+  "total_cards": 50,
+  "n_character": 41,
+  "n_event": 9,
+  "n_stage": 0,
+  "avg_cost": 3.02,
+  "cost_curve": [
+    {
+      "cost": 1,
+      "count": 25
+    },
+    {
+      "cost": 2,
+      "count": 5
+    },
+    {
+      "cost": 3,
+      "count": 2
+    },
+    {
+      "cost": 4,
+      "count": 4
+    },
+    {
+      "cost": 5,
+      "count": 2
+    },
+    {
+      "cost": 6,
+      "count": 4
+    },
+    {
+      "cost": 7,
+      "count": 4
+    },
+    {
+      "cost": 8,
+      "count": 4
+    }
+  ],
+  "counter_total": 47000,
+  "counter_2k_count": 16,
+  "counter_1k_count": 15,
+  "blocker_count": 9,
+  "color_distribution": {
+    "黄": 20,
+    "紫": 30
+  },
+  "top_features": [
+    [
+      "ドンキホーテ海賊団",
+      24
+    ],
+    [
+      "海軍",
+      18
+    ],
+    [
+      "ハートの海賊団",
+      14
+    ],
+    [
+      "ドレスローザ",
+      4
+    ],
+    [
+      "超新星",
+      4
+    ]
+  ],
+  "archetype": "ミッドレンジ",
+  "speed": "中速",
+  "defense": "硬い",
+  "consistency": "高い",
+  "strategy_summary": "特徴《ドンキホーテ海賊団》軸のミッドレンジデッキ (中速)。防御 硬い・安定性 高い。",
+  "mulligan_keep_card_ids": [
+    "OP12-108",
+    "OP10-065",
+    "OP12-112",
+    "EB04-056"
+  ],
+  "mulligan_keep_criteria": [
+    "コスト 3 以下のキャラ ≥ 1 枚",
+    "サーチ / ドローカード ≥ 1 枚",
+    "リーダー特徴《ドンキホーテ海賊団/海軍》を持つキャラ ≥ 1 枚"
+  ],
+  "mulligan_throw_criteria": [
+    "5 コスト以上のカードしかない",
+    "リーダー特徴と無関係なカードばかり",
+    "1 ターン目に展開できる手数なし"
+  ],
+  "ideal_moves": [
+    {
+      "turn": 1,
+      "description": "1 コストキャラを展開、 序盤テンポ確保",
+      "candidate_cards": [
+        "OP12-108",
+        "OP12-108",
+        "OP12-108"
+      ]
+    },
+    {
+      "turn": 3,
+      "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
+      "candidate_cards": [
+        "ST18-001",
+        "ST18-001"
+      ]
+    },
+    {
+      "turn": 4,
+      "description": "4-5 コスト中堅展開、 盤面強化",
+      "candidate_cards": [
+        "OP14-061",
+        "OP14-061",
+        "OP12-112"
+      ]
+    },
+    {
+      "turn": 6,
+      "description": "フィニッシャー展開、 リーサル準備",
+      "candidate_cards": [
+        "EB04-038",
+        "EB04-038",
+        "EB04-038"
+      ]
+    }
+  ],
+  "weaknesses": [],
+  "strengths": [
+    "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
+    "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
+    "ブロッカー 9 枚: 直接攻撃を抑止できる",
+    "特徴《ドンキホーテ海賊団》専属 (24 枚): シナジーカードで爆発力"
+  ],
+  "key_cards": [
+    {
+      "card_id": "EB03-062",
+      "name": "トラファルガー・ロー",
+      "count": 4,
+      "cost": 8,
+      "role": "finisher",
+      "reason": "高コスト (8)・高パワー (6000) フィニッシャー"
+    },
+    {
+      "card_id": "OP10-065",
+      "name": "シュガー",
+      "count": 4,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP09-069",
+      "name": "トラファルガー・ロー",
+      "count": 3,
+      "cost": 1,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "EB04-038",
+      "name": "ロシナンテ＆ロー",
+      "count": 4,
+      "cost": 6,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP12-112",
+      "name": "ベビー５",
+      "count": 4,
+      "cost": 4,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP12-073",
+      "name": "トラファルガー・ロー",
+      "count": 4,
+      "cost": 7,
+      "role": "ramp",
+      "reason": "DON 加速 → 大型早出しの起点"
+    },
+    {
+      "card_id": "OP12-108",
+      "name": "ドンキホーテ・ロシナンテ",
+      "count": 4,
+      "cost": 1,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP12-115",
+      "name": "愛してるぜ!!",
+      "count": 4,
+      "cost": 1,
+      "role": "synergy",
+      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "EB04-056",
+      "name": "パシフィスタ",
+      "count": 4,
+      "cost": 1,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
+    },
+    {
+      "card_id": "OP06-063",
+      "name": "ヴィンスモーク・ソラ",
+      "count": 4,
+      "cost": 1,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
+    }
+  ],
+  "ai_hints": [
+    "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
+    "特徴《ドンキホーテ海賊団》専属: シナジーカードを優先プレイ"
+  ],
+  "ai_hint_signals": [
+    {
+      "type": "counter_aggression",
+      "value": "mid"
+    },
+    {
+      "type": "synergy_feature_priority",
+      "value": "ドンキホーテ海賊団"
+    },
+    {
+      "type": "early_finisher_hold",
+      "value": [
+        "EB03-062"
+      ]
+    },
+    {
+      "type": "tank_lifeup_ok",
+      "value": true
+    }
+  ]
+}

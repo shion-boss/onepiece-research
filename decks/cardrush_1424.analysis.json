@@ -10,73 +10,77 @@
   ],
   "leader_text": "ルール上、自分のドン‼デッキは6枚になる。【起動メイン】【ターン1回】自分の第2ターン以降の場合、ドン‼デッキからドン‼1枚までをアクティブで追加し、さらに4枚までをレストで追加する。その後、自分のキャラ1枚にレストのドン‼4枚までを、付与する。",
   "total_cards": 50,
-  "n_character": 30,
-  "n_event": 20,
+  "n_character": 28,
+  "n_event": 22,
   "n_stage": 0,
   "avg_cost": 1.82,
   "cost_curve": [
     {
       "cost": 0,
-      "count": 20
+      "count": 19
     },
     {
       "cost": 1,
-      "count": 15
+      "count": 14
+    },
+    {
+      "cost": 2,
+      "count": 3
     },
     {
       "cost": 3,
-      "count": 4
-    },
-    {
-      "cost": 4,
       "count": 1
     },
     {
+      "cost": 4,
+      "count": 5
+    },
+    {
       "cost": 6,
-      "count": 10
+      "count": 8
     }
   ],
-  "counter_total": 26000,
-  "counter_2k_count": 3,
+  "counter_total": 24000,
+  "counter_2k_count": 2,
   "counter_1k_count": 20,
-  "blocker_count": 7,
+  "blocker_count": 9,
   "color_distribution": {
     "紫": 50
   },
   "top_features": [
     [
       "空島",
-      40
+      35
     ],
     [
       "神官",
-      11
+      10
     ],
     [
-      "動物",
-      4
+      "ハートの海賊団",
+      5
     ],
     [
       "ビッグ・マム海賊団",
       4
     ],
     [
-      "麦わらの一味",
+      "ヴィンスモーク家",
       3
     ]
   ],
-  "archetype": "アグロ",
+  "archetype": "ミッドレンジ",
   "speed": "高速",
   "defense": "標準",
   "consistency": "高い",
-  "strategy_summary": "特徴《空島》軸のアグロデッキ (高速)。防御 標準・安定性 高い。",
+  "strategy_summary": "特徴《空島》軸のミッドレンジデッキ (高速)。防御 標準・安定性 高い。",
   "mulligan_keep_card_ids": [
-    "OP15-076",
+    "OP15-075",
     "OP15-078",
     "OP15-077",
-    "OP15-075",
-    "OP15-071",
-    "OP15-066"
+    "OP15-076",
+    "OP15-061",
+    "OP12-071"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
@@ -93,17 +97,15 @@
       "turn": 1,
       "description": "1 コストキャラを展開、 序盤テンポ確保",
       "candidate_cards": [
-        "OP15-066",
-        "OP15-066",
-        "OP15-066"
+        "OP15-061",
+        "OP15-061",
+        "OP15-061"
       ]
     },
     {
       "turn": 3,
       "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
       "candidate_cards": [
-        "OP15-071",
-        "OP15-071",
         "OP15-071"
       ]
     },
@@ -111,6 +113,8 @@
       "turn": 4,
       "description": "4-5 コスト中堅展開、 盤面強化",
       "candidate_cards": [
+        "OP12-063",
+        "OP12-063",
         "OP12-063"
       ]
     },
@@ -124,13 +128,11 @@
       ]
     }
   ],
-  "weaknesses": [
-    "コントロールに対しガス欠リスク: 後半の手札・打点が枯れる"
-  ],
+  "weaknesses": [],
   "strengths": [
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "特徴《空島》専属 (40 枚): シナジーカードで爆発力",
-    "低コスト多数: 序盤からライフ詰めの圧、 先攻有利"
+    "ブロッカー 9 枚: 直接攻撃を抑止できる",
+    "特徴《空島》専属 (35 枚): シナジーカードで爆発力"
   ],
   "key_cards": [
     {
@@ -158,17 +160,17 @@
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
     {
-      "card_id": "OP15-066",
-      "name": "サトリ",
+      "card_id": "OP15-061",
+      "name": "オーム",
       "count": 4,
       "cost": 1,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "OP15-061",
-      "name": "オーム",
-      "count": 4,
+      "card_id": "OP15-066",
+      "name": "サトリ",
+      "count": 3,
       "cost": 1,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
@@ -178,14 +180,6 @@
       "name": "シュラ",
       "count": 3,
       "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP15-076",
-      "name": "雷獣",
-      "count": 4,
-      "cost": 0,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
@@ -206,28 +200,31 @@
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "OP15-071",
-      "name": "ホーリー",
+      "card_id": "OP15-076",
+      "name": "雷獣",
       "count": 4,
-      "cost": 3,
-      "role": "synergy",
-      "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+      "cost": 0,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP12-063",
+      "name": "ヴィンスモーク・レイジュ",
+      "count": 3,
+      "cost": 4,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     }
   ],
   "ai_hints": [
-    "序盤からリーダー攻撃を最優先、 カウンターは温存しすぎない",
-    "ライフ受けで手札増やすより、 1 ターンでも早く詰めに行く",
+    "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
     "特徴《空島》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
   ],
   "ai_hint_signals": [
     {
-      "type": "prefer_low_cost_attacks",
-      "value": true
-    },
-    {
       "type": "counter_aggression",
-      "value": "low"
+      "value": "mid"
     },
     {
       "type": "synergy_feature_priority",
