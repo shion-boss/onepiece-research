@@ -452,6 +452,19 @@ def archetype_bluff_factor(archetype: Optional[str]) -> float:
     return _ARCHETYPE_BLUFF_FACTOR.get(archetype, 1.0)
 
 
+def _is_counter_event_card(card) -> bool:
+    """カードが counter event (= opp アタック時に活用できる event) か判定 (Phase 7I)。
+
+    判定基準: category == EVENT かつ counter > 0
+    (= 通常 counter step に discard で打てる event は counter event とみなす)。
+    """
+    try:
+        from .core import Category
+        return card.category == Category.EVENT and card.counter > 0
+    except Exception:
+        return False
+
+
 def expected_counter_from_don_bluff(
     state: GameState,
     opp_idx: int,
@@ -459,20 +472,25 @@ def expected_counter_from_don_bluff(
     max_event_don: int = 2,
     use_archetype_factor: bool = True,
 ) -> int:
-    """opp の visible active DON から counter event の期待寄与を見積 (Phase 7G + 7H)。
+    """opp の visible active DON から counter event の期待寄与を見積 (Phase 7G + 7H + 7I)。
 
     OPTCG では event カード (= 「魔法のキャベツ」 等の counter event) が DON を消費して
     opp アタック時に発動できる。 visible active DON があれば、 これらの event を打たれる
     可能性が高まり、 リーサル計算の counter 総量推定 を上方修正する必要がある。
 
-    Phase 7H 改修: archetype 別の bluff factor を加味。
-    アグロは counter event を入れない傾向 (= 0.4x で「ブラフ」 と判定)、
-    コントロールは多用 (= 1.3x で「本物」 と扱う)。
+    Phase 7H: archetype 別の bluff factor を加味 (= アグロは低、 コントロールは高)。
+    Phase 7I: known/unknown 分離。 既知に counter event があれば確定脅威 (= 1.0)、
+              無ければ unknown 部分のみで確率推定。
 
-    計算式:
-        P(counter event in hand) = min(1.0, hand_size × 0.1)
+    計算式 (Phase 7I 後):
+        if 既知 hand に counter event があれば:
+            P(counter event play) = 1.0  # 確定脅威
+        elif unknown_count > 0:
+            P = min(1.0, unknown_count × 0.1)
+        else:
+            P = 0.0  # 全 known で counter event 無し → bluff 無効
         expected_base = P × min(active_don, max_event_don) × don_value_per_unit
-        expected = expected_base × archetype_factor   # Phase 7H
+        expected = expected_base × archetype_factor
 
     Returns: 追加期待 counter 量 (= 0 以上の整数)
     """
@@ -483,7 +501,32 @@ def expected_counter_from_don_bluff(
     hand_size = len(opp.hand)
     if hand_size == 0:
         return 0
-    p_has_event = min(1.0, hand_size * 0.1)
+
+    # Phase 7I: known cards に counter event があるか check
+    known_event_count = 0
+    matched_indices: set[int] = set()
+    for cid in opp.known_hand_card_ids:
+        for i, c in enumerate(opp.hand):
+            if i in matched_indices:
+                continue
+            if c.card_id == cid:
+                if _is_counter_event_card(c):
+                    known_event_count += 1
+                matched_indices.add(i)
+                break
+    known_count = len(matched_indices)
+    unknown_count = hand_size - known_count
+
+    if known_event_count > 0:
+        # 既知 counter event 1+ あり → 確定脅威
+        p_has_event = 1.0
+    elif unknown_count > 0:
+        # 未知部分にのみ counter event の可能性
+        p_has_event = min(1.0, unknown_count * 0.1)
+    else:
+        # 全 known で counter event 無し → bluff 不発
+        return 0
+
     usable_don = min(visible_active_don, max_event_don)
     expected = p_has_event * usable_don * don_value_per_unit
 

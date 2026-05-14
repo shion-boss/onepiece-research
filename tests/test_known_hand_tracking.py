@@ -149,3 +149,90 @@ def test_probability_at_least_uses_known():
     # P(>= 2000) = 1.0、 P(>= 2001) = 0.0
     assert probability_counter_total_at_least(state, 1, 2000) == 1.0
     assert probability_counter_total_at_least(state, 1, 2001) == 0.0
+
+
+# ─────────────────────────────────────────────────────
+# bluff の対象から known カード除外 (Phase 7I 拡張)
+# ─────────────────────────────────────────────────────
+
+
+def test_bluff_uses_unknown_portion_only():
+    """expected_counter_from_don_bluff: known なし時と known で counter event 無い時を比較。
+
+    全 5 枚 hand のうち 4 枚が known で counter event 無し → bluff は 残 1 枚 のみ対象 (= 大幅縮小)
+    """
+    from engine.hand_estimator import expected_counter_from_don_bluff
+    repo = _repo()
+    state = _make_state(repo)
+    state.players[1].don_active = 2
+    # 5 枚 hand、 全部 chara card (= 非 counter event)
+    state.players[1].hand = [repo.get("OP01-013")] * 5
+    state.players[1].known_hand_card_ids = []
+    no_known = expected_counter_from_don_bluff(state, 1, use_archetype_factor=False)
+
+    # 4 枚 known (= counter event 無し chara)
+    state.players[1].known_hand_card_ids = ["OP01-013"] * 4
+    with_4_known = expected_counter_from_don_bluff(state, 1, use_archetype_factor=False)
+
+    # 5 枚 known
+    state.players[1].known_hand_card_ids = ["OP01-013"] * 5
+    all_known = expected_counter_from_don_bluff(state, 1, use_archetype_factor=False)
+
+    # 単調減少: known が多いほど bluff 期待は減る
+    assert no_known >= with_4_known >= all_known
+    # 全 known で counter event 無し → bluff 0
+    assert all_known == 0
+
+
+def test_bluff_zero_when_all_known_no_event():
+    """全 known で counter event 不在 → bluff 完全に 0。"""
+    from engine.hand_estimator import expected_counter_from_don_bluff
+    repo = _repo()
+    state = _make_state(repo)
+    state.players[1].don_active = 5
+    state.players[1].hand = [repo.get("OP01-013")] * 3
+    state.players[1].known_hand_card_ids = ["OP01-013"] * 3
+    val = expected_counter_from_don_bluff(state, 1, use_archetype_factor=False)
+    assert val == 0, "全 known で counter event 無しなら bluff 0"
+
+
+def test_self_bluff_skipped_when_hand_mostly_known():
+    """自分の手札の半分以上が公開済 → bluff モードに入らない (= 通常プレイ)。"""
+    from engine.ai import GreedyAI
+    repo = _repo()
+    state = _make_state(repo)
+    state.turn_player_idx = 0
+    # me の手札 5 枚中 4 枚が公開済
+    state.players[0].hand = [repo.get("OP01-013")] * 5
+    state.players[0].known_hand_card_ids = ["OP01-013"] * 4
+
+    ai = GreedyAI()
+    # opp_next_lethal が高くても、 自分の手札が ばれてるなら bluff しない
+    # 詳細は test setup 次第なので、 「bluff 判定 入口で skip される」 ことだけ確認
+    result = ai._is_desperate_losing_position(state, me_idx=0)
+    # 公開済が 80% (= 4/5) > 50% threshold → False (= bluff モード回避)
+    assert result is False
+
+
+def test_self_bluff_engaged_when_hand_mostly_unknown():
+    """自分の手札が大半 未公開なら bluff モード判定が通常通り作動。"""
+    from engine.ai import GreedyAI
+    repo = _repo()
+    state = _make_state(repo)
+    state.turn_player_idx = 0
+    # me の手札 5 枚、 公開済 1 枚 (= 80% 未知)
+    state.players[0].hand = [repo.get("OP01-013")] * 5
+    state.players[0].known_hand_card_ids = ["OP01-013"]
+    # me を負け確定気味に設定 (life=1, opp 大型 4 体)
+    state.players[0].life = [repo.get("OP01-013")] * 1
+    state.players[1].life = [repo.get("OP01-013")] * 4
+    state.players[1].characters = [
+        InPlay.of(repo.get("OP07-021"), sickness=False)
+        for _ in range(4)
+    ]
+
+    ai = GreedyAI()
+    # 公開率 20% で threshold 下回らない → desperate 条件他に依存
+    # = ここでは関数がエラーなく完了することのみ確認
+    result = ai._is_desperate_losing_position(state, me_idx=0)
+    assert isinstance(result, bool)

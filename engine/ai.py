@@ -332,17 +332,16 @@ class GreedyAI:
             return 0
 
     def _is_desperate_losing_position(self, state: GameState, me_idx: int) -> bool:
-        """負け確定気味の状況か判定 (Phase 7G、 2026-05-14)。
+        """負け確定気味の状況か判定 (Phase 7G + 7I、 2026-05-14)。
 
-        判定基準 (両方満たす場合 = desperate):
+        判定基準 (全て満たす場合 = desperate、 bluff モード推奨):
         - 今ターンリーサル確率 < 0.4 (= 詰めれない)
         - 相手次ターンリーサル確率 ≥ 0.6 (= 受けきれない)
+        - 自分の手札の未知率 ≥ 0.5 (Phase 7I 追加: bluff 効果見込み)
 
-        desperate なら「bluff モード」: 攻撃放棄 + DON 温存 で 相手のリーサル計算を
-        妨害する (= 「カウンターイベント持ってるかも」 と思わせる)。
-
-        AI vs AI 対戦では直接効果薄い (= 我々の AI は opp の visible DON を読まない)
-        が、 人間相手 / 将来の self-play 学習で 「visible DON 読み」 を実装すれば効く。
+        Phase 7I 追加: 自分の手札の半分以上が公開済 (= opp が見えている) なら、
+        DON を温存しても「counter event 持ってるフリ」 が opp に通用しない。
+        → bluff 諦め、 通常プレイで残り資源を有効活用。
         """
         try:
             from .eval import lethal_estimate, project_opp_next_turn_lethal
@@ -354,6 +353,16 @@ class GreedyAI:
             return False  # 詰めれる可能性 → 全力で行く
         if opp_next_lethal < 0.6:
             return False  # まだ受けれそう → 普通プレイ
+
+        # Phase 7I: 自分の手札未知率 check (= bluff 効果見込み)
+        me = state.players[me_idx]
+        hand_size = len(me.hand)
+        if hand_size > 0:
+            known_count = len(me.known_hand_card_ids)
+            unknown_ratio = (hand_size - known_count) / hand_size
+            if unknown_ratio < 0.5:
+                # 手札の半分以上が公開済 → bluff 効果薄い → 通常プレイ
+                return False
         return True
 
     # Phase 7G: counter event bluff 用に温存する active DON の最低数
