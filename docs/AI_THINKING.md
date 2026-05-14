@@ -16,22 +16,58 @@
 ## 0. AI の全体構造
 
 2 段重ね:
-1. **GreedyAI** (基底クラス) — 1 手ごとに「次に打つべき最良の行動」 を局所判断する。 ルールベース。
+1. **GreedyAI** (基底クラス) — 1 手ごとに「次に打つべき最良の行動」 を **ルールベースの優先順位** で局所判断 (= 後述 Step 0〜4)
 2. **PlanningAI** (default、 GreedyAI を継承) — MAIN フェーズ開始時に **ターン全体の行動列を beam 探索**、
    終端の盤面評価が最も高いプランの 1 手目を返す。 次手は再計画 (= receding horizon)。
 
-防御 (= 相手から殴られた時の counter / blocker 決定) は両者とも GreedyAI のロジックを使う。
+### ⚠ 重要: PlanningAI は GreedyAI の優先順位リストを使わない
+
+| 機能 | GreedyAI | PlanningAI (default) |
+|---|---|---|
+| **choose_action (= 攻撃中の行動選択)** | Step 0〜4 ルールベース優先順位 | **全合法手を beam search、 終端 board_eval で比較** |
+| **choose_defense (= カウンター/ブロッカー)** | アーキタイプ別閾値ロジック | **継承** (= GreedyAI と同じ) |
+| アーキタイプ別パラメータ load | analysis.json から | **継承** |
+| MatchupProfile / role priority | 初回 lazy-load | **継承** |
+| カウンター brute force 計算 | _optimal_counter_combo | **継承** |
+
+つまり PlanningAI は:
+- **攻撃中の判断 (= 何を打つか)** だけ GreedyAI を捨てて beam search に置換
+- **防御の判断 (= 殴られた時)** や **デッキ別の挙動パラメータ** は GreedyAI そのまま
+
+PlanningAI が GreedyAI の Step 0〜4 にフォールバックするのは例外時のみ:
+- `legal_actions` が空 → EndPhase
+- 1 択しかない → そのまま返す
+- search_turn_plan が exception を投げる → super().choose_action()
+- 探索結果プランが空 → super().choose_action()
+
+通常運用 (= matrix 計算 / API 対戦) ではほぼ常に beam search 経由。
 
 ```
 choose_action (= 「次の 1 手は？」)
-   ├── PlanningAI: beam search で plan 探索 → plan[0] を返す
-   │       └── plan 探索の中で対戦相手の choose_defense を呼んで counter 反映
-   └── GreedyAI: 下記の優先順位リストで 1 手選ぶ
+   ├── PlanningAI: 全合法手を beam search → plan[0] を返す
+   │   ├── beam search の中で対戦相手の choose_defense を呼ぶ (= GreedyAI ロジック)
+   │   └── 例外時のみ GreedyAI Step 0〜4 へ fallback
+   └── GreedyAI: Step 0〜4 の優先順位リストで 1 手選ぶ
+
+choose_defense (= 殴られた時の防御)
+   └── どちらの AI も GreedyAI のロジック (= アーキタイプ別閾値)
 ```
+
+**つまり以下のセクションは:**
+- **Section 1 (Step 0〜4)** = GreedyAI 専用。 PlanningAI には fallback 時しか効かない
+- **Section 2** = PlanningAI の本体ロジック (= beam search)
+- **Section 3 (board_eval)** = PlanningAI の判断軸の中身、 GreedyAI でも一部参照
+- **Section 4 (防御)** = 両 AI 共通
 
 ---
 
 ## 1. GreedyAI の行動優先順位 (= 各 1 手の判断フロー)
+
+> **適用範囲**: GreedyAI を直接指定した場合 (= `ai_factory=GreedyAI`)、 または PlanningAI が
+> 例外で fallback した時のみ。 default の PlanningAI は **これを使わず Section 2 の beam search** で動く。
+>
+> ただし「PlanningAI が search 中に内部で apply するアクションは Section 2 が、 そして 攻撃 sim 内の
+> 相手の choose_defense は GreedyAI ロジック (Section 4) が呼ばれる」 ことに注意。
 
 `choose_action(state)` は以下の順序で「打つべき行動」 を探す。 上位で見つかれば即 return。
 
@@ -159,30 +195,49 @@ choose_action (= 「次の 1 手は？」)
 
 ---
 
-## 2. PlanningAI (= ターン全体プラン beam search)
+## 2. PlanningAI (= ターン全体プラン beam search) — **default AI のメイン経路**
 
-### 動作
+### 動作 (= 1 手選ぶフロー)
 
-1. MAIN フェーズ開始時に `search_turn_plan(state, ai_opp, beam_width=4, max_depth=6)`
-2. 「現状態 + EndPhase 到達 / max_depth まで」 を探索
-3. 各候補手で:
-   - 状態を fast_clone (= GameState の軽量 deepcopy)
-   - 行動を apply。 攻撃なら `ai_opp.choose_defense` を呼んで counter / blocker を差し込み
-   - 終端で `compute_score` 計算
-4. 各深さで上位 `beam_width=4` のみ残す (= 指数爆発抑制)
-5. 終端 score 最良のプランを返す → 1 手目を採用 (= 次手は再計画)
+1. MAIN フェーズ開始 (= 自分の手番) で `search_turn_plan(state, ai_opp, beam_width=4, max_depth=6)`
+2. **frontier 初期化**: 現状態を 1 つだけ持つ
+3. depth ループ (最大 6 回):
+   1. frontier の各状態に対して `legal_actions()` で **全合法手** を列挙 (= ここで優先順位ナシ。 全部候補)
+   2. 各候補手で:
+      - 状態を `fast_clone` (= GameState の軽量 deepcopy、 effects_overlay は共有参照で skip)
+      - 行動を apply。 攻撃の場合は `ai_opp.choose_defense` を呼んで counter / blocker を差し込み
+      - 終端で `compute_score(child)` 計算
+      - `(child_state, plan_actions + [action], score)` を next_frontier に append
+   3. next_frontier を score 降順でソート、 **上位 beam_width=4 のみ残す** (= 指数爆発抑制)
+   4. 自分ターン終了 (phase != MAIN または turn_player 切替) または `game_over` で completed に移動
+4. 全 completed プランから、 終端 `compute_score` 最大のものを選び **1 手目を返す**
+5. 次手も同様に再計画 (= receding horizon)。 過去のプラン全体は捨てる
 
-### 何を解いている?
+### Step 0〜4 と何が違うか
 
-GreedyAI の「event → キャラ → attack」 と固まった順序を捨て、 **行動列のコンボ** を見られる:
-- 「ハンド剥がし → 通すアタック」
-- 「event 効果でドン回収 → 大型キャラ play → 攻撃」
-- 「キャラ play → 起動メイン (= 場のキャラ条件発動) → 攻撃」
+| 観点 | GreedyAI (Step 0〜4) | PlanningAI (beam search) |
+|---|---|---|
+| 全合法手の扱い | カテゴリ別に順序付け (= 起動メイン → イベント → ...) | **全部並列** に candidate |
+| 何で選ぶ | カテゴリ内のヒューリスティック (cost 順 / role priority 等) | **board_eval (Section 3)** の 15 指標 |
+| 評価対象 | 「今この 1 手を打った直後」 | **「ターン終了時点」 の盤面** (= 行動列全体の効果) |
+| コンボ判断 | カテゴリ境界で切れる (= 起動メイン後にキャラ play、 とは見えない) | **行動列を通して見る** (= depth=6 まで連続性保持) |
+| 例 | 「event を打ち切ってからキャラ展開」 と固まる | 「キャラ play → event でドン回収 → 大型展開」 を 1 プランで評価 |
+
+### 何を解けるようになるか
+
+- **行動列のコンボ**: 「ハンド剥がし event → 通すアタック」 のように 順序依存の利得が見える
+- **「攻撃 → 起動メイン → 攻撃」** のような GreedyAI の Step 順序では辿らない流れ
+- **「相手の counter を強制消費させる」** 戦略 (= 弱小攻撃 → 後で本命) は GreedyAI でも Step 2c で実装あり、
+  PlanningAI なら自然に見つかる
+- **「ライフトリガー雷迎リスク回避」 等の判断** は GreedyAI Step 2c のロジックが PlanningAI に **継承されない**
+  (= beam search は全合法手を眺めるだけで「リスク回避」 のヒューリスティックは持たない)。
+  ただし board_eval で「攻撃で KO されて場が減る」 = field_count / lethal の低下として **間接的に**反映される
 
 ### 設定値 (`engine/ai.py` PlanningAI):
 - `beam_width = 4`: 各深さで残す候補数。 大きいほど幅広く探すが指数的に遅くなる
-- `max_depth = 6`: プラン長上限。 ターン中の総 action 数 (= 起動メイン+ play 数 + 攻撃数)
+- `max_depth = 6`: プラン長上限。 ターン中の総 action 数 (= 起動メイン + play + 攻撃 + EndPhase)
 - 速度: Greedy 比 ~5x slow (= 2-5s/game vs 1s/game)
+- 検証結果: cross matrix で +26pt vs Greedy baseline (= Greedy より明確に強い)
 
 ### 終端の盤面評価 (`compute_score`) で何を見ているか
 
