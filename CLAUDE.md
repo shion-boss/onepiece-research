@@ -5,13 +5,23 @@
 
 ## このツールが目指すもの
 
-「**自分の使いたいカードを最大限活かして、現環境のトップティアデッキに勝てるか**」を
-研究するためのデッキ構築・分析・対戦シミュレーションツール。
+**「公式準拠 100% の OPTCG エンジン上で、 デッキ研究と AI 対戦を集合知で進める研究プラットフォーム」**
+
+3 つの達成目標:
+
+1. **デッキ研究ツールとしての完成度**: 推しキャラ軸デッキを組み、 メタトップに勝てるかを定量評価
+2. **AI 強化の段階的進展**: ヒューリスティック → 確率モデル → self-play 学習 → 超人 AI へ
+3. **コミュニティ参加型研究**: ボランティア self-play 計算で **公開 TCG 分散研究** を実現
 
 利用シーン:
 - 推しキャラを軸にしたデッキを組み、メタデッキ群と AI 対戦させて勝率を見る
 - デッキの色配分・コストカーブ・特徴シナジーを可視化する
 - 環境上位デッキの傾向を分析する
+- 学習基盤 (= Phase 8 以降) で上級者層に届く AI を構築する研究プラットフォーム
+- 分散コンピューティング (= Phase 9 以降) でコミュニティ参加型に拡大
+
+**詳細ロードマップは [docs/ROADMAP.md](./docs/ROADMAP.md) を参照**。
+Phase 1-6 + 4.5 (= PlanningAI) は完了済、 Phase 7 (= AI ヒューリスティック層強化) が直近の進行フェーズ。
 
 ## アーキテクチャ
 
@@ -151,33 +161,47 @@ onepiece_research/
   - `/faq` 公式FAQ + cardqa 検索
 - [x] **画像配信**: 全 4,518 枚を `web/public/cards/` にキャッシュ済 (878MB)。
   `<CardImage>` で 404 → 公式 URL フォールバック。
+- [x] **Phase 4.5 完了 (R70+R71)**: **PlanningAI** (ターン全体プラン beam search)。
+  - `engine/plan_search.py`: beam search + fast_clone (= CardDef/InPlay の __deepcopy__ 共有/手書きで 3.3x 高速化)
+  - `engine/ai.py:PlanningAI` (= GreedyAI を継承、 (beam=4, depth=6) で動作)
+  - `engine/eval.py`: 15 指標 board_eval (= 9 基本 + 4 拡張 + chara_quality/hand_quality/opp_hand_threat)
+  - 検証: cross matrix で 30 cells 中 23 改善 / 平均 **+26pt** vs Greedy baseline
+  - 速度: 8s/g → **2.4s/g** (R70 deepcopy 削減 + depth 8→6)
+  - `engine/harness.run_matchup` の default AI に採用 (= R71)
+- [x] **メタデッキ Phase 4 拡張 (= tcg-portal 化、 2026-05-14)**: 16 デッキ pool。
+  - cardrush 10 件 (= 個別優勝レシピ、 3 ヶ月集計から代表選出)
+    + tcg-portal 6 件 (= cardrush 不在の leader を集計合成で補完)
+  - 全 16 リーダーは tcg-portal `/meta-analysis` 上位 (= 2026-02-14〜05-13 の 1,040 大会データ)
+  - `decks/_archive/cardrush_raw/` に過去 3 ヶ月 88 件の優勝レシピを保管 (= deck classifier 学習用)
 
-### 現在のメタ Tier (matchup matrix, n=20, 2026-05-12 R67 後 再計算)
+### 進行中 / 計画中フェーズ (= Phase 7+, 詳細は [docs/ROADMAP.md](./docs/ROADMAP.md))
 
-R44〜R59 で `_unimplemented = 0` 達成 + audit sev=3-4 = 0 + engine 厳密化 audit 10/10 pass
-+ 13+ 新 trigger + 35+ 新 primitive 投入 + R65-R67 で AI カード理解強化 (役割タグ + effectiveness)
-を加えた後の reference 値。
+- [ ] **Phase 7 進行中**: AI ヒューリスティック層強化 (= 2-3 週間、 期待 +10〜20pt)
+  - 7A: `choose_defense` リファクタ (= 4 候補並列評価 + blocker 生存判定 `>=` → `>` rule fix)
+  - 7B: `hand_estimator` 分布化 (= ハイパージオメトリック + 分位点ベース リーサル判定)
+  - 7C: ベイズ deck classifier (= 観測カードから相手 archetype を確率推定)
+  - 7D: MatchupProfile dynamic update (= 7C 出力消費)
+  - 7E: hand pool メタデッキ仮定精密化 (= 7B + 7C 統合)
+- [ ] **Phase 8 計画中**: 学習基盤 / self-play AI (= 2-4 ヶ月、 期待 +20〜40pt)
+  - 8A: self-play インフラ整備 (= replay 蓄積 + 並列実行)
+  - 8B: policy + value 学習器 (= 決定論化 + AlphaZero 型 NN)
+  - 8C: 1 matchup 集中学習 (= 紫エネル vs 緑ミホーク 等で 超人 AI 水準)
+  - 8D: archetype-aware general policy (= 全 matchup を 1 NN で扱う)
+- [ ] **Phase 9 計画中**: 分散コンピューティング / ボランティア参加 (= 1-3 ヶ月)
+  - 9A: 内部分散インフラ (= /api/research/* + research_client.py)
+  - 9B: 公開可能版 (= UI + GitHub OAuth + 検証強化)
+  - 9C: ブラウザ WASM クライアント (= Pyodide 経由)
+- [ ] **Phase 10+ 長期**: 任意 deck 汎用 AI / デッキ構築 AI / ナッシュ均衡解析
+  - 詳細は ROADMAP.md 参照、 6-12 ヶ月の研究プロジェクト級
 
-| Tier | デッキ |
-|---|---|
-| **S (85%+)** | (該当なし) |
-| **A (75%+)** | 赤黄ボニー (83%) / 青黄ナミ (79%) / 紫エネル (77%) / 赤紫ロジャー (77%) / 空島ルフィ (72%) |
-| **B (50-74%)** | 赤青エース (55%) / 緑黄しらほし (58%) / 紫ドフラミンゴ (51%) |
-| **C (25-49%)** | 緑ボニー (47%) / 緑ミホーク (36%) |
-| **D (<25%)** | 赤青ルーシー (22%) / 青紫サンジ (20%) / 黒イム (19%) / 緑紫ルフィ (11%) / 黒クロコダイル (4%) |
+### 現在のメタ Tier
 
-主要変動 (R60 → R67 後 + 紫エネル tcg-portal 化):
-- **紫エネル +14pt** (62→77): tcg-portal 集計レシピ (シャーロット・プリン / サンジ / 神避 採用) に
-  変更で B → A 昇格。 旧 cardrush 構成より event-heavy のアグロ寄りで効果連鎖が強い
-- 赤紫ロジャー +3pt (75→77): role priority で finisher プレイの精度向上
-- 赤青ルーシー +3pt (18→22): synergy / blocker の温存判断改善
-- 青黄ナミ -5pt (84→79): finisher 警戒の defense boost で押し込み難度上昇
-- 赤青エース -6pt (61→55): 同上、 attacker 側で counter 切られやすい
-- 空島ルフィ -5pt (77→72): 紫エネル の強化により対戦で逆転負け増
-- 黒クロコダイル -1pt (5→4): 構造的弱点 (ライフ4 + 起動メイン重コスト) は AI レベルで解決不能、 デッキ研究側の課題
+> **注**: 2026-05-12 R67 時点の旧 Tier 表 (6 デッキ pool, Greedy 同士) は
+> `db/matchup_matrix.greedy_baseline.json` に保管済。 2026-05-14 から **16 デッキ pool
+> + PlanningAI 同士の matrix** に移行中 (= 走行中の `bun1t1aya` 完了後に Tier 表更新)。
+> 暫定 Tier は完了後に追記。
 
-全デッキ ±5pt 以内 (= regression 警告閾値 -10pt 以下、 セーフ)。 AI 行動の質は
-bad_moves 0.39% (R64 0.52% から改善) で確認済。
+R71 (= PlanningAI default 化 + tcg-portal top-16 pool 化) 後の matrix 結果は完了次第ここに反映。
 
 **評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 他デッキが効果を正しく
 発揮できるようになった結果、 相対的に成績が下がったデッキも存在する。
