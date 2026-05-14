@@ -20,7 +20,7 @@ from pathlib import Path
 from .deck import DeckList
 from .effects import load_effect_overlay
 from .game import GameState, setup_game, play_until_main, Phase
-from .ai import GreedyAI, RandomAI, play_one_action
+from .ai import GreedyAI, PlanningAI, RandomAI, play_one_action
 
 
 @dataclass
@@ -110,8 +110,8 @@ def run_matchup(
     deck2: DeckList,
     n_games: int = 100,
     seed: int = 0,
-    ai_factory_1=GreedyAI,
-    ai_factory_2=GreedyAI,
+    ai_factory_1=PlanningAI,
+    ai_factory_2=PlanningAI,
     max_actions_per_game: int = 1500,
     verbose: bool = False,
     effects_overlay: Optional[dict] = None,

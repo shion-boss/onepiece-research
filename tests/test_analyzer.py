@@ -6,6 +6,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
+from engine.ai import GreedyAI
 from engine.analyzer import analyze_game
 from engine.deck import CardRepository, DeckList
 from engine.effects import load_effect_overlay
@@ -31,6 +32,7 @@ def test_analyze_game_returns_eval_series():
     rep = run_matchup(
         d1, d2, n_games=1, seed=42, effects_overlay=overlay,
         record_snapshots=True, enforce_rules=False,
+        ai_factory_1=GreedyAI, ai_factory_2=GreedyAI,  # smoke なので fast を明示
     )
     snaps = rep.games[0].snapshots
     assert len(snaps) > 5, f"snapshot 数が極端に少ない ({len(snaps)})"
@@ -59,6 +61,7 @@ def test_analyze_game_turning_points():
     rep = run_matchup(
         d1, d2, n_games=1, seed=10, effects_overlay=overlay,
         record_snapshots=True, enforce_rules=False,
+        ai_factory_1=GreedyAI, ai_factory_2=GreedyAI,
     )
     snaps = rep.games[0].snapshots
     analysis = analyze_game(

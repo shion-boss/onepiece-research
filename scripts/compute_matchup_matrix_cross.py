@@ -32,7 +32,7 @@ OUT = ROOT / "db" / "matchup_matrix_cross.json"
 BASELINE = ROOT / "db" / "matchup_matrix.json"
 
 
-def planning_factory(beam=4, depth=8):
+def planning_factory(beam=4, depth=6):
     def _f(rng=None, deck_analysis=None):
         return PlanningAI(rng=rng, deck_analysis=deck_analysis, beam_width=beam, max_depth=depth)
     return _f
@@ -43,7 +43,7 @@ def main() -> int:
     ap.add_argument("--n-games", type=int, default=5)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--beam", type=int, default=4)
-    ap.add_argument("--depth", type=int, default=8)
+    ap.add_argument("--depth", type=int, default=6)
     ap.add_argument("--decks-glob", default="cardrush_*.json")
     args = ap.parse_args()
 

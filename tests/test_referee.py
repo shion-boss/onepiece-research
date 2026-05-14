@@ -122,12 +122,14 @@ def test_referee_passes_normal_match():
     d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
     d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)  # 緑ミホーク
 
+    from engine.ai import GreedyAI
     report = run_matchup(
         d1, d2, n_games=3, seed=42,
         effects_overlay=overlay,
         enforce_rules=True,
         referee_strict=False,
         verbose=False,
+        ai_factory_1=GreedyAI, ai_factory_2=GreedyAI,  # smoke なので fast を明示
     )
     total_v = sum(len(g.rule_violations) for g in report.games)
     assert total_v == 0, \

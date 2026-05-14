@@ -1,11 +1,11 @@
 {
-  "computed_at": "2026-05-13T15:02:38Z",
+  "computed_at": "2026-05-14T00:24:53Z",
   "n_games": 5,
   "seed": 42,
   "ai_self": "PlanningAI",
   "ai_opp": "GreedyAI",
   "beam": 4,
-  "depth": 8,
+  "depth": 6,
   "decks": [
     {
       "slug": "cardrush_1399",
@@ -51,7 +51,7 @@
           "wins": 5,
           "losses": 0,
           "draws": 0,
-          "avg_turns": 14.2
+          "avg_turns": 14.6
         },
         {
           "deck_b": "cardrush_1437",
@@ -83,7 +83,7 @@
           "wins": 2,
           "losses": 3,
           "draws": 0,
-          "avg_turns": 18.8
+          "avg_turns": 18.4
         }
       ]
     },
@@ -129,7 +129,7 @@
           "wins": 5,
           "losses": 0,
           "draws": 0,
-          "avg_turns": 12.6
+          "avg_turns": 13
         },
         {
           "deck_b": "tcgportal_op15_lufy",
@@ -237,7 +237,7 @@
           "wins": 5,
           "losses": 0,
           "draws": 0,
-          "avg_turns": 14.6
+          "avg_turns": 14.2
         },
         {
           "deck_b": "tcgportal_op15_lufy",

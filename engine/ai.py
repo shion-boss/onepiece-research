@@ -1509,8 +1509,9 @@ class PlanningAI(GreedyAI):
     ジャンル別に固まる構造を捨て、 「event → attack → event」 のコンボや「ハンド剥がし
     後に通すアタック」 のような連動を pricing する。
 
-    Tradeoff: deepcopy が重い (= 70ms × 数百回/ターン) ため、 GreedyAI の数倍〜数十倍 slow。
-    matrix 全体再計算は数時間〜半日かかる。 ただし「強さ重視」 用途で opt-in 化。
+    Tradeoff: GreedyAI の 数倍 slow (= R70 高速化後 1-2s/game)。 cross matrix 検証で
+    平均 +26pt (vs Greedy baseline) のため default に採用 (R71)。 grid_search_beam_depth
+    で (beam=4, depth=6) が品質ピーク + (4, 8) より 5% 速いと判明。
 
     防御 (choose_defense) は GreedyAI を継承。 攻撃時の defense sim は plan_search 内で
     ai_opp.choose_defense を呼ぶ。 ai_opp が None の場合は self を defense sim にも使う
@@ -1524,7 +1525,7 @@ class PlanningAI(GreedyAI):
         rng=None,
         deck_analysis=None,
         beam_width: int = 4,
-        max_depth: int = 8,
+        max_depth: int = 6,
         ai_opp=None,
     ):
         super().__init__(rng=rng, deck_analysis=deck_analysis)
