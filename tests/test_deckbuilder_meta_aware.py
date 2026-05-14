@@ -150,3 +150,84 @@ def test_auto_build_deck_no_meta_data_falls_back():
         meta_aware=True,
     )
     assert len(deck.main) == 50
+
+
+# ─────────────────────────────────────────────────────
+# Phase 7L 戦略制約
+# ─────────────────────────────────────────────────────
+
+
+def test_meta_aware_enforces_min_characters():
+    """meta_aware=True で キャラ最低 38 枚保証。"""
+    from engine.core import Category
+    repo = _repo()
+    deck = auto_build_deck(
+        leader_id="OP15-058",
+        repo=repo,
+        meta_aware=True,
+        rng=random.Random(42),
+    )
+    n_chars = sum(1 for c in deck.main if c.category == Category.CHARACTER)
+    assert n_chars >= 38, f"キャラ {n_chars} < 38 (= 上級者最低 推奨)"
+
+
+def test_meta_aware_enforces_min_counter_cards():
+    """meta_aware=True で counter 持ち最低 30 枚保証。"""
+    repo = _repo()
+    deck = auto_build_deck(
+        leader_id="OP15-058",
+        repo=repo,
+        meta_aware=True,
+        rng=random.Random(42),
+    )
+    n_counter = sum(1 for c in deck.main if c.counter > 0)
+    assert n_counter >= 30, f"counter 持ち {n_counter} < 30 (= 推奨)"
+
+
+def test_meta_aware_excludes_banned_cards():
+    """meta_aware=True で 禁止カード が含まれない。"""
+    from engine.deckbuilder import _load_banlist_ids
+    from engine.deck import _base_id
+    repo = _repo()
+    banned = _load_banlist_ids()
+    deck = auto_build_deck(
+        leader_id="OP15-058",
+        repo=repo,
+        meta_aware=True,
+    )
+    for c in deck.main:
+        bid = _base_id(c.card_id)
+        assert bid not in banned and c.card_id not in banned, \
+            f"禁止カード {c.card_id} が含まれてる"
+
+
+def test_validate_deck_consistency_smoke():
+    """validate_deck_consistency が正常 deck で warnings 空 (or 小限)。"""
+    from engine.deckbuilder import validate_deck_consistency
+    repo = _repo()
+    deck = auto_build_deck(
+        leader_id="OP15-058",
+        repo=repo,
+        meta_aware=True,
+    )
+    warnings = validate_deck_consistency(deck)
+    # 制約満たすなら 重大警告無し (= 「禁止」「枚数」 等)
+    critical = [w for w in warnings if "禁止" in w or "枚数" in w or "上限超過" in w]
+    assert not critical, f"重大警告: {critical}"
+
+
+def test_validate_detects_low_character_count():
+    """validate_deck_consistency が キャラ < 38 を検出。"""
+    from engine.deckbuilder import validate_deck_consistency
+    from engine.deck import DeckList
+    repo = _repo()
+    # 全部 イベント のデッキを偽造 (= キャラ 0)
+    leader = repo.get("OP15-058")
+    event_card = repo.get("OP01-090")  # 何らかの event
+    fake = DeckList(
+        name="EventOnly",
+        leader=leader,
+        main=[event_card] * 50,
+    )
+    warnings = validate_deck_consistency(fake)
+    assert any("キャラ" in w for w in warnings), f"キャラ不足 警告がない: {warnings}"

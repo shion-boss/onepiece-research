@@ -287,6 +287,14 @@ def auto_build_deck(
 
     # 多すぎたら削る
     chosen = chosen[:50]
+
+    # Phase 7L (2026-05-14): 戦略制約 を適用 (= 上級者ルール、 meta_aware 時のみ)
+    # キャラ最低 38 / counter 30+ / 禁止カード除外 / search 4-8 の保証
+    if meta_aware:
+        chosen, _strat_warnings = _apply_strategic_constraints(
+            chosen, candidates, used, card_roles, effect_keys,
+        )
+
     rng.shuffle(chosen)
 
     return DeckList(
@@ -294,6 +302,189 @@ def auto_build_deck(
         leader=leader,
         main=chosen,
     )
+
+
+def _load_banlist_ids() -> set[str]:
+    """禁止カードの base_id 集合 (Phase 7L)。"""
+    from .deck import _load_banlist
+    banlist = _load_banlist() or {}
+    forbidden = banlist.get("forbidden", [])
+    return {f.get("card_id", "") for f in forbidden if f.get("card_id")}
+
+
+def _apply_strategic_constraints(
+    chosen: list[CardDef],
+    candidates: list[CardDef],
+    used: Counter,
+    card_roles: dict,
+    effect_keys: set[str],
+) -> tuple[list[CardDef], list[str]]:
+    """構築済 deck に戦略制約を適用 (Phase 7L)。
+
+    1. 禁止カード除外 (= banlist)
+    2. キャラ最低 38 枚 (= 「キャラ 38-50 / イベント 0-8 / ステージ 0-4」 業界基準)
+    3. counter 持ち最低 30 枚 (= 上級者推奨)
+    4. search role 4-8 枚範囲 (= サーチ consistency)
+
+    Returns: (修正済 50 枚 chosen, warnings)
+    """
+    warnings: list[str] = []
+    banned = _load_banlist_ids()
+
+    # 1. 禁止カード除外 + alternative 探索
+    if banned:
+        n_swapped = 0
+        for i, c in enumerate(list(chosen)):
+            bid = _base_id(c.card_id)
+            if bid in banned or c.card_id in banned:
+                replacement = _find_replacement(
+                    candidates, used, banned, exclude_ids={c.card_id},
+                )
+                if replacement is not None:
+                    used[_base_id(c.card_id)] -= 1
+                    used[_base_id(replacement.card_id)] += 1
+                    chosen[i] = replacement
+                    n_swapped += 1
+        if n_swapped > 0:
+            warnings.append(f"禁止カード {n_swapped} 枚を swap")
+
+    # 2. キャラ最低 38 (= イベント/ステージ → キャラ swap)
+    n_chars = sum(1 for c in chosen if c.category == Category.CHARACTER)
+    if n_chars < 38:
+        need = 38 - n_chars
+        non_char_indices = [
+            i for i, c in enumerate(chosen)
+            if c.category != Category.CHARACTER
+        ]
+        char_pool = sorted(
+            [c for c in candidates if c.category == Category.CHARACTER and _base_id(c.card_id) not in banned],
+            key=lambda c: (
+                1 if c.card_id in effect_keys else 0,
+                c.power,
+                c.counter,
+            ),
+            reverse=True,
+        )
+        swapped = 0
+        for idx in non_char_indices:
+            if swapped >= need:
+                break
+            new_card = next(
+                (pc for pc in char_pool if used[_base_id(pc.card_id)] < 4),
+                None,
+            )
+            if new_card is None:
+                break
+            used[_base_id(chosen[idx].card_id)] -= 1
+            used[_base_id(new_card.card_id)] += 1
+            chosen[idx] = new_card
+            swapped += 1
+        if swapped > 0:
+            warnings.append(f"キャラ最低 38 制約: {swapped} 枚 swap")
+
+    # 3. counter 持ち最低 30
+    n_counter = sum(1 for c in chosen if c.counter > 0)
+    if n_counter < 30:
+        need = 30 - n_counter
+        non_counter_indices = [
+            i for i, c in enumerate(chosen)
+            if c.counter == 0
+        ]
+        counter_pool = sorted(
+            [c for c in candidates if c.counter > 0 and _base_id(c.card_id) not in banned],
+            key=lambda c: (-c.counter, c.cost),
+        )
+        swapped = 0
+        for idx in non_counter_indices:
+            if swapped >= need:
+                break
+            new_card = next(
+                (cc for cc in counter_pool if used[_base_id(cc.card_id)] < 4),
+                None,
+            )
+            if new_card is None:
+                break
+            used[_base_id(chosen[idx].card_id)] -= 1
+            used[_base_id(new_card.card_id)] += 1
+            chosen[idx] = new_card
+            swapped += 1
+        if swapped > 0:
+            warnings.append(f"counter 持ち最低 30 制約: {swapped} 枚 swap")
+
+    # 4. search role 4-8 範囲 (= 範囲外なら warning のみ、 強制 swap はしない)
+    n_search = sum(
+        1 for c in chosen
+        if isinstance(card_roles.get(c.card_id), dict)
+        and card_roles[c.card_id].get("primary_role") == "search"
+    )
+    if n_search < 4:
+        warnings.append(f"search role {n_search} 枚 (= 推奨 4-8 未満、 consistency 低)")
+    elif n_search > 8:
+        warnings.append(f"search role {n_search} 枚 (= 推奨 4-8 超過、 過剰投資)")
+
+    return chosen[:50], warnings
+
+
+def _find_replacement(
+    candidates: list[CardDef],
+    used: Counter,
+    banned: set[str],
+    exclude_ids: set[str],
+) -> Optional[CardDef]:
+    """禁止カード swap 用の代替を 1 枚選ぶ (Phase 7L)。
+
+    候補から: 禁止外 + 未上限 + exclude_ids 除外 で 最も「強い」 カード。
+    """
+    pool = [
+        c for c in candidates
+        if _base_id(c.card_id) not in banned
+        and c.card_id not in banned
+        and c.card_id not in exclude_ids
+        and used[_base_id(c.card_id)] < 4
+    ]
+    if not pool:
+        return None
+    return max(
+        pool,
+        key=lambda c: (c.counter, c.power, c.cost),
+    )
+
+
+def validate_deck_consistency(deck: DeckList) -> list[str]:
+    """deck の戦略整合性チェック (Phase 7L)。
+
+    Returns: warnings (= 空 list なら問題なし)
+    """
+    warnings = []
+    main = deck.main
+    if len(main) != 50:
+        warnings.append(f"枚数 {len(main)} (= 50 必須)")
+    # 同名 4 枚制限
+    cnt = Counter(_base_id(c.card_id) for c in main)
+    for bid, n in cnt.items():
+        if n > 4:
+            warnings.append(f"{bid}: {n} 枚 (= 4 枚上限超過)")
+    # 禁止カード
+    banned = _load_banlist_ids()
+    for c in main:
+        if _base_id(c.card_id) in banned or c.card_id in banned:
+            warnings.append(f"{c.card_id} ({c.name}) は禁止カード")
+    # キャラ最低 38
+    n_chars = sum(1 for c in main if c.category == Category.CHARACTER)
+    if n_chars < 38:
+        warnings.append(f"キャラ {n_chars} 枚 (= 推奨 38+)")
+    # counter 30+
+    n_counter = sum(1 for c in main if c.counter > 0)
+    if n_counter < 30:
+        warnings.append(f"counter 持ち {n_counter} 枚 (= 推奨 30+)")
+    # 採用確率の警告 (= 単一カード 3 枚以下 を「不安定」 と判定)
+    for bid, n in cnt.items():
+        if n == 1:
+            # 1 枚採用 は 「強力 1-of tech」 として OK、 警告なし
+            continue
+        if n == 2:
+            warnings.append(f"{bid}: 2 枚採用 (= 初手率 ~20%、 不安定。 4 枚 or 1 枚 を推奨)")
+    return warnings
 
 
 def build_with_core(
