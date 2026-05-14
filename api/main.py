@@ -522,6 +522,39 @@ def get_card(card_id: str):
     return _to_out(c)
 
 
+# Vercel deploy だと web/public/cards/ (= 878MB ローカルキャッシュ) は除外しているため、
+# frontend が公式 CDN から直接読もうとすると CORP (cross-origin-resource-policy:
+# same-site) で blocked される可能性 + 通信量も公式 CDN 負荷になる。
+# API project を proxy として通すことで:
+# - CORP/CORS 制限を回避 (= 同オリジン扱い)
+# - Vercel edge cache が効く (= 2 回目以降は無料配信)
+# - 公式 CDN への負荷分散
+@app.get("/api/cards/{card_id}/image")
+def card_image_proxy(card_id: str):
+    """公式 CDN の画像を proxy して返す。 24h edge cache。"""
+    from fastapi.responses import Response as _Resp
+    import httpx as _httpx
+    # card_id サニタイズ (= path traversal 対策)。 OPxx-NNN / STxx-NNN / EB / PRB / P-NNN 系のみ通す
+    if not re.match(r"^[A-Z]+\d+-\d+(?:_p\d+)?$|^P-\d+(?:_p\d+)?$", card_id):
+        raise HTTPException(400, "invalid card_id")
+    url = f"https://www.onepiece-cardgame.com/images/cardlist/card/{card_id}.png"
+    try:
+        with _httpx.Client(timeout=10.0) as cli:
+            r = cli.get(url)
+    except Exception as e:
+        raise HTTPException(502, f"upstream fetch failed: {e}")
+    if r.status_code != 200:
+        raise HTTPException(404, "image not found upstream")
+    return _Resp(
+        content=r.content,
+        media_type=r.headers.get("content-type", "image/png"),
+        headers={
+            # ブラウザ 24h + Vercel edge も同期間 cache (= 静的画像なので長くて OK)
+            "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+        },
+    )
+
+
 # 全カードの primary_role を card_id → role の compact map で返す。
 # board_eval (chara_quality / hand_quality) の TS 側計算用 (R69)。
 # 元 db/card_roles.json は 2MB 超だが、 primary_role のみなら ~200KB。
