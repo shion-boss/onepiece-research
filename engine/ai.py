@@ -480,6 +480,21 @@ class GreedyAI:
         #    (b) early_finisher_hold: 高コストフィニッシャーは life>=3 では温存 (= プレイ候補から外す)
         #    (c) 残りの中で最大コストを選ぶ (= コスト効率)
         play_actions: list[PlayCharacter] = [a for a in actions if isinstance(a, PlayCharacter)]
+        # Phase 7K extend (2026-05-14): blocker は attack 後に play (= life trigger 対策)
+        # 攻撃可能なら blocker play を defer。 攻撃通った後で blocker 設置 = 安全。
+        has_attack_actions = any(
+            isinstance(a, (AttackLeader, AttackCharacter)) for a in actions
+        )
+        if play_actions and has_attack_actions:
+            non_blocker_plays = [
+                a for a in play_actions
+                if not me.hand[a.hand_idx].is_blocker
+            ]
+            if non_blocker_plays:
+                play_actions = non_blocker_plays
+            # 全 blocker しかない + 攻撃あり → blocker 出さず attack 優先
+            elif play_actions:
+                play_actions = []  # blocker は後回し、 attack に流す
         if play_actions:
             life_left = len(me.life)
             # keep_field_synergy_only: 起動メイン「場が特徴 X のみ」 条件を守る。
@@ -739,72 +754,45 @@ class GreedyAI:
     ) -> Optional[Action]:
         """このターンで相手 leader を倒せる (= 勝てる) なら、 最初の 1 アクションを返す。
 
-        DON ブースト考慮: power 不足の attacker でも DON で届けば候補に入れる。
-        全 attacker での合計 excess > 推定 counter なら lethal 判定。
+        Phase 7J 統合 (2026-05-14): lethal_planner.plan_optimal_attack_sequence で
+        最適な DON 配分 (= 均等化 + ±2k マージン) を求めてから lethal 判定。
 
         勝てない場合 None を返す。
         """
-        import math
+        from .lethal_planner import plan_optimal_attack_sequence
 
         me = state.turn_player
         opp = state.opponent
         opp_life = len(opp.life)
-        # life=0 は次の 1 ヒットで勝ち、 life=N は N+1 ヒット必要 (= life を 0 にしてから 1)
         hits_needed = max(1, opp_life)
 
-        # 全 leader 攻撃候補を「DON 必要枚数」 と共にリスト化
-        # candidate: (action, attacker, dons_needed_to_succeed, excess_after_don)
-        candidates: list[tuple[AttackLeader, InPlay, int, int]] = []
+        # attacker 候補を (iid, base_power) リスト化
+        attacker_specs: list[tuple[int, int]] = []
+        action_by_iid: dict[int, AttackLeader] = {}
         for a in atk_leader_actions:
             attacker = get_inplay(a.attacker_iid)
             if attacker is None:
                 continue
-            gap = est_defender_power - attacker.power
-            if gap <= 0:
-                # 既に届く
-                dons_needed = 0
-                excess = -gap  # ≥ 0
-            else:
-                # DON で埋める必要
-                dons_needed = math.ceil(gap / 1000)
-                # 上限 4 DON / キャラ
-                if attacker.attached_dons + dons_needed > 4:
-                    continue
-                excess = dons_needed * 1000 - gap  # 0 or +1000 余り
-            candidates.append((a, attacker, dons_needed, excess))
+            # 既に attached_dons を含む base_power でプランナーに渡す
+            attacker_specs.append((a.attacker_iid, attacker.power))
+            action_by_iid[a.attacker_iid] = a
 
-        if len(candidates) < hits_needed:
+        if len(attacker_specs) < hits_needed:
             return None
 
-        # DON 予算 = me.don_active
-        don_budget = me.don_active
-        # 必要 DON が安い順 (= 余裕を残す) でソート
-        candidates.sort(key=lambda x: x[2])
-        feasible: list[tuple[AttackLeader, InPlay, int, int]] = []
-        don_used = 0
-        for cand in candidates:
-            _, _, dons, _ = cand
-            if don_used + dons > don_budget:
-                continue
-            feasible.append(cand)
-            don_used += dons
-
-        if len(feasible) < hits_needed:
+        # Phase 7J: 配分最適化プランナーで attack plan を構築
+        plan = plan_optimal_attack_sequence(
+            attackers=attacker_specs,
+            available_don=me.don_active,
+            opp_leader_power=est_defender_power,
+            opp_shields=opp_life,
+        )
+        if not plan.is_lethal or len(plan.sequence) < hits_needed:
             return None
 
-        # 上位 hits_needed 攻撃の合計 excess を計算 (= 大 excess 優先)
-        feasible.sort(key=lambda x: -x[3])
-        top_n = feasible[:hits_needed]
-        total_excess = sum(x[3] for x in top_n)
-
-        # 相手 counter の確率分布で「リーサル成立確率」 を計算 (Phase 7B + 7G + 7H 改修)。
-        #
-        # 旧実装 (R67 まで): avg × 1.2 マージン の ad-hoc 計算
-        # Phase 7B: ハイパージオメトリック分布で P(opp が止める) を直接計算
-        # Phase 7G: opp の visible active DON から counter event 寄与を加算
-        # Phase 7H: archetype 別 bluff factor + 不利な状況なら threshold を下げる賭け
+        # Phase 7J: 最適配分 plan の total excess + 確率判定 (Phase 7B/G/H 連動)
+        total_excess = plan.expected_excess
         opp_idx = 1 - state.turn_player_idx
-        # Counter event bluff (= 7H で archetype factor 込み)
         bluff_counter = hand_estimator.expected_counter_from_don_bluff(state, opp_idx)
         effective_excess = max(0, total_excess - bluff_counter)
         p_block = hand_estimator.probability_counter_total_at_least(
@@ -813,8 +801,7 @@ class GreedyAI:
         p_lethal = 1.0 - p_block
 
         # Phase 7H: risk-adjusted lethal threshold
-        # 「諦めた時の fallback 勝率」 が低いなら threshold を下げて賭けに行く
-        # (= 「ブラフをちぎってリーサル賭け」 行動)
+        me_idx = state.turn_player_idx
         try:
             from .eval import project_opp_next_turn_lethal
             opp_next_lethal = project_opp_next_turn_lethal(state, me_idx)
@@ -822,32 +809,33 @@ class GreedyAI:
         except Exception:
             fallback_win_prob = 0.5
         if fallback_win_prob >= 0.7:
-            LETHAL_THRESHOLD = 0.75   # 既に勝ち気味 → 慎重
+            LETHAL_THRESHOLD = 0.75
         elif fallback_win_prob >= 0.4:
-            LETHAL_THRESHOLD = 0.70   # 標準
+            LETHAL_THRESHOLD = 0.70
         elif fallback_win_prob >= 0.2:
-            LETHAL_THRESHOLD = 0.55   # 不利 → 50/50 でも行く
+            LETHAL_THRESHOLD = 0.55
         else:
-            LETHAL_THRESHOLD = 0.40   # 負け濃厚 → 賭けに行く
+            LETHAL_THRESHOLD = 0.40
 
         if p_lethal < LETHAL_THRESHOLD:
             return None
 
-        # 🎯 リーサル成立! 最初のアクション決定:
-        # - feasible 内で「DON 必要」 attacker があれば、 まず DON を 1 枚付与
-        # - 全 attacker が直接届くなら、 弱い attacker (= 低 excess) から攻撃 (= counter 消耗)
-        # ただし lethal が確定してるなら強い attacker から行く (= 確実に通す)
-        first = feasible[0]  # 最大 excess
-        # DON 必要なら付与優先
-        for a, attacker, dons, _ in feasible:
-            if dons > 0:
-                # 1 枚 DON 付与 (= 1 ターン 1 アクション、 連続して呼ばれる)
+        # 🎯 リーサル成立! plan の最初の attacker から DON 配分 or 攻撃
+        # 1) 最初の attacker で DON 必要なら付与
+        for planned in plan.sequence:
+            attacker = get_inplay(planned.attacker_iid)
+            if attacker is None:
+                continue
+            already = attacker.attached_dons
+            needed = planned.dons_to_attach - already
+            if needed > 0:
                 if attacker is me.leader:
                     return AttachDonToLeader(n=1)
                 else:
-                    return AttachDonToCharacter(target_iid=attacker.instance_id, n=1)
-        # 全部 DON 不要 → 直接 leader 攻撃 (= 高 excess から行く、 確実に通す)
-        return first[0]
+                    return AttachDonToCharacter(target_iid=planned.attacker_iid, n=1)
+        # 2) 全 attacker が必要 DON を装着済 → 弱い attacker から攻撃 (= plan order)
+        first_planned = plan.sequence[0]
+        return action_by_iid[first_planned.attacker_iid]
 
     def _pick_best_leader_attack(
         self,
