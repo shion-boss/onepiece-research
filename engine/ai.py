@@ -526,12 +526,11 @@ class GreedyAI:
                 continue
             viable_leader.append((a, attacker))
         if viable_leader:
-            # リーサル判定: 自分の合計打点で相手 life + 防御パワー を超えるか?
-            # 相手 counter は hand_estimator で公開情報 (= opp.deck+hand プール) から
-            # 期待値推定。 トラッシュ済カウンター持ちは自動的にプールから外れる。
+            # リーサル判定 (Phase 7B 化): ハイパージオメトリックで「opp が止める確率」 を計算
+            # P_block = P(hand counter total >= total_excess)
+            # P_lethal = 1 - P_block、 ≥ 0.70 でリーサル成立 (= 70% 信頼度)
             opp_life = len(opp.life)
             opp_idx = 1 - state.turn_player_idx
-            est_counter_per_card = hand_estimator.expected_counter_per_card(state, opp_idx)
             # ライフ 1 枚 = 1 ヒット必要 (ダブルアタックは無視、簡略)
             hits_to_lethal = opp_life
             if hits_to_lethal == 0:
@@ -544,12 +543,13 @@ class GreedyAI:
             )
             top_n = damage_potentials[:hits_to_lethal]
             total_excess = sum(d for _, d in top_n)
-            # リーサル成立条件: 上位 hits_to_lethal 攻撃の合計 excess >
-            # (相手の使えるカウンター総量) → 全部受け止められない
-            est_max_defense = int(est_counter_per_card * len(opp.hand))
+            p_block = hand_estimator.probability_counter_total_at_least(
+                state, opp_idx, total_excess,
+            )
+            p_lethal = 1.0 - p_block
             is_lethal = (
                 len(top_n) >= hits_to_lethal
-                and total_excess >= est_max_defense
+                and p_lethal >= 0.70
             )
             if is_lethal:
                 # リーサル: 最大打点から順に攻撃 (確実に通る)
@@ -644,15 +644,26 @@ class GreedyAI:
         top_n = feasible[:hits_needed]
         total_excess = sum(x[3] for x in top_n)
 
-        # 相手 counter 推定
+        # 相手 counter の確率分布で「リーサル成立確率」 を計算 (Phase 7B)。
+        #
+        # 旧実装: avg × 1.2 マージン の ad-hoc 計算
+        #   est_max_defense = avg_counter × hand_size × 1.2
+        #   if total_excess < est_max_defense: 諦め
+        #
+        # 新実装: ハイパージオメトリック分布で P(opp が止められる) を直接計算
+        #   P_block = P(hand counter total >= total_excess)
+        #   P_lethal = 1 - P_block
+        #   if P_lethal < lethal_threshold: 諦め
+        #
+        # lethal_threshold = 0.70 (= 70% 以上の成功率でリーサル行く)。
+        # 旧 1.2x マージン と概ね対応 (= 上振れ 20% を弾く)。
         opp_idx = 1 - state.turn_player_idx
-        est_counter_per_card = hand_estimator.expected_counter_per_card(state, opp_idx)
-        est_max_defense = int(est_counter_per_card * len(opp.hand))
-        # 戦略バフ: defender が hand を全 counter に費やすと仮定 (= 強気の lethal 判定)
-        # 上振れ余裕を見て 1.2x マージン
-        est_max_defense = int(est_max_defense * 1.2)
-
-        if total_excess < est_max_defense:
+        p_block = hand_estimator.probability_counter_total_at_least(
+            state, opp_idx, total_excess,
+        )
+        p_lethal = 1.0 - p_block
+        LETHAL_THRESHOLD = 0.70
+        if p_lethal < LETHAL_THRESHOLD:
             return None
 
         # 🎯 リーサル成立! 最初のアクション決定:

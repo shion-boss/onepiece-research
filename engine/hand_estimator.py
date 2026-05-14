@@ -9,9 +9,12 @@
 このモジュールは、 相手手札を確率分布として扱う API を提供。
 
 公開 API:
-- `EstimatedHand`: 期待カウンター/ブロッカー残存確率を集約した推定結果
+- `EstimatedHand`: 期待カウンター/ブロッカー残存確率 + 分布を集約
 - `expected_counter_per_card(state, opp_idx)`: 1 枚あたり期待カウンター値
 - `expected_counter_total(state, opp_idx)`: 期待カウンター総量
+- `counter_total_pmf(state, opp_idx)`: 手札 counter 合計の確率分布 (Phase 7B 追加)
+- `probability_counter_total_at_least(state, opp_idx, threshold)`: 合計 ≥ threshold の確率 (Phase 7B 追加)
+- `counter_total_quantile(state, opp_idx, q)`: 合計の q-分位点 (Phase 7B 追加)
 - `probability_of_blocker_in_hand(state, opp_idx)`: 手札に 1 枚以上ブロッカーが
   ある確率 (ハイパージオメトリック)
 - `estimate_hand(state, opp_idx) -> EstimatedHand`: 上記をまとめて取得
@@ -26,7 +29,9 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from collections import Counter as _Counter
+from dataclasses import dataclass, field
+from math import comb
 from typing import Optional
 
 from .core import CardDef, GameState
@@ -38,7 +43,10 @@ class EstimatedHand:
 
     - hand_count: 公開情報 (= 相手手札枚数、公式ルール上常に確認可能)
     - counter_per_card: deck+hand プール上の 1 枚あたり期待カウンター
-    - counter_total: counter_per_card × hand_count
+    - counter_total: counter_per_card × hand_count (= 期待値)
+    - counter_pmf: 手札 counter 合計の確率分布 {total: prob} (Phase 7B 追加)
+    - counter_q50: counter 合計の中央値 (= P(<=q50) >= 0.5)
+    - counter_q90: counter 合計の 90% 分位点 (= 「ほぼ確実にこれ以下」)
     - blocker_prob: 手札に 1 枚以上ブロッカーがある確率 (0.0〜1.0)
     """
 
@@ -46,6 +54,9 @@ class EstimatedHand:
     counter_per_card: float
     counter_total: int
     blocker_prob: float
+    counter_pmf: dict[int, float] = field(default_factory=dict)
+    counter_q50: int = 0
+    counter_q90: int = 0
 
 
 def _opponent_pool(state: GameState, opp_idx: int) -> list[CardDef]:
@@ -106,15 +117,116 @@ def probability_of_blocker_in_hand(state: GameState, opp_idx: int) -> float:
     return 1.0 - p_zero
 
 
+def counter_total_pmf(state: GameState, opp_idx: int) -> dict[int, float]:
+    """opp 手札の counter 合計の確率分布 (pmf、 Phase 7B 追加)。
+
+    Returns: `{counter_total: probability}` 辞書。 確率の総和 = 1.0。
+
+    ## 計算原理 (= ハイパージオメトリック分布)
+
+    プールが N 枚 (= deck + hand) で、 各 counter 値の枚数を K_v、 手札 h 枚を抽出する時、
+    手札の counter 合計 S が特定値を取る確率を 多変量超幾何分布から計算:
+
+    P(composition = (n_v1, n_v2, ...)) = Π C(K_vi, n_vi) / C(N, h)
+    S = Σ v_i × n_vi
+
+    通常 OPTCG では counter 値が 3-4 種類 (0, 1000, 2000) なので、
+    全 composition を列挙しても O(N^2) 程度で済む = 高速。
+
+    例: pool=[0×30, 1000×15, 2000×5] (total 50), hand=5
+    → 6×4×6=144 通りの composition (多くは確率 0)、 実効計算量 ~50 ops。
+
+    プール空 / 手札空: `{0: 1.0}` を返す。
+    """
+    opp = state.players[opp_idx]
+    hand_size = len(opp.hand)
+    if hand_size == 0:
+        return {0: 1.0}
+    pool = _opponent_pool(state, opp_idx)
+    if len(pool) < hand_size:
+        return {0: 1.0}
+
+    # counter 値別の枚数 グループ
+    groups = _Counter(c.counter for c in pool)
+    n_total = len(pool)
+    norm = comb(n_total, hand_size)
+    if norm == 0:
+        return {0: 1.0}
+
+    pmf: dict[int, float] = {}
+    # 各 counter 値について「手札に n 枚採用」 を再帰的に列挙
+    items = list(groups.items())
+
+    def _enumerate(idx: int, remaining: int, total: int, numerator: int) -> None:
+        if idx == len(items):
+            if remaining == 0:
+                pmf[total] = pmf.get(total, 0.0) + numerator / norm
+            return
+        val, count = items[idx]
+        max_take = min(count, remaining)
+        for n in range(max_take + 1):
+            new_num = numerator * comb(count, n)
+            _enumerate(idx + 1, remaining - n, total + val * n, new_num)
+
+    _enumerate(0, hand_size, 0, 1)
+    return pmf
+
+
+def probability_counter_total_at_least(
+    state: GameState, opp_idx: int, threshold: int,
+) -> float:
+    """opp 手札の counter 合計が threshold 以上である確率 (Phase 7B 追加)。
+
+    リーサル判定で「相手がこのダメージを止められる確率」 として使う:
+        P_block = P(counter_total >= damage)
+        P_lethal = 1 - P_block
+
+    threshold ≤ 0 なら 1.0 (= 常に成立)。
+    """
+    if threshold <= 0:
+        return 1.0
+    pmf = counter_total_pmf(state, opp_idx)
+    return sum(p for total, p in pmf.items() if total >= threshold)
+
+
+def counter_total_quantile(
+    state: GameState, opp_idx: int, q: float,
+) -> int:
+    """opp 手札の counter 合計の q-分位点 (Phase 7B 追加)。
+
+    Returns: 「累積確率 q 以上に達する最小の counter 合計値」。
+    例: q=0.5 で中央値、 q=0.9 で 「90% の確率でこれ以下」 (= 強気の見積)。
+
+    プール空 / 手札空: 0 を返す。
+    """
+    q = max(0.0, min(1.0, q))
+    pmf = counter_total_pmf(state, opp_idx)
+    if not pmf:
+        return 0
+    sorted_totals = sorted(pmf.keys())
+    cumulative = 0.0
+    for total in sorted_totals:
+        cumulative += pmf[total]
+        if cumulative >= q:
+            return total
+    return sorted_totals[-1]
+
+
 def estimate_hand(state: GameState, opp_idx: int) -> EstimatedHand:
-    """opp.hand を直視せず、 公開情報のみから期待値推定。"""
+    """opp.hand を直視せず、 公開情報のみから期待値推定。 分布値込み (Phase 7B)。"""
     opp = state.players[opp_idx]
     per_card = expected_counter_per_card(state, opp_idx)
+    pmf = counter_total_pmf(state, opp_idx)
+    q50 = counter_total_quantile(state, opp_idx, 0.5)
+    q90 = counter_total_quantile(state, opp_idx, 0.9)
     return EstimatedHand(
         hand_count=len(opp.hand),
         counter_per_card=per_card,
         counter_total=int(per_card * len(opp.hand)),
         blocker_prob=probability_of_blocker_in_hand(state, opp_idx),
+        counter_pmf=pmf,
+        counter_q50=q50,
+        counter_q90=q90,
     )
 
 
