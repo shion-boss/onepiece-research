@@ -81,6 +81,17 @@ db/research_sessions.sqlite-shm
 # matchup_matrix の一時バックアップ (= 適用前の snapshot)
 db/matchup_matrix.before.json
 
+# matrix 走行ログ (= UI preview 用 NDJSON、 再生成可)
+db/matrix_run_log.ndjson
+
+# spectate コメント (= ローカル開発用 SQLite + 旧 JSON)。 本番は Vercel/Neon Postgres。
+db/spectate_comments.sqlite
+db/spectate_comments.sqlite-journal
+db/spectate_comments.sqlite-wal
+db/spectate_comments.sqlite-shm
+db/spectate_comments.json
+db/spectate_comments.json.tmp
+
 # overlay 候補 (生成物、必要に応じて再生成)
 db/card_effects.suggestions.json
 
