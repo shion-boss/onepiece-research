@@ -144,12 +144,22 @@ def main() -> int:
         elapsed = time.time() - t0
         rate = done / elapsed if elapsed > 0 else 0
         eta = (total - done) / rate if rate > 0 else 0
-        print(f"  {slug_a:<25} {name_a:<20} done {done}/{total}  elapsed {elapsed:.0f}s  ETA {eta:.0f}s")
+        print(f"  {slug_a:<25} {name_a:<20} done {done}/{total}  elapsed {elapsed:.0f}s  ETA {eta:.0f}s", flush=True)
         cells.append({
             "deck_a": slug_a,
             "deck_a_name": name_a,
             "row": row,
         })
+        # 行ごとに incremental save (= 長時間バッチで途中クラッシュ時の損失を防止)
+        partial = {
+            "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "n_games": args.n_games,
+            "seed": args.seed,
+            "partial": done < total,
+            "decks": [{"slug": s, "name": n} for s, n, _ in decks],
+            "matrix": cells,
+        }
+        OUT.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
 
     out = {
         "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
