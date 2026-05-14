@@ -92,8 +92,8 @@ def main():
     import random
     overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
-    deck_a = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)
-    deck_b = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)
+    deck_a = DeckList.from_json(ROOT / "decks" / "cardrush_1342.json", repo)
+    deck_b = DeckList.from_json(ROOT / "decks" / "cardrush_1385.json", repo)
     state = setup_game(deck_a, deck_b, rng=random.Random(42), first_player=0, effects_overlay=overlay)
     play_until_main(state)
     dc_ms, fc_ms = measure_fast_clone(state)
@@ -104,8 +104,8 @@ def main():
     # Greedy vs Greedy (baseline)
     print("--- Greedy vs Greedy ---")
     r1 = run_one_game(
-        ROOT / "decks" / "cardrush_1424.json",
-        ROOT / "decks" / "cardrush_1437.json",
+        ROOT / "decks" / "cardrush_1342.json",
+        ROOT / "decks" / "cardrush_1385.json",
         GreedyAI, GreedyAI, seed=42,
     )
     print(f"winner={r1['winner']}, turns={r1['turns']}, actions={r1['actions']}, life={r1['p0_life']}/{r1['p1_life']}")
@@ -117,8 +117,8 @@ def main():
     print("--- Planning (deck_a) vs Greedy ---")
     t0 = time.perf_counter()
     r2 = run_one_game(
-        ROOT / "decks" / "cardrush_1424.json",
-        ROOT / "decks" / "cardrush_1437.json",
+        ROOT / "decks" / "cardrush_1342.json",
+        ROOT / "decks" / "cardrush_1385.json",
         lambda rng=None: PlanningAI(rng=rng, beam_width=4, max_depth=8),
         GreedyAI, seed=42, verbose=True,
     )
