@@ -169,20 +169,35 @@ function detectActingCards(snap: StateSnapshot | null): ActingCards | null {
 }
 
 
+// hover preview のクリアタイマー (= module-level で共有)。
+// snapshot 更新で BoardCard が re-render → mouseLeave 即発火 → 数 ms 後に再 mouseEnter
+// という flicker が起きるため、 clear は 200ms 遅延させて 同一/別カードへの再 enter で
+// cancel できるようにする。 「カード読んでる最中に消える」 問題への対応。
+let _hoverClearTimer: ReturnType<typeof setTimeout> | null = null;
+
 function useHoverHandlers(info: HoverInfo | null | undefined) {
   const setHovered = useContext(HoverContext);
   const setAnchor = useContext(HoverAnchorContext);
   if (!info) return {};
   return {
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      // 既存 clear timer を cancel (= snapshot 更新 → remount → 再 enter で消えない)
+      if (_hoverClearTimer !== null) {
+        clearTimeout(_hoverClearTimer);
+        _hoverClearTimer = null;
+      }
       setHovered(info);
       const r = e.currentTarget.getBoundingClientRect();
       setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
     },
     onMouseLeave: () => {
-      // 浮遊プレビューは外したらすぐ消す (= user 要望)。 hovered/anchor 両方クリア。
-      setHovered(null);
-      setAnchor(null);
+      // 200ms 後に消す。 同期間内に mouseEnter が来たら上記で cancel される。
+      if (_hoverClearTimer !== null) clearTimeout(_hoverClearTimer);
+      _hoverClearTimer = setTimeout(() => {
+        setHovered(null);
+        setAnchor(null);
+        _hoverClearTimer = null;
+      }, 200);
     },
   };
 }
