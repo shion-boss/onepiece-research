@@ -1335,7 +1335,8 @@ def execute_effect(
                     ):
                         continue
                     opp.characters.remove(t)
-                    opp.hand.append(t.card)
+                    # Phase 7I: 場 → 手札 は公開経路 (opp に既に見えていた)
+                    opp.add_to_hand_publicly(t.card)
                     # 6-5-5-4: 付与ドンはレストでコストエリアに戻る
                     if t.attached_dons > 0:
                         opp.don_rested += t.attached_dons
@@ -1535,7 +1536,9 @@ def execute_effect(
                 else:
                     remaining.append(c)
             me.deck = remaining
-            me.hand.extend(picked)
+            # Phase 7I: search 経路は公開して手札に加える (opp に見える)
+            for c in picked:
+                me.add_to_hand_publicly(c)
             # サーチ後はシャッフル
             state.rng.shuffle(me.deck)
             state.push_log(f"  効果: サーチ → {[c.name for c in picked]}")
@@ -2955,7 +2958,8 @@ def execute_effect(
                             already_returned.add(id(t))
                             continue
                         opp.characters.remove(t)
-                        opp.hand.append(t.card)
+                        # Phase 7I: 場 → 手札 は公開経路
+                        opp.add_to_hand_publicly(t.card)
                         if t.attached_dons > 0:
                             opp.don_rested += t.attached_dons
                         state.push_log(f"  効果: {t.card.name} を持ち主の手札へ")

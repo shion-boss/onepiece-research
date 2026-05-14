@@ -253,23 +253,21 @@ def probability_of_blocker_in_hand(state: GameState, opp_idx: int) -> float:
 
 
 def counter_total_pmf(state: GameState, opp_idx: int) -> dict[int, float]:
-    """opp 手札の counter 合計の確率分布 (pmf、 Phase 7B 追加)。
+    """opp 手札の counter 合計の確率分布 (pmf、 Phase 7B + 7I 改修)。
 
     Returns: `{counter_total: probability}` 辞書。 確率の総和 = 1.0。
 
-    ## 計算原理 (= ハイパージオメトリック分布)
+    ## 計算原理 (= ハイパージオメトリック分布 + 既知カード分離 [Phase 7I])
 
-    プールが N 枚 (= deck + hand) で、 各 counter 値の枚数を K_v、 手札 h 枚を抽出する時、
-    手札の counter 合計 S が特定値を取る確率を 多変量超幾何分布から計算:
+    Phase 7I 改修: opp.known_hand_card_ids (= 公開済 hand card) は確定情報として扱い、
+    未知部分のみ ハイパージオメトリック分布で計算。
 
-    P(composition = (n_v1, n_v2, ...)) = Π C(K_vi, n_vi) / C(N, h)
-    S = Σ v_i × n_vi
-
-    通常 OPTCG では counter 値が 3-4 種類 (0, 1000, 2000) なので、
-    全 composition を列挙しても O(N^2) 程度で済む = 高速。
-
-    例: pool=[0×30, 1000×15, 2000×5] (total 50), hand=5
-    → 6×4×6=144 通りの composition (多くは確率 0)、 実効計算量 ~50 ops。
+    分離計算:
+    - known_counter = Σ (known カードの counter 値)  ← 確定
+    - unknown_count = hand_size - len(known_card_ids)
+    - 未知 pool = deck + hand - (既知カード分)
+    - 未知 pmf を超幾何分布で計算
+    - total pmf = (known_counter で shift した unknown pmf)
 
     プール空 / 手札空: `{0: 1.0}` を返す。
     """
@@ -277,25 +275,63 @@ def counter_total_pmf(state: GameState, opp_idx: int) -> dict[int, float]:
     hand_size = len(opp.hand)
     if hand_size == 0:
         return {0: 1.0}
-    pool = _opponent_pool(state, opp_idx)
-    if len(pool) < hand_size:
-        return {0: 1.0}
 
-    # counter 値別の枚数 グループ
-    groups = _Counter(c.counter for c in pool)
-    n_total = len(pool)
-    norm = comb(n_total, hand_size)
+    # Phase 7I: 既知カード分の固定 counter + 未知カード分の pmf を計算
+    known_ids = list(opp.known_hand_card_ids)
+    # known_ids が hand_size を超えてる場合は片側削減 (normalize で防がれるが念のため)
+    known_ids = known_ids[:hand_size]
+
+    # known カードを hand から探して counter 値を取得
+    # 同 card_id が複数ある場合、 先頭分を 1 ずつ「消費」 する
+    hand_copy = list(opp.hand)
+    known_counter = 0
+    matched_indices: list[int] = []
+    for cid in known_ids:
+        for i, c in enumerate(hand_copy):
+            if i in matched_indices:
+                continue
+            if c.card_id == cid:
+                known_counter += c.counter
+                matched_indices.append(i)
+                break
+
+    known_count = len(matched_indices)
+    unknown_count = hand_size - known_count
+    if unknown_count == 0:
+        # 全て既知 → 確定 pmf
+        return {known_counter: 1.0}
+
+    # 未知 pool 構築 (= deck + hand から 既知分を除外)
+    full_pool = _opponent_pool(state, opp_idx)
+    # 既知 hand card object も pool から引く必要あり (= hand に存在する known カード)
+    known_hand_cards = [opp.hand[i] for i in matched_indices]
+    # pool から既知 hand card を引く (= 同じカード参照を 1 つずつ除外)
+    remaining_pool = list(full_pool)
+    for known_card in known_hand_cards:
+        try:
+            remaining_pool.remove(known_card)
+        except ValueError:
+            # 引けない場合 (= pool に既知カードが含まれない、 edge case)
+            pass
+
+    if len(remaining_pool) < unknown_count:
+        # 残プール不足 → 確定 pmf
+        return {known_counter: 1.0}
+
+    # 未知 portion の pmf を超幾何で計算
+    groups = _Counter(c.counter for c in remaining_pool)
+    n_total = len(remaining_pool)
+    norm = comb(n_total, unknown_count)
     if norm == 0:
-        return {0: 1.0}
+        return {known_counter: 1.0}
 
-    pmf: dict[int, float] = {}
-    # 各 counter 値について「手札に n 枚採用」 を再帰的に列挙
+    unknown_pmf: dict[int, float] = {}
     items = list(groups.items())
 
     def _enumerate(idx: int, remaining: int, total: int, numerator: int) -> None:
         if idx == len(items):
             if remaining == 0:
-                pmf[total] = pmf.get(total, 0.0) + numerator / norm
+                unknown_pmf[total] = unknown_pmf.get(total, 0.0) + numerator / norm
             return
         val, count = items[idx]
         max_take = min(count, remaining)
@@ -303,7 +339,12 @@ def counter_total_pmf(state: GameState, opp_idx: int) -> dict[int, float]:
             new_num = numerator * comb(count, n)
             _enumerate(idx + 1, remaining - n, total + val * n, new_num)
 
-    _enumerate(0, hand_size, 0, 1)
+    _enumerate(0, unknown_count, 0, 1)
+
+    # known_counter で shift して総 pmf を構築
+    pmf: dict[int, float] = {}
+    for unknown_total, p in unknown_pmf.items():
+        pmf[unknown_total + known_counter] = pmf.get(unknown_total + known_counter, 0.0) + p
     return pmf
 
 

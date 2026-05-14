@@ -407,6 +407,38 @@ class Player:
     stages: list = field(default_factory=list)
     trash: list = field(default_factory=list)
     life: list = field(default_factory=list)
+    # Phase 7I (2026-05-14): opp に公開済の手札カード ID リスト。
+    # return_to_hand / search 等で「公開してから手札に加える」 経路を経たカードが追加される。
+    # 手札からの退場 (= play / counter / discard) で先頭マッチ分が削除される。
+    # hand_estimator が「確定 (known) + 未知」 分離で pmf を計算する際に参照。
+    known_hand_card_ids: list[str] = field(default_factory=list)
+
+    def add_to_hand_publicly(self, card) -> None:
+        """カードを手札に公開で追加 (Phase 7I)。
+
+        return_to_hand / search / 公開ライフ→手札 等の経路で使う。
+        known_hand_card_ids に card_id を append、 hand にも追加。
+        opp の hand_estimator がこのカードを「確定情報」 として扱える。
+        """
+        self.hand.append(card)
+        self.known_hand_card_ids.append(card.card_id)
+
+    def normalize_known_hand(self) -> None:
+        """known_hand_card_ids を hand との整合性で正規化 (Phase 7I)。
+
+        hand から退場したカード分の entry を削除 (= 最初マッチ 1 件削除)。
+        play / counter / discard 後に apply_action 末尾で呼び出される。
+        """
+        hand_counts: dict[str, int] = {}
+        for c in self.hand:
+            hand_counts[c.card_id] = hand_counts.get(c.card_id, 0) + 1
+        new_known: list[str] = []
+        used: dict[str, int] = {}
+        for cid in self.known_hand_card_ids:
+            if used.get(cid, 0) < hand_counts.get(cid, 0):
+                new_known.append(cid)
+                used[cid] = used.get(cid, 0) + 1
+        self.known_hand_card_ids = new_known
     don_active: int = 0
     don_rested: int = 0
     don_remaining_in_deck: int = 10

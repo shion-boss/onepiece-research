@@ -715,6 +715,9 @@ def apply_action(state: GameState, action: Action) -> None:
             from .effects import resolve_triggers
             resolve_triggers(state)
         _recompute_static(state)
+        # Phase 7I: known_hand_card_ids を hand と整合性で正規化 (= 手札退場分を削除)
+        for p in state.players:
+            p.normalize_known_hand()
         # action 完了後の eval (actor 視点) — delta を記録
         if eval_before is not None:
             try:
