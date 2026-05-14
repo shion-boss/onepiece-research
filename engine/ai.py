@@ -643,15 +643,29 @@ class GreedyAI:
             top_n = damage_potentials[:hits_to_lethal]
             total_excess = sum(d for _, d in top_n)
             # Phase 7G: counter event bluff を加味
+            # Phase 7H: archetype bluff factor + risk-adjusted threshold
             bluff_counter = hand_estimator.expected_counter_from_don_bluff(state, opp_idx)
             effective_excess = max(0, total_excess - bluff_counter)
             p_block = hand_estimator.probability_counter_total_at_least(
                 state, opp_idx, effective_excess,
             )
             p_lethal = 1.0 - p_block
+            try:
+                from .eval import project_opp_next_turn_lethal
+                fallback_win_prob = 1.0 - project_opp_next_turn_lethal(state, state.turn_player_idx)
+            except Exception:
+                fallback_win_prob = 0.5
+            if fallback_win_prob >= 0.7:
+                threshold = 0.75
+            elif fallback_win_prob >= 0.4:
+                threshold = 0.70
+            elif fallback_win_prob >= 0.2:
+                threshold = 0.55
+            else:
+                threshold = 0.40
             is_lethal = (
                 len(top_n) >= hits_to_lethal
-                and p_lethal >= 0.70
+                and p_lethal >= threshold
             )
             if is_lethal:
                 # リーサル: 最大打点から順に攻撃 (確実に通る)
@@ -746,22 +760,39 @@ class GreedyAI:
         top_n = feasible[:hits_needed]
         total_excess = sum(x[3] for x in top_n)
 
-        # 相手 counter の確率分布で「リーサル成立確率」 を計算 (Phase 7B + 7G 改修)。
+        # 相手 counter の確率分布で「リーサル成立確率」 を計算 (Phase 7B + 7G + 7H 改修)。
         #
         # 旧実装 (R67 まで): avg × 1.2 マージン の ad-hoc 計算
         # Phase 7B: ハイパージオメトリック分布で P(opp が止める) を直接計算
         # Phase 7G: opp の visible active DON から counter event 寄与を加算
-        #   (= bluff モードで温存された DON は counter event 打つかもしれない)
+        # Phase 7H: archetype 別 bluff factor + 不利な状況なら threshold を下げる賭け
         opp_idx = 1 - state.turn_player_idx
-        # Counter event bluff: visible active DON から期待 counter を追加
+        # Counter event bluff (= 7H で archetype factor 込み)
         bluff_counter = hand_estimator.expected_counter_from_don_bluff(state, opp_idx)
-        # 必要 excess を bluff 分上乗せ (= P(止める) も上方修正)
         effective_excess = max(0, total_excess - bluff_counter)
         p_block = hand_estimator.probability_counter_total_at_least(
             state, opp_idx, effective_excess,
         )
         p_lethal = 1.0 - p_block
-        LETHAL_THRESHOLD = 0.70
+
+        # Phase 7H: risk-adjusted lethal threshold
+        # 「諦めた時の fallback 勝率」 が低いなら threshold を下げて賭けに行く
+        # (= 「ブラフをちぎってリーサル賭け」 行動)
+        try:
+            from .eval import project_opp_next_turn_lethal
+            opp_next_lethal = project_opp_next_turn_lethal(state, me_idx)
+            fallback_win_prob = 1.0 - opp_next_lethal
+        except Exception:
+            fallback_win_prob = 0.5
+        if fallback_win_prob >= 0.7:
+            LETHAL_THRESHOLD = 0.75   # 既に勝ち気味 → 慎重
+        elif fallback_win_prob >= 0.4:
+            LETHAL_THRESHOLD = 0.70   # 標準
+        elif fallback_win_prob >= 0.2:
+            LETHAL_THRESHOLD = 0.55   # 不利 → 50/50 でも行く
+        else:
+            LETHAL_THRESHOLD = 0.40   # 負け濃厚 → 賭けに行く
+
         if p_lethal < LETHAL_THRESHOLD:
             return None
 

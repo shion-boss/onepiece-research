@@ -391,25 +391,47 @@ def estimate_counter_total(state: GameState, opp_idx: int) -> int:
     return expected_counter_total(state, opp_idx)
 
 
+# Phase 7H: archetype 別 counter event 多用度 factor。
+# 1.0 が基準。 アグロは counter event 少 → low、 コントロールは多 → high。
+# bluff factor を 1.0 から離して掛けると、 「ブラフを ちぎる / 真に受ける」 判断が変わる:
+#   < 1.0: bluff_counter 縮小 → effective_excess 増加 → リーサル成立しやすい (= ブラフ ちぎる)
+#   > 1.0: bluff_counter 拡大 → effective_excess 縮小 → リーサル諦め (= 真に受ける)
+_ARCHETYPE_BLUFF_FACTOR: dict[str, float] = {
+    "アグロ": 0.4,         # アグロ系は counter event を入れず DON は攻撃用
+    "ミッドレンジ": 0.7,   # 中量、 一部入れる
+    "コントロール": 1.3,   # 受け重視、 counter event 多用
+    "ランプ": 1.0,         # 中間
+}
+
+
+def archetype_bluff_factor(archetype: Optional[str]) -> float:
+    """archetype 名から counter event 多用度 factor を返す (Phase 7H)。"""
+    if not archetype:
+        return 1.0
+    return _ARCHETYPE_BLUFF_FACTOR.get(archetype, 1.0)
+
+
 def expected_counter_from_don_bluff(
     state: GameState,
     opp_idx: int,
     don_value_per_unit: int = 1000,
     max_event_don: int = 2,
+    use_archetype_factor: bool = True,
 ) -> int:
-    """opp の visible active DON から counter event の期待寄与を見積 (Phase 7G、 2026-05-14)。
+    """opp の visible active DON から counter event の期待寄与を見積 (Phase 7G + 7H)。
 
     OPTCG では event カード (= 「魔法のキャベツ」 等の counter event) が DON を消費して
     opp アタック時に発動できる。 visible active DON があれば、 これらの event を打たれる
     可能性が高まり、 リーサル計算の counter 総量推定 を上方修正する必要がある。
 
-    計算式:
-        P(counter event in hand) = min(1.0, hand_size × 0.1)   # 10% per card 簡略
-        expected = P × min(active_don, max_event_don) × don_value_per_unit
+    Phase 7H 改修: archetype 別の bluff factor を加味。
+    アグロは counter event を入れない傾向 (= 0.4x で「ブラフ」 と判定)、
+    コントロールは多用 (= 1.3x で「本物」 と扱う)。
 
-    Args:
-        don_value_per_unit: 1 DON 当たり counter event の平均寄与 (default 1000 = 1 DON cost で +1000 程度)
-        max_event_don: 1 つの counter event が消費する最大 DON (= 2 で大体カバー)
+    計算式:
+        P(counter event in hand) = min(1.0, hand_size × 0.1)
+        expected_base = P × min(active_don, max_event_don) × don_value_per_unit
+        expected = expected_base × archetype_factor   # Phase 7H
 
     Returns: 追加期待 counter 量 (= 0 以上の整数)
     """
@@ -423,6 +445,17 @@ def expected_counter_from_don_bluff(
     p_has_event = min(1.0, hand_size * 0.1)
     usable_don = min(visible_active_don, max_event_don)
     expected = p_has_event * usable_don * don_value_per_unit
+
+    if use_archetype_factor:
+        # Phase 7H: archetype 別 factor を取得 (= matchup_model 経由で classifier 結果を使う)
+        try:
+            from . import matchup_model
+            opp_archetype = matchup_model.infer_opponent_archetype(state, opp_idx)
+            factor = archetype_bluff_factor(opp_archetype)
+            expected *= factor
+        except Exception:
+            pass
+
     return int(expected)
 
 
