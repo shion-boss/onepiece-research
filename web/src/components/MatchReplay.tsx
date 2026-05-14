@@ -263,13 +263,12 @@ function computeActingState(
 }
 
 
-// snapshot 変化直後の 300ms は mouseLeave を無視する (= freeze) ための flag。
-// 目的: 観戦中の auto-play で snapshot 進行 → CSS rotate 等で視覚位置がズレ
-// → mouseLeave 連発 → ホバー切れる、 という ちらつきを防ぐ。 stationary cursor
-// なら 300ms 以内に snapshot がまた 進むので、 連続 snap の最中は ずっと freeze。
-// ユーザが pause 中 / マウスを動かして「明確に off」 の時は normal に即 clear。
+// Hover freeze 状態 + 直近 mousemove time。 「再生中の layout shift 偽 leave」 vs
+// 「ユーザ意図の leave」 を区別するため、 mouseLeave 時に直近 mousemove からの
+// 経過時間を見る (= 100ms 以内なら user 移動由来、 それ以上なら snapshot 由来)。
 const _hoverFrozenRef = { current: false };
 let _hoverFreezeTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastMouseMoveTime = 0;
 
 function freezeHoverBriefly(ms: number = 300) {
   _hoverFrozenRef.current = true;
@@ -278,6 +277,13 @@ function freezeHoverBriefly(ms: number = 300) {
     _hoverFrozenRef.current = false;
     _hoverFreezeTimer = null;
   }, ms);
+}
+
+// 「freeze 中だが ユーザが直近に動かしてない」 = layout shift 由来の偽 leave で
+// 無視すべき、 を判定。 直近に動いてれば freeze 中でもユーザ意図なので尊重。
+function shouldIgnoreMouseLeave(): boolean {
+  if (!_hoverFrozenRef.current) return false;
+  return Date.now() - _lastMouseMoveTime > 100;
 }
 
 function useHoverHandlers(info: HoverInfo | null | undefined) {
@@ -291,8 +297,9 @@ function useHoverHandlers(info: HoverInfo | null | undefined) {
       setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
     },
     onMouseLeave: () => {
-      // freeze 中 (= snapshot 進行直後) は無視。 通常は即 clear。
-      if (_hoverFrozenRef.current) return;
+      // freeze + マウス静止 → layout shift 由来、 無視。
+      // それ以外 (= freeze OFF または 直近に user 移動) → 即 clear。
+      if (shouldIgnoreMouseLeave()) return;
       setHovered(null);
       setAnchor(null);
     },
@@ -493,6 +500,16 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
   const atEnd = idx >= snapshots.length - 1;
   const playingActive = playing && !atEnd;
+
+  // 直近 mousemove 時刻を track (= layout shift 由来の偽 leave と区別するため)。
+  // module-level の _lastMouseMoveTime を更新。 install は MatchReplay マウント時のみ。
+  useEffect(() => {
+    const onMove = () => {
+      _lastMouseMoveTime = Date.now();
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
 
   // Hover freeze 戦略:
   // - 再生中 (= playingActive): freeze 常時 ON。 layout shift で mouseLeave が
@@ -1204,11 +1221,10 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col gap-2"
-      // 観戦エリア全体から cursor が出た時のみ hover/anchor を clear。
-      // ただし再生中の freeze 期間は無視 (= layout shift で container 境界が
-      // ブレて偽 mouseLeave が発火するケースを救う)。
+      // 観戦エリア外退出時の clear。 freeze + マウス静止 (= layout shift 由来) なら
+      // 無視。 ユーザが実際に動かして外に出た時は即 clear。
       onMouseLeave={() => {
-        if (_hoverFrozenRef.current) return;
+        if (shouldIgnoreMouseLeave()) return;
         setHovered(null);
         setHoverAnchor(null);
       }}
