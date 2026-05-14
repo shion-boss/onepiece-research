@@ -2028,8 +2028,13 @@ class HybridLookaheadAI(GreedyAI):
         return compute_score(sim, me_idx)
 
 
-class PlanningAI(GreedyAI):
-    """ターン全体プランを beam search する AI (R70+ / Phase 4)。
+# Phase 1 (R72+): adaptive multi-turn lookahead 用の安全上限。
+# game 平均長 6-9 ターンを想定、 cap 8 で plan-to-end mode の暴走を防ぐ。
+MAX_TURNS_HARD_CAP = 8
+
+
+class DeepPlanningAI(GreedyAI):
+    """ターン全体プランを beam search する AI (R70+ / Phase 4 → Phase 1 R72+ DeepPlanningAI 化)。
 
     MAIN フェーズ開始時に EndPhase までの行動列を探索 (search_turn_plan)、
     終端 board_eval が最良のプランの 1 手目を返す。 次手は再計画 (= receding horizon)。
@@ -2038,9 +2043,14 @@ class PlanningAI(GreedyAI):
     ジャンル別に固まる構造を捨て、 「event → attack → event」 のコンボや「ハンド剥がし
     後に通すアタック」 のような連動を pricing する。
 
-    Tradeoff: GreedyAI の 数倍 slow (= R70 高速化後 1-2s/game)。 cross matrix 検証で
-    平均 +26pt (vs Greedy baseline) のため default に採用 (R71)。 grid_search_beam_depth
-    で (beam=4, depth=6) が品質ピーク + (4, 8) より 5% 速いと判明。
+    Phase 1 (R72+) で adaptive multi-turn lookahead に拡張:
+    - T1-2: (beam=4, max_turns=1, per_turn_depth=6) = 旧挙動
+    - T3-5: (beam=4, max_turns=2, per_turn_depth=5) = 自+相手 1 ターン読み
+    - T6+ AND classifier 信頼度 ≥ 0.95: (beam=3, max_turns=8, per_turn_depth=4) = plan-to-end
+    - T6+ AND 信頼度 < 0.95: (beam=3, max_turns=3, per_turn_depth=4) = downgrade
+
+    plan-to-end mode では terminal leaf (= game_over) は ±W_GAME_OVER で確定値、
+    評価関数の誤差が late-game で伝播しない (= endgame solver と同じ発想)。
 
     防御 (choose_defense) は GreedyAI を継承。 攻撃時の defense sim は plan_search 内で
     ai_opp.choose_defense を呼ぶ。 ai_opp が None の場合は self を defense sim にも使う
@@ -2056,16 +2066,47 @@ class PlanningAI(GreedyAI):
         beam_width: int = 4,
         max_depth: int = 6,
         ai_opp=None,
+        adaptive: bool = True,
     ):
         super().__init__(rng=rng, deck_analysis=deck_analysis)
+        # adaptive=False で旧挙動 (= 固定 beam_width / max_depth、 max_turns=1)
+        # 後方互換 + テスト用 escape hatch
         self.beam_width = beam_width
         self.max_depth = max_depth
+        self.adaptive = adaptive
         # ai_opp が未指定なら self を defense sim 用に流用 (= self-play 簡略モデル)
         self._ai_opp = ai_opp
 
     def set_ai_opp(self, ai_opp) -> None:
         """harness 側で対戦相手 AI を渡す用。 plan_search 内の choose_defense sim に使う。"""
         self._ai_opp = ai_opp
+
+    def _compute_adaptive_params(self, state: GameState) -> tuple[int, int, int]:
+        """ターン数 + classifier 信頼度から (beam_width, max_turns, per_turn_depth) を返す。
+
+        T1-2: (4, 1, 6)              旧挙動 (序盤は手札情報少なく深読み無意味)
+        T3-5: (4, 2, 5)              自 + 相手 1 ターン
+        T6+ AND conf ≥ 0.95: (3, MAX_TURNS_HARD_CAP, 4)  plan-to-end
+        T6+ AND conf < 0.95: (3, 3, 4)  downgrade (信頼度不足、 過度な深読みは誤差伝播の元)
+        """
+        turn = state.turn_number
+        me_idx = state.turn_player_idx
+        opp_idx = 1 - me_idx
+
+        # classifier 信頼度の取得 (= exception 時は 0.5)
+        try:
+            _, conf = matchup_model.infer_opponent_archetype_with_confidence(state, opp_idx)
+        except Exception:
+            conf = 0.5
+
+        if turn <= 2:
+            return (4, 1, 6)
+        if turn <= 5:
+            return (4, 2, 5)
+        # T6+ = ゲーム終了射程、 plan-to-end mode
+        if conf >= 0.95:
+            return (3, MAX_TURNS_HARD_CAP, 4)
+        return (3, 3, 4)
 
     def choose_action(self, state: GameState) -> Action:
         from .plan_search import search_turn_plan
@@ -2085,13 +2126,24 @@ class PlanningAI(GreedyAI):
         if self._is_desperate_losing_position(state, state.turn_player_idx):
             return super().choose_action(state)
 
+        # adaptive params の決定 (= R72+)
+        if self.adaptive:
+            beam_width, max_turns, per_turn_depth = self._compute_adaptive_params(state)
+            max_depth = max_turns * per_turn_depth
+        else:
+            beam_width = self.beam_width
+            max_turns = 1
+            max_depth = self.max_depth
+
         ai_opp = self._ai_opp if self._ai_opp is not None else self
         try:
             best_plan, _best_score = search_turn_plan(
                 state,
                 ai_opp,
-                beam_width=self.beam_width,
-                max_depth=self.max_depth,
+                beam_width=beam_width,
+                max_depth=max_depth,
+                max_turns=max_turns,
+                ai_self=self,
             )
         except Exception:
             # search 失敗時は GreedyAI 動作に fallback
@@ -2100,6 +2152,12 @@ class PlanningAI(GreedyAI):
         if not best_plan:
             return super().choose_action(state)
         return best_plan[0]
+
+
+# 後方互換 alias: 既存コード (= harness / scripts / tests) が `PlanningAI` を import している。
+# Phase 1 R72+ で DeepPlanningAI が新名、 PlanningAI は同一 class への alias。
+# isinstance(x, PlanningAI) と isinstance(x, DeepPlanningAI) は等価。
+PlanningAI = DeepPlanningAI
 
 
 # --------------------------------------------------------------------------- #
