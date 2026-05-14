@@ -263,12 +263,23 @@ function computeActingState(
 }
 
 
-// hover handler は mouseEnter のみで更新。 個別 card の mouseLeave では clear しない:
-// snapshot 更新で CSS transform 変化 (= rest/untap で rotate) → 視覚位置がずれて
-// 「カーソル下から外れる」 → mouseLeave 連発 → debounce でも追いつかない、 という
-// 連鎖が ログ進行時に発生するため。 代わりに 大きな MatchReplay container 全体に
-// onMouseLeave を一括で当てて、 観戦エリアから 完全に出た時のみ clear する。
-// カード間の切替は mouseEnter の上書きで自然に動く。
+// snapshot 変化直後の 300ms は mouseLeave を無視する (= freeze) ための flag。
+// 目的: 観戦中の auto-play で snapshot 進行 → CSS rotate 等で視覚位置がズレ
+// → mouseLeave 連発 → ホバー切れる、 という ちらつきを防ぐ。 stationary cursor
+// なら 300ms 以内に snapshot がまた 進むので、 連続 snap の最中は ずっと freeze。
+// ユーザが pause 中 / マウスを動かして「明確に off」 の時は normal に即 clear。
+const _hoverFrozenRef = { current: false };
+let _hoverFreezeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function freezeHoverBriefly(ms: number = 300) {
+  _hoverFrozenRef.current = true;
+  if (_hoverFreezeTimer !== null) clearTimeout(_hoverFreezeTimer);
+  _hoverFreezeTimer = setTimeout(() => {
+    _hoverFrozenRef.current = false;
+    _hoverFreezeTimer = null;
+  }, ms);
+}
+
 function useHoverHandlers(info: HoverInfo | null | undefined) {
   const setHovered = useContext(HoverContext);
   const setAnchor = useContext(HoverAnchorContext);
@@ -278,6 +289,12 @@ function useHoverHandlers(info: HoverInfo | null | undefined) {
       setHovered(info);
       const r = e.currentTarget.getBoundingClientRect();
       setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
+    },
+    onMouseLeave: () => {
+      // freeze 中 (= snapshot 進行直後) は無視。 通常は即 clear。
+      if (_hoverFrozenRef.current) return;
+      setHovered(null);
+      setAnchor(null);
     },
   };
 }
@@ -476,6 +493,14 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
   const atEnd = idx >= snapshots.length - 1;
   const playingActive = playing && !atEnd;
+
+  // snapshot 進行直後の 300ms は per-card mouseLeave を無視 (= ホバー freeze)。
+  // CSS rotate / 場の re-layout で mouseLeave が偽発火しても 観戦中の preview が
+  // ちらつかない。 stationary cursor 想定。 移動なしで snap が連続 進む間は ずっと
+  // freeze (= 各 snap 更新で再延長される)。
+  useEffect(() => {
+    freezeHoverBriefly(300);
+  }, [idx]);
 
   useEffect(() => {
     if (!playingActive) return;
