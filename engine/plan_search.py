@@ -78,6 +78,8 @@ def fast_clone(state: "GameState") -> "GameState":
     cloned.effects_overlay = saved_overlay
     cloned.event_order_hook = saved_hook
     cloned.record_snapshots = False
+    # cloned 内 apply_action での eval_before/after 記録を抑止 (= compute_score 二重実行カット)
+    cloned.record_action_evals = False
     return cloned
 
 

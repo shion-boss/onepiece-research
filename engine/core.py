@@ -111,6 +111,12 @@ class CardDef:
         """【ブロック不可】: このカードのアタック中、相手は【ブロッカー】を発動できない"""
         return self.has_keyword("ブロック不可")
 
+    def __deepcopy__(self, memo):
+        # frozen=True で immutable。 sim 中 1 ゲームに 60+ 枚の card 参照が
+        # fast_clone のたびに deepcopy されるとコストが膨大 (= profile で _reduce_ex__
+        # 1.8M 回 / __slotnames 867k 回)。 self を返して共有参照化。
+        return self
+
 
 _iid = itertools.count(1)
 
@@ -374,6 +380,22 @@ class InPlay:
             summoning_sickness=sickness,
         )
 
+    def __deepcopy__(self, memo):
+        # 40+ field のうち mutable は set 5 個だけ、 他は primitive (int/bool/None)。
+        # 標準 deepcopy が __reduce_ex__ → _reconstruct を経由するコストを回避し、
+        # __dict__ shallow copy + set.copy() で済ませる (= profile で sim 全体の
+        # ~70% を占める deepcopy のうち InPlay 回路を桁レベルで削減)。
+        # card (CardDef) は CardDef.__deepcopy__ で self を返すため共有 OK。
+        new = InPlay.__new__(InPlay)
+        new.__dict__.update(self.__dict__)
+        new.granted_keywords = self.granted_keywords.copy()
+        new.static_granted_keywords = self.static_granted_keywords.copy()
+        new.granted_keywords_through_opp_turn = self.granted_keywords_through_opp_turn.copy()
+        new.ko_immune_battle_attributes_in = self.ko_immune_battle_attributes_in.copy()
+        new.ko_immune_battle_attributes_not_in = self.ko_immune_battle_attributes_not_in.copy()
+        memo[id(self)] = new
+        return new
+
 
 @dataclass
 class Player:
@@ -514,6 +536,9 @@ class GameState:
     # action 単位の board_eval 履歴 (R64+ AI 行動品質評価用)。
     # apply_action 開始時 / 終了時に push される dict: {turn, player_idx, action, eval_before, eval_after, delta}
     action_evals: list = field(default_factory=list)
+    # plan_search の cloned state では compute_score (eval_before/after) 記録を抑止して
+    # 不要な eval 計算を削減する (= R70 高速化)。 default True で本番試合は従来通り記録。
+    record_action_evals: bool = True
 
     @property
     def turn_player(self):

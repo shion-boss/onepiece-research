@@ -695,14 +695,16 @@ def apply_action(state: GameState, action: Action) -> None:
         return
     if state.phase != Phase.MAIN:
         raise ValueError("apply_action MAIN only")
-    # AI 行動品質評価 (R62+): action 開始時の eval を記録
+    # AI 行動品質評価 (R62+): action 開始時の eval を記録。
+    # plan_search の cloned state では record_action_evals=False で skip (= R70 高速化)。
     actor_idx = state.turn_player_idx
     eval_before = None
-    try:
-        from .eval import compute_score
-        eval_before = compute_score(state, actor_idx)
-    except Exception:
-        pass
+    if getattr(state, "record_action_evals", True):
+        try:
+            from .eval import compute_score
+            eval_before = compute_score(state, actor_idx)
+        except Exception:
+            pass
     try:
         _apply_action_impl(state, action)
     finally:

@@ -288,33 +288,47 @@ def _role_value_of(card_id: str, role_db: dict) -> float:
     return 0.5
 
 
+# {card_id: role_value} の直接 cache (= primary_role を経由しない O(1) ルックアップ)。
+# plan_search は compute_score を 6 回/clone × 20k clone = 125k 回呼ぶ。 各 score 内で
+# opp_hand_threat が opp.deck + opp.hand (= ~55 cards) を走査するため 5M+ 回 _role_value_of が
+# 呼ばれる。 dict 2-hop を 1-hop に縮めるだけで顕著に効く (R70 最適化)。
+_CARD_VALUE_CACHE: Optional[dict[str, float]] = None
+
+
+def _get_card_value(card_id: str) -> float:
+    """{card_id: float} 直接キャッシュ。 _role_value_of の高速版。"""
+    global _CARD_VALUE_CACHE
+    if _CARD_VALUE_CACHE is None:
+        from . import card_role
+        try:
+            role_db = card_role.load_card_role_db()
+        except Exception:
+            _CARD_VALUE_CACHE = {}
+            return 0.5
+        _CARD_VALUE_CACHE = {
+            cid: _ROLE_VALUES.get(v.get("primary_role", ""), 0.5) if isinstance(v, dict) else 0.5
+            for cid, v in role_db.items()
+        }
+    return _CARD_VALUE_CACHE.get(card_id, 0.5)
+
+
 def chara_quality_score(player: Player) -> float:
     """場のキャラの役割別合計価値。 field_count + field_power では捉えきれない「質」 を測る。
 
     例: 6-cost 7000-power finisher は 3.0、 6-cost 7000-power vanilla は 0.5。
     role_db に登録ないキャラは default 0.5。
     """
-    from . import card_role
-    try:
-        role_db = card_role.load_card_role_db()
-    except Exception:
-        return 0.0
     total = 0.0
     for ip in player.characters:
-        total += _role_value_of(ip.card.card_id, role_db)
+        total += _get_card_value(ip.card.card_id)
     return total
 
 
 def hand_quality_score(player: Player) -> float:
     """手札の役割別合計価値。 finisher 多数 vs vanilla 多数 を区別する。"""
-    from . import card_role
-    try:
-        role_db = card_role.load_card_role_db()
-    except Exception:
-        return 0.0
     total = 0.0
     for c in player.hand:
-        total += _role_value_of(c.card_id, role_db)
+        total += _get_card_value(c.card_id)
     return total
 
 
@@ -330,19 +344,18 @@ def opp_hand_threat_estimate(state: GameState, me_idx: int) -> float:
     me 視点の compute_breakdown では「opp 側のみ寄与」 = self は 0 で固定。
     """
     opp = state.players[1 - me_idx]
-    if not opp.hand:
+    hand_n = len(opp.hand)
+    if hand_n == 0:
         return 0.0
-    pool = list(opp.deck) + list(opp.hand)
-    if not pool:
+    pool_n = len(opp.deck) + hand_n
+    if pool_n == 0:
         return 0.0
-    from . import card_role
-    try:
-        role_db = card_role.load_card_role_db()
-    except Exception:
-        return 0.0
-    pool_total = sum(_role_value_of(c.card_id, role_db) for c in pool)
-    avg_value = pool_total / len(pool)
-    return avg_value * len(opp.hand)
+    pool_total = 0.0
+    for c in opp.deck:
+        pool_total += _get_card_value(c.card_id)
+    for c in opp.hand:
+        pool_total += _get_card_value(c.card_id)
+    return (pool_total / pool_n) * hand_n
 
 
 def compute_breakdown(
