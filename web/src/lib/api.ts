@@ -452,6 +452,92 @@ export async function fetchMetaMatrix(): Promise<MatchupMatrix> {
   return res.json();
 }
 
+export type MatrixProgress = {
+  running: boolean;
+  exists: boolean;
+  ai_version?: string;
+  n_games_per_cell?: number;
+  n_decks?: number;
+  rows_done?: number;
+  rows_total?: number;
+  cells_done?: number;
+  cells_total?: number;
+  last_row_cells_filled?: number;
+  last_cell_time?: string | null;
+  matrix_mtime?: number | null;
+  computed_at?: string;
+  tier_preview?: {
+    deck_slug: string;
+    deck_name: string;
+    avg_winrate: number;
+    matches_played: number;
+  }[];
+  decks?: { slug: string; name: string }[];
+};
+
+export async function fetchMatrixProgress(): Promise<MatrixProgress> {
+  const res = await fetch(`${API}/api/matrix/progress`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchMatrixProgress failed: ${res.status}`);
+  return res.json();
+}
+
+export type MatrixLogEntry = {
+  ts?: string;
+  event?: string;
+  deck_a?: string;
+  deck_b?: string;
+  deck_a_name?: string;
+  deck_b_name?: string;
+  game_index?: number;
+  winner?: number | null;
+  turns?: number;
+  p0_life_left?: number;
+  p1_life_left?: number;
+  p0_field?: number;
+  p1_field?: number;
+  cell_winrate?: number;
+  cell_wins?: number;
+  cell_losses?: number;
+  cell_draws?: number;
+  [k: string]: unknown;
+};
+
+export type MatrixLogTail = {
+  exists: boolean;
+  entries: MatrixLogEntry[];
+  count?: number;
+  error?: string;
+};
+
+export async function fetchMatrixLogTail(
+  lines = 50,
+): Promise<MatrixLogTail> {
+  const res = await fetch(
+    `${API}/api/matrix/log/tail?lines=${lines}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`fetchMatrixLogTail failed: ${res.status}`);
+  return res.json();
+}
+
+export async function runMatrixSampleReplay(
+  deckA: string,
+  deckB: string,
+  seed = 42,
+): Promise<ReplayResponse> {
+  const res = await fetch(`${API}/api/matrix/sample/replay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`runMatrixSampleReplay failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
 export async function fetchFaqSources(): Promise<FaqSource[]> {
   const res = await fetch(`${API}/api/faq/sources`, { cache: "no-store" });
   if (!res.ok) throw new Error(`fetchFaqSources failed: ${res.status}`);
@@ -532,3 +618,92 @@ export async function generateDeckArticle(
   }
   return res.json();
 }
+
+// === spectate コメント (= 観戦時のアノテーション、 サーバ永続) ===
+
+export type SpectateCommentIn = {
+  replay_key: string;
+  deck_a: string;
+  deck_b: string;
+  first_player: number;
+  winner: number | null;
+  turns: number;
+  snapshot_idx: number;
+  snapshot_log: string;
+  snapshot_turn: number | null;
+  text: string;
+  author?: string | null;
+};
+
+export type SpectateCommentOut = SpectateCommentIn & {
+  id: string;
+  created_at: string;
+  author: string | null;
+  agreed_by: string[];
+};
+
+export async function listSpectateComments(
+  replayKey: string,
+): Promise<SpectateCommentOut[]> {
+  const params = new URLSearchParams({ replay_key: replayKey });
+  const res = await fetch(`${API}/api/spectate/comments?${params}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`listSpectateComments failed: ${res.status}`);
+  return res.json();
+}
+
+export async function addSpectateComment(
+  body: SpectateCommentIn,
+): Promise<SpectateCommentOut> {
+  const res = await fetch(`${API}/api/spectate/comments`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `addSpectateComment failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteSpectateComment(id: string): Promise<void> {
+  const res = await fetch(
+    `${API}/api/spectate/comments/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw new Error(`deleteSpectateComment failed: ${res.status}`);
+}
+
+export async function agreeSpectateComment(
+  id: string,
+  author: string,
+): Promise<SpectateCommentOut> {
+  const res = await fetch(
+    `${API}/api/spectate/comments/${encodeURIComponent(id)}/agree`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ author }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `agreeSpectateComment failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function unagreeSpectateComment(
+  id: string,
+  author: string,
+): Promise<void> {
+  const params = new URLSearchParams({ author });
+  const res = await fetch(
+    `${API}/api/spectate/comments/${encodeURIComponent(id)}/agree?${params}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw new Error(`unagreeSpectateComment failed: ${res.status}`);
+}
+

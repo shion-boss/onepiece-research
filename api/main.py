@@ -50,14 +50,55 @@ def _on_startup():
     except Exception as e:
         print(f"[startup] auto_resume failed: {e}")
 
-# Next.js dev server からのアクセスを許可
+# CORS 設定。 本番では env ALLOWED_ORIGINS にカンマ区切りで Vercel URL 等を渡す。
+# 例: ALLOWED_ORIGINS="https://onepiece-research.vercel.app,http://localhost:3000"
+# 未設定なら localhost のみ許可 (= ローカル開発デフォルト)。
+import os as _os
+
+_allowed_origins_env = _os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000")
+_allowed_origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================================ #
+# Rate limit (= spam 対策の MVP)
+# ============================================================================ #
+# 同一 IP から /api/spectate/comments への POST を 10 件/分 上限。 in-memory のみ、
+# 単一プロセス前提 (= Fly.io 設定で uvicorn 1 worker 想定)。 本格運用するなら redis 等。
+from collections import deque
+from fastapi import Request
+
+_RATE_LIMIT_PATHS = {"/api/spectate/comments"}  # method=POST のみに適用
+_RATE_LIMIT_WINDOW_SEC = 60
+_RATE_LIMIT_MAX = 10
+_rate_buckets: dict[str, deque] = {}
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """POST /api/spectate/comments を同一 IP で 10 件/分 に制限。"""
+    import time
+    if request.method == "POST" and request.url.path in _RATE_LIMIT_PATHS:
+        ip = (request.client.host if request.client else "unknown") or "unknown"
+        now = time.time()
+        bucket = _rate_buckets.setdefault(ip, deque())
+        # 古い entry を捨てる
+        while bucket and now - bucket[0] > _RATE_LIMIT_WINDOW_SEC:
+            bucket.popleft()
+        if len(bucket) >= _RATE_LIMIT_MAX:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                {"detail": f"rate limit exceeded (max {_RATE_LIMIT_MAX}/min)"},
+                status_code=429,
+            )
+        bucket.append(now)
+    return await call_next(request)
 
 # 起動時にカードリポジトリを1回だけロード
 _repo: Optional[CardRepository] = None
@@ -132,6 +173,164 @@ def meta_matrix():
     if not _MATRIX_PATH.exists():
         raise HTTPException(404, "matchup_matrix.json が無い: scripts/compute_matchup_matrix.py を実行してください")
     return json.loads(_MATRIX_PATH.read_text(encoding="utf-8"))
+
+
+# --------------------------------------------------------------------------- #
+# エンドポイント: matrix 走行中の progress (= UI で polling)
+# --------------------------------------------------------------------------- #
+_MATRIX_LOG_PATH = ROOT / "db" / "matrix_run_log.ndjson"
+
+
+@app.get("/api/matrix/progress")
+def matrix_progress():
+    """matrix の進捗を返す。 partial=True 時は走行中。
+    UI が 10s 間隔で polling する想定。"""
+    if not _MATRIX_PATH.exists():
+        return {"running": False, "exists": False}
+    m = json.loads(_MATRIX_PATH.read_text(encoding="utf-8"))
+    decks = m.get("decks", [])
+    matrix = m.get("matrix", [])
+    n_decks = len(decks)
+    rows_done = len(matrix)
+    # 行内の populated cell 数 (= 直近行が走行中なら部分埋め)
+    last_row_cells = 0
+    last_cell_time: Optional[str] = None
+    if matrix:
+        last = matrix[-1]
+        last_row_cells = sum(1 for c in last.get("row", []) if c.get("winrate") is not None or (c.get("wins", 0) + c.get("losses", 0) + c.get("draws", 0)) > 0)
+        # 最新 cell の computed_at
+        for c in last.get("row", []):
+            ts = c.get("computed_at")
+            if ts and (last_cell_time is None or ts > last_cell_time):
+                last_cell_time = ts
+    total_cells = n_decks * n_decks
+    done_cells = sum(
+        sum(1 for c in r.get("row", []) if c.get("winrate") is not None or (c.get("wins", 0) + c.get("losses", 0) + c.get("draws", 0)) > 0)
+        for r in matrix
+    )
+    # 完了 row だけで tier 計算 (= preview)
+    tier: list[dict] = []
+    for row_obj in matrix:
+        cells = [c for c in row_obj.get("row", []) if c.get("winrate") is not None]
+        if not cells:
+            continue
+        # 自己 cell 除外 (winrate=None なので自然除外)
+        wrs = [c["winrate"] for c in cells if c.get("deck_b") != row_obj.get("deck_a")]
+        if not wrs:
+            continue
+        tier.append({
+            "deck_slug": row_obj.get("deck_a"),
+            "deck_name": row_obj.get("deck_a_name"),
+            "avg_winrate": round(sum(wrs) / len(wrs), 4),
+            "matches_played": len(wrs),
+        })
+    tier.sort(key=lambda x: -x["avg_winrate"])
+    try:
+        mtime = _MATRIX_PATH.stat().st_mtime
+    except OSError:
+        mtime = None
+    return {
+        "running": bool(m.get("partial")),
+        "exists": True,
+        "ai_version": m.get("ai_version"),
+        "n_games_per_cell": m.get("n_games"),
+        "n_decks": n_decks,
+        "rows_done": rows_done,
+        "rows_total": n_decks,
+        "cells_done": done_cells,
+        "cells_total": total_cells,
+        "last_row_cells_filled": last_row_cells,
+        "last_cell_time": last_cell_time,
+        "matrix_mtime": mtime,
+        "computed_at": m.get("computed_at"),
+        "tier_preview": tier,
+        "decks": decks,
+    }
+
+
+class MatrixSampleRequest(BaseModel):
+    deck_a: str
+    deck_b: str
+    seed: int = 42
+
+
+@app.post("/api/matrix/sample/replay")
+def matrix_sample_replay(req: MatrixSampleRequest):
+    """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
+    /api/match/{job_id}/games/{i}/replay と同じ形式 (= MatchReplay コンポーネントで再生可)。
+
+    走行中 matrix とは別プロセス、 PlanningAI、 約 3-10 秒応答。"""
+    from engine.deck import CardRepository, DeckList
+    from engine.effects import load_effect_overlay
+    from engine.harness import run_matchup as _run
+
+    if not req.deck_a or not req.deck_b:
+        raise HTTPException(400, "deck_a と deck_b は必須")
+    path_a = DECKS_DIR / f"{req.deck_a}.json"
+    path_b = DECKS_DIR / f"{req.deck_b}.json"
+    if not path_a.exists():
+        raise HTTPException(404, f"deck not found: {req.deck_a}")
+    if not path_b.exists():
+        raise HTTPException(404, f"deck not found: {req.deck_b}")
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    da = DeckList.from_json(path_a, repo)
+    db = DeckList.from_json(path_b, repo)
+
+    rep = _run(
+        da, db,
+        n_games=1, seed=req.seed,
+        effects_overlay=overlay,
+        keep_logs=True, enforce_rules=False,
+        record_snapshots=True,
+    )
+    g = rep.games[0]
+    # ReplayResponse は file 末尾で定義されているため文字列名で response_model 指定。
+    # 実体は dict で返してもエンドポイント契約に従う (Pydantic ↔ FastAPI が validate)。
+    return {
+        "job_id": f"matrix-sample-{req.deck_a}-{req.deck_b}-{req.seed}",
+        "game_index": 0,
+        "deck_a_name": da.name,
+        "deck_b_name": db.name,
+        "first_player": g.first_player,
+        "winner": g.winner if g.winner is not None else -1,
+        "turns": g.turns,
+        "snapshots": g.snapshots,
+    }
+
+
+@app.get("/api/matrix/log/tail")
+def matrix_log_tail(lines: int = 50):
+    """matrix の per-game NDJSON log の末尾 N 行を返す。
+    `compute_matchup_matrix.py` が将来書き出す `db/matrix_run_log.ndjson` を読む。
+    現在走行中の matrix プロセスがこの log を出していない場合は空配列。"""
+    if not _MATRIX_LOG_PATH.exists():
+        return {"exists": False, "entries": []}
+    lines = max(1, min(lines, 500))
+    try:
+        with _MATRIX_LOG_PATH.open("rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            # 末尾から最大 256KB 読み (= 余裕で 500 行カバー)
+            read_size = min(size, 256 * 1024)
+            f.seek(size - read_size)
+            tail = f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return {"exists": True, "entries": [], "error": "read failed"}
+    raw_lines = tail.splitlines()
+    if size > read_size:
+        raw_lines = raw_lines[1:]  # 先頭は途中切れの可能性
+    raw_lines = raw_lines[-lines:]
+    entries: list[dict] = []
+    for line in raw_lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entries.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return {"exists": True, "entries": entries, "count": len(entries)}
 
 
 # --------------------------------------------------------------------------- #
@@ -2178,3 +2377,446 @@ def generate_battle_report(
         n_wins=n_wins,
         n_losses=n_games - n_wins,
     )
+
+
+# --------------------------------------------------------------------------- #
+# エンドポイント: spectate コメント (= 観戦中に user が log にアノテーション)
+# --------------------------------------------------------------------------- #
+# ストレージ層: DATABASE_URL env があれば Postgres (= Vercel/Neon 本番)、
+# なければ SQLite (= ローカル開発)。 両方とも同じ I/F を提供。
+#
+# - 本番 (Vercel + Neon): DATABASE_URL=postgres://... を env に設定。
+#   schema は起動時に CREATE IF NOT EXISTS で冪等作成。
+# - ローカル: SQLite ファイル ${DATA_DIR}/spectate_comments.sqlite に保存。
+#   旧 db/spectate_comments.json があれば 1 度だけ自動移行。
+#
+# Vercel serverless では function インスタンスが ephemeral なので SQLite 不可。
+# Postgres 必須。 接続は per-request (短命) で OK、 Neon 側で pooling されている。
+import sqlite3 as _sqlite3
+
+_DATABASE_URL = _os.environ.get("DATABASE_URL")
+_USE_POSTGRES = bool(_DATABASE_URL)
+
+_DATA_DIR = Path(_os.environ.get("DATA_DIR", str(ROOT / "db")))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_SPECTATE_COMMENTS_DB = _DATA_DIR / "spectate_comments.sqlite"
+_SPECTATE_COMMENTS_JSON_LEGACY = ROOT / "db" / "spectate_comments.json"
+
+# Postgres 用 placeholder 切替 (= sqlite3 は ?、 psycopg は %s)。
+_PH = "%s" if _USE_POSTGRES else "?"
+
+
+def _spectate_conn():
+    """sqlite3.Connection or psycopg.Connection を返す。 両 driver 互換 I/F のみ使う。"""
+    if _USE_POSTGRES:
+        import psycopg
+        # autocommit=False で context manager がトランザクション境界を扱う
+        return psycopg.connect(_DATABASE_URL, row_factory=psycopg.rows.dict_row)
+    conn = _sqlite3.connect(str(_SPECTATE_COMMENTS_DB))
+    conn.row_factory = _sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def _init_spectate_schema() -> None:
+    """schema 初期化。 SQLite/Postgres 両対応。 ローカルでは 旧 JSON データ 1 回限り移行。"""
+    if _USE_POSTGRES:
+        ddl = [
+            """
+            CREATE TABLE IF NOT EXISTS comments (
+                id TEXT PRIMARY KEY,
+                replay_key TEXT NOT NULL,
+                deck_a TEXT,
+                deck_b TEXT,
+                first_player INTEGER,
+                winner INTEGER,
+                turns INTEGER,
+                snapshot_idx INTEGER,
+                snapshot_log TEXT,
+                snapshot_turn INTEGER,
+                text TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                author TEXT
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_comments_replay ON comments(replay_key)",
+            """
+            CREATE TABLE IF NOT EXISTS agreements (
+                comment_id TEXT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+                author TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (comment_id, author)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_agreements_comment ON agreements(comment_id)",
+        ]
+        try:
+            with _spectate_conn() as conn:
+                with conn.cursor() as cur:
+                    for stmt in ddl:
+                        cur.execute(stmt)
+                conn.commit()
+        except Exception as e:
+            print(f"[spectate] Postgres schema init failed: {e}")
+        return
+
+    # SQLite path (= ローカル開発)
+    with _spectate_conn() as conn:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS comments (
+                id TEXT PRIMARY KEY,
+                replay_key TEXT NOT NULL,
+                deck_a TEXT,
+                deck_b TEXT,
+                first_player INTEGER,
+                winner INTEGER,
+                turns INTEGER,
+                snapshot_idx INTEGER,
+                snapshot_log TEXT,
+                snapshot_turn INTEGER,
+                text TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                author TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_comments_replay ON comments(replay_key);
+            CREATE TABLE IF NOT EXISTS agreements (
+                comment_id TEXT NOT NULL,
+                author TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (comment_id, author),
+                FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_agreements_comment ON agreements(comment_id);
+            """
+        )
+        # 旧 JSON 自動移行 (= 1 回限り)。 既に SQLite に rows があれば何もしない。
+        row = conn.execute("SELECT COUNT(*) AS n FROM comments").fetchone()
+        if row and row["n"] == 0 and _SPECTATE_COMMENTS_JSON_LEGACY.exists():
+            try:
+                legacy = json.loads(
+                    _SPECTATE_COMMENTS_JSON_LEGACY.read_text(encoding="utf-8")
+                )
+                if isinstance(legacy, list):
+                    for c in legacy:
+                        conn.execute(
+                            """
+                            INSERT OR IGNORE INTO comments
+                                (id, replay_key, deck_a, deck_b, first_player, winner,
+                                 turns, snapshot_idx, snapshot_log, snapshot_turn,
+                                 text, created_at, author)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                c.get("id"), c.get("replay_key"), c.get("deck_a"),
+                                c.get("deck_b"), c.get("first_player"), c.get("winner"),
+                                c.get("turns"), c.get("snapshot_idx"),
+                                c.get("snapshot_log"), c.get("snapshot_turn"),
+                                c.get("text"), c.get("created_at"), c.get("author"),
+                            ),
+                        )
+                        for ag in c.get("agreed_by") or []:
+                            conn.execute(
+                                """
+                                INSERT OR IGNORE INTO agreements
+                                    (comment_id, author, created_at)
+                                VALUES (?, ?, ?)
+                                """,
+                                (c.get("id"), ag, c.get("created_at")),
+                            )
+            except Exception as e:
+                print(f"[spectate] legacy JSON migration failed: {e}")
+
+
+try:
+    _init_spectate_schema()
+except Exception as e:
+    # schema init 失敗してもアプリ起動は止めない (= /api/health は通せる)。
+    # 個別エンドポイントが叩かれた時に明示エラー返す方が debug しやすい。
+    print(f"[spectate] schema init skipped: {e}")
+
+
+def _row_to_comment(row, agreed_by: list[str]) -> dict:
+    # sqlite3.Row + psycopg dict_row 両方とも mapping access OK
+    return {
+        "id": row["id"],
+        "replay_key": row["replay_key"],
+        "deck_a": row["deck_a"],
+        "deck_b": row["deck_b"],
+        "first_player": row["first_player"],
+        "winner": row["winner"],
+        "turns": row["turns"],
+        "snapshot_idx": row["snapshot_idx"],
+        "snapshot_log": row["snapshot_log"] or "",
+        "snapshot_turn": row["snapshot_turn"],
+        "text": row["text"],
+        "created_at": row["created_at"],
+        "author": row["author"],
+        "agreed_by": agreed_by,
+    }
+
+
+def _execute_fetchall(conn, sql: str, params: tuple = ()) -> list:
+    """sqlite3 / psycopg 両対応の fetchall ラッパー。"""
+    if _USE_POSTGRES:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchall()
+    return conn.execute(sql, params).fetchall()
+
+
+def _execute_fetchone(conn, sql: str, params: tuple = ()):
+    if _USE_POSTGRES:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchone()
+    return conn.execute(sql, params).fetchone()
+
+
+def _execute_run(conn, sql: str, params: tuple = ()) -> int:
+    """非 SELECT 実行。 影響行数を返す (= delete などに使う)。"""
+    if _USE_POSTGRES:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.rowcount
+    return conn.execute(sql, params).rowcount
+
+
+def _load_spectate_comments(replay_key: Optional[str] = None) -> list[dict]:
+    with _spectate_conn() as conn:
+        if replay_key:
+            rows = _execute_fetchall(
+                conn,
+                f"SELECT * FROM comments WHERE replay_key = {_PH} ORDER BY created_at ASC",
+                (replay_key,),
+            )
+        else:
+            rows = _execute_fetchall(
+                conn,
+                "SELECT * FROM comments ORDER BY created_at ASC",
+            )
+        ids = [r["id"] for r in rows]
+        ag_map: dict[str, list[str]] = {i: [] for i in ids}
+        if ids:
+            qmarks = ",".join(_PH for _ in ids)
+            agrows = _execute_fetchall(
+                conn,
+                f"SELECT comment_id, author FROM agreements WHERE comment_id IN ({qmarks}) ORDER BY created_at ASC",
+                tuple(ids),
+            )
+            for ar in agrows:
+                ag_map.setdefault(ar["comment_id"], []).append(ar["author"])
+        return [_row_to_comment(r, ag_map.get(r["id"], [])) for r in rows]
+
+
+def _insert_spectate_comment(c: dict) -> dict:
+    placeholders = ", ".join([_PH] * 13)
+    sql = (
+        f"INSERT INTO comments "
+        f"(id, replay_key, deck_a, deck_b, first_player, winner, "
+        f"turns, snapshot_idx, snapshot_log, snapshot_turn, "
+        f"text, created_at, author) VALUES ({placeholders})"
+    )
+    with _spectate_conn() as conn:
+        _execute_run(conn, sql, (
+            c["id"], c["replay_key"], c.get("deck_a"), c.get("deck_b"),
+            c.get("first_player"), c.get("winner"), c.get("turns"),
+            c.get("snapshot_idx"), c.get("snapshot_log"), c.get("snapshot_turn"),
+            c["text"], c["created_at"], c.get("author"),
+        ))
+        if _USE_POSTGRES:
+            conn.commit()
+    return _row_to_comment_by_id(c["id"])
+
+
+def _row_to_comment_by_id(comment_id: str) -> dict:
+    with _spectate_conn() as conn:
+        r = _execute_fetchone(
+            conn,
+            f"SELECT * FROM comments WHERE id = {_PH}",
+            (comment_id,),
+        )
+        if r is None:
+            raise HTTPException(404, "not found")
+        ag = _execute_fetchall(
+            conn,
+            f"SELECT author FROM agreements WHERE comment_id = {_PH} ORDER BY created_at ASC",
+            (comment_id,),
+        )
+        return _row_to_comment(r, [a["author"] for a in ag])
+
+
+def _delete_spectate_comment_row(comment_id: str) -> bool:
+    with _spectate_conn() as conn:
+        n = _execute_run(
+            conn,
+            f"DELETE FROM comments WHERE id = {_PH}",
+            (comment_id,),
+        )
+        if _USE_POSTGRES:
+            conn.commit()
+        return n > 0
+
+
+def _add_agreement(comment_id: str, author: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    with _spectate_conn() as conn:
+        exists = _execute_fetchone(
+            conn,
+            f"SELECT 1 AS x FROM comments WHERE id = {_PH}",
+            (comment_id,),
+        )
+        if exists is None:
+            raise HTTPException(404, "not found")
+        # ON CONFLICT DO NOTHING / INSERT OR IGNORE で重複回避
+        if _USE_POSTGRES:
+            sql = (
+                f"INSERT INTO agreements (comment_id, author, created_at) "
+                f"VALUES ({_PH}, {_PH}, {_PH}) ON CONFLICT DO NOTHING"
+            )
+        else:
+            sql = (
+                "INSERT OR IGNORE INTO agreements (comment_id, author, created_at) "
+                "VALUES (?, ?, ?)"
+            )
+        _execute_run(conn, sql, (comment_id, author, now))
+        if _USE_POSTGRES:
+            conn.commit()
+    return _row_to_comment_by_id(comment_id)
+
+
+def _remove_agreement(comment_id: str, author: str) -> list[str]:
+    with _spectate_conn() as conn:
+        exists = _execute_fetchone(
+            conn,
+            f"SELECT 1 AS x FROM comments WHERE id = {_PH}",
+            (comment_id,),
+        )
+        if exists is None:
+            raise HTTPException(404, "not found")
+        _execute_run(
+            conn,
+            f"DELETE FROM agreements WHERE comment_id = {_PH} AND author = {_PH}",
+            (comment_id, author),
+        )
+        if _USE_POSTGRES:
+            conn.commit()
+        ag = _execute_fetchall(
+            conn,
+            f"SELECT author FROM agreements WHERE comment_id = {_PH} ORDER BY created_at ASC",
+            (comment_id,),
+        )
+        return [a["author"] for a in ag]
+
+
+class SpectateCommentIn(BaseModel):
+    replay_key: str
+    deck_a: str
+    deck_b: str
+    first_player: int
+    winner: Optional[int] = None
+    turns: int
+    snapshot_idx: int
+    snapshot_log: str = ""
+    snapshot_turn: Optional[int] = None
+    text: str
+    # 友達 共有用 (= 誰が言ったか) — 任意。 空 / None なら "anonymous"。
+    author: Optional[str] = None
+
+
+class SpectateCommentOut(BaseModel):
+    id: str
+    replay_key: str
+    deck_a: str
+    deck_b: str
+    first_player: int
+    winner: Optional[int] = None
+    turns: int
+    snapshot_idx: int
+    snapshot_log: str = ""
+    snapshot_turn: Optional[int] = None
+    text: str
+    created_at: str
+    author: Optional[str] = None
+    agreed_by: list[str] = []  # 同意した nickname の集合 (重複なし、 順序維持)
+
+
+@app.post("/api/spectate/comments", response_model=SpectateCommentOut)
+def add_spectate_comment(req: SpectateCommentIn):
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(400, "text empty")
+    author = (req.author or "").strip() or None
+    new = {
+        "id": uuid.uuid4().hex,
+        "replay_key": req.replay_key,
+        "deck_a": req.deck_a,
+        "deck_b": req.deck_b,
+        "first_player": req.first_player,
+        "winner": req.winner,
+        "turns": req.turns,
+        "snapshot_idx": req.snapshot_idx,
+        "snapshot_log": req.snapshot_log,
+        "snapshot_turn": req.snapshot_turn,
+        "text": text,
+        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "author": author,
+    }
+    return _insert_spectate_comment(new)
+
+
+class AgreeIn(BaseModel):
+    author: str  # 同意した人の nickname (= 必須)
+
+
+@app.post("/api/spectate/comments/{comment_id}/agree", response_model=SpectateCommentOut)
+def agree_to_spectate_comment(comment_id: str, body: AgreeIn):
+    """コメントに「同意」 を付与 (= friends 共有時に「自分も同じ意見」 を表明)。
+
+    同じ author が複数回 click しても 1 回しかカウントしない (= UNIQUE 制約)。
+    クラスタ化の重み付け (agreed_total) にも使う。
+    """
+    author = body.author.strip()
+    if not author:
+        raise HTTPException(400, "author empty")
+    return _add_agreement(comment_id, author)
+
+
+@app.delete("/api/spectate/comments/{comment_id}/agree")
+def unagree_to_spectate_comment(comment_id: str, author: str = Query(...)):
+    """同意の取り消し (= author を agreed_by から削除)。"""
+    author = author.strip()
+    if not author:
+        raise HTTPException(400, "author empty")
+    agreed = _remove_agreement(comment_id, author)
+    return {"ok": True, "agreed_by": agreed}
+
+
+@app.get("/api/spectate/comments", response_model=list[SpectateCommentOut])
+def list_spectate_comments(
+    replay_key: Optional[str] = Query(None),
+):
+    return _load_spectate_comments(replay_key=replay_key)
+
+
+@app.delete("/api/spectate/comments/{comment_id}")
+def delete_spectate_comment(comment_id: str):
+    if not _delete_spectate_comment_row(comment_id):
+        raise HTTPException(404, "not found")
+    return {"ok": True}
+
+
+@app.get("/api/spectate/comments/clusters")
+def list_spectate_comment_clusters(
+    replay_key: Optional[str] = Query(None),
+):
+    """コメントをクラスタ化して返す (= 同一指摘をまとめる)。
+
+    Claude が「コメント確認して」 時に呼ぶ想定。 friends 多人数アノテーション後の
+    重複排除にも使う。 重み付け: agreed_total + count × 0.5 で重要度 sort。
+    """
+    from engine.comment_clustering import cluster_comments  # 遅延 import
+    comments = _load_spectate_comments(replay_key=replay_key)
+    clusters = cluster_comments(comments)
+    return [cl.to_dict() for cl in clusters]

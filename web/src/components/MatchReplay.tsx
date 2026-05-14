@@ -27,6 +27,15 @@ import type {
   StateSnapshot,
 } from "@/lib/types";
 import { fetchGameAnalysis } from "@/lib/api";
+import {
+  BadgeRow,
+  LogCommentModal,
+  NicknameInput,
+  detectBadges,
+  useLogComments,
+  useNickname,
+  type LogComment,
+} from "./MatchReplayComments";
 
 // ホバー中のカード情報をどこからでも共有するための Context
 type HoverInfo = {
@@ -76,12 +85,14 @@ function useZoneRef(zone: string) {
 }
 
 // ライフダメージ/回復インジケータ (-N 赤 / +N 緑 のフロート)
+// + バトル結果 (BLOCKED / SURVIVED) も同 component を流用
 type DamageIndicator = {
   id: string;
   text: string;
   x: number;
   y: number;
   color: string;
+  fontSize?: number; // 任意。 BLOCKED / SURVIVED は長文なので 24 等に下げる
 };
 
 // カードの飛行アニメーション
@@ -124,11 +135,12 @@ function withViewTransition(fn: () => void) {
   }
 }
 
+// 旧 0.5x (1600ms) を新 1x として再割当て (= 全体 2x スロー)。 観戦時の追従性優先。
 const SPEEDS: { label: string; ms: number }[] = [
-  { label: "0.5x", ms: 1600 },
-  { label: "1x", ms: 800 },
-  { label: "2x", ms: 400 },
-  { label: "4x", ms: 200 },
+  { label: "0.5x", ms: 3200 },
+  { label: "1x", ms: 1600 },
+  { label: "2x", ms: 800 },
+  { label: "4x", ms: 400 },
 ];
 
 export function MatchReplay({ replay }: { replay: ReplayResponse }) {
@@ -139,6 +151,12 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   const [followLog, setFollowLog] = useState(true);
   const [hovered, setHovered] = useState<HoverInfo | null>(null);
   const [showBoardEval, setShowBoardEval] = useState(false);
+  // log アノテーション (= サーバ永続、 友達共有用 author + 👍 同意あり)。
+  // user/友達が「ここ悪手」 を書き留める → 私 (Claude) が db/spectate_comments.json を
+  // 直接読んで AI 改善に使う。 nickname は localStorage に保存して全試合で共有。
+  const [nickname, setNickname] = useNickname();
+  const commentsApi = useLogComments(replay, nickname);
+  const [activeCommentIdx, setActiveCommentIdx] = useState<number | null>(null);
 
   // BoardCard 各々の DOM 要素を instance_id で記録 → アタック矢印描画に使う
   const cardRefs = useRef(new Map<number, HTMLElement>());
@@ -205,6 +223,32 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   // flight 検出ロジックや FlyingCard の rotate 判定でも参照するので render の早い段階で確定させる。
   const selfIdx: 0 | 1 = replay.first_player === 0 ? 0 : 1;
   const oppIdx: 0 | 1 = (1 - selfIdx) as 0 | 1;
+
+  // 飛行中の DON を CostArea 表示から一時的に差し引く (= 観戦コメント #10 対応)。
+  // snapshot は post-action 状態なので、 cp.don_active には到着後の総数が入っている。
+  // しかし DON は実際 600ms かけて飛んでくる → cost area に静的 + 飛行 の両方が
+  // 視覚的に存在し「一瞬倍に見える」 問題。 flight id prefix で判定して数を引く。
+  const inFlightDonToCost: Record<0 | 1, { active: number; rested: number }> =
+    useMemo(() => {
+      const m = { 0: { active: 0, rested: 0 }, 1: { active: 0, rested: 0 } } as
+        Record<0 | 1, { active: number; rested: number }>;
+      for (const f of flights) {
+        if (!f.isDon) continue;
+        // onTopMat=true は opp、 false は self。 selfIdx/oppIdx で player index に変換。
+        const pIdx: 0 | 1 = f.onTopMat ? oppIdx : selfIdx;
+        if (f.id.startsWith("don-draw-")) {
+          // DON deck → cost active 列
+          m[pIdx].active += 1;
+        } else if (f.id.startsWith("don-return-")) {
+          // REFRESH 時の付与 DON 戻り → cost active 列 (= engine が直接 active に加算)
+          m[pIdx].active += 1;
+        }
+        // don-attach-* (cost → chara/leader) は CostArea から流れ去る側なので
+        // 表示差し引きしない (= 静的 cost = post-state 減少値、 flight が出ていく形で
+        // 視覚的整合が取れている)
+      }
+      return m;
+    }, [flights, selfIdx, oppIdx]);
 
   const atEnd = idx >= snapshots.length - 1;
   const playingActive = playing && !atEnd;
@@ -529,6 +573,62 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
         }
       }
 
+      // (3c) deck → hand 飛行: DRAW phase 由来 OR カード効果由来 (ドロー primitive)
+      // engine 側 log フォーマット:
+      //   - DRAW phase: "draw: +1 → hand (N)"     (= 私が追加)
+      //   - カード効果: "効果: ドロー N → [...]"   (= effects.py:1111)
+      //   - カード効果: "効果: 動的ドロー N → [...]" (= effects.py:1122)
+      // どちらも hand 増 / deck 減 を起こすので、 同じ deck → hand 飛行で対応。
+      const isDrawPhaseLog = /(?:^|: )\s*draw: \+1 → hand/.test(cur.log);
+      const effectDrawMatch = cur.log.match(/効果:\s*(?:動的)?ドロー\s*(\d+)\s*→/);
+      const handGain = cp.hand.length - pp.hand.length;
+      const deckLoss = pp.deck_count - cp.deck_count;
+      let drawN = 0;
+      let drawIdSuffix = "";
+      if (isDrawPhaseLog && handGain === 1 && deckLoss === 1) {
+        drawN = 1;
+        drawIdSuffix = "draw";
+      } else if (
+        effectDrawMatch &&
+        handGain > 0 &&
+        deckLoss > 0 &&
+        cur.turn_player_idx === p
+      ) {
+        // 効果ドロー: 宣言枚数と実差分の少ない方 (= mill 等で減らない場合の保険)
+        drawN = Math.min(
+          parseInt(effectDrawMatch[1], 10),
+          handGain,
+          deckLoss,
+        );
+        drawIdSuffix = "effdraw";
+      }
+      if (drawN > 0 && cur.turn_player_idx === p) {
+        const deckEl = zoneRefs.current.get(`deck-${p}`);
+        const handEl = zoneRefs.current.get(`hand-${p}`);
+        if (deckEl && handEl) {
+          const deckRect = deckEl.getBoundingClientRect();
+          const handRect = handEl.getBoundingClientRect();
+          // 新規 hand card は配列の末尾 N 枚。 順序は engine の draw 順 (= 末尾追加)。
+          const newCardIds = cp.hand.slice(cp.hand.length - drawN);
+          const isOpp = p === oppIdx;
+          for (let i = 0; i < drawN; i++) {
+            newFlights.push({
+              id: `${drawIdSuffix}-${p}-${i}-${now}`,
+              cardId: newCardIds[i] ?? "",
+              onTopMat: isOpp,
+              // 自分側は裏 (deck) → 表 (hand)、 検証モードでは opp も同様。
+              startBack: true,
+              endBack: false,
+              delayMs: i * 120,
+              fromX: deckRect.left + deckRect.width / 2 - matRect.left,
+              fromY: deckRect.top + deckRect.height / 2 - matRect.top,
+              toX: handRect.left + handRect.width / 2 - matRect.left,
+              toY: handRect.top + handRect.height / 2 - matRect.top,
+            });
+          }
+        }
+      }
+
       // === DON!! トークンの移動アニメ === //
       // 各 InPlay の attached_dons をマップにまとめ、prev/cur 差分から (return / attach) を検出
       const collectAttached = (snap: typeof pp) => {
@@ -548,25 +648,40 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       //  - active 列の幅 = active=0 なら 0、 それ以外 80 + (active-1) * 18
       //  - rested 列は active 列の後に flex gap-2 (8px) で続く
       //  - rested DON は -rotate-90、 left: 16 + i*14, 中心は rotation で left + 40 + 16 = 56 + i*14
+      //
+      // ★ 相手マット (p === oppIdx) は `rotate-180` されている (line 896)。
+      // getBoundingClientRect() は視覚上の rect を返すので、 costRect.left は
+      // 視覚的左端 = layout の右端 に対応する。 そのため offset を足して slot 位置を
+      // 求める計算は、 opp 側では右端から引く (= x 鏡像) 必要がある。
+      // 以前は self 側だけ正しく、 opp 側はランダムな位置に着地して「瞬間移動」 して見えていた。
       const COST_PAD_LEFT = 4;
       const ACTIVE_OVERLAP = 18;
       const ACTIVE_DON_W = 80;
       const COL_GAP = 8;
       const RESTED_OVERLAP = 14;
       const RESTED_CENTER_OFFSET = 56;
-      const activeSlotX = (k: number): number =>
-        costRect
-          ? costRect.left + COST_PAD_LEFT + k * ACTIVE_OVERLAP + 40 - matRect.left
-          : 0;
+      const isOppMat = p === oppIdx;
+      const activeSlotX = (k: number): number => {
+        if (!costRect) return 0;
+        const layoutOffset = COST_PAD_LEFT + k * ACTIVE_OVERLAP + 40;
+        const visualX = isOppMat
+          ? costRect.right - layoutOffset
+          : costRect.left + layoutOffset;
+        return visualX - matRect.left;
+      };
       const restedSlotX = (k: number, currentActive: number): number => {
         if (!costRect) return 0;
         const activeWidth =
           currentActive === 0 ? 0 : ACTIVE_DON_W + (currentActive - 1) * ACTIVE_OVERLAP;
-        const restedColLeft =
-          costRect.left + COST_PAD_LEFT + (activeWidth > 0 ? activeWidth + COL_GAP : 0);
-        return (
-          restedColLeft + RESTED_CENTER_OFFSET + k * RESTED_OVERLAP - matRect.left
-        );
+        const layoutOffset =
+          COST_PAD_LEFT
+          + (activeWidth > 0 ? activeWidth + COL_GAP : 0)
+          + RESTED_CENTER_OFFSET
+          + k * RESTED_OVERLAP;
+        const visualX = isOppMat
+          ? costRect.right - layoutOffset
+          : costRect.left + layoutOffset;
+        return visualX - matRect.left;
       };
       const costCy = costRect
         ? costRect.top + costRect.height / 2 - matRect.top
@@ -603,12 +718,23 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
         }
       }
 
-      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り、 rested 列の正しいスロットに着地)
-      // 公式 6-2-3-1: 付与ドンはレストでコストエリアに戻る → rested 列に追加。
-      // 各 char の戻り DON に rested 列の累積スロット index を割当 (= pp.don_rested から).
+      // (5) Char/Leader → Cost Area (REFRESH 時の付与 DON 戻り)
+      // 公式 6-2-3-1+6-2-4 では「付与 DON は rested で戻る → 全 rested を active 化」
+      // の 2 ステップ だが、 engine は 1 ステップに圧縮して 直接 active に加算する
+      // (= game.py: me.don_active += c.attached_dons)。 そのため post-snapshot では
+      // 全 DON が active 列に並ぶ。 アニメも active 列着地で snapshot と整合させる。
+      // (以前は rested 列を target にしていて、 着地点と最終表示位置がずれ「瞬間移動」
+      // 状態 + 一瞬倍に見える 不具合があった = 観戦コメント #6 由来)
       if (costRect) {
         let returnStagger = 0;
-        let cumulativeRestedSlot = pp.don_rested; // 既存 rested の次から追加
+        // 戻り DON の総数。 active 列の末尾 totalReturned 個が「新規 active」 になる。
+        let totalReturned = 0;
+        for (const [iid, prevCount] of prevAttached) {
+          const curCount = curAttached.get(iid) ?? 0;
+          totalReturned += Math.max(0, prevCount - curCount);
+        }
+        // active 列の slot index 起点 = post-active 数 - 戻り総数
+        let cumulativeActiveSlot = Math.max(0, cp.don_active - totalReturned);
         for (const [iid, prevCount] of prevAttached) {
           const curCount = curAttached.get(iid) ?? 0;
           const delta = prevCount - curCount;
@@ -618,8 +744,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           const fromX = fromRect.left + fromRect.width / 2 - matRect.left;
           const fromY = fromRect.top + fromRect.height / 2 - matRect.top;
           for (let i = 0; i < delta; i++) {
-            const targetSlot = cumulativeRestedSlot;
-            cumulativeRestedSlot += 1;
+            const targetSlot = cumulativeActiveSlot;
+            cumulativeActiveSlot += 1;
             newFlights.push({
               id: `don-return-${p}-${iid}-${i}-${now}`,
               cardId: "",
@@ -628,9 +754,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               delayMs: returnStagger,
               fromX,
               fromY,
-              // 着地: rested 列の targetSlot 番目スロット中心。
-              // active 数は cur (= 戻り処理後の状態) を使用
-              toX: restedSlotX(targetSlot, cp.don_active),
+              // 着地: active 列の targetSlot 番目スロット中心。
+              toX: activeSlotX(targetSlot),
               toY: costCy,
               startBack: false,
               endBack: false,
@@ -670,6 +795,38 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
             });
             attachStagger += 80;
           }
+        }
+      }
+    }
+
+    // === バトル結果インジケータ (= SURVIVED / BLOCKED テキストフロート) ===
+    // 観戦コメント #5/#6 由来。 attack log の解決時に「  survived」 / 「  blocked」 が
+    // engine から push される。 これを検知して defender の場所に大きく表示する。
+    // target_iid は prev snap (= 攻撃宣言時の pending_event) から取得。
+    const survivedMatch = / survived\s*$/.test(cur.log);
+    const blockedMatch = / blocked\s*$/.test(cur.log);
+    if ((survivedMatch || blockedMatch)) {
+      const targetIid = cur.event?.target_iid ?? prev.event?.target_iid;
+      if (targetIid !== undefined && targetIid !== null) {
+        const el = cardRefs.current.get(targetIid);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          const id = `outcome-${now}`;
+          const isBlocked = blockedMatch;
+          setDamageIndicators((d) => [
+            ...d,
+            {
+              id,
+              text: isBlocked ? "BLOCKED!" : "SURVIVED!",
+              x: r.left + r.width / 2 - matRect.left,
+              y: r.top + r.height / 2 - matRect.top,
+              color: isBlocked ? "#0284c7" : "#059669", // sky-600 / emerald-600
+              fontSize: 22,
+            },
+          ]);
+          setTimeout(() => {
+            setDamageIndicators((d) => d.filter((x) => x.id !== id));
+          }, 1400);
         }
       }
     }
@@ -886,6 +1043,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                 active={acting === oppIdx}
                 playerIdx={oppIdx}
                 incomingIids={incomingIids}
+                inFlightDonToCost={inFlightDonToCost[oppIdx]}
                 onOpenTrash={(cards) =>
                   setTrashModal({
                     title: `${playerName[oppIdx]} のトラッシュ (${cards.length})`,
@@ -910,6 +1068,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
               active={acting === selfIdx}
               playerIdx={selfIdx}
               incomingIids={incomingIids}
+              inFlightDonToCost={inFlightDonToCost[selfIdx]}
               onOpenTrash={(cards) =>
                 setTrashModal({
                   title: `${playerName[selfIdx]} のトラッシュ (${cards.length})`,
@@ -1012,14 +1171,15 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
         {/* 右サイド: 上=相手手札 (2) / 下=Log+Controls (3) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {/* 右上: 相手の手札 (flex-2) — oppIdx 固定 */}
+          {/* 右上: 相手の手札 (flex-2) — oppIdx 固定。
+              検証モード: hidden を外し 表向き表示 (= AI の手札を見ながら挙動を確認)。
+              本来の対戦 UI では `hidden` 復活させる。 */}
           <HandPanel
             className="min-h-0 flex-[2]"
             hand={snap.players[oppIdx].hand}
             count={snap.players[oppIdx].hand_count}
             name={playerName[oppIdx]}
             active={acting === oppIdx}
-            hidden
             zoneId={`hand-${oppIdx}`}
           />
 
@@ -1076,6 +1236,24 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                 >
                   盤面評価 {showBoardEval ? "▾" : "▸"}
                 </button>
+                {/* コメント件数 + nickname 設定 (= 友達共有時の identity)。
+                    サーバ永続化済、 Claude が直接読める。 */}
+                <span
+                  className="ml-2 inline-flex items-center gap-1 rounded border border-amber-200/40 px-2 py-0.5 text-amber-100/80"
+                  title="このリプレイに付けたコメント件数 (= サーバに保存済)"
+                >
+                  💬 {commentsApi.totalCount}
+                  {commentsApi.loading ? " …" : ""}
+                </span>
+                <NicknameInput nickname={nickname} onChange={setNickname} />
+                {commentsApi.error ? (
+                  <span
+                    className="ml-1 rounded bg-rose-900/60 px-2 py-0.5 text-[10px] text-rose-100"
+                    title={commentsApi.error}
+                  >
+                    ⚠ {commentsApi.error.slice(0, 40)}
+                  </span>
+                ) : null}
               </div>
               <input
                 type="range"
@@ -1102,6 +1280,11 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                 onJump={(i) => {
                   setPlaying(false);
                   setIdx(i);
+                }}
+                getCommentCount={(i) => commentsApi.getComments(i).length}
+                onRightClick={(i) => {
+                  setPlaying(false);
+                  setActiveCommentIdx(i);
                 }}
               />
               {/* 盤面評価オーバーレイ: ログ部分とのみ同サイズで重ねる (コントロールは avoid)。 z-50 で最上位 */}
@@ -1136,6 +1319,24 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
           onClose={() => setTrashModal(null)}
         />
       )}
+
+      {/* コメント編集モーダル (= log を右クリック で起動) */}
+      {activeCommentIdx !== null && snapshots[activeCommentIdx] ? (
+        <LogCommentModal
+          snapIdx={activeCommentIdx}
+          snap={snapshots[activeCommentIdx]}
+          existing={commentsApi.getComments(activeCommentIdx)}
+          nickname={nickname}
+          onSave={(text) => commentsApi.addComment(activeCommentIdx, text)}
+          onDelete={(commentIdx) =>
+            commentsApi.deleteComment(activeCommentIdx, commentIdx)
+          }
+          onToggleAgree={(commentIdx) =>
+            commentsApi.toggleAgree(activeCommentIdx, commentIdx)
+          }
+          onClose={() => setActiveCommentIdx(null)}
+        />
+      ) : null}
       </HoverContext.Provider>
     </div>
   );
@@ -1550,23 +1751,33 @@ function PlayerMat({
   playerIdx,
   incomingIids,
   onOpenTrash,
+  inFlightDonToCost,
 }: {
   player: PlayerSnapshot;
   active: boolean;
   playerIdx: 0 | 1;
   incomingIids?: Set<number>;
   onOpenTrash?: (cards: string[]) => void;
+  // 飛行中の DON を CostArea 表示から差し引く (= #10 対応)
+  inFlightDonToCost?: { active: number; rested: number };
 }) {
   const stage = player.stages[0] ?? null;
   return (
     <div
-      className={`relative grid min-h-0 flex-1 gap-1 rounded-lg bg-gradient-to-b from-emerald-100/85 via-emerald-50/85 to-emerald-100/85 p-1 ring-1 ring-emerald-900/30 ${
-        active
-          ? "outline outline-4 outline-amber-400 shadow-[inset_0_0_16px_rgba(251,191,36,0.6)]"
-          : ""
-      }`}
+      className="relative grid min-h-0 flex-1 gap-1 rounded-lg bg-gradient-to-b from-emerald-100/85 via-emerald-50/85 to-emerald-100/85 p-1 ring-1 ring-emerald-900/30"
       style={{ gridTemplateColumns: "auto 1fr" }}
     >
+      {/* 攻撃側ハイライト: 子要素 (= DON カード / character) より前面に重ねる overlay。
+          以前は wrapper 自体に outline + inset shadow を当てていたが、 wrapper の
+          CSS box は子要素より背面なので、 DON 画像が黄色枠を覆って見えなくなっていた。
+          別 div を z-30 で被せて pointer-events なしにすることで、 黄色枠だけが
+          最前面、 操作性に影響なし、 という見栄えに。 */}
+      {active ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-30 rounded-lg outline outline-4 outline-amber-400 shadow-[inset_0_0_16px_rgba(251,191,36,0.6)]"
+        />
+      ) : null}
 
       {/* 左列: LIFE pile (上) + DON DECK pile (下) */}
       <div className="flex flex-col items-center justify-between gap-1 pt-3.5">
@@ -1602,7 +1813,7 @@ function PlayerMat({
         <div className="flex shrink-0 items-center justify-end gap-2 rounded bg-emerald-200/30 px-2 py-0.5 ring-1 ring-emerald-700/20">
           <BoardCard card={player.leader} isLeader />
           {stage ? <BoardCard card={stage} /> : <CardSlot label="STAGE" />}
-          <DeckPile count={player.deck_count} />
+          <DeckPile count={player.deck_count} zoneId={`deck-${playerIdx}`} />
         </div>
 
         {/* COST AREA + TRASH (高さ固定 + overflow-hidden + items-start:
@@ -1614,8 +1825,14 @@ function PlayerMat({
           style={{ height: 100 }}
         >
           <CostArea
-            active={player.don_active}
-            rested={player.don_rested}
+            active={Math.max(
+              0,
+              player.don_active - (inFlightDonToCost?.active ?? 0),
+            )}
+            rested={Math.max(
+              0,
+              player.don_rested - (inFlightDonToCost?.rested ?? 0),
+            )}
             zoneId={`costarea-${playerIdx}`}
           />
           <TrashPile
@@ -1705,7 +1922,7 @@ function DamagePop({ indicator }: { indicator: DamageIndicator }) {
         left: indicator.x,
         top: indicator.y,
         transform: "translate(-50%, -50%)",
-        fontSize: "44px",
+        fontSize: `${indicator.fontSize ?? 44}px`,
         color: indicator.color,
         textShadow:
           "0 0 4px white, 0 0 4px white, 2px 2px 0 white, -2px -2px 0 white, 2px -2px 0 white, -2px 2px 0 white",
@@ -1890,11 +2107,15 @@ function LogTrackCompact({
   idx,
   follow,
   onJump,
+  getCommentCount,
+  onRightClick,
 }: {
   snapshots: StateSnapshot[];
   idx: number;
   follow: boolean;
   onJump: (i: number) => void;
+  getCommentCount?: (snapIdx: number) => number;
+  onRightClick?: (snapIdx: number, e: React.MouseEvent) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1902,27 +2123,53 @@ function LogTrackCompact({
     const el = ref.current?.querySelector<HTMLElement>(`[data-step='${idx}']`);
     el?.scrollIntoView({ block: "nearest" });
   }, [idx, follow]);
+  // バッジは re-render 毎に計算するが、 1 snapshot = 数μs なので OK (200 snap × 5μs ≒ 1ms)。
+  // メモ化が必要なら useMemo + snapshots を key に。
   return (
     <div
       ref={ref}
       className="log-scroll flex-1 overflow-y-auto font-mono text-[11px] leading-5"
     >
-      {snapshots.map((s, i) => (
-        <div
-          key={i}
-          data-step={i}
-          onClick={() => onJump(i)}
-          className={`cursor-pointer rounded px-1 ${
-            i === idx
-              ? "bg-amber-400/40 text-amber-50"
-              : i < idx
-                ? "text-amber-200/40 hover:bg-amber-900/40"
-                : "text-amber-100/70 hover:bg-amber-900/40"
-          }`}
-        >
-          {s.log}
-        </div>
-      ))}
+      {snapshots.map((s, i) => {
+        const badges = detectBadges(s, i, snapshots);
+        const commentCount = getCommentCount?.(i) ?? 0;
+        return (
+          <div
+            key={i}
+            data-step={i}
+            onClick={() => onJump(i)}
+            onContextMenu={(e) => {
+              if (onRightClick) {
+                e.preventDefault();
+                onRightClick(i, e);
+              }
+            }}
+            className={`cursor-pointer rounded px-1 ${
+              i === idx
+                ? "bg-amber-400/40 text-amber-50"
+                : i < idx
+                  ? "text-amber-200/40 hover:bg-amber-900/40"
+                  : "text-amber-100/70 hover:bg-amber-900/40"
+            } ${commentCount > 0 ? "border-l-2 border-amber-400" : ""}`}
+            title={
+              onRightClick
+                ? "右クリックでコメントを追加 / 編集"
+                : undefined
+            }
+          >
+            <span>{s.log}</span>
+            <BadgeRow badges={badges} />
+            {commentCount > 0 ? (
+              <span
+                className="ml-1 inline-flex items-center gap-0.5 rounded bg-amber-400 px-1 text-[9px] font-bold text-amber-950 align-middle"
+                title={`${commentCount} 件のコメント`}
+              >
+                💬 {commentCount}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2039,13 +2286,14 @@ function LifePile({
   );
 }
 
-function DeckPile({ count }: { count: number }) {
+function DeckPile({ count, zoneId }: { count: number; zoneId?: string }) {
+  const zoneRef = useZoneRef(zoneId ?? "_unused");
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className="text-[9px] font-medium uppercase tracking-wide text-emerald-900/60">
         Deck
       </span>
-      <div className="relative h-[100px] w-[72px]">
+      <div ref={zoneRef} className="relative h-[100px] w-[72px]">
         {count > 0 ? (
           <>
             <CardBack className="absolute inset-0 translate-x-1 translate-y-1 opacity-80" />

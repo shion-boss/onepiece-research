@@ -19,6 +19,12 @@ export default async function MetaPage() {
           <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
             STD
           </span>
+          <Link
+            href="/meta/progress"
+            className="ml-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+          >
+            → 走行中の matrix progress
+          </Link>
         </div>
         {data && (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
