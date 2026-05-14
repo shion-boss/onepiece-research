@@ -1,0 +1,5100 @@
+{
+  "computed_at": "2026-05-14T17:50:00Z",
+  "n_features_analyzed": 106,
+  "n_active": 16,
+  "n_with_winrate": 15,
+  "correlations": {
+    "avg_cost": 0.533,
+    "counter_total": -0.053,
+    "n_1k_counter": -0.078,
+    "n_2k_counter": -0.014,
+    "n_0_counter": 0.069,
+    "blocker_count": 0.271,
+    "free_event_count": -0.139,
+    "synergy_density": -0.376,
+    "color_cohesion": -0.132,
+    "role_blocker_count": -0.23,
+    "role_disruption_count": 0.307,
+    "role_draw_count": 0.31,
+    "role_finisher_count": 0.098,
+    "role_negation_count": -0.377,
+    "role_ramp_count": -0.112,
+    "role_recovery_count": 0.408,
+    "role_removal_count": 0.229,
+    "role_search_count": -0.174,
+    "role_synergy_count": -0.488
+  },
+  "differences": {
+    "top_5_slugs": [
+      "cardrush_1456",
+      "cardrush_1439",
+      "tcgportal_bonney",
+      "cardrush_1455",
+      "cardrush_1399"
+    ],
+    "bottom_5_slugs": [
+      "tcgportal_op13_luffy",
+      "tcgportal_corazon",
+      "cardrush_1453",
+      "tcgportal_coby",
+      "cardrush_1392"
+    ],
+    "feature_differences": {
+      "avg_cost": {
+        "top_avg": 3.744,
+        "bottom_avg": 3.132,
+        "top_minus_bottom": 0.612
+      },
+      "counter_total": {
+        "top_avg": 37400,
+        "bottom_avg": 39800,
+        "top_minus_bottom": -2400
+      },
+      "n_1k_counter": {
+        "top_avg": 16.6,
+        "bottom_avg": 17.8,
+        "top_minus_bottom": -1.2
+      },
+      "n_2k_counter": {
+        "top_avg": 10.4,
+        "bottom_avg": 11,
+        "top_minus_bottom": -0.6
+      },
+      "blocker_count": {
+        "top_avg": 11,
+        "bottom_avg": 9,
+        "top_minus_bottom": 2
+      },
+      "free_event_count": {
+        "top_avg": 0,
+        "bottom_avg": 0,
+        "top_minus_bottom": 0
+      },
+      "synergy_density": {
+        "top_avg": 0.616,
+        "bottom_avg": 0.648,
+        "top_minus_bottom": -0.032
+      },
+      "color_cohesion": {
+        "top_avg": 0.784,
+        "bottom_avg": 0.776,
+        "top_minus_bottom": 0.008
+      }
+    }
+  },
+  "per_deck": [
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 9,
+        "5": 18,
+        "4": 6,
+        "1": 11,
+        "3": 2,
+        "0": 4
+      },
+      "avg_cost": 3.7,
+      "counter_total": 38000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 8,
+      "n_0_counter": 20,
+      "blocker_count": 1,
+      "free_event_count": 4,
+      "role_distribution": {
+        "finisher": 9,
+        "synergy": 12,
+        "recovery": 4,
+        "ramp": 18,
+        "search": 5,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 43,
+        "EVENT": 7
+      },
+      "top_feature": "ドンキホーテ海賊団",
+      "top_feature_count": 41,
+      "synergy_density": 0.82,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 4,
+        "1": 2
+      },
+      "__slug": "cardrush_1342",
+      "__name": "紫ドフラミンゴ",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1342"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 25,
+        "4": 6,
+        "5": 7,
+        "6": 12
+      },
+      "avg_cost": 3.12,
+      "counter_total": 42000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 11,
+      "n_0_counter": 19,
+      "blocker_count": 5,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 19,
+        "draw": 4,
+        "search": 9,
+        "blocker": 3,
+        "finisher": 12,
+        "disruption": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 40,
+        "EVENT": 10
+      },
+      "top_feature": "B・W",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 6,
+        "2": 4,
+        "3": 6
+      },
+      "__slug": "cardrush_1385",
+      "__name": "黒クロコダイル",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1385"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 21,
+        "4": 8,
+        "1": 17,
+        "2": 4
+      },
+      "avg_cost": 3.66,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 20,
+        "negation": 8,
+        "search": 8,
+        "synergy": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 36,
+        "EVENT": 12,
+        "STAGE": 2
+      },
+      "top_feature": "天竜人",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 12,
+        "1": 2
+      },
+      "__slug": "cardrush_1392",
+      "__name": "黒イム",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1392"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 18,
+        "4": 12,
+        "6": 13,
+        "5": 4,
+        "2": 3
+      },
+      "avg_cost": 3.4,
+      "counter_total": 22000,
+      "n_1k_counter": 4,
+      "n_2k_counter": 9,
+      "n_0_counter": 37,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 11,
+        "draw": 6,
+        "synergy": 8,
+        "finisher": 13
+      },
+      "category_distribution": {
+        "CHARACTER": 22,
+        "EVENT": 26,
+        "STAGE": 2
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 46,
+      "synergy_density": 0.92,
+      "color_distribution": {
+        "青": 38,
+        "赤": 12
+      },
+      "color_cohesion": 0.76,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "1": 2,
+        "3": 2,
+        "2": 1
+      },
+      "__slug": "cardrush_1399",
+      "__name": "赤青ルーシー",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1399"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "4": 20,
+        "2": 6,
+        "6": 11,
+        "1": 4,
+        "3": 1,
+        "5": 8
+      },
+      "avg_cost": 4.1,
+      "counter_total": 41000,
+      "n_1k_counter": 17,
+      "n_2k_counter": 12,
+      "n_0_counter": 21,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "recovery": 8,
+        "draw": 10,
+        "removal": 4,
+        "finisher": 11,
+        "synergy": 12,
+        "blocker": 1,
+        "disruption": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 48,
+        "EVENT": 2
+      },
+      "top_feature": "スリラーバーク海賊団",
+      "top_feature_count": 16,
+      "synergy_density": 0.32,
+      "color_distribution": {
+        "黄": 40,
+        "青": 10
+      },
+      "color_cohesion": 0.8,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "1": 2,
+        "4": 10,
+        "3": 2,
+        "2": 1
+      },
+      "__slug": "cardrush_1439",
+      "__name": "青黄ナミ",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1439"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 24,
+        "2": 4,
+        "5": 10,
+        "6": 10,
+        "3": 2
+      },
+      "avg_cost": 2.96,
+      "counter_total": 34000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 8,
+      "n_0_counter": 24,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 24,
+        "search": 6,
+        "ramp": 8,
+        "finisher": 10,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 38,
+        "EVENT": 10,
+        "STAGE": 2
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 27,
+      "synergy_density": 0.54,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 7,
+        "2": 8,
+        "3": 2
+      },
+      "__slug": "cardrush_1453",
+      "__name": "緑ミホーク",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1453"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 12,
+        "4": 7,
+        "5": 1,
+        "6": 4,
+        "0": 22,
+        "2": 4
+      },
+      "avg_cost": 1.54,
+      "counter_total": 19000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 0,
+      "n_0_counter": 31,
+      "blocker_count": 7,
+      "free_event_count": 22,
+      "role_distribution": {
+        "draw": 28,
+        "search": 4,
+        "disruption": 1,
+        "ramp": 1,
+        "blocker": 2,
+        "finisher": 4,
+        "removal": 4,
+        "synergy": 6
+      },
+      "category_distribution": {
+        "CHARACTER": 24,
+        "EVENT": 26
+      },
+      "top_feature": "空島",
+      "top_feature_count": 32,
+      "synergy_density": 0.64,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 4,
+        "1": 2
+      },
+      "__slug": "cardrush_1454",
+      "__name": "紫エネル",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1454"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 11,
+        "2": 8,
+        "4": 9,
+        "5": 16,
+        "6": 6
+      },
+      "avg_cost": 3.58,
+      "counter_total": 46000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 13,
+      "n_0_counter": 17,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 11,
+        "removal": 12,
+        "synergy": 1,
+        "recovery": 12,
+        "blocker": 4,
+        "finisher": 6,
+        "draw": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 43,
+        "EVENT": 4,
+        "STAGE": 3
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "1": 1,
+        "2": 1,
+        "3": 1
+      },
+      "__slug": "cardrush_1455",
+      "__name": "空島ルフィ",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1455"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "4": 7,
+        "5": 6,
+        "6": 23
+      },
+      "avg_cost": 4.2,
+      "counter_total": 34000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 8,
+      "n_0_counter": 24,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "draw": 13,
+        "synergy": 10,
+        "finisher": 19
+      },
+      "category_distribution": {
+        "CHARACTER": 44,
+        "EVENT": 6
+      },
+      "top_feature": "白ひげ海賊団",
+      "top_feature_count": 20,
+      "synergy_density": 0.4,
+      "color_distribution": {
+        "青": 36,
+        "赤": 14
+      },
+      "color_cohesion": 0.72,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "1": 1,
+        "2": 5,
+        "3": 1
+      },
+      "__slug": "cardrush_1456",
+      "__name": "赤青エース",
+      "__active": true,
+      "__source": "https://cardrush.media/onepiece/decks/1456"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 16,
+        "5": 8,
+        "6": 14,
+        "2": 8,
+        "4": 4
+      },
+      "avg_cost": 3.44,
+      "counter_total": 44000,
+      "n_1k_counter": 24,
+      "n_2k_counter": 10,
+      "n_0_counter": 16,
+      "blocker_count": 14,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 14,
+        "blocker": 4,
+        "draw": 12,
+        "synergy": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 44,
+        "EVENT": 6
+      },
+      "top_feature": "エッグヘッド",
+      "top_feature_count": 34,
+      "synergy_density": 0.68,
+      "color_distribution": {
+        "赤": 18,
+        "黄": 32
+      },
+      "color_cohesion": 0.64,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 3
+      },
+      "__slug": "tcgportal_bonney",
+      "__name": "赤黄ボニー",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E8%B5%A4%E9%BB%84%E3%83%9C%E3%83%8B%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "3": 4,
+        "4": 4,
+        "5": 21,
+        "6": 7,
+        "1": 11,
+        "2": 3
+      },
+      "avg_cost": 3.84,
+      "counter_total": 50000,
+      "n_1k_counter": 26,
+      "n_2k_counter": 12,
+      "n_0_counter": 12,
+      "blocker_count": 5,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 11,
+        "removal": 4,
+        "disruption": 4,
+        "recovery": 8,
+        "draw": 4,
+        "finisher": 7,
+        "search": 11,
+        "blocker": 1
+      },
+      "category_distribution": {
+        "CHARACTER": 43,
+        "STAGE": 4,
+        "EVENT": 3
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "tcgportal_calgara",
+      "__name": "黄カルガラ",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%BB%84%E3%82%AB%E3%83%AB%E3%82%AC%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "3": 8,
+        "1": 21,
+        "6": 10,
+        "4": 11
+      },
+      "avg_cost": 2.98,
+      "counter_total": 46000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 13,
+      "n_0_counter": 17,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 12,
+        "finisher": 12,
+        "search": 8,
+        "blocker": 9,
+        "draw": 7,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 44,
+        "EVENT": 6
+      },
+      "top_feature": "海軍",
+      "top_feature_count": 46,
+      "synergy_density": 0.92,
+      "color_distribution": {
+        "黒": 27,
+        "赤": 23
+      },
+      "color_cohesion": 0.54,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 1,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "tcgportal_coby",
+      "__name": "赤黒コビー",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E8%B5%A4%E9%BB%92%E3%82%B3%E3%83%93%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 25,
+        "6": 12,
+        "4": 4,
+        "2": 5,
+        "3": 2,
+        "5": 2
+      },
+      "avg_cost": 2.78,
+      "counter_total": 47000,
+      "n_1k_counter": 15,
+      "n_2k_counter": 16,
+      "n_0_counter": 19,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 20,
+        "search": 9,
+        "finisher": 12,
+        "draw": 5,
+        "blocker": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 41,
+        "EVENT": 9
+      },
+      "top_feature": "ドンキホーテ海賊団",
+      "top_feature_count": 24,
+      "synergy_density": 0.48,
+      "color_distribution": {
+        "黄": 20,
+        "紫": 30
+      },
+      "color_cohesion": 0.6,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "3": 1,
+        "2": 5,
+        "1": 1
+      },
+      "__slug": "tcgportal_corazon",
+      "__name": "紫黄ロシナンテ",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E7%B4%AB%E9%BB%84%E3%83%AD%E3%82%B7%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "5": 4,
+        "6": 19,
+        "4": 11,
+        "3": 7,
+        "2": 7,
+        "1": 2
+      },
+      "avg_cost": 4.3,
+      "counter_total": 42000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 13,
+      "n_0_counter": 21,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "recovery": 8,
+        "finisher": 19,
+        "search": 4,
+        "blocker": 4,
+        "synergy": 11,
+        "draw": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 49,
+        "EVENT": 1
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 20,
+      "synergy_density": 0.4,
+      "color_distribution": {
+        "黄": 42,
+        "青": 8
+      },
+      "color_cohesion": 0.84,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 8,
+        "3": 5,
+        "2": 1,
+        "1": 1
+      },
+      "__slug": "tcgportal_hancock",
+      "__name": "青黄ハンコック",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%9D%92%E9%BB%84%E3%83%8F%E3%83%B3%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 18,
+        "3": 12,
+        "4": 4,
+        "5": 8,
+        "6": 8
+      },
+      "avg_cost": 3.16,
+      "counter_total": 44000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 14,
+      "n_0_counter": 20,
+      "blocker_count": 4,
+      "free_event_count": 0,
+      "role_distribution": {
+        "draw": 16,
+        "synergy": 6,
+        "ramp": 20,
+        "finisher": 8
+      },
+      "category_distribution": {
+        "CHARACTER": 38,
+        "EVENT": 12
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 24,
+      "synergy_density": 0.48,
+      "color_distribution": {
+        "青": 16,
+        "紫": 34
+      },
+      "color_cohesion": 0.68,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 12,
+        "2": 1
+      },
+      "__slug": "tcgportal_op11_luffy",
+      "__name": "青紫ルフィ",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%9D%92%E7%B4%AB%E3%83%AB%E3%83%95%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 16,
+        "4": 8,
+        "5": 4,
+        "3": 4,
+        "2": 6,
+        "6": 12
+      },
+      "avg_cost": 3.28,
+      "counter_total": 28000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 6,
+      "n_0_counter": 28,
+      "blocker_count": 7,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "ramp": 16,
+        "synergy": 12,
+        "finisher": 12,
+        "blocker": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 38,
+        "EVENT": 12
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 25,
+      "synergy_density": 0.5,
+      "color_distribution": {
+        "赤": 13,
+        "緑": 37
+      },
+      "color_cohesion": 0.74,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 1,
+        "2": 1,
+        "1": 1
+      },
+      "__slug": "tcgportal_op13_luffy",
+      "__name": "赤緑ルフィ（OP13）",
+      "__active": true,
+      "__source": "https://tcg-portal.jp/onepiece/deck-guides/%E8%B5%A4%E7%B7%91%E3%83%AB%E3%83%95%"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "5": 16,
+        "1": 12,
+        "6": 6,
+        "4": 4,
+        "2": 12
+      },
+      "avg_cost": 3.36,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "blocker": 4,
+        "search": 8,
+        "recovery": 12,
+        "finisher": 6,
+        "removal": 12,
+        "synergy": 8
+      },
+      "category_distribution": {
+        "CHARACTER": 42,
+        "EVENT": 8
+      },
+      "top_feature": "空島",
+      "top_feature_count": 34,
+      "synergy_density": 0.68,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 12,
+        "2": 1
+      },
+      "__slug": "cardrush_1219",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1219"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 12,
+        "3": 8,
+        "6": 8,
+        "2": 4,
+        "0": 18
+      },
+      "avg_cost": 1.84,
+      "counter_total": 24000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 4,
+      "n_0_counter": 30,
+      "blocker_count": 4,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 28,
+        "synergy": 6,
+        "finisher": 8,
+        "search": 4,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 32,
+        "EVENT": 18
+      },
+      "top_feature": "空島",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 12,
+        "2": 1
+      },
+      "__slug": "cardrush_1221",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1221"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 16,
+        "2": 4,
+        "4": 4,
+        "3": 6,
+        "5": 12,
+        "6": 8
+      },
+      "avg_cost": 3.32,
+      "counter_total": 38000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 9,
+      "n_0_counter": 21,
+      "blocker_count": 11,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 25,
+        "search": 5,
+        "blocker": 4,
+        "ramp": 6,
+        "finisher": 8,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 38,
+        "EVENT": 10,
+        "STAGE": 2
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 28,
+      "synergy_density": 0.56,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 18,
+      "card_count_distribution": {
+        "4": 7,
+        "1": 3,
+        "2": 5,
+        "3": 3
+      },
+      "__slug": "cardrush_1222",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1222"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 6,
+        "6": 11,
+        "0": 17,
+        "2": 2
+      },
+      "avg_cost": 2.04,
+      "counter_total": 26000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 3,
+      "n_0_counter": 27,
+      "blocker_count": 7,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "synergy": 8,
+        "finisher": 11,
+        "search": 4,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 31,
+        "EVENT": 19
+      },
+      "top_feature": "空島",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1224",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1224"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 12,
+        "3": 8,
+        "2": 4,
+        "5": 2,
+        "6": 6,
+        "0": 18
+      },
+      "avg_cost": 1.8,
+      "counter_total": 24000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 4,
+      "n_0_counter": 30,
+      "blocker_count": 2,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 28,
+        "synergy": 6,
+        "search": 4,
+        "ramp": 2,
+        "finisher": 6,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 32,
+        "EVENT": 18
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 3
+      },
+      "__slug": "cardrush_1225",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1225"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 12,
+        "5": 8,
+        "6": 11,
+        "1": 12,
+        "4": 7
+      },
+      "avg_cost": 3.4,
+      "counter_total": 43000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 12,
+      "n_0_counter": 19,
+      "blocker_count": 7,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 19,
+        "removal": 4,
+        "draw": 4,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 11,
+        "search": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 42,
+        "EVENT": 8
+      },
+      "top_feature": "スリラーバーク海賊団",
+      "top_feature_count": 15,
+      "synergy_density": 0.3,
+      "color_distribution": {
+        "黄": 43,
+        "青": 7
+      },
+      "color_cohesion": 0.86,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 2
+      },
+      "__slug": "cardrush_1226",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1226"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 19,
+        "4": 13,
+        "6": 12,
+        "5": 4,
+        "3": 1,
+        "2": 1
+      },
+      "avg_cost": 3.36,
+      "counter_total": 24000,
+      "n_1k_counter": 4,
+      "n_2k_counter": 10,
+      "n_0_counter": 36,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 10,
+        "draw": 7,
+        "synergy": 9,
+        "finisher": 12
+      },
+      "category_distribution": {
+        "CHARACTER": 24,
+        "EVENT": 23,
+        "STAGE": 3
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 46,
+      "synergy_density": 0.92,
+      "color_distribution": {
+        "青": 39,
+        "赤": 11
+      },
+      "color_cohesion": 0.78,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 2,
+        "1": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1227",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1227"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 12,
+        "5": 8,
+        "6": 20,
+        "3": 2,
+        "4": 4,
+        "1": 4
+      },
+      "avg_cost": 4.2,
+      "counter_total": 38000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 10,
+      "n_0_counter": 22,
+      "blocker_count": 14,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 8,
+        "removal": 6,
+        "draw": 8,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 18,
+        "blocker": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 44,
+        "EVENT": 6
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 12,
+      "synergy_density": 0.24,
+      "color_distribution": {
+        "黄": 36,
+        "青": 14
+      },
+      "color_cohesion": 0.72,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 5
+      },
+      "__slug": "cardrush_1228",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1228"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 7,
+        "1": 12,
+        "5": 18,
+        "6": 11,
+        "3": 2
+      },
+      "avg_cost": 3.76,
+      "counter_total": 46000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 15,
+      "n_0_counter": 19,
+      "blocker_count": 20,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 7,
+        "removal": 9,
+        "draw": 6,
+        "blocker": 10,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 10
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 16,
+      "synergy_density": 0.32,
+      "color_distribution": {
+        "黄": 33,
+        "青": 17
+      },
+      "color_cohesion": 0.66,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "3": 1,
+        "4": 10,
+        "2": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1229",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1229"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "5": 19,
+        "1": 8,
+        "2": 8,
+        "4": 9,
+        "6": 6
+      },
+      "avg_cost": 3.82,
+      "counter_total": 48000,
+      "n_1k_counter": 24,
+      "n_2k_counter": 12,
+      "n_0_counter": 14,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "blocker": 8,
+        "search": 8,
+        "removal": 11,
+        "recovery": 12,
+        "finisher": 6,
+        "draw": 4,
+        "synergy": 1
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 1,
+        "2": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1236",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1236"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "5": 20,
+        "1": 8,
+        "2": 8,
+        "4": 4,
+        "6": 10
+      },
+      "avg_cost": 4.0,
+      "counter_total": 49000,
+      "n_1k_counter": 23,
+      "n_2k_counter": 13,
+      "n_0_counter": 14,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "blocker": 4,
+        "search": 8,
+        "removal": 12,
+        "recovery": 12,
+        "finisher": 10,
+        "draw": 3,
+        "synergy": 1
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 1,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1237",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1237"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 26,
+        "2": 2,
+        "4": 2,
+        "5": 9,
+        "6": 10,
+        "3": 1
+      },
+      "avg_cost": 2.92,
+      "counter_total": 34000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 9,
+      "n_0_counter": 25,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 21,
+        "search": 6,
+        "blocker": 2,
+        "ramp": 8,
+        "finisher": 10,
+        "removal": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 38,
+        "EVENT": 10,
+        "STAGE": 2
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 28,
+      "synergy_density": 0.56,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 5,
+        "3": 7,
+        "2": 4,
+        "1": 1
+      },
+      "__slug": "cardrush_1238",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1238"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 7,
+        "3": 7,
+        "4": 10,
+        "6": 18,
+        "5": 4,
+        "1": 4
+      },
+      "avg_cost": 4.14,
+      "counter_total": 36000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 10,
+      "n_0_counter": 24,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 12,
+        "draw": 4,
+        "search": 4,
+        "recovery": 8,
+        "blocker": 4,
+        "finisher": 18
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 16,
+      "synergy_density": 0.32,
+      "color_distribution": {
+        "黄": 42,
+        "青": 8
+      },
+      "color_cohesion": 0.84,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "2": 2,
+        "4": 9,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1239",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1239"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 22,
+        "5": 12,
+        "2": 4,
+        "6": 10,
+        "3": 2
+      },
+      "avg_cost": 3.12,
+      "counter_total": 38000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 8,
+      "n_0_counter": 20,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 26,
+        "search": 8,
+        "ramp": 6,
+        "finisher": 10
+      },
+      "category_distribution": {
+        "CHARACTER": 42,
+        "EVENT": 8
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 30,
+      "synergy_density": 0.6,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 5
+      },
+      "__slug": "cardrush_1240",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1240"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 25,
+        "4": 6,
+        "5": 9,
+        "6": 10
+      },
+      "avg_cost": 3.08,
+      "counter_total": 41000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 10,
+      "n_0_counter": 19,
+      "blocker_count": 5,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 21,
+        "draw": 6,
+        "search": 10,
+        "blocker": 3,
+        "finisher": 10
+      },
+      "category_distribution": {
+        "CHARACTER": 39,
+        "EVENT": 11
+      },
+      "top_feature": "B・W",
+      "top_feature_count": 45,
+      "synergy_density": 0.9,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1241",
+      "__name": "黒クロコダイル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1241"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 8,
+        "1": 6,
+        "5": 8,
+        "6": 15,
+        "3": 4,
+        "4": 9
+      },
+      "avg_cost": 4.0,
+      "counter_total": 40000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 11,
+      "n_0_counter": 21,
+      "blocker_count": 14,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 8,
+        "removal": 6,
+        "disruption": 4,
+        "recovery": 8,
+        "finisher": 14,
+        "blocker": 2,
+        "draw": 8
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "ワノ国",
+      "top_feature_count": 10,
+      "synergy_density": 0.2,
+      "color_distribution": {
+        "黄": 35,
+        "青": 15
+      },
+      "color_cohesion": 0.7,
+      "n_card_types": 19,
+      "card_count_distribution": {
+        "4": 7,
+        "2": 8,
+        "1": 3,
+        "3": 1
+      },
+      "__slug": "cardrush_1242",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1242"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 21,
+        "4": 8,
+        "1": 17,
+        "2": 4
+      },
+      "avg_cost": 3.66,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 20,
+        "negation": 8,
+        "search": 8,
+        "synergy": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 36,
+        "EVENT": 12,
+        "STAGE": 2
+      },
+      "top_feature": "天竜人",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 12,
+        "1": 2
+      },
+      "__slug": "cardrush_1246",
+      "__name": "黒イム",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1246"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 7,
+        "3": 7,
+        "4": 7,
+        "6": 21,
+        "5": 4,
+        "1": 4
+      },
+      "avg_cost": 4.26,
+      "counter_total": 37000,
+      "n_1k_counter": 17,
+      "n_2k_counter": 10,
+      "n_0_counter": 23,
+      "blocker_count": 11,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 10,
+        "draw": 4,
+        "search": 4,
+        "recovery": 8,
+        "blocker": 3,
+        "finisher": 21
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 17,
+      "synergy_density": 0.34,
+      "color_distribution": {
+        "黄": 43,
+        "青": 7
+      },
+      "color_cohesion": 0.86,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "2": 2,
+        "4": 9,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1247",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1247"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 17,
+        "4": 12,
+        "2": 4,
+        "6": 13,
+        "5": 4
+      },
+      "avg_cost": 3.42,
+      "counter_total": 30000,
+      "n_1k_counter": 6,
+      "n_2k_counter": 12,
+      "n_0_counter": 32,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 10,
+        "draw": 5,
+        "synergy": 10,
+        "finisher": 13
+      },
+      "category_distribution": {
+        "CHARACTER": 27,
+        "EVENT": 22,
+        "STAGE": 1
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 43,
+      "synergy_density": 0.86,
+      "color_distribution": {
+        "青": 37,
+        "赤": 13
+      },
+      "color_cohesion": 0.74,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 6,
+        "1": 2
+      },
+      "__slug": "cardrush_1248",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1248"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 13,
+        "3": 4,
+        "6": 10,
+        "4": 1,
+        "0": 21,
+        "2": 1
+      },
+      "avg_cost": 1.82,
+      "counter_total": 25000,
+      "n_1k_counter": 17,
+      "n_2k_counter": 4,
+      "n_0_counter": 29,
+      "blocker_count": 9,
+      "free_event_count": 21,
+      "role_distribution": {
+        "draw": 28,
+        "synergy": 7,
+        "finisher": 10,
+        "blocker": 1,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 27,
+        "EVENT": 23
+      },
+      "top_feature": "空島",
+      "top_feature_count": 42,
+      "synergy_density": 0.84,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 11,
+        "1": 4,
+        "2": 1
+      },
+      "__slug": "cardrush_1249",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1249"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 1,
+        "0": 19,
+        "2": 2
+      },
+      "avg_cost": 1.88,
+      "counter_total": 25000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 3,
+      "n_0_counter": 28,
+      "blocker_count": 7,
+      "free_event_count": 19,
+      "role_distribution": {
+        "draw": 24,
+        "search": 4,
+        "synergy": 7,
+        "finisher": 10,
+        "blocker": 1,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 3,
+        "3": 2,
+        "1": 2
+      },
+      "__slug": "cardrush_1250",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1250"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 9,
+        "3": 7,
+        "4": 12,
+        "6": 14,
+        "5": 4,
+        "1": 4
+      },
+      "avg_cost": 3.9,
+      "counter_total": 39000,
+      "n_1k_counter": 15,
+      "n_2k_counter": 12,
+      "n_0_counter": 23,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 16,
+        "draw": 4,
+        "search": 4,
+        "recovery": 8,
+        "blocker": 4,
+        "finisher": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "九蛇海賊団",
+      "top_feature_count": 17,
+      "synergy_density": 0.34,
+      "color_distribution": {
+        "黄": 42,
+        "青": 8
+      },
+      "color_cohesion": 0.84,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 1,
+        "2": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1251",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1251"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 9,
+        "3": 7,
+        "4": 8,
+        "6": 18,
+        "5": 4,
+        "1": 4
+      },
+      "avg_cost": 4.06,
+      "counter_total": 38000,
+      "n_1k_counter": 14,
+      "n_2k_counter": 12,
+      "n_0_counter": 24,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 12,
+        "draw": 4,
+        "search": 4,
+        "recovery": 8,
+        "blocker": 4,
+        "finisher": 18
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 16,
+      "synergy_density": 0.32,
+      "color_distribution": {
+        "黄": 38,
+        "青": 12
+      },
+      "color_cohesion": 0.76,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1252",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1252"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 10,
+        "1": 8,
+        "5": 16,
+        "6": 14,
+        "3": 2
+      },
+      "avg_cost": 3.96,
+      "counter_total": 42000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 10,
+      "n_0_counter": 18,
+      "blocker_count": 18,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 6,
+        "removal": 8,
+        "blocker": 10,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 14,
+        "draw": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 14,
+      "synergy_density": 0.28,
+      "color_distribution": {
+        "黄": 32,
+        "青": 18
+      },
+      "color_cohesion": 0.64,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "2": 3,
+        "4": 11
+      },
+      "__slug": "cardrush_1255",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1255"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 21,
+        "4": 8,
+        "1": 21
+      },
+      "avg_cost": 3.58,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 20,
+        "negation": 8,
+        "search": 8,
+        "disruption": 4,
+        "synergy": 10
+      },
+      "category_distribution": {
+        "CHARACTER": 36,
+        "EVENT": 12,
+        "STAGE": 2
+      },
+      "top_feature": "天竜人",
+      "top_feature_count": 36,
+      "synergy_density": 0.72,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 12,
+        "1": 2
+      },
+      "__slug": "cardrush_1257",
+      "__name": "黒イム",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1257"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 17,
+        "2": 2
+      },
+      "avg_cost": 2.04,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 9,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 31,
+        "EVENT": 19
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 2,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1258",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1258"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 17,
+        "2": 2
+      },
+      "avg_cost": 2.04,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 9,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 31,
+        "EVENT": 19
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 2,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1259",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1259"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 11,
+        "1": 8,
+        "3": 2,
+        "5": 16,
+        "6": 10,
+        "4": 3
+      },
+      "avg_cost": 3.76,
+      "counter_total": 44000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 11,
+      "n_0_counter": 17,
+      "blocker_count": 15,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 8,
+        "removal": 11,
+        "draw": 7,
+        "blocker": 6,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 10
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 18,
+      "synergy_density": 0.36,
+      "color_distribution": {
+        "黄": 35,
+        "青": 15
+      },
+      "color_cohesion": 0.7,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "3": 2,
+        "2": 2
+      },
+      "__slug": "cardrush_1272",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1272"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 19,
+        "4": 10,
+        "6": 14,
+        "5": 4,
+        "2": 3
+      },
+      "avg_cost": 3.38,
+      "counter_total": 25000,
+      "n_1k_counter": 5,
+      "n_2k_counter": 10,
+      "n_0_counter": 35,
+      "blocker_count": 10,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 13,
+        "removal": 11,
+        "draw": 6,
+        "finisher": 14,
+        "synergy": 6
+      },
+      "category_distribution": {
+        "CHARACTER": 25,
+        "EVENT": 23,
+        "STAGE": 2
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 44,
+      "synergy_density": 0.88,
+      "color_distribution": {
+        "青": 40,
+        "赤": 10
+      },
+      "color_cohesion": 0.8,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 3,
+        "1": 1,
+        "3": 1
+      },
+      "__slug": "cardrush_1274",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1274"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "3": 4,
+        "1": 7,
+        "4": 12,
+        "6": 19,
+        "5": 8
+      },
+      "avg_cost": 4.42,
+      "counter_total": 41000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 11,
+      "n_0_counter": 20,
+      "blocker_count": 16,
+      "free_event_count": 0,
+      "role_distribution": {
+        "draw": 8,
+        "synergy": 11,
+        "recovery": 8,
+        "blocker": 4,
+        "finisher": 19
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 16,
+      "synergy_density": 0.32,
+      "color_distribution": {
+        "青": 12,
+        "黄": 38
+      },
+      "color_cohesion": 0.76,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 2
+      },
+      "__slug": "cardrush_1275",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1275"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 11,
+        "1": 7,
+        "3": 2,
+        "5": 16,
+        "4": 4,
+        "6": 10
+      },
+      "avg_cost": 3.82,
+      "counter_total": 40000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 10,
+      "n_0_counter": 20,
+      "blocker_count": 18,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 8,
+        "removal": 6,
+        "draw": 6,
+        "blocker": 8,
+        "recovery": 8,
+        "disruption": 4,
+        "finisher": 10
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 18,
+      "synergy_density": 0.36,
+      "color_distribution": {
+        "黄": 31,
+        "青": 19
+      },
+      "color_cohesion": 0.62,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "3": 2,
+        "2": 4
+      },
+      "__slug": "cardrush_1276",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1276"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 19,
+        "2": 4,
+        "4": 4,
+        "5": 10,
+        "6": 11,
+        "3": 2
+      },
+      "avg_cost": 3.3,
+      "counter_total": 34000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 8,
+      "n_0_counter": 24,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 19,
+        "search": 6,
+        "blocker": 4,
+        "ramp": 8,
+        "finisher": 11,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 39,
+        "EVENT": 9,
+        "STAGE": 2
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 30,
+      "synergy_density": 0.6,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1277",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1277"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 7,
+        "5": 8,
+        "6": 12,
+        "1": 10,
+        "4": 12,
+        "3": 1
+      },
+      "avg_cost": 3.74,
+      "counter_total": 38000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 11,
+      "n_0_counter": 23,
+      "blocker_count": 11,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 18,
+        "removal": 4,
+        "disruption": 4,
+        "recovery": 7,
+        "finisher": 12,
+        "draw": 3,
+        "search": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 44,
+        "EVENT": 6
+      },
+      "top_feature": "スリラーバーク海賊団",
+      "top_feature_count": 15,
+      "synergy_density": 0.3,
+      "color_distribution": {
+        "黄": 43,
+        "青": 7
+      },
+      "color_cohesion": 0.86,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "3": 3,
+        "4": 9,
+        "2": 2,
+        "1": 1
+      },
+      "__slug": "cardrush_1278",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1278"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 17,
+        "2": 2
+      },
+      "avg_cost": 2.04,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 9,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 31,
+        "EVENT": 19
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 2,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1279",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1279"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 11,
+        "1": 8,
+        "3": 1,
+        "5": 16,
+        "4": 2,
+        "6": 12
+      },
+      "avg_cost": 3.86,
+      "counter_total": 42000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 11,
+      "n_0_counter": 19,
+      "blocker_count": 17,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 8,
+        "removal": 7,
+        "draw": 5,
+        "blocker": 8,
+        "recovery": 6,
+        "disruption": 4,
+        "finisher": 12
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 14,
+      "synergy_density": 0.28,
+      "color_distribution": {
+        "黄": 33,
+        "青": 17
+      },
+      "color_cohesion": 0.66,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "3": 2,
+        "1": 2,
+        "2": 1
+      },
+      "__slug": "cardrush_1280",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1280"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 13,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 18,
+        "2": 2
+      },
+      "avg_cost": 2.02,
+      "counter_total": 28000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 4,
+      "n_0_counter": 26,
+      "blocker_count": 9,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 37,
+      "synergy_density": 0.74,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "1": 1,
+        "2": 3,
+        "3": 1
+      },
+      "__slug": "cardrush_1281",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1281"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 9,
+        "1": 8,
+        "3": 3,
+        "5": 15,
+        "6": 15
+      },
+      "avg_cost": 4.0,
+      "counter_total": 41000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 10,
+      "n_0_counter": 19,
+      "blocker_count": 18,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 7,
+        "removal": 7,
+        "draw": 3,
+        "blocker": 10,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 15
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 15,
+      "synergy_density": 0.3,
+      "color_distribution": {
+        "黄": 33,
+        "青": 17
+      },
+      "color_cohesion": 0.66,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "3": 6,
+        "4": 8
+      },
+      "__slug": "cardrush_1282",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1282"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "3": 7,
+        "4": 8,
+        "2": 7,
+        "6": 20,
+        "5": 4,
+        "1": 4
+      },
+      "avg_cost": 4.22,
+      "counter_total": 37000,
+      "n_1k_counter": 17,
+      "n_2k_counter": 10,
+      "n_0_counter": 23,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "draw": 4,
+        "recovery": 8,
+        "blocker": 4,
+        "synergy": 10,
+        "finisher": 20,
+        "search": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 17,
+      "synergy_density": 0.34,
+      "color_distribution": {
+        "青": 8,
+        "黄": 42
+      },
+      "color_cohesion": 0.84,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "3": 1,
+        "4": 10,
+        "2": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1283",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1283"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 17,
+        "2": 2
+      },
+      "avg_cost": 2.04,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 9,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 31,
+        "EVENT": 19
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 2,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1284",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1284"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 17,
+        "4": 13,
+        "6": 12,
+        "5": 4,
+        "2": 4
+      },
+      "avg_cost": 3.38,
+      "counter_total": 26000,
+      "n_1k_counter": 6,
+      "n_2k_counter": 10,
+      "n_0_counter": 34,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 13,
+        "removal": 13,
+        "draw": 4,
+        "finisher": 11,
+        "synergy": 9
+      },
+      "category_distribution": {
+        "CHARACTER": 25,
+        "EVENT": 25
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 42,
+      "synergy_density": 0.84,
+      "color_distribution": {
+        "青": 36,
+        "赤": 14
+      },
+      "color_cohesion": 0.72,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 8,
+        "1": 2,
+        "2": 5,
+        "3": 2
+      },
+      "__slug": "cardrush_1285",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1285"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 4,
+        "1": 13,
+        "3": 8,
+        "4": 6,
+        "6": 10,
+        "5": 4,
+        "0": 5
+      },
+      "avg_cost": 2.98,
+      "counter_total": 30000,
+      "n_1k_counter": 14,
+      "n_2k_counter": 8,
+      "n_0_counter": 28,
+      "blocker_count": 6,
+      "free_event_count": 5,
+      "role_distribution": {
+        "search": 12,
+        "synergy": 13,
+        "ramp": 3,
+        "finisher": 10,
+        "draw": 12
+      },
+      "category_distribution": {
+        "CHARACTER": 32,
+        "EVENT": 18
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 42,
+      "synergy_density": 0.84,
+      "color_distribution": {
+        "紫": 29,
+        "緑": 21
+      },
+      "color_cohesion": 0.58,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 2,
+        "1": 2
+      },
+      "__slug": "cardrush_1286",
+      "__name": "緑紫ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1286"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "5": 16,
+        "1": 8,
+        "2": 8,
+        "4": 11,
+        "6": 7
+      },
+      "avg_cost": 3.8,
+      "counter_total": 50000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 15,
+      "n_0_counter": 15,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "blocker": 8,
+        "search": 8,
+        "removal": 8,
+        "recovery": 12,
+        "finisher": 7,
+        "draw": 4,
+        "synergy": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 2
+      },
+      "__slug": "cardrush_1287",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1287"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 12,
+        "3": 4,
+        "6": 8,
+        "4": 4,
+        "0": 20,
+        "2": 2
+      },
+      "avg_cost": 1.84,
+      "counter_total": 24000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 2,
+      "n_0_counter": 28,
+      "blocker_count": 8,
+      "free_event_count": 20,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 7,
+        "finisher": 8,
+        "blocker": 4,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 28,
+        "EVENT": 22
+      },
+      "top_feature": "空島",
+      "top_feature_count": 37,
+      "synergy_density": 0.74,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 3,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1288",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1288"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 6,
+        "4": 4,
+        "0": 20,
+        "2": 2
+      },
+      "avg_cost": 1.64,
+      "counter_total": 22000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 0,
+      "n_0_counter": 28,
+      "blocker_count": 6,
+      "free_event_count": 20,
+      "role_distribution": {
+        "draw": 26,
+        "search": 2,
+        "synergy": 8,
+        "finisher": 6,
+        "blocker": 4,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 28,
+        "EVENT": 22
+      },
+      "top_feature": "空島",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 5
+      },
+      "__slug": "cardrush_1289",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1289"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "5": 16,
+        "6": 7,
+        "4": 11,
+        "1": 9,
+        "2": 7
+      },
+      "avg_cost": 3.78,
+      "counter_total": 48000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 13,
+      "n_0_counter": 15,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "blocker": 8,
+        "finisher": 7,
+        "search": 10,
+        "removal": 9,
+        "recovery": 11,
+        "draw": 4,
+        "synergy": 1
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "空島",
+      "top_feature_count": 34,
+      "synergy_density": 0.68,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "3": 3,
+        "2": 2,
+        "1": 1
+      },
+      "__slug": "cardrush_1309",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1309"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 8,
+        "4": 3,
+        "0": 19,
+        "2": 2
+      },
+      "avg_cost": 1.8,
+      "counter_total": 25000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 2,
+      "n_0_counter": 27,
+      "blocker_count": 7,
+      "free_event_count": 19,
+      "role_distribution": {
+        "draw": 24,
+        "search": 4,
+        "synergy": 7,
+        "finisher": 8,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1310",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1310"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 20,
+        "4": 12,
+        "6": 11,
+        "5": 3,
+        "3": 4
+      },
+      "avg_cost": 3.22,
+      "counter_total": 24000,
+      "n_1k_counter": 4,
+      "n_2k_counter": 10,
+      "n_0_counter": 36,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 13,
+        "draw": 6,
+        "synergy": 8,
+        "finisher": 11
+      },
+      "category_distribution": {
+        "CHARACTER": 23,
+        "EVENT": 25,
+        "STAGE": 2
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 43,
+      "synergy_density": 0.86,
+      "color_distribution": {
+        "青": 39,
+        "赤": 11
+      },
+      "color_cohesion": 0.78,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "1": 1,
+        "3": 1
+      },
+      "__slug": "cardrush_1311",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1311"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 2,
+        "0": 18,
+        "2": 2
+      },
+      "avg_cost": 1.96,
+      "counter_total": 26000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 3,
+      "n_0_counter": 27,
+      "blocker_count": 8,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 7,
+        "finisher": 10,
+        "blocker": 2,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 3,
+        "3": 2,
+        "1": 2
+      },
+      "__slug": "cardrush_1312",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1312"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 15,
+        "4": 16,
+        "6": 11,
+        "5": 4,
+        "3": 2,
+        "2": 2
+      },
+      "avg_cost": 3.5,
+      "counter_total": 28000,
+      "n_1k_counter": 4,
+      "n_2k_counter": 12,
+      "n_0_counter": 34,
+      "blocker_count": 11,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "removal": 10,
+        "draw": 9,
+        "synergy": 12,
+        "finisher": 11
+      },
+      "category_distribution": {
+        "CHARACTER": 25,
+        "EVENT": 22,
+        "STAGE": 3
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 47,
+      "synergy_density": 0.94,
+      "color_distribution": {
+        "青": 35,
+        "赤": 15
+      },
+      "color_cohesion": 0.7,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "1": 1,
+        "2": 3,
+        "3": 1
+      },
+      "__slug": "cardrush_1313",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1313"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 7,
+        "1": 9,
+        "3": 3,
+        "4": 3,
+        "5": 14,
+        "6": 14
+      },
+      "avg_cost": 3.96,
+      "counter_total": 38000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 10,
+      "n_0_counter": 22,
+      "blocker_count": 15,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 8,
+        "removal": 8,
+        "draw": 1,
+        "recovery": 7,
+        "blocker": 6,
+        "disruption": 4,
+        "finisher": 14,
+        "search": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 44,
+        "EVENT": 6
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 22,
+      "synergy_density": 0.44,
+      "color_distribution": {
+        "黄": 40,
+        "青": 10
+      },
+      "color_cohesion": 0.8,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 7,
+        "3": 4,
+        "1": 2,
+        "2": 4
+      },
+      "__slug": "cardrush_1314",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1314"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 21,
+        "4": 8,
+        "1": 17,
+        "2": 4
+      },
+      "avg_cost": 3.66,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 20,
+        "negation": 8,
+        "search": 8,
+        "synergy": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 36,
+        "EVENT": 12,
+        "STAGE": 2
+      },
+      "top_feature": "天竜人",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 12,
+        "1": 2
+      },
+      "__slug": "cardrush_1321",
+      "__name": "黒イム",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1321"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 12,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 19,
+        "2": 2
+      },
+      "avg_cost": 2.0,
+      "counter_total": 25000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 3,
+      "n_0_counter": 28,
+      "blocker_count": 9,
+      "free_event_count": 19,
+      "role_distribution": {
+        "draw": 22,
+        "search": 4,
+        "synergy": 7,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 37,
+      "synergy_density": 0.74,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "3": 3,
+        "2": 2,
+        "1": 1
+      },
+      "__slug": "cardrush_1322",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1322"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 9,
+        "4": 3,
+        "0": 17,
+        "2": 3
+      },
+      "avg_cost": 1.96,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 8,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 9,
+        "blocker": 3,
+        "removal": 5
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 37,
+      "synergy_density": 0.74,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 3,
+        "3": 2,
+        "1": 2
+      },
+      "__slug": "cardrush_1324",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1324"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 12,
+        "1": 6,
+        "3": 3,
+        "4": 2,
+        "5": 15,
+        "6": 12
+      },
+      "avg_cost": 3.88,
+      "counter_total": 42000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 10,
+      "n_0_counter": 18,
+      "blocker_count": 18,
+      "free_event_count": 0,
+      "role_distribution": {
+        "draw": 6,
+        "removal": 6,
+        "synergy": 8,
+        "blocker": 8,
+        "recovery": 6,
+        "disruption": 4,
+        "finisher": 12
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 14,
+      "synergy_density": 0.28,
+      "color_distribution": {
+        "青": 18,
+        "黄": 32
+      },
+      "color_cohesion": 0.64,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 3,
+        "1": 2,
+        "3": 2
+      },
+      "__slug": "cardrush_1327",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1327"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 24,
+        "2": 4,
+        "5": 12,
+        "6": 10
+      },
+      "avg_cost": 3.04,
+      "counter_total": 37000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 8,
+      "n_0_counter": 21,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 24,
+        "search": 7,
+        "ramp": 7,
+        "finisher": 10,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 41,
+        "EVENT": 8,
+        "STAGE": 1
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 28,
+      "synergy_density": 0.56,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 8,
+        "3": 3,
+        "2": 4,
+        "1": 1
+      },
+      "__slug": "cardrush_1328",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1328"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 17,
+        "4": 8,
+        "1": 21,
+        "2": 4
+      },
+      "avg_cost": 3.26,
+      "counter_total": 40000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 10,
+      "n_0_counter": 20,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 16,
+        "negation": 8,
+        "search": 8,
+        "synergy": 16,
+        "disruption": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 34,
+        "EVENT": 14,
+        "STAGE": 2
+      },
+      "top_feature": "天竜人",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "黒": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 2,
+        "1": 2
+      },
+      "__slug": "cardrush_1329",
+      "__name": "黒イム",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1329"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 8,
+        "5": 20,
+        "4": 6,
+        "6": 8,
+        "2": 8
+      },
+      "avg_cost": 3.92,
+      "counter_total": 48000,
+      "n_1k_counter": 24,
+      "n_2k_counter": 12,
+      "n_0_counter": 14,
+      "blocker_count": 10,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "blocker": 6,
+        "recovery": 12,
+        "finisher": 8,
+        "removal": 12,
+        "draw": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 3
+      },
+      "__slug": "cardrush_1330",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1330"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 9,
+        "4": 3,
+        "0": 18,
+        "2": 2
+      },
+      "avg_cost": 1.92,
+      "counter_total": 25000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 2,
+      "n_0_counter": 27,
+      "blocker_count": 8,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 24,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 9,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1335",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1335"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 21,
+        "2": 3,
+        "4": 12,
+        "1": 6,
+        "5": 6,
+        "3": 2
+      },
+      "avg_cost": 4.44,
+      "counter_total": 39000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 10,
+      "n_0_counter": 21,
+      "blocker_count": 13,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 21,
+        "synergy": 12,
+        "blocker": 4,
+        "recovery": 8,
+        "draw": 5
+      },
+      "category_distribution": {
+        "CHARACTER": 45,
+        "EVENT": 5
+      },
+      "top_feature": "王下七武海",
+      "top_feature_count": 19,
+      "synergy_density": 0.38,
+      "color_distribution": {
+        "黄": 41,
+        "青": 9
+      },
+      "color_cohesion": 0.82,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1336",
+      "__name": "青黄ハンコック",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1336"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 8,
+        "2": 8,
+        "5": 18,
+        "4": 10,
+        "6": 6
+      },
+      "avg_cost": 3.8,
+      "counter_total": 50000,
+      "n_1k_counter": 22,
+      "n_2k_counter": 14,
+      "n_0_counter": 14,
+      "blocker_count": 12,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "removal": 11,
+        "blocker": 8,
+        "synergy": 2,
+        "recovery": 12,
+        "finisher": 6,
+        "draw": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 2,
+        "3": 2
+      },
+      "__slug": "cardrush_1340",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1340"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 23,
+        "2": 4,
+        "5": 12,
+        "6": 11
+      },
+      "avg_cost": 3.14,
+      "counter_total": 36000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 8,
+      "n_0_counter": 22,
+      "blocker_count": 4,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 30,
+        "search": 4,
+        "finisher": 11,
+        "removal": 2,
+        "ramp": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 39,
+        "EVENT": 8,
+        "STAGE": 3
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 24,
+      "synergy_density": 0.48,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "3": 2,
+        "2": 2
+      },
+      "__slug": "cardrush_1341",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1341"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 9,
+        "4": 3,
+        "0": 18,
+        "2": 2
+      },
+      "avg_cost": 1.92,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 8,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 24,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 9,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1355",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1355"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 21,
+        "6": 6,
+        "4": 4,
+        "3": 11,
+        "2": 2,
+        "5": 2,
+        "0": 4
+      },
+      "avg_cost": 2.4,
+      "counter_total": 16000,
+      "n_1k_counter": 8,
+      "n_2k_counter": 4,
+      "n_0_counter": 38,
+      "blocker_count": 8,
+      "free_event_count": 4,
+      "role_distribution": {
+        "search": 16,
+        "finisher": 6,
+        "blocker": 4,
+        "synergy": 8,
+        "draw": 9,
+        "removal": 7
+      },
+      "category_distribution": {
+        "CHARACTER": 18,
+        "EVENT": 32
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 34,
+      "synergy_density": 0.68,
+      "color_distribution": {
+        "紫": 34,
+        "青": 16
+      },
+      "color_cohesion": 0.68,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "1": 1,
+        "3": 1
+      },
+      "__slug": "cardrush_1356",
+      "__name": "青紫サンジ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1356"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 13,
+        "3": 4,
+        "6": 9,
+        "4": 3,
+        "0": 19,
+        "2": 2
+      },
+      "avg_cost": 1.9,
+      "counter_total": 26000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 3,
+      "n_0_counter": 27,
+      "blocker_count": 8,
+      "free_event_count": 19,
+      "role_distribution": {
+        "draw": 24,
+        "search": 3,
+        "synergy": 7,
+        "finisher": 9,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 8,
+        "3": 3,
+        "2": 4,
+        "1": 1
+      },
+      "__slug": "cardrush_1357",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1357"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 13,
+        "3": 2,
+        "5": 8,
+        "4": 8,
+        "6": 15,
+        "1": 4
+      },
+      "avg_cost": 3.96,
+      "counter_total": 38000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 11,
+      "n_0_counter": 23,
+      "blocker_count": 10,
+      "free_event_count": 0,
+      "role_distribution": {
+        "draw": 8,
+        "removal": 8,
+        "synergy": 8,
+        "blocker": 2,
+        "disruption": 4,
+        "recovery": 8,
+        "finisher": 12
+      },
+      "category_distribution": {
+        "CHARACTER": 43,
+        "EVENT": 7
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 10,
+      "synergy_density": 0.2,
+      "color_distribution": {
+        "青": 15,
+        "黄": 35
+      },
+      "color_cohesion": 0.7,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 2,
+        "3": 2
+      },
+      "__slug": "cardrush_1367",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1367"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 10,
+        "5": 16,
+        "1": 8,
+        "3": 2,
+        "6": 14
+      },
+      "avg_cost": 3.96,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 18,
+      "free_event_count": 0,
+      "role_distribution": {
+        "removal": 10,
+        "synergy": 8,
+        "blocker": 10,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 14,
+      "synergy_density": 0.28,
+      "color_distribution": {
+        "青": 16,
+        "黄": 34
+      },
+      "color_cohesion": 0.68,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "2": 3,
+        "4": 11
+      },
+      "__slug": "cardrush_1368",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1368"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 17,
+        "4": 12,
+        "6": 14,
+        "5": 4,
+        "2": 3
+      },
+      "avg_cost": 3.5,
+      "counter_total": 22000,
+      "n_1k_counter": 4,
+      "n_2k_counter": 9,
+      "n_0_counter": 37,
+      "blocker_count": 10,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 11,
+        "draw": 5,
+        "synergy": 8,
+        "finisher": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 23,
+        "EVENT": 26,
+        "STAGE": 1
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 45,
+      "synergy_density": 0.9,
+      "color_distribution": {
+        "青": 37,
+        "赤": 13
+      },
+      "color_cohesion": 0.74,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 10,
+        "1": 2,
+        "2": 1,
+        "3": 2
+      },
+      "__slug": "cardrush_1369",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1369"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 18,
+        "4": 11,
+        "2": 5,
+        "6": 12,
+        "5": 4
+      },
+      "avg_cost": 3.28,
+      "counter_total": 28000,
+      "n_1k_counter": 6,
+      "n_2k_counter": 11,
+      "n_0_counter": 33,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 11,
+        "draw": 6,
+        "synergy": 9,
+        "finisher": 12
+      },
+      "category_distribution": {
+        "CHARACTER": 26,
+        "EVENT": 22,
+        "STAGE": 2
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 42,
+      "synergy_density": 0.84,
+      "color_distribution": {
+        "青": 35,
+        "赤": 15
+      },
+      "color_cohesion": 0.7,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 7,
+        "2": 4,
+        "1": 2,
+        "3": 4
+      },
+      "__slug": "cardrush_1387",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1387"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 22,
+        "2": 4,
+        "5": 14,
+        "6": 10
+      },
+      "avg_cost": 3.2,
+      "counter_total": 35000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 8,
+      "n_0_counter": 23,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 26,
+        "search": 4,
+        "ramp": 8,
+        "finisher": 10,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 40,
+        "EVENT": 9,
+        "STAGE": 1
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 26,
+      "synergy_density": 0.52,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 8,
+        "3": 5,
+        "2": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1388",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1388"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 5,
+        "4": 2,
+        "5": 1,
+        "0": 21,
+        "2": 3
+      },
+      "avg_cost": 1.5,
+      "counter_total": 20000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 0,
+      "n_0_counter": 30,
+      "blocker_count": 3,
+      "free_event_count": 21,
+      "role_distribution": {
+        "draw": 26,
+        "search": 4,
+        "synergy": 7,
+        "finisher": 5,
+        "blocker": 2,
+        "ramp": 1,
+        "removal": 5
+      },
+      "category_distribution": {
+        "CHARACTER": 26,
+        "EVENT": 24
+      },
+      "top_feature": "空島",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 3,
+        "1": 4
+      },
+      "__slug": "cardrush_1389",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1389"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 8,
+        "2": 8,
+        "4": 11,
+        "5": 16,
+        "6": 7
+      },
+      "avg_cost": 3.8,
+      "counter_total": 50000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 15,
+      "n_0_counter": 15,
+      "blocker_count": 11,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "removal": 12,
+        "blocker": 7,
+        "recovery": 12,
+        "finisher": 7,
+        "draw": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 35,
+      "synergy_density": 0.7,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 11,
+        "3": 2
+      },
+      "__slug": "cardrush_1390",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1390"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 10,
+        "4": 3,
+        "0": 17,
+        "2": 2
+      },
+      "avg_cost": 2.04,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 9,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 23,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 10,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 31,
+        "EVENT": 19
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 2,
+        "3": 3,
+        "1": 1
+      },
+      "__slug": "cardrush_1398",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1398"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 15,
+        "4": 7,
+        "5": 4,
+        "6": 24
+      },
+      "avg_cost": 4.14,
+      "counter_total": 40000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 11,
+      "n_0_counter": 21,
+      "blocker_count": 14,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "recovery": 2,
+        "draw": 13,
+        "synergy": 7,
+        "finisher": 20
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "白ひげ海賊団",
+      "top_feature_count": 23,
+      "synergy_density": 0.46,
+      "color_distribution": {
+        "赤": 16,
+        "青": 34
+      },
+      "color_cohesion": 0.68,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "1": 3,
+        "3": 1
+      },
+      "__slug": "cardrush_1400",
+      "__name": "赤青エース",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1400"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 8,
+        "2": 8,
+        "4": 10,
+        "5": 16,
+        "6": 8
+      },
+      "avg_cost": 3.84,
+      "counter_total": 52000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 16,
+      "n_0_counter": 14,
+      "blocker_count": 8,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "removal": 12,
+        "synergy": 2,
+        "recovery": 12,
+        "blocker": 4,
+        "finisher": 8,
+        "draw": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 3
+      },
+      "__slug": "cardrush_1401",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1401"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "6": 9,
+        "4": 3,
+        "0": 18,
+        "2": 2
+      },
+      "avg_cost": 1.92,
+      "counter_total": 27000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 3,
+      "n_0_counter": 26,
+      "blocker_count": 8,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 24,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 9,
+        "blocker": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 38,
+      "synergy_density": 0.76,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1402",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1402"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 15,
+        "3": 4,
+        "6": 8,
+        "5": 3,
+        "0": 18,
+        "2": 2
+      },
+      "avg_cost": 1.88,
+      "counter_total": 23000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 2,
+      "n_0_counter": 29,
+      "blocker_count": 4,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 25,
+        "search": 4,
+        "synergy": 6,
+        "finisher": 8,
+        "ramp": 3,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "3": 2,
+        "2": 4
+      },
+      "__slug": "cardrush_1403",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1403"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 17,
+        "4": 14,
+        "6": 13,
+        "5": 4,
+        "2": 2
+      },
+      "avg_cost": 3.5,
+      "counter_total": 24000,
+      "n_1k_counter": 4,
+      "n_2k_counter": 10,
+      "n_0_counter": 36,
+      "blocker_count": 9,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 12,
+        "removal": 10,
+        "draw": 5,
+        "synergy": 10,
+        "finisher": 13
+      },
+      "category_distribution": {
+        "CHARACTER": 23,
+        "EVENT": 26,
+        "STAGE": 1
+      },
+      "top_feature": "ドレスローザ",
+      "top_feature_count": 47,
+      "synergy_density": 0.94,
+      "color_distribution": {
+        "青": 37,
+        "赤": 13
+      },
+      "color_cohesion": 0.74,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 2,
+        "1": 2
+      },
+      "__slug": "cardrush_1404",
+      "__name": "赤青ルーシー",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1404"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "2": 10,
+        "5": 16,
+        "1": 7,
+        "4": 1,
+        "3": 2,
+        "6": 14
+      },
+      "avg_cost": 4.02,
+      "counter_total": 44000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 12,
+      "n_0_counter": 18,
+      "blocker_count": 18,
+      "free_event_count": 0,
+      "role_distribution": {
+        "removal": 9,
+        "synergy": 8,
+        "blocker": 10,
+        "draw": 1,
+        "disruption": 4,
+        "recovery": 4,
+        "finisher": 14
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "麦わらの一味",
+      "top_feature_count": 14,
+      "synergy_density": 0.28,
+      "color_distribution": {
+        "青": 15,
+        "黄": 35
+      },
+      "color_cohesion": 0.7,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "2": 3,
+        "4": 10,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1405",
+      "__name": "青黄ナミ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1405"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "6": 24,
+        "4": 7,
+        "1": 15,
+        "5": 4
+      },
+      "avg_cost": 4.14,
+      "counter_total": 40000,
+      "n_1k_counter": 18,
+      "n_2k_counter": 11,
+      "n_0_counter": 21,
+      "blocker_count": 14,
+      "free_event_count": 0,
+      "role_distribution": {
+        "finisher": 20,
+        "synergy": 7,
+        "search": 8,
+        "draw": 13,
+        "recovery": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "白ひげ海賊団",
+      "top_feature_count": 23,
+      "synergy_density": 0.46,
+      "color_distribution": {
+        "青": 34,
+        "赤": 16
+      },
+      "color_cohesion": 0.68,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 9,
+        "1": 3,
+        "2": 4,
+        "3": 1
+      },
+      "__slug": "cardrush_1420",
+      "__name": "赤青エース",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1420"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 16,
+        "3": 4,
+        "4": 4,
+        "6": 6,
+        "0": 17,
+        "2": 3
+      },
+      "avg_cost": 1.72,
+      "counter_total": 24000,
+      "n_1k_counter": 24,
+      "n_2k_counter": 0,
+      "n_0_counter": 26,
+      "blocker_count": 6,
+      "free_event_count": 17,
+      "role_distribution": {
+        "draw": 25,
+        "removal": 8,
+        "synergy": 7,
+        "blocker": 4,
+        "finisher": 6
+      },
+      "category_distribution": {
+        "CHARACTER": 30,
+        "EVENT": 20
+      },
+      "top_feature": "空島",
+      "top_feature_count": 43,
+      "synergy_density": 0.86,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 11,
+        "2": 1,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1424",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1424"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "4": 2,
+        "6": 9,
+        "0": 19,
+        "2": 2
+      },
+      "avg_cost": 1.84,
+      "counter_total": 24000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 2,
+      "n_0_counter": 28,
+      "blocker_count": 7,
+      "free_event_count": 19,
+      "role_distribution": {
+        "draw": 24,
+        "removal": 8,
+        "synergy": 7,
+        "blocker": 2,
+        "finisher": 9
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 43,
+      "synergy_density": 0.86,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1425",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1425"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 25,
+        "2": 4,
+        "5": 11,
+        "6": 10
+      },
+      "avg_cost": 2.96,
+      "counter_total": 35000,
+      "n_1k_counter": 19,
+      "n_2k_counter": 8,
+      "n_0_counter": 23,
+      "blocker_count": 7,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 24,
+        "search": 6,
+        "ramp": 7,
+        "finisher": 10,
+        "removal": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 39,
+        "EVENT": 9,
+        "STAGE": 2
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 27,
+      "synergy_density": 0.54,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 6,
+        "2": 4,
+        "3": 6
+      },
+      "__slug": "cardrush_1426",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1426"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 14,
+        "3": 4,
+        "4": 2,
+        "6": 9,
+        "0": 19,
+        "2": 2
+      },
+      "avg_cost": 1.84,
+      "counter_total": 24000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 2,
+      "n_0_counter": 28,
+      "blocker_count": 7,
+      "free_event_count": 19,
+      "role_distribution": {
+        "draw": 24,
+        "synergy": 7,
+        "search": 4,
+        "blocker": 2,
+        "finisher": 9,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 39,
+      "synergy_density": 0.78,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 5,
+        "3": 1,
+        "1": 1
+      },
+      "__slug": "cardrush_1427",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1427"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 16,
+        "4": 4,
+        "6": 6,
+        "5": 2,
+        "0": 18,
+        "2": 4
+      },
+      "avg_cost": 1.72,
+      "counter_total": 24000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 2,
+      "n_0_counter": 28,
+      "blocker_count": 6,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 27,
+        "search": 4,
+        "blocker": 2,
+        "finisher": 6,
+        "ramp": 2,
+        "removal": 5,
+        "synergy": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 28,
+        "EVENT": 22
+      },
+      "top_feature": "空島",
+      "top_feature_count": 33,
+      "synergy_density": 0.66,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 1,
+        "1": 3
+      },
+      "__slug": "cardrush_1428",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1428"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 8,
+        "2": 8,
+        "4": 10,
+        "5": 17,
+        "6": 7
+      },
+      "avg_cost": 3.82,
+      "counter_total": 49000,
+      "n_1k_counter": 21,
+      "n_2k_counter": 14,
+      "n_0_counter": 15,
+      "blocker_count": 10,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "removal": 10,
+        "synergy": 4,
+        "recovery": 12,
+        "blocker": 6,
+        "finisher": 7,
+        "draw": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 46,
+        "EVENT": 4
+      },
+      "top_feature": "空島",
+      "top_feature_count": 40,
+      "synergy_density": 0.8,
+      "color_distribution": {
+        "黄": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 14,
+      "card_count_distribution": {
+        "4": 10,
+        "2": 2,
+        "3": 2
+      },
+      "__slug": "cardrush_1436",
+      "__name": "空島ルフィ",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1436"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 21,
+        "2": 4,
+        "5": 10,
+        "4": 8,
+        "6": 7
+      },
+      "avg_cost": 3.06,
+      "counter_total": 40000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 10,
+      "n_0_counter": 20,
+      "blocker_count": 16,
+      "free_event_count": 0,
+      "role_distribution": {
+        "synergy": 21,
+        "search": 4,
+        "blocker": 8,
+        "ramp": 8,
+        "finisher": 7,
+        "removal": 2
+      },
+      "category_distribution": {
+        "CHARACTER": 39,
+        "EVENT": 9,
+        "STAGE": 2
+      },
+      "top_feature": "超新星",
+      "top_feature_count": 35,
+      "synergy_density": 0.7,
+      "color_distribution": {
+        "緑": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 15,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "3": 2
+      },
+      "__slug": "cardrush_1437",
+      "__name": "緑ミホーク",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1437"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 17,
+        "4": 7,
+        "5": 4,
+        "6": 21,
+        "2": 1
+      },
+      "avg_cost": 3.86,
+      "counter_total": 37000,
+      "n_1k_counter": 17,
+      "n_2k_counter": 10,
+      "n_0_counter": 23,
+      "blocker_count": 11,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 8,
+        "draw": 12,
+        "synergy": 12,
+        "finisher": 17,
+        "removal": 1
+      },
+      "category_distribution": {
+        "CHARACTER": 42,
+        "EVENT": 8
+      },
+      "top_feature": "白ひげ海賊団",
+      "top_feature_count": 19,
+      "synergy_density": 0.38,
+      "color_distribution": {
+        "青": 33,
+        "赤": 17
+      },
+      "color_cohesion": 0.66,
+      "n_card_types": 17,
+      "card_count_distribution": {
+        "4": 9,
+        "2": 4,
+        "1": 3,
+        "3": 1
+      },
+      "__slug": "cardrush_1438",
+      "__name": "赤青エース",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1438"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 12,
+        "3": 8,
+        "6": 12,
+        "0": 18
+      },
+      "avg_cost": 2.16,
+      "counter_total": 24000,
+      "n_1k_counter": 16,
+      "n_2k_counter": 4,
+      "n_0_counter": 30,
+      "blocker_count": 8,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 20,
+        "search": 8,
+        "synergy": 6,
+        "finisher": 12,
+        "removal": 4
+      },
+      "category_distribution": {
+        "CHARACTER": 32,
+        "EVENT": 18
+      },
+      "top_feature": "空島",
+      "top_feature_count": 36,
+      "synergy_density": 0.72,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 13,
+      "card_count_distribution": {
+        "4": 12,
+        "2": 1
+      },
+      "__slug": "cardrush_1441",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1441"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 15,
+        "5": 1,
+        "4": 5,
+        "6": 8,
+        "0": 18,
+        "2": 3
+      },
+      "avg_cost": 1.88,
+      "counter_total": 24000,
+      "n_1k_counter": 20,
+      "n_2k_counter": 2,
+      "n_0_counter": 28,
+      "blocker_count": 9,
+      "free_event_count": 18,
+      "role_distribution": {
+        "draw": 29,
+        "search": 3,
+        "ramp": 1,
+        "blocker": 2,
+        "finisher": 8,
+        "removal": 4,
+        "synergy": 3
+      },
+      "category_distribution": {
+        "CHARACTER": 29,
+        "EVENT": 21
+      },
+      "top_feature": "空島",
+      "top_feature_count": 36,
+      "synergy_density": 0.72,
+      "color_distribution": {
+        "紫": 50
+      },
+      "color_cohesion": 1.0,
+      "n_card_types": 16,
+      "card_count_distribution": {
+        "4": 8,
+        "3": 3,
+        "1": 1,
+        "2": 4
+      },
+      "__slug": "cardrush_1457",
+      "__name": "紫エネル",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1457"
+    },
+    {
+      "total_cards": 50,
+      "cost_curve": {
+        "1": 17,
+        "4": 8,
+        "5": 4,
+        "6": 20,
+        "3": 1
+      },
+      "avg_cost": 3.84,
+      "counter_total": 37000,
+      "n_1k_counter": 17,
+      "n_2k_counter": 10,
+      "n_0_counter": 23,
+      "blocker_count": 10,
+      "free_event_count": 0,
+      "role_distribution": {
+        "search": 7,
+        "synergy": 10,
+        "removal": 3,
+        "recovery": 1,
+        "draw": 14,
+        "finisher": 15
+      },
+      "category_distribution": {
+        "CHARACTER": 43,
+        "EVENT": 7
+      },
+      "top_feature": "白ひげ海賊団",
+      "top_feature_count": 19,
+      "synergy_density": 0.38,
+      "color_distribution": {
+        "青": 37,
+        "赤": 13
+      },
+      "color_cohesion": 0.74,
+      "n_card_types": 21,
+      "card_count_distribution": {
+        "3": 2,
+        "4": 7,
+        "2": 4,
+        "1": 8
+      },
+      "__slug": "cardrush_1458",
+      "__name": "赤青エース",
+      "__active": false,
+      "__source": "https://cardrush.media/onepiece/decks/1458"
+    }
+  ]
+}
