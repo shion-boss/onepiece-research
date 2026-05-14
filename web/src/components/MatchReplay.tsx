@@ -136,7 +136,9 @@ function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
     }
   }
 
-  return null;
+  // fallback: 特定の行動カードが取れない snap (= phase 切替や trigger 解決等) は
+  // 手番リーダーを表示。 「観戦中に何も映ってない」 状態を避ける。
+  return fromChar(turn.leader);
 }
 
 
@@ -1303,7 +1305,7 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
                 >
                   {playing ? "❚❚" : "▶"}
                 </Btn>
-                <Btn onClick={onNext} title="次のステップ" disabled={idx >= snapshots.length - 1}>▶</Btn>
+                <Btn onClick={onNext} title="次のステップ" disabled={idx >= snapshots.length - 1}>▷</Btn>
                 <Btn onClick={() => onJumpTurn(1)} title="次のターンへ">⏭</Btn>
               </div>
               <div className="flex flex-wrap items-center gap-1 text-[11px] text-amber-100/80">
