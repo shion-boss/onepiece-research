@@ -2830,7 +2830,45 @@ def unagree_to_spectate_comment(comment_id: str, author: str = Query(...)):
 def list_spectate_comments(
     replay_key: Optional[str] = Query(None),
 ):
-    return _load_spectate_comments(replay_key=replay_key)
+    # 一時的に exception を JSON で露出 (= 本番 deploy デバッグ用)。
+    # Vercel function ログが見にくい場合は ここで原因の手がかりが得られる。
+    try:
+        return _load_spectate_comments(replay_key=replay_key)
+    except Exception as e:
+        import traceback as _tb
+        raise HTTPException(
+            500,
+            detail={
+                "error_type": type(e).__name__,
+                "error_msg": str(e),
+                "use_postgres": _USE_POSTGRES,
+                "has_database_url": bool(_os.environ.get("DATABASE_URL")),
+                "trace_last": _tb.format_exc().splitlines()[-3:],
+            },
+        )
+
+
+@app.get("/api/spectate/_debug")
+def spectate_debug():
+    """ストレージ接続の診断 (= 本番デプロイ後の切り分け用)。"""
+    info = {
+        "use_postgres": _USE_POSTGRES,
+        "has_database_url": bool(_os.environ.get("DATABASE_URL")),
+        "data_dir": str(_DATA_DIR),
+        "data_dir_exists": _DATA_DIR.exists(),
+    }
+    try:
+        with _spectate_conn() as conn:
+            row = _execute_fetchone(conn, "SELECT 1 AS n")
+            info["connection"] = "ok"
+            info["sample_query"] = dict(row) if row else None
+    except Exception as e:
+        import traceback as _tb
+        info["connection"] = "FAIL"
+        info["error_type"] = type(e).__name__
+        info["error_msg"] = str(e)
+        info["trace"] = _tb.format_exc().splitlines()[-5:]
+    return info
 
 
 @app.delete("/api/spectate/comments/{comment_id}")
