@@ -36,7 +36,7 @@ def overlay():
 @pytest.fixture(scope="module")
 def target_deck(repo) -> DeckList:
     """紫エネル (アグロ系)。"""
-    return DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)
+    return DeckList.from_json(ROOT / "decks" / "cardrush_1454.json", repo)
 
 
 # ============================================================================ #

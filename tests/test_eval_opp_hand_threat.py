@@ -33,8 +33,8 @@ def overlay():
 
 @pytest.fixture
 def state(repo, overlay):
-    deck_a = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
-    deck_b = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)  # 緑ミホーク
+    deck_a = DeckList.from_json(ROOT / "decks" / "cardrush_1454.json", repo)  # 紫エネル
+    deck_b = DeckList.from_json(ROOT / "decks" / "cardrush_1453.json", repo)  # 緑ミホーク
     import random
     return setup_game(deck_a, deck_b, rng=random.Random(42), first_player=0, effects_overlay=overlay)
 

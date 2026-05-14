@@ -27,8 +27,8 @@ def test_analyze_game_returns_eval_series():
     """1 試合走らせて analyze_game が eval_series を生成できる"""
     repo = _repo()
     overlay = _overlay()
-    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
-    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)  # 緑ミホーク
+    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1454.json", repo)  # 紫エネル
+    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1453.json", repo)  # 緑ミホーク
     rep = run_matchup(
         d1, d2, n_games=1, seed=42, effects_overlay=overlay,
         record_snapshots=True, enforce_rules=False,
@@ -57,7 +57,7 @@ def test_analyze_game_turning_points():
     repo = _repo()
     overlay = _overlay()
     d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1439.json", repo)  # 青黄ナミ
-    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
+    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1454.json", repo)  # 紫エネル
     rep = run_matchup(
         d1, d2, n_games=1, seed=10, effects_overlay=overlay,
         record_snapshots=True, enforce_rules=False,

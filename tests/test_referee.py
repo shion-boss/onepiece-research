@@ -119,8 +119,8 @@ def test_referee_passes_normal_match():
 
     repo = _repo()
     overlay = _overlay()
-    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)  # 紫エネル
-    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1437.json", repo)  # 緑ミホーク
+    d1 = DeckList.from_json(ROOT / "decks" / "cardrush_1454.json", repo)  # 紫エネル
+    d2 = DeckList.from_json(ROOT / "decks" / "cardrush_1453.json", repo)  # 緑ミホーク
 
     from engine.ai import GreedyAI
     report = run_matchup(

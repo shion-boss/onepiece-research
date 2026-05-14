@@ -20,14 +20,14 @@ def tmp_db(tmp_path: Path) -> Path:
 
 def test_create_and_get_session(tmp_db):
     sid = research_storage.create_session(
-        target_slug="cardrush_1424",
+        target_slug="cardrush_1454",
         config={"target_winrate": 0.7, "max_generations": 50},
         path=tmp_db,
     )
     assert isinstance(sid, str)
     s = research_storage.get_session(sid, path=tmp_db)
     assert s is not None
-    assert s["target_slug"] == "cardrush_1424"
+    assert s["target_slug"] == "cardrush_1454"
     assert s["status"] == "running"
     assert s["config"]["target_winrate"] == 0.7
 

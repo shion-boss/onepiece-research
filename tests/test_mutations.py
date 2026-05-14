@@ -27,7 +27,7 @@ def overlay():
 
 @pytest.fixture(scope="module")
 def deck(repo) -> DeckList:
-    return DeckList.from_json(ROOT / "decks" / "cardrush_1424.json", repo)
+    return DeckList.from_json(ROOT / "decks" / "cardrush_1454.json", repo)
 
 
 @pytest.fixture(scope="module")
