@@ -375,7 +375,14 @@ function withViewTransition(fn: () => void) {
   if (typeof document === "undefined") return fn();
   const d = document as DocWithVT;
   if (typeof d.startViewTransition === "function") {
-    d.startViewTransition(() => flushSync(fn));
+    // startViewTransition は同時並行 transition が走ると InvalidStateError を投げる
+    // (= Next.js 16 + Turbopack で 観戦の auto-play 中に発生報告)。 transition は
+    // 視覚装飾なので、 失敗時は素 fn() で fallback (= 機能には影響なし)。
+    try {
+      d.startViewTransition(() => flushSync(fn));
+    } catch {
+      fn();
+    }
   } else {
     fn();
   }
