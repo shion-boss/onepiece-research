@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import copy
 import random
+import re
 from typing import Optional
 
 from . import card_intents, card_role, hand_estimator, matchup_model
@@ -40,6 +41,196 @@ from .game import (
     apply_action,
     legal_actions,
 )
+
+
+# =========================================================================== #
+# 機械的悪手の事前剪定 (= self-play 学習に頼らず deterministic に排除できる手)
+# =========================================================================== #
+# 観戦コメント由来:
+#   #4 ガンマナイフ (-5000) 系イベントを 弱小キャラに撃つ → 過剰除去 = 無駄
+#
+# 設計方針: legal_actions 後に prune_mechanical_waste(state, la) を挟むだけで
+# plan_search / GreedyAI / EvalGreedyAI 全てに効く。 全 action が消える場合は
+# 元リストを返して AI を破綻させない (= safety fallback)。
+
+# 確定 KO する場合の target.power 閾値。 これ未満を確定 KO する除去 event は
+# 「過剰除去」 とみなして候補から外す。
+_OVERKILL_MIN_TARGET_POWER = 3000
+# 戦略的に高価値な役割 — 弱小でも除去優先で OK
+_OVERKILL_HIGH_VALUE_ROLES = {"finisher", "removal", "negation", "disruption"}
+
+
+def _resolve_event_target_for_pruning(target_spec: str, opp_chars: list) -> list:
+    """target_spec を解釈し、 該当する opp.characters 候補を返す (pruning 用簡略版)。
+
+    effects.py の target_resolver と完全には一致しないが、 主要な single-target
+    spec は網羅。 不明なら全 opp.characters を返す (= 保守側 = 過小評価で
+    safety、 overkill 判定は False に倒れる)。
+    """
+    if not target_spec:
+        return list(opp_chars)
+    if target_spec == "one_opponent_character_any":
+        return list(opp_chars)
+    m = re.match(r"one_opponent_character_le_(\d+)$", target_spec)
+    if m:
+        thr = int(m.group(1))
+        return [c for c in opp_chars if c.power <= thr]
+    m = re.match(r"one_opponent_character_power_le_(\d+)$", target_spec)
+    if m:
+        thr = int(m.group(1))
+        return [c for c in opp_chars if c.power <= thr]
+    m = re.match(r"one_opponent_character_cost_le_(\d+)$", target_spec)
+    if m:
+        thr = int(m.group(1))
+        return [c for c in opp_chars if c.card.cost <= thr]
+    # 不明な spec: 安全側 = 全 opp.characters
+    return list(opp_chars)
+
+
+def _is_event_overkill(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    event_card,
+    overlay: dict,
+) -> bool:
+    """event の発動が 「過剰除去 = 弱小キャラへの 戦略的無駄」 か判定。
+
+    True なら撃つに値しない。 例:
+    - ガンマナイフ (cost 1, -5000 to opp_chara_le_5000) を P=1000 vanilla に
+      確定 KO 撃つ場合: True (= -5000 を温存して強キャラ出現後に撃つべき)
+
+    False を返すケース:
+    - 強キャラ (power >= 3000) を確定 KO できる
+    - 確定 KO せず debuff のみ (= 後続 attacker と connect する可能性あり)
+    - target が finisher/removal/negation 等の 高価値 role
+    - overlay 不在 (= 判定不能なら撃つに任せる)
+    """
+    if not overlay or event_card is None:
+        return False
+    bundle = overlay.get(event_card.card_id)
+    if not bundle:
+        return False
+    for eff in bundle.effects:
+        if eff.get("when") != "main":
+            continue
+        for prim in eff.get("do", []):
+            if not isinstance(prim, dict):
+                continue
+            pp = prim.get("power_pump")
+            if not isinstance(pp, dict):
+                continue
+            amount = int(pp.get("amount", 0))
+            if amount >= 0:
+                continue  # buff 系は対象外
+            target_spec = pp.get("target", "")
+            if "opponent" not in target_spec or "character" not in target_spec:
+                continue
+            candidates = _resolve_event_target_for_pruning(
+                target_spec, opp.characters
+            )
+            if not candidates:
+                # 撃てる target なし = そもそも legal_actions が弾く想定。 保険で False
+                return False
+            best = max(candidates, key=lambda c: c.power)
+            # 確定 KO 条件: best.power + amount <= 0 (= power が 0 以下 = 場から除去)
+            if best.power + amount > 0:
+                continue  # debuff のみ = follow-up 余地あり、 撃ってよい
+            # 確定 KO する場合
+            if best.power >= _OVERKILL_MIN_TARGET_POWER:
+                continue  # 強キャラを倒せる、 撃つ価値あり
+            # 弱小確定 KO → role 例外
+            try:
+                role_info = card_role.get_card_role(best.card.card_id)
+            except Exception:
+                role_info = None
+            primary = (
+                role_info.get("primary_role")
+                if isinstance(role_info, dict) else None
+            )
+            if primary in _OVERKILL_HIGH_VALUE_ROLES:
+                continue  # finisher/removal 等は弱小でも除去で構わない
+            return True  # 過剰除去確定
+    return False
+
+
+def _can_attack_this_turn(state: GameState, target: InPlay, is_leader: bool) -> bool:
+    """このターン中に target が attack に出れるか判定 (= attach 効果が活きるか)。
+
+    判定:
+    - turn ≤ 2 (= 両 player の 1 ターン目) は battle 不可 → False
+    - rested = 既に攻撃済 → False
+    - cannot_attack_until_turn_end / cannot_attack_static / cannot_attack_through_opp_turn → False
+    - キャラのみ: summoning_sickness かつ rush 無し → False
+
+    True なら attach DON は power 強化として活きる可能性あり → mask しない。
+    """
+    if state.turn_number <= 2:
+        return False
+    if target.rested:
+        return False
+    if target.cannot_attack_until_turn_end:
+        return False
+    if target.cannot_attack_static:
+        return False
+    if target.cannot_attack_through_opp_turn:
+        return False
+    if not is_leader:
+        # キャラ: 召喚酔い かつ Rush なし は今ターン攻撃不可
+        if target.summoning_sickness and not target.is_rush_now and not target.is_rush_chara_only_now:
+            return False
+    return True
+
+
+def _is_attach_don_wasteful(state: GameState, action) -> bool:
+    """AttachDon が今ターンに無意味か判定 (= 「rested キャラに DON」 系の悪手)。
+
+    True なら撃つに値しない。 観戦コメント #7/#9 由来:
+    - #7: T17 P0 attach to leader (= leader rested) → 攻撃不可なのに attach
+    - #9: T1 P0 attach to leader (= turn 1 で battle 不可) → 完全に意味なし
+    """
+    me = state.turn_player
+    if isinstance(action, AttachDonToLeader):
+        return not _can_attack_this_turn(state, me.leader, is_leader=True)
+    if isinstance(action, AttachDonToCharacter):
+        target = next(
+            (c for c in me.characters if c.instance_id == action.target_iid),
+            None,
+        )
+        if target is None:
+            return True  # 対象消失 = 不正、 剪定
+        return not _can_attack_this_turn(state, target, is_leader=False)
+    return False
+
+
+def prune_mechanical_waste(state: GameState, actions: list) -> list:
+    """機械的悪手を action リストから除外。 副作用なし。
+
+    現在排除する手:
+    - PlayEvent: 過剰除去判定 (_is_event_overkill が True)
+    - AttachDonToLeader / AttachDonToCharacter: 今ターン attack 不可な target への attach
+
+    全 action が剪定されたら元リストを返す (= AI を破綻させない safety)。
+    """
+    if not actions:
+        return actions
+    me = state.turn_player
+    opp = state.opponent
+    overlay = state.effects_overlay or {}
+    pruned = []
+    for a in actions:
+        if isinstance(a, PlayEvent):
+            if 0 <= a.hand_idx < len(me.hand):
+                card = me.hand[a.hand_idx]
+                if _is_event_overkill(state, me, opp, card, overlay):
+                    continue
+        elif isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
+            if _is_attach_don_wasteful(state, a):
+                continue
+        pruned.append(a)
+    if not pruned:
+        return actions
+    return pruned
 
 
 class RandomAI:
@@ -438,9 +629,20 @@ class GreedyAI:
                     return chosen
 
         # 0.5) 撃てるイベントは安い順で消化 (リソース消費を抑える)
+        # ただし 「過剰除去」 系 (= ガンマナイフを弱小キャラに撃つ等) は剪定して除外。
         play_event_actions: list[PlayEvent] = [a for a in actions if isinstance(a, PlayEvent)]
         if play_event_actions:
-            return min(play_event_actions, key=lambda a: me.hand[a.hand_idx].cost)
+            non_wasteful = [
+                a for a in play_event_actions
+                if not _is_event_overkill(state, me, opp, me.hand[a.hand_idx],
+                                           state.effects_overlay or {})
+            ]
+            chosen_pool = non_wasteful if non_wasteful else play_event_actions
+            # non_wasteful が空 = 全部 overkill → 結局撃たないのが正解 (= 後続 action へ)。
+            # PlayEvent そのものを skip して 他 action にフォールバック。
+            if non_wasteful:
+                return min(chosen_pool, key=lambda a: me.hand[a.hand_idx].cost)
+            # 全部 overkill: ここでは event を選ばず後続 (= キャラ play / attack 等) へ進む
 
         # 0.7) ステージは現状空のとき登場 (差替の判断はしない、安全側)
         play_stage_actions: list[PlayStage] = [a for a in actions if isinstance(a, PlayStage)]
@@ -1305,7 +1507,15 @@ class EvalGreedyAI(GreedyAI):
 
         play_event_actions = [a for a in actions if isinstance(a, PlayEvent)]
         if play_event_actions:
-            return self._eval_pick(state, play_event_actions)
+            # 過剰除去を剪定 (= ガンマナイフを弱小キャラに撃つ等は撃たない)。
+            non_wasteful = [
+                a for a in play_event_actions
+                if not _is_event_overkill(state, me, opp, me.hand[a.hand_idx],
+                                           state.effects_overlay or {})
+            ]
+            if non_wasteful:
+                return self._eval_pick(state, non_wasteful)
+            # 全 event が overkill = event は撃たず後続 action へフォールスルー
 
         play_stage_actions = [a for a in actions if isinstance(a, PlayStage)]
         if play_stage_actions and len(me.stages) == 0:

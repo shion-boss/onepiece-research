@@ -35,7 +35,18 @@ from engine.matrix_schema import (  # noqa: E402
 )
 
 OUT = ROOT / "db" / "matchup_matrix.json"
+LOG_PATH = ROOT / "db" / "matrix_run_log.ndjson"
 DEFAULT_AI_VERSION = "PlanningAI_R71_phase7"
+
+
+def _append_log(entry: dict) -> None:
+    """matrix 走行中の per-cell / per-game 記録を NDJSON で追記。
+    UI (/meta/progress) が tail で読む。 書き込み失敗は無視 (= matrix 本体を止めない)。"""
+    try:
+        with LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 
 def _compare_matrices(before_path: Path, after_path: Path) -> int:
@@ -159,6 +170,17 @@ def main() -> int:
     done = 0
     reused = 0
     recomputed = 0
+    # 走行開始マーカー (= UI が新しい run の開始を検知)
+    _append_log({
+        "ts": now_utc_iso(),
+        "event": "run_start",
+        "ai_version": ai_version,
+        "n_games": args.n_games,
+        "n_decks": len(decks),
+        "total_cells": total,
+        "seed": args.seed,
+        "incremental": bool(args.incremental),
+    })
     for slug_a, name_a, deck_a in decks:
         hash_a = deck_hashes.get(slug_a, "")
         existing_row = existing_row_by_slug.get(slug_a, {}).get("row", [])
@@ -200,7 +222,28 @@ def main() -> int:
                     reused += 1
                     continue
 
+            _append_log({
+                "ts": now_utc_iso(),
+                "event": "cell_start",
+                "deck_a": slug_a, "deck_a_name": name_a,
+                "deck_b": slug_b, "deck_b_name": name_b,
+            })
             rep = run_matchup(deck_a, deck_b, n_games=args.n_games, seed=args.seed)
+            # per-game の簡易 summary を NDJSON に出す (= UI の log tail で観戦)
+            for gi, g in enumerate(getattr(rep, "games", []) or []):
+                _append_log({
+                    "ts": now_utc_iso(),
+                    "event": "game",
+                    "deck_a": slug_a, "deck_a_name": name_a,
+                    "deck_b": slug_b, "deck_b_name": name_b,
+                    "game_index": gi,
+                    "winner": g.winner,
+                    "turns": g.turns,
+                    "p0_life_left": g.p0_life_left,
+                    "p1_life_left": g.p1_life_left,
+                    "p0_field": g.p0_field,
+                    "p1_field": g.p1_field,
+                })
             cell = make_cell_v2(
                 deck_b_slug=slug_b,
                 winrate=round(rep.deck1_winrate, 4),
@@ -215,6 +258,17 @@ def main() -> int:
             )
             row.append(cell)
             recomputed += 1
+            _append_log({
+                "ts": now_utc_iso(),
+                "event": "cell_done",
+                "deck_a": slug_a, "deck_a_name": name_a,
+                "deck_b": slug_b, "deck_b_name": name_b,
+                "cell_winrate": round(rep.deck1_winrate, 4),
+                "cell_wins": rep.deck1_wins,
+                "cell_losses": rep.deck2_wins,
+                "cell_draws": rep.draws,
+                "avg_turns": round(rep.avg_turns, 2),
+            })
         elapsed = time.time() - t0
         rate = done / elapsed if elapsed > 0 else 0
         eta = (total - done) / rate if rate > 0 else 0
@@ -236,6 +290,17 @@ def main() -> int:
             "matrix": cells,
         }
         OUT.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
+        _append_log({
+            "ts": now_utc_iso(),
+            "event": "row_done",
+            "deck_a": slug_a, "deck_a_name": name_a,
+            "rows_done": len(cells),
+            "rows_total": len(decks),
+            "cells_done": done,
+            "cells_total": total,
+            "elapsed_sec": round(elapsed, 1),
+            "eta_sec": round(eta, 1),
+        })
 
     out = {
         "schema_version": MATRIX_SCHEMA_VERSION,
@@ -253,6 +318,13 @@ def main() -> int:
     if args.incremental:
         print(f"  incremental: {reused} cells reused, {recomputed} cells recomputed")
     elapsed = time.time() - t0
+    _append_log({
+        "ts": now_utc_iso(),
+        "event": "run_done",
+        "elapsed_sec": round(elapsed, 1),
+        "reused": reused,
+        "recomputed": recomputed,
+    })
     print()
     print(f"完了: {OUT}  ({elapsed:.1f}s, {OUT.stat().st_size // 1024} KB)")
     return 0

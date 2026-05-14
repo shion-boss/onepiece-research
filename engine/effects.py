@@ -5234,7 +5234,12 @@ def fire_activate_main(
     一度コストを払ったら効果実行は再評価せず必ず行う (= eval_condition は skip 可能)。
     実装上は _execute_event 側で if 句を再評価しているが、 起動メインの if 句は通常
     cost 判定とほぼ重複なので問題なし。
+
+    log 順: 「起動メイン: X」 (header) → 「起動メインコスト: ...」 (cost) → 「効果: ...」 (effect)。
+    cost を先に書くと、 人間が観戦時に「何の起動メインを発動した結果これを払ったのか」 が
+    分からないため、 header を先に push する。
     """
+    state.push_log(f"起動メイン: {inplay.card.name}")
     cost = eff.get("cost", {})
     # rest_self
     if cost.get("rest_self"):
@@ -5341,8 +5346,8 @@ def fire_activate_main(
     # once_per_turn フラグ
     if cost.get("once_per_turn", True):
         setattr(inplay, "_act_used", True)
-    state.push_log(f"  起動メイン: {inplay.card.name}")
     # effect 本体は enqueue (= 集中ドレインで実行)。 bundle 内 effect index を解決して payload に。
+    # （header の push_log は関数冒頭で実施済み = cost 支払い前に観戦者へ何の起動メインか示す）
     bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
     if bundle is None:
         return

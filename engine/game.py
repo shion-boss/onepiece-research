@@ -414,6 +414,13 @@ def advance_phase(state: GameState) -> None:
             # 【ターン1回】 効果の発動済みキー集合をクリア (= 次自ターンで再発動可)。
             # effect spec の top-level `once_per_turn` を _execute_event がガードに使う。
             me.once_per_turn_used.clear()
+            # snapshot/animation 用に「REFRESH 完了」 を 1 log = 1 snapshot として明示。
+            # 以前は無 log のまま次フェーズへ進み、 戻り DON + 未使用 DON 起き上げ +
+            # 後続フェーズ (DRAW / DON deck→cost) が 全部 1 snapshot 内で同時に流れ、
+            # spectate UI でアニメが重なって「何が起きたか追えない」 状態だった。
+            state.push_log(
+                f"refresh: untap + DON return (active={me.don_active}, rested={me.don_rested})"
+            )
         # 公式 6-2-1-1-2: ターン開始時の自動効果を発動 (turn_number==1 含む全ターン)
         if state.effects_overlay:
             from .effects import trigger_turn_start
@@ -426,6 +433,8 @@ def advance_phase(state: GameState) -> None:
             if not drawn:
                 state.declare_winner(1 - state.turn_player_idx, f"{me.name} deckout")
                 return
+            # 1 snapshot = 1 行動 の原則: deck → hand を明示 (アニメ分離用)。
+            state.push_log(f"draw: +1 → hand ({len(me.hand)})")
         state.phase = Phase.DON
 
     elif cur == Phase.DON:
@@ -436,6 +445,13 @@ def advance_phase(state: GameState) -> None:
         n = min(n, me.don_remaining_in_deck)
         me.don_active += n
         me.don_remaining_in_deck -= n
+        if n > 0:
+            # 1 snapshot = 1 行動 の原則: DON deck → cost を attach より先に確定 snapshot。
+            # これがないと、 次の MAIN 第 1 アクション (= attach 等) の snapshot 内で
+            # 「DON deck → cost」 と「cost → chara attach」 が同時アニメになる。
+            state.push_log(
+                f"don phase: +{n} → cost (active={me.don_active})"
+            )
         # ドンフェイズ修飾: リーダー overlay の when:"don_phase_modifier"
         # auto_attach_to_leader: 配られた N 枚のうち M 枚を自リーダーに自動付与
         # (OP13-003 赤紫ロジャー: 場ドンある場合 1 枚自動付与)
@@ -690,6 +706,96 @@ def legal_actions(state: GameState) -> list[Action]:
 # --------------------------------------------------------------------------- #
 # アクション適用
 # --------------------------------------------------------------------------- #
+def _build_action_context(state: GameState, action: Action) -> dict:
+    """action 適用直前の文脈を最小情報で記録 (= 悪手/無駄行動 検出用)。
+
+    eval delta だけでは捕まらない構造的悪手 (例: rested キャラへの attach_don)
+    を post-hoc 分析できるよう、 対象 iid / target_rested / cost / 残ドン 等を残す。
+    例外時は空 dict を返す (action_evals の記録自体は止めない)。
+    """
+    me = state.turn_player
+    ctx: dict = {"don_active_before": me.don_active}
+
+    if isinstance(action, AttachDonToCharacter):
+        ch = next((c for c in me.characters if c.instance_id == action.target_iid), None)
+        if ch is None:
+            ctx["target_iid"] = action.target_iid
+            ctx["target_missing"] = True
+            return ctx
+        ctx["target_iid"] = action.target_iid
+        ctx["target_card_id"] = ch.card.card_id
+        ctx["target_card_name"] = ch.card.name
+        ctx["target_rested"] = ch.rested
+        ctx["target_summoning_sickness"] = ch.summoning_sickness
+        ctx["target_can_attack_now"] = (not ch.rested) and (not ch.summoning_sickness)
+        ctx["target_attached_don_before"] = ch.attached_dons
+        ctx["n"] = action.n
+        return ctx
+
+    if isinstance(action, AttachDonToLeader):
+        ctx["target_kind"] = "leader"
+        ctx["leader_rested"] = me.leader.rested
+        ctx["leader_can_attack_now"] = not me.leader.rested
+        ctx["leader_attached_don_before"] = me.leader.attached_dons
+        ctx["n"] = action.n
+        return ctx
+
+    if isinstance(action, (AttackLeader, AttackCharacter)):
+        atk = next(
+            (c for c in [me.leader] + list(me.characters) if c.instance_id == action.attacker_iid),
+            None,
+        )
+        if atk is not None:
+            ctx["attacker_iid"] = action.attacker_iid
+            ctx["attacker_card_id"] = atk.card.card_id
+            ctx["attacker_card_name"] = atk.card.name
+            ctx["attacker_power"] = atk.power
+            ctx["attacker_attached_don"] = atk.attached_dons
+        if isinstance(action, AttackLeader):
+            ctx["target_kind"] = "leader"
+        else:
+            ctx["target_kind"] = "chara"
+            ctx["target_iid"] = action.target_iid
+        ctx["counter_card_n"] = len(action.counter_card_idxs)
+        ctx["counter_event_n"] = len(action.counter_event_idxs)
+        return ctx
+
+    if isinstance(action, (PlayCharacter, PlayEvent, PlayStage)):
+        if 0 <= action.hand_idx < len(me.hand):
+            c = me.hand[action.hand_idx]
+            ctx["card_id"] = c.card_id
+            ctx["card_name"] = c.name
+            ctx["cost"] = c.cost
+            ctx["category"] = c.category.name if hasattr(c.category, "name") else str(c.category)
+        return ctx
+
+    if isinstance(action, ActivateMain):
+        src = next(
+            (c for c in [me.leader] + list(me.characters) + list(me.stages)
+             if c.instance_id == action.source_iid),
+            None,
+        )
+        if src is not None:
+            ctx["source_iid"] = action.source_iid
+            ctx["source_card_id"] = src.card.card_id
+            ctx["source_card_name"] = src.card.name
+        ctx["effect_index"] = action.effect_index
+        return ctx
+
+    if isinstance(action, EndPhase):
+        # MAIN フェイズ終了時点の「未使用ドン」 = 機会損失候補
+        ctx["don_remaining"] = me.don_active
+        ctx["hand_size"] = len(me.hand)
+        ctx["active_chara_remaining"] = sum(
+            1 for c in me.characters
+            if not c.rested and not c.summoning_sickness
+        )
+        ctx["leader_unrested"] = not me.leader.rested
+        return ctx
+
+    return ctx
+
+
 def apply_action(state: GameState, action: Action) -> None:
     if state.game_over:
         return
@@ -699,12 +805,17 @@ def apply_action(state: GameState, action: Action) -> None:
     # plan_search の cloned state では record_action_evals=False で skip (= R70 高速化)。
     actor_idx = state.turn_player_idx
     eval_before = None
+    action_context: Optional[dict] = None
     if getattr(state, "record_action_evals", True):
         try:
             from .eval import compute_score
             eval_before = compute_score(state, actor_idx)
         except Exception:
             pass
+        try:
+            action_context = _build_action_context(state, action)
+        except Exception:
+            action_context = None
     try:
         _apply_action_impl(state, action)
     finally:
@@ -723,14 +834,17 @@ def apply_action(state: GameState, action: Action) -> None:
             try:
                 from .eval import compute_score
                 eval_after = compute_score(state, actor_idx)
-                state.action_evals.append({
+                entry = {
                     "turn": state.turn_number,
                     "player_idx": actor_idx,
                     "action": type(action).__name__,
                     "eval_before": eval_before,
                     "eval_after": eval_after,
                     "delta": eval_after - eval_before,
-                })
+                }
+                if action_context:
+                    entry["context"] = action_context
+                state.action_evals.append(entry)
             except Exception:
                 pass
 

@@ -166,6 +166,10 @@ def search_turn_plan(
                 continue
 
             la = legal_actions(cur_state)
+            # 機械的悪手 (= 過剰除去 event 等) を beam 展開前に剪定。
+            # ai.prune_mechanical_waste は副作用なし、 全消えなら原リストを返す保険付き。
+            from .ai import prune_mechanical_waste
+            la = prune_mechanical_waste(cur_state, la)
             if not la:
                 completed.append((cur_state, plan))
                 continue
