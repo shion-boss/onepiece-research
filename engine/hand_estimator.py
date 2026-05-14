@@ -59,11 +59,146 @@ class EstimatedHand:
     counter_q90: int = 0
 
 
-def _opponent_pool(state: GameState, opp_idx: int) -> list[CardDef]:
-    """opp の手札候補プール: deck + hand (= trash/play 以外の残カード全部)。
+_USE_CLASSIFIER_FOR_POOL: bool = True
+_CLASSIFIER_POOL_MIN_CONFIDENCE: float = 0.5
+_ARCHETYPE_RECIPE_CACHE: Optional[dict[str, list[CardDef]]] = None
 
-    公開済 (trash, play, life) は含まれない。
+
+def set_pool_mode(use_classifier: bool, min_confidence: float = 0.5) -> None:
+    """pool 構築モードを切替 (Phase 7E)。
+
+    True (default): classifier で archetype を推定 → archetype の代表 recipe から
+                    観測済を引いた残りを pool に使う (= 隠匿モデル準拠)
+    False: 旧挙動 (= opp.deck + opp.hand を直読、 「ズル」 モード)
     """
+    global _USE_CLASSIFIER_FOR_POOL, _CLASSIFIER_POOL_MIN_CONFIDENCE
+    _USE_CLASSIFIER_FOR_POOL = bool(use_classifier)
+    _CLASSIFIER_POOL_MIN_CONFIDENCE = float(min_confidence)
+
+
+def _load_archetype_recipes() -> dict[str, list[CardDef]]:
+    """全 archetype の代表 recipe を CardDef リストとしてロード (cache 付き、 Phase 7E)。
+
+    Returns: `{archetype_name: [CardDef, ...]}` (= main の 50 枚分を flat list で)。
+    archetype 名は deck JSON の "name" フィールド (= 「紫エネル」 等)。
+    """
+    global _ARCHETYPE_RECIPE_CACHE
+    if _ARCHETYPE_RECIPE_CACHE is not None:
+        return _ARCHETYPE_RECIPE_CACHE
+    from pathlib import Path
+    import json
+    from .deck import CardRepository
+
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    decks_dir = _PROJECT_ROOT / "decks"
+    cards_path = _PROJECT_ROOT / "db" / "cards.json"
+    try:
+        repo = CardRepository.from_json(cards_path)
+    except Exception:
+        _ARCHETYPE_RECIPE_CACHE = {}
+        return _ARCHETYPE_RECIPE_CACHE
+
+    out: dict[str, list[CardDef]] = {}
+    for p in sorted(decks_dir.glob("*.json")):
+        if ".analysis" in p.name:
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        name = d.get("name")
+        if not name:
+            continue
+        cards: list[CardDef] = []
+        for entry in d.get("main", []):
+            cid = entry.get("card_id")
+            count = entry.get("count", 0)
+            if not cid or count <= 0:
+                continue
+            try:
+                card = repo.get(cid)
+            except KeyError:
+                continue
+            cards.extend([card] * count)
+        if cards:
+            out[name] = cards
+    _ARCHETYPE_RECIPE_CACHE = out
+    return out
+
+
+def reset_pool_cache_for_testing() -> None:
+    """pool cache を強制リセット (= test / refresh 用)。"""
+    global _ARCHETYPE_RECIPE_CACHE
+    _ARCHETYPE_RECIPE_CACHE = None
+
+
+def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
+    """classifier で archetype を推定 → archetype recipe - 観測済 を pool に。
+
+    高信頼度 (≥ `_CLASSIFIER_POOL_MIN_CONFIDENCE`) でのみ archetype pool を返す。
+    低信頼度 / classifier 不在なら None を返し、 呼出側で fallback。
+    """
+    try:
+        from . import deck_classifier
+        clf = deck_classifier.get_default_classifier()
+        probs = clf.classify_from_state(state, opp_idx)
+    except Exception:
+        return None
+    if not probs:
+        return None
+    top_arch, top_prob = max(probs.items(), key=lambda x: x[1])
+    if top_prob < _CLASSIFIER_POOL_MIN_CONFIDENCE:
+        return None
+
+    recipes = _load_archetype_recipes()
+    base_cards = recipes.get(top_arch)
+    if not base_cards:
+        # alias で再試行 (= 「空島ルフィ → 黄ルフィ（OP15）」 等)
+        try:
+            from .deck_classifier import ARCHETYPE_ALIASES
+            for raw_name, canonical in ARCHETYPE_ALIASES.items():
+                if canonical == top_arch and raw_name in recipes:
+                    base_cards = recipes[raw_name]
+                    break
+        except Exception:
+            pass
+    if not base_cards:
+        return None
+
+    # 観測済 (= 場 / トラッシュ / ステージ) を recipe から引く
+    opp = state.players[opp_idx]
+    observed_counts: dict[str, int] = {}
+    for ip in opp.characters:
+        observed_counts[ip.card.card_id] = observed_counts.get(ip.card.card_id, 0) + 1
+    for ip in opp.stages:
+        observed_counts[ip.card.card_id] = observed_counts.get(ip.card.card_id, 0) + 1
+    for c in opp.trash:
+        observed_counts[c.card_id] = observed_counts.get(c.card_id, 0) + 1
+
+    remaining: list[CardDef] = []
+    for card in base_cards:
+        cid = card.card_id
+        if observed_counts.get(cid, 0) > 0:
+            observed_counts[cid] -= 1
+            continue
+        remaining.append(card)
+    return remaining
+
+
+def _opponent_pool(state: GameState, opp_idx: int) -> list[CardDef]:
+    """opp の手札候補プール (Phase 7E 改修)。
+
+    `_USE_CLASSIFIER_FOR_POOL = True` (default) で:
+    - 高信頼度 (`_CLASSIFIER_POOL_MIN_CONFIDENCE` 以上) なら classifier-based pool
+    - 低信頼度なら旧挙動 (opp.deck + opp.hand) に fallback
+
+    `_USE_CLASSIFIER_FOR_POOL = False` で:
+    - 常に旧挙動 (opp.deck + opp.hand 直読、 「ズル」 モード)
+    """
+    if _USE_CLASSIFIER_FOR_POOL:
+        pool = _archetype_pool(state, opp_idx)
+        if pool is not None:
+            return pool
     opp = state.players[opp_idx]
     return list(opp.deck) + list(opp.hand)
 
