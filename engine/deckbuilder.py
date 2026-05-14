@@ -26,11 +26,122 @@ from .effects import load_effect_overlay
 _DEFAULT_OVERLAY_PATH = (
     Path(__file__).resolve().parent.parent / "db" / "card_effects.json"
 )
+_META_ANALYSIS_PATH = (
+    Path(__file__).resolve().parent.parent / "db" / "meta_deck_analysis.json"
+)
+_CARD_ROLES_PATH = (
+    Path(__file__).resolve().parent.parent / "db" / "card_roles.json"
+)
 
 
 def _load_effect_keys() -> set[str]:
     overlay = load_effect_overlay(_DEFAULT_OVERLAY_PATH)
     return set(overlay.keys())
+
+
+# Phase 7 メタ分析データ (= scripts/analyze_meta_decks.py 出力) を活用する
+# 強デッキ平均値ベースの target を提供する meta-aware builder のサポート。
+
+
+def _load_meta_hints() -> dict:
+    """db/meta_deck_analysis.json から 上位 5 デッキの平均値を取得 (2026-05-14 added)。
+
+    Returns: {
+        "target_avg_cost": float,
+        "target_blocker_count": int,
+        "target_counter_total": int,
+        "target_synergy_density": float,
+        "positive_roles": list[str],   # 勝率と正相関 (= 増やす)
+        "negative_roles": list[str],   # 負相関 (= 避ける)
+    }
+    """
+    if not _META_ANALYSIS_PATH.exists():
+        return {}
+    try:
+        import json as _json
+        data = _json.loads(_META_ANALYSIS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    diffs = data.get("differences", {}).get("feature_differences", {})
+    corrs = data.get("correlations", {})
+
+    def _top_avg(key, default):
+        return diffs.get(key, {}).get("top_avg", default)
+
+    positive_roles = []
+    negative_roles = []
+    for key, val in corrs.items():
+        if key.startswith("role_") and key.endswith("_count"):
+            role_name = key[len("role_"):-len("_count")]
+            if val >= 0.25:
+                positive_roles.append(role_name)
+            elif val <= -0.25:
+                negative_roles.append(role_name)
+
+    return {
+        "target_avg_cost": _top_avg("avg_cost", 3.5),
+        "target_blocker_count": int(_top_avg("blocker_count", 10)),
+        "target_counter_total": int(_top_avg("counter_total", 36000)),
+        "target_synergy_density": _top_avg("synergy_density", 0.5),
+        "positive_roles": positive_roles,
+        "negative_roles": negative_roles,
+    }
+
+
+def _load_card_roles() -> dict:
+    """card_roles.json をロード → {card_id: {primary_role, tags}}。"""
+    if not _CARD_ROLES_PATH.exists():
+        return {}
+    try:
+        import json as _json
+        raw = _json.loads(_CARD_ROLES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if isinstance(raw, dict):
+        if "cards" in raw and isinstance(raw["cards"], dict):
+            return raw["cards"]
+        return raw
+    return {}
+
+
+def _meta_aware_curve_target(target_avg_cost: float) -> dict[int, int]:
+    """target_avg_cost に応じて cost_curve を調整 (Phase 7 メタ分析連動)。
+
+    既定 curve (= 平均 3.36 程度) を baseline に、 target に応じて高/低 コスト寄せ。
+    """
+    # baseline
+    base = {1: 8, 2: 10, 3: 10, 4: 8, 5: 6, 6: 4, 7: 4}
+    base_avg = sum(c * n for c, n in base.items()) / 50
+    delta = target_avg_cost - base_avg
+    if abs(delta) < 0.2:
+        return base
+    # delta > 0: 高コスト寄せ (= 1-2 cost を減らし 5-7 cost を増やす)
+    # delta < 0: 低コスト寄せ (= 逆)
+    shift_n = min(8, int(abs(delta) * 8))  # ±0.5 で 4 枚シフト、 ±1.0 で 8 枚
+    adjusted = dict(base)
+    if delta > 0:
+        # 低コスト → 高コスト
+        from_costs = [1, 2]
+        to_costs = [5, 6, 7]
+    else:
+        from_costs = [5, 6, 7]
+        to_costs = [1, 2]
+    # 移動: 各 from から 1 ずつ、 各 to に 1 ずつ
+    n_moved = 0
+    while n_moved < shift_n:
+        for fc in from_costs:
+            if adjusted[fc] > 4 and n_moved < shift_n:
+                adjusted[fc] -= 1
+                n_moved += 1
+        for tc in to_costs:
+            if n_moved < shift_n * 2:  # = from で減らした分 移動先に
+                adjusted[tc] += 1
+    # 50 枚保持
+    total = sum(adjusted.values())
+    if total != 50:
+        # 調整: 余り/不足を 3 cost で吸収
+        adjusted[3] += (50 - total)
+    return adjusted
 
 
 def auto_build_deck(
@@ -40,11 +151,16 @@ def auto_build_deck(
     name: str | None = None,
     effect_priority: bool = True,
     effect_keys: Optional[set[str]] = None,
+    meta_aware: bool = False,
 ) -> DeckList:
     """リーダーの色合いから 50 枚デッキを自動生成。
 
     effect_priority=True (default) のとき、各コスト帯のカードを
     「効果オーバーレイあり > パワー > カウンター」の優先度で詰める。
+
+    meta_aware=True (Phase 7 連動): meta_deck_analysis.json の強デッキ平均値を
+    target に cost curve / role priority を調整。 db/card_roles.json で
+    role が positive (= recovery / draw / disruption 等) の card を優先採用。
     """
     if rng is None:
         rng = random.Random(0)
@@ -52,6 +168,12 @@ def auto_build_deck(
         effect_keys = _load_effect_keys()
     elif effect_keys is None:
         effect_keys = set()
+
+    # Phase 7 メタ分析の hints (= 強デッキ平均値) を取得
+    meta_hints = _load_meta_hints() if meta_aware else {}
+    card_roles = _load_card_roles() if meta_aware else {}
+    positive_roles = set(meta_hints.get("positive_roles", []))
+    negative_roles = set(meta_hints.get("negative_roles", []))
 
     leader = repo.get(leader_id)
     if leader.category != Category.LEADER:
@@ -81,7 +203,11 @@ def auto_build_deck(
 
     # コストカーブ目標(50 枚)
     # ざっくり: cost1=8, 2=10, 3=10, 4=8, 5=6, 6=4, 7=4
-    curve_target = {1: 8, 2: 10, 3: 10, 4: 8, 5: 6, 6: 4, 7: 4}
+    # meta_aware=True なら target_avg_cost に基づき shift (= 高 / 低 コスト寄せ)
+    if meta_aware and meta_hints:
+        curve_target = _meta_aware_curve_target(meta_hints["target_avg_cost"])
+    else:
+        curve_target = {1: 8, 2: 10, 3: 10, 4: 8, 5: 6, 6: 4, 7: 4}
 
     chosen: list[CardDef] = []
     used: Counter[str] = Counter()  # base_id -> count
@@ -89,12 +215,28 @@ def auto_build_deck(
     for c in candidates:
         by_cost.setdefault(c.cost, []).append(c)
 
+    # meta_aware 時の role priority を取り込んだ sort key を返すヘルパー
+    def _role_boost(card: CardDef) -> int:
+        """meta_aware で正/負 role の優先度 boost (= 3 段階)。"""
+        if not meta_aware or not card_roles:
+            return 0
+        rinfo = card_roles.get(card.card_id)
+        if not isinstance(rinfo, dict):
+            return 0
+        role = rinfo.get("primary_role", "")
+        if role in positive_roles:
+            return 2
+        if role in negative_roles:
+            return -1
+        return 0
+
     for cost, target in curve_target.items():
         pool = by_cost.get(cost, [])
-        # 効果あり > パワー高 > カウンター値高 の優先度
+        # meta_aware: role boost > 効果あり > パワー > カウンター
         pool_sorted = sorted(
             pool,
             key=lambda c: (
+                _role_boost(c),
                 1 if c.card_id in effect_keys else 0,
                 c.power,
                 c.counter,
