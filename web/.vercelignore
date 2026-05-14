@@ -1,0 +1,12 @@
+# =========================================================================
+# Vercel ignore — Vercel デプロイから除外するファイル群
+# =========================================================================
+# Vercel の デプロイ容量上限 (一般に 100MB/file、 数 GB/総量) を超えないよう、
+# 巨大な ローカルキャッシュ画像 (= 878MB) を 除外する。 代わりに CardImage
+# コンポーネントが onError で公式 CDN (www.onepiece-cardgame.com) に fallback。
+
+# 全カード画像 (= scripts/cache_all_images.py で再生成可能)
+public/cards/
+
+# ローカル assets (= ura.png / don.png 等は除外しない、 必須 UI 要素)
+# public/assets/  ← これは必要なので除外しない

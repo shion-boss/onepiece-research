@@ -1,0 +1,45 @@
+# =========================================================================
+# Vercel ignore — API project (= Python Functions) のデプロイから除外
+# =========================================================================
+# API project は repo root を base にして deploy する想定。 web/ など 不要な
+# ものを除外して function bundle を軽量化 (= Vercel Python は 500MB 上限)。
+
+# Next.js は別 project にしてあるので不要
+web/
+
+# 開発環境
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# テスト / examples (本番 API では呼ばれない)
+tests/
+examples/
+
+# git / editor
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# secret / ローカル env
+.env
+.env.local
+*.log
+*.tmp
+*.bak
+
+# ローカル開発 only ファイル (= 本番では Postgres に保存される)
+db/spectate_comments.sqlite
+db/spectate_comments.sqlite-journal
+db/spectate_comments.json
+db/spectate_comments.json.tmp
+
+# 大規模 replay history (= ローカル走行用、 本番 API には不要)
+db/match_replays.sqlite
+db/match_replays.sqlite-journal
