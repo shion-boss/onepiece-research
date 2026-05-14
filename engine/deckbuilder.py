@@ -289,10 +289,12 @@ def auto_build_deck(
     chosen = chosen[:50]
 
     # Phase 7L (2026-05-14): 戦略制約 を適用 (= 上級者ルール、 meta_aware 時のみ)
-    # キャラ最低 38 / counter 30+ / 禁止カード除外 / search 4-8 の保証
+    # Phase 7M: archetype-aware に拡張 (= 同 leader の reference recipe を基準)
+    # 禁止カード除外 / archetype min chars / archetype min counter / search 4-8 の保証
     if meta_aware:
         chosen, _strat_warnings = _apply_strategic_constraints(
             chosen, candidates, used, card_roles, effect_keys,
+            leader_id=leader_id,
         )
 
     rng.shuffle(chosen)
@@ -312,24 +314,103 @@ def _load_banlist_ids() -> set[str]:
     return {f.get("card_id", "") for f in forbidden if f.get("card_id")}
 
 
+def _load_archetype_reference(leader_id: str) -> Optional[dict]:
+    """同 leader の代表 recipe を読み込み、 各種 metrics を返す (Phase 7M)。
+
+    Returns: {n_characters, n_events, n_stages, n_counter_cards, ...} or None
+
+    この値を「archetype の基準」 として使い、 universal な 38/30 制約を上書きする。
+    universal 制約は archetype 不在の leader の fallback 用。
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    cards_dir = _Path(__file__).resolve().parent.parent / "decks"
+    cards_db_path = _Path(__file__).resolve().parent.parent / "db" / "cards.json"
+    try:
+        cards_data = _json.loads(cards_db_path.read_text(encoding="utf-8"))
+        cards_db = {c["card_id"]: c for c in cards_data}
+    except Exception:
+        return None
+
+    for p in sorted(cards_dir.glob("*.json")):
+        if "analysis" in p.name:
+            continue
+        try:
+            d = _json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if d.get("leader") != leader_id:
+            continue
+        n_char = n_event = n_stage = n_counter = 0
+        for entry in d.get("main", []):
+            card = cards_db.get(entry.get("card_id", ""), {})
+            cat = (card.get("category") or "").upper()
+            counter_raw = card.get("counter")
+            try:
+                counter_val = int(str(counter_raw).replace(",", ""))
+            except (ValueError, TypeError):
+                counter_val = 0
+            cnt = entry.get("count", 0)
+            if cat == "CHARACTER":
+                n_char += cnt
+            elif cat == "EVENT":
+                n_event += cnt
+            elif cat == "STAGE":
+                n_stage += cnt
+            if counter_val > 0:
+                n_counter += cnt
+        return {
+            "n_characters": n_char,
+            "n_events": n_event,
+            "n_stages": n_stage,
+            "n_counter_cards": n_counter,
+            "source_slug": p.stem,
+            "source_name": d.get("name", "?"),
+        }
+    return None
+
+
 def _apply_strategic_constraints(
     chosen: list[CardDef],
     candidates: list[CardDef],
     used: Counter,
     card_roles: dict,
     effect_keys: set[str],
+    leader_id: Optional[str] = None,
 ) -> tuple[list[CardDef], list[str]]:
-    """構築済 deck に戦略制約を適用 (Phase 7L)。
+    """構築済 deck に戦略制約を適用 (Phase 7L + 7M、 archetype-aware)。
 
-    1. 禁止カード除外 (= banlist)
-    2. キャラ最低 38 枚 (= 「キャラ 38-50 / イベント 0-8 / ステージ 0-4」 業界基準)
-    3. counter 持ち最低 30 枚 (= 上級者推奨)
-    4. search role 4-8 枚範囲 (= サーチ consistency)
+    Phase 7M (2026-05-14): archetype reference (= 同 leader の代表 recipe)
+    があれば、 universal な 38/30 ではなく archetype-specific な値を使う。
+
+    例: 紫エネル の recipe = chara 24 / counter 19 (= event 軸 archetype)
+         → 38/30 universal 制約を強制すると合わない
+         → archetype reference 値 (= 24/19) ± 3 範囲を制約に
+
+    1. 禁止カード除外 (= banlist、 universal)
+    2. キャラ最低 = max(28, ref.n_characters - 3) (= archetype 不在なら 38)
+    3. counter 持ち最低 = max(20, ref.n_counter_cards - 3) (= 不在なら 30)
+    4. search role 4-8 枚範囲 (= warning のみ)
 
     Returns: (修正済 50 枚 chosen, warnings)
     """
     warnings: list[str] = []
     banned = _load_banlist_ids()
+
+    # Phase 7M: archetype reference を取得 → 制約値を決定
+    ref = _load_archetype_reference(leader_id) if leader_id else None
+    if ref:
+        # archetype-specific (= 同 leader 強デッキの recipe 基準)
+        min_chars = max(20, ref["n_characters"] - 3)
+        min_counter = max(10, ref["n_counter_cards"] - 3)
+        warnings.append(
+            f"archetype reference (= {ref['source_slug']} {ref['source_name']}) "
+            f"使用: chars ≥ {min_chars}, counter ≥ {min_counter}"
+        )
+    else:
+        # universal fallback (= archetype 不在の leader 用)
+        min_chars = 38
+        min_counter = 30
 
     # 1. 禁止カード除外 + alternative 探索
     if banned:
@@ -348,10 +429,10 @@ def _apply_strategic_constraints(
         if n_swapped > 0:
             warnings.append(f"禁止カード {n_swapped} 枚を swap")
 
-    # 2. キャラ最低 38 (= イベント/ステージ → キャラ swap)
+    # 2. キャラ最低 (= archetype reference or universal 38)
     n_chars = sum(1 for c in chosen if c.category == Category.CHARACTER)
-    if n_chars < 38:
-        need = 38 - n_chars
+    if n_chars < min_chars:
+        need = min_chars - n_chars
         non_char_indices = [
             i for i, c in enumerate(chosen)
             if c.category != Category.CHARACTER
@@ -380,12 +461,12 @@ def _apply_strategic_constraints(
             chosen[idx] = new_card
             swapped += 1
         if swapped > 0:
-            warnings.append(f"キャラ最低 38 制約: {swapped} 枚 swap")
+            warnings.append(f"キャラ最低 {min_chars} 制約: {swapped} 枚 swap")
 
-    # 3. counter 持ち最低 30
+    # 3. counter 持ち最低 (= archetype reference or universal 30)
     n_counter = sum(1 for c in chosen if c.counter > 0)
-    if n_counter < 30:
-        need = 30 - n_counter
+    if n_counter < min_counter:
+        need = min_counter - n_counter
         non_counter_indices = [
             i for i, c in enumerate(chosen)
             if c.counter == 0
@@ -409,7 +490,7 @@ def _apply_strategic_constraints(
             chosen[idx] = new_card
             swapped += 1
         if swapped > 0:
-            warnings.append(f"counter 持ち最低 30 制約: {swapped} 枚 swap")
+            warnings.append(f"counter 持ち最低 {min_counter} 制約: {swapped} 枚 swap")
 
     # 4. search role 4-8 範囲 (= 範囲外なら warning のみ、 強制 swap はしない)
     n_search = sum(
@@ -451,7 +532,10 @@ def _find_replacement(
 
 
 def validate_deck_consistency(deck: DeckList) -> list[str]:
-    """deck の戦略整合性チェック (Phase 7L)。
+    """deck の戦略整合性チェック (Phase 7L + 7M、 archetype-aware)。
+
+    Phase 7M: 同 leader の reference recipe があれば、 そこの値 ± 3 を基準に。
+    不在なら universal 38/30 fallback。
 
     Returns: warnings (= 空 list なら問題なし)
     """
@@ -469,15 +553,27 @@ def validate_deck_consistency(deck: DeckList) -> list[str]:
     for c in main:
         if _base_id(c.card_id) in banned or c.card_id in banned:
             warnings.append(f"{c.card_id} ({c.name}) は禁止カード")
-    # キャラ最低 38
+    # archetype reference (Phase 7M) で min を決定
+    leader_id = deck.leader.card_id if deck.leader else None
+    ref = _load_archetype_reference(leader_id) if leader_id else None
+    if ref:
+        min_chars = max(20, ref["n_characters"] - 3)
+        min_counter = max(10, ref["n_counter_cards"] - 3)
+        ref_note = f" (= archetype ref: {ref['source_slug']})"
+    else:
+        min_chars = 38
+        min_counter = 30
+        ref_note = ""
+
+    # キャラ最低
     n_chars = sum(1 for c in main if c.category == Category.CHARACTER)
-    if n_chars < 38:
-        warnings.append(f"キャラ {n_chars} 枚 (= 推奨 38+)")
-    # counter 30+
+    if n_chars < min_chars:
+        warnings.append(f"キャラ {n_chars} 枚 (= 推奨 {min_chars}+{ref_note})")
+    # counter 最低
     n_counter = sum(1 for c in main if c.counter > 0)
-    if n_counter < 30:
-        warnings.append(f"counter 持ち {n_counter} 枚 (= 推奨 30+)")
-    # 採用確率の警告 (= 単一カード 3 枚以下 を「不安定」 と判定)
+    if n_counter < min_counter:
+        warnings.append(f"counter 持ち {n_counter} 枚 (= 推奨 {min_counter}+{ref_note})")
+    # 採用確率の警告 (= 単一カード 2 枚採用 を「不安定」 と判定)
     for bid, n in cnt.items():
         if n == 1:
             # 1 枚採用 は 「強力 1-of tech」 として OK、 警告なし
