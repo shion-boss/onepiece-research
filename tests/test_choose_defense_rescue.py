@@ -123,11 +123,13 @@ def test_blocker_strictly_greater_survives():
 # ─────────────────────────────────────────────────────
 
 
-def test_rescue_5k_blocker_with_2k_counter():
-    """5000 blocker vs 6000 attacker + 手札 2000 counter → rescue 戦略選択。
+def test_rescue_5k_blocker_skipped_when_leader_can_defend():
+    """5000 blocker vs 6000 attacker + 手札 2000 counter → blocker rescue は SKIP。
 
-    Phase 7A の新規挙動: 同値ぎりぎりで死ぬ blocker でも、 valuable (= 5000+ power) なら
-    counter で救う。 5000 + 2000 = 7000 vs 6000 で blocker 生存。
+    観戦コメント cluster #3 由来の修正: 同 counter で leader 直接受けで防げるなら
+    blocker rescue は不要 (= blocker rest を温存)。
+    leader P 5000 + 2000 counter = 7000 > 6000 atk → leader 自身で防げる →
+    blocker は使わず leader 受けで counter のみ使う方が得。
     """
     repo = _repo()
     state = _make_state(repo, defender_life=3)
@@ -139,11 +141,10 @@ def test_rescue_5k_blocker_with_2k_counter():
 
     ai = GreedyAI()
     block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
-    assert block_iid == me.characters[0].instance_id, \
-        f"valuable blocker (5000) を救うために block + counter すべき (got block_iid={block_iid})"
-    assert len(counters) == 1, f"2000 counter 1 枚で救えるはず (got {len(counters)})"
-    counter_total = sum(me.hand[i].counter for i in counters)
-    assert counter_total >= 1000, f"gap=1000 を超える counter が必要 (got {counter_total})"
+    assert block_iid is None, \
+        f"同 counter で leader 受けで防げる → blocker rescue skip (got block_iid={block_iid})"
+    # leader 受けの counter 判定は別ロジック (defense_thresholds) なので、 ここでは
+    # blocker 温存 (= block_iid=None) のみアサート。 counter の有無は profile 依存。
 
 
 def test_no_rescue_for_low_value_blocker():

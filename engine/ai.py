@@ -1133,6 +1133,12 @@ class GreedyAI:
             # Tier 2: counter で救う (= 価値ある blocker を温存)
             if block_iid is None:
                 rescue_options = []
+                # 同じ counter combo で leader 直接受けの方が得か判定用 (= cluster #3 対応)。
+                # 「5000 blocker に +1000 counter 払うなら、 同じ +1000 counter で leader を
+                # 守って blocker は温存」 が原則。 blocker rescue は blocker を rested に
+                # するコスト (= 攻撃手の喪失) を背負うので、 同 counter で leader が守れる
+                # なら rescue 不要。
+                leader_p = defender.leader.power
                 for c in available:
                     if not self._is_valuable_blocker(c):
                         continue
@@ -1143,6 +1149,10 @@ class GreedyAI:
                     if not combo:
                         continue
                     rescue_total = sum(defender.hand[i].counter for i in combo)
+                    # 公式 7-1-4: defender は atk_p より STRICTLY 上回る必要。 leader 直接受けで
+                    # 同じ counter total を使い leader_p + rescue_total > atk_p なら rescue 不要。
+                    if leader_p + rescue_total > atk_p:
+                        continue  # 同 counter で leader も守れる → blocker は temporal に温存
                     if self._is_rescue_worthwhile(c, rescue_total, len(combo), life_left):
                         rescue_options.append((c, tuple(combo), rescue_total))
                 if rescue_options:

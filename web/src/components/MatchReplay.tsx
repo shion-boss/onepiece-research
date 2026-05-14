@@ -56,19 +56,104 @@ const HoverAnchorContext = createContext<
   (rect: HoverAnchorRect | null) => void
 >(() => {});
 
+// 進行中アクションのカードを snapshot から検出 (= 左サイド Card Preview 表示用)。
+// log + event + players から、 「今何のカードに対する行動か」 を逆引きする。
+// 失敗時 null (= 左サイドに「行動なし」 を表示)。
+function detectActiveCard(snap: StateSnapshot | null): HoverInfo | null {
+  if (!snap) return null;
+  const log = snap.log || "";
+
+  const fromChar = (c: CharSnapshot): HoverInfo => ({
+    cardId: c.card_id,
+    name: c.name,
+    power: c.power,
+    attachedDons: c.attached_dons,
+    summoningSickness: c.summoning_sickness,
+    keywords: c.keywords,
+  });
+
+  // pattern 1: atk: <attacker>(P=...) -> ... → attacker_iid から逆引き (= 確実)
+  if (snap.event?.type === "attack" && snap.event.attacker_iid !== undefined) {
+    const iid = snap.event.attacker_iid;
+    for (const p of snap.players) {
+      if (p.leader.instance_id === iid) return fromChar(p.leader);
+      for (const c of p.characters) {
+        if (c.instance_id === iid) return fromChar(c);
+      }
+    }
+  }
+
+  const turn = snap.players[snap.turn_player_idx];
+
+  // pattern 2: attach don to leader (= turn_player の leader)
+  if (/attach don to leader/.test(log)) {
+    return fromChar(turn.leader);
+  }
+
+  // pattern 3: attach don to <name> x
+  let m = log.match(/attach don to (.+?) x\d+/);
+  if (m) {
+    const name = m[1].trim();
+    const c = turn.characters.find((c) => c.name === name);
+    if (c) return fromChar(c);
+  }
+
+  // pattern 4: play: <name> (cost ...) → turn_player の characters から最新の同名を探す
+  m = log.match(/play: (.+?) \(cost/);
+  if (m) {
+    const name = m[1].trim();
+    for (let i = turn.characters.length - 1; i >= 0; i--) {
+      if (turn.characters[i].name === name) return fromChar(turn.characters[i]);
+    }
+  }
+
+  // pattern 5: event: <name> (cost ...) → trash 末尾の card_id (= 直前 trash 追加)
+  m = log.match(/event: (.+?) \(cost/);
+  if (m) {
+    const name = m[1].trim();
+    if (turn.trash.length > 0) {
+      return { cardId: turn.trash[turn.trash.length - 1], name };
+    }
+  }
+
+  // pattern 6: 起動メイン: <name> → leader/characters/stages から逆引き
+  m = log.match(/起動メイン: (.+?)$/);
+  if (m) {
+    const name = m[1].trim();
+    if (turn.leader.name === name) return fromChar(turn.leader);
+    const c = turn.characters.find((c) => c.name === name);
+    if (c) return fromChar(c);
+    const s = turn.stages.find((s) => s.name === name);
+    if (s) return fromChar(s);
+  }
+
+  // pattern 7: stage: <name> (cost ...) → stages 末尾
+  m = log.match(/stage: (.+?) \(cost/);
+  if (m) {
+    const name = m[1].trim();
+    for (let i = turn.stages.length - 1; i >= 0; i--) {
+      if (turn.stages[i].name === name) return fromChar(turn.stages[i]);
+    }
+  }
+
+  return null;
+}
+
+
 function useHoverHandlers(info: HoverInfo | null | undefined) {
   const setHovered = useContext(HoverContext);
   const setAnchor = useContext(HoverAnchorContext);
   if (!info) return {};
-  // mouseLeave で null にしない: スナップショット更新中に DOM が remount すると
-  // hover している要素が一瞬 unmount → mouseLeave が走ってプレビューがちらつく。
-  // 別カードを hover すると上書きされるのでクリア不要。 anchor も同様に維持し、
-  // 別 card の hover で上書きされる方針。
   return {
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
       setHovered(info);
       const r = e.currentTarget.getBoundingClientRect();
       setAnchor({ x: r.left, y: r.top, width: r.width, height: r.height });
+    },
+    onMouseLeave: () => {
+      // 浮遊プレビューは外したらすぐ消す (= user 要望)。 hovered/anchor 両方クリア。
+      setHovered(null);
+      setAnchor(null);
     },
   };
 }
@@ -895,6 +980,8 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
 
   const snap = snapshots[idx];
   const acting = snap.turn_player_idx;
+  // この snapshot で「進行中のアクション対象カード」 を log + event + players から逆引き
+  const activeCard = useMemo(() => detectActiveCard(snap), [snap]);
 
   const onPrev = () => {
     setPlaying(false);
@@ -960,61 +1047,64 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
       <div className="flex min-h-0 w-full flex-1 gap-2">
         {/* 左サイド: 上=Preview (3) / 下=自分手札 (2) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {/* 左上: プレビュー + 情報 (flex-3) */}
+          {/* 左上: Acting Card (= 進行中アクションのカード)。
+              以前はホバー追従だったが、 ホバー拡大は浮遊プレビューに移したので、
+              この枠は「今 log で動いているカード」 専用に。 atk: → attacker、
+              attach don to <name> → 対象キャラ、 play/event/起動メイン → そのカード。 */}
           <div className="flex min-h-0 flex-[3] flex-col gap-1 rounded bg-amber-950/40 p-2 ring-1 ring-amber-950/60">
             <div className="text-[10px] uppercase tracking-wide text-amber-200/70">
-              Card Preview
+              Acting Card
             </div>
             <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden">
-              {hovered ? (
+              {activeCard ? (
                 <CardImage
-                  cardId={hovered.cardId}
-                  alt={hovered.name ?? hovered.cardId}
+                  cardId={activeCard.cardId}
+                  alt={activeCard.name ?? activeCard.cardId}
                   loading="eager"
                   className="block h-full w-auto max-w-full rounded object-contain shadow-lg ring-1 ring-amber-900/40"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-[11px] text-amber-200/40">
-                  カードにホバーすると拡大表示
+                  (この snap では特定の行動カードなし)
                 </div>
               )}
             </div>
-            {hovered && (
+            {activeCard && (
               <div className="space-y-0.5 text-amber-100/90">
-                {hovered.name && (
+                {activeCard.name && (
                   <div className="truncate text-[12px] font-medium">
-                    {hovered.name}
+                    {activeCard.name}
                   </div>
                 )}
                 <div className="font-mono text-[10px] text-amber-200/60">
-                  {hovered.cardId}
+                  {activeCard.cardId}
                 </div>
-                {(hovered.power !== undefined ||
-                  (hovered.attachedDons !== undefined &&
-                    hovered.attachedDons > 0) ||
-                  hovered.summoningSickness) && (
+                {(activeCard.power !== undefined ||
+                  (activeCard.attachedDons !== undefined &&
+                    activeCard.attachedDons > 0) ||
+                  activeCard.summoningSickness) && (
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    {hovered.power !== undefined && (
+                    {activeCard.power !== undefined && (
                       <span className="font-mono text-amber-100">
-                        P={hovered.power}
+                        P={activeCard.power}
                       </span>
                     )}
-                    {hovered.attachedDons !== undefined &&
-                      hovered.attachedDons > 0 && (
+                    {activeCard.attachedDons !== undefined &&
+                      activeCard.attachedDons > 0 && (
                         <span className="rounded bg-amber-500/20 px-1 font-mono text-amber-200">
-                          DON×{hovered.attachedDons}
+                          DON×{activeCard.attachedDons}
                         </span>
                       )}
-                    {hovered.summoningSickness && (
+                    {activeCard.summoningSickness && (
                       <span className="rounded bg-zinc-500/20 px-1 text-[10px] text-zinc-200">
                         召喚酔
                       </span>
                     )}
                   </div>
                 )}
-                {hovered.keywords && hovered.keywords.length > 0 && (
+                {activeCard.keywords && activeCard.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {hovered.keywords.map((k) => (
+                    {activeCard.keywords.map((k) => (
                       <span
                         key={k}
                         className="rounded bg-amber-200/20 px-1 text-[10px] text-amber-100"
@@ -1374,9 +1464,9 @@ function HoverFloatingPreview({
   anchor: HoverAnchorRect | null;
 }) {
   if (!hovered || !anchor) return null;
-  // 大型プレビューサイズ (= 通常 80px の 約 3.5x)
-  const PREVIEW_W = 280;
-  const PREVIEW_H = 392; // 7:10 縦比
+  // 大型プレビューサイズ (= 通常 80px の 約 5x、 効果テキストまでくっきり読める想定)
+  const PREVIEW_W = 400;
+  const PREVIEW_H = 560; // 7:10 縦比
   const GAP = 12;
   // viewport 幅 (= SSR safe)
   const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
