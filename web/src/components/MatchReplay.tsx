@@ -498,7 +498,11 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   // CSS rotate / 場の re-layout で mouseLeave が偽発火しても 観戦中の preview が
   // ちらつかない。 stationary cursor 想定。 移動なしで snap が連続 進む間は ずっと
   // freeze (= 各 snap 更新で再延長される)。
-  useEffect(() => {
+  //
+  // 重要: useEffect は paint 後 → ブラウザの mouseLeave 発火に間に合わない。
+  // useLayoutEffect で commit 直後 / paint 前に freeze を set することで、 layout
+  // shift 由来の mouseLeave が処理される前に freeze 状態に入る。
+  useLayoutEffect(() => {
     freezeHoverBriefly(300);
   }, [idx]);
 
