@@ -96,6 +96,11 @@ decks/_archive/
 # 探索エンジン (Phase B) の生成候補デッキ
 decks/_candidates/
 
+# 研究 artifact (Phase R = 対策デッキ研究ラボ / 改善ワークフロー の output)
+# API 経由で生成される一過性ファイル、 ローカル保管のみ
+decks/explore_*.json
+decks/research_*.json
+
 # 一時ファイル
 /tmp/
 *.log
