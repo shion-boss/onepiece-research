@@ -13,6 +13,34 @@
 
 ---
 
+## ⭐ 更新履歴 (2026-05-14: Phase 7 完了)
+
+このドキュメントは **Phase 4.5 (= PlanningAI 初期実装) 時点** をベースに記載されている。
+Phase 7A〜7K で AI のヒューリスティック層が大幅に改修されたため、 以下が最新挙動:
+
+| Phase | 内容 | 関連セクション |
+|---|---|---|
+| 7A | `choose_defense` 3-tier (= safe / rescue / sacrifice)、 blocker `>` rule fix | [Section 4](#4-防御判断-choose_defense) (= 更新済) |
+| 7B | `hand_estimator` 分布化 (= hypergeometric)、 確率ベース リーサル判定 | [Section 6](#6-ヒドゥンインフォメーション処理--相手の手札推定) |
+| 7C | ベイズ deck classifier (= `deck_classifier.py`) | NEW |
+| 7D | `MatchupProfile` 動的更新 (= ターン毎再評価) | [Section 8](#8-matchupprofile--対戦相手別の動作-override) |
+| 7E | `_opponent_pool` classifier 経由 (= archetype recipe - 観測済) | [Section 6](#6-ヒドゥンインフォメーション処理--相手の手札推定) |
+| 7F | meta デッキ pool 月次更新 + variant 検出 (= 運用) | infrastructure |
+| 7G | 絶望状況での bluff 行動 (= DON 温存) | NEW |
+| 7H | bluff 判定 + リスク調整リーサル threshold | NEW |
+| 7I | 公開済手札追跡 (= `known_hand_card_ids`) | NEW |
+| 7J | `lethal_planner` (= 均等化 + ±2k マージン) | NEW |
+| 7K | リーダー攻撃先行 + blocker 遅延 | [Section 1](#1-greedyai-の行動優先順位--各-1-手の判断フロー) |
+
+**新規セクション** (Phase 7 で追加された機能):
+- [Section 12: bluff 機能 (Phase 7G/H/I)](#12-bluff-機能-phase-7ghi)
+- [Section 13: lethal_planner (Phase 7J)](#13-lethal_planner-phase-7j)
+- [Section 14: deck classifier (Phase 7C)](#14-deck-classifier-phase-7c)
+
+レビュー時はこの履歴を踏まえて参照してください。 古い記述と矛盾する場合は Phase 7 後の挙動を正とする。
+
+---
+
 ## 0. AI の全体構造
 
 2 段重ね:
@@ -598,8 +626,130 @@ for entry in rep.games[0].action_evals:
 - [ ] 行動優先順位 (= Step 0〜4) は実戦の打ち手と一致するか? 違うなら どの局面で?
 - [ ] 「弱→強」 アタック順は妥当か? アグロデッキでも同じ?
 - [ ] 防御閾値 (= life 別の counter 切る量) は アーキタイプごとに妥当か?
-- [ ] リーサル判定の 1.2x マージン は安全すぎ / 危険すぎ どっち?
+- [ ] リーサル判定の 1.2x マージン は安全すぎ / 危険すぎ どっち? (Phase 7B/H で確率化済)
 - [ ] 雷迎リスク見積で「ライフ獲得 1500 < リスク 2250 で攻撃放棄」 は妥当?
 - [ ] role 別重み (finisher 3.0 / removal 2.5 / blocker 2.0 ...) の差は実戦感覚に近い?
-- [ ] ブロッカー `>=` バグ (= 同値で生存扱い) は実害ある? 修正必要?
+- [x] ブロッカー `>=` バグ (= 同値で生存扱い) は実害ある? 修正必要? **→ Phase 7A で fix 済**
 - [ ] PlanningAI の「コンボ 1 手目で eval 下がる」 許容で見落とす局面はあるか?
+- [ ] bluff 機能 (Phase 7G) の発動条件 (= my_lethal<0.4 + opp_next_lethal>=0.6) は妥当?
+- [ ] bluff archetype factor (= アグロ 0.4 / コントロール 1.3) は メタ感覚と合致するか?
+- [ ] lethal_planner の 均等化 + ±2k マージン は実戦の配分と合うか?
+- [ ] リーダー攻撃先行 (Phase 7K) は本当に常時優先で良い? 例外はあるか?
+
+---
+
+## 12. bluff 機能 (Phase 7G/H/I)
+
+OPTCG での 「DON カードを残しておいて counter event 持ってるフリ」 を 双方の AI で扱う仕組み。
+
+### 12.1 自分が bluff する側 (Phase 7G)
+
+**発動条件** (= `_is_desperate_losing_position`):
+- 今ターンリーサル確率 < 0.4 (= 詰めれない)
+- 相手次ターンリーサル確率 ≥ 0.6 (= 受けきれない)
+- 自分の手札未知率 ≥ 0.5 (Phase 7I 連動: bluff 効果見込み)
+
+**bluff モード時の挙動** (= `_bluff_filter_actions`):
+- 攻撃は許容 (= 相手キャラ削減等の積極価値)
+- AttachDon は active DON が `BLUFF_DON_RESERVE` (= 2) を割らない範囲のみ
+- DON cost ActivateMain も同様の制限
+- PlayCharacter / PlayEvent は許容
+
+結果: 1-2 DON を visible active で残し、 「counter event 持ってるかも」 シグナル送出。
+
+### 12.2 相手の bluff を読む側 (Phase 7H)
+
+**bluff factor** (= `archetype_bluff_factor`):
+- アグロ archetype: 0.4 (= counter event 入れない傾向、 bluff 判定)
+- ミッドレンジ: 0.7
+- コントロール: 1.3 (= counter event 多用、 本物判定)
+- ランプ: 1.0
+
+**counter event 推定** (= `expected_counter_from_don_bluff`):
+1. opp の visible active DON × P(counter event in hand) × archetype factor
+2. P(event in hand) = 既知に counter event あり → 1.0、 無く未知 N → min(1.0, N×0.1)、 全 known で event 無し → 0
+3. リーサル `total_excess` から減算 → 必要 excess 上方修正
+
+**リーサル threshold (= 賭けに行く判断)**:
+- fallback_win_prob = 1 - opp_next_lethal で「諦めた時の勝率」 を計算
+- ≥ 0.7: threshold 0.75 (= 慎重)
+- 0.4-0.7: 0.70 (= 標準)
+- 0.2-0.4: 0.55 (= 不利、 50/50 でも行く)
+- < 0.2: 0.40 (= 負け濃厚、 ブラフちぎって賭け)
+
+### 12.3 公開済手札の追跡 (Phase 7I)
+
+`Player.known_hand_card_ids: list[str]` を導入し、 以下の経路で公開化:
+- `return_to_hand` / `return_to_hand_multi` (= 場 → 手札)
+- `search` (= デッキから公開して手札に加える)
+
+`apply_action` 末尾で `normalize_known_hand` を呼び、 hand 退場分の entry を削減。
+
+**hand_estimator pmf の改修**:
+- known portion の counter 値は確定加算 (= shift)
+- unknown portion のみ hypergeometric で pmf
+- 既知が hand_size 全体なら確定 pmf (= 1 点)
+
+これで bluff は **「真に隠匿された unknown portion のみが意味を持つ」** 完全な隠匿モデルに。
+
+---
+
+## 13. lethal_planner (Phase 7J)
+
+OPTCG コミュニティ知見 (note.com/nagahami 等) から抽出した攻撃配分最適化。
+
+### 13.1 demand value (= 要求値)
+
+```python
+compute_demand_value(attack_powers, opp_leader_power) -> int
+```
+
+各攻撃の demand = `ceil((atk_power - opp_leader_power) / 1000)` を合計。 これが相手の必要 counter 量。
+
+### 13.2 plan_optimal_attack_sequence
+
+**Step 1**: 各 attacker に opp.leader を超える最低 DON を振る (= 必要 hit 確保)
+**Step 2**: 余り DON を「最弱 attacker」 から +1 ずつ振り、 power 均等化
+**Step 3**: 弱→強 順序で配置 (= counter 吸わせから本命)
+
+戦略原理:
+- **トリガーマージン ±2k**: ライフ 1 枚 = 最大 2k counter → 攻撃間 power 差を ±2k 以内に
+- **均等化**: 1 個の大型より複数均等の方が要求値高い
+- **偶数 k 差 / 1k 差**: trigger 連発吸収対策
+- **階段戦略**: shield N → 攻撃差 N × 1000 + 1
+
+### 13.3 統合 (= `_compute_lethal_action`)
+
+旧: math.ceil per-attacker + greedy 配分
+新: `plan_optimal_attack_sequence` で最適配分 → 確率判定 (7B/H 連動) → 最初のアクション返却
+
+---
+
+## 14. deck classifier (Phase 7C)
+
+ベイズ Naive Bayes で観測カード + opp leader から相手 archetype を確率推定。
+
+### 14.1 学習データ
+
+- `decks/cardrush_*.json` + `decks/tcgportal_*.json` (= active 16 archetype)
+- `decks/_archive/cardrush_raw/cardrush_*.json` (= 過去 88+ 件)
+
+合計 18 archetype × 106 recipe からカード採用率を学習。
+
+### 14.2 確率モデル
+
+```
+P(archetype | obs) ∝ P(archetype) × Π P(card | archetype)
+```
+
+- prior P(archetype): tcg-portal 使用率 (= meta-analysis ランキング由来)
+- likelihood P(card | archetype): archetype 内 recipe での採用率 (= Laplace smoothing α=0.5)
+- leader は強 signal: 一致 0.999、 不一致 0.001 (= 通常 1 archetype = 1 leader)
+
+### 14.3 利用先
+
+- **Phase 7D**: `infer_opponent_archetype` で archetype 推定 → MatchupProfile dynamic update
+- **Phase 7E**: `_archetype_pool` で 相手 deck pool 推定 (= ズル無し)
+- **Phase 7H**: archetype 別 bluff factor を取得
+
+これにより Phase 7 全体で **「相手は誰か」 を正確に推定 → メタ情報込みで判断」 が可能に。

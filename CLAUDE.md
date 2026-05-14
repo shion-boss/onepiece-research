@@ -176,12 +176,20 @@ onepiece_research/
 
 ### 進行中 / 計画中フェーズ (= Phase 7+, 詳細は [docs/ROADMAP.md](./docs/ROADMAP.md))
 
-- [ ] **Phase 7 進行中**: AI ヒューリスティック層強化 (= 2-3 週間、 期待 +10〜20pt)
-  - 7A: `choose_defense` リファクタ (= 4 候補並列評価 + blocker 生存判定 `>=` → `>` rule fix)
-  - 7B: `hand_estimator` 分布化 (= ハイパージオメトリック + 分位点ベース リーサル判定)
-  - 7C: ベイズ deck classifier (= 観測カードから相手 archetype を確率推定)
-  - 7D: MatchupProfile dynamic update (= 7C 出力消費)
-  - 7E: hand pool メタデッキ仮定精密化 (= 7B + 7C 統合)
+- [x] **Phase 7 完了 (2026-05-14)**: AI ヒューリスティック層強化 + bluff + lethal_planner
+  - 7A: `choose_defense` 3-tier (= safe / rescue / sacrifice) + blocker `>` rule fix
+  - 7B: `hand_estimator` 分布化 (= ハイパージオメトリック + 確率ベース リーサル判定)
+  - 7C: ベイズ deck classifier (= 18 archetype × 106 recipe 学習)
+  - 7D: MatchupProfile dynamic (= ターン毎 classifier で archetype 再評価)
+  - 7E: hand pool メタデッキ仮定 (= opp.deck 直読を classifier 経由に置換)
+  - 7F: meta pool 再構造化 (= variant 検出 + matrix v2 schema)
+  - 7G: 絶望状況での bluff 行動 (= DON 温存 + 攻撃継続)
+  - 7H: archetype 別 bluff 判定 + リスク調整リーサル threshold
+  - 7I: 公開済手札追跡 (= return_to_hand / search 経由を known_hand_card_ids で track)
+  - 7J: lethal_planner (= 均等化 + ±2k マージン + 階段戦略) + choose_action 統合
+  - 7K: リーダー攻撃先行 + blocker play 遅延 (= life trigger 対策)
+  - 累計 108 新規 tests / 全 pass、 期待効果 +15〜+30pt vs 旧 PlanningAI
+  - 残 sub-step (= 7F-1/2/5/6/7、 directory restructure 等) は別 task で運用整備
 - [ ] **Phase 8 計画中**: 学習基盤 / self-play AI (= 2-4 ヶ月、 期待 +20〜40pt)
   - 8A: self-play インフラ整備 (= replay 蓄積 + 並列実行)
   - 8B: policy + value 学習器 (= 決定論化 + AlphaZero 型 NN)
