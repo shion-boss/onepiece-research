@@ -126,6 +126,16 @@ class GreedyAI:
         if deck_analysis:
             self._apply_archetype_profile(deck_analysis)
 
+        # Phase 7D 追加: deck_analysis 適用後の値を base として snapshot。
+        # 毎ターン MatchupProfile を再評価する際、 base に戻してから override を再適用する
+        # (= classifier 出力の更新を反映、 旧 override を「上塗り」 で残さない)。
+        self._base_defense_thresholds: dict = dict(self.defense_thresholds)
+        self._base_attack_gap_tolerance: int = self.attack_gap_tolerance
+        self._base_finisher_hold_life: int = self.finisher_hold_life
+        # 直近で MatchupProfile を評価したターン番号 (= 同ターン重複評価を抑制)。
+        # -1 は未評価マーカー。
+        self._last_matchup_eval_turn: int = -1
+
     def _default_defense_thresholds(self) -> dict:
         """AIParams から base 防御閾値 dict を構築。"""
         p = self.ai_params
@@ -216,15 +226,28 @@ class GreedyAI:
                 self.finisher_card_ids.add(k.get("card_id", ""))
 
     def _ensure_matchup_overrides(self, state: GameState, me_idx: int) -> None:
-        """初回のみ MatchupProfile を構築し、 db/matchup_strategies.json の上書き値を適用。
+        """ターン毎に MatchupProfile を再評価し、 上書き値を base から再適用 (Phase 7D)。
+
+        - 同一ターン内は skip (= _last_matchup_eval_turn で抑制、 cost 削減)
+        - ターン変わったら: base 値 (= deck_analysis 適用後) にリセット → classifier で
+          再評価 (= 観測カードが増えると classifier 出力も変わる) → overrides を再適用
+
+        旧挙動 (R67 まで): 初回 choose_action で 1 回だけ評価、 以後固定。
+        新挙動 (Phase 7D): ターン毎に再評価で classifier の確信度向上を取り込む。
 
         (my, opp) ペアごとに defense_thresholds / attack_gap_tolerance /
         finisher_hold_life を override。 該当エントリ無しなら base 値が残る。
-        opp.leader.card_id が未知なら fallback で archetype を推定 (= 安全な default)。
         """
-        if self._matchup_overrides_applied:
+        current_turn = state.turn_number
+        if self._last_matchup_eval_turn == current_turn:
             return
-        self._matchup_overrides_applied = True  # 同一試合中は 1 度のみ
+        self._last_matchup_eval_turn = current_turn
+
+        # base 値にリセット (= 旧 override を上塗りで残さないように)
+        self.defense_thresholds = dict(self._base_defense_thresholds)
+        self.attack_gap_tolerance = self._base_attack_gap_tolerance
+        self.finisher_hold_life = self._base_finisher_hold_life
+
         try:
             profile = matchup_model.build_matchup_profile(
                 state, me_idx, self.archetype
@@ -232,10 +255,14 @@ class GreedyAI:
         except Exception:
             return
         self._matchup_profile = profile
+        self._matchup_overrides_applied = True  # 既存 flag は維持 (= 後方互換)
+
         overrides = matchup_model.lookup_matchup_overrides(
             profile.my_archetype, profile.opp_archetype
         )
         if not overrides:
+            # 旧 archetype 評価結果は活かす (= role priority キャッシュ)
+            self._apply_role_priorities(profile.opp_archetype)
             return
         # attack_gap_tolerance 上書き
         if "attack_gap_tolerance" in overrides:

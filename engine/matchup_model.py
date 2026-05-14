@@ -58,6 +58,7 @@ class MatchupProfile:
 
 # === 内部キャッシュ ===
 _leader_to_archetype_cache: Optional[dict[str, str]] = None
+_deck_name_to_archetype_cache: Optional[dict[str, str]] = None
 _strategies_cache: Optional[dict] = None
 
 
@@ -96,6 +97,42 @@ def _load_leader_archetype_map() -> dict[str, str]:
     return mapping
 
 
+def _load_deck_name_archetype_map() -> dict[str, str]:
+    """deck の name フィールド (= 「紫エネル」 等) → strategy archetype (= 「ミッドレンジ」)。
+
+    deck_classifier (Phase 7C) は deck 名で archetype を返すため、
+    strategy archetype に変換する逆引き map が必要 (Phase 7D)。
+
+    結果は module 内 cache に保持。
+    """
+    global _deck_name_to_archetype_cache
+    if _deck_name_to_archetype_cache is not None:
+        return _deck_name_to_archetype_cache
+    mapping: dict[str, str] = {}
+    for p in sorted(_DECKS_DIR.glob("*.json")):
+        if "analysis" in p.name:
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        deck_name = d.get("name")
+        if not deck_name:
+            continue
+        apath = p.with_suffix(".analysis.json")
+        if not apath.exists():
+            continue
+        try:
+            ad = json.loads(apath.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        arche = ad.get("archetype")
+        if arche in ARCHETYPES:
+            mapping[deck_name] = arche
+    _deck_name_to_archetype_cache = mapping
+    return mapping
+
+
 def _fallback_archetype_from_state(state: GameState, opp_idx: int) -> str:
     """analysis.json に未登録のリーダー向け fallback。
 
@@ -122,8 +159,46 @@ def _fallback_archetype_from_state(state: GameState, opp_idx: int) -> str:
     return "ミッドレンジ"
 
 
-def infer_opponent_archetype(state: GameState, opp_idx: int) -> str:
-    """相手リーダー card_id から archetype を推定。 fallback あり。"""
+def infer_opponent_archetype(
+    state: GameState,
+    opp_idx: int,
+    use_classifier: bool = True,
+    min_confidence: float = 0.4,
+) -> str:
+    """相手の archetype (= strategy archetype) を推定 (Phase 7D 改修)。
+
+    優先順位:
+    1. deck_classifier (Phase 7C) で deck 名を確率推定 → strategy archetype に変換
+    2. classifier 信頼度 < min_confidence なら leader_id static map (旧経路)
+    3. static map にも無ければ cost curve からヒューリスティック判定
+
+    use_classifier=False で旧挙動 (= static map のみ) に戻せる (test 互換性用)。
+    """
+    if use_classifier:
+        try:
+            from . import deck_classifier
+            clf = deck_classifier.get_default_classifier()
+            probs = clf.classify_from_state(state, opp_idx)
+            if probs:
+                deck_name_map = _load_deck_name_archetype_map()
+                # 信頼度上位 deck から strategy archetype を取得
+                top_deck, top_prob = max(probs.items(), key=lambda x: x[1])
+                if top_prob >= min_confidence:
+                    strategy = deck_name_map.get(top_deck)
+                    if strategy:
+                        return strategy
+                # 低信頼度: strategy 別に確率を集計して最大を取る
+                strategy_probs: dict[str, float] = {}
+                for deck_name, p in probs.items():
+                    strategy = deck_name_map.get(deck_name)
+                    if not strategy:
+                        continue
+                    strategy_probs[strategy] = strategy_probs.get(strategy, 0.0) + p
+                if strategy_probs:
+                    return max(strategy_probs, key=strategy_probs.get)
+        except Exception:
+            pass
+    # Fallback: 旧 static map
     opp = state.players[opp_idx]
     leader_id = opp.leader.card.card_id
     mapping = _load_leader_archetype_map()
@@ -131,6 +206,37 @@ def infer_opponent_archetype(state: GameState, opp_idx: int) -> str:
     if arche:
         return arche
     return _fallback_archetype_from_state(state, opp_idx)
+
+
+def infer_opponent_archetype_with_confidence(
+    state: GameState,
+    opp_idx: int,
+) -> tuple[str, float]:
+    """archetype 推定 + 信頼度 (Phase 7D 追加)。
+
+    Returns: (archetype, confidence in [0.0, 1.0])
+      classifier 経由なら deck-level 確率を strategy 単位に集計した値、
+      static fallback なら 0.5 を返す。
+    """
+    try:
+        from . import deck_classifier
+        clf = deck_classifier.get_default_classifier()
+        probs = clf.classify_from_state(state, opp_idx)
+        if probs:
+            deck_name_map = _load_deck_name_archetype_map()
+            strategy_probs: dict[str, float] = {}
+            for deck_name, p in probs.items():
+                strategy = deck_name_map.get(deck_name)
+                if not strategy:
+                    continue
+                strategy_probs[strategy] = strategy_probs.get(strategy, 0.0) + p
+            if strategy_probs:
+                top_strategy, top_prob = max(strategy_probs.items(), key=lambda x: x[1])
+                return top_strategy, top_prob
+    except Exception:
+        pass
+    arche = infer_opponent_archetype(state, opp_idx, use_classifier=False)
+    return arche, 0.5
 
 
 def _derive_role(my: str, opp: str) -> str:
@@ -214,6 +320,13 @@ def lookup_matchup_overrides(
 
 def _reset_caches_for_testing() -> None:
     """テスト用: cache を強制リセット (= ファイル変更後に再ロード)。"""
-    global _leader_to_archetype_cache, _strategies_cache
+    global _leader_to_archetype_cache, _deck_name_to_archetype_cache, _strategies_cache
     _leader_to_archetype_cache = None
+    _deck_name_to_archetype_cache = None
     _strategies_cache = None
+    # Phase 7C 連動: deck_classifier の cache も同時リセット (= 学習データ再読込)
+    try:
+        from . import deck_classifier
+        deck_classifier.reset_default_classifier()
+    except Exception:
+        pass
