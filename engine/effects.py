@@ -2683,10 +2683,12 @@ def execute_effect(
             # 公式 静的: 「自分の特徴《SWORD》を持つキャラは、 登場したターンにキャラへアタックできる」
             # OP11-001 コビー リーダー等。 evaluate_static_effects で対応するため
             # ここでは on_attached_don n=0 経由で呼ばれた時に SWORD キャラに 速攻:キャラ flag を立てる。
+            # 観戦コメント由来の修正: push_log は削除 (= evaluate_static_effects は
+            # 毎 _recompute_static で再評価される。 都度 log するとスナップショット数 爆増 +
+            # 観戦 log が冗長。 granted_keywords は カード hover で見えるので冗長表示不要)。
             for ip in me.characters:
                 if "SWORD" in ip.card.features:
                     ip.granted_keywords.add("速攻：キャラ")
-            state.push_log(f"  効果: SWORDキャラに速攻:キャラ付与")
         elif k == "keep_opp_rested_chara_next_refresh":
             # 「相手の (filter) レストのキャラ N 枚は、 次の相手のリフレッシュフェイズで
             # アクティブにならない」 (OP15-038 等)。 該当キャラに stay_rested_next_refresh フラグ。
