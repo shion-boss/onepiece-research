@@ -494,16 +494,40 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
   const atEnd = idx >= snapshots.length - 1;
   const playingActive = playing && !atEnd;
 
-  // snapshot 進行直後の 300ms は per-card mouseLeave を無視 (= ホバー freeze)。
-  // CSS rotate / 場の re-layout で mouseLeave が偽発火しても 観戦中の preview が
-  // ちらつかない。 stationary cursor 想定。 移動なしで snap が連続 進む間は ずっと
-  // freeze (= 各 snap 更新で再延長される)。
+  // Hover freeze 戦略:
+  // - 再生中 (= playingActive): freeze 常時 ON。 layout shift で mouseLeave が
+  //   偽発火しても無視 → ホバー維持。 stationary cursor 想定。
+  // - 一時停止 (= playingActive=false): 300ms grace 後 freeze OFF →
+  //   mouseLeave で即 clear (= user 要望: ホバー外したらすぐ消す)。
+  // - 手動 step (= 一時停止 中の idx 変化): 500ms freeze で layout settle 中の
+  //   偽 mouseLeave を吸収。
   //
-  // 重要: useEffect は paint 後 → ブラウザの mouseLeave 発火に間に合わない。
-  // useLayoutEffect で commit 直後 / paint 前に freeze を set することで、 layout
-  // shift 由来の mouseLeave が処理される前に freeze 状態に入る。
+  // タイミング: useLayoutEffect は commit 直後 / paint 前に走るので、 paint で
+  // 発生する layout-shift mouseLeave より先に freeze 状態が確定する。
   useLayoutEffect(() => {
-    freezeHoverBriefly(300);
+    if (playingActive) {
+      // 再生中: freeze 常時 ON。 既存 unfreeze timer は cancel。
+      _hoverFrozenRef.current = true;
+      if (_hoverFreezeTimer !== null) {
+        clearTimeout(_hoverFreezeTimer);
+        _hoverFreezeTimer = null;
+      }
+    } else {
+      // 一時停止: 300ms grace で OFF。
+      if (_hoverFreezeTimer !== null) clearTimeout(_hoverFreezeTimer);
+      _hoverFreezeTimer = setTimeout(() => {
+        _hoverFrozenRef.current = false;
+        _hoverFreezeTimer = null;
+      }, 300);
+    }
+  }, [playingActive]);
+
+  useLayoutEffect(() => {
+    // 手動 step (= 一時停止 中の idx 変化): 500ms 限定 freeze。
+    // 再生中の idx 変化は上の effect が既に freeze 維持してるので二重不要。
+    if (!playingActive) {
+      freezeHoverBriefly(500);
+    }
   }, [idx]);
 
   useEffect(() => {
@@ -1181,10 +1205,10 @@ export function MatchReplay({ replay }: { replay: ReplayResponse }) {
     <div
       className="relative flex min-h-0 flex-1 flex-col gap-2"
       // 観戦エリア全体から cursor が出た時のみ hover/anchor を clear。
-      // 個別 card の onMouseLeave では clear しない (= snapshot 進行で CSS rotate
-      // 変化 → 視覚位置ズレ → mouseLeave 連発 で ちらつく問題を回避)。
-      // カード間移動は mouseEnter の上書きで自然に動く。
+      // ただし再生中の freeze 期間は無視 (= layout shift で container 境界が
+      // ブレて偽 mouseLeave が発火するケースを救う)。
       onMouseLeave={() => {
+        if (_hoverFrozenRef.current) return;
         setHovered(null);
         setHoverAnchor(null);
       }}
