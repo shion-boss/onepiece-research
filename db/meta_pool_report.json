@@ -1,0 +1,157 @@
+{
+  "computed_at": "2026-05-14T05:54:07Z",
+  "active_count": 16,
+  "archive_count": 90,
+  "active_archetypes": [
+    "空島ルフィ",
+    "紫エネル",
+    "紫ドフラミンゴ",
+    "紫黄ロシナンテ",
+    "緑ミホーク",
+    "赤緑ルフィ（OP13）",
+    "赤青エース",
+    "赤青ルーシー",
+    "赤黄ボニー",
+    "赤黒コビー",
+    "青紫ルフィ",
+    "青黄ナミ",
+    "青黄ハンコック",
+    "黄カルガラ",
+    "黒イム",
+    "黒クロコダイル"
+  ],
+  "historical_archetypes_with_raw": [
+    "緑紫ルフィ",
+    "青紫サンジ"
+  ],
+  "variants": {
+    "紫エネル": [
+      {
+        "slug": "_v1",
+        "member_count": 27,
+        "characteristic_cards": [
+          "OP12-063",
+          "OP05-077",
+          "OP12-071"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v2",
+        "member_count": 3,
+        "characteristic_cards": [
+          "OP07-072",
+          "OP10-075",
+          "OP15-067"
+        ],
+        "is_split": true
+      }
+    ],
+    "赤青エース": [
+      {
+        "slug": "_v1",
+        "member_count": 2,
+        "characteristic_cards": [
+          "OP14-018",
+          "EB04-007",
+          "ST22-010"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v2",
+        "member_count": 1,
+        "characteristic_cards": [
+          "OP15-052",
+          "OP07-051",
+          "OP10-045"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v3",
+        "member_count": 2,
+        "characteristic_cards": [
+          "ST23-001",
+          "ST15-004",
+          "OP08-043"
+        ],
+        "is_split": true
+      }
+    ],
+    "青黄ナミ": [
+      {
+        "slug": "_v1",
+        "member_count": 13,
+        "characteristic_cards": [
+          "OP15-052",
+          "OP15-119",
+          "EB03-024"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v2",
+        "member_count": 3,
+        "characteristic_cards": [
+          "OP14-104",
+          "OP14-102",
+          "OP14-111"
+        ],
+        "is_split": true
+      }
+    ],
+    "青黄ハンコック": [
+      {
+        "slug": "_v1",
+        "member_count": 6,
+        "characteristic_cards": [
+          "OP14-113",
+          "OP14-103",
+          "OP06-106"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v2",
+        "member_count": 2,
+        "characteristic_cards": [
+          "OP11-054",
+          "OP14-114",
+          "OP14-102"
+        ],
+        "is_split": true
+      }
+    ],
+    "黒イム": [
+      {
+        "slug": "_v1",
+        "member_count": 3,
+        "characteristic_cards": [
+          "PRB02-014",
+          "OP13-092"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v2",
+        "member_count": 1,
+        "characteristic_cards": [
+          "OP11-097",
+          "OP13-092",
+          "OP05-082"
+        ],
+        "is_split": true
+      },
+      {
+        "slug": "_v3",
+        "member_count": 1,
+        "characteristic_cards": [
+          "OP15-091",
+          "PRB02-014"
+        ],
+        "is_split": true
+      }
+    ]
+  }
+}
