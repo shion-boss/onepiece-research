@@ -1,0 +1,69 @@
+{
+  "name": "黒イム",
+  "slug": "cardrush_1392",
+  "leader": "OP13-079",
+  "leader_name": "イム",
+  "source": "https://cardrush.media/onepiece/decks/1392",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-04-26",
+  "fetched_at": "2026-05-14T00:51:30Z",
+  "main": [
+    {
+      "card_id": "OP13-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-080",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-084",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-089",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-082",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-086",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-092",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-014",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-098",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-097",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-099",
+      "count": 1
+    }
+  ]
+}

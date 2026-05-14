@@ -3,30 +3,18 @@
   "slug": "cardrush_1439",
   "leader": "OP11-041",
   "leader_name": "ナミ",
-  "source": "https://tcg-portal.jp/onepiece/deck-guides/%E9%9D%92%E9%BB%84%E3%83%8A%E3%83%9F",
-  "score": "tcg-portal 集計 (Tier 2, 使用率 8.5%)",
-  "tournament_name": "tcg-portal aggregate",
-  "tournament_date": "2026-05-14",
-  "fetched_at": "2026-05-14T00:33:59Z",
+  "source": "https://cardrush.media/onepiece/decks/1439",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-04",
+  "fetched_at": "2026-05-14T00:51:01Z",
   "main": [
     {
-      "card_id": "OP14-104",
-      "count": 4
+      "card_id": "OP15-113",
+      "count": 1
     },
     {
-      "card_id": "EB03-055",
-      "count": 4
-    },
-    {
-      "card_id": "EB04-058",
-      "count": 4
-    },
-    {
-      "card_id": "EB03-053",
-      "count": 4
-    },
-    {
-      "card_id": "OP06-106",
+      "card_id": "PRB02-008",
       "count": 4
     },
     {
@@ -34,15 +22,43 @@
       "count": 4
     },
     {
-      "card_id": "OP13-042",
-      "count": 3
+      "card_id": "OP14-104",
+      "count": 4
     },
     {
-      "card_id": "OP14-111",
-      "count": 3
+      "card_id": "OP14-102",
+      "count": 4
     },
     {
       "card_id": "OP14-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-111",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-047",
+      "count": 1
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-042",
       "count": 3
     },
     {
@@ -50,33 +66,8 @@
       "count": 3
     },
     {
-      "card_id": "OP14-102",
-      "count": 3
-    },
-    {
-      "card_id": "OP11-054",
-      "count": 3
-    },
-    {
-      "card_id": "OP10-112",
+      "card_id": "OP06-059",
       "count": 2
-    },
-    {
-      "card_id": "OP15-047",
-      "count": 2
-    },
-    {
-      "card_id": "PRB02-008",
-      "count": 2
-    },
-    {
-      "card_id": "OP15-113",
-      "count": 1
-    },
-    {
-      "card_id": "OP06-058",
-      "count": 1
     }
-  ],
-  "regulation": "standard"
+  ]
 }

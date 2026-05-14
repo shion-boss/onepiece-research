@@ -11,10 +11,10 @@
   ],
   "leader_text": "【相手のアタック時】【ターン1回】ドン‼-1：自分のリーダーか特徴《ドンキホーテ海賊団》を持つキャラ1枚を選ぶ。選んだカードにアタックの対象を変更する。",
   "total_cards": 50,
-  "n_character": 40,
-  "n_event": 10,
+  "n_character": 43,
+  "n_event": 7,
   "n_stage": 0,
-  "avg_cost": 3.86,
+  "avg_cost": 4.22,
   "cost_curve": [
     {
       "cost": 0,
@@ -22,23 +22,19 @@
     },
     {
       "cost": 1,
-      "count": 10
-    },
-    {
-      "cost": 2,
-      "count": 4
+      "count": 11
     },
     {
       "cost": 3,
-      "count": 4
+      "count": 2
     },
     {
       "cost": 4,
-      "count": 7
+      "count": 6
     },
     {
       "cost": 5,
-      "count": 13
+      "count": 18
     },
     {
       "cost": 8,
@@ -46,12 +42,12 @@
     },
     {
       "cost": 10,
-      "count": 3
+      "count": 4
     }
   ],
-  "counter_total": 35000,
-  "counter_2k_count": 7,
-  "counter_1k_count": 21,
+  "counter_total": 38000,
+  "counter_2k_count": 8,
+  "counter_1k_count": 22,
   "blocker_count": 1,
   "color_distribution": {
     "紫": 50
@@ -59,11 +55,11 @@
   "top_features": [
     [
       "ドンキホーテ海賊団",
-      37
+      41
     ],
     [
       "王下七武海",
-      9
+      11
     ],
     [
       "パンクハザード",
@@ -71,18 +67,18 @@
     ],
     [
       "海軍",
-      6
+      4
     ],
     [
-      "フォクシー海賊団",
+      "海賊王",
       4
     ]
   ],
-  "archetype": "ランプ",
-  "speed": "中速",
+  "archetype": "コントロール",
+  "speed": "低速",
   "defense": "硬い",
   "consistency": "高い",
-  "strategy_summary": "特徴《ドンキホーテ海賊団》軸のランプデッキ (中速)。防御 硬い・安定性 高い。",
+  "strategy_summary": "特徴《ドンキホーテ海賊団》軸のコントロールデッキ (低速)。防御 硬い・安定性 高い。",
   "mulligan_keep_card_ids": [
     "OP10-065",
     "OP14-067"
@@ -90,7 +86,7 @@
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《ドンキホーテ海賊団/王下七武海》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《王下七武海/ドンキホーテ海賊団》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -111,7 +107,6 @@
       "turn": 3,
       "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
       "candidate_cards": [
-        "ST18-001",
         "ST18-001",
         "ST18-001"
       ]
@@ -136,18 +131,21 @@
     }
   ],
   "weaknesses": [
-    "ブロッカー 1 枚のみ: 直接攻撃を止めにくい"
+    "ブロッカー 1 枚のみ: 直接攻撃を止めにくい",
+    "平均コスト高い: 序盤の展開遅く、 アグロに押し切られる懸念",
+    "アグロデッキの早期 ライフ削りに脆弱、 序盤の捌きが重要"
   ],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "特徴《ドンキホーテ海賊団》専属 (37 枚): シナジーカードで爆発力"
+    "特徴《ドンキホーテ海賊団》専属 (41 枚): シナジーカードで爆発力",
+    "除去・防御で序盤捌き、 後半フィニッシャーで決める"
   ],
   "key_cards": [
     {
       "card_id": "OP14-069",
       "name": "ドンキホーテ・ドフラミンゴ",
-      "count": 3,
+      "count": 4,
       "cost": 10,
       "role": "removal",
       "reason": "相手キャラ除去 → 盤面コントロールの要"
@@ -185,51 +183,45 @@
       "reason": "DON 加速 → 大型早出しの起点"
     },
     {
-      "card_id": "OP14-068",
-      "name": "トレーボル",
-      "count": 3,
+      "card_id": "OP14-071",
+      "name": "ピーカ",
+      "count": 4,
       "cost": 5,
       "role": "ramp",
       "reason": "DON 加速 → 大型早出しの起点"
     },
     {
-      "card_id": "OP14-063",
-      "name": "シュガー",
+      "card_id": "OP14-068",
+      "name": "トレーボル",
       "count": 4,
-      "cost": 4,
+      "cost": 5,
       "role": "ramp",
       "reason": "DON 加速 → 大型早出しの起点"
     },
     {
       "card_id": "OP14-072",
       "name": "ベビー５",
-      "count": 3,
+      "count": 4,
       "cost": 4,
       "role": "ramp",
       "reason": "DON 加速 → 大型早出しの起点"
-    },
-    {
-      "card_id": "ST18-001",
-      "name": "ウソ八",
-      "count": 4,
-      "cost": 3,
-      "role": "counter",
-      "reason": "2k カウンター → 防御リソース"
     }
   ],
   "ai_hints": [
-    "DON 加速を最優先、 小型ブロッカーで凌いで大型展開へ",
+    "序盤は耐える、 相手のキャラ展開を都度処理",
+    "カウンター温存、 ライフは積極的に受けて手札を増やす",
+    "中盤以降にフィニッシャーで一気に決める",
     "ブロッカー少ないので、 リーダー攻撃を許容してライフで受ける選択も",
     "特徴《ドンキホーテ海賊団》専属: シナジーカードを優先プレイ"
   ],
   "ai_hint_signals": [
     {
-      "type": "prioritize_ramp_first",
+      "type": "preserve_counter_for_lethal",
       "value": true
     },
     {
       "type": "counter_aggression",
-      "value": "mid"
+      "value": "high"
     },
     {
       "type": "synergy_feature_priority",

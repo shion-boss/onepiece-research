@@ -1,0 +1,77 @@
+{
+  "name": "紫エネル",
+  "slug": "cardrush_1454",
+  "leader": "OP15-058",
+  "leader_name": "エネル",
+  "source": "https://cardrush.media/onepiece/decks/1454",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-11",
+  "fetched_at": "2026-05-14T00:50:44Z",
+  "main": [
+    {
+      "card_id": "OP15-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-067",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-066",
+      "count": 2
+    },
+    {
+      "card_id": "ST10-010",
+      "count": 1
+    },
+    {
+      "card_id": "OP10-067",
+      "count": 1
+    },
+    {
+      "card_id": "OP12-063",
+      "count": 2
+    },
+    {
+      "card_id": "OP09-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-118",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-077",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-076",
+      "count": 2
+    },
+    {
+      "card_id": "OP05-077",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-074",
+      "count": 4
+    }
+  ]
+}

@@ -11,14 +11,14 @@
   ],
   "leader_text": "相手のキャラすべては、自分の効果で場を離れない。【起動メイン】【ターン1回】自分の『B・W』を含む特徴を持つキャラ1枚をKOできる：相手のキャラ1枚までを、このターン中、コスト-10。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
   "total_cards": 50,
-  "n_character": 38,
-  "n_event": 12,
+  "n_character": 40,
+  "n_event": 10,
   "n_stage": 0,
-  "avg_cost": 3.12,
+  "avg_cost": 3.56,
   "cost_curve": [
     {
       "cost": 1,
-      "count": 27
+      "count": 25
     },
     {
       "cost": 4,
@@ -26,57 +26,63 @@
     },
     {
       "cost": 5,
-      "count": 9
+      "count": 7
     },
     {
       "cost": 7,
-      "count": 4
+      "count": 6
     },
     {
       "cost": 8,
       "count": 4
+    },
+    {
+      "cost": 10,
+      "count": 2
     }
   ],
-  "counter_total": 41000,
+  "counter_total": 42000,
   "counter_2k_count": 11,
-  "counter_1k_count": 19,
-  "blocker_count": 4,
+  "counter_1k_count": 20,
+  "blocker_count": 5,
   "color_distribution": {
     "黒": 50
   },
   "top_features": [
     [
       "B・W",
-      46
+      39
     ],
     [
       "王下七武海",
-      12
+      11
+    ],
+    [
+      "人魚族",
+      3
+    ],
+    [
+      "麦わらの一味",
+      3
     ],
     [
       "トンタッタ族",
-      4
-    ],
-    [
-      "ドレスローザ",
-      4
+      3
     ]
   ],
   "archetype": "ミッドレンジ",
-  "speed": "中速",
+  "speed": "低速",
   "defense": "硬い",
   "consistency": "高い",
-  "strategy_summary": "特徴《B・W》軸のミッドレンジデッキ (中速)。防御 硬い・安定性 高い。",
+  "strategy_summary": "特徴《B・W》軸のミッドレンジデッキ (低速)。防御 硬い・安定性 高い。",
   "mulligan_keep_card_ids": [
-    "OP14-087",
     "OP14-083",
-    "OP14-088",
-    "OP14-099"
+    "OP14-087"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《B・W/王下七武海》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《王下七武海/B・W》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -88,8 +94,8 @@
       "turn": 1,
       "description": "1 コストキャラを展開、 序盤テンポ確保",
       "candidate_cards": [
-        "OP14-087",
-        "OP14-087",
+        "OP14-085",
+        "OP14-085",
         "OP14-087"
       ]
     },
@@ -106,28 +112,34 @@
       "turn": 6,
       "description": "フィニッシャー展開、 リーサル準備",
       "candidate_cards": [
-        "OP14-120",
-        "OP14-120",
+        "P-100",
+        "P-100",
         "OP14-120"
       ]
     }
   ],
-  "weaknesses": [
-    "ブロッカー 4 枚のみ: 直接攻撃を止めにくい"
-  ],
+  "weaknesses": [],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "特徴《B・W》専属 (46 枚): シナジーカードで爆発力"
+    "特徴《B・W》専属 (39 枚): シナジーカードで爆発力"
   ],
   "key_cards": [
     {
       "card_id": "OP14-084",
       "name": "ミス・オールサンデー",
-      "count": 4,
+      "count": 3,
       "cost": 7,
       "role": "finisher",
       "reason": "高コスト (7)・高パワー (8000) フィニッシャー"
+    },
+    {
+      "card_id": "OP15-092",
+      "name": "モンキー・Ｄ・ルフィ",
+      "count": 3,
+      "cost": 7,
+      "role": "finisher",
+      "reason": "高コスト (7)・高パワー (7000) フィニッシャー"
     },
     {
       "card_id": "OP14-087",
@@ -140,7 +152,7 @@
     {
       "card_id": "OP14-099",
       "name": "不服か？",
-      "count": 4,
+      "count": 3,
       "cost": 1,
       "role": "search",
       "reason": "デッキからサーチ → 安定性向上の柱"
@@ -150,22 +162,6 @@
       "name": "クロコダイル",
       "count": 4,
       "cost": 8,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP14-088",
-      "name": "ミス・メリークリスマス(ドロフィー)",
-      "count": 4,
-      "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP14-085",
-      "name": "ミス・ゴールデンウィーク(マリアンヌ)",
-      "count": 3,
-      "cost": 1,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
@@ -192,11 +188,26 @@
       "cost": 1,
       "role": "synergy",
       "reason": "リーダー特徴一致 + 安価 → 序盤のシナジー要員"
+    },
+    {
+      "card_id": "OP14-094",
+      "name": "Mr.5(ジェム)",
+      "count": 3,
+      "cost": 5,
+      "role": "blocker",
+      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
+    },
+    {
+      "card_id": "OP05-082",
+      "name": "しらほし",
+      "count": 3,
+      "cost": 1,
+      "role": "counter",
+      "reason": "2k カウンター → 防御リソース"
     }
   ],
   "ai_hints": [
     "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
-    "ブロッカー少ないので、 リーダー攻撃を許容してライフで受ける選択も",
     "特徴《B・W》専属: シナジーカードを優先プレイ"
   ],
   "ai_hint_signals": [
@@ -211,15 +222,12 @@
     {
       "type": "early_finisher_hold",
       "value": [
-        "OP14-084"
+        "OP14-084",
+        "OP15-092"
       ]
     },
     {
       "type": "tank_lifeup_ok",
-      "value": true
-    },
-    {
-      "type": "blocker_scarce",
       "value": true
     }
   ]

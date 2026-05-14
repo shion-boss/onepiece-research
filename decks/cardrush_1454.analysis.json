@@ -10,51 +10,51 @@
   ],
   "leader_text": "ルール上、自分のドン‼デッキは6枚になる。【起動メイン】【ターン1回】自分の第2ターン以降の場合、ドン‼デッキからドン‼1枚までをアクティブで追加し、さらに4枚までをレストで追加する。その後、自分のキャラ1枚にレストのドン‼4枚までを、付与する。",
   "total_cards": 50,
-  "n_character": 28,
-  "n_event": 22,
+  "n_character": 24,
+  "n_event": 26,
   "n_stage": 0,
-  "avg_cost": 1.82,
+  "avg_cost": 1.54,
   "cost_curve": [
     {
       "cost": 0,
-      "count": 19
+      "count": 22
     },
     {
       "cost": 1,
-      "count": 14
+      "count": 12
     },
     {
       "cost": 2,
-      "count": 3
-    },
-    {
-      "cost": 3,
-      "count": 1
+      "count": 4
     },
     {
       "cost": 4,
-      "count": 5
+      "count": 7
+    },
+    {
+      "cost": 5,
+      "count": 1
     },
     {
       "cost": 6,
-      "count": 8
+      "count": 4
     }
   ],
-  "counter_total": 24000,
-  "counter_2k_count": 2,
-  "counter_1k_count": 20,
-  "blocker_count": 9,
+  "counter_total": 19000,
+  "counter_2k_count": 0,
+  "counter_1k_count": 19,
+  "blocker_count": 7,
   "color_distribution": {
     "紫": 50
   },
   "top_features": [
     [
       "空島",
-      35
+      32
     ],
     [
       "神官",
-      10
+      8
     ],
     [
       "ハートの海賊団",
@@ -65,22 +65,22 @@
       4
     ],
     [
-      "ヴィンスモーク家",
-      3
+      "麦わらの一味",
+      4
     ]
   ],
   "archetype": "ミッドレンジ",
   "speed": "高速",
-  "defense": "標準",
+  "defense": "脆い",
   "consistency": "高い",
-  "strategy_summary": "特徴《空島》軸のミッドレンジデッキ (高速)。防御 標準・安定性 高い。",
+  "strategy_summary": "特徴《空島》軸のミッドレンジデッキ (高速)。防御 脆い・安定性 高い。",
   "mulligan_keep_card_ids": [
-    "OP15-075",
-    "OP15-078",
-    "OP15-077",
-    "OP15-076",
     "OP15-061",
-    "OP12-071"
+    "OP12-071",
+    "OP09-072",
+    "OP15-077",
+    "OP15-075",
+    "OP15-076"
   ],
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
@@ -103,18 +103,11 @@
       ]
     },
     {
-      "turn": 3,
-      "description": "3 コスト主力キャラ展開、 リーダー攻撃で圧",
-      "candidate_cards": [
-        "OP15-071"
-      ]
-    },
-    {
       "turn": 4,
       "description": "4-5 コスト中堅展開、 盤面強化",
       "candidate_cards": [
-        "OP12-063",
-        "OP12-063",
+        "OP10-067",
+        "ST10-010",
         "OP12-063"
       ]
     },
@@ -128,11 +121,12 @@
       ]
     }
   ],
-  "weaknesses": [],
+  "weaknesses": [
+    "カウンター総量 < 24,000: 防御薄、 連続攻撃に弱い"
+  ],
   "strengths": [
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
-    "ブロッカー 9 枚: 直接攻撃を抑止できる",
-    "特徴《空島》専属 (35 枚): シナジーカードで爆発力"
+    "特徴《空島》専属 (32 枚): シナジーカードで爆発力"
   ],
   "key_cards": [
     {
@@ -160,34 +154,18 @@
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
     {
+      "card_id": "OP09-072",
+      "name": "フランキー",
+      "count": 4,
+      "cost": 4,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
       "card_id": "OP15-061",
       "name": "オーム",
       "count": 4,
       "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP15-066",
-      "name": "サトリ",
-      "count": 3,
-      "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP15-067",
-      "name": "シュラ",
-      "count": 3,
-      "cost": 1,
-      "role": "draw",
-      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
-    },
-    {
-      "card_id": "OP15-078",
-      "name": "万雷",
-      "count": 4,
-      "cost": 0,
       "role": "draw",
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
@@ -208,16 +186,25 @@
       "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     },
     {
-      "card_id": "OP12-063",
-      "name": "ヴィンスモーク・レイジュ",
-      "count": 3,
-      "cost": 4,
-      "role": "blocker",
-      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
+      "card_id": "OP15-078",
+      "name": "万雷",
+      "count": 4,
+      "cost": 0,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
+    },
+    {
+      "card_id": "OP15-074",
+      "name": "放電",
+      "count": 4,
+      "cost": 0,
+      "role": "draw",
+      "reason": "ドロー加速 → 手札枚数とカウンター総量を維持"
     }
   ],
   "ai_hints": [
     "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
+    "ブロッカーは慎重に切る (= 1 体の生存価値が高い)",
     "特徴《空島》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
   ],
@@ -229,6 +216,10 @@
     {
       "type": "synergy_feature_priority",
       "value": "空島"
+    },
+    {
+      "type": "avoid_life_loss",
+      "value": true
     }
   ]
 }
