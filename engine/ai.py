@@ -2160,6 +2160,31 @@ class DeepPlanningAI(GreedyAI):
 PlanningAI = DeepPlanningAI
 
 
+class LightDeepPlanningAI(DeepPlanningAI):
+    """軽量モード DeepPlanningAI: 1 試合 ~10s 目標。
+
+    用途:
+      - Vercel Functions (= maxDuration 60s) でのオンデマンド対戦シミュレート
+      - self-play data collection (= 5000 試合を実時間で完走)
+
+    フル DeepPlanningAI は T6+ で `max_turns=MAX_TURNS_HARD_CAP=8` まで読み
+    1 action 10-15s かかるため、 60s 制限の Vercel では timeout する。
+    本クラスは `_compute_adaptive_params` を override して max_turns 上限を 3 に固定。
+    1 action 1-2s = 1 試合 5-15s 目標。
+
+    トレードオフ: 探索深さは浅くなるが、 LookaheadAI/GreedyAI より深い計算 (= beam search)
+    を維持。 学習データ品質も実用範囲。
+    """
+
+    def _compute_adaptive_params(self, state):  # type: ignore[override]
+        turn = state.turn_number
+        if turn <= 2:
+            return (3, 1, 4)   # (beam, max_turns, depth)
+        if turn <= 5:
+            return (3, 2, 4)
+        return (2, 3, 3)       # T6+ も max_turns=3 上限
+
+
 # --------------------------------------------------------------------------- #
 # 攻撃時の防御を組み込んだ apply ラッパー
 # --------------------------------------------------------------------------- #
