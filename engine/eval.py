@@ -54,6 +54,84 @@ class BoardEvalWeights:
     # opp.hand は隠匿だが、 未公開プール (opp.deck + opp.hand) の役割分布から
     # 平均役割価値 × 手札枚数で期待脅威度を推定。 ハンド剥がし系の価値判断に効く。
     W_OPP_HAND_THREAT: int = 300
+    # ----------------------------------------------------------------------- #
+    # Step 2-pre (R72+): 24 新規指標。 全て初期値 0、 outcome regression で学習。
+    # 計画 10 + 即追加 9 + state 拡張 5。
+    # ----------------------------------------------------------------------- #
+    # 計画書 10 (= 既存 plan 由来)
+    W_IS_FIRST_PLAYER: int = 0
+    W_STAGE_COUNT: int = 0
+    W_STAGE_VALUE: int = 0
+    W_TRASH_COUNT: int = 0
+    W_TRASH_ARCHETYPE_MATCH: int = 0
+    W_RUSH_COUNT: int = 0
+    W_DOUBLE_ATTACK_COUNT: int = 0
+    W_STATIC_COST_REDUCTION_TOTAL: int = 0
+    W_PLAYABLE_COST_MATCH: int = 0
+    W_SYNERGY_COUNT: int = 0
+    # 即追加 9 (= 他ゲーム AI 調査 由来)
+    W_IS_MY_TURN: int = 0
+    W_TURN_NUMBER_NORMALIZED: int = 0
+    W_DEAD_CARD_IN_HAND: int = 0
+    W_OPP_ACTIVE_BLOCKER_COUNT: int = 0
+    W_REMOVAL_THREAT_COUNT: int = 0
+    W_SELF_COUNTER_IN_HAND_TOTAL: int = 0
+    W_FINISHER_IN_HAND_COUNT: int = 0
+    W_KEYWORD_TAUNT_COUNT: int = 0
+    W_KO_IMMUNE_COUNT: int = 0
+    # state 拡張 5 (= cards_drawn_count 等の累積カウンタ由来)
+    W_CARDS_DRAWN_TOTAL: int = 0
+    W_CARDS_PLAYED_TOTAL: int = 0
+    W_DONS_USED_TOTAL: int = 0
+    W_TEMPO_LOST_TOTAL: int = 0
+    W_OPP_KNOWN_FINISHER_COUNT: int = 0
+    # Step 2A (= 計画書 Phase 2A 由来 4 個)
+    W_DON_RESERVE: int = 0
+    W_FIELD_EXPOSURE: int = 0
+    W_HAND_LOG: int = 0
+    W_LETHAL_RISK_DIFF: int = 0
+    # ----------------------------------------------------------------------- #
+    # Iter2 (R72+ 続): interaction 項 30 個 (= 線形回帰では拾えない組合せ条件)。
+    # 全部 binary、 self/opp 対称、 default 0 で学習任せ。
+    # ----------------------------------------------------------------------- #
+    # A. 危険サイン (= 守備系) 5
+    W_INT_LOW_LIFE_LOW_HAND: int = 0
+    W_INT_LOW_LIFE_NO_BLOCKER: int = 0
+    W_INT_OPP_LETHAL_NO_COUNTER: int = 0
+    W_INT_DEFENSIVE_COLLAPSE: int = 0
+    W_INT_OPP_DA_PRESSURE: int = 0
+    # B. 攻めサイン (= 攻撃系) 5
+    W_INT_LETHAL_SETUP_READY: int = 0
+    W_INT_AGGRESSIVE_WINDOW_OPEN: int = 0
+    W_INT_BURST_THRESHOLD: int = 0
+    W_INT_REMOVAL_WINDOW: int = 0
+    W_INT_DON_ADVANTAGE_OPEN: int = 0
+    # C. テンポ系 4
+    W_INT_ON_CURVE: int = 0
+    W_INT_TEMPO_LOST_CRITICAL: int = 0
+    W_INT_RAMP_PAYING_OFF: int = 0
+    W_INT_MANA_STARVED: int = 0
+    # D. シナジー系 4
+    W_INT_SYNERGY_THRESHOLD_3: int = 0
+    W_INT_TRASH_ARCHETYPE_5: int = 0
+    W_INT_STAGE_WITH_SYNERGY: int = 0
+    W_INT_RAMP_FINISHER_COMBO: int = 0
+    # E. 隠匿/情報系 3
+    W_INT_OPP_HIDDEN_THREAT_HIGH: int = 0
+    W_INT_SELF_HAND_QUALITY_HIGH: int = 0
+    W_INT_OPP_LOW_RESOURCE: int = 0
+    # F. ターン文脈系 3
+    W_INT_EARLY_GAME_STRONG: int = 0
+    W_INT_MID_GAME_PRESSURE: int = 0
+    W_INT_LATE_GAME_SOLVER: int = 0
+    # G. KO 耐性 / blocker 系 2
+    W_INT_KO_IMMUNE_FINISHER: int = 0
+    W_INT_BLOCKER_WITH_TAUNT: int = 0
+    # H. 特殊 4
+    W_INT_FIRST_PLAYER_EARLY_ADV: int = 0
+    W_INT_SECOND_PLAYER_LATE_SWING: int = 0
+    W_INT_EXPOSED_FINISHER: int = 0
+    W_INT_DRAW_ADVANTAGE: int = 0
     # ゲーム終了 (decisive)
     W_GAME_OVER: int = 1_000_000
 
@@ -88,6 +166,66 @@ def _load_weights_from_ai_params() -> BoardEvalWeights:
             W_CHARA_QUALITY=int(p.get("w_chara_quality", 400)),
             W_HAND_QUALITY=int(p.get("w_hand_quality", 150)),
             W_OPP_HAND_THREAT=int(p.get("w_opp_hand_threat", 300)),
+            # Step 2-pre (R72+): 24 新規。 全て default 0、 学習で更新される。
+            W_IS_FIRST_PLAYER=int(p.get("w_is_first_player", 0)),
+            W_STAGE_COUNT=int(p.get("w_stage_count", 0)),
+            W_STAGE_VALUE=int(p.get("w_stage_value", 0)),
+            W_TRASH_COUNT=int(p.get("w_trash_count", 0)),
+            W_TRASH_ARCHETYPE_MATCH=int(p.get("w_trash_archetype_match", 0)),
+            W_RUSH_COUNT=int(p.get("w_rush_count", 0)),
+            W_DOUBLE_ATTACK_COUNT=int(p.get("w_double_attack_count", 0)),
+            W_STATIC_COST_REDUCTION_TOTAL=int(p.get("w_static_cost_reduction_total", 0)),
+            W_PLAYABLE_COST_MATCH=int(p.get("w_playable_cost_match", 0)),
+            W_SYNERGY_COUNT=int(p.get("w_synergy_count", 0)),
+            W_IS_MY_TURN=int(p.get("w_is_my_turn", 0)),
+            W_TURN_NUMBER_NORMALIZED=int(p.get("w_turn_number_normalized", 0)),
+            W_DEAD_CARD_IN_HAND=int(p.get("w_dead_card_in_hand", 0)),
+            W_OPP_ACTIVE_BLOCKER_COUNT=int(p.get("w_opp_active_blocker_count", 0)),
+            W_REMOVAL_THREAT_COUNT=int(p.get("w_removal_threat_count", 0)),
+            W_SELF_COUNTER_IN_HAND_TOTAL=int(p.get("w_self_counter_in_hand_total", 0)),
+            W_FINISHER_IN_HAND_COUNT=int(p.get("w_finisher_in_hand_count", 0)),
+            W_KEYWORD_TAUNT_COUNT=int(p.get("w_keyword_taunt_count", 0)),
+            W_KO_IMMUNE_COUNT=int(p.get("w_ko_immune_count", 0)),
+            W_CARDS_DRAWN_TOTAL=int(p.get("w_cards_drawn_total", 0)),
+            W_CARDS_PLAYED_TOTAL=int(p.get("w_cards_played_total", 0)),
+            W_DONS_USED_TOTAL=int(p.get("w_dons_used_total", 0)),
+            W_TEMPO_LOST_TOTAL=int(p.get("w_tempo_lost_total", 0)),
+            W_OPP_KNOWN_FINISHER_COUNT=int(p.get("w_opp_known_finisher_count", 0)),
+            W_DON_RESERVE=int(p.get("w_don_reserve", 0)),
+            W_FIELD_EXPOSURE=int(p.get("w_field_exposure", 0)),
+            W_HAND_LOG=int(p.get("w_hand_log", 0)),
+            W_LETHAL_RISK_DIFF=int(p.get("w_lethal_risk_diff", 0)),
+            # Iter2 interaction 30 個
+            W_INT_LOW_LIFE_LOW_HAND=int(p.get("w_int_low_life_low_hand", 0)),
+            W_INT_LOW_LIFE_NO_BLOCKER=int(p.get("w_int_low_life_no_blocker", 0)),
+            W_INT_OPP_LETHAL_NO_COUNTER=int(p.get("w_int_opp_lethal_no_counter", 0)),
+            W_INT_DEFENSIVE_COLLAPSE=int(p.get("w_int_defensive_collapse", 0)),
+            W_INT_OPP_DA_PRESSURE=int(p.get("w_int_opp_da_pressure", 0)),
+            W_INT_LETHAL_SETUP_READY=int(p.get("w_int_lethal_setup_ready", 0)),
+            W_INT_AGGRESSIVE_WINDOW_OPEN=int(p.get("w_int_aggressive_window_open", 0)),
+            W_INT_BURST_THRESHOLD=int(p.get("w_int_burst_threshold", 0)),
+            W_INT_REMOVAL_WINDOW=int(p.get("w_int_removal_window", 0)),
+            W_INT_DON_ADVANTAGE_OPEN=int(p.get("w_int_don_advantage_open", 0)),
+            W_INT_ON_CURVE=int(p.get("w_int_on_curve", 0)),
+            W_INT_TEMPO_LOST_CRITICAL=int(p.get("w_int_tempo_lost_critical", 0)),
+            W_INT_RAMP_PAYING_OFF=int(p.get("w_int_ramp_paying_off", 0)),
+            W_INT_MANA_STARVED=int(p.get("w_int_mana_starved", 0)),
+            W_INT_SYNERGY_THRESHOLD_3=int(p.get("w_int_synergy_threshold_3", 0)),
+            W_INT_TRASH_ARCHETYPE_5=int(p.get("w_int_trash_archetype_5", 0)),
+            W_INT_STAGE_WITH_SYNERGY=int(p.get("w_int_stage_with_synergy", 0)),
+            W_INT_RAMP_FINISHER_COMBO=int(p.get("w_int_ramp_finisher_combo", 0)),
+            W_INT_OPP_HIDDEN_THREAT_HIGH=int(p.get("w_int_opp_hidden_threat_high", 0)),
+            W_INT_SELF_HAND_QUALITY_HIGH=int(p.get("w_int_self_hand_quality_high", 0)),
+            W_INT_OPP_LOW_RESOURCE=int(p.get("w_int_opp_low_resource", 0)),
+            W_INT_EARLY_GAME_STRONG=int(p.get("w_int_early_game_strong", 0)),
+            W_INT_MID_GAME_PRESSURE=int(p.get("w_int_mid_game_pressure", 0)),
+            W_INT_LATE_GAME_SOLVER=int(p.get("w_int_late_game_solver", 0)),
+            W_INT_KO_IMMUNE_FINISHER=int(p.get("w_int_ko_immune_finisher", 0)),
+            W_INT_BLOCKER_WITH_TAUNT=int(p.get("w_int_blocker_with_taunt", 0)),
+            W_INT_FIRST_PLAYER_EARLY_ADV=int(p.get("w_int_first_player_early_adv", 0)),
+            W_INT_SECOND_PLAYER_LATE_SWING=int(p.get("w_int_second_player_late_swing", 0)),
+            W_INT_EXPOSED_FINISHER=int(p.get("w_int_exposed_finisher", 0)),
+            W_INT_DRAW_ADVANTAGE=int(p.get("w_int_draw_advantage", 0)),
         )
     except Exception:
         return BoardEvalWeights()
@@ -332,6 +470,410 @@ def hand_quality_score(player: Player) -> float:
     return total
 
 
+# ----------------------------------------------------------------------- #
+# Step 2-pre (R72+): 24 新規指標の計算 helper。 全て feature value のみを返す
+# (= 重みは BoardEvalWeights / compute_breakdown で適用)。
+# ----------------------------------------------------------------------- #
+
+
+# role 判定 cache (= _CARD_VALUE_CACHE と並行)
+_CARD_ROLE_CACHE: Optional[dict[str, str]] = None
+
+
+def _get_card_role(card_id: str) -> str:
+    """{card_id: primary_role} の直接 cache。 未登録は ""(空文字)。"""
+    global _CARD_ROLE_CACHE
+    if _CARD_ROLE_CACHE is None:
+        from . import card_role
+        try:
+            role_db = card_role.load_card_role_db()
+        except Exception:
+            _CARD_ROLE_CACHE = {}
+            return ""
+        _CARD_ROLE_CACHE = {
+            cid: v.get("primary_role", "") if isinstance(v, dict) else ""
+            for cid, v in role_db.items()
+        }
+    return _CARD_ROLE_CACHE.get(card_id, "")
+
+
+def stage_count(player: Player) -> int:
+    """場のステージ枚数。"""
+    return len(player.stages)
+
+
+def stage_value(player: Player) -> float:
+    """場のステージの role 別合計価値。"""
+    return sum(_get_card_value(s.card.card_id) for s in player.stages)
+
+
+def trash_count(player: Player) -> int:
+    """トラッシュ枚数。"""
+    return len(player.trash)
+
+
+def trash_archetype_match(player: Player) -> int:
+    """トラッシュ内、 自リーダー features と共通 feature を持つカード数。
+
+    紫エネル系 (= サトリ等) の発動条件 / 黒系 (= cost-by-trash) の参照。
+    leader.features ∩ trash card.features ≠ ∅ をカウント。
+    """
+    leader_features = set(player.leader.card.features or ())
+    if not leader_features:
+        return 0
+    count = 0
+    for c in player.trash:
+        if leader_features & set(c.features or ()):
+            count += 1
+    return count
+
+
+def rush_count(player: Player) -> int:
+    """場のキャラのうち 速攻 持ち数。"""
+    return sum(1 for c in player.characters if c.is_rush_now)
+
+
+def double_attack_count(player: Player) -> int:
+    """場のキャラのうち ダブルアタック 持ち数。"""
+    return sum(1 for c in player.characters if c.is_double_attack_now)
+
+
+def static_cost_reduction_total(player: Player) -> int:
+    """常駐 cost 軽減源の合計 (= play_cost_reductions_filtered の amount sum)。"""
+    return sum(int(r.get("amount", 0)) for r in player.play_cost_reductions_filtered)
+
+
+def synergy_count(player: Player) -> int:
+    """場 (= leader + characters + stages) の特徴チェーン数。
+
+    各 feature について 「leader が持ってて、 場に同 feature 持ちキャラが N 体」 なら N をカウント。
+    複数 feature が重なれば加算 (= 麦わら × 4 + 海軍 × 2 等)。
+    feature が leader にない場合は 0 (= リーダーに紐づかないシナジーは無視)。
+    """
+    leader_features = set(player.leader.card.features or ())
+    if not leader_features:
+        return 0
+    feature_count: dict[str, int] = {f: 0 for f in leader_features}
+    for ip in player.characters:
+        for f in (ip.card.features or ()):
+            if f in feature_count:
+                feature_count[f] += 1
+    for ip in player.stages:
+        for f in (ip.card.features or ()):
+            if f in feature_count:
+                feature_count[f] += 1
+    return sum(feature_count.values())
+
+
+def dead_card_in_hand(player: Player) -> int:
+    """手札中、 現在の don_active で play 不可能なカード数 (= dead in hand)。
+
+    cost - play_cost_reduction > don_active で dead 判定。
+    手札は隠匿だが、 self 視点なら自手札なので公開情報。
+    """
+    available_don = player.don_active
+    reduction = player.play_cost_reduction
+    count = 0
+    for c in player.hand:
+        eff_cost = max(0, (c.cost or 0) - reduction)
+        if eff_cost > available_don:
+            count += 1
+    return count
+
+
+def active_blocker_count(player: Player) -> int:
+    """場のキャラのうち active (= not rested) かつ blocker。 既存 blocker は rest 無視。"""
+    return sum(
+        1 for c in player.characters
+        if c.is_blocker_now and not c.rested
+    )
+
+
+def removal_threat_count(player: Player) -> int:
+    """手札中の role=removal カード数 + 場の activate_main で removal 持ち数。
+
+    簡略化: 手札のみ。 場の activate_main は overlay 走査が必要 → 省略。
+    self 側のみ完全公開、 opp は known_hand_card_ids 経由で部分公開。
+    """
+    return sum(1 for c in player.hand if _get_card_role(c.card_id) == "removal")
+
+
+def self_counter_in_hand_total(player: Player) -> int:
+    """自手札の counter 値合計 (= 公開情報側の counter 厚さ)。"""
+    return sum(c.counter or 0 for c in player.hand)
+
+
+def finisher_in_hand_count(player: Player) -> int:
+    """自手札の role=finisher カード数。"""
+    return sum(1 for c in player.hand if _get_card_role(c.card_id) == "finisher")
+
+
+def keyword_taunt_count(player: Player) -> int:
+    """場のキャラのうち attack_taunt (= 「相手はこのキャラ以外にアタックできない」) 数。"""
+    return sum(1 for c in player.characters if c.attack_taunt)
+
+
+def ko_immune_count(player: Player) -> int:
+    """場のキャラのうち KO 耐性 (= 静的 / バトル / ターン中) を持つ数。"""
+    count = 0
+    for c in player.characters:
+        if (
+            c.battle_ko_immune_static
+            or c.static_ko_immune
+            or c.ko_immune_until_turn_end
+            or c.ko_immune_through_opp_turn
+            or c.ko_immune_battle_attributes_in
+            or c.ko_immune_battle_attributes_not_in
+        ):
+            count += 1
+    return count
+
+
+def opp_known_finisher_count(player: Player) -> int:
+    """known_hand_card_ids 内の role=finisher カード数。
+
+    Phase 7I の公開済手札追跡を利用 (= return_to_hand / search で公開した分)。
+    隠匿でない部分のみカウント。
+    """
+    return sum(1 for cid in player.known_hand_card_ids if _get_card_role(cid) == "finisher")
+
+
+def playable_cost_match(player: Player) -> int:
+    """「max 手札 cost - don_active」 の単純差。 大きいほど 手札が重く play できない (= bad)。
+
+    on-curve かどうかのテンポ整合度。 手札空なら 0 を返す (= 計算不能)。
+    """
+    if not player.hand:
+        return 0
+    max_cost = max((c.cost or 0) for c in player.hand)
+    return max_cost - player.don_active
+
+
+def don_reserve(player: Player) -> int:
+    """未使用 DON (= don_active)。 既存 W_DON は total_don なので別物。"""
+    return player.don_active
+
+
+def field_exposure(self_p: Player, opp_p: Player) -> int:
+    """opp の最大 attacker power で取られそうな自キャラ数。
+
+    opp の leader + characters のうち active な最大 power を attacker_max とし、
+    self.characters のうち power < attacker_max + 1000 (= 1 ドン付与で届く) の数を返す。
+    """
+    attackers = [opp_p.leader.power] if not opp_p.leader.rested else []
+    attackers.extend(c.power for c in opp_p.characters if not c.rested and not c.summoning_sickness)
+    if not attackers:
+        return 0
+    threshold = max(attackers) + 1000  # 1 DON 付与で届く
+    return sum(1 for c in self_p.characters if c.power < threshold)
+
+
+def hand_log(player: Player) -> float:
+    """log(hand + 1)。 hand 6→7 と 1→2 の価値差を非線形化。"""
+    return math.log(len(player.hand) + 1)
+
+
+def lethal_risk_diff(state: GameState, me_idx: int) -> int:
+    """self_lethal >= 0.7 - opp_lethal >= 0.7 の binary 化。
+
+    既存 lethal は連続値、 この指標は「クリティカル閾値到達」 binary。
+    """
+    self_l = lethal_estimate(state, me_idx)
+    opp_l = lethal_estimate(state, 1 - me_idx)
+    self_bin = 1 if self_l >= 0.7 else 0
+    opp_bin = 1 if opp_l >= 0.7 else 0
+    return self_bin - opp_bin
+
+
+def _compute_interactions(
+    state: GameState, me_idx: int,
+    me: Player, opp: Player,
+    sm: dict, om: dict,
+    self_lethal_v: float, opp_lethal_v: float,
+    weights: BoardEvalWeights,
+) -> list[tuple]:
+    """Iter2 (R72+): 30 個の binary interaction 項を計算。
+
+    self/opp 対称、 me 視点で self_value / opp_value を返す。 各重み 0 で start、
+    線形回帰で重み学習。 「線形モデルが拾えない組合せ条件」 を明示的に手書き。
+    """
+    me_blocker = sm["blocker"]; opp_blocker = om["blocker"]
+    me_active = sm["active_chara"]; opp_active = om["active_chara"]
+    me_life = sm["life"]; opp_life = om["life"]
+    me_hand = sm["hand"]; opp_hand = om["hand"]
+    me_don = sm["don"]; opp_don = om["don"]
+    turn = state.turn_number
+    me_is_first = me_idx == 0
+
+    me_double_atk = double_attack_count(me)
+    opp_double_atk = double_attack_count(opp)
+    me_active_blocker = active_blocker_count(me)
+    opp_active_blocker = active_blocker_count(opp)
+    me_dead_in_hand = dead_card_in_hand(me)
+    opp_dead_in_hand = dead_card_in_hand(opp)
+    me_counter = self_counter_in_hand_total(me)
+    opp_counter = self_counter_in_hand_total(opp)
+    me_finisher_hand = finisher_in_hand_count(me)
+    opp_finisher_hand = finisher_in_hand_count(opp)
+    me_synergy = synergy_count(me)
+    opp_synergy = synergy_count(opp)
+    me_stage = stage_count(me)
+    opp_stage = stage_count(opp)
+    me_trash_arch = trash_archetype_match(me)
+    opp_trash_arch = trash_archetype_match(opp)
+    me_ko_immune = ko_immune_count(me)
+    opp_ko_immune = ko_immune_count(opp)
+    me_taunt = keyword_taunt_count(me)
+    opp_taunt = keyword_taunt_count(opp)
+    me_chara_q = chara_quality_score(me)
+    opp_chara_q = chara_quality_score(opp)
+    me_hand_q = hand_quality_score(me)
+    opp_hand_q = hand_quality_score(opp)
+    me_field_exp = field_exposure(me, opp)
+    opp_field_exp = field_exposure(opp, me)
+    me_known_fin = opp_known_finisher_count(me)
+    opp_known_fin = opp_known_finisher_count(opp)
+    self_threat = opp_hand_threat_estimate(state, 1 - me_idx)  # me 視点での 自分への threat 鏡像
+    opp_threat = opp_hand_threat_estimate(state, me_idx)
+    me_removal = removal_threat_count(me)
+    opp_removal = removal_threat_count(opp)
+    opp_field_finisher = sum(1 for c in opp.characters if _get_card_role(c.card.card_id) == "finisher")
+    self_field_finisher = sum(1 for c in me.characters if _get_card_role(c.card.card_id) == "finisher")
+
+    def b(cond): return 1 if cond else 0
+
+    return [
+        # A. 危険サイン (= 守備系) 5
+        ("int_low_life_low_hand",
+            b(me_life <= 2 and me_hand <= 2),
+            b(opp_life <= 2 and opp_hand <= 2),
+            weights.W_INT_LOW_LIFE_LOW_HAND),
+        ("int_low_life_no_blocker",
+            b(me_life <= 2 and me_blocker == 0),
+            b(opp_life <= 2 and opp_blocker == 0),
+            weights.W_INT_LOW_LIFE_NO_BLOCKER),
+        ("int_opp_lethal_no_counter",
+            b(opp_lethal_v >= 0.7 and me_counter <= 2000),
+            b(self_lethal_v >= 0.7 and opp_counter <= 2000),
+            weights.W_INT_OPP_LETHAL_NO_COUNTER),
+        ("int_defensive_collapse",
+            b(opp_lethal_v >= 0.7 and me_active <= 1),
+            b(self_lethal_v >= 0.7 and opp_active <= 1),
+            weights.W_INT_DEFENSIVE_COLLAPSE),
+        ("int_opp_da_pressure",
+            b(opp_double_atk >= 1 and me_life <= 2),
+            b(me_double_atk >= 1 and opp_life <= 2),
+            weights.W_INT_OPP_DA_PRESSURE),
+        # B. 攻めサイン (= 攻撃系) 5
+        ("int_lethal_setup_ready",
+            b(me_active >= 3 and me_don >= 5 and opp_blocker == 0),
+            b(opp_active >= 3 and opp_don >= 5 and me_blocker == 0),
+            weights.W_INT_LETHAL_SETUP_READY),
+        ("int_aggressive_window_open",
+            b(me_active >= opp_active_blocker + 2),
+            b(opp_active >= me_active_blocker + 2),
+            weights.W_INT_AGGRESSIVE_WINDOW_OPEN),
+        ("int_burst_threshold",
+            b(me_double_atk >= 1 and opp_life <= 3),
+            b(opp_double_atk >= 1 and me_life <= 3),
+            weights.W_INT_BURST_THRESHOLD),
+        ("int_removal_window",
+            b(me_removal >= 1 and opp_field_finisher >= 1),
+            b(opp_removal >= 1 and self_field_finisher >= 1),
+            weights.W_INT_REMOVAL_WINDOW),
+        ("int_don_advantage_open",
+            b(me_don > opp_don + 2),
+            b(opp_don > me_don + 2),
+            weights.W_INT_DON_ADVANTAGE_OPEN),
+        # C. テンポ系 4
+        ("int_on_curve",
+            b(me_dead_in_hand == 0 and me.don_active >= turn - 1),
+            b(opp_dead_in_hand == 0 and opp.don_active >= turn - 1),
+            weights.W_INT_ON_CURVE),
+        ("int_tempo_lost_critical",
+            b(me.dons_unused_at_end_count >= 5),
+            b(opp.dons_unused_at_end_count >= 5),
+            weights.W_INT_TEMPO_LOST_CRITICAL),
+        ("int_ramp_paying_off",
+            b(me_don > turn and me_don >= 6),
+            b(opp_don > turn and opp_don >= 6),
+            weights.W_INT_RAMP_PAYING_OFF),
+        ("int_mana_starved",
+            b(me_dead_in_hand >= 3),
+            b(opp_dead_in_hand >= 3),
+            weights.W_INT_MANA_STARVED),
+        # D. シナジー系 4
+        ("int_synergy_threshold_3",
+            b(me_synergy >= 3),
+            b(opp_synergy >= 3),
+            weights.W_INT_SYNERGY_THRESHOLD_3),
+        ("int_trash_archetype_5",
+            b(me_trash_arch >= 5),
+            b(opp_trash_arch >= 5),
+            weights.W_INT_TRASH_ARCHETYPE_5),
+        ("int_stage_with_synergy",
+            b(me_stage >= 1 and me_synergy >= 2),
+            b(opp_stage >= 1 and opp_synergy >= 2),
+            weights.W_INT_STAGE_WITH_SYNERGY),
+        ("int_ramp_finisher_combo",
+            b(me_don >= 7 and me_finisher_hand >= 1),
+            b(opp_don >= 7 and opp_finisher_hand >= 1),
+            weights.W_INT_RAMP_FINISHER_COMBO),
+        # E. 隠匿/情報系 3
+        ("int_opp_hidden_threat_high",
+            b(self_threat >= 5 and opp_known_fin >= 1),
+            b(opp_threat >= 5 and me_known_fin >= 1),
+            weights.W_INT_OPP_HIDDEN_THREAT_HIGH),
+        ("int_self_hand_quality_high",
+            b(me_hand_q >= 6 and me_finisher_hand >= 1),
+            b(opp_hand_q >= 6 and opp_finisher_hand >= 1),
+            weights.W_INT_SELF_HAND_QUALITY_HIGH),
+        ("int_opp_low_resource",
+            b(opp_don <= 2 and opp_hand <= 3),
+            b(me_don <= 2 and me_hand <= 3),
+            weights.W_INT_OPP_LOW_RESOURCE),
+        # F. ターン文脈系 3
+        ("int_early_game_strong",
+            b(turn <= 3 and len(me.characters) >= 2),
+            b(turn <= 3 and len(opp.characters) >= 2),
+            weights.W_INT_EARLY_GAME_STRONG),
+        ("int_mid_game_pressure",
+            b(4 <= turn <= 7 and self_lethal_v >= 0.3),
+            b(4 <= turn <= 7 and opp_lethal_v >= 0.3),
+            weights.W_INT_MID_GAME_PRESSURE),
+        ("int_late_game_solver",
+            b(turn >= 8 and me_don >= 7),
+            b(turn >= 8 and opp_don >= 7),
+            weights.W_INT_LATE_GAME_SOLVER),
+        # G. KO 耐性 / blocker 系 2
+        ("int_ko_immune_finisher",
+            b(me_ko_immune >= 1 and me_finisher_hand >= 1),
+            b(opp_ko_immune >= 1 and opp_finisher_hand >= 1),
+            weights.W_INT_KO_IMMUNE_FINISHER),
+        ("int_blocker_with_taunt",
+            b(me_blocker >= 1 and me_taunt >= 1),
+            b(opp_blocker >= 1 and opp_taunt >= 1),
+            weights.W_INT_BLOCKER_WITH_TAUNT),
+        # H. 特殊 4
+        ("int_first_player_early_adv",
+            b(me_is_first and turn <= 2 and len(me.characters) >= 1),
+            b((not me_is_first) and turn <= 2 and len(opp.characters) >= 1),
+            weights.W_INT_FIRST_PLAYER_EARLY_ADV),
+        ("int_second_player_late_swing",
+            b((not me_is_first) and turn >= 5 and me_don >= 6),
+            b(me_is_first and turn >= 5 and opp_don >= 6),
+            weights.W_INT_SECOND_PLAYER_LATE_SWING),
+        ("int_exposed_finisher",
+            b(me_chara_q >= 2 and me_field_exp >= 1),
+            b(opp_chara_q >= 2 and opp_field_exp >= 1),
+            weights.W_INT_EXPOSED_FINISHER),
+        ("int_draw_advantage",
+            b(me.cards_drawn_count >= opp.cards_drawn_count + 3),
+            b(opp.cards_drawn_count >= me.cards_drawn_count + 3),
+            weights.W_INT_DRAW_ADVANTAGE),
+    ]
+
+
 def opp_hand_threat_estimate(state: GameState, me_idx: int) -> float:
     """opp の手札脅威度を隠匿モデルで期待値推定 (R70 / Phase 3)。
 
@@ -416,6 +958,14 @@ def compute_breakdown(
     opp_hand_threat = opp_hand_threat_estimate(state, me_idx)
     self_hand_threat = opp_hand_threat_estimate(state, 1 - me_idx)  # 対称: opp 視点での 自分
 
+    # Step 2-pre (R72+): 24 新規指標。 me/opp 対称で計算 (= self - opp で diff)。
+    # is_first_player / is_my_turn / turn_number_normalized は 直接 state から導出。
+    me_is_first = 1 if me_idx == 0 else 0
+    opp_is_first = 1 if (1 - me_idx) == 0 else 0
+    me_is_turn = 1 if state.turn_player_idx == me_idx else 0
+    opp_is_turn = 1 if state.turn_player_idx == (1 - me_idx) else 0
+    turn_norm = state.turn_number / 10.0
+
     metrics = [
         ("life", sm["life"], om["life"], weights.W_LIFE),
         ("field_count", sm["field_count"], om["field_count"], weights.W_FIELD_COUNT),
@@ -432,7 +982,43 @@ def compute_breakdown(
         ("chara_quality", self_chara_q, opp_chara_q, weights.W_CHARA_QUALITY),
         ("hand_quality", self_hand_q, opp_hand_q, weights.W_HAND_QUALITY),
         ("opp_hand_threat", self_hand_threat, opp_hand_threat, weights.W_OPP_HAND_THREAT),
+        # Step 2-pre 計画書 10
+        ("is_first_player", me_is_first, opp_is_first, weights.W_IS_FIRST_PLAYER),
+        ("stage_count", stage_count(me), stage_count(opp), weights.W_STAGE_COUNT),
+        ("stage_value", stage_value(me), stage_value(opp), weights.W_STAGE_VALUE),
+        ("trash_count", trash_count(me), trash_count(opp), weights.W_TRASH_COUNT),
+        ("trash_archetype_match", trash_archetype_match(me), trash_archetype_match(opp), weights.W_TRASH_ARCHETYPE_MATCH),
+        ("rush_count", rush_count(me), rush_count(opp), weights.W_RUSH_COUNT),
+        ("double_attack_count", double_attack_count(me), double_attack_count(opp), weights.W_DOUBLE_ATTACK_COUNT),
+        ("static_cost_reduction_total", static_cost_reduction_total(me), static_cost_reduction_total(opp), weights.W_STATIC_COST_REDUCTION_TOTAL),
+        ("playable_cost_match", playable_cost_match(me), playable_cost_match(opp), weights.W_PLAYABLE_COST_MATCH),
+        ("synergy_count", synergy_count(me), synergy_count(opp), weights.W_SYNERGY_COUNT),
+        # Step 2-pre 即追加 9
+        ("is_my_turn", me_is_turn, opp_is_turn, weights.W_IS_MY_TURN),
+        ("turn_number_normalized", turn_norm, 0.0, weights.W_TURN_NUMBER_NORMALIZED),
+        ("dead_card_in_hand", dead_card_in_hand(me), dead_card_in_hand(opp), weights.W_DEAD_CARD_IN_HAND),
+        ("active_blocker_count", active_blocker_count(me), active_blocker_count(opp), weights.W_OPP_ACTIVE_BLOCKER_COUNT),
+        ("removal_threat_count", removal_threat_count(me), removal_threat_count(opp), weights.W_REMOVAL_THREAT_COUNT),
+        ("self_counter_in_hand_total", self_counter_in_hand_total(me), self_counter_in_hand_total(opp), weights.W_SELF_COUNTER_IN_HAND_TOTAL),
+        ("finisher_in_hand_count", finisher_in_hand_count(me), finisher_in_hand_count(opp), weights.W_FINISHER_IN_HAND_COUNT),
+        ("keyword_taunt_count", keyword_taunt_count(me), keyword_taunt_count(opp), weights.W_KEYWORD_TAUNT_COUNT),
+        ("ko_immune_count", ko_immune_count(me), ko_immune_count(opp), weights.W_KO_IMMUNE_COUNT),
+        # Step 2-pre state 拡張 5
+        ("cards_drawn_total", me.cards_drawn_count, opp.cards_drawn_count, weights.W_CARDS_DRAWN_TOTAL),
+        ("cards_played_total", me.cards_played_count, opp.cards_played_count, weights.W_CARDS_PLAYED_TOTAL),
+        ("dons_used_total", me.dons_used_count, opp.dons_used_count, weights.W_DONS_USED_TOTAL),
+        ("tempo_lost_total", me.dons_unused_at_end_count, opp.dons_unused_at_end_count, weights.W_TEMPO_LOST_TOTAL),
+        ("known_finisher_count_in_hand", opp_known_finisher_count(me), opp_known_finisher_count(opp), weights.W_OPP_KNOWN_FINISHER_COUNT),
+        # Step 2A (= 計画書 Phase 2A 由来 4 個)
+        ("don_reserve", don_reserve(me), don_reserve(opp), weights.W_DON_RESERVE),
+        ("field_exposure", field_exposure(me, opp), field_exposure(opp, me), weights.W_FIELD_EXPOSURE),
+        ("hand_log", hand_log(me), hand_log(opp), weights.W_HAND_LOG),
+        ("lethal_risk_diff", lethal_risk_diff(state, me_idx), -lethal_risk_diff(state, me_idx), weights.W_LETHAL_RISK_DIFF),
     ]
+    # Iter2: interaction 30 個を末尾追加
+    metrics.extend(_compute_interactions(
+        state, me_idx, me, opp, sm, om, self_lethal, opp_lethal, weights,
+    ))
     out = {}
     for name, sv, ov, w in metrics:
         diff = sv - ov

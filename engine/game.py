@@ -889,6 +889,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
     opp = state.opponent
 
     if isinstance(action, EndPhase):
+        # Step 2-pre: ターン終了時の don_active 残数 = 機会損失累積
+        me.dons_unused_at_end_count += me.don_active
         advance_phase(state)
         advance_phase(state)
         play_until_main(state)
@@ -926,6 +928,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
         ip = InPlay.of(card, rested=False, sickness=not card.is_rush)
         me.characters.append(ip)
+        me.cards_played_count += 1
         state.push_log(f"play: {card.name} (cost {card.cost} pay {eff_cost})")
         if state.effects_overlay:
             from .effects import trigger_on_play
@@ -946,6 +949,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
         me.trash.append(card)
+        me.cards_played_count += 1
         state.push_log(f"event: {card.name} (cost {card.cost} pay {eff_cost})")
         if state.effects_overlay:
             from .effects import trigger_main_event
@@ -974,6 +978,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
         ip = InPlay.of(card, rested=False, sickness=False)
         me.stages.append(ip)
+        me.cards_played_count += 1
         state.push_log(f"stage: {card.name} (cost {card.cost} pay {eff_cost})")
         if state.effects_overlay:
             from .effects import trigger_on_play
@@ -985,6 +990,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         n = min(action.n, me.don_active)
         me.don_active -= n
         me.leader.attached_dons += n
+        me.dons_used_count += n
         state.push_log(f"attach don to leader x{n} (P={me.leader.power})")
         return
 
@@ -993,6 +999,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         n = min(action.n, me.don_active)
         me.don_active -= n
         ch.attached_dons += n
+        me.dons_used_count += n
         state.push_log(f"attach don to {ch.card.name} x{n} (P={ch.power})")
         return
 

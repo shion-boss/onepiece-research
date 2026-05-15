@@ -466,6 +466,12 @@ class Player:
     # 自分の REFRESH で全クリア (= 次の自ターンで再発動可)。
     # _execute_event が effect spec の once_per_turn を見て set / check する。
     once_per_turn_used: set = field(default_factory=set)
+    # 累積カウンタ (Phase 2 / Step 2-pre)。 outcome regression の特徴量に使う。
+    # 試合開始時 0、 game.py の各 action 分岐で increment。 game_over まで保持。
+    cards_drawn_count: int = 0      # Player.draw() で加算 = 累積ドロー数
+    cards_played_count: int = 0     # PlayCharacter / PlayEvent / PlayStage 各分岐で +1
+    dons_used_count: int = 0        # AttachDon 分岐で attach 数分加算 = 累積 DON 使用
+    dons_unused_at_end_count: int = 0  # EndPhase 分岐で don_active 残数加算 = 累積機会損失
 
     MAX_CHARACTERS = 5
     MAX_STAGES = 1     # 公式 3-8-5
@@ -485,6 +491,7 @@ class Player:
                 break
             drawn.append(self.deck.pop(0))
         self.hand.extend(drawn)
+        self.cards_drawn_count += len(drawn)
         return drawn
 
     def field_count(self):

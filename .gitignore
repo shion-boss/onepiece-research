@@ -81,6 +81,14 @@ db/research_sessions.sqlite-shm
 # matchup_matrix の一時バックアップ (= 適用前の snapshot)
 db/matchup_matrix.before.json
 
+# Phase 2 (= outcome regression 学習) 関連の一時/再生成可能ファイル
+db/self_play_snapshots*.jsonl
+db/self_play_snapshots*.log
+db/ai_params.suggested.json
+db/ai_params.*.bak.json
+db/ai_params.pre_phase2.json
+db/matchup_matrix.pre_phase2.json
+
 # matrix 走行ログ (= UI preview 用 NDJSON、 再生成可)
 db/matrix_run_log.ndjson
 
