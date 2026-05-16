@@ -116,6 +116,27 @@ def setup_game(
     )
     state.players[0].name = "P0"
     state.players[1].name = "P1"
+
+    # deck slug + archetype を state に記録 (= eval.py が archetype 別重みを load 用)。
+    # first_player に従って 並び順を合わせる。
+    if first_player == 0:
+        decks_in_order = [deck1, deck2]
+        analyses_in_order = [deck1_analysis, deck2_analysis]
+    else:
+        decks_in_order = [deck2, deck1]
+        analyses_in_order = [deck2_analysis, deck1_analysis]
+    for idx, (dk, ana) in enumerate(zip(decks_in_order, analyses_in_order)):
+        state.deck_slugs[idx] = getattr(dk, "slug", "") or ""
+        if ana and isinstance(ana, dict):
+            state.archetypes[idx] = ana.get("archetype", "") or ""
+            # Plan Step 1: ai_hint_signals から leader 固有効果 flag を抽出して state に登録。
+            # eval.py の interaction features が参照する。
+            flags: dict = {}
+            for sig in ana.get("ai_hint_signals", []) or []:
+                t = sig.get("type", "")
+                if t.startswith("have_"):
+                    flags[t] = bool(sig.get("value", False))
+            state.deck_flags[idx] = flags
     # 各プレイヤーに analysis を割り当て (= マリガン判定で使う)。
     # state.players の並び順は first_player に従って入れ替えてあるので、 それに合わせる。
     if first_player == 0:
@@ -143,6 +164,45 @@ def setup_game(
         f"start: P0={p1.leader.card.name}({p1.leader.card.life}L) "
         f"vs P1={p2.leader.card.name}({p2.leader.card.life}L)"
     )
+
+    # リーダーの「ゲーム開始時」 効果を発火 (= OP13-079 黒イム の デッキから
+    # 聖地マリージョア ステージ登場 等)。 公式: setup の最後 = ライフ配布後 ~ 1 ターン目
+    # 開始前の隙間で 1 度のみ。 対応 primitive:
+    # - summon_stage_from_deck_with_feature: 自デッキから 特徴 X を持つ STAGE 1 枚を
+    #   登場、 デッキから除去 + 残りデッキ シャッフル。
+    if effects_overlay:
+        for p in state.players:
+            bundle = effects_overlay.get(p.leader.card.card_id)
+            if bundle is None:
+                continue
+            for eff in bundle.effects:
+                if eff.get("when") != "game_start":
+                    continue
+                for prim in eff.get("do", []):
+                    if not isinstance(prim, dict):
+                        continue
+                    feat = prim.get("summon_stage_from_deck_with_feature")
+                    if not feat:
+                        continue
+                    # 自デッキから feat を含む特徴を持つ STAGE 1 枚を探す
+                    target_idx = None
+                    for i, c in enumerate(p.deck):
+                        if c.category != Category.STAGE:
+                            continue
+                        if feat in (c.features or ""):
+                            target_idx = i
+                            break
+                    if target_idx is not None:
+                        card = p.deck.pop(target_idx)
+                        ip = InPlay.of(card, rested=False, sickness=False)
+                        p.stages.append(ip)
+                        # search 後はデッキシャッフル (公式)
+                        p.shuffle_deck(rng)
+                        state.push_log(
+                            f"  game_start: {p.name} ({p.leader.card.name}) "
+                            f"→ ステージ登場: {card.name}"
+                        )
+
     _recompute_static(state)
     return state
 
@@ -796,7 +856,17 @@ def _build_action_context(state: GameState, action: Action) -> dict:
     return ctx
 
 
-def apply_action(state: GameState, action: Action) -> None:
+def apply_action(state: GameState, action: Action, ai=None) -> None:
+    """action を state に適用。
+
+    Args:
+        state: GameState (= 副作用で更新される)
+        action: 適用する Action
+        ai: Optional[BaseAI]、 関数 15 (= 2026-05-16) hook。
+            None なら後方互換挙動 (= belief 更新なし)。
+            指定時、 action 後に opp action 観測 hook (= update_belief_from_action) を実行。
+            plan_search.fast_clone 内では ai=None で hook skip 推奨 (= sim 中は belief 不更新)。
+    """
     if state.game_over:
         return
     if state.phase != Phase.MAIN:
@@ -847,6 +917,25 @@ def apply_action(state: GameState, action: Action) -> None:
                 state.action_evals.append(entry)
             except Exception:
                 pass
+
+        # 関数 15 (= 2026-05-16): opp action 観測 hook
+        # ai が指定 + actor が opp (= ai 視点で相手) なら inverse reasoning belief 更新
+        if ai is not None:
+            ai_me = getattr(ai, "me_idx", None)
+            if ai_me is not None and actor_idx != ai_me:
+                try:
+                    # belief 4 field を持つ AI (= GreedyAI 派生) でのみ動作
+                    if hasattr(ai, "opp_action_history"):
+                        ai.opp_action_history.append(action)
+                    if hasattr(ai, "opp_belief_pmf"):
+                        from .hand_estimator import update_belief_from_action, counter_total_pmf
+                        prior = ai.opp_belief_pmf or counter_total_pmf(state, actor_idx)
+                        ai.opp_belief_pmf = update_belief_from_action(
+                            state, opp_idx=actor_idx, opp_action=action, prior_pmf=prior,
+                        )
+                except Exception:
+                    # hook 失敗で apply_action 全体を壊さない
+                    pass
 
 
 def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:
