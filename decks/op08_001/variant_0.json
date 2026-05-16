@@ -1,0 +1,77 @@
+{
+  "name": "トニートニー・チョッパー (auto)",
+  "slug": "op08_001_variant_0",
+  "leader": "OP08-001",
+  "leader_name": "トニートニー・チョッパー",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB03-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-011",
+      "count": 1
+    },
+    {
+      "card_id": "OP01-052",
+      "count": 4
+    },
+    {
+      "card_id": "OP02-009",
+      "count": 4
+    },
+    {
+      "card_id": "OP02-020",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-012",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-028",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-027",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-025",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-010",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-012",
+      "count": 1
+    },
+    {
+      "card_id": "P-021",
+      "count": 1
+    },
+    {
+      "card_id": "P-062",
+      "count": 4
+    },
+    {
+      "card_id": "ST15-004",
+      "count": 3
+    },
+    {
+      "card_id": "ST21-004",
+      "count": 4
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

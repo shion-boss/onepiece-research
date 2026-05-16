@@ -1,0 +1,81 @@
+{
+  "name": "シャーロット・プリン (auto)",
+  "slug": "op08_058_variant_0",
+  "leader": "OP08-058",
+  "leader_name": "シャーロット・プリン",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB01-055",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-035",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-054",
+      "count": 3
+    },
+    {
+      "card_id": "OP03-069",
+      "count": 1
+    },
+    {
+      "card_id": "OP03-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-063",
+      "count": 1
+    },
+    {
+      "card_id": "OP06-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-101",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-103",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-067",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-105",
+      "count": 1
+    },
+    {
+      "card_id": "OP15-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-066",
+      "count": 3
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-003",
+      "count": 3
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

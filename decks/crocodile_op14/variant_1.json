@@ -1,0 +1,74 @@
+{
+  "name": "クロコダイル variant 1",
+  "slug": "crocodile_op14_variant_1",
+  "leader": "OP14-079",
+  "leader_name": "クロコダイル",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1241.json",
+  "variant_id": 1,
+  "cluster_size": 1,
+  "score": "優勝",
+  "tournament_date": "2026-04-05",
+  "main": [
+    {
+      "card_id": "OP14-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-085",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-087",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-088",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-093",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-090",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-094",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-084",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-086",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-120",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-092",
+      "count": 2
+    },
+    {
+      "card_id": "OP05-094",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-096",
+      "count": 4
+    }
+  ]
+}

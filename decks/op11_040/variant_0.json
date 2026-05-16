@@ -1,0 +1,66 @@
+{
+  "name": "青ルフィ variant 0",
+  "slug": "op11_040_variant_0",
+  "leader": "OP11-040",
+  "leader_name": "青ルフィ",
+  "source": "existing",
+  "source_path": "tcgportal_op11_luffy.json",
+  "variant_id": 0,
+  "cluster_size": 1,
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.5%)",
+  "tournament_date": "2026-05-14",
+  "main": [
+    {
+      "card_id": "OP13-043",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-119",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-080",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-067",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-044",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-063",
+      "count": 2
+    }
+  ]
+}

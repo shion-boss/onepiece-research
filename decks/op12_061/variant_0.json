@@ -1,0 +1,78 @@
+{
+  "name": "ロシナンテ variant 0",
+  "slug": "op12_061_variant_0",
+  "leader": "OP12-061",
+  "leader_name": "ロシナンテ",
+  "source": "existing",
+  "source_path": "tcgportal_corazon.json",
+  "variant_id": 0,
+  "cluster_size": 1,
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.0%)",
+  "tournament_date": "2026-05-14",
+  "main": [
+    {
+      "card_id": "OP12-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-065",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-038",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-062",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-115",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-073",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-069",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-077",
+      "count": 2
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-061",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-078",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-077",
+      "count": 1
+    },
+    {
+      "card_id": "OP06-063",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-056",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-032",
+      "count": 2
+    }
+  ]
+}

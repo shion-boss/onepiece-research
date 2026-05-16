@@ -1,0 +1,70 @@
+{
+  "name": "モンキー・Ｄ・ルフィ variant 1",
+  "slug": "luffy_op15_variant_1",
+  "leader": "OP15-098",
+  "leader_name": "モンキー・Ｄ・ルフィ",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1401.json",
+  "variant_id": 1,
+  "cluster_size": 2,
+  "score": "優勝",
+  "tournament_date": "2026-04-29",
+  "main": [
+    {
+      "card_id": "OP15-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-102",
+      "count": 2
+    },
+    {
+      "card_id": "EB03-056",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-119",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-109",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-052",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-099",
+      "count": 4
+    },
+    {
+      "card_id": "P-120",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-116",
+      "count": 4
+    }
+  ]
+}

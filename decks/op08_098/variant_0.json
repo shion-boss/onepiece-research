@@ -1,0 +1,70 @@
+{
+  "name": "カルガラ variant 0",
+  "slug": "op08_098_variant_0",
+  "leader": "OP08-098",
+  "leader_name": "カルガラ",
+  "source": "existing",
+  "source_path": "tcgportal_calgara.json",
+  "variant_id": 0,
+  "cluster_size": 1,
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.2%)",
+  "tournament_date": "2026-05-14",
+  "main": [
+    {
+      "card_id": "OP15-101",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-114",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-109",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-099",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-117",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-115",
+      "count": 3
+    },
+    {
+      "card_id": "OP08-099",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-106",
+      "count": 3
+    },
+    {
+      "card_id": "OP15-119",
+      "count": 1
+    }
+  ]
+}

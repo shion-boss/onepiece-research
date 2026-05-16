@@ -1,0 +1,77 @@
+{
+  "name": "ユースタス・キッド (auto)",
+  "slug": "st10_003_variant_0",
+  "leader": "ST10-003",
+  "leader_name": "ユースタス・キッド",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB02-035",
+      "count": 3
+    },
+    {
+      "card_id": "EB03-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-011",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-013",
+      "count": 1
+    },
+    {
+      "card_id": "OP02-009",
+      "count": 1
+    },
+    {
+      "card_id": "OP03-012",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-069",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-063",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-065",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-067",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-010",
+      "count": 1
+    },
+    {
+      "card_id": "OP14-066",
+      "count": 4
+    },
+    {
+      "card_id": "ST15-004",
+      "count": 3
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

@@ -1,0 +1,2586 @@
+{
+  "generated_at": "2026-05-16T07:17:48.332762+00:00",
+  "max_variants": 4,
+  "total_recipes": 106,
+  "leaders": {
+    "OP15-058": {
+      "slug": "enel_op15",
+      "name": "エネル",
+      "n_samples": 30,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 24,
+          "medoid_source": "cardrush_1258.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-09",
+          "member_sources": [
+            "cardrush_1224.json",
+            "cardrush_1249.json",
+            "cardrush_1250.json",
+            "cardrush_1258.json",
+            "cardrush_1259.json",
+            "cardrush_1279.json",
+            "cardrush_1281.json",
+            "cardrush_1284.json",
+            "cardrush_1288.json",
+            "cardrush_1289.json",
+            "cardrush_1310.json",
+            "cardrush_1312.json",
+            "cardrush_1322.json",
+            "cardrush_1324.json",
+            "cardrush_1335.json",
+            "cardrush_1355.json",
+            "cardrush_1357.json",
+            "cardrush_1389.json",
+            "cardrush_1398.json",
+            "cardrush_1402.json",
+            "cardrush_1403.json",
+            "cardrush_1424.json",
+            "cardrush_1425.json",
+            "cardrush_1427.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 2,
+          "medoid_source": "cardrush_1221.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-01",
+          "member_sources": [
+            "cardrush_1221.json",
+            "cardrush_1225.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 3,
+          "medoid_source": "cardrush_1428.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-03",
+          "member_sources": [
+            "cardrush_1428.json",
+            "cardrush_1457.json",
+            "cardrush_1454.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1441.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-04",
+          "member_sources": [
+            "cardrush_1441.json"
+          ]
+        }
+      ]
+    },
+    "OP11-041": {
+      "slug": "nami_op11",
+      "name": "ナミ",
+      "n_samples": 16,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 10,
+          "medoid_source": "cardrush_1255.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-09",
+          "member_sources": [
+            "cardrush_1229.json",
+            "cardrush_1255.json",
+            "cardrush_1272.json",
+            "cardrush_1276.json",
+            "cardrush_1280.json",
+            "cardrush_1282.json",
+            "cardrush_1314.json",
+            "cardrush_1327.json",
+            "cardrush_1368.json",
+            "cardrush_1405.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 2,
+          "medoid_source": "cardrush_1226.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-02",
+          "member_sources": [
+            "cardrush_1226.json",
+            "cardrush_1278.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 3,
+          "medoid_source": "cardrush_1367.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-23",
+          "member_sources": [
+            "cardrush_1228.json",
+            "cardrush_1242.json",
+            "cardrush_1367.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1439.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-04",
+          "member_sources": [
+            "cardrush_1439.json"
+          ]
+        }
+      ]
+    },
+    "OP15-098": {
+      "slug": "luffy_op15",
+      "name": "モンキー・Ｄ・ルフィ",
+      "n_samples": 11,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 7,
+          "medoid_source": "cardrush_1340.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-18",
+          "member_sources": [
+            "cardrush_1236.json",
+            "cardrush_1287.json",
+            "cardrush_1309.json",
+            "cardrush_1330.json",
+            "cardrush_1340.json",
+            "cardrush_1390.json",
+            "cardrush_1436.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 2,
+          "medoid_source": "cardrush_1401.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-29",
+          "member_sources": [
+            "cardrush_1401.json",
+            "cardrush_1455.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 1,
+          "medoid_source": "cardrush_1237.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-06",
+          "member_sources": [
+            "cardrush_1237.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1219.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-01",
+          "member_sources": [
+            "cardrush_1219.json"
+          ]
+        }
+      ]
+    },
+    "OP14-020": {
+      "slug": "mihawk_op14",
+      "name": "ジュラキュール・ミホーク",
+      "n_samples": 10,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 7,
+          "medoid_source": "cardrush_1453.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-11",
+          "member_sources": [
+            "cardrush_1238.json",
+            "cardrush_1240.json",
+            "cardrush_1277.json",
+            "cardrush_1328.json",
+            "cardrush_1388.json",
+            "cardrush_1426.json",
+            "cardrush_1453.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 1,
+          "medoid_source": "cardrush_1341.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-18",
+          "member_sources": [
+            "cardrush_1341.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 1,
+          "medoid_source": "cardrush_1437.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-05",
+          "member_sources": [
+            "cardrush_1437.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1222.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-01",
+          "member_sources": [
+            "cardrush_1222.json"
+          ]
+        }
+      ]
+    },
+    "OP15-002": {
+      "slug": "lucy_op15",
+      "name": "ルーシー",
+      "n_samples": 10,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 5,
+          "medoid_source": "cardrush_1369.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-23",
+          "member_sources": [
+            "cardrush_1227.json",
+            "cardrush_1313.json",
+            "cardrush_1369.json",
+            "cardrush_1404.json",
+            "cardrush_1399.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 3,
+          "medoid_source": "cardrush_1248.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-08",
+          "member_sources": [
+            "cardrush_1248.json",
+            "cardrush_1274.json",
+            "cardrush_1387.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 1,
+          "medoid_source": "cardrush_1285.json",
+          "score": "準優勝",
+          "tournament_date": "2026-04-15",
+          "member_sources": [
+            "cardrush_1285.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1311.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-19",
+          "member_sources": [
+            "cardrush_1311.json"
+          ]
+        }
+      ]
+    },
+    "OP14-041": {
+      "slug": "hancock_op14",
+      "name": "ボア・ハンコック",
+      "n_samples": 8,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 2,
+          "medoid_source": "cardrush_1275.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-12",
+          "member_sources": [
+            "cardrush_1275.json",
+            "cardrush_1336.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 4,
+          "medoid_source": "cardrush_1247.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-08",
+          "member_sources": [
+            "cardrush_1239.json",
+            "cardrush_1247.json",
+            "cardrush_1251.json",
+            "cardrush_1283.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 1,
+          "medoid_source": "tcgportal_hancock.json",
+          "score": "tcg-portal 集計 (Tier 2, 使用率 9.8%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_hancock.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1252.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-09",
+          "member_sources": [
+            "cardrush_1252.json"
+          ]
+        }
+      ]
+    },
+    "OP13-002": {
+      "slug": "ace_op13",
+      "name": "ポートガス・Ｄ・エース",
+      "n_samples": 5,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 2,
+          "medoid_source": "cardrush_1400.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-29",
+          "member_sources": [
+            "cardrush_1400.json",
+            "cardrush_1420.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 1,
+          "medoid_source": "cardrush_1456.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-10",
+          "member_sources": [
+            "cardrush_1456.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 1,
+          "medoid_source": "cardrush_1458.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-10",
+          "member_sources": [
+            "cardrush_1458.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1438.json",
+          "score": "優勝",
+          "tournament_date": "2026-05-05",
+          "member_sources": [
+            "cardrush_1438.json"
+          ]
+        }
+      ]
+    },
+    "OP13-079": {
+      "slug": "im_op13",
+      "name": "イム",
+      "n_samples": 5,
+      "n_variants": 4,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 2,
+          "medoid_source": "cardrush_1246.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-08",
+          "member_sources": [
+            "cardrush_1246.json",
+            "cardrush_1321.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 1,
+          "medoid_source": "cardrush_1392.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-26",
+          "member_sources": [
+            "cardrush_1392.json"
+          ]
+        },
+        {
+          "variant_id": 2,
+          "size": 1,
+          "medoid_source": "cardrush_1257.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-09",
+          "member_sources": [
+            "cardrush_1257.json"
+          ]
+        },
+        {
+          "variant_id": 3,
+          "size": 1,
+          "medoid_source": "cardrush_1329.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-19",
+          "member_sources": [
+            "cardrush_1329.json"
+          ]
+        }
+      ]
+    },
+    "OP14-079": {
+      "slug": "crocodile_op14",
+      "name": "クロコダイル",
+      "n_samples": 2,
+      "n_variants": 2,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "cardrush_1385.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-26",
+          "member_sources": [
+            "cardrush_1385.json"
+          ]
+        },
+        {
+          "variant_id": 1,
+          "size": 1,
+          "medoid_source": "cardrush_1241.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-05",
+          "member_sources": [
+            "cardrush_1241.json"
+          ]
+        }
+      ]
+    },
+    "EB02-010": {
+      "slug": "luffy_eb02",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "cardrush_1286.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-12",
+          "member_sources": [
+            "cardrush_1286.json"
+          ]
+        }
+      ]
+    },
+    "EB04-001": {
+      "slug": "eb04_001",
+      "name": "赤ボニー",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "tcgportal_bonney.json",
+          "score": "tcg-portal 集計 (Tier 4, 使用率 2.3%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_bonney.json"
+          ]
+        }
+      ]
+    },
+    "OP08-098": {
+      "slug": "op08_098",
+      "name": "カルガラ",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "tcgportal_calgara.json",
+          "score": "tcg-portal 集計 (Tier 4, 使用率 2.2%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_calgara.json"
+          ]
+        }
+      ]
+    },
+    "OP11-001": {
+      "slug": "op11_001",
+      "name": "赤黒コビー",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "tcgportal_coby.json",
+          "score": "tcg-portal 集計 (Tier 4, 使用率 2.0%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_coby.json"
+          ]
+        }
+      ]
+    },
+    "OP11-040": {
+      "slug": "op11_040",
+      "name": "青ルフィ",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "tcgportal_op11_luffy.json",
+          "score": "tcg-portal 集計 (Tier 4, 使用率 2.5%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_op11_luffy.json"
+          ]
+        }
+      ]
+    },
+    "OP12-041": {
+      "slug": "sanji_op12",
+      "name": "サンジ",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "cardrush_1356.json",
+          "score": "準優勝",
+          "tournament_date": "2026-04-22",
+          "member_sources": [
+            "cardrush_1356.json"
+          ]
+        }
+      ]
+    },
+    "OP12-061": {
+      "slug": "op12_061",
+      "name": "ロシナンテ",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "tcgportal_corazon.json",
+          "score": "tcg-portal 集計 (Tier 4, 使用率 2.0%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_corazon.json"
+          ]
+        }
+      ]
+    },
+    "OP13-001": {
+      "slug": "op13_001",
+      "name": "赤ルフィ（OP13）",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "tcgportal_op13_luffy.json",
+          "score": "tcg-portal 集計 (Tier 4, 使用率 2.2%)",
+          "tournament_date": "2026-05-14",
+          "member_sources": [
+            "tcgportal_op13_luffy.json"
+          ]
+        }
+      ]
+    },
+    "OP14-060": {
+      "slug": "op14_060",
+      "name": "ドンキホーテ・ドフラミンゴ",
+      "n_samples": 1,
+      "n_variants": 1,
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "cardrush_1342.json",
+          "score": "優勝",
+          "tournament_date": "2026-04-18",
+          "member_sources": [
+            "cardrush_1342.json"
+          ]
+        }
+      ]
+    },
+    "PRB01-001": {
+      "slug": "prb01_001",
+      "name": "サンジ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "EB03-001": {
+      "slug": "eb03_001",
+      "name": "ネフェルタリ・ビビ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "EB01-001": {
+      "slug": "eb01_001",
+      "name": "光月おでん",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "EB01-021": {
+      "slug": "eb01_021",
+      "name": "ハンニャバル",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "EB01-040": {
+      "slug": "eb01_040",
+      "name": "キュロス",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP15-001": {
+      "slug": "op15_001",
+      "name": "クリーク",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP15-022": {
+      "slug": "op15_022",
+      "name": "ブルック",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP15-039": {
+      "slug": "op15_039",
+      "name": "レベッカ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP14-001": {
+      "slug": "op14_001",
+      "name": "トラファルガー・ロー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP14-040": {
+      "slug": "op14_040",
+      "name": "ジンベエ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP14-080": {
+      "slug": "op14_080",
+      "name": "ゲッコー・モリア",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP13-003": {
+      "slug": "op13_003",
+      "name": "ゴール・Ｄ・ロジャー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP13-004": {
+      "slug": "op13_004",
+      "name": "サボ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP13-100": {
+      "slug": "op13_100",
+      "name": "ジュエリー・ボニー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP12-001": {
+      "slug": "op12_001",
+      "name": "シルバーズ・レイリー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP12-020": {
+      "slug": "op12_020",
+      "name": "ロロノア・ゾロ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP12-040": {
+      "slug": "op12_040",
+      "name": "クザン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP12-081": {
+      "slug": "op12_081",
+      "name": "コアラ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP11-021": {
+      "slug": "op11_021",
+      "name": "ジンベエ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP11-022": {
+      "slug": "op11_022",
+      "name": "しらほし",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP11-062": {
+      "slug": "op11_062",
+      "name": "シャーロット・カタクリ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP10-001": {
+      "slug": "op10_001",
+      "name": "スモーカー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP10-002": {
+      "slug": "op10_002",
+      "name": "シーザー・クラウン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP10-003": {
+      "slug": "op10_003",
+      "name": "シュガー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP10-022": {
+      "slug": "op10_022",
+      "name": "トラファルガー・ロー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP10-042": {
+      "slug": "op10_042",
+      "name": "ウソップ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP10-099": {
+      "slug": "op10_099",
+      "name": "ユースタス・キッド",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP09-001": {
+      "slug": "op09_001",
+      "name": "シャンクス",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP09-022": {
+      "slug": "op09_022",
+      "name": "リム",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP09-042": {
+      "slug": "op09_042",
+      "name": "バギー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP09-061": {
+      "slug": "op09_061",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP09-062": {
+      "slug": "op09_062",
+      "name": "ニコ・ロビン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP09-081": {
+      "slug": "op09_081",
+      "name": "マーシャル・Ｄ・ティーチ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP08-001": {
+      "slug": "op08_001",
+      "name": "トニートニー・チョッパー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP08-002": {
+      "slug": "op08_002",
+      "name": "マルコ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP08-021": {
+      "slug": "op08_021",
+      "name": "キャロット",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP08-057": {
+      "slug": "op08_057",
+      "name": "キング",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP08-058": {
+      "slug": "op08_058",
+      "name": "シャーロット・プリン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP07-001": {
+      "slug": "op07_001",
+      "name": "モンキー・D・ドラゴン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP07-019": {
+      "slug": "op07_019",
+      "name": "ジュエリー・ボニー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP07-038": {
+      "slug": "op07_038",
+      "name": "ボア・ハンコック",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP07-059": {
+      "slug": "op07_059",
+      "name": "フォクシー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP07-079": {
+      "slug": "op07_079",
+      "name": "ロブ・ルッチ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP07-097": {
+      "slug": "op07_097",
+      "name": "ベガパンク",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP06-001": {
+      "slug": "op06_001",
+      "name": "ウタ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP06-020": {
+      "slug": "op06_020",
+      "name": "ホーディ・ジョーンズ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP06-021": {
+      "slug": "op06_021",
+      "name": "ペローナ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP06-022": {
+      "slug": "op06_022",
+      "name": "ヤマト",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP06-042": {
+      "slug": "op06_042",
+      "name": "ヴィンスモーク・レイジュ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP06-080": {
+      "slug": "op06_080",
+      "name": "ゲッコー・モリア",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP05-001": {
+      "slug": "op05_001",
+      "name": "サボ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP05-002": {
+      "slug": "op05_002",
+      "name": "ベロ・ベティ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP05-022": {
+      "slug": "op05_022",
+      "name": "ドンキホーテ・ロシナンテ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP05-041": {
+      "slug": "op05_041",
+      "name": "サカズキ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP05-060": {
+      "slug": "op05_060",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP05-098": {
+      "slug": "op05_098",
+      "name": "エネル",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP04-001": {
+      "slug": "op04_001",
+      "name": "ネフェルタリ・ビビ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP04-019": {
+      "slug": "op04_019",
+      "name": "ドンキホーテ・ドフラミンゴ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP04-020": {
+      "slug": "op04_020",
+      "name": "イッショウ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP04-039": {
+      "slug": "op04_039",
+      "name": "レベッカ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP04-040": {
+      "slug": "op04_040",
+      "name": "クイーン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP04-058": {
+      "slug": "op04_058",
+      "name": "クロコダイル",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-001": {
+      "slug": "op03_001",
+      "name": "ポートガス・D・エース",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-021": {
+      "slug": "op03_021",
+      "name": "クロ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-022": {
+      "slug": "op03_022",
+      "name": "アーロン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-040": {
+      "slug": "op03_040",
+      "name": "ナミ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-058": {
+      "slug": "op03_058",
+      "name": "アイスバーグ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-076": {
+      "slug": "op03_076",
+      "name": "ロブ・ルッチ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-077": {
+      "slug": "op03_077",
+      "name": "シャーロット・リンリン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP03-099": {
+      "slug": "op03_099",
+      "name": "シャーロット・カタクリ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-001": {
+      "slug": "op02_001",
+      "name": "エドワード・ニューゲート",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-002": {
+      "slug": "op02_002",
+      "name": "モンキー・D・ガープ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-025": {
+      "slug": "op02_025",
+      "name": "錦えもん",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-026": {
+      "slug": "op02_026",
+      "name": "サンジ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-049": {
+      "slug": "op02_049",
+      "name": "エンポリオ・イワンコフ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-071": {
+      "slug": "op02_071",
+      "name": "マゼラン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-072": {
+      "slug": "op02_072",
+      "name": "ゼット",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP02-093": {
+      "slug": "op02_093",
+      "name": "スモーカー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-001": {
+      "slug": "op01_001",
+      "name": "ロロノア・ゾロ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-002": {
+      "slug": "op01_002",
+      "name": "トラファルガー・ロー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-003": {
+      "slug": "op01_003",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-031": {
+      "slug": "op01_031",
+      "name": "光月おでん",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-060": {
+      "slug": "op01_060",
+      "name": "ドンキホーテ・ドフラミンゴ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-061": {
+      "slug": "op01_061",
+      "name": "カイドウ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-062": {
+      "slug": "op01_062",
+      "name": "クロコダイル",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "OP01-091": {
+      "slug": "op01_091",
+      "name": "キング",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST30-001": {
+      "slug": "st30_001",
+      "name": "ルフィ＆エース",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST29-001": {
+      "slug": "st29_001",
+      "name": "モンキー・Ｄ・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST22-001": {
+      "slug": "st22_001",
+      "name": "エース＆ニューゲート",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST21-001": {
+      "slug": "st21_001",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST14-001": {
+      "slug": "st14_001",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST13-001": {
+      "slug": "st13_001",
+      "name": "サボ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST13-002": {
+      "slug": "st13_002",
+      "name": "ポートガス・D・エース",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST13-003": {
+      "slug": "st13_003",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST12-001": {
+      "slug": "st12_001",
+      "name": "ロロノア・ゾロ＆サンジ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST11-001": {
+      "slug": "st11_001",
+      "name": "ウタ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST10-001": {
+      "slug": "st10_001",
+      "name": "トラファルガー・ロー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST10-002": {
+      "slug": "st10_002",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST10-003": {
+      "slug": "st10_003",
+      "name": "ユースタス・キッド",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST09-001": {
+      "slug": "st09_001",
+      "name": "ヤマト",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST08-001": {
+      "slug": "st08_001",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST07-001": {
+      "slug": "st07_001",
+      "name": "シャーロット・リンリン",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST06-001": {
+      "slug": "st06_001",
+      "name": "サカズキ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST05-001": {
+      "slug": "st05_001",
+      "name": "シャンクス",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST04-001": {
+      "slug": "st04_001",
+      "name": "カイドウ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST03-001": {
+      "slug": "st03_001",
+      "name": "クロコダイル",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST02-001": {
+      "slug": "st02_001",
+      "name": "ユースタス・キッド",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST01-001": {
+      "slug": "st01_001",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "ST05-001_r1": {
+      "slug": "st05_001_r1",
+      "name": "シャンクス",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "P-011": {
+      "slug": "p_011",
+      "name": "ウタ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "P-047": {
+      "slug": "p_047",
+      "name": "モンキー・D・ルフィ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "P-076": {
+      "slug": "p_076",
+      "name": "サカズキ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "P-086": {
+      "slug": "p_086",
+      "name": "トラファルガー・ロー",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    },
+    "P-117": {
+      "slug": "p_117",
+      "name": "ナミ",
+      "n_samples": 0,
+      "n_variants": 1,
+      "source_type": "auto_generated",
+      "variants": [
+        {
+          "variant_id": 0,
+          "size": 1,
+          "medoid_source": "deckbuilder.auto_build_deck",
+          "score": "auto",
+          "tournament_date": "",
+          "member_sources": []
+        }
+      ]
+    }
+  },
+  "total_variants": 43,
+  "auto_generated_count": 114,
+  "auto_generated_failures": 0,
+  "total_leaders_covered": 132
+}

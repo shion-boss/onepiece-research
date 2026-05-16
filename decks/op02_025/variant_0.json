@@ -1,0 +1,77 @@
+{
+  "name": "錦えもん (auto)",
+  "slug": "op02_025_variant_0",
+  "leader": "OP02-025",
+  "leader_name": "錦えもん",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB03-016",
+      "count": 3
+    },
+    {
+      "card_id": "EB04-011",
+      "count": 1
+    },
+    {
+      "card_id": "OP01-052",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-024",
+      "count": 3
+    },
+    {
+      "card_id": "OP06-028",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-029",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-030",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-027",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-033",
+      "count": 1
+    },
+    {
+      "card_id": "OP11-026",
+      "count": 1
+    },
+    {
+      "card_id": "OP12-025",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-027",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-023",
+      "count": 4
+    },
+    {
+      "card_id": "P-062",
+      "count": 4
+    },
+    {
+      "card_id": "ST02-008",
+      "count": 4
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

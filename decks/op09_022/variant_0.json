@@ -1,0 +1,77 @@
+{
+  "name": "リム (auto)",
+  "slug": "op09_022_variant_0",
+  "leader": "OP09-022",
+  "leader_name": "リム",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB02-035",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-069",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-028",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-065",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-027",
+      "count": 3
+    },
+    {
+      "card_id": "OP09-067",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-033",
+      "count": 1
+    },
+    {
+      "card_id": "OP11-072",
+      "count": 1
+    },
+    {
+      "card_id": "OP12-025",
+      "count": 1
+    },
+    {
+      "card_id": "OP14-066",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-066",
+      "count": 3
+    },
+    {
+      "card_id": "P-062",
+      "count": 4
+    },
+    {
+      "card_id": "ST02-008",
+      "count": 4
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

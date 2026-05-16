@@ -1,0 +1,82 @@
+{
+  "name": "ルーシー variant 2",
+  "slug": "lucy_op15_variant_2",
+  "leader": "OP15-002",
+  "leader_name": "ルーシー",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1285.json",
+  "variant_id": 2,
+  "cluster_size": 1,
+  "score": "準優勝",
+  "tournament_date": "2026-04-15",
+  "main": [
+    {
+      "card_id": "OP15-053",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-052",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-040",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-045",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-118",
+      "count": 1
+    },
+    {
+      "card_id": "OP05-015",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-046",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-049",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-020",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-056",
+      "count": 2
+    },
+    {
+      "card_id": "OP10-060",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-059",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-019",
+      "count": 2
+    },
+    {
+      "card_id": "OP07-017",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-021",
+      "count": 3
+    },
+    {
+      "card_id": "OP06-058",
+      "count": 1
+    }
+  ]
+}

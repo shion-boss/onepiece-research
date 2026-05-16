@@ -1,0 +1,77 @@
+{
+  "name": "エネル (auto)",
+  "slug": "op05_098_variant_0",
+  "leader": "OP05-098",
+  "leader_name": "エネル",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB01-055",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-056",
+      "count": 3
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 3
+    },
+    {
+      "card_id": "EB03-054",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-101",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-103",
+      "count": 1
+    },
+    {
+      "card_id": "OP08-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-105",
+      "count": 1
+    },
+    {
+      "card_id": "OP10-119",
+      "count": 1
+    },
+    {
+      "card_id": "OP15-103",
+      "count": 1
+    },
+    {
+      "card_id": "OP15-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}
