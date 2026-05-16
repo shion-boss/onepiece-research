@@ -3,8 +3,8 @@
   "functions": {
     "api/index.py": {
       "runtime": "@vercel/python@6.41.0",
-      "maxDuration": 60,
-      "memory": 1024,
+      "maxDuration": 300,
+      "memory": 3008,
       "includeFiles": "{engine,db,decks,api}/**"
     }
   },
