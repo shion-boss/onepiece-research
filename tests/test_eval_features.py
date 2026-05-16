@@ -113,10 +113,10 @@ def test_breakdown_has_all_28_new_keys(state):
         assert k in bd, f"missing key: {k}"
 
 
-def test_breakdown_total_keys_73(state):
-    """既存 15 + Step 2-pre 28 + Iter2 interaction 30 = 73 指標。"""
+def test_breakdown_total_keys_78(state):
+    """既存 15 + Step 2-pre 28 + Iter2 interaction 30 + Plan Step 1 flag 5 = 78 指標。"""
     bd = compute_breakdown(state, 0)
-    assert len(bd) == 73
+    assert len(bd) == 78
 
 
 def test_default_weights_zero_for_new_keys(state):
@@ -345,11 +345,19 @@ def test_weight_change_affects_contribution(state):
     assert bd1["is_first_player"]["contribution"] == 1000 * bd1["is_first_player"]["diff"]
 
 
-def test_compute_score_unchanged_with_zero_weights(state):
+def test_compute_score_unchanged_with_zero_weights(state, monkeypatch):
     """新規 28 個全て重み 0 → compute_score は新規追加なし時と同じ。
 
     回帰テスト: Step 2-pre 追加で既存スコアが変わってないこと。
+    Phase 2 集約後は deck/archetype 重みが auto-load されるため、
+    state の deck_slugs / archetypes を空に強制してから比較。
+    Plan Step 3 (= 2026-05-17): NN backend を env で disable し、
+    線形 path での挙動を比較する (= NN は weights を受け取らないため
+    explicit weights 比較が無意味になる)。
     """
+    monkeypatch.setenv("ONEPIECE_NN_DISABLE", "1")
+    state.deck_slugs = ["", ""]
+    state.archetypes = ["", ""]
     s = compute_score(state, 0)
     # 新規重みを全て explicit に 0 に設定した場合と同値
     w = BoardEvalWeights()  # 全 default

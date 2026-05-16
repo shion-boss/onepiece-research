@@ -216,12 +216,18 @@ def search_turn_plan(
     # multi-turn 用 opp sim AI を準備 (= max_turns > 1 の時のみ)
     opp_sim_ai = None
     self_defense_ai = None
+    from .ai import GreedyAI, LightDeepPlanningAI, LookaheadAI, PlanningAI
+    # caller (= ai_self) の recursion_depth を伝播 (= 1 階層深く読ませる)。
+    # main caller depth=0 → opp_sim depth=1 (= plan_search 動作) → 内部 opp_sim depth=2 (= GreedyAI fallback)
+    caller_depth = getattr(ai_self, "recursion_depth", 0) if ai_self is not None else 0
     if max_turns > 1:
-        # opp sim は GreedyAI 固定 (= 無限再帰回避、 速度優先)。
-        # ai_opp が PlanningAI のケースでも GreedyAI で sim する。
-        from .ai import GreedyAI, PlanningAI
+        # opp sim は LightDeepPlanningAI(recursion_depth=caller+1) で archetype-aware 多手読み。
+        # 「相手をアグロと判断したらアグロ eval で多手読みする」 を実現。
         if ai_opp is None or isinstance(ai_opp, PlanningAI):
-            opp_sim_ai = GreedyAI(rng=getattr(state, "rng", None))
+            opp_sim_ai = LightDeepPlanningAI(
+                rng=getattr(state, "rng", None),
+                recursion_depth=caller_depth + 1,
+            )
         else:
             opp_sim_ai = ai_opp
         # opp 攻撃時の me 側 defense AI も同様 (= 速度優先で GreedyAI 化)
@@ -229,6 +235,14 @@ def search_turn_plan(
             self_defense_ai = GreedyAI(rng=getattr(state, "rng", None))
         else:
             self_defense_ai = ai_self
+    # === plan_search 枝刈り (R72+): 攻撃 leaf の defense AI を GreedyAI 固定 ===
+    # 元実装: ai_opp.choose_defense (= LookaheadAI / DeepPlanningAI 等の重い AI) が
+    # leaf の attack 毎に呼ばれて、 plan_search の組合せ爆発を引き起こしてた。
+    # GreedyAI に固定することで 各 leaf の defense 選択を高速化 (= 1 試合 10+ 分 → 数十秒)。
+    # opp が「真の choose_defense」 を示すのは 実 試合中だけで OK。
+    defense_ai_for_attacks = ai_opp
+    if ai_opp is None or isinstance(ai_opp, (PlanningAI, LookaheadAI)):
+        defense_ai_for_attacks = GreedyAI(rng=getattr(state, "rng", None))
 
     init = fast_clone(state)
 
@@ -266,7 +280,7 @@ def search_turn_plan(
             for action in la:
                 child = fast_clone(cur_state)
                 try:
-                    _apply_with_defense(child, action, ai_opp)
+                    _apply_with_defense(child, action, defense_ai_for_attacks)
                 except Exception:
                     # 不正手 / engine エラーはスキップ
                     continue
@@ -281,9 +295,14 @@ def search_turn_plan(
                 ):
                     if (child.turn_number - start_turn_number) < max_turns:
                         try:
-                            _simulate_opp_turn(child, opp_idx, opp_sim_ai, self_defense_ai)
+                            # plan_search 枝刈り (R72+): opp sim の hard_cap=5 (= 元 30)
+                            # で 1 leaf あたりの opp_turn 計算量を抑える。
+                            # plan_search 全体で opp_turn が leaves × 30 → leaves × 5 に。
+                            _simulate_opp_turn(
+                                child, opp_idx, opp_sim_ai, self_defense_ai,
+                                hard_cap_actions=5,
+                            )
                         except Exception:
-                            # opp sim 失敗 → そのまま leaf 扱いで eval
                             pass
 
                 score = compute_score(child, me_idx)

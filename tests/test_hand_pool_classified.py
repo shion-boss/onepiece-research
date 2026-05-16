@@ -116,15 +116,24 @@ def test_classifier_pool_subtracts_observed():
     pool = _opponent_pool(state, opp_idx=1)
     # 紫エネル recipe = 50、 -2 (= 場 + trash の OP15-066) = 48
     assert len(pool) == 48, f"50 - 2 = 48 のはず ({len(pool)})"
-    # pool に OP15-066 が残るのは「recipe 採用枚数 - 2」
-    n_satori = sum(1 for c in pool if c.card_id == "OP15-066")
-    # recipe 内 採用枚数を確認
-    from engine.hand_estimator import _load_archetype_recipes
-    recipes = _load_archetype_recipes()
-    if "紫エネル" in recipes:
-        total_in_recipe = sum(1 for c in recipes["紫エネル"] if c.card_id == "OP15-066")
-        assert n_satori == total_in_recipe - 2, \
-            f"recipe {total_in_recipe} - 2 観測 = {total_in_recipe - 2}, got {n_satori}"
+    # pool に残る OP15-066 = recipe (= archetype or variant) 採用枚数 - 2
+    # Phase 8 (= 2026-05-16) で variant pool が default 採用、 variant 別 recipe では
+    # OP15-066 採用枚数が異なる (= variant 0 は 4 枚採用)。
+    n_satori_pool = sum(1 for c in pool if c.card_id == "OP15-066")
+    from engine.hand_estimator import _load_archetype_recipes, _load_variant_recipes
+    arc_recipes = _load_archetype_recipes()
+    var_recipes = _load_variant_recipes()
+    arc_count = sum(1 for c in arc_recipes.get("紫エネル", []) if c.card_id == "OP15-066")
+    # variant 候補 (= leader_id=OP15-058 の全 variant) のいずれかと一致するはず
+    variant_counts = [
+        sum(1 for c in cards if c.card_id == "OP15-066")
+        for (lid, _vid), cards in var_recipes.items() if lid == "OP15-058"
+    ]
+    expected_counts = {max(0, c - 2) for c in [arc_count] + variant_counts}
+    assert n_satori_pool in expected_counts, (
+        f"got {n_satori_pool}, expected one of {expected_counts} "
+        f"(arc={arc_count}, variants={variant_counts})"
+    )
 
 
 def test_classifier_pool_low_confidence_fallback():
