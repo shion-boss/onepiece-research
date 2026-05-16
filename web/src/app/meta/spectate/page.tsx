@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { fetchMatrixProgress, type MatrixProgress } from "@/lib/api";
 import { MatrixSpectate } from "@/components/MatrixSpectate";
 
@@ -12,7 +13,13 @@ import { MatrixSpectate } from "@/components/MatrixSpectate";
  * - matrix progress endpoint からデッキ一覧を取得 (= 一度だけ、 polling 不要)
  * - URL query で `?a=<slug>&b=<slug>&seed=<n>` を受け取り、 初期値に反映
  * - **h-screen レイアウト** + flex で MatchReplay に残り高さを確保 (= /decks/.../replay と同型)
+ *
+ * Next.js 16 対応 (= 2026-05-16 修正):
+ * - `useSearchParams` hook を Suspense 内で使う (= window 参照を削除)
+ * - `force-dynamic` で static prerender を回避 (= 旧 build で 404 fallback 化していた issue 対応)
  */
+
+export const dynamic = "force-dynamic";
 
 export default function SpectatePage() {
   return (
@@ -23,6 +30,9 @@ export default function SpectatePage() {
 }
 
 function SpectateInner() {
+  // useSearchParams は Suspense 内で使う (= Next.js 16 推奨パターン)
+  const sp = useSearchParams();
+
   const { data: progress, error } = useSWR<MatrixProgress>(
     "matrix-progress-spectate",
     fetchMatrixProgress,
@@ -58,11 +68,9 @@ function SpectateInner() {
     );
   }
 
-  const sp =
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const initialA = sp?.get("a") ?? undefined;
-  const initialB = sp?.get("b") ?? undefined;
-  const initialSeedStr = sp?.get("seed");
+  const initialA = sp.get("a") ?? undefined;
+  const initialB = sp.get("b") ?? undefined;
+  const initialSeedStr = sp.get("seed");
   const initialSeed = initialSeedStr ? parseInt(initialSeedStr, 10) : undefined;
 
   return (

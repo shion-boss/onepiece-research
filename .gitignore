@@ -148,3 +148,4 @@ db/card_effects.json.bak*
 .auto_rewrite.lock
 .auto_rewrite.log
 .auto_rewrite.STOP
+.vercel
