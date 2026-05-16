@@ -785,4 +785,22 @@ def _compute_ai_hint_signals(
     if blocker_count <= 4:
         out.append({"type": "blocker_scarce", "value": True})
 
+    # 6) リーダー固有効果 flag (= Plan Step 1: AI が「このデッキの戦術」 を判断するための効果系シグナル)
+    # 既存 KeyCard.role から自動判定 (= 拡張 effect は card_role.py 3 軸 tag で別途対応)
+    key_card_roles = {k.role for k in key_cards}
+    if "ramp" in key_card_roles:
+        out.append({"type": "have_ramp", "value": True})
+    if "search" in key_card_roles:
+        out.append({"type": "have_search_loop", "value": True})
+    if "removal" in key_card_roles:
+        out.append({"type": "have_removal_arsenal", "value": True})
+    if "draw" in key_card_roles:
+        out.append({"type": "have_draw_engine", "value": True})
+    # 重 finisher (= cost >= 7 の finisher が key_cards に居る) の有無
+    heavy_finishers = [
+        k for k in key_cards if k.role == "finisher" and k.cost >= 7
+    ]
+    if heavy_finishers:
+        out.append({"type": "have_burst_finisher", "value": True})
+
     return out

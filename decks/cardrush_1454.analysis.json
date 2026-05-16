@@ -220,6 +220,18 @@
     {
       "type": "avoid_life_loss",
       "value": true
+    },
+    {
+      "type": "have_search_loop",
+      "value": true
+    },
+    {
+      "type": "have_removal_arsenal",
+      "value": true
+    },
+    {
+      "type": "have_draw_engine",
+      "value": true
     }
   ]
 }

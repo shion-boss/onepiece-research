@@ -76,7 +76,7 @@
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《海軍/SWORD》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《SWORD/海軍》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -231,6 +231,14 @@
     },
     {
       "type": "tank_lifeup_ok",
+      "value": true
+    },
+    {
+      "type": "have_search_loop",
+      "value": true
+    },
+    {
+      "type": "have_draw_engine",
       "value": true
     }
   ]

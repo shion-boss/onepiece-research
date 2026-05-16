@@ -249,6 +249,22 @@
     {
       "type": "tank_lifeup_ok",
       "value": true
+    },
+    {
+      "type": "have_ramp",
+      "value": true
+    },
+    {
+      "type": "have_search_loop",
+      "value": true
+    },
+    {
+      "type": "have_draw_engine",
+      "value": true
+    },
+    {
+      "type": "have_burst_finisher",
+      "value": true
     }
   ]
 }
