@@ -1277,6 +1277,7 @@ def execute_effect(
                 return True
             targets = _resolve_target(v, state, me, opp, self_inplay)
             actually_rested = []
+            already_rested_skipped: list[str] = []
             # 「相手のキャラの効果で」 判定: effect の source (self_inplay) が CHARACTER。
             by_opp_chara_eff = (
                 self_inplay is not None
@@ -1286,6 +1287,11 @@ def execute_effect(
                 # 「レストにできない」 保護 (OP14-033 等)
                 if t.cannot_be_rested_buff:
                     state.push_log(f"  レスト不能保護: {t.card.name}")
+                    continue
+                # 既に rested → 効果が no-op (= 観戦コメント由来: 「リーダー既に rested
+                # → trigger 効果使う必要なし」)。 actually_rested に入れず skip 扱い。
+                if t.rested:
+                    already_rested_skipped.append(t.card.name)
                     continue
                 # 置換効果 (replace_rest): 「このキャラがレストになる場合、 代わりに〜」 (PRB02-006 ゾロ等)
                 # actor (= me) と victim_owner を確定して置換チェック。
@@ -1299,13 +1305,19 @@ def execute_effect(
                     state, v_owner, v_actor, t, state.effects_overlay, by_opp_chara_eff
                 ):
                     continue
-                was_rested = t.rested
                 t.rested = True
                 actually_rested.append(t)
                 # 「このキャラがレストになった時」 trigger (OP14-027 シャンクス等)
-                if not was_rested and state.effects_overlay and v_owner is not None:
+                if state.effects_overlay and v_owner is not None:
                     trigger_on_self_rested(state, v_owner, v_actor, t, state.effects_overlay)
-            state.push_log(f"  効果: レスト → {[t.card.name for t in actually_rested]}")
+            if actually_rested:
+                state.push_log(f"  効果: レスト → {[t.card.name for t in actually_rested]}")
+            elif already_rested_skipped:
+                state.push_log(
+                    f"  効果: レスト 不発 (= {already_rested_skipped} は既に rested)"
+                )
+            else:
+                state.push_log(f"  効果: レスト → 対象なし (不発)")
         elif k == "rest_self_cards":
             # 自分のリーダー/キャラから N 枚をレスト。 AI 簡易: アクティブの中から power 低い順。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
