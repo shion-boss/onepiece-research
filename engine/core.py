@@ -578,6 +578,16 @@ class GameState:
     # plan_search の cloned state では compute_score (eval_before/after) 記録を抑止して
     # 不要な eval 計算を削減する (= R70 高速化)。 default True で本番試合は従来通り記録。
     record_action_evals: bool = True
+    # 各プレイヤーの deck slug (= setup_game で記録)。
+    # archetype 別重み load 用。 [p0_slug, p1_slug] (= "" は不明)。
+    deck_slugs: list[str] = field(default_factory=lambda: ["", ""])
+    # 各プレイヤーの archetype (= analysis から推定、 setup_game で記録)。
+    # ["コントロール", "ミッドレンジ"] 等。 "" は不明 → base 重みフォールバック。
+    archetypes: list[str] = field(default_factory=lambda: ["", ""])
+    # 各プレイヤーの leader 固有効果 flag (= ai_hint_signals 由来、 Plan Step 1)。
+    # 各 flag = bool。 例: {"have_ramp": True, "have_burst_finisher": False, ...}。
+    # eval.py の interaction features が state.deck_flags[me_idx] を参照する。
+    deck_flags: list[dict] = field(default_factory=lambda: [{}, {}])
 
     @property
     def turn_player(self):
