@@ -259,12 +259,11 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
     /api/match/{job_id}/games/{i}/replay と同じ形式 (= MatchReplay コンポーネントで再生可)。
 
-    走行中 matrix とは別プロセス、 LightDeepPlanningAI (= max_turns=3 上限)、
-    1 試合 ~10 秒目標 (= Vercel Functions の maxDuration=60s 内に収めるため)。
-
-    フル DeepPlanningAI は 1 試合 30-40s かかり 60s timeout 寸前。 軽量版は探索深さは
-    浅いが、 LookaheadAI/GreedyAI より深い beam search を維持し観戦体験を保つ。"""
-    from engine.ai import LightDeepPlanningAI
+    走行中 matrix とは別プロセス、 GreedyAI (= 軽量) で 1 試合 ~1-3 秒目標。
+    LightDeepPlanningAI は Vercel function の memory 制限で OOM kill されるため
+    一時的に GreedyAI に戻している (= 2026-05-16 復旧、 観戦 UI が動く優先)。
+    plan Step 6 (= NN 推論最適化) 後に DeepPlanning に戻す予定。"""
+    from engine.ai import GreedyAI
     from engine.deck import CardRepository, DeckList
     from engine.effects import load_effect_overlay
     from engine.harness import run_matchup as _run
@@ -286,8 +285,8 @@ def matrix_sample_replay(req: MatrixSampleRequest):
         da, db,
         n_games=1, seed=req.seed,
         effects_overlay=overlay,
-        ai_factory_1=LightDeepPlanningAI,
-        ai_factory_2=LightDeepPlanningAI,
+        ai_factory_1=GreedyAI,
+        ai_factory_2=GreedyAI,
         keep_logs=True, enforce_rules=False,
         record_snapshots=True,
     )
