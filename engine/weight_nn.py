@@ -81,16 +81,6 @@ class WeightNN(nn.Module):
             torch.tensor([BASE_SCALES[k] for k in WEIGHT_KEYS], dtype=torch.float32),
         )
 
-
-class WeightNNBig(WeightNN):
-    """大型版: hidden=512 (= ~300K params)。 学習データ大量時に表現力アップ用。
-
-    state_dict は WeightNN と互換性なし (= 別 NN として save/load)。
-    """
-
-    def __init__(self, input_dim: int = 172, dropout: float = 0.1):
-        super().__init__(input_dim=input_dim, hidden_dim=512, dropout=dropout)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """state → 9 dim weights (= positive、 base scale 適用後)。"""
         h = self.shared(x)
@@ -105,6 +95,13 @@ class WeightNNBig(WeightNN):
             x = torch.tensor(state_encoded, dtype=torch.float32).unsqueeze(0)
             w = self.forward(x).squeeze(0).tolist()
             return {k: w[i] for i, k in enumerate(WEIGHT_KEYS)}
+
+
+class WeightNNBig(WeightNN):
+    """大型版: hidden=512 (= ~300K params)。 forward / predict_weights は親クラスから継承。"""
+
+    def __init__(self, input_dim: int = 172, dropout: float = 0.1):
+        super().__init__(input_dim=input_dim, hidden_dim=512, dropout=dropout)
 
 
 # global model cache (= 1 度 load して使い回す)

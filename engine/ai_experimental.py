@@ -478,6 +478,9 @@ class AlphaZeroValueAI(TwoTurnPlanningAI):
 
     db/value_nn_alphazero.pt 必要。 学習方法は Plan D notebook (= colab)。
     plan_search の leaf eval で「NN(state) = P(win)」 → 2P-1 × magnify で score。
+
+    注: TwoTurnPlanningAI base は -14.4pt 負け確認済 (= 設計ミス)。
+    [[AlphaZeroValue1TurnAI]] / [[AlphaZeroValue3TurnAI]] を 推奨。
     """
 
     name = "AlphaZeroValue"
@@ -491,6 +494,80 @@ class AlphaZeroValueAI(TwoTurnPlanningAI):
         finally:
             if saved is None:
                 del os.environ["ONEPIECE_AZ_VALUE_NN"]
+            else:
+                os.environ["ONEPIECE_AZ_VALUE_NN"] = saved
+
+
+class AlphaZeroValue1TurnAI(_NoNNPlanningBase):
+    """Plan D 1-turn 版 (= 2026-05-18): 1-turn lookahead + value NN leaf eval。
+
+    Plan F (= 重み NN) per-deck で 学習効果 ゼロ確認 → Plan D shift。
+    1-turn base (= 既存 PlanningAI と 同じ設計) + value NN で leaf 評価。
+
+    plan_search の leaf eval で「NN(state) = P(win)」 → 2P-1 × magnify で score 計算。
+    重みではなく **価値そのもの** を NN が出力するため argmax 直接 動く。
+
+    nn_dir 引数 (= 2026-05-18 夜): per-deck value NN 対応。 db/value_nn_per_deck/<slug>.pt を
+    deck slug ごとに bind。 全 deck 混在学習 (= single NN, ±60pt 振れ幅) を 解消。
+    """
+
+    name = "AlphaZeroValue1Turn"
+
+    def __init__(self, *args, nn_dir=None, **kwargs):
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 3)
+        kwargs.setdefault("adaptive", False)
+        super().__init__(*args, **kwargs)
+        self._nn_dir = nn_dir
+        self._nn_per_deck_cache: dict = {}
+
+    def _resolve_per_deck_value_nn(self, state):
+        """state から me deck slug 検出 → per-deck value NN を 取得 / load。"""
+        if not self._nn_dir:
+            return None
+        me_idx = state.turn_player_idx
+        deck_slugs = getattr(state, "deck_slugs", None)
+        if not deck_slugs or len(deck_slugs) <= me_idx:
+            return None
+        slug = deck_slugs[me_idx]
+        if not slug:
+            return None
+        if slug in self._nn_per_deck_cache:
+            return self._nn_per_deck_cache[slug]
+        from pathlib import Path
+        p = Path(self._nn_dir) / f"{slug}.pt"
+        if not p.exists():
+            self._nn_per_deck_cache[slug] = None
+            return None
+        from .value_nn_alphazero import load_value_nn_instance
+        m = load_value_nn_instance(str(p))
+        self._nn_per_deck_cache[slug] = m
+        return m
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_AZ_VALUE_NN")
+        os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+
+        # per-deck NN swap (= nn_dir 指定時)
+        swapped = False
+        saved_cache = None
+        if self._nn_dir:
+            active = self._resolve_per_deck_value_nn(state)
+            if active is not None:
+                from engine import value_nn_alphazero as vn
+                saved_cache = vn._MODEL
+                vn._MODEL = active
+                swapped = True
+
+        try:
+            return super().choose_action(state)
+        finally:
+            if swapped:
+                from engine import value_nn_alphazero as vn
+                vn._MODEL = saved_cache
+            if saved is None:
+                os.environ.pop("ONEPIECE_AZ_VALUE_NN", None)
             else:
                 os.environ["ONEPIECE_AZ_VALUE_NN"] = saved
 
@@ -555,21 +632,298 @@ class WeightNNTwoTurnAI(TwoTurnPlanningAI):
                 os.environ["ONEPIECE_WEIGHT_NN"] = saved_wnn
 
 
-class WeightNNPlanningAI(_NoNNPlanningBase):
+def _load_weight_nn_instance(nn_path):
+    """instance bind 用 WeightNN load (= 1 つの AI に 専用 model を bind するため)。
+
+    直接対決 (= 1-turn NN vs 3-turn NN) で 異なる NN を 2 AI に 載せる用途。
+    """
+    if not nn_path:
+        return None
+    try:
+        import torch
+        from .weight_nn import WeightNN
+        sd = torch.load(nn_path, map_location="cpu", weights_only=True)
+        m = WeightNN()
+        m.load_state_dict(sd)
+        m.eval()
+        return m
+    except Exception as e:
+        print(f"[WeightNN] load failed for {nn_path}: {e}")
+        return None
+
+
+class _WeightNNBindMixin:
+    """nn_path 引数で AI instance に 専用 WeightNN を bind する mixin。
+
+    choose_action / choose_defense 前に global cache を 自前 model に swap、
+    終了時に 復元。 直接対決 (= 異なる NN を 2 AI に bind) で必須。
+
+    2026-05-18 拡張: nn_dir で per-deck NN 対応。 state.deck_slugs[me_idx] を 検出して
+    nn_dir/<slug>.pt を load。 各 deck 専用 NN を bind 可能 (= ohtsuki 指摘の deck-specific 設計)。
+    nn_path 単一指定 (= 旧) は 後方互換、 nn_dir 指定で per-deck 動作。
+    """
+
+    def _resolve_active_nn(self, state):
+        """state から me の deck slug を 取得 → per-deck NN or 単一 NN を 返す。"""
+        # per-deck NN: nn_dir 指定時
+        nn_dir = getattr(self, "_nn_dir", None)
+        if nn_dir:
+            me_idx = state.turn_player_idx
+            deck_slugs = getattr(state, "deck_slugs", None)
+            if deck_slugs and len(deck_slugs) > me_idx:
+                slug = deck_slugs[me_idx]
+                if slug:
+                    cache = getattr(self, "_nn_per_deck_cache", None)
+                    if cache is None:
+                        cache = {}
+                        self._nn_per_deck_cache = cache
+                    if slug in cache:
+                        return cache[slug]
+                    from pathlib import Path
+                    p = Path(nn_dir) / f"{slug}.pt"
+                    if p.exists():
+                        m = _load_weight_nn_instance(str(p))
+                        cache[slug] = m
+                        return m
+                    cache[slug] = None
+        # 単一 NN fallback (= nn_path 指定 or 既存)
+        return getattr(self, "_nn_model", None)
+
+    def _enter_nn_scope(self, state=None):
+        active = self._resolve_active_nn(state) if state is not None else getattr(self, "_nn_model", None)
+        if active is None:
+            return None
+        from . import weight_nn as wn
+        saved = wn._MODEL_CACHE
+        wn._MODEL_CACHE = active
+        return saved
+
+    def _exit_nn_scope(self, saved):
+        # saved is None means we did not swap (= active was None)
+        if saved is None and getattr(self, "_nn_model", None) is None and not getattr(self, "_nn_dir", None):
+            return
+        from . import weight_nn as wn
+        wn._MODEL_CACHE = saved
+
+
+class AZValueTurnPlanAI(_NoNNPlanningBase):
+    """Plan D + Plan G 統合 (= 2026-05-18 夜): AlphaZero value NN + turn_plan bonus。
+
+    1-turn lookahead で:
+    - leaf eval は value NN (= Plan D)
+    - action bonus は turn_plan (= Plan G、 人間 designer の ideal_moves)
+
+    NN が 「価値判定」、 ideal_moves が 「ターン毎の goal」 を 提供。
+    両方 同時 適用 で 相補的 効果 期待。
+
+    nn_dir で per-deck value NN bind、 turn_plan_w で goal bonus 強度 制御。
+    """
+
+    name = "AZValueTurnPlan"
+
+    def __init__(self, *args, nn_dir=None, turn_plan_w: float = 3000.0, **kwargs):
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 3)
+        kwargs.setdefault("adaptive", False)
+        super().__init__(*args, **kwargs)
+        self._nn_dir = nn_dir
+        self._nn_per_deck_cache: dict = {}
+        self._turn_plan_w = turn_plan_w
+
+    def _resolve_per_deck_value_nn(self, state):
+        """state から me deck slug 検出 → per-deck value NN を 取得 / load。"""
+        if not self._nn_dir:
+            return None
+        me_idx = state.turn_player_idx
+        deck_slugs = getattr(state, "deck_slugs", None)
+        if not deck_slugs or len(deck_slugs) <= me_idx:
+            return None
+        slug = deck_slugs[me_idx]
+        if not slug:
+            return None
+        if slug in self._nn_per_deck_cache:
+            return self._nn_per_deck_cache[slug]
+        from pathlib import Path
+        p = Path(self._nn_dir) / f"{slug}.pt"
+        if not p.exists():
+            self._nn_per_deck_cache[slug] = None
+            return None
+        from .value_nn_alphazero import load_value_nn_instance
+        m = load_value_nn_instance(str(p))
+        self._nn_per_deck_cache[slug] = m
+        return m
+
+    def choose_action(self, state):
+        import os
+        saved_az = os.environ.get("ONEPIECE_AZ_VALUE_NN")
+        saved_tp = os.environ.get("ONEPIECE_TURN_PLAN_W")
+        os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+        os.environ["ONEPIECE_TURN_PLAN_W"] = str(self._turn_plan_w)
+
+        # per-deck value NN swap
+        swapped = False
+        saved_cache = None
+        if self._nn_dir:
+            active = self._resolve_per_deck_value_nn(state)
+            if active is not None:
+                from engine import value_nn_alphazero as vn
+                saved_cache = vn._MODEL
+                vn._MODEL = active
+                swapped = True
+
+        try:
+            return super().choose_action(state)
+        finally:
+            if swapped:
+                from engine import value_nn_alphazero as vn
+                vn._MODEL = saved_cache
+            if saved_az is None:
+                os.environ.pop("ONEPIECE_AZ_VALUE_NN", None)
+            else:
+                os.environ["ONEPIECE_AZ_VALUE_NN"] = saved_az
+            if saved_tp is None:
+                os.environ.pop("ONEPIECE_TURN_PLAN_W", None)
+            else:
+                os.environ["ONEPIECE_TURN_PLAN_W"] = saved_tp
+
+
+class TurnPlanAI(_NoNNPlanningBase):
+    """Plan G (= 2026-05-18 夜): turn_plan-directed PlanningAI。
+
+    decks/<slug>.analysis.json の ideal_moves を 読んで、 現 turn の candidate_cards を
+    play する action に bonus を 加算する。
+
+    人間プレイヤーの 「T1: 1 コスト展開、 T4: 中堅、 T6: フィニッシャー」 という
+    goal-directed planning を 模擬。 既存 PlanningAI は reactive (= argmax)、 これは proactive。
+
+    ONEPIECE_TURN_PLAN_W で 重み 制御 (= default 3000、 1 action あたり 3000 score bonus)。
+    """
+
+    name = "TurnPlan"
+
+    def __init__(self, *args, turn_plan_w: float = 3000.0, **kwargs):
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 3)
+        kwargs.setdefault("adaptive", False)
+        super().__init__(*args, **kwargs)
+        self._turn_plan_w = turn_plan_w
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_TURN_PLAN_W")
+        os.environ["ONEPIECE_TURN_PLAN_W"] = str(self._turn_plan_w)
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                os.environ.pop("ONEPIECE_TURN_PLAN_W", None)
+            else:
+                os.environ["ONEPIECE_TURN_PLAN_W"] = saved
+
+
+class WeightNNPlanningAI(_WeightNNBindMixin, _NoNNPlanningBase):
     """Plan F (= 2026-05-18): 重み NN を使う PlanningAI。
 
     choose_action 中に ONEPIECE_WEIGHT_NN=1 を set、 compute_score が
     weight_nn.compute_weights_nn を呼んで state-dependent な 9 dim weights を取得。
     既存 9 dim eval は維持、 重みだけ NN 動的化 (= AlphaZero 風 評価関数学習)。
+
+    1-turn (= 自ターンだけ) lookahead 専用。 「そのターンのベスト追求」 設計。
+
+    nn_path 引数 (= 2026-05-18): instance bind 用。 指定で その NN を 自前 load、
+    choose_action 中に global cache を swap (= 直接対決 で 異なる NN を 2 AI に 載せる)。
     """
 
     name = "WeightNNPlanning"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, nn_path=None, nn_dir=None, **kwargs):
         kwargs.setdefault("beam_width", 2)
         kwargs.setdefault("max_depth", 3)
         kwargs.setdefault("adaptive", False)
         super().__init__(*args, **kwargs)
+        self._nn_model = _load_weight_nn_instance(nn_path)
+        self._nn_dir = nn_dir
+        self._nn_per_deck_cache = {}
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_WEIGHT_NN")
+        saved_dw = os.environ.get("ONEPIECE_DYNAMIC_WEIGHTS")
+        os.environ["ONEPIECE_WEIGHT_NN"] = "1"
+        os.environ["ONEPIECE_DYNAMIC_WEIGHTS"] = "1"
+        saved_cache = self._enter_nn_scope(state)
+        try:
+            return super().choose_action(state)
+        finally:
+            self._exit_nn_scope(saved_cache)
+            if saved is None:
+                os.environ.pop("ONEPIECE_WEIGHT_NN", None)
+            else:
+                os.environ["ONEPIECE_WEIGHT_NN"] = saved
+            if saved_dw is None:
+                os.environ.pop("ONEPIECE_DYNAMIC_WEIGHTS", None)
+            else:
+                os.environ["ONEPIECE_DYNAMIC_WEIGHTS"] = saved_dw
+
+
+class ThreeTurnPlanningAI(_WeightNNBindMixin, _NoNNPlanningBase):
+    """2026-05-18: 自 → 相手 → 自 で 3 turn = 自ターン 2 回分 読む PlanningAI 派生。
+
+    TwoTurnPlanningAI (= max_turns=2、 自+相手のみ) では 次自ターンが 読めず
+    「今 DON 温存 → 次自ターン リーサル」 等のプラン が 発見不可。
+    max_turns=3 で 自 → 相手 → 自 まで 読み、 真のリーサル計画 が 可能。
+
+    探索 重いので depth=12 + opp hard_cap=8 + LIGHT_OPP_SIM=1 で 高速化。
+
+    nn_path 引数 (= 2026-05-18): instance bind 用、 [[WeightNNPlanningAI]] と同様。
+    """
+
+    name = "ThreeTurnPlanning"
+
+    def __init__(self, *args, nn_path=None, nn_dir=None, **kwargs):
+        kwargs.setdefault("max_turns", 3)
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 12)
+        kwargs["adaptive"] = False
+        super().__init__(*args, **kwargs)
+        self._nn_model = _load_weight_nn_instance(nn_path)
+        self._nn_dir = nn_dir
+        self._nn_per_deck_cache = {}
+
+    def choose_action(self, state):
+        import os
+        saved = {
+            "opp": os.environ.get("ONEPIECE_LIGHT_OPP_SIM"),
+            "dw": os.environ.get("ONEPIECE_DYNAMIC_WEIGHTS"),
+            "hc": os.environ.get("ONEPIECE_OPP_HARD_CAP"),
+        }
+        os.environ["ONEPIECE_LIGHT_OPP_SIM"] = "1"
+        os.environ["ONEPIECE_DYNAMIC_WEIGHTS"] = "1"
+        os.environ["ONEPIECE_OPP_HARD_CAP"] = "8"
+        saved_cache = self._enter_nn_scope(state)
+        try:
+            return super().choose_action(state)
+        finally:
+            self._exit_nn_scope(saved_cache)
+            for k, v in [
+                ("ONEPIECE_LIGHT_OPP_SIM", saved["opp"]),
+                ("ONEPIECE_DYNAMIC_WEIGHTS", saved["dw"]),
+                ("ONEPIECE_OPP_HARD_CAP", saved["hc"]),
+            ]:
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
+class WeightNNThreeTurnAI(ThreeTurnPlanningAI):
+    """2026-05-18: 3-turn lookahead + WeightNN 重み NN 評価関数。
+
+    リーサル計画 (= 「今 DON 温存 → 次自ターン リーサル」) を 発見できる lookahead に
+    NN 重み 評価関数 を組み合わせる。 WeightNNPlanningAI (= 1-turn 版) との 比較用。
+    """
+
+    name = "WeightNNThreeTurn"
 
     def choose_action(self, state):
         import os
@@ -579,9 +933,31 @@ class WeightNNPlanningAI(_NoNNPlanningBase):
             return super().choose_action(state)
         finally:
             if saved is None:
-                del os.environ["ONEPIECE_WEIGHT_NN"]
+                os.environ.pop("ONEPIECE_WEIGHT_NN", None)
             else:
                 os.environ["ONEPIECE_WEIGHT_NN"] = saved
+
+
+class AlphaZeroValue3TurnAI(ThreeTurnPlanningAI):
+    """Plan D 3-turn 版 (= 2026-05-18): 3-turn lookahead + value NN leaf eval。
+
+    3-turn (= 自→相手→自) で リーサル計画 を 含む 深い 探索 + value NN で 各 leaf 評価。
+    多 leaf で value NN が 累積 効果を 発揮する 期待。
+    """
+
+    name = "AlphaZeroValue3Turn"
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_AZ_VALUE_NN")
+        os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                os.environ.pop("ONEPIECE_AZ_VALUE_NN", None)
+            else:
+                os.environ["ONEPIECE_AZ_VALUE_NN"] = saved
 
 
 class AdaptiveBeamDepthAI(_NoNNPlanningBase):

@@ -43,12 +43,13 @@ class ValueNNAlphaZero(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout),
         )
-        self.value_head = nn.Linear(hidden_dim // 2, 1)
+        # head: Colab notebook の key 名 (= self.head) に 合わせる
+        self.head = nn.Linear(hidden_dim // 2, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """returns P(win) ∈ [0,1] (= sigmoid 適用後)。"""
         h = self.body(x)
-        return torch.sigmoid(self.value_head(h)).squeeze(-1)
+        return torch.sigmoid(self.head(h)).squeeze(-1)
 
 
 # global cache
@@ -99,6 +100,9 @@ def compute_value_az(state, me_idx: int) -> Optional[float]:
       P(win)=0.5 (= 五分) で score=0
       P(win)=1.0 (= 確定勝利) で score=+magnify
       P(win)=0.0 (= 確定敗北) で score=-magnify
+
+    instance bind 対応 (= 2026-05-18 夜): global _MODEL を AI 側 で swap 可能。
+    per-deck value NN (= AlphaZeroValue1TurnAI.nn_dir) で 各 deck 専用 model を 適用。
     """
     model = get_value_model()
     if model is None:
@@ -112,4 +116,19 @@ def compute_value_az(state, me_idx: int) -> Optional[float]:
         return (2.0 * p_win - 1.0) * magnify
     except Exception as e:
         print(f"[value_nn_alphazero] compute_value_az failed: {e}")
+        return None
+
+
+def load_value_nn_instance(path: str) -> Optional[ValueNNAlphaZero]:
+    """instance bind 用 ValueNN load (= per-deck value NN 等)。"""
+    if not path:
+        return None
+    try:
+        sd = torch.load(path, map_location="cpu", weights_only=True)
+        m = ValueNNAlphaZero()
+        m.load_state_dict(sd)
+        m.eval()
+        return m
+    except Exception as e:
+        print(f"[value_nn_alphazero] load_instance failed for {path}: {e}")
         return None

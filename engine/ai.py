@@ -2302,6 +2302,7 @@ class DeepPlanningAI(GreedyAI):
                 max_depth=max_depth,
                 max_turns=max_turns,
                 ai_self=self,
+                me_deck_analysis=getattr(self, "deck_analysis", None),
             )
 
         try:

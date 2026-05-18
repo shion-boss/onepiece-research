@@ -156,3 +156,14 @@ db/ai_params_decks/*.snapshots.jsonl
 db/ai_params_decks/*.run.log
 db/online_snapshots*.jsonl
 db/opp_action_snapshots*.jsonl
+
+# 2026-05-18: Plan D / F snapshot (= 再生成可、 巨大)
+db/snapshots_oneturn*.jsonl
+db/snapshots_threeturn*.jsonl
+db/snapshots_oneturn_by_deck/
+db/snapshots_threeturn_by_deck/
+db/twoturn_snapshots*.jsonl
+db/mcts_rollout_snapshots*.jsonl
+db/mcts_rollout_combined.jsonl
+db/mcts_rollout_by_deck/
+db/mcts_rollout_by_deck.tar.gz

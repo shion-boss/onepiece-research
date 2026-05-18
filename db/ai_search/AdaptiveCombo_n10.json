@@ -1,0 +1,173 @@
+{
+  "label": "adaptive_combo",
+  "ai_class": "engine.ai_experimental.AdaptiveComboAI",
+  "ai_kwargs": {},
+  "n_games_per_deck": 10,
+  "seed": 42,
+  "computed_at": "2026-05-18T07:53:15Z",
+  "partial": false,
+  "decks_done": 16,
+  "decks_total": 16,
+  "results": [
+    {
+      "deck": "cardrush_1342",
+      "deck_name": "紫ドフラミンゴ",
+      "improved_wins": 1,
+      "baseline_wins": 9,
+      "draws": 0,
+      "improved_winrate": 0.1,
+      "avg_turns": 19.2,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1385",
+      "deck_name": "黒クロコダイル",
+      "improved_wins": 4,
+      "baseline_wins": 6,
+      "draws": 0,
+      "improved_winrate": 0.4,
+      "avg_turns": 15.5,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1392",
+      "deck_name": "黒イム",
+      "improved_wins": 5,
+      "baseline_wins": 5,
+      "draws": 0,
+      "improved_winrate": 0.5,
+      "avg_turns": 14,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1399",
+      "deck_name": "赤青ルーシー",
+      "improved_wins": 5,
+      "baseline_wins": 5,
+      "draws": 0,
+      "improved_winrate": 0.5,
+      "avg_turns": 11.8,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1439",
+      "deck_name": "青黄ナミ",
+      "improved_wins": 7,
+      "baseline_wins": 3,
+      "draws": 0,
+      "improved_winrate": 0.7,
+      "avg_turns": 15,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1453",
+      "deck_name": "緑ミホーク",
+      "improved_wins": 6,
+      "baseline_wins": 4,
+      "draws": 0,
+      "improved_winrate": 0.6,
+      "avg_turns": 18.1,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1454",
+      "deck_name": "紫エネル",
+      "improved_wins": 7,
+      "baseline_wins": 3,
+      "draws": 0,
+      "improved_winrate": 0.7,
+      "avg_turns": 18,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1455",
+      "deck_name": "空島ルフィ",
+      "improved_wins": 3,
+      "baseline_wins": 7,
+      "draws": 0,
+      "improved_winrate": 0.3,
+      "avg_turns": 45,
+      "n_games": 10
+    },
+    {
+      "deck": "cardrush_1456",
+      "deck_name": "赤青エース",
+      "improved_wins": 2,
+      "baseline_wins": 8,
+      "draws": 0,
+      "improved_winrate": 0.2,
+      "avg_turns": 18.5,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_bonney",
+      "deck_name": "赤黄ボニー",
+      "improved_wins": 6,
+      "baseline_wins": 4,
+      "draws": 0,
+      "improved_winrate": 0.6,
+      "avg_turns": 13.9,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_calgara",
+      "deck_name": "黄カルガラ",
+      "improved_wins": 4,
+      "baseline_wins": 6,
+      "draws": 0,
+      "improved_winrate": 0.4,
+      "avg_turns": 15.3,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_coby",
+      "deck_name": "赤黒コビー",
+      "improved_wins": 3,
+      "baseline_wins": 7,
+      "draws": 0,
+      "improved_winrate": 0.3,
+      "avg_turns": 67.5,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_corazon",
+      "deck_name": "紫黄ロシナンテ",
+      "improved_wins": 6,
+      "baseline_wins": 4,
+      "draws": 0,
+      "improved_winrate": 0.6,
+      "avg_turns": 15.7,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_hancock",
+      "deck_name": "青黄ハンコック",
+      "improved_wins": 8,
+      "baseline_wins": 2,
+      "draws": 0,
+      "improved_winrate": 0.8,
+      "avg_turns": 16.9,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_op11_luffy",
+      "deck_name": "青紫ルフィ",
+      "improved_wins": 6,
+      "baseline_wins": 4,
+      "draws": 0,
+      "improved_winrate": 0.6,
+      "avg_turns": 19.5,
+      "n_games": 10
+    },
+    {
+      "deck": "tcgportal_op13_luffy",
+      "deck_name": "赤緑ルフィ（OP13）",
+      "improved_wins": 7,
+      "baseline_wins": 3,
+      "draws": 0,
+      "improved_winrate": 0.7,
+      "avg_turns": 11.4,
+      "n_games": 10
+    }
+  ]
+}

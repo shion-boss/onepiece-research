@@ -191,6 +191,7 @@ def search_turn_plan(
     max_depth: int = 8,
     max_turns: int = 1,
     ai_self=None,
+    me_deck_analysis: "Optional[dict]" = None,
 ) -> tuple[list, float]:
     """MAIN フェーズ開始時に呼ぶ。 ターン全体プランを beam search。
 
@@ -287,6 +288,23 @@ def search_turn_plan(
     if _USE_IMIT:
         from .imitation_prior import get_card_play_prior
 
+    # === Plan G (= 2026-05-18 夜): turn_plan-directed bonus ===
+    # decks/<slug>.analysis.json の ideal_moves で 指定された「現 turn の candidate cards」 を
+    # play する action に bonus。 人間プレイヤーの 「T1: 1 コスト、 T4: 中堅、 T6: フィニッシャー」
+    # 的な goal-directed planning を 模擬。
+    # ONEPIECE_TURN_PLAN_W 環境変数 (= default 0 無効、 3000+ で 強い goal-bias)。
+    _W_TURN_PLAN = float(_os.environ.get("ONEPIECE_TURN_PLAN_W", "0"))
+    _USE_TURN_PLAN = _W_TURN_PLAN > 0
+    _me_deck_analysis = me_deck_analysis
+    if _USE_TURN_PLAN:
+        from .turn_plan import get_turn_plan_candidates
+        # fallback: state や player から 取得 試行 (= caller が 渡さない場合)
+        if _me_deck_analysis is None:
+            if hasattr(state, "deck_analyses") and isinstance(state.deck_analyses, dict):
+                _me_deck_analysis = state.deck_analyses.get(me_idx)
+            elif hasattr(state, "players") and hasattr(state.players[me_idx], "deck_analysis"):
+                _me_deck_analysis = state.players[me_idx].deck_analysis
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -324,12 +342,12 @@ def search_turn_plan(
                 ):
                     if (child.turn_number - start_turn_number) < max_turns:
                         try:
-                            # plan_search 枝刈り (R72+): opp sim の hard_cap=5 (= 元 30)
-                            # で 1 leaf あたりの opp_turn 計算量を抑える。
-                            # plan_search 全体で opp_turn が leaves × 30 → leaves × 5 に。
+                            # plan_search 枝刈り: opp sim の hard_cap を env で可変化。
+                            # default 5 (= 軽量)、 3-turn lookahead で 8 推奨 (= opp が攻撃完走)。
+                            _opp_hard_cap = int(_os.environ.get("ONEPIECE_OPP_HARD_CAP", "5"))
                             _simulate_opp_turn(
                                 child, opp_idx, opp_sim_ai, self_defense_ai,
-                                hard_cap_actions=5,
+                                hard_cap_actions=_opp_hard_cap,
                             )
                         except Exception:
                             pass
@@ -358,6 +376,19 @@ def search_turn_plan(
                                 score = score + _W_IMIT * (prior - 0.5)
                     except Exception:
                         pass  # imitation 失敗時は plan_search 止めない
+
+                # Plan G: turn_plan bonus (= 現 turn の candidate_cards に bonus)
+                if _USE_TURN_PLAN and _me_deck_analysis:
+                    try:
+                        card_id = None
+                        if hasattr(action, "card") and action.card is not None:
+                            card_id = getattr(action.card, "card_id", None)
+                        if card_id:
+                            cands = get_turn_plan_candidates(_me_deck_analysis, cur_state.turn_number)
+                            if card_id in cands:
+                                score = score + _W_TURN_PLAN
+                    except Exception:
+                        pass  # turn_plan 失敗時は plan_search 止めない
 
                 next_frontier.append((child, plan + [action], score))
 
