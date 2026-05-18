@@ -1,0 +1,346 @@
+{
+  "deck_a": "cardrush_1456",
+  "deck_b": "cardrush_1342",
+  "n_games": 5,
+  "total_evaluated_actions": 363,
+  "threshold": -3000.0,
+  "action_type_breakdown": {
+    "EndPhase": 64,
+    "AttackLeader": 5,
+    "PlayCharacter": 2
+  },
+  "bad_per_player": {
+    "0": {
+      "count": 35,
+      "avg_delta": -31319.105479445952,
+      "samples": [
+        {
+          "turn": 2,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 11737.124314380957,
+          "eval_after": 4357.989274743346,
+          "delta": -7379.135039637611,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 4,
+            "active_chara_remaining": 0,
+            "leader_unrested": true
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 4,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 29384.660431716606,
+          "eval_after": 24978.931692816797,
+          "delta": -4405.728738899808,
+          "context": {
+            "don_active_before": 2,
+            "don_remaining": 2,
+            "hand_size": 5,
+            "active_chara_remaining": 1,
+            "leader_unrested": false
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 6,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 71149.08577260966,
+          "eval_after": 33174.83551427114,
+          "delta": -37974.25025833852,
+          "context": {
+            "don_active_before": 1,
+            "don_remaining": 1,
+            "hand_size": 6,
+            "active_chara_remaining": 2,
+            "leader_unrested": false
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 8,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 127935.83458131,
+          "eval_after": 111463.63957310414,
+          "delta": -16472.19500820586,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 7,
+            "active_chara_remaining": 2,
+            "leader_unrested": false
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 10,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 208621.66106244162,
+          "eval_after": 179301.55945377387,
+          "delta": -29320.101608667755,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 7,
+            "active_chara_remaining": 3,
+            "leader_unrested": true
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 12,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 206702.6076837901,
+          "eval_after": 197681.51736578153,
+          "delta": -9021.090318008559,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 7,
+            "active_chara_remaining": 4,
+            "leader_unrested": false
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 4,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 5852.770187266265,
+          "eval_after": -7340.648913625564,
+          "delta": -13193.419100891828,
+          "context": {
+            "don_active_before": 1,
+            "don_remaining": 1,
+            "hand_size": 5,
+            "active_chara_remaining": 1,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 6,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 17591.792469699405,
+          "eval_after": -9186.599812616967,
+          "delta": -26778.392282316374,
+          "context": {
+            "don_active_before": 3,
+            "don_remaining": 3,
+            "hand_size": 5,
+            "active_chara_remaining": 1,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 8,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": -5971.113091494562,
+          "eval_after": -21606.391314747863,
+          "delta": -15635.278223253303,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 4,
+            "active_chara_remaining": 1,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 10,
+          "player_idx": 0,
+          "action": "EndPhase",
+          "eval_before": 2646.195252000673,
+          "eval_after": -36211.281238780655,
+          "delta": -38857.47649078133,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 4,
+            "active_chara_remaining": 2,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        }
+      ]
+    },
+    "1": {
+      "count": 36,
+      "avg_delta": -20778.059052493874,
+      "samples": [
+        {
+          "turn": 5,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 2387.9428252340895,
+          "eval_after": -10649.3740057552,
+          "delta": -13037.31683098929,
+          "context": {
+            "don_active_before": 2,
+            "don_remaining": 2,
+            "hand_size": 7,
+            "active_chara_remaining": 0,
+            "leader_unrested": false
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 11,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -116145.8850098235,
+          "eval_after": -152683.2195503841,
+          "delta": -36537.334540560594,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 2,
+            "active_chara_remaining": 1,
+            "leader_unrested": true
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 13,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -168974.01672775482,
+          "eval_after": -197465.67343526267,
+          "delta": -28491.65670750785,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 4,
+            "active_chara_remaining": 4,
+            "leader_unrested": true
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 15,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -125695.49325164511,
+          "eval_after": -133083.58805576563,
+          "delta": -7388.0948041205265,
+          "context": {
+            "don_active_before": 1,
+            "don_remaining": 1,
+            "hand_size": 4,
+            "active_chara_remaining": 1,
+            "leader_unrested": false
+          },
+          "game_idx": 0
+        },
+        {
+          "turn": 3,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": -5107.288009074071,
+          "eval_after": -13038.562332395148,
+          "delta": -7931.274323321077,
+          "context": {
+            "don_active_before": 1,
+            "don_remaining": 1,
+            "hand_size": 6,
+            "active_chara_remaining": 0,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 5,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 27070.936273106458,
+          "eval_after": -6905.099790187222,
+          "delta": -33976.03606329368,
+          "context": {
+            "don_active_before": 1,
+            "don_remaining": 1,
+            "hand_size": 8,
+            "active_chara_remaining": 1,
+            "leader_unrested": false
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 7,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 60126.83201237474,
+          "eval_after": 44082.97233913933,
+          "delta": -16043.859673235413,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 8,
+            "active_chara_remaining": 1,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 9,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 113578.1109142466,
+          "eval_after": 93348.39325910338,
+          "delta": -20229.71765514322,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 8,
+            "active_chara_remaining": 3,
+            "leader_unrested": true
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 11,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 135312.4116976643,
+          "eval_after": 130121.71387643403,
+          "delta": -5190.697821230264,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 9,
+            "active_chara_remaining": 4,
+            "leader_unrested": false
+          },
+          "game_idx": 1
+        },
+        {
+          "turn": 13,
+          "player_idx": 1,
+          "action": "EndPhase",
+          "eval_before": 237617.3142336274,
+          "eval_after": 223363.40166445845,
+          "delta": -14253.912569168955,
+          "context": {
+            "don_active_before": 0,
+            "don_remaining": 0,
+            "hand_size": 6,
+            "active_chara_remaining": 2,
+            "leader_unrested": false
+          },
+          "game_idx": 1
+        }
+      ]
+    }
+  }
+}
