@@ -1,0 +1,2799 @@
+{
+  "_source": "decks/_archive/cardrush_raw/",
+  "_n_files": 93,
+  "_core_threshold": 0.5,
+  "_n_leaders": 11,
+  "patterns": {
+    "OP15-098": {
+      "leader_id": "OP15-098",
+      "leader_name": "モンキー・Ｄ・ルフィ",
+      "n_decks_analyzed": 10,
+      "core_cards": [
+        {
+          "card_id": "OP15-119",
+          "name": "モンキー・Ｄ・ルフィ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-108",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB04-058",
+          "name": "ボルサリーノ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-109",
+          "name": "ニコ・ロビン",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-114",
+          "name": "ワイパー",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-113",
+          "name": "ロロノア・ゾロ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.9
+        },
+        {
+          "card_id": "OP05-106",
+          "name": "シュラ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP11-106",
+          "name": "ゼウス",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.9
+        },
+        {
+          "card_id": "EB02-052",
+          "name": "エネル",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "11000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.4
+        },
+        {
+          "card_id": "OP15-116",
+          "name": "ゴムゴムの黄金回転弾",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-099",
+          "name": "カルガラ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.9,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "ST29-009",
+          "name": "ニコ・ロビン",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "2000",
+          "adoption_rate": 0.7,
+          "avg_count_when_adopted": 3.29
+        },
+        {
+          "card_id": "OP05-102",
+          "name": "ゲダツ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.6,
+          "avg_count_when_adopted": 3.33
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP15-102",
+          "name": "ガン・フォール",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "4000",
+          "adoption_rate": 0.4,
+          "avg_count_when_adopted": 2.75
+        },
+        {
+          "card_id": "EB03-056",
+          "name": "ベロ・ベティ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "3000",
+          "adoption_rate": 0.3,
+          "avg_count_when_adopted": 3.33
+        },
+        {
+          "card_id": "P-120",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 0.2,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP06-106",
+          "name": "光月日和",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP07-115",
+          "name": "助けてクエーサ～!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-107",
+          "name": "トニートニー・チョッパー",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP05-105",
+          "name": "サトリ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "5000",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "ST29-005",
+          "name": "ジンベエ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "5000",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST29-004",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "ST29-016",
+          "name": "黄猿‼おれ達は2年前の100倍強ェぞ",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.1,
+          "avg_count_when_adopted": 1.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP15-108",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP05-106",
+          "name": "シュラ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP11-106",
+          "name": "ゼウス",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.9
+        },
+        {
+          "card_id": "OP15-116",
+          "name": "ゴムゴムの黄金回転弾",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        }
+      ]
+    },
+    "OP15-058": {
+      "leader_id": "OP15-058",
+      "leader_name": "エネル",
+      "n_decks_analyzed": 29,
+      "core_cards": [
+        {
+          "card_id": "OP15-061",
+          "name": "オーム",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-118",
+          "name": "エネル",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "8000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.93
+        },
+        {
+          "card_id": "OP15-077",
+          "name": "雷龍",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-075",
+          "name": "神の裁き",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-076",
+          "name": "雷獣",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.97
+        },
+        {
+          "card_id": "OP15-078",
+          "name": "万雷",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-066",
+          "name": "サトリ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.966,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-060",
+          "name": "エネル",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "8000",
+          "adoption_rate": 0.966,
+          "avg_count_when_adopted": 2.64
+        },
+        {
+          "card_id": "OP15-067",
+          "name": "シュラ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.931,
+          "avg_count_when_adopted": 2.59
+        },
+        {
+          "card_id": "OP15-071",
+          "name": "ホーリー",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "4000",
+          "adoption_rate": 0.931,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-074",
+          "name": "放電",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 0.897,
+          "avg_count_when_adopted": 1.85
+        },
+        {
+          "card_id": "OP05-077",
+          "name": "ガンマナイフ",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.897,
+          "avg_count_when_adopted": 2.08
+        },
+        {
+          "card_id": "OP12-071",
+          "name": "シャーロット・プリン",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.828,
+          "avg_count_when_adopted": 3.83
+        },
+        {
+          "card_id": "OP07-064",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 0.828,
+          "avg_count_when_adopted": 2.79
+        },
+        {
+          "card_id": "OP12-063",
+          "name": "ヴィンスモーク・レイジュ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.828,
+          "avg_count_when_adopted": 2.71
+        },
+        {
+          "card_id": "OP13-076",
+          "name": "神避",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 0.517,
+          "avg_count_when_adopted": 1.27
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP10-067",
+          "name": "セニョール・ピンク",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.172,
+          "avg_count_when_adopted": 1.8
+        },
+        {
+          "card_id": "OP07-072",
+          "name": "ポルチェ",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "5000",
+          "adoption_rate": 0.103,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP09-077",
+          "name": "ゴムゴムの雷",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.103,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP10-075",
+          "name": "フォクシー",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "1000",
+          "adoption_rate": 0.069,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-063",
+          "name": "ゲダツ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.069,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP09-072",
+          "name": "フランキー",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.069,
+          "avg_count_when_adopted": 2.5
+        },
+        {
+          "card_id": "ST10-011",
+          "name": "ヒート",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "4000",
+          "adoption_rate": 0.034,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP07-075",
+          "name": "ノロノロビ～～～～ム",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.034,
+          "avg_count_when_adopted": 1.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP15-061",
+          "name": "オーム",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-066",
+          "name": "サトリ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.966,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-067",
+          "name": "シュラ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.931,
+          "avg_count_when_adopted": 2.59
+        },
+        {
+          "card_id": "OP05-077",
+          "name": "ガンマナイフ",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.897,
+          "avg_count_when_adopted": 2.08
+        },
+        {
+          "card_id": "OP12-071",
+          "name": "シャーロット・プリン",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.828,
+          "avg_count_when_adopted": 3.83
+        }
+      ]
+    },
+    "OP14-020": {
+      "leader_id": "OP14-020",
+      "leader_name": "ジュラキュール・ミホーク",
+      "n_decks_analyzed": 9,
+      "core_cards": [
+        {
+          "card_id": "OP12-034",
+          "name": "ペローナ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST24-002",
+          "name": "キッド＆キラー",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.78
+        },
+        {
+          "card_id": "OP07-026",
+          "name": "ジュエリー・ボニー",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.11
+        },
+        {
+          "card_id": "OP13-031",
+          "name": "トラファルガー・ロー",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST24-004",
+          "name": "ロー＆ベポ",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "11000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.44
+        },
+        {
+          "card_id": "OP13-040",
+          "name": "強ェとわかってんだから… 始めから全開だ!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-037",
+          "name": "鬼気 九刀流 阿修羅 抜剣 亡者戯",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.11
+        },
+        {
+          "card_id": "EB01-015",
+          "name": "スクラッチメン・アプー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 3.5
+        },
+        {
+          "card_id": "OP12-118",
+          "name": "ジュエリー・ボニー",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 3.62
+        },
+        {
+          "card_id": "OP10-030",
+          "name": "スモーカー",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "7000",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 2.12
+        },
+        {
+          "card_id": "OP06-038",
+          "name": "一大・三千・大千・世界",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 2.25
+        },
+        {
+          "card_id": "OP14-039",
+          "name": "棺船",
+          "category": "STAGE",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 1.88
+        },
+        {
+          "card_id": "OP14-119",
+          "name": "ジュラキュール・ミホーク",
+          "category": "CHARACTER",
+          "cost": "9",
+          "power": "10000",
+          "adoption_rate": 0.778,
+          "avg_count_when_adopted": 2.86
+        },
+        {
+          "card_id": "OP14-033",
+          "name": "ペローナ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "ST02-007",
+          "name": "ジュエリー・ボニー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 2.67
+        },
+        {
+          "card_id": "OP15-035",
+          "name": "ラブーン",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 4.0
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "PRB02-006",
+          "name": "ロロノア・ゾロ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "4000",
+          "adoption_rate": 0.444,
+          "avg_count_when_adopted": 3.5
+        },
+        {
+          "card_id": "OP08-036",
+          "name": "エレクトリカルルナ",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 0.444,
+          "avg_count_when_adopted": 1.75
+        },
+        {
+          "card_id": "OP14-023",
+          "name": "菊之丞",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.222,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP10-032",
+          "name": "たしぎ",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "4000",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP08-023",
+          "name": "キャロット",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-029",
+          "name": "たしぎ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "P-114",
+          "name": "ロロノア・ゾロ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 4.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP12-034",
+          "name": "ペローナ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST24-002",
+          "name": "キッド＆キラー",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.78
+        },
+        {
+          "card_id": "OP13-040",
+          "name": "強ェとわかってんだから… 始めから全開だ!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-037",
+          "name": "鬼気 九刀流 阿修羅 抜剣 亡者戯",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.11
+        },
+        {
+          "card_id": "EB01-015",
+          "name": "スクラッチメン・アプー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 3.5
+        },
+        {
+          "card_id": "OP06-038",
+          "name": "一大・三千・大千・世界",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 2.25
+        },
+        {
+          "card_id": "OP14-039",
+          "name": "棺船",
+          "category": "STAGE",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 1.88
+        },
+        {
+          "card_id": "ST02-007",
+          "name": "ジュエリー・ボニー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 2.67
+        },
+        {
+          "card_id": "OP15-035",
+          "name": "ラブーン",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 4.0
+        }
+      ]
+    },
+    "OP11-041": {
+      "leader_id": "OP11-041",
+      "leader_name": "ナミ",
+      "n_decks_analyzed": 15,
+      "core_cards": [
+        {
+          "card_id": "OP06-106",
+          "name": "光月日和",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "OP11-106",
+          "name": "ゼウス",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.47
+        },
+        {
+          "card_id": "EB03-053",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB04-058",
+          "name": "ボルサリーノ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB03-055",
+          "name": "ニコ・ロビン",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "8000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-042",
+          "name": "エドワード・ニューゲート",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "12000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.8
+        },
+        {
+          "card_id": "OP07-115",
+          "name": "助けてクエーサ～!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-047",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "4000",
+          "adoption_rate": 0.8,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP10-112",
+          "name": "ユースタス・キッド",
+          "category": "CHARACTER",
+          "cost": "8",
+          "power": "9000",
+          "adoption_rate": 0.733,
+          "avg_count_when_adopted": 2.27
+        },
+        {
+          "card_id": "OP15-052",
+          "name": "レオ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.733,
+          "avg_count_when_adopted": 3.36
+        },
+        {
+          "card_id": "P-096",
+          "name": "少女",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 3.6
+        },
+        {
+          "card_id": "OP15-119",
+          "name": "モンキー・Ｄ・ルフィ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "7000",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 3.7
+        },
+        {
+          "card_id": "EB03-024",
+          "name": "ネフェルタリ・ビビ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "4000",
+          "adoption_rate": 0.533,
+          "avg_count_when_adopted": 3.88
+        },
+        {
+          "card_id": "OP14-108",
+          "name": "シルバーズ・レイリー",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 0.533,
+          "avg_count_when_adopted": 3.25
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP08-050",
+          "name": "ナミュール",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "2000",
+          "adoption_rate": 0.333,
+          "avg_count_when_adopted": 1.4
+        },
+        {
+          "card_id": "PRB02-008",
+          "name": "マルコ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 0.267,
+          "avg_count_when_adopted": 2.25
+        },
+        {
+          "card_id": "OP12-112",
+          "name": "ベビー５",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.267,
+          "avg_count_when_adopted": 2.5
+        },
+        {
+          "card_id": "OP06-058",
+          "name": "重力刀　猛虎",
+          "category": "EVENT",
+          "cost": "7",
+          "power": "-",
+          "adoption_rate": 0.267,
+          "avg_count_when_adopted": 1.75
+        },
+        {
+          "card_id": "OP03-048",
+          "name": "ノジコ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.267,
+          "avg_count_when_adopted": 1.75
+        },
+        {
+          "card_id": "OP15-113",
+          "name": "ロロノア・ゾロ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 0.267,
+          "avg_count_when_adopted": 2.75
+        },
+        {
+          "card_id": "EB03-060",
+          "name": "私のしもべになる？",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.2,
+          "avg_count_when_adopted": 2.67
+        },
+        {
+          "card_id": "OP06-104",
+          "name": "菊之丞",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 0.2,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "OP14-102",
+          "name": "クマシー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-111",
+          "name": "ペローナ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-110",
+          "name": "ドクトル・ホグバック",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP14-104",
+          "name": "ゲッコー・モリア",
+          "category": "CHARACTER",
+          "cost": "8",
+          "power": "10000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-119",
+          "name": "バーソロミュー・くま",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "7000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP11-054",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP15-114",
+          "name": "ワイパー",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP15-109",
+          "name": "ニコ・ロビン",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "7000",
+          "adoption_rate": 0.133,
+          "avg_count_when_adopted": 3.5
+        },
+        {
+          "card_id": "EB04-061",
+          "name": "モンキー・D・ルフィ",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "12000",
+          "adoption_rate": 0.067,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "EB01-056",
+          "name": "シャーロット・フランぺ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 0.067,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP09-051",
+          "name": "バギー",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "12000",
+          "adoption_rate": 0.067,
+          "avg_count_when_adopted": 1.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP06-106",
+          "name": "光月日和",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "OP11-106",
+          "name": "ゼウス",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.47
+        },
+        {
+          "card_id": "OP07-115",
+          "name": "助けてクエーサ～!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-052",
+          "name": "レオ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.733,
+          "avg_count_when_adopted": 3.36
+        },
+        {
+          "card_id": "P-096",
+          "name": "少女",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.667,
+          "avg_count_when_adopted": 3.6
+        }
+      ]
+    },
+    "OP15-002": {
+      "leader_id": "OP15-002",
+      "leader_name": "ルーシー",
+      "n_decks_analyzed": 9,
+      "core_cards": [
+        {
+          "card_id": "OP15-053",
+          "name": "レベッカ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-052",
+          "name": "レオ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-040",
+          "name": "ヴィオラ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP10-045",
+          "name": "キャベンディッシュ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-046",
+          "name": "サボ",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "9000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP09-118",
+          "name": "ゴール・D・ロジャー",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "13000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.22
+        },
+        {
+          "card_id": "OP15-020",
+          "name": "火拳",
+          "category": "EVENT",
+          "cost": "7",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-056",
+          "name": "“メラメラの実”はおれが食っていいか？",
+          "category": "EVENT",
+          "cost": "7",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP10-060",
+          "name": "バリバリの銃",
+          "category": "EVENT",
+          "cost": "5",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.89
+        },
+        {
+          "card_id": "OP15-054",
+          "name": "誰にも渡さねェよ!“あいつ”の形見だ",
+          "category": "EVENT",
+          "cost": "4",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.89
+        },
+        {
+          "card_id": "OP15-021",
+          "name": "見てろよ!エース!!!",
+          "category": "EVENT",
+          "cost": "4",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP10-059",
+          "name": "おまえ…タチ…わ…おれ…が…み…ち…び…く…!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 3.38
+        },
+        {
+          "card_id": "OP05-019",
+          "name": "火拳",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 2.25
+        },
+        {
+          "card_id": "OP15-057",
+          "name": "ドレスローザ王国",
+          "category": "STAGE",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 1.88
+        },
+        {
+          "card_id": "OP15-006",
+          "name": "キャベンディッシュ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "4000",
+          "adoption_rate": 0.556,
+          "avg_count_when_adopted": 2.2
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP05-015",
+          "name": "ベロ・ベティ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.444,
+          "avg_count_when_adopted": 1.75
+        },
+        {
+          "card_id": "OP10-049",
+          "name": "サボ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.444,
+          "avg_count_when_adopted": 1.75
+        },
+        {
+          "card_id": "OP12-060",
+          "name": "牛肉バースト",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 0.222,
+          "avg_count_when_adopted": 2.5
+        },
+        {
+          "card_id": "OP05-006",
+          "name": "コアラ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "3000",
+          "adoption_rate": 0.222,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-049",
+          "name": "ジンベエ",
+          "category": "CHARACTER",
+          "cost": "8",
+          "power": "10000",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP07-017",
+          "name": "竜の息吹",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP06-058",
+          "name": "重力刀　猛虎",
+          "category": "EVENT",
+          "cost": "7",
+          "power": "-",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "ST10-015",
+          "name": "ゴムゴムの巨人つっぱり",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP15-055",
+          "name": "使ってけれ‼ルフィ先輩ィ!!!",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 0.111,
+          "avg_count_when_adopted": 2.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP15-053",
+          "name": "レベッカ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-052",
+          "name": "レオ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-040",
+          "name": "ヴィオラ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP10-059",
+          "name": "おまえ…タチ…わ…おれ…が…み…ち…び…く…!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 3.38
+        },
+        {
+          "card_id": "OP05-019",
+          "name": "火拳",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 2.25
+        },
+        {
+          "card_id": "OP15-057",
+          "name": "ドレスローザ王国",
+          "category": "STAGE",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.889,
+          "avg_count_when_adopted": 1.88
+        }
+      ]
+    },
+    "OP14-041": {
+      "leader_id": "OP14-041",
+      "leader_name": "ボア・ハンコック",
+      "n_decks_analyzed": 7,
+      "core_cards": [
+        {
+          "card_id": "OP08-050",
+          "name": "ナミュール",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP15-113",
+          "name": "ロロノア・ゾロ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST17-004",
+          "name": "ボア・ハンコック",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.86
+        },
+        {
+          "card_id": "OP14-105",
+          "name": "ゴルゴン三姉妹",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB04-058",
+          "name": "ボルサリーノ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-107",
+          "name": "シャクヤク",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-112",
+          "name": "ボア・ハンコック",
+          "category": "CHARACTER",
+          "cost": "9",
+          "power": "10000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-104",
+          "name": "ゲッコー・モリア",
+          "category": "CHARACTER",
+          "cost": "8",
+          "power": "10000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP07-115",
+          "name": "助けてクエーサ～!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-103",
+          "name": "グロリオーサ(ニョン婆)",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.857,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "OP14-108",
+          "name": "シルバーズ・レイリー",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 0.857,
+          "avg_count_when_adopted": 3.33
+        },
+        {
+          "card_id": "OP07-057",
+          "name": "芳香脚",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.857,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP14-113",
+          "name": "マーガレット",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "5000",
+          "adoption_rate": 0.714,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP06-106",
+          "name": "光月日和",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.571,
+          "avg_count_when_adopted": 2.5
+        },
+        {
+          "card_id": "OP14-114",
+          "name": "ラン",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 0.571,
+          "avg_count_when_adopted": 3.5
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP12-119",
+          "name": "バーソロミュー・くま",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "7000",
+          "adoption_rate": 0.429,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-102",
+          "name": "クマシー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.286,
+          "avg_count_when_adopted": 2.5
+        },
+        {
+          "card_id": "OP11-054",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 0.286,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "EB03-023",
+          "name": "カヤ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.143,
+          "avg_count_when_adopted": 4.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP07-115",
+          "name": "助けてクエーサ～!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-103",
+          "name": "グロリオーサ(ニョン婆)",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.857,
+          "avg_count_when_adopted": 3.67
+        },
+        {
+          "card_id": "OP07-057",
+          "name": "芳香脚",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.857,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP06-106",
+          "name": "光月日和",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.571,
+          "avg_count_when_adopted": 2.5
+        }
+      ]
+    },
+    "OP14-079": {
+      "leader_id": "OP14-079",
+      "leader_name": "クロコダイル",
+      "n_decks_analyzed": 1,
+      "core_cards": [
+        {
+          "card_id": "OP14-083",
+          "name": "ミス・ウェンズデー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-085",
+          "name": "ミス・ゴールデンウィーク(マリアンヌ)",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-087",
+          "name": "ミス・バレンタイン(ミキータ)",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-088",
+          "name": "ミス・メリークリスマス(ドロフィー)",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-091",
+          "name": "Mr.2・ボン・クレー(ベンサム)",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-093",
+          "name": "Mr.4(ベーブ)",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-090",
+          "name": "Mr.1(ダズ・ボーネス)",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-094",
+          "name": "Mr.5(ジェム)",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP14-084",
+          "name": "ミス・オールサンデー",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "8000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-086",
+          "name": "ミス・ダブルフィンガー(ザラ)",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-120",
+          "name": "クロコダイル",
+          "category": "CHARACTER",
+          "cost": "8",
+          "power": "10000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-092",
+          "name": "モンキー・Ｄ・ルフィ",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP05-094",
+          "name": "高級仕立パッチ★ワーク",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP14-099",
+          "name": "不服か？",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-096",
+          "name": "浸食輪廻",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        }
+      ],
+      "optional_cards": [],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP14-083",
+          "name": "ミス・ウェンズデー",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-085",
+          "name": "ミス・ゴールデンウィーク(マリアンヌ)",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-087",
+          "name": "ミス・バレンタイン(ミキータ)",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-088",
+          "name": "ミス・メリークリスマス(ドロフィー)",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP05-094",
+          "name": "高級仕立パッチ★ワーク",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP14-099",
+          "name": "不服か？",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-096",
+          "name": "浸食輪廻",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        }
+      ]
+    },
+    "OP13-079": {
+      "leader_id": "OP13-079",
+      "leader_name": "イム",
+      "n_decks_analyzed": 4,
+      "core_cards": [
+        {
+          "card_id": "OP13-091",
+          "name": "マーカス・マーズ聖",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-080",
+          "name": "イーザンバロン・V・ナス寿郎聖",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-083",
+          "name": "ジェイガルシア・サターン聖",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-084",
+          "name": "シェパード・十・ピーター聖",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-089",
+          "name": "トップマン・ウォーキュリー聖",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-082",
+          "name": "五老星",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "12000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-086",
+          "name": "シャルリア宮",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-096",
+          "name": "“五老星”ここに!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-098",
+          "name": "元々…ないではないか…",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-096",
+          "name": "浸食輪廻",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP05-097",
+          "name": "聖地マリージョア",
+          "category": "STAGE",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP13-099",
+          "name": "虚の玉座",
+          "category": "STAGE",
+          "cost": "7",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP13-092",
+          "name": "ミョスガルド聖",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "PRB02-014",
+          "name": "サボ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 4.0
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP15-091",
+          "name": "マルガリータ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP05-082",
+          "name": "しらほし",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP11-097",
+          "name": "すっかり衰えた……!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 2.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP13-086",
+          "name": "シャルリア宮",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-096",
+          "name": "“五老星”ここに!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-098",
+          "name": "元々…ないではないか…",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-096",
+          "name": "浸食輪廻",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP05-097",
+          "name": "聖地マリージョア",
+          "category": "STAGE",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP13-092",
+          "name": "ミョスガルド聖",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 4.0
+        }
+      ]
+    },
+    "EB02-010": {
+      "leader_id": "EB02-010",
+      "leader_name": "モンキー・D・ルフィ",
+      "n_decks_analyzed": 1,
+      "core_cards": [
+        {
+          "card_id": "PRB02-012",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB02-017",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST18-001",
+          "name": "ウソ八",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "3000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP14-031",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP07-064",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB02-035",
+          "name": "サンジ&プリン",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST18-004",
+          "name": "ゾロ十郎",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-032",
+          "name": "ブルック",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-118",
+          "name": "モンキー・Ｄ・ルフィ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP12-037",
+          "name": "鬼気 九刀流 阿修羅 抜剣 亡者戯",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP13-040",
+          "name": "強ェとわかってんだから… 始めから全開だ!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-078",
+          "name": "万雷",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP08-036",
+          "name": "エレクトリカルルナ",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP09-078",
+          "name": "ゴムゴムの巨人",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP03-072",
+          "name": "ゴムゴムのJET銃乱打",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        }
+      ],
+      "optional_cards": [],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "PRB02-012",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "2",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB02-017",
+          "name": "ナミ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-037",
+          "name": "鬼気 九刀流 阿修羅 抜剣 亡者戯",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP13-040",
+          "name": "強ェとわかってんだから… 始めから全開だ!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP09-078",
+          "name": "ゴムゴムの巨人",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        }
+      ]
+    },
+    "OP12-041": {
+      "leader_id": "OP12-041",
+      "leader_name": "サンジ",
+      "n_decks_analyzed": 1,
+      "core_cards": [
+        {
+          "card_id": "OP12-071",
+          "name": "シャーロット・プリン",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST26-005",
+          "name": "モンキー・Ｄ・ルフィ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP12-063",
+          "name": "ヴィンスモーク・レイジュ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP07-064",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-070",
+          "name": "サンジ",
+          "category": "CHARACTER",
+          "cost": "3",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB04-041",
+          "name": "ステルス・ブラック",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP07-076",
+          "name": "ノロノロビームソード",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP09-078",
+          "name": "ゴムゴムの巨人",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "EB04-029",
+          "name": "女の…涙の落ちる音がした",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB01-039",
+          "name": "降三世 引奈落",
+          "category": "EVENT",
+          "cost": "5",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP12-060",
+          "name": "牛肉バースト",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP11-061",
+          "name": "ゴムゴムのJET大蛇砲",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP12-059",
+          "name": "粗砕",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP12-079",
+          "name": "ルフィは“海賊王”になる男だ!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP15-078",
+          "name": "万雷",
+          "category": "EVENT",
+          "cost": "-",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP11-060",
+          "name": "式をブッ壊そう!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        }
+      ],
+      "optional_cards": [],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP12-071",
+          "name": "シャーロット・プリン",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP07-076",
+          "name": "ノロノロビームソード",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP09-078",
+          "name": "ゴムゴムの巨人",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "EB04-029",
+          "name": "女の…涙の落ちる音がした",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP12-059",
+          "name": "粗砕",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.0
+        },
+        {
+          "card_id": "OP12-079",
+          "name": "ルフィは“海賊王”になる男だ!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP11-060",
+          "name": "式をブッ壊そう!!!",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        }
+      ]
+    },
+    "OP13-002": {
+      "leader_id": "OP13-002",
+      "leader_name": "ポートガス・Ｄ・エース",
+      "n_decks_analyzed": 4,
+      "core_cards": [
+        {
+          "card_id": "OP13-016",
+          "name": "モンキー・Ｄ・ガープ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST22-002",
+          "name": "イゾウ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.75
+        },
+        {
+          "card_id": "OP13-043",
+          "name": "お玉",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-007",
+          "name": "エース＆サボ＆ルフィ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.5
+        },
+        {
+          "card_id": "PRB02-008",
+          "name": "マルコ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP08-040",
+          "name": "アトモス",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "5000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.75
+        },
+        {
+          "card_id": "OP13-054",
+          "name": "ヤマト",
+          "category": "CHARACTER",
+          "cost": "5",
+          "power": "6000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST23-001",
+          "name": "ウタ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "4000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.75
+        },
+        {
+          "card_id": "OP08-047",
+          "name": "ジョズ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "7000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "EB04-007",
+          "name": "ロロノア・ゾロ",
+          "category": "CHARACTER",
+          "cost": "7",
+          "power": "9000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 2.75
+        },
+        {
+          "card_id": "OP09-118",
+          "name": "ゴール・D・ロジャー",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "13000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.5
+        },
+        {
+          "card_id": "OP13-042",
+          "name": "エドワード・ニューゲート",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "12000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST22-015",
+          "name": "おれァ‘‘白ひげ‘‘だァア!!!!",
+          "category": "EVENT",
+          "cost": "8",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST15-004",
+          "name": "サッチ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 1.67
+        },
+        {
+          "card_id": "OP10-045",
+          "name": "キャベンディッシュ",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "6000",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 1.33
+        },
+        {
+          "card_id": "OP08-043",
+          "name": "エドワード・ニューゲート",
+          "category": "CHARACTER",
+          "cost": "10",
+          "power": "12000",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 1.67
+        },
+        {
+          "card_id": "OP13-046",
+          "name": "ビスタ",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "8000",
+          "adoption_rate": 0.5,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP07-051",
+          "name": "ボア・ハンコック",
+          "category": "CHARACTER",
+          "cost": "6",
+          "power": "8000",
+          "adoption_rate": 0.5,
+          "avg_count_when_adopted": 2.5
+        },
+        {
+          "card_id": "OP14-018",
+          "name": "反撃に出るぞ",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.5,
+          "avg_count_when_adopted": 2.0
+        }
+      ],
+      "optional_cards": [
+        {
+          "card_id": "OP08-044",
+          "name": "キングデュー",
+          "category": "CHARACTER",
+          "cost": "4",
+          "power": "4000",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP05-019",
+          "name": "火拳",
+          "category": "EVENT",
+          "cost": "2",
+          "power": "-",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP15-052",
+          "name": "レオ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 2.0
+        },
+        {
+          "card_id": "OP14-017",
+          "name": "シャンブルズ",
+          "category": "EVENT",
+          "cost": "3",
+          "power": "-",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 1.0
+        },
+        {
+          "card_id": "OP11-018",
+          "name": "実直拳骨",
+          "category": "EVENT",
+          "cost": "6",
+          "power": "-",
+          "adoption_rate": 0.25,
+          "avg_count_when_adopted": 1.0
+        }
+      ],
+      "mulligan_keep_candidates": [
+        {
+          "card_id": "OP13-016",
+          "name": "モンキー・Ｄ・ガープ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "ST22-002",
+          "name": "イゾウ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 3.75
+        },
+        {
+          "card_id": "OP13-043",
+          "name": "お玉",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 4.0
+        },
+        {
+          "card_id": "OP13-007",
+          "name": "エース＆サボ＆ルフィ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "1000",
+          "adoption_rate": 1.0,
+          "avg_count_when_adopted": 1.5
+        },
+        {
+          "card_id": "ST15-004",
+          "name": "サッチ",
+          "category": "CHARACTER",
+          "cost": "1",
+          "power": "2000",
+          "adoption_rate": 0.75,
+          "avg_count_when_adopted": 1.67
+        },
+        {
+          "card_id": "OP14-018",
+          "name": "反撃に出るぞ",
+          "category": "EVENT",
+          "cost": "1",
+          "power": "-",
+          "adoption_rate": 0.5,
+          "avg_count_when_adopted": 2.0
+        }
+      ]
+    }
+  }
+}
