@@ -291,6 +291,61 @@ class EndPhasePenaltyAI(_NoNNPlanningBase):
                 os.environ["ONEPIECE_END_PHASE_PENALTY"] = saved
 
 
+class AlphaZeroValueAI(TwoTurnPlanningAI):
+    """Plan D (= 2026-05-18): AlphaZero 風 value NN を leaf eval で使う TwoTurn AI。
+
+    db/value_nn_alphazero.pt 必要。 学習方法は Plan D notebook (= colab)。
+    plan_search の leaf eval で「NN(state) = P(win)」 → 2P-1 × magnify で score。
+    """
+
+    name = "AlphaZeroValue"
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_AZ_VALUE_NN")
+        os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_AZ_VALUE_NN"]
+            else:
+                os.environ["ONEPIECE_AZ_VALUE_NN"] = saved
+
+
+class MegaPlanningAI(TwoTurnPlanningAI):
+    """Plan F + Plan D + adaptive 統合 (= 2026-05-18 集大成、 本気で人間越え狙う):
+
+    - 2 ターン読み + 軽量 opp sim (= TwoTurnPlanningAI base)
+    - AlphaZero 風 value NN を leaf eval (= Plan D)
+    - 重み NN (= Plan F) で 動的重み (= Plan D NN 不在時の fallback)
+    - per-deck NN preference 機構は existing DeepPlanningAI で自動
+
+    優先順位: Plan D > Plan F > 線形 eval (= compute_score 内 path で自動 cascade)
+    """
+
+    name = "MegaPlanning"
+
+    def choose_action(self, state):
+        import os
+        # 全ての NN を有効化、 compute_score 内で cascade (= AZ > WeightNN > 線形)
+        saved = {
+            k: os.environ.get(k)
+            for k in ["ONEPIECE_AZ_VALUE_NN", "ONEPIECE_WEIGHT_NN", "ONEPIECE_DYNAMIC_WEIGHTS"]
+        }
+        os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+        os.environ["ONEPIECE_WEIGHT_NN"] = "1"
+        os.environ["ONEPIECE_DYNAMIC_WEIGHTS"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
 class WeightNNTwoTurnAI(TwoTurnPlanningAI):
     """Plan F TwoTurn 正規版 (= 2026-05-18 ユーザ示唆):
 

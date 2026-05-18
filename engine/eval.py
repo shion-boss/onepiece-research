@@ -1387,6 +1387,24 @@ def compute_score(
     # 状態依存で W_LIFE / W_HAND / W_DON / W_BLOCKER 等を動的計算 (= 関数化)。
     # ONEPIECE_DYNAMIC_WEIGHTS=1 で有効化、 default は固定重み (= 後方互換)。
     # ONEPIECE_WEIGHT_NN=1 で重み NN (= Plan F) を使う、 dynamic_v2 教師として fallback。
+    # Plan D (= 2026-05-18 AlphaZero 風 value NN) 統合 path
+    # ONEPIECE_AZ_VALUE_NN=1 で有効化、 plan_search の leaf eval で「真の P(win) ベース score」 を返す。
+    # 既存 NN value 経路 (= v1-v5) は線形 fallback、 Plan D は別 NN (= value_nn_alphazero.pt)。
+    if os.environ.get("ONEPIECE_AZ_VALUE_NN") == "1":
+        try:
+            from .value_nn_alphazero import compute_value_az
+            az_score = compute_value_az(state, me_idx)
+            if az_score is not None:
+                if state.game_over:
+                    if state.winner == me_idx:
+                        return float(DEFAULT_WEIGHTS.W_GAME_OVER)
+                    elif state.winner is not None:
+                        return float(-DEFAULT_WEIGHTS.W_GAME_OVER)
+                    return 0.0
+                return az_score
+        except Exception:
+            pass  # fallback
+
     _use_weight_nn = os.environ.get("ONEPIECE_WEIGHT_NN") == "1"
     _use_dynamic = os.environ.get("ONEPIECE_DYNAMIC_WEIGHTS") == "1" or _use_weight_nn
     if _use_weight_nn:
