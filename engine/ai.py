@@ -2209,13 +2209,17 @@ class DeepPlanningAI(GreedyAI):
         max_depth: int = 6,
         ai_opp=None,
         adaptive: bool = True,
+        max_turns: int = 1,
     ):
         super().__init__(rng=rng, deck_analysis=deck_analysis)
-        # adaptive=False で旧挙動 (= 固定 beam_width / max_depth、 max_turns=1)
+        # adaptive=False で旧挙動 (= 固定 beam_width / max_depth、 max_turns 設定可能)
         # 後方互換 + テスト用 escape hatch
+        # max_turns: 2026-05-18 追加。 adaptive=False で多ターン読みを有効化する用。
+        #            >1 の場合は plan_search に max_turns を渡して相手ターン sim 込みで探索。
         self.beam_width = beam_width
         self.max_depth = max_depth
         self.adaptive = adaptive
+        self.max_turns_fixed = max_turns
         # ai_opp が未指定なら self を defense sim 用に流用 (= self-play 簡略モデル)
         self._ai_opp = ai_opp
 
@@ -2252,6 +2256,8 @@ class DeepPlanningAI(GreedyAI):
 
     def choose_action(self, state: GameState) -> Action:
         from .plan_search import search_turn_plan
+        from .nn_per_deck import should_use_nn as _should_use_nn
+        from .nn_eval import nn_disabled as _nn_disabled
 
         # MatchupProfile / role priority のロード (= GreedyAI._ensure_matchup_overrides)
         self._ensure_matchup_overrides(state, state.turn_player_idx)
@@ -2274,12 +2280,22 @@ class DeepPlanningAI(GreedyAI):
             max_depth = max_turns * per_turn_depth
         else:
             beam_width = self.beam_width
-            max_turns = 1
+            max_turns = self.max_turns_fixed  # 2026-05-18: 明示 max_turns 指定可能
             max_depth = self.max_depth
 
+        # adaptive NN per-deck (= 2026-05-17): 各デッキの絶対強度測定結果で NN on/off 決定。
+        # db/nn_per_deck_preference.json で preference 管理。
+        # deck_slug は deck_analysis["deck_slug"] (= harness._try_load_deck_analysis で注入)。
+        deck_slug = None
+        if isinstance(self.deck_analysis, dict):
+            deck_slug = self.deck_analysis.get("deck_slug")
+        use_nn = _should_use_nn(deck_slug)
+
         ai_opp = self._ai_opp if self._ai_opp is not None else self
-        try:
-            best_plan, _best_score = search_turn_plan(
+
+        # NN を使わない方が強いデッキは nn_disabled context で plan_search
+        def _do_search():
+            return search_turn_plan(
                 state,
                 ai_opp,
                 beam_width=beam_width,
@@ -2287,6 +2303,13 @@ class DeepPlanningAI(GreedyAI):
                 max_turns=max_turns,
                 ai_self=self,
             )
+
+        try:
+            if use_nn:
+                best_plan, _best_score = _do_search()
+            else:
+                with _nn_disabled():
+                    best_plan, _best_score = _do_search()
         except Exception:
             # search 失敗時は GreedyAI 動作に fallback
             return super().choose_action(state)

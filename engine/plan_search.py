@@ -261,6 +261,17 @@ def search_turn_plan(
     frontier: list[tuple] = [(init, [], compute_score(init, me_idx))]
     completed: list[tuple] = []
 
+    # === Plan A (= NN policy-prior beam): 2026-05-17 ===
+    # NN policy head 出力を beam selection に組み込む。
+    # 各 action candidate の score に W_POLICY × log P(action_category | state) を加算。
+    # ONEPIECE_PLAN_POLICY_W 環境変数で重み制御 (= default 0 で無効、 5000 等で有効化)。
+    import math
+    import os as _os
+    _W_POLICY = float(_os.environ.get("ONEPIECE_PLAN_POLICY_W", "0"))
+    _USE_POLICY = _W_POLICY > 0
+    if _USE_POLICY:
+        from .nn_eval import compute_policy_nn  # 動的 import (= NN 無効時 import skip)
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -276,6 +287,9 @@ def search_turn_plan(
             if not la:
                 completed.append((cur_state, plan))
                 continue
+
+            # NN policy を 1 度だけ取得 (= 同 state なら同じ policy)
+            policy_dict = compute_policy_nn(cur_state, me_idx) if _USE_POLICY else None
 
             for action in la:
                 child = fast_clone(cur_state)
@@ -306,6 +320,14 @@ def search_turn_plan(
                             pass
 
                 score = compute_score(child, me_idx)
+
+                # Plan A: policy bonus 加算 (= NN が好む action を beam に優先入れる)
+                if policy_dict:
+                    action_cls = type(action).__name__
+                    prob = policy_dict.get(action_cls)
+                    if prob is not None:
+                        score = score + _W_POLICY * math.log(max(prob, 1e-6))
+
                 next_frontier.append((child, plan + [action], score))
 
         if not next_frontier:

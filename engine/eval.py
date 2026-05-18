@@ -1239,6 +1239,11 @@ def compute_score(
     # ONEPIECE_NN_DISABLE 環境変数で 強制 fallback (= 線形)。
     # 明示的に weights が渡された場合 (= 学習 / テスト / 重み比較) は NN を bypass
     # して線形評価する (= NN は重みを受け取らないため weights 比較が無意味になる)。
+    #
+    # blend mode (= 2026-05-17):
+    #   ONEPIECE_NN_BLEND=0.0   → 線形 100% (= 既存挙動)
+    #   ONEPIECE_NN_BLEND=1.0   → NN 100% (= 既存 NN 路線、 default)
+    #   ONEPIECE_NN_BLEND=0.3   → 線形 70% + NN 30% (= 線形主体、 NN 補助)
     import os
     if weights is None and not os.environ.get("ONEPIECE_NN_DISABLE"):
         try:
@@ -1252,7 +1257,39 @@ def compute_score(
                     elif state.winner is not None:
                         return float(-DEFAULT_WEIGHTS.W_GAME_OVER)
                     return 0.0
-                return nn_score
+                blend = float(os.environ.get("ONEPIECE_NN_BLEND", "1.0"))
+                # Phase Y (= 2026-05-17 案 Y): phase-aware adaptive blend
+                # ライフ ≤ threshold or リーサル ライン に近いと判定された state では
+                # 線形 eval 主体 (= W_LETHAL の決定力)、 それ以外は NN 主体。
+                # ONEPIECE_NN_PHASE_AWARE=1 で有効化。
+                if os.environ.get("ONEPIECE_NN_PHASE_AWARE") == "1":
+                    me_player = state.players[me_idx]
+                    opp_player = state.players[1 - me_idx]
+                    life_threshold = int(os.environ.get("ONEPIECE_NN_PHASE_LIFE_THRESHOLD", "2"))
+                    is_critical = (
+                        len(me_player.life) <= life_threshold
+                        or len(opp_player.life) <= life_threshold
+                    )
+                    if is_critical:
+                        # critical state: 線形 eval 主体 (= blend を 0.1 に強制 = 線形 90%)
+                        blend = float(os.environ.get("ONEPIECE_NN_PHASE_CRITICAL_BLEND", "0.1"))
+                    else:
+                        # 通常時: NN 主体 (= blend を 1.0 に強制 = NN 100%)
+                        blend = float(os.environ.get("ONEPIECE_NN_PHASE_NORMAL_BLEND", "1.0"))
+                if blend >= 1.0:
+                    return nn_score
+                # blend < 1.0: 線形評価も計算して mix
+                # NN を一時 disable して compute_score 再帰呼び出し (= 線形 path に流す)
+                saved = os.environ.get("ONEPIECE_NN_DISABLE")
+                os.environ["ONEPIECE_NN_DISABLE"] = "1"
+                try:
+                    linear_score = compute_score(state, me_idx, weights=None)
+                finally:
+                    if saved is None:
+                        del os.environ["ONEPIECE_NN_DISABLE"]
+                    else:
+                        os.environ["ONEPIECE_NN_DISABLE"] = saved
+                return blend * nn_score + (1.0 - blend) * linear_score
         except Exception:
             pass  # NN 失敗時は線形 fallback
 

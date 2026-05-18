@@ -163,6 +163,65 @@ def set_nn_model(model) -> None:
     _OPP_ACTION_MODEL_NN = model
 
 
+def _try_auto_load_nn() -> None:
+    """db/opp_action_model.pt が存在すれば auto-load (= 1 度だけ)。"""
+    global _OPP_ACTION_MODEL_NN
+    if _OPP_ACTION_MODEL_NN is not None:
+        return
+    import os
+    if os.environ.get("ONEPIECE_OPP_ACTION_DISABLE"):
+        return
+    from pathlib import Path
+    import json
+    pt_path = Path(__file__).resolve().parent.parent / "db" / "opp_action_model.pt"
+    if not pt_path.exists():
+        return
+    try:
+        import torch
+        import torch.nn as nn
+        # train_opp_action_model.py が出力する meta は db/_opp_action_feature_keys.json
+        meta_path = pt_path.parent / "_opp_action_feature_keys.json"
+        if not meta_path.exists():
+            return
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        input_dim = int(meta.get("input_dim", 78))
+        hidden_dim = int(meta.get("hidden_dim", 64))
+        feature_keys = meta.get("feature_keys")
+
+        class _OppModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.net = nn.Sequential(
+                    nn.Linear(input_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim // 2, N_ACTION_CATEGORIES),
+                )
+
+            def predict_policy(self, x):
+                if not isinstance(x, torch.Tensor):
+                    x = torch.tensor(x, dtype=torch.float32)
+                if x.dim() == 1:
+                    x = x.unsqueeze(0)
+                with torch.no_grad():
+                    logits = self.net(x)
+                    probs = torch.softmax(logits, dim=-1)
+                    return probs.squeeze(0).tolist()
+
+        m = _OppModel()
+        sd = torch.load(pt_path, map_location="cpu", weights_only=True)
+        m.load_state_dict(sd)
+        m.eval()
+        m._input_dim = input_dim  # action_likelihood が input dim 識別に使う
+        m._feature_keys = feature_keys
+        _OPP_ACTION_MODEL_NN = m
+    except Exception as e:
+        print(f"[opp_action_model] auto-load failed: {e}")
+        _OPP_ACTION_MODEL_NN = None
+
+
 def reset_for_testing() -> None:
     """テスト用に table と NN をリセット。"""
     global _OPP_ACTION_TABLE, _OPP_ACTION_MODEL_NN
@@ -181,12 +240,28 @@ def action_likelihood(
     NN backend (= _OPP_ACTION_MODEL_NN) がロード済なら NN path、
     未ロードなら統計テーブル fallback、 さらに table も空なら uniform。
     """
+    _try_auto_load_nn()  # 初回呼び出しで auto-load (= 既に load 済ならスキップ)
     # path A: NN backend
+    # 注: 2026-05-17 時点の学習 model (= train_opp_action_model.py 出力) は 78 dim 入力
+    # (= compute_breakdown features)。 真の P(action | hand, state) ではなく marginal
+    # P(action | state) を返す partial 実装。 hand-aware NN は Plan H で再学習する。
     if _OPP_ACTION_MODEL_NN is not None:
         try:
-            from .state_encoder import encode_state_with_hand
-            x = encode_state_with_hand(state, opp_idx, candidate_hand)
-            policy = _OPP_ACTION_MODEL_NN.predict_policy(x)  # NN は predict_policy を持つと仮定
+            input_dim = getattr(_OPP_ACTION_MODEL_NN, "_input_dim", None)
+            if input_dim == 78 or input_dim is None:
+                # 旧 78 dim model: compute_breakdown 由来 features を使う
+                from .eval import compute_breakdown
+                feature_keys = getattr(_OPP_ACTION_MODEL_NN, "_feature_keys", None)
+                bd = compute_breakdown(state, opp_idx)
+                if feature_keys:
+                    x = [float(bd.get(k, {}).get("diff", 0)) for k in feature_keys]
+                else:
+                    x = [float(v.get("diff", 0)) for _, v in sorted(bd.items())]
+            else:
+                # 202 dim model (= 将来の hand-aware 版)
+                from .state_encoder import encode_state_with_hand
+                x = encode_state_with_hand(state, opp_idx, candidate_hand)
+            policy = _OPP_ACTION_MODEL_NN.predict_policy(x)
             action_key = _action_category_key(candidate_action)
             idx = ACTION_CATEGORIES.index(action_key) if action_key in ACTION_CATEGORIES else N_ACTION_CATEGORIES - 1
             return float(policy[idx])

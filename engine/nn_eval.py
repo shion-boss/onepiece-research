@@ -129,9 +129,12 @@ def _detect_model_from_state_dict(state_dict: dict) -> Optional[nn.Module]:
     """state_dict の key + shape から適切な model class を auto-detect。
 
     判別ロジック:
-    - "shared.6.weight" 存在 → StateEncoderEvaluator (= v4、 3 hidden + dropout)
-    - "shared.2.weight" のみ → SimpleEvaluator (= v1/v2/v3 系、 2 hidden、 dropout なし)
-    - "shared.0.weight" の shape[1] (= input_dim) を SimpleEvaluator に渡す
+    - "shared.0.weight" の shape[1] (= input_dim) が 172 → StateEncoderEvaluator (= v4、 state_encoder 直入力)
+      (v4 は 3 hidden + dropout、 shared.6 存在で確定)
+    - input_dim が 172 以外 (= 78 等) → SimpleEvaluator (= compute_breakdown 由来 features)
+      shared.6 が存在しても LargerEvaluator 系 (= 3 hidden) を SimpleEvaluator として扱う
+      ※ 現状 _build_input_features は SimpleEvaluator なら breakdown、 それ以外なら encode_state を返すため、
+        78 dim 入力には isinstance(SimpleEvaluator) 経路に乗せる必要がある
 
     Returns: 構築済 model (state_dict load 前)、 判別不可なら None。
     """
@@ -139,18 +142,56 @@ def _detect_model_from_state_dict(state_dict: dict) -> Optional[nn.Module]:
         return None
     input_dim = state_dict["shared.0.weight"].shape[1]
 
-    # v4 系 (= StateEncoderEvaluator): shared.0 / shared.3 / shared.6 の 3 層
-    if "shared.6.weight" in state_dict:
+    # v4 系 (= StateEncoderEvaluator): input_dim 172 で 3 層 hidden + dropout
+    if input_dim == 172 and "shared.6.weight" in state_dict:
         return StateEncoderEvaluator(input_dim=input_dim)
 
-    # v1/v2/v3 系 (= SimpleEvaluator): shared.0 / shared.2 の 2 層、 hidden=64 想定
+    # v1/v2 (= 2 hidden) and v3 (= 3 hidden but 78 dim) ともに breakdown features 由来。
+    # SimpleEvaluator は 2 hidden 固定なので v3 はそのままでは load 不可。
+    # → v3 用の薄い shim クラスを構築 (= dropout なし 3 hidden、 SimpleEvaluator サブクラスで
+    #   isinstance 経路を維持し breakdown features を使わせる)
+    if "shared.6.weight" in state_dict:
+        # v3 系: input_dim 78, shared.0(256,78), shared.3(128,256), shared.6(64,128)
+        h1 = state_dict["shared.0.weight"].shape[0]
+        h2 = state_dict["shared.3.weight"].shape[0]
+        h3 = state_dict["shared.6.weight"].shape[0]
+        return _LargerSimpleEvaluator(input_dim=input_dim, h1=h1, h2=h2, h3=h3)
+
     return SimpleEvaluator(input_dim=input_dim)
+
+
+class _LargerSimpleEvaluator(SimpleEvaluator):
+    """v3 系 model (= 3 hidden, dropout なし, 78 dim 入力)。
+
+    SimpleEvaluator を継承 = isinstance(SimpleEvaluator) True → breakdown features 経路に乗る。
+    layer 構造のみ override (= shared.0 / shared.3 / shared.6 の 3 段)。
+    """
+
+    def __init__(self, input_dim: int, h1: int = 256, h2: int = 128, h3: int = 64):
+        nn.Module.__init__(self)
+        # v3 .pt の state_dict key (= shared.0 / shared.3 / shared.6) に合わせる
+        # → Linear の index が 0, 3, 6 になるよう Identity placeholder を間に挟む
+        self.shared = nn.Sequential(
+            nn.Linear(input_dim, h1),  # 0
+            nn.ReLU(),                  # 1
+            nn.Identity(),              # 2
+            nn.Linear(h1, h2),          # 3
+            nn.ReLU(),                  # 4
+            nn.Identity(),              # 5
+            nn.Linear(h2, h3),          # 6
+            nn.ReLU(),                  # 7
+        )
+        self.value_head = nn.Linear(h3, 1)
+        self.policy_head = nn.Linear(h3, N_ACTION_CATEGORIES)
 
 
 # global model cache (= 1 度 load して使い回す)
 _MODEL_CACHE: Optional[nn.Module] = None
 _MODEL_LOADED_PATH: Optional[Path] = None
 _FEATURE_KEYS_CACHE: Optional[list[str]] = None
+# nn_disabled() context manager 用の force-disable flag。
+# True の間は get_model() が None を返し、 compute_score_nn も None 返却 → 線形 fallback。
+_NN_FORCE_DISABLED: bool = False
 
 
 def _default_model_path() -> Path:
@@ -181,8 +222,12 @@ def get_model() -> Optional[nn.Module]:
     無ければ None (= 線形 fallback)。
 
     state_dict の構造から SimpleEvaluator / StateEncoderEvaluator を auto-detect。
+
+    _NN_FORCE_DISABLED == True の時は path 存在に関係なく None を返す (= nn_disabled context 用)。
     """
     global _MODEL_CACHE, _MODEL_LOADED_PATH
+    if _NN_FORCE_DISABLED:
+        return None
     if _MODEL_CACHE is not None:
         return _MODEL_CACHE
     env_path = os.environ.get("ONEPIECE_NN_MODEL_PATH")
@@ -203,6 +248,32 @@ def get_model() -> Optional[nn.Module]:
     except Exception as e:
         print(f"[nn_eval] model load failed: {e}")
         return None
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def nn_disabled():
+    """NN を一時的に強制無効化する context manager。
+
+    AI の choose_action 内で囲うと、 その期間内の compute_score 呼び出しは
+    NN を経由せず線形 fallback に流れる。 単一 process 内で
+    「NN 有効 AI vs NN 無効 AI」 の直接対戦を実現する用途。
+
+    _NN_FORCE_DISABLED flag を True にすることで get_model() が None を返すよう強制。
+    cache 退避だけでは get_model() が path から再 load してしまい無効化されない。
+
+    注: thread-unsafe (= global state の差し替え)。 multiprocessing.Pool 等で
+    同一プロセス内に複数試合が並走する状況では使えない。
+    """
+    global _NN_FORCE_DISABLED
+    saved = _NN_FORCE_DISABLED
+    _NN_FORCE_DISABLED = True
+    try:
+        yield
+    finally:
+        _NN_FORCE_DISABLED = saved
 
 
 def reload_model(path: Optional[Path] = None) -> Optional[NNEvaluator]:
@@ -236,7 +307,13 @@ def _build_input_features(model: nn.Module, state: GameState, me_idx: int) -> li
 
 
 def compute_score_nn(state: GameState, me_idx: int) -> Optional[float]:
-    """NN value head の出力を score として返す。 model 不在なら None (= 線形 fallback)。"""
+    """NN value head の出力を score として返す。 model 不在なら None (= 線形 fallback)。
+
+    Magnify factor は ONEPIECE_NN_MAGNIFY 環境変数で制御 (= default 5000)。
+    線形 eval は W_GAME_OVER=100000 等の thousands 級 weight を持つので、 NN value の
+    range ±1 を 5000 では「決定的な手」 信号を出せない。 100000 にすると リーサル相当の
+    強い信号を返せる。
+    """
     model = get_model()
     if model is None:
         return None
@@ -245,7 +322,8 @@ def compute_score_nn(state: GameState, me_idx: int) -> Optional[float]:
             features = _build_input_features(model, state, me_idx)
             x = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
             value, _ = model(x)
-            return float(value.item()) * 5000.0
+            magnify = float(os.environ.get("ONEPIECE_NN_MAGNIFY", "5000"))
+            return float(value.item()) * magnify
     except Exception as e:
         print(f"[nn_eval] compute_score_nn failed: {e}")
         return None
