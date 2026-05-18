@@ -383,6 +383,79 @@ def load_weights_for_deck(deck_slug: str) -> Optional[BoardEvalWeights]:
         return None
 
 
+def compute_dynamic_weights_v2(state: "GameState", me_idx: int) -> dict[str, float]:
+    """Plan F 用: state-dependent な動的重み 9 dim を dict で返す (= 教師データ生成用)。
+
+    eval.py の compute_score 内 ONEPIECE_DYNAMIC_WEIGHTS=1 path と同じロジック。
+    weight_nn の supervised warm start で「人間 hand-tuned 関数」 を教師にする。
+    """
+    me = state.players[me_idx]
+    opp = state.players[1 - me_idx]
+    base = select_weights_for_player(state, me_idx)
+
+    my_life = len(me.life)
+    opp_life = len(opp.life)
+    my_hand = len(me.hand)
+    opp_hand = len(opp.hand)
+    turn = state.turn_number
+    opp_field_power = sum(getattr(c, "power", 0) for c in opp.characters)
+
+    turn_factor = 1.0 + max(0, turn - 5) * 0.15
+
+    if my_life >= 4:
+        w_life_self_mult = 0.5 * turn_factor
+    elif my_life >= 2:
+        w_life_self_mult = 1.0 * turn_factor
+    else:
+        w_life_self_mult = 2.5 * turn_factor
+
+    if opp_life >= 4:
+        w_life_opp_mult = 0.7 * turn_factor
+    elif opp_life >= 2:
+        w_life_opp_mult = 1.2 * turn_factor
+    else:
+        w_life_opp_mult = 2.5 * turn_factor
+
+    # 自分 / 相手 で重み違うが、 単一 W_LIFE しか NN 出力ないので 平均で代表
+    w_life = base.W_LIFE * (w_life_self_mult + w_life_opp_mult) / 2
+
+    if my_hand <= 2:
+        w_hand_self_mult = 2.5
+    elif my_hand <= 5:
+        w_hand_self_mult = 1.0
+    else:
+        w_hand_self_mult = 0.4
+    if opp_hand <= 2:
+        w_hand_opp_mult = 1.5
+    elif opp_hand <= 5:
+        w_hand_opp_mult = 1.0
+    else:
+        w_hand_opp_mult = 0.6
+    w_hand = base.W_HAND * (w_hand_self_mult + w_hand_opp_mult) / 2
+
+    # DON 一律低 (= ohtsuki さん指摘で「数」 ではなく「質」 で評価、 W_DON は score 化しない方向)
+    w_don = base.W_DON * 0.4
+
+    opp_field_strength = 1.0
+    if opp_field_power >= 15000:
+        opp_field_strength = 1.5
+    elif opp_field_power >= 8000:
+        opp_field_strength = 1.2
+    w_blocker = base.W_BLOCKER * opp_field_strength
+
+    return {
+        "W_LIFE": float(w_life),
+        "W_HAND": float(w_hand),
+        "W_FIELD_COUNT": float(base.W_FIELD_COUNT),
+        "W_FIELD_POWER": float(base.W_FIELD_POWER),
+        "W_DON": float(w_don),
+        "W_BLOCKER": float(w_blocker),
+        "W_ATTACHED_DON": float(base.W_ATTACHED_DON),
+        "W_ACTIVE_CHARA": float(base.W_ACTIVE_CHARA),
+        "W_LETHAL": float(base.W_LETHAL),
+    }
+
+
 def select_weights_for_player(state: GameState, me_idx: int) -> BoardEvalWeights:
     """state.deck_slugs[me_idx] → state.archetypes[me_idx] → DEFAULT_WEIGHTS の優先順で重み選択。
 
@@ -1309,17 +1382,116 @@ def compute_score(
     sm = _player_metrics(me)
     om = _player_metrics(opp)
 
-    # === Group 1: base 軽い 8 dim (= guard なしで毎回計算、 cost 低) ===
-    score = (
-        (sm["life"] - om["life"]) * weights.W_LIFE
-        + (sm["field_count"] - om["field_count"]) * weights.W_FIELD_COUNT
-        + (sm["field_power"] - om["field_power"]) * weights.W_FIELD_POWER
-        + (sm["hand"] - om["hand"]) * weights.W_HAND
-        + (sm["don"] - om["don"]) * weights.W_DON
-        + (sm["blocker"] - om["blocker"]) * weights.W_BLOCKER
-        + (sm["attached_don"] - om["attached_don"]) * weights.W_ATTACHED_DON
-        + (sm["active_chara"] - om["active_chara"]) * weights.W_ACTIVE_CHARA
-    )
+    # === 動的重み関数 v2 (= 2026-05-18 OPTCG メカニクス対応拡張版) ===
+    # ライフ受ける → 手札 +1 という公式ルールを評価に反映。
+    # 状態依存で W_LIFE / W_HAND / W_DON / W_BLOCKER 等を動的計算 (= 関数化)。
+    # ONEPIECE_DYNAMIC_WEIGHTS=1 で有効化、 default は固定重み (= 後方互換)。
+    # ONEPIECE_WEIGHT_NN=1 で重み NN (= Plan F) を使う、 dynamic_v2 教師として fallback。
+    _use_weight_nn = os.environ.get("ONEPIECE_WEIGHT_NN") == "1"
+    _use_dynamic = os.environ.get("ONEPIECE_DYNAMIC_WEIGHTS") == "1" or _use_weight_nn
+    if _use_weight_nn:
+        try:
+            from .weight_nn import compute_weights_nn
+            nn_weights = compute_weights_nn(state, me_idx)
+            if nn_weights is not None:
+                # NN 出力 weights を そのまま使う (= 動的計算 path は skip)
+                score = (
+                    (sm["life"] - om["life"]) * nn_weights["W_LIFE"]
+                    + (sm["field_count"] - om["field_count"]) * nn_weights["W_FIELD_COUNT"]
+                    + (sm["field_power"] - om["field_power"]) * nn_weights["W_FIELD_POWER"]
+                    + (sm["hand"] - om["hand"]) * nn_weights["W_HAND"]
+                    + (sm["don"] - om["don"]) * nn_weights["W_DON"]
+                    + (sm["blocker"] - om["blocker"]) * nn_weights["W_BLOCKER"]
+                    + (sm["attached_don"] - om["attached_don"]) * nn_weights["W_ATTACHED_DON"]
+                    + (sm["active_chara"] - om["active_chara"]) * nn_weights["W_ACTIVE_CHARA"]
+                )
+                # NN 出力 W_LETHAL は別途 lethal_estimate 後に使うため、 一旦記録
+                _nn_w_lethal = nn_weights["W_LETHAL"]
+                _use_dynamic = False  # NN path 採用、 dynamic v2 計算は skip
+        except Exception:
+            pass  # NN 失敗時は dynamic v2 fallback
+    if _use_dynamic:
+        my_life = sm["life"]
+        opp_life = om["life"]
+        my_hand = sm["hand"]
+        opp_hand = om["hand"]
+        turn = state.turn_number
+        my_field_power = sm["field_power"]
+        opp_field_power = om["field_power"]
+
+        # ----- 1. ライフ重み (= 残ライフが少ないほど重い、 ターン後半でも重い) -----
+        # cross-term: ライフ × ターン (= 終盤のライフは価値増)
+        turn_factor = 1.0 + max(0, turn - 5) * 0.15  # turn 5+ で 1.15, 10 で 1.75
+        if my_life >= 4:
+            w_life_self = weights.W_LIFE * 0.5 * turn_factor
+        elif my_life >= 2:
+            w_life_self = weights.W_LIFE * 1.0 * turn_factor
+        else:
+            w_life_self = weights.W_LIFE * 2.5 * turn_factor
+
+        if opp_life >= 4:
+            w_life_opp = weights.W_LIFE * 0.7 * turn_factor
+        elif opp_life >= 2:
+            w_life_opp = weights.W_LIFE * 1.2 * turn_factor
+        else:
+            w_life_opp = weights.W_LIFE * 2.5 * turn_factor  # 相手ライフ 1 でリーサル目前
+
+        # ----- 2. 手札重み (= 手札枯渇時は補充価値高、 余ってる時は低) -----
+        if my_hand <= 2:
+            w_hand_self = weights.W_HAND * 2.5  # 枯渇時、 補充価値最大
+        elif my_hand <= 5:
+            w_hand_self = weights.W_HAND * 1.0
+        else:
+            w_hand_self = weights.W_HAND * 0.4  # 余ってる、 増の価値低い
+
+        if opp_hand <= 2:
+            w_hand_opp = weights.W_HAND * 1.5  # 相手も枯渇、 こちらの攻撃通過確率高い
+        elif opp_hand <= 5:
+            w_hand_opp = weights.W_HAND * 1.0
+        else:
+            w_hand_opp = weights.W_HAND * 0.6
+
+        # ----- 3. ドン重み (= 一律低く、 OPTCG では「温存」 という概念がそもそもない) -----
+        # OPTCG では DON 余らせ = 純損失。 ターン跨ぎでも 1 ドンしか持ち越せない、
+        # 当ターン使う > 次ターン使う が常に有利 (= 同じリソース + 追加のいまターン分)。
+        # → 「動的に温存重み調整」 は不要、 一律低く して「使い切れ」 を engine に教える。
+        w_don = weights.W_DON * 0.4  # 全ターン同じ、 ドン差はあまり評価しない (= 攻撃に振る)
+
+        # ----- 4. ブロッカー重み (= 相手フィールド強なら防御価値高) -----
+        # 相手キャラ強いほど blocker 重要
+        opp_field_strength_factor = 1.0
+        if opp_field_power >= 15000:
+            opp_field_strength_factor = 1.5
+        elif opp_field_power >= 8000:
+            opp_field_strength_factor = 1.2
+        w_blocker = weights.W_BLOCKER * opp_field_strength_factor
+
+        # ----- 5. attached_don / active_chara / field_count / field_power は固定 -----
+        # （後段 Group 2-N で extra term は固定 weights で続行）
+
+        # ----- 動的 base 8 dim score 計算 -----
+        score = (
+            sm["life"] * w_life_self - opp_life * w_life_opp
+            + my_hand * w_hand_self - opp_hand * w_hand_opp
+            + (sm["field_count"] - om["field_count"]) * weights.W_FIELD_COUNT
+            + (sm["field_power"] - om["field_power"]) * weights.W_FIELD_POWER
+            + (sm["don"] - om["don"]) * w_don
+            + (sm["blocker"] - om["blocker"]) * w_blocker
+            + (sm["attached_don"] - om["attached_don"]) * weights.W_ATTACHED_DON
+            + (sm["active_chara"] - om["active_chara"]) * weights.W_ACTIVE_CHARA
+        )
+    else:
+        # === Group 1: base 軽い 8 dim (= guard なしで毎回計算、 cost 低) ===
+        score = (
+            (sm["life"] - om["life"]) * weights.W_LIFE
+            + (sm["field_count"] - om["field_count"]) * weights.W_FIELD_COUNT
+            + (sm["field_power"] - om["field_power"]) * weights.W_FIELD_POWER
+            + (sm["hand"] - om["hand"]) * weights.W_HAND
+            + (sm["don"] - om["don"]) * weights.W_DON
+            + (sm["blocker"] - om["blocker"]) * weights.W_BLOCKER
+            + (sm["attached_don"] - om["attached_don"]) * weights.W_ATTACHED_DON
+            + (sm["active_chara"] - om["active_chara"]) * weights.W_ACTIVE_CHARA
+        )
 
     # === Group 2: lethal 系 (= 重い hand_estimator 呼び出しあり) ===
     self_lethal = 0.0
@@ -1463,6 +1635,25 @@ def compute_score(
             state, me_idx, me, opp, sm, om, self_lethal, opp_lethal, weights,
         ):
             score += (sv - ov) * w
+
+    # ===== EndPhase penalty (= 2026-05-18 bad_moves 対応) =====
+    # 自分のターン終了直後 (= state.turn_player_idx が opp に切替) で 未消費リソースあれば penalty。
+    # plan_search の leaf state は ターン終了後を想定、 「使い切れなかった」 を score で抑制 →
+    # AI が active chara / DON / leader 未使用で EndPhase を選ばないよう自然誘導。
+    # ONEPIECE_END_PHASE_PENALTY=1 で有効化、 default OFF (= 後方互換)。
+    if os.environ.get("ONEPIECE_END_PHASE_PENALTY") == "1":
+        if state.turn_player_idx != me_idx and not state.game_over:
+            # 自分のターン終了済 (= opp ターン中)、 未消費リソースあるか確認
+            don_active_remaining = len([d for d in me.don_active if d == 0]) if hasattr(me, "don_active") else 0
+            active_chara_count = sum(1 for c in me.characters if not c.rested)
+            leader_unrested = not me.leader.rested
+            # 各 penalty
+            waste_penalty = 0
+            waste_penalty += don_active_remaining * 500       # 余り DON 1 = -500pt
+            waste_penalty += active_chara_count * 300         # 未使用 active chara 1 = -300pt
+            if leader_unrested:
+                waste_penalty += 400                          # leader 未攻撃 = -400pt
+            score -= waste_penalty
 
     return score
 

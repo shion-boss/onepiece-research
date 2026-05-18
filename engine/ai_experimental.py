@@ -227,10 +227,9 @@ class TwoTurnPlanningAI(_NoNNPlanningBase):
     """2026-05-18: 自分ターン + 相手ターン sim + 自分ターン まで読む PlanningAI 派生。
 
     既存 beam=2,depth=3 (= 1 ターン読み) に対して max_turns=2 で 多ターン読み。
-    plan_search が内部で LightDeepPlanningAI で相手ターン sim を行う (= ai.py 既存実装)。
+    plan_search が内部で opp ターン sim を行う (= 軽量 GreedyAI 固定で高速化)。
 
     リーサル準備手筋 (= 「いま DON 温存 → 次ターン大型キャラ → リーサル」) を発見可能。
-    速度コスト: 1 試合 ~20-30 秒 (= 1 ターン読み 1-2 秒 の 10 倍)。
     """
 
     name = "TwoTurnPlanning"
@@ -238,10 +237,114 @@ class TwoTurnPlanningAI(_NoNNPlanningBase):
     def __init__(self, *args, **kwargs):
         # max_turns=2 を強制、 beam/depth は kwargs override 可能
         kwargs.setdefault("max_turns", 2)
-        kwargs.setdefault("beam_width", 4)  # 多ターン読みは beam 広めの方が良い
-        kwargs.setdefault("max_depth", 10)  # 2 turns × 5 actions = 10
+        kwargs.setdefault("beam_width", 2)  # 軽量 default
+        kwargs.setdefault("max_depth", 6)   # 2 turns × 3 actions = 6
         kwargs["adaptive"] = False  # max_turns_fixed が使われるよう adaptive 切る
         super().__init__(*args, **kwargs)
+
+    def choose_action(self, state):
+        # 高速化: opp sim を GreedyAI 固定 (= 50-100x 高速)
+        # + dynamic weights (= OPTCG メカニクス対応、 ライフ受け OK 判断)
+        import os
+        saved_opp = os.environ.get("ONEPIECE_LIGHT_OPP_SIM")
+        saved_dw = os.environ.get("ONEPIECE_DYNAMIC_WEIGHTS")
+        os.environ["ONEPIECE_LIGHT_OPP_SIM"] = "1"
+        os.environ["ONEPIECE_DYNAMIC_WEIGHTS"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved_opp is None:
+                del os.environ["ONEPIECE_LIGHT_OPP_SIM"]
+            else:
+                os.environ["ONEPIECE_LIGHT_OPP_SIM"] = saved_opp
+            if saved_dw is None:
+                del os.environ["ONEPIECE_DYNAMIC_WEIGHTS"]
+            else:
+                os.environ["ONEPIECE_DYNAMIC_WEIGHTS"] = saved_dw
+
+
+class EndPhasePenaltyAI(_NoNNPlanningBase):
+    """2026-05-18 bad_moves 対応: EndPhase penalty 有効化 PlanningAI。
+
+    plan_search の leaf eval で 「自分ターン終了時に未消費リソース (= active chara / DON /
+    leader unrested)」 を penalty 化、 「攻撃せず終わる」 を回避させる。
+    """
+
+    name = "EndPhasePenalty"
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 3)
+        kwargs.setdefault("adaptive", False)
+        super().__init__(*args, **kwargs)
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_END_PHASE_PENALTY")
+        os.environ["ONEPIECE_END_PHASE_PENALTY"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_END_PHASE_PENALTY"]
+            else:
+                os.environ["ONEPIECE_END_PHASE_PENALTY"] = saved
+
+
+class WeightNNTwoTurnAI(TwoTurnPlanningAI):
+    """Plan F TwoTurn 正規版 (= 2026-05-18 ユーザ示唆):
+
+    対戦用 AI = TwoTurnPlanningAI (= 2 ターン読み + 軽量 opp sim) を **固定**、
+    その AI の **専用** 評価関数を NN で学習する (= 共進化)。
+
+    朝の WeightNNPlanningAI (= 1 ターン読み + NN) は順序が逆だった。
+    本クラスが ユーザ示唆の正しい設計。
+    """
+
+    name = "WeightNNTwoTurn"
+
+    def choose_action(self, state):
+        import os
+        saved_wnn = os.environ.get("ONEPIECE_WEIGHT_NN")
+        os.environ["ONEPIECE_WEIGHT_NN"] = "1"
+        try:
+            # 親 TwoTurnPlanningAI が ONEPIECE_LIGHT_OPP_SIM=1 + DYNAMIC_WEIGHTS=1 を set、
+            # WEIGHT_NN=1 を追加で set すれば eval が NN 重み path に流れる。
+            return super().choose_action(state)
+        finally:
+            if saved_wnn is None:
+                del os.environ["ONEPIECE_WEIGHT_NN"]
+            else:
+                os.environ["ONEPIECE_WEIGHT_NN"] = saved_wnn
+
+
+class WeightNNPlanningAI(_NoNNPlanningBase):
+    """Plan F (= 2026-05-18): 重み NN を使う PlanningAI。
+
+    choose_action 中に ONEPIECE_WEIGHT_NN=1 を set、 compute_score が
+    weight_nn.compute_weights_nn を呼んで state-dependent な 9 dim weights を取得。
+    既存 9 dim eval は維持、 重みだけ NN 動的化 (= AlphaZero 風 評価関数学習)。
+    """
+
+    name = "WeightNNPlanning"
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 3)
+        kwargs.setdefault("adaptive", False)
+        super().__init__(*args, **kwargs)
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_WEIGHT_NN")
+        os.environ["ONEPIECE_WEIGHT_NN"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_WEIGHT_NN"]
+            else:
+                os.environ["ONEPIECE_WEIGHT_NN"] = saved
 
 
 class AdaptiveBeamDepthAI(_NoNNPlanningBase):

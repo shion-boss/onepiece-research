@@ -221,9 +221,15 @@ def search_turn_plan(
     # main caller depth=0 → opp_sim depth=1 (= plan_search 動作) → 内部 opp_sim depth=2 (= GreedyAI fallback)
     caller_depth = getattr(ai_self, "recursion_depth", 0) if ai_self is not None else 0
     if max_turns > 1:
-        # opp sim は LightDeepPlanningAI(recursion_depth=caller+1) で archetype-aware 多手読み。
-        # 「相手をアグロと判断したらアグロ eval で多手読みする」 を実現。
-        if ai_opp is None or isinstance(ai_opp, PlanningAI):
+        # opp sim: 2026-05-18 ONEPIECE_LIGHT_OPP_SIM=1 で GreedyAI 固定 (= 大幅高速化)。
+        # LightDeepPlanningAI は plan_search 内 plan_search で 1 opp sim あたり 1-2 sec、
+        # max_turns=2 で 1 試合 30 分超 になる。 GreedyAI なら 0.1 sec、 10-20x 高速。
+        import os as _os
+        _light_opp = _os.environ.get("ONEPIECE_LIGHT_OPP_SIM") == "1"
+        if _light_opp:
+            opp_sim_ai = GreedyAI(rng=getattr(state, "rng", None))
+        elif ai_opp is None or isinstance(ai_opp, PlanningAI):
+            # 既存: LightDeepPlanningAI(recursion_depth=caller+1) で archetype-aware 多手読み。
             opp_sim_ai = LightDeepPlanningAI(
                 rng=getattr(state, "rng", None),
                 recursion_depth=caller_depth + 1,
