@@ -1,0 +1,77 @@
+{
+  "name": "カイドウ (auto)",
+  "slug": "op01_061_variant_0",
+  "leader": "OP01-061",
+  "leader_name": "カイドウ",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB01-023",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-035",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-044",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-069",
+      "count": 1
+    },
+    {
+      "card_id": "OP04-049",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-056",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-063",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-067",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-050",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-075",
+      "count": 1
+    },
+    {
+      "card_id": "OP12-045",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-051",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-066",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-003",
+      "count": 3
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

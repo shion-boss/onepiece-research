@@ -1,0 +1,98 @@
+{
+  "name": "ポートガス・Ｄ・エース variant 2",
+  "slug": "ace_op13_variant_2",
+  "leader": "OP13-002",
+  "leader_name": "ポートガス・Ｄ・エース",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1458.json",
+  "variant_id": 2,
+  "cluster_size": 1,
+  "score": "優勝",
+  "tournament_date": "2026-05-10",
+  "main": [
+    {
+      "card_id": "ST22-002",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-016",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-007",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-052",
+      "count": 2
+    },
+    {
+      "card_id": "ST15-004",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-043",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-045",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-040",
+      "count": 2
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-047",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-051",
+      "count": 3
+    },
+    {
+      "card_id": "ST23-001",
+      "count": 1
+    },
+    {
+      "card_id": "EB04-007",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-042",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-043",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-118",
+      "count": 1
+    },
+    {
+      "card_id": "ST22-015",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-018",
+      "count": 1
+    },
+    {
+      "card_id": "OP14-017",
+      "count": 1
+    },
+    {
+      "card_id": "OP11-018",
+      "count": 1
+    }
+  ]
+}

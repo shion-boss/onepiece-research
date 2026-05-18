@@ -1,0 +1,86 @@
+{
+  "name": "ジュラキュール・ミホーク variant 3",
+  "slug": "mihawk_op14_variant_3",
+  "leader": "OP14-020",
+  "leader_name": "ジュラキュール・ミホーク",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1222.json",
+  "variant_id": 3,
+  "cluster_size": 1,
+  "score": "優勝",
+  "tournament_date": "2026-04-01",
+  "main": [
+    {
+      "card_id": "OP12-034",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-015",
+      "count": 1
+    },
+    {
+      "card_id": "ST24-002",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-006",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-032",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-023",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-118",
+      "count": 3
+    },
+    {
+      "card_id": "OP10-030",
+      "count": 1
+    },
+    {
+      "card_id": "OP07-026",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-033",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-031",
+      "count": 4
+    },
+    {
+      "card_id": "ST24-004",
+      "count": 4
+    },
+    {
+      "card_id": "ST02-007",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-037",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-038",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-036",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-039",
+      "count": 2
+    }
+  ]
+}

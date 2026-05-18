@@ -1,0 +1,77 @@
+{
+  "name": "シャンクス (auto)",
+  "slug": "st05_001_variant_0",
+  "leader": "ST05-001",
+  "leader_name": "シャンクス",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB02-035",
+      "count": 4
+    },
+    {
+      "card_id": "OP03-069",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-069",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-074",
+      "count": 1
+    },
+    {
+      "card_id": "OP08-065",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-067",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-064",
+      "count": 1
+    },
+    {
+      "card_id": "OP11-072",
+      "count": 1
+    },
+    {
+      "card_id": "OP12-077",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-066",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-066",
+      "count": 3
+    },
+    {
+      "card_id": "ST18-003",
+      "count": 3
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

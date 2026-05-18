@@ -1,0 +1,78 @@
+{
+  "name": "サンジ variant 0",
+  "slug": "sanji_op12_variant_0",
+  "leader": "OP12-041",
+  "leader_name": "サンジ",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1356.json",
+  "variant_id": 0,
+  "cluster_size": 1,
+  "score": "準優勝",
+  "tournament_date": "2026-04-22",
+  "main": [
+    {
+      "card_id": "OP12-071",
+      "count": 4
+    },
+    {
+      "card_id": "ST26-005",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-063",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-064",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-070",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-041",
+      "count": 2
+    },
+    {
+      "card_id": "OP07-076",
+      "count": 2
+    },
+    {
+      "card_id": "OP09-078",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-029",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-039",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-060",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-061",
+      "count": 1
+    },
+    {
+      "card_id": "OP12-059",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-079",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-060",
+      "count": 4
+    }
+  ]
+}

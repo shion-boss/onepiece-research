@@ -1,0 +1,74 @@
+{
+  "name": "ボア・ハンコック variant 1",
+  "slug": "hancock_op14_variant_1",
+  "leader": "OP14-041",
+  "leader_name": "ボア・ハンコック",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1247.json",
+  "variant_id": 1,
+  "cluster_size": 4,
+  "score": "優勝",
+  "tournament_date": "2026-04-08",
+  "main": [
+    {
+      "card_id": "OP06-106",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-103",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-050",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-113",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    },
+    {
+      "card_id": "ST17-004",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-105",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-107",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-119",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 3
+    },
+    {
+      "card_id": "OP07-115",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-057",
+      "count": 1
+    }
+  ]
+}

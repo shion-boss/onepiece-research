@@ -1,0 +1,70 @@
+{
+  "name": "赤ボニー variant 0",
+  "slug": "eb04_001_variant_0",
+  "leader": "EB04-001",
+  "leader_name": "赤ボニー",
+  "source": "existing",
+  "source_path": "tcgportal_bonney.json",
+  "variant_id": 0,
+  "cluster_size": 1,
+  "score": "tcg-portal 集計 (Tier 4, 使用率 2.3%)",
+  "tournament_date": "2026-05-14",
+  "main": [
+    {
+      "card_id": "EB04-002",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-007",
+      "count": 4
+    },
+    {
+      "card_id": "ST21-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-108",
+      "count": 4
+    },
+    {
+      "card_id": "ST29-015",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-061",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-099",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-008",
+      "count": 2
+    },
+    {
+      "card_id": "OP13-012",
+      "count": 4
+    }
+  ]
+}

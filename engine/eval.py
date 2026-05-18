@@ -132,6 +132,13 @@ class BoardEvalWeights:
     W_INT_SECOND_PLAYER_LATE_SWING: int = 0
     W_INT_EXPOSED_FINISHER: int = 0
     W_INT_DRAW_ADVANTAGE: int = 0
+    # I. Plan Step 1: leader 固有効果 flag × state 条件 5 個
+    # ai_hint_signals 由来の have_ramp 等 flag を state condition と組合せた binary features。
+    W_INT_HAVE_RAMP_LOW_DON: int = 0
+    W_INT_HAVE_BURST_FINISHER_LATE: int = 0
+    W_INT_HAVE_SEARCH_LOOP_LOW_HAND: int = 0
+    W_INT_HAVE_REMOVAL_ARSENAL_OPP_STRONG: int = 0
+    W_INT_HAVE_DRAW_ENGINE_LOW_HAND: int = 0
     # ゲーム終了 (decisive)
     W_GAME_OVER: int = 1_000_000
 
@@ -226,6 +233,11 @@ def _load_weights_from_ai_params() -> BoardEvalWeights:
             W_INT_SECOND_PLAYER_LATE_SWING=int(p.get("w_int_second_player_late_swing", 0)),
             W_INT_EXPOSED_FINISHER=int(p.get("w_int_exposed_finisher", 0)),
             W_INT_DRAW_ADVANTAGE=int(p.get("w_int_draw_advantage", 0)),
+            W_INT_HAVE_RAMP_LOW_DON=int(p.get("w_int_have_ramp_low_don", 0)),
+            W_INT_HAVE_BURST_FINISHER_LATE=int(p.get("w_int_have_burst_finisher_late", 0)),
+            W_INT_HAVE_SEARCH_LOOP_LOW_HAND=int(p.get("w_int_have_search_loop_low_hand", 0)),
+            W_INT_HAVE_REMOVAL_ARSENAL_OPP_STRONG=int(p.get("w_int_have_removal_arsenal_opp_strong", 0)),
+            W_INT_HAVE_DRAW_ENGINE_LOW_HAND=int(p.get("w_int_have_draw_engine_low_hand", 0)),
         )
     except Exception:
         return BoardEvalWeights()
@@ -238,6 +250,156 @@ def reload_default_weights() -> BoardEvalWeights:
     """学習で db/ai_params.json が更新された後、 メモリ上の DEFAULT_WEIGHTS を再ロード。"""
     global DEFAULT_WEIGHTS
     DEFAULT_WEIGHTS = _load_weights_from_ai_params()
+    return DEFAULT_WEIGHTS
+
+
+# archetype 名 → ASCII slug (= ファイル名安全)
+_ARCHETYPE_SLUG = {
+    "コントロール": "control",
+    "ミッドレンジ": "midrange",
+    "アグロ": "aggro",
+    "ランプ": "ramp",
+    "コンボ": "combo",
+    "ビートダウン": "beatdown",
+    "ステラ": "stella",
+}
+
+# archetype 別 重み cache (= 各試合で load 回避、 重み更新時に invalidate)
+_ARCHETYPE_WEIGHTS_CACHE: dict[str, BoardEvalWeights] = {}
+
+
+def archetype_to_slug(archetype: str) -> str:
+    """日本語 archetype 名を ASCII slug 化。 未知は そのまま小文字 ASCII tolerant。"""
+    if archetype in _ARCHETYPE_SLUG:
+        return _ARCHETYPE_SLUG[archetype]
+    return archetype.lower().replace(" ", "_")
+
+
+def load_weights_for_archetype(archetype: str) -> Optional[BoardEvalWeights]:
+    """db/ai_params_archetypes/<slug>.json から重みを load。 無ければ None (= base にフォールバック)。
+
+    cache 利用で 同 archetype の load を 1 回に。 invalidate_archetype_cache で reset 可。
+    """
+    if not archetype:
+        return None
+    slug = archetype_to_slug(archetype)
+    if slug in _ARCHETYPE_WEIGHTS_CACHE:
+        return _ARCHETYPE_WEIGHTS_CACHE[slug]
+    path = Path(__file__).resolve().parent.parent / "db" / "ai_params_archetypes" / f"{slug}.json"
+    if not path.exists():
+        _ARCHETYPE_WEIGHTS_CACHE[slug] = None  # type: ignore
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        p = data.get("params", {})
+        # _load_weights_from_ai_params と同じ rote pattern (= 全 73 dim load)
+        # 不在 key は base 値 (= ai_params.json default) で fallback
+        base = _load_weights_from_ai_params()  # base を起点に upsert
+        for key, val in p.items():
+            wfield = key.upper()
+            if hasattr(base, wfield):
+                setattr(base, wfield, int(val) if isinstance(val, (int, float)) else val)
+        _ARCHETYPE_WEIGHTS_CACHE[slug] = base
+        return base
+    except Exception:
+        _ARCHETYPE_WEIGHTS_CACHE[slug] = None  # type: ignore
+        return None
+
+
+def invalidate_archetype_cache() -> None:
+    """学習で archetype 重みが更新された時に cache を reset。"""
+    global _ARCHETYPE_WEIGHTS_CACHE
+    _ARCHETYPE_WEIGHTS_CACHE = {}
+
+
+def _load_archetype_weights_by_slug(archetype_slug: str) -> Optional[BoardEvalWeights]:
+    """ASCII slug 直接指定で archetype 重みを load (= archetype.json の絶対値)。
+    base + archetype 平均が入った状態の重みを返す。 無ければ None。
+    """
+    if not archetype_slug:
+        return None
+    path = Path(__file__).resolve().parent.parent / "db" / "ai_params_archetypes" / f"{archetype_slug}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        p = data.get("params", {})
+        base = _load_weights_from_ai_params()
+        for key, val in p.items():
+            wfield = key.upper()
+            if hasattr(base, wfield):
+                setattr(base, wfield, int(val) if isinstance(val, (int, float)) else val)
+        return base
+    except Exception:
+        return None
+
+
+def load_weights_for_deck(deck_slug: str) -> Optional[BoardEvalWeights]:
+    """db/ai_params_decks/<slug>.json から重みを load (= deck 別 fine-tune 結果)。
+
+    Phase 2 集約後の hierarchical 形式:
+    - deck json の params = archetype 重みからの offset (= 微小調整値)
+    - base_archetype field で「どの archetype を 起点にするか」 を指定
+    - 最終重み = archetype 重み (= base + archetype 平均) + deck offset
+
+    無ければ None (= archetype 単独 / global base にフォールバック)。
+    """
+    if not deck_slug:
+        return None
+    if deck_slug in _ARCHETYPE_WEIGHTS_CACHE:
+        return _ARCHETYPE_WEIGHTS_CACHE[deck_slug]
+    path = Path(__file__).resolve().parent.parent / "db" / "ai_params_decks" / f"{deck_slug}.json"
+    if not path.exists():
+        _ARCHETYPE_WEIGHTS_CACHE[deck_slug] = None  # type: ignore
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        p = data.get("params", {})
+        params_type = data.get("params_type", "")
+        base_archetype = data.get("base_archetype", "")
+
+        if params_type == "offset_from_archetype" and base_archetype:
+            # 集約後の hierarchical 形式: archetype 重み に offset を加算
+            base = _load_archetype_weights_by_slug(base_archetype)
+            if base is None:
+                base = _load_weights_from_ai_params()
+            for key, val in p.items():
+                wfield = key.upper()
+                if hasattr(base, wfield):
+                    old = getattr(base, wfield)
+                    setattr(base, wfield, int(old + (val if isinstance(val, (int, float)) else 0)))
+        else:
+            # 旧形式 (= deck 重みが絶対値、 base からの直接 fine-tune)
+            base = _load_weights_from_ai_params()
+            for key, val in p.items():
+                wfield = key.upper()
+                if hasattr(base, wfield):
+                    setattr(base, wfield, int(val) if isinstance(val, (int, float)) else val)
+
+        _ARCHETYPE_WEIGHTS_CACHE[deck_slug] = base
+        return base
+    except Exception:
+        _ARCHETYPE_WEIGHTS_CACHE[deck_slug] = None  # type: ignore
+        return None
+
+
+def select_weights_for_player(state: GameState, me_idx: int) -> BoardEvalWeights:
+    """state.deck_slugs[me_idx] → state.archetypes[me_idx] → DEFAULT_WEIGHTS の優先順で重み選択。
+
+    1. ai_params_decks/<deck_slug>.json (= deck 別 fine-tune)
+    2. ai_params_archetypes/<archetype_slug>.json (= archetype 別 fine-tune、 fallback)
+    3. DEFAULT_WEIGHTS (= base、 最終 fallback)
+    """
+    deck_slugs = getattr(state, "deck_slugs", ["", ""])
+    archetypes = getattr(state, "archetypes", ["", ""])
+    if me_idx < len(deck_slugs):
+        w = load_weights_for_deck(deck_slugs[me_idx])
+        if w is not None:
+            return w
+    if me_idx < len(archetypes):
+        w = load_weights_for_archetype(archetypes[me_idx])
+        if w is not None:
+            return w
     return DEFAULT_WEIGHTS
 
 
@@ -742,7 +904,7 @@ def _compute_interactions(
 
     def b(cond): return 1 if cond else 0
 
-    return [
+    metrics = [
         # A. 危険サイン (= 守備系) 5
         ("int_low_life_low_hand",
             b(me_life <= 2 and me_hand <= 2),
@@ -871,7 +1033,35 @@ def _compute_interactions(
             b(me.cards_drawn_count >= opp.cards_drawn_count + 3),
             b(opp.cards_drawn_count >= me.cards_drawn_count + 3),
             weights.W_INT_DRAW_ADVANTAGE),
+        # I. Plan Step 1: leader 固有効果 flag × state 条件 5 個
+        # state.deck_flags[me_idx] / [opp_idx] から have_* flag を取得して binary cross。
+        # me / opp の対称形。 default 0 で学習任せ。
     ]
+    me_flags = getattr(state, "deck_flags", [{}, {}])[me_idx] if me_idx < 2 else {}
+    opp_flags = getattr(state, "deck_flags", [{}, {}])[1 - me_idx] if (1 - me_idx) < 2 else {}
+    metrics_flag = [
+        ("int_have_ramp_low_don",
+            b(me_flags.get("have_ramp", False) and me_don < 5),
+            b(opp_flags.get("have_ramp", False) and opp_don < 5),
+            weights.W_INT_HAVE_RAMP_LOW_DON),
+        ("int_have_burst_finisher_late",
+            b(me_flags.get("have_burst_finisher", False) and turn >= 6),
+            b(opp_flags.get("have_burst_finisher", False) and turn >= 6),
+            weights.W_INT_HAVE_BURST_FINISHER_LATE),
+        ("int_have_search_loop_low_hand",
+            b(me_flags.get("have_search_loop", False) and me_hand <= 3),
+            b(opp_flags.get("have_search_loop", False) and opp_hand <= 3),
+            weights.W_INT_HAVE_SEARCH_LOOP_LOW_HAND),
+        ("int_have_removal_arsenal_opp_strong",
+            b(me_flags.get("have_removal_arsenal", False) and opp_chara_q >= 3),
+            b(opp_flags.get("have_removal_arsenal", False) and me_chara_q >= 3),
+            weights.W_INT_HAVE_REMOVAL_ARSENAL_OPP_STRONG),
+        ("int_have_draw_engine_low_hand",
+            b(me_flags.get("have_draw_engine", False) and me_hand <= 3),
+            b(opp_flags.get("have_draw_engine", False) and opp_hand <= 3),
+            weights.W_INT_HAVE_DRAW_ENGINE_LOW_HAND),
+    ]
+    return metrics + metrics_flag
 
 
 def opp_hand_threat_estimate(state: GameState, me_idx: int) -> float:
@@ -1038,10 +1228,75 @@ def compute_score(
 ) -> float:
     """me_idx 視点の盤面スコア (= self_score - opp_score)。
 
-    ゲーム終了時は ±W_GAME_OVER で確定値。 それ以外は 9 指標の重み付き差分合計。
+    ゲーム終了時は ±W_GAME_OVER で確定値。 それ以外は 73 指標の重み付き差分合計。
+
+    R72+ 最適化: dim group 単位で 「全重み 0」 なら計算 skip (= plan_search の leaf eval
+    で重い helper を毎回呼ぶ overhead を回避)。 学習で重みが付いた group だけ計算する
+    適応的設計。 学習前 (= 全 dim 重み 0) は base 8 dim 速度で動作。
+    snapshot 用 full 73 dim は compute_breakdown を引き続き使う。
     """
+    # === Plan Step 3: NN backend (= model file 存在で auto 有効化) ===
+    # ONEPIECE_NN_DISABLE 環境変数で 強制 fallback (= 線形)。
+    # 明示的に weights が渡された場合 (= 学習 / テスト / 重み比較) は NN を bypass
+    # して線形評価する (= NN は重みを受け取らないため weights 比較が無意味になる)。
+    #
+    # blend mode (= 2026-05-17):
+    #   ONEPIECE_NN_BLEND=0.0   → 線形 100% (= 既存挙動)
+    #   ONEPIECE_NN_BLEND=1.0   → NN 100% (= 既存 NN 路線、 default)
+    #   ONEPIECE_NN_BLEND=0.3   → 線形 70% + NN 30% (= 線形主体、 NN 補助)
+    import os
+    if weights is None and not os.environ.get("ONEPIECE_NN_DISABLE"):
+        try:
+            from .nn_eval import compute_score_nn
+            nn_score = compute_score_nn(state, me_idx)
+            if nn_score is not None:
+                # game_over 時は決定値で上書き (= NN 推定より正確)
+                if state.game_over:
+                    if state.winner == me_idx:
+                        return float(DEFAULT_WEIGHTS.W_GAME_OVER)
+                    elif state.winner is not None:
+                        return float(-DEFAULT_WEIGHTS.W_GAME_OVER)
+                    return 0.0
+                blend = float(os.environ.get("ONEPIECE_NN_BLEND", "1.0"))
+                # Phase Y (= 2026-05-17 案 Y): phase-aware adaptive blend
+                # ライフ ≤ threshold or リーサル ライン に近いと判定された state では
+                # 線形 eval 主体 (= W_LETHAL の決定力)、 それ以外は NN 主体。
+                # ONEPIECE_NN_PHASE_AWARE=1 で有効化。
+                if os.environ.get("ONEPIECE_NN_PHASE_AWARE") == "1":
+                    me_player = state.players[me_idx]
+                    opp_player = state.players[1 - me_idx]
+                    life_threshold = int(os.environ.get("ONEPIECE_NN_PHASE_LIFE_THRESHOLD", "2"))
+                    is_critical = (
+                        len(me_player.life) <= life_threshold
+                        or len(opp_player.life) <= life_threshold
+                    )
+                    if is_critical:
+                        # critical state: 線形 eval 主体 (= blend を 0.1 に強制 = 線形 90%)
+                        blend = float(os.environ.get("ONEPIECE_NN_PHASE_CRITICAL_BLEND", "0.1"))
+                    else:
+                        # 通常時: NN 主体 (= blend を 1.0 に強制 = NN 100%)
+                        blend = float(os.environ.get("ONEPIECE_NN_PHASE_NORMAL_BLEND", "1.0"))
+                if blend >= 1.0:
+                    return nn_score
+                # blend < 1.0: 線形評価も計算して mix
+                # NN を一時 disable して compute_score 再帰呼び出し (= 線形 path に流す)
+                saved = os.environ.get("ONEPIECE_NN_DISABLE")
+                os.environ["ONEPIECE_NN_DISABLE"] = "1"
+                try:
+                    linear_score = compute_score(state, me_idx, weights=None)
+                finally:
+                    if saved is None:
+                        del os.environ["ONEPIECE_NN_DISABLE"]
+                    else:
+                        os.environ["ONEPIECE_NN_DISABLE"] = saved
+                return blend * nn_score + (1.0 - blend) * linear_score
+        except Exception:
+            pass  # NN 失敗時は線形 fallback
+
     if weights is None:
-        weights = DEFAULT_WEIGHTS
+        # archetype 別 重みを自動選択 (= state.archetypes[me_idx] 経由)。
+        # 該当 archetype の ai_params_archetypes/<slug>.json があればそれ、 無ければ base。
+        weights = select_weights_for_player(state, me_idx)
     if state.game_over:
         if state.winner == me_idx:
             return float(weights.W_GAME_OVER)
@@ -1049,8 +1304,167 @@ def compute_score(
             return float(-weights.W_GAME_OVER)
         return 0.0  # 引き分け
 
-    breakdown = compute_breakdown(state, me_idx, weights)
-    return sum(m["contribution"] for m in breakdown.values())
+    me = state.players[me_idx]
+    opp = state.players[1 - me_idx]
+    sm = _player_metrics(me)
+    om = _player_metrics(opp)
+
+    # === Group 1: base 軽い 8 dim (= guard なしで毎回計算、 cost 低) ===
+    score = (
+        (sm["life"] - om["life"]) * weights.W_LIFE
+        + (sm["field_count"] - om["field_count"]) * weights.W_FIELD_COUNT
+        + (sm["field_power"] - om["field_power"]) * weights.W_FIELD_POWER
+        + (sm["hand"] - om["hand"]) * weights.W_HAND
+        + (sm["don"] - om["don"]) * weights.W_DON
+        + (sm["blocker"] - om["blocker"]) * weights.W_BLOCKER
+        + (sm["attached_don"] - om["attached_don"]) * weights.W_ATTACHED_DON
+        + (sm["active_chara"] - om["active_chara"]) * weights.W_ACTIVE_CHARA
+    )
+
+    # === Group 2: lethal 系 (= 重い hand_estimator 呼び出しあり) ===
+    self_lethal = 0.0
+    opp_lethal = 0.0
+    needs_lethal = (
+        weights.W_LETHAL != 0
+        or weights.W_LETHAL_RISK_DIFF != 0
+        or weights.W_INT_OPP_LETHAL_NO_COUNTER != 0
+        or weights.W_INT_DEFENSIVE_COLLAPSE != 0
+        or weights.W_INT_MID_GAME_PRESSURE != 0
+    )
+    if needs_lethal:
+        self_lethal = lethal_estimate(state, me_idx)
+        opp_lethal = lethal_estimate(state, 1 - me_idx)
+        score += (self_lethal - opp_lethal) * weights.W_LETHAL
+
+    if weights.W_OPP_NEXT_LETHAL != 0:
+        me_forward = project_opp_next_turn_lethal(state, 1 - me_idx)
+        opp_forward = project_opp_next_turn_lethal(state, me_idx)
+        score += (me_forward - opp_forward) * weights.W_OPP_NEXT_LETHAL
+
+    # === Group 3: deck_finisher (= role_db 経由で deck 走査) ===
+    if weights.W_DECK_FINISHER != 0:
+        score += (deck_finisher_count(me) - deck_finisher_count(opp)) * weights.W_DECK_FINISHER
+
+    # === Group 4: life_trigger (= overlay 走査) ===
+    if weights.W_LIFE_TRIGGER != 0:
+        overlay = state.effects_overlay
+        score += (life_trigger_value(me, overlay) - life_trigger_value(opp, overlay)) * weights.W_LIFE_TRIGGER
+
+    # === Group 5: chara/hand quality (= role_db lookup) ===
+    if weights.W_CHARA_QUALITY != 0:
+        score += (chara_quality_score(me) - chara_quality_score(opp)) * weights.W_CHARA_QUALITY
+    if weights.W_HAND_QUALITY != 0:
+        score += (hand_quality_score(me) - hand_quality_score(opp)) * weights.W_HAND_QUALITY
+
+    # === Group 6: opp_hand_threat (= 重い: 50 枚走査) ===
+    if weights.W_OPP_HAND_THREAT != 0:
+        s_threat = opp_hand_threat_estimate(state, 1 - me_idx)
+        o_threat = opp_hand_threat_estimate(state, me_idx)
+        score += (s_threat - o_threat) * weights.W_OPP_HAND_THREAT
+
+    # === Group 7: Step 2-pre 計画書 10 ===
+    has_step2pre = (
+        weights.W_IS_FIRST_PLAYER != 0 or weights.W_STAGE_COUNT != 0
+        or weights.W_STAGE_VALUE != 0 or weights.W_TRASH_COUNT != 0
+        or weights.W_TRASH_ARCHETYPE_MATCH != 0 or weights.W_RUSH_COUNT != 0
+        or weights.W_DOUBLE_ATTACK_COUNT != 0
+        or weights.W_STATIC_COST_REDUCTION_TOTAL != 0
+        or weights.W_PLAYABLE_COST_MATCH != 0 or weights.W_SYNERGY_COUNT != 0
+    )
+    if has_step2pre:
+        me_is_first = 1 if me_idx == 0 else 0
+        opp_is_first = 1 if (1 - me_idx) == 0 else 0
+        score += (me_is_first - opp_is_first) * weights.W_IS_FIRST_PLAYER
+        score += (stage_count(me) - stage_count(opp)) * weights.W_STAGE_COUNT
+        score += (stage_value(me) - stage_value(opp)) * weights.W_STAGE_VALUE
+        score += (trash_count(me) - trash_count(opp)) * weights.W_TRASH_COUNT
+        score += (trash_archetype_match(me) - trash_archetype_match(opp)) * weights.W_TRASH_ARCHETYPE_MATCH
+        score += (rush_count(me) - rush_count(opp)) * weights.W_RUSH_COUNT
+        score += (double_attack_count(me) - double_attack_count(opp)) * weights.W_DOUBLE_ATTACK_COUNT
+        score += (static_cost_reduction_total(me) - static_cost_reduction_total(opp)) * weights.W_STATIC_COST_REDUCTION_TOTAL
+        score += (playable_cost_match(me) - playable_cost_match(opp)) * weights.W_PLAYABLE_COST_MATCH
+        score += (synergy_count(me) - synergy_count(opp)) * weights.W_SYNERGY_COUNT
+
+    # === Group 8: Step 2-pre 即追加 9 ===
+    has_step2pre_add = (
+        weights.W_IS_MY_TURN != 0 or weights.W_TURN_NUMBER_NORMALIZED != 0
+        or weights.W_DEAD_CARD_IN_HAND != 0
+        or weights.W_OPP_ACTIVE_BLOCKER_COUNT != 0
+        or weights.W_REMOVAL_THREAT_COUNT != 0
+        or weights.W_SELF_COUNTER_IN_HAND_TOTAL != 0
+        or weights.W_FINISHER_IN_HAND_COUNT != 0
+        or weights.W_KEYWORD_TAUNT_COUNT != 0
+        or weights.W_KO_IMMUNE_COUNT != 0
+    )
+    if has_step2pre_add:
+        me_is_turn = 1 if state.turn_player_idx == me_idx else 0
+        opp_is_turn = 1 if state.turn_player_idx == (1 - me_idx) else 0
+        score += (me_is_turn - opp_is_turn) * weights.W_IS_MY_TURN
+        score += (state.turn_number / 10.0) * weights.W_TURN_NUMBER_NORMALIZED
+        score += (dead_card_in_hand(me) - dead_card_in_hand(opp)) * weights.W_DEAD_CARD_IN_HAND
+        score += (active_blocker_count(me) - active_blocker_count(opp)) * weights.W_OPP_ACTIVE_BLOCKER_COUNT
+        score += (removal_threat_count(me) - removal_threat_count(opp)) * weights.W_REMOVAL_THREAT_COUNT
+        score += (self_counter_in_hand_total(me) - self_counter_in_hand_total(opp)) * weights.W_SELF_COUNTER_IN_HAND_TOTAL
+        score += (finisher_in_hand_count(me) - finisher_in_hand_count(opp)) * weights.W_FINISHER_IN_HAND_COUNT
+        score += (keyword_taunt_count(me) - keyword_taunt_count(opp)) * weights.W_KEYWORD_TAUNT_COUNT
+        score += (ko_immune_count(me) - ko_immune_count(opp)) * weights.W_KO_IMMUNE_COUNT
+
+    # === Group 9: state 拡張 5 (= 軽い、 直接 attribute 参照) ===
+    has_state_ext = (
+        weights.W_CARDS_DRAWN_TOTAL != 0 or weights.W_CARDS_PLAYED_TOTAL != 0
+        or weights.W_DONS_USED_TOTAL != 0 or weights.W_TEMPO_LOST_TOTAL != 0
+        or weights.W_OPP_KNOWN_FINISHER_COUNT != 0
+    )
+    if has_state_ext:
+        score += (me.cards_drawn_count - opp.cards_drawn_count) * weights.W_CARDS_DRAWN_TOTAL
+        score += (me.cards_played_count - opp.cards_played_count) * weights.W_CARDS_PLAYED_TOTAL
+        score += (me.dons_used_count - opp.dons_used_count) * weights.W_DONS_USED_TOTAL
+        score += (me.dons_unused_at_end_count - opp.dons_unused_at_end_count) * weights.W_TEMPO_LOST_TOTAL
+        score += (opp_known_finisher_count(me) - opp_known_finisher_count(opp)) * weights.W_OPP_KNOWN_FINISHER_COUNT
+
+    # === Group 10: Step 2A 4 ===
+    if weights.W_DON_RESERVE != 0:
+        score += (don_reserve(me) - don_reserve(opp)) * weights.W_DON_RESERVE
+    if weights.W_FIELD_EXPOSURE != 0:
+        score += (field_exposure(me, opp) - field_exposure(opp, me)) * weights.W_FIELD_EXPOSURE
+    if weights.W_HAND_LOG != 0:
+        score += (hand_log(me) - hand_log(opp)) * weights.W_HAND_LOG
+    if weights.W_LETHAL_RISK_DIFF != 0:
+        # lethal_risk_diff は内部で lethal_estimate を呼ぶが、 needs_lethal で計算済なら再利用
+        lrd = lethal_risk_diff(state, me_idx)
+        score += (lrd - (-lrd)) * weights.W_LETHAL_RISK_DIFF
+
+    # === Group 11: Iter2 interaction 30 (= 重い: helper 多数) ===
+    has_int = (
+        weights.W_INT_LOW_LIFE_LOW_HAND != 0 or weights.W_INT_LOW_LIFE_NO_BLOCKER != 0
+        or weights.W_INT_OPP_LETHAL_NO_COUNTER != 0 or weights.W_INT_DEFENSIVE_COLLAPSE != 0
+        or weights.W_INT_OPP_DA_PRESSURE != 0 or weights.W_INT_LETHAL_SETUP_READY != 0
+        or weights.W_INT_AGGRESSIVE_WINDOW_OPEN != 0 or weights.W_INT_BURST_THRESHOLD != 0
+        or weights.W_INT_REMOVAL_WINDOW != 0 or weights.W_INT_DON_ADVANTAGE_OPEN != 0
+        or weights.W_INT_ON_CURVE != 0 or weights.W_INT_TEMPO_LOST_CRITICAL != 0
+        or weights.W_INT_RAMP_PAYING_OFF != 0 or weights.W_INT_MANA_STARVED != 0
+        or weights.W_INT_SYNERGY_THRESHOLD_3 != 0 or weights.W_INT_TRASH_ARCHETYPE_5 != 0
+        or weights.W_INT_STAGE_WITH_SYNERGY != 0 or weights.W_INT_RAMP_FINISHER_COMBO != 0
+        or weights.W_INT_OPP_HIDDEN_THREAT_HIGH != 0
+        or weights.W_INT_SELF_HAND_QUALITY_HIGH != 0
+        or weights.W_INT_OPP_LOW_RESOURCE != 0 or weights.W_INT_EARLY_GAME_STRONG != 0
+        or weights.W_INT_MID_GAME_PRESSURE != 0 or weights.W_INT_LATE_GAME_SOLVER != 0
+        or weights.W_INT_KO_IMMUNE_FINISHER != 0 or weights.W_INT_BLOCKER_WITH_TAUNT != 0
+        or weights.W_INT_FIRST_PLAYER_EARLY_ADV != 0
+        or weights.W_INT_SECOND_PLAYER_LATE_SWING != 0
+        or weights.W_INT_EXPOSED_FINISHER != 0 or weights.W_INT_DRAW_ADVANTAGE != 0
+    )
+    if has_int:
+        # lethal が必要だがまだ計算してない場合
+        if not needs_lethal:
+            self_lethal = lethal_estimate(state, me_idx)
+            opp_lethal = lethal_estimate(state, 1 - me_idx)
+        for _name, sv, ov, w in _compute_interactions(
+            state, me_idx, me, opp, sm, om, self_lethal, opp_lethal, weights,
+        ):
+            score += (sv - ov) * w
+
+    return score
 
 
 def compute_self_opp_scores(

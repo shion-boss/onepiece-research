@@ -242,6 +242,18 @@
     {
       "type": "blocker_scarce",
       "value": true
+    },
+    {
+      "type": "have_ramp",
+      "value": true
+    },
+    {
+      "type": "have_search_loop",
+      "value": true
+    },
+    {
+      "type": "have_draw_engine",
+      "value": true
     }
   ]
 }

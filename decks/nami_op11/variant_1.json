@@ -1,0 +1,66 @@
+{
+  "name": "ナミ variant 1",
+  "slug": "nami_op11_variant_1",
+  "leader": "OP11-041",
+  "leader_name": "ナミ",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1226.json",
+  "variant_id": 1,
+  "cluster_size": 2,
+  "score": "優勝",
+  "tournament_date": "2026-04-02",
+  "main": [
+    {
+      "card_id": "OP06-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 4
+    },
+    {
+      "card_id": "P-096",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-111",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-042",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-110",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-115",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-060",
+      "count": 4
+    }
+  ]
+}

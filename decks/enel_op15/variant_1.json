@@ -1,0 +1,66 @@
+{
+  "name": "エネル variant 1",
+  "slug": "enel_op15_variant_1",
+  "leader": "OP15-058",
+  "leader_name": "エネル",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1221.json",
+  "variant_id": 1,
+  "cluster_size": 2,
+  "score": "優勝",
+  "tournament_date": "2026-04-01",
+  "main": [
+    {
+      "card_id": "OP15-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-066",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-067",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-071",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-060",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-118",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-072",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-077",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-075",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-076",
+      "count": 2
+    }
+  ]
+}

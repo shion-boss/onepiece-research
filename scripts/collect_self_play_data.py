@@ -40,10 +40,12 @@ from engine.harness import _construct_ai, _try_load_deck_analysis  # noqa: E402
 # (name, factory, sampling_probability) — 計画書: peer 33% + others 22% × 3
 # 軽量 DeepAI + Lookahead/Greedy/Random rotation で 5000 試合 ~14h 想定
 OPP_POOL = [
-    ("LightDeepPlanningAI", LightDeepPlanningAI, 0.334),
-    ("LookaheadAI", LookaheadAI, 0.222),
-    ("GreedyAI", GreedyAI, 0.222),
-    ("RandomAI", RandomAI, 0.222),
+    # Step 2 (= 2026-05-16/17): 軽量化のため LightDeepPlanningAI 削除
+    # variant pool 157 deck で hand_estimator pool 計算が爆増、 14h hang した。
+    # plan Step 6 (= NN 推論最適化) 後に LightDeep 復活予定。
+    ("GreedyAI", GreedyAI, 0.50),
+    ("LookaheadAI", LookaheadAI, 0.30),
+    ("RandomAI", RandomAI, 0.20),
 ]
 
 
@@ -56,23 +58,68 @@ _WORKER_DECK_POOL: Optional[list[tuple[str, DeckList, Optional[dict]]]] = None
 
 
 def _worker_init() -> None:
-    """各 worker で 1 度だけ呼ばれる。 重いリソース (= cards.json / overlay / deck pool) をロード。"""
+    """各 worker で 1 度だけ呼ばれる。 重いリソース (= cards.json / overlay / deck pool) をロード。
+
+    Step 2 (= 2026-05-16): Phase 8 で導入された `decks/<leader_slug>/variant_*.json` も pool に
+    含めて 132 leader × 1-4 variant ≒ 157 構築の cross matchup を可能にする。
+    """
     global _WORKER_REPO, _WORKER_OVERLAY, _WORKER_DECK_POOL
     _WORKER_REPO = CardRepository.from_json(ROOT / "db" / "cards.json")
     _WORKER_OVERLAY = load_effect_overlay(ROOT / "db" / "card_effects.json")
     _WORKER_DECK_POOL = []
+    seen_slugs: set[str] = set()
+
+    def _try_add(path):
+        if path.name.endswith(".analysis.json"):
+            return
+        slug = path.stem if path.parent.name == "decks" else f"{path.parent.name}__{path.stem}"
+        if slug in seen_slugs:
+            return
+        try:
+            deck = DeckList.from_json(path, _WORKER_REPO)
+            deck.slug = slug
+            ana = _try_load_deck_analysis(deck)
+            _WORKER_DECK_POOL.append((slug, deck, ana))
+            seen_slugs.add(slug)
+        except Exception:
+            pass
+
+    # 既存 16 デッキ (= cardrush_/tcgportal_)
     for pattern in ("cardrush_*.json", "tcgportal_*.json"):
         for path in sorted((ROOT / "decks").glob(pattern)):
-            if path.name.endswith(".analysis.json"):
-                continue
-            slug = path.stem
-            try:
-                deck = DeckList.from_json(path, _WORKER_REPO)
-                deck.slug = slug
-                ana = _try_load_deck_analysis(deck)
-                _WORKER_DECK_POOL.append((slug, deck, ana))
-            except Exception:
-                pass
+            _try_add(path)
+
+    # Phase 8 (= 2026-05-16): variant 構築 (= decks/<leader_slug>/variant_*.json)
+    for variant_path in sorted((ROOT / "decks").glob("*/variant_*.json")):
+        if variant_path.name.endswith(".analysis.json"):
+            continue
+        _try_add(variant_path)
+
+
+def _categorize_action_name(class_name: Optional[str]) -> Optional[str]:
+    """Action class 名から ACTION_CATEGORIES キーへ簡易マップ (= 関数 11 学習用)。"""
+    if not class_name:
+        return None
+    name_upper = class_name.upper()
+    if "PLAY" in name_upper and "CHAR" in name_upper:
+        return "PlayCharacter"
+    if "PLAY" in name_upper and "EVENT" in name_upper:
+        return "PlayEvent"
+    if "PLAY" in name_upper and "STAGE" in name_upper:
+        return "PlayStage"
+    if "ACTIVATE" in name_upper:
+        return "ActivateMain"
+    if "ATTACK" in name_upper and "LEADER" in name_upper:
+        return "AttackLeader"
+    if "ATTACK" in name_upper:
+        return "AttackCharacter"
+    if "DON" in name_upper or "ATTACH" in name_upper:
+        return "AttachDon"
+    if "PASS" in name_upper:
+        return "PassMain"
+    if "END" in name_upper:
+        return "EndPhase"
+    return "Other"
 
 
 def _play_one_game(
@@ -101,15 +148,23 @@ def _play_one_game(
     state.record_action_evals = False
     play_until_main(state)
 
-    deepai = _construct_ai(LightDeepPlanningAI, rng, ana_a)
-    opp = _construct_ai(opp_factory, rng, ana_b)
-    ais = [deepai, opp]
+    # 直接構築 (= deck_analysis 経由の重い init を避ける)。
+    # Step 2 (= 2026-05-17): P0 も LightDeepPlanningAI → GreedyAI に軽量化。
+    # variant pool 拡大で LightDeep は 6-10 分/g → hang した。 GreedyAI は ~3s/g。
+    # plan Step 6 後に DeepPlanning 復活予定。
+    p0_ai = GreedyAI(rng=rng)
+    opp = opp_factory(rng=rng)
+    ais = [p0_ai, opp]
     for i, ai in enumerate(ais):
         if hasattr(ai, "set_ai_opp"):
             ai.set_ai_opp(ais[1 - i])
 
+    # Step 2 (= 2026-05-16): action info も snapshot に記録するため action_evals を有効化
+    state.record_action_evals = True
+
     snapshots: list[dict] = []
     actions = 0
+    prev_eval_count = 0
     while (
         not state.game_over
         and actions < max_actions
@@ -128,11 +183,25 @@ def _play_one_game(
         except Exception:
             continue
         snap_features = {k: float(v["diff"]) for k, v in bd.items()}
+
+        # action info 取得 (= action_evals の最新 entry から)
+        last_action_taken: Optional[str] = None
+        last_action_category: Optional[str] = None
+        if len(state.action_evals) > prev_eval_count:
+            latest = state.action_evals[-1]
+            last_action_taken = latest.get("action")
+            # category は engine.opponent_action_model に倣って簡易分類
+            last_action_category = _categorize_action_name(last_action_taken)
+        prev_eval_count = len(state.action_evals)
+
         snapshots.append({
             "turn": state.turn_number,
             "phase": state.phase.name if hasattr(state.phase, "name") else str(state.phase),
             "actor_idx": me,
             "features": snap_features,
+            # Phase 8 (= 2026-05-16): action info for 関数 11 (= action_likelihood) 学習
+            "action_taken": last_action_taken,
+            "action_category": last_action_category,
         })
 
     if state.winner is None:
@@ -202,6 +271,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--max-actions", type=int, default=200, help="1 試合の action 上限 (= ~13-15 ターン相当)")
     ap.add_argument("--max-turns", type=int, default=15, help="1 試合のターン上限 (= 公式平均 6-9 の 1.5-2x)")
+    ap.add_argument("--sequential", action="store_true", help="mp.Pool 使わず single process で sequential 実行 (= mp の hang/slow を回避)")
     args = ap.parse_args()
 
     rng_master = random.Random(args.seed)
@@ -213,7 +283,11 @@ def main() -> None:
         for path in (ROOT / "decks").glob(pattern):
             if not path.name.endswith(".analysis.json"):
                 n_decks += 1
-    print(f"deck pool: {n_decks} decks, {args.workers} workers, {args.n_games} games")
+    # Phase 8 variant 構築
+    for variant_path in (ROOT / "decks").glob("*/variant_*.json"):
+        if not variant_path.name.endswith(".analysis.json"):
+            n_decks += 1
+    print(f"deck pool: {n_decks} decks (= incl variant), {args.workers} workers, {args.n_games} games")
 
     # === resume: 既存 output から完了済 game_idx を集める ===
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -256,9 +330,20 @@ def main() -> None:
     win_counts = {name: [0, 0, 0] for name, _, _ in OPP_POOL}  # [W, L, D]
     elapsed_per_game: list[float] = []
 
+    pool = None
+    if args.sequential:
+        # mp なしで main process 内で sequential 実行 (= mp.Pool 経由で 1 試合 100s+ 化する
+        # 問題が解消できない場合の確実 path、 single-thread 7.9s/g 想定)。
+        _worker_init()
+        results_iter = (_worker_play(t) for t in tasks)
+    else:
+        # maxtasksperchild=10: 10 試合ごとに worker process を再起動。
+        # 累積メモリリーク / stale state 抑制。 init コストは 0.1s なので overhead 少。
+        pool = mp.Pool(processes=args.workers, initializer=_worker_init, maxtasksperchild=10)
+        results_iter = pool.imap_unordered(_worker_play, tasks, chunksize=1)
+
     try:
-        with mp.Pool(processes=args.workers, initializer=_worker_init) as pool:
-            for i, res in enumerate(pool.imap_unordered(_worker_play, tasks, chunksize=1)):
+            for i, res in enumerate(results_iter):
                 snapshots = res["snapshots"]
                 winner = res["winner"]
                 opp_name = res["opp_name"]
@@ -304,6 +389,10 @@ def main() -> None:
                         print(f"    vs {k}: {w}W-{l}L-{d}D ({wr:.1%})")
     finally:
         f.close()
+        if pool is not None:
+            pool.close()
+            pool.terminate()
+            pool.join()
         elapsed = time.time() - t0
         print(
             f"DONE: {args.n_games} games / {n_snapshots} snapshots "
@@ -313,4 +402,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # spawn context 強制 (= fork で global state 競合 / hang 回避)。
+    # fork だと 14 worker 全部が 99% CPU で 5+ 分 1 試合も完了しない現象に遭遇。
+    # spawn は worker 起動が遅い (= 5-10s × maxtasksperchild サイクル) が安定。
+    mp.set_start_method("spawn", force=True)
     main()

@@ -389,6 +389,13 @@ class GreedyAI:
         # -1 は未評価マーカー。
         self._last_matchup_eval_turn: int = -1
 
+        # === Phase 8 (= 2026-05-16): 関数 12 inverse reasoning belief 4 field ===
+        self.me_idx: Optional[int] = None  # apply_action hook で使う、 choose_action 初回で確定
+        self.opp_belief_pmf: dict[int, float] = {}  # opp counter_total の posterior PMF
+        self.opp_action_history: list = []  # opp の action 観測履歴
+        self.opp_archetype_belief: dict[str, float] = {}  # archetype 確率分布
+        self.opp_variant_belief: dict[str, dict[str, float]] = {}  # variant 確率分布 (= leader_id → variant_id → P)
+
     def _default_defense_thresholds(self) -> dict:
         """AIParams から base 防御閾値 dict を構築。"""
         p = self.ai_params
@@ -416,6 +423,12 @@ class GreedyAI:
         self.keep_field_synergy_only: Optional[str] = None
         # サーチ系効果の優先ターゲット ID リスト (フィニッシャー/ドロー)
         self.preferred_search_target_ids: list[str] = []
+        # Plan Step 1: リーダー固有効果 flag (= deck の戦術判断に活用)
+        self.have_ramp = False
+        self.have_search_loop = False
+        self.have_removal_arsenal = False
+        self.have_draw_engine = False
+        self.have_burst_finisher = False
         for sig in signals:
             t = sig.get("type")
             v = sig.get("value")
@@ -435,6 +448,16 @@ class GreedyAI:
                 self.keep_field_synergy_only = str(v) if v else None
             elif t == "preferred_search_target_ids" and isinstance(v, list):
                 self.preferred_search_target_ids = list(v)
+            elif t == "have_ramp":
+                self.have_ramp = bool(v)
+            elif t == "have_search_loop":
+                self.have_search_loop = bool(v)
+            elif t == "have_removal_arsenal":
+                self.have_removal_arsenal = bool(v)
+            elif t == "have_draw_engine":
+                self.have_draw_engine = bool(v)
+            elif t == "have_burst_finisher":
+                self.have_burst_finisher = bool(v)
         if arche == "アグロ":
             # ライフ詰め優先、 counter 控えめ、 攻撃は power 不足でも狙う
             self.defense_thresholds = {
@@ -477,6 +500,105 @@ class GreedyAI:
         for k in analysis.get("key_cards", []):
             if k.get("role") == "finisher":
                 self.finisher_card_ids.add(k.get("card_id", ""))
+
+    def _ensure_me_idx(self, state: GameState, me_idx: int) -> None:
+        """関数 15 hook 用に self.me_idx を確定 (= choose_action / choose_defense 冒頭で呼ぶ)。"""
+        if self.me_idx is None:
+            self.me_idx = me_idx
+
+    def _should_attach_don(
+        self,
+        state: GameState,
+        actor,  # InPlay
+        target,  # Optional[InPlay] (= 攻撃先 or None)
+        n_don: int = 1,
+    ) -> bool:
+        """関数 1 (= 2026-05-16): DON 付与の価値判定。 default 温存、 4 基準で True。
+
+        ① 付与で actor が defender を KO できる
+        ② 付与で leader 攻撃が +1 ライフ閾値に到達 (= opp counter 期待値超え)
+        ③ 付与でリーサル成立 (= lethal_planner と連携)
+        ④ 付与で起動メイン効果のコスト充足
+        """
+        attacker_power = (getattr(actor, "power", 0) or 0) + n_don * 1000
+
+        # ① defender KO 判定 (= 通常 attacker_power >= defender_power で KO 成立)
+        if target is not None:
+            try:
+                target_power = getattr(target, "power", 0) or 0
+                old_power = (getattr(actor, "power", 0) or 0)
+                if old_power < target_power and attacker_power >= target_power:
+                    return True
+            except Exception:
+                pass
+
+        # ② leader 攻撃のライフ閾値到達 (= opp counter 期待値 P50 超え)
+        if target is None or (hasattr(target, "card") and "LEADER" in str(getattr(target.card, "category", ""))):
+            try:
+                from . import hand_estimator
+                opp_idx = 1 - state.turn_player_idx
+                expected_counter = hand_estimator.counter_total_quantile(state, opp_idx, 0.5)
+                old_power = (getattr(actor, "power", 0) or 0)
+                if old_power <= expected_counter and attacker_power > expected_counter:
+                    return True
+            except Exception:
+                pass
+
+        # ③ リーサル成立 (= lethal_planner と連携、 簡易判定: 付与で plan 成立差分)
+        # lethal_planner.plan_optimal_attack_sequence は重いので、 ここでは省略
+        # (= リーサル判定は choose_action 側で別途行う)
+
+        # ④ 起動メイン効果のコスト充足 (= activate_main_cost 既存無いので skip)
+        # 詳細実装は Step 9 反復で精度向上余地
+
+        return False  # default 温存
+
+    def _choose_action_under_disadvantage(
+        self,
+        state: GameState,
+        me_idx: int,
+        candidate_actions: list,
+    ) -> Any:
+        """関数 5 (= 2026-05-16): 不利状況の resilience 戦略。 期待値 vs 分散 trade-off。
+
+        判定 (= 呼出側で _is_desperate_losing_position True 時のみ呼ぶ):
+        - 各 candidate を determinize × rollout で variance 推定
+        - 不利時は high-variance を選好 (= score = mean + λ × sqrt(variance))
+
+        Step 1 では簡易版: rollout を 1-ply のみ。 詳細実装は Step 9 反復で。
+        """
+        if not candidate_actions:
+            return None
+
+        from . import eval as eval_module
+        try:
+            base_score = eval_module.compute_score(state, me_idx)
+        except Exception:
+            base_score = 0.0
+
+        # 簡易版: 各 action の前後 eval delta を「期待値」 として、 absolute(delta) を「分散代替」 として使う
+        # (= 真の MC sampling は重いので、 Step 1 では proxy で代替)
+        scored = []
+        for action in candidate_actions:
+            try:
+                from copy import deepcopy
+                cloned = deepcopy(state)
+                # apply_action は recursive import 避けるため遅延 import
+                from . import game as game_module
+                game_module.apply_action(cloned, action, ai=None)
+                after = eval_module.compute_score(cloned, me_idx)
+                mean = after - base_score
+                # variance 代替: action が「大きく動かす」 ものを選好 (= 賭けに出る)
+                magnitude = abs(mean)
+                # score = mean + 0.5 × magnitude (= 不利時の variance 加点)
+                score = mean + 0.5 * magnitude
+                scored.append((action, score))
+            except Exception:
+                scored.append((action, -1e9))  # 失敗 action は最低スコア
+
+        if not scored:
+            return candidate_actions[0]
+        return max(scored, key=lambda x: x[1])[0]
 
     def _ensure_matchup_overrides(self, state: GameState, me_idx: int) -> None:
         """ターン毎に MatchupProfile を再評価し、 上書き値を base から再適用 (Phase 7D)。
@@ -657,6 +779,7 @@ class GreedyAI:
         return filtered
 
     def choose_action(self, state: GameState) -> Action:
+        self._ensure_me_idx(state, state.turn_player_idx)
         self._ensure_matchup_overrides(state, state.turn_player_idx)
         actions = legal_actions(state)
         # Phase 7G: 負け確定気味なら bluff モード (= 攻撃放棄 + DON 温存)
@@ -1139,6 +1262,25 @@ class GreedyAI:
             return False  # untap_don 系効果なし
         # 現時点 で actually untap できる枚数 < untap_required なら無駄打ち
         return me.don_rested < untap_required
+
+    def choose_defense_4candidates(
+        self,
+        state: GameState,
+        attacker: InPlay,
+        target: InPlay,
+        is_leader_attack: bool,
+        defender: Player,
+    ) -> tuple[Optional[int], tuple[int, ...]]:
+        """関数 4 (= 2026-05-16): 4 候補並列防御評価 (= pass / safe / rescue / sacrifice)。
+
+        Step 1 minimum: 既存 `choose_defense` (= 3-tier + `>` rule fix 実装済) を wrapper として呼出。
+        Step 9 反復で本格 4 候補化 (= pass を明示的に第 4 候補として expected_value 比較) に拡張予定。
+
+        既存 3-tier は事実上「ブロックする/しない」 の選択を含むため、 Step 1 範囲では機能等価。
+        """
+        # choose_defense_4candidates 内では me_idx を defender 側に確定
+        self._ensure_me_idx(state, 1 - state.turn_player_idx)
+        return self.choose_defense(state, attacker, target, is_leader_attack, defender)
 
     def choose_defense(
         self,
@@ -2067,13 +2209,17 @@ class DeepPlanningAI(GreedyAI):
         max_depth: int = 6,
         ai_opp=None,
         adaptive: bool = True,
+        max_turns: int = 1,
     ):
         super().__init__(rng=rng, deck_analysis=deck_analysis)
-        # adaptive=False で旧挙動 (= 固定 beam_width / max_depth、 max_turns=1)
+        # adaptive=False で旧挙動 (= 固定 beam_width / max_depth、 max_turns 設定可能)
         # 後方互換 + テスト用 escape hatch
+        # max_turns: 2026-05-18 追加。 adaptive=False で多ターン読みを有効化する用。
+        #            >1 の場合は plan_search に max_turns を渡して相手ターン sim 込みで探索。
         self.beam_width = beam_width
         self.max_depth = max_depth
         self.adaptive = adaptive
+        self.max_turns_fixed = max_turns
         # ai_opp が未指定なら self を defense sim 用に流用 (= self-play 簡略モデル)
         self._ai_opp = ai_opp
 
@@ -2110,6 +2256,8 @@ class DeepPlanningAI(GreedyAI):
 
     def choose_action(self, state: GameState) -> Action:
         from .plan_search import search_turn_plan
+        from .nn_per_deck import should_use_nn as _should_use_nn
+        from .nn_eval import nn_disabled as _nn_disabled
 
         # MatchupProfile / role priority のロード (= GreedyAI._ensure_matchup_overrides)
         self._ensure_matchup_overrides(state, state.turn_player_idx)
@@ -2132,12 +2280,22 @@ class DeepPlanningAI(GreedyAI):
             max_depth = max_turns * per_turn_depth
         else:
             beam_width = self.beam_width
-            max_turns = 1
+            max_turns = self.max_turns_fixed  # 2026-05-18: 明示 max_turns 指定可能
             max_depth = self.max_depth
 
+        # adaptive NN per-deck (= 2026-05-17): 各デッキの絶対強度測定結果で NN on/off 決定。
+        # db/nn_per_deck_preference.json で preference 管理。
+        # deck_slug は deck_analysis["deck_slug"] (= harness._try_load_deck_analysis で注入)。
+        deck_slug = None
+        if isinstance(self.deck_analysis, dict):
+            deck_slug = self.deck_analysis.get("deck_slug")
+        use_nn = _should_use_nn(deck_slug)
+
         ai_opp = self._ai_opp if self._ai_opp is not None else self
-        try:
-            best_plan, _best_score = search_turn_plan(
+
+        # NN を使わない方が強いデッキは nn_disabled context で plan_search
+        def _do_search():
+            return search_turn_plan(
                 state,
                 ai_opp,
                 beam_width=beam_width,
@@ -2145,6 +2303,13 @@ class DeepPlanningAI(GreedyAI):
                 max_turns=max_turns,
                 ai_self=self,
             )
+
+        try:
+            if use_nn:
+                best_plan, _best_score = _do_search()
+            else:
+                with _nn_disabled():
+                    best_plan, _best_score = _do_search()
         except Exception:
             # search 失敗時は GreedyAI 動作に fallback
             return super().choose_action(state)
@@ -2166,15 +2331,29 @@ class LightDeepPlanningAI(DeepPlanningAI):
     用途:
       - Vercel Functions (= maxDuration 60s) でのオンデマンド対戦シミュレート
       - self-play data collection (= 5000 試合を実時間で完走)
+      - plan_search 内の opp_sim (= recursion_depth=1 で archetype-aware 多手読み)
 
     フル DeepPlanningAI は T6+ で `max_turns=MAX_TURNS_HARD_CAP=8` まで読み
     1 action 10-15s かかるため、 60s 制限の Vercel では timeout する。
     本クラスは `_compute_adaptive_params` を override して max_turns 上限を 3 に固定。
     1 action 1-2s = 1 試合 5-15s 目標。
 
-    トレードオフ: 探索深さは浅くなるが、 LookaheadAI/GreedyAI より深い計算 (= beam search)
-    を維持。 学習データ品質も実用範囲。
+    recursion_depth: 0 = 通常 plan_search、 1 = 内部 opp_sim 用 (= 自分の plan_search が
+    呼ぶ opp_sim は深度 1 = plan_search やる、 ただしその内部の opp_sim は GreedyAI 動作で
+    無限再帰回避)。 plan_search.py が opp_sim_ai 生成時に recursion_depth=1 で構築する。
     """
+
+    def __init__(self, *args, recursion_depth: int = 0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.recursion_depth = recursion_depth
+
+    def choose_action(self, state):
+        if self.recursion_depth >= 2:
+            # 既に 2 階層以上 deep に入った → plan_search やらず GreedyAI fallback。
+            # 無限再帰回避 + 計算量爆発防止 (= 250000+ nodes / action になる)。
+            return GreedyAI.choose_action(self, state)
+        # recursion_depth = 0 (= main) or 1 (= opp_sim 1 階層目) は plan_search 動作。
+        return super().choose_action(state)
 
     def _compute_adaptive_params(self, state):  # type: ignore[override]
         turn = state.turn_number

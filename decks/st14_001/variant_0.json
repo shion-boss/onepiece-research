@@ -1,0 +1,77 @@
+{
+  "name": "モンキー・D・ルフィ (auto)",
+  "slug": "st14_001_variant_0",
+  "leader": "ST14-001",
+  "leader_name": "モンキー・D・ルフィ",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB01-050",
+      "count": 1
+    },
+    {
+      "card_id": "EB02-042",
+      "count": 1
+    },
+    {
+      "card_id": "EB02-043",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-045",
+      "count": 3
+    },
+    {
+      "card_id": "EB03-041",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-047",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-048",
+      "count": 4
+    },
+    {
+      "card_id": "OP04-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-079",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-090",
+      "count": 1
+    },
+    {
+      "card_id": "OP08-089",
+      "count": 1
+    },
+    {
+      "card_id": "OP09-088",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-085",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-088",
+      "count": 3
+    },
+    {
+      "card_id": "ST14-006",
+      "count": 4
+    },
+    {
+      "card_id": "ST14-013",
+      "count": 4
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

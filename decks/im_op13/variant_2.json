@@ -1,0 +1,70 @@
+{
+  "name": "イム variant 2",
+  "slug": "im_op13_variant_2",
+  "leader": "OP13-079",
+  "leader_name": "イム",
+  "source": "cardrush_raw",
+  "source_path": "cardrush_1257.json",
+  "variant_id": 2,
+  "cluster_size": 1,
+  "score": "優勝",
+  "tournament_date": "2026-04-09",
+  "main": [
+    {
+      "card_id": "OP13-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-080",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-084",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-089",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-082",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-086",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-014",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-098",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-097",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-099",
+      "count": 1
+    }
+  ]
+}

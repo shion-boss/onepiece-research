@@ -1,0 +1,77 @@
+{
+  "name": "サカズキ (auto)",
+  "slug": "op05_041_variant_0",
+  "leader": "OP05-041",
+  "leader_name": "サカズキ",
+  "regulation": "standard",
+  "main": [
+    {
+      "card_id": "EB02-042",
+      "count": 1
+    },
+    {
+      "card_id": "EB02-043",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-045",
+      "count": 3
+    },
+    {
+      "card_id": "EB03-047",
+      "count": 1
+    },
+    {
+      "card_id": "EB04-021",
+      "count": 1
+    },
+    {
+      "card_id": "EB04-048",
+      "count": 4
+    },
+    {
+      "card_id": "OP04-049",
+      "count": 4
+    },
+    {
+      "card_id": "OP04-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-079",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-088",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-050",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-051",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-050",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-051",
+      "count": 3
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 4
+    },
+    {
+      "card_id": "ST14-013",
+      "count": 4
+    }
+  ],
+  "source": "auto_generated",
+  "source_path": "deckbuilder.auto_build_deck(meta_aware=True)",
+  "variant_id": 0,
+  "cluster_size": 1
+}

@@ -148,3 +148,11 @@ db/card_effects.json.bak*
 .auto_rewrite.lock
 .auto_rewrite.log
 .auto_rewrite.STOP
+.vercel
+
+# Phase 2/Step 1+ 学習成果物 (= 巨大)
+db/ai_params_*.before_step1.bak/
+db/ai_params_decks/*.snapshots.jsonl
+db/ai_params_decks/*.run.log
+db/online_snapshots*.jsonl
+db/opp_action_snapshots*.jsonl

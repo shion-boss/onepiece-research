@@ -81,19 +81,23 @@ _DEFAULT_OVERLAY_PATH = (
 
 
 def _try_load_deck_analysis(deck: DeckList) -> Optional[dict]:
-    """deck.slug があれば decks/<slug>.analysis.json をロード。"""
+    """deck.slug があれば decks/<slug>.analysis.json をロード。
+    2026-05-17: slug を analysis dict に注入 (= AI が nn_per_deck preference を引ける)。"""
     if not getattr(deck, "slug", None):
         return None
     path = Path("decks") / f"{deck.slug}.analysis.json"
     if not path.exists():
         path = Path(__file__).resolve().parent.parent / "decks" / f"{deck.slug}.analysis.json"
     if not path.exists():
-        return None
+        # analysis 不在でも slug だけは渡す (= adaptive NN 判定で使う)
+        return {"deck_slug": deck.slug}
     try:
         import json
-        return json.loads(path.read_text(encoding="utf-8"))
+        d = json.loads(path.read_text(encoding="utf-8"))
+        d["deck_slug"] = deck.slug  # 注入
+        return d
     except Exception:
-        return None
+        return {"deck_slug": deck.slug}
 
 
 def _construct_ai(factory, rng, deck_analysis):

@@ -1,0 +1,345 @@
+{
+  "computed_at": "2026-05-17T15:04:23Z",
+  "n_games_per_deck_per_side": 50,
+  "seed": 42,
+  "baseline": "greedy",
+  "partial": false,
+  "results": [
+    {
+      "deck": "cardrush_1342",
+      "deck_name": "紫ドフラミンゴ",
+      "nn_vs_baseline": {
+        "wins": 22,
+        "losses": 28,
+        "draws": 0,
+        "winrate": 0.44,
+        "avg_turns": 17.74
+      },
+      "nonn_vs_baseline": {
+        "wins": 22,
+        "losses": 28,
+        "draws": 0,
+        "winrate": 0.44,
+        "avg_turns": 17.74
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1385",
+      "deck_name": "黒クロコダイル",
+      "nn_vs_baseline": {
+        "wins": 47,
+        "losses": 3,
+        "draws": 0,
+        "winrate": 0.94,
+        "avg_turns": 12.6
+      },
+      "nonn_vs_baseline": {
+        "wins": 47,
+        "losses": 3,
+        "draws": 0,
+        "winrate": 0.94,
+        "avg_turns": 12.6
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1392",
+      "deck_name": "黒イム",
+      "nn_vs_baseline": {
+        "wins": 15,
+        "losses": 35,
+        "draws": 0,
+        "winrate": 0.3,
+        "avg_turns": 13.72
+      },
+      "nonn_vs_baseline": {
+        "wins": 15,
+        "losses": 35,
+        "draws": 0,
+        "winrate": 0.3,
+        "avg_turns": 13.72
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1399",
+      "deck_name": "赤青ルーシー",
+      "nn_vs_baseline": {
+        "wins": 30,
+        "losses": 20,
+        "draws": 0,
+        "winrate": 0.6,
+        "avg_turns": 12.66
+      },
+      "nonn_vs_baseline": {
+        "wins": 30,
+        "losses": 20,
+        "draws": 0,
+        "winrate": 0.6,
+        "avg_turns": 12.66
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1439",
+      "deck_name": "青黄ナミ",
+      "nn_vs_baseline": {
+        "wins": 20,
+        "losses": 30,
+        "draws": 0,
+        "winrate": 0.4,
+        "avg_turns": 12.78
+      },
+      "nonn_vs_baseline": {
+        "wins": 11,
+        "losses": 39,
+        "draws": 0,
+        "winrate": 0.22,
+        "avg_turns": 12.8
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.18
+    },
+    {
+      "deck": "cardrush_1453",
+      "deck_name": "緑ミホーク",
+      "nn_vs_baseline": {
+        "wins": 38,
+        "losses": 12,
+        "draws": 0,
+        "winrate": 0.76,
+        "avg_turns": 14.9
+      },
+      "nonn_vs_baseline": {
+        "wins": 38,
+        "losses": 12,
+        "draws": 0,
+        "winrate": 0.76,
+        "avg_turns": 14.9
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1454",
+      "deck_name": "紫エネル",
+      "nn_vs_baseline": {
+        "wins": 42,
+        "losses": 8,
+        "draws": 0,
+        "winrate": 0.84,
+        "avg_turns": 14.82
+      },
+      "nonn_vs_baseline": {
+        "wins": 42,
+        "losses": 8,
+        "draws": 0,
+        "winrate": 0.84,
+        "avg_turns": 14.82
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1455",
+      "deck_name": "空島ルフィ",
+      "nn_vs_baseline": {
+        "wins": 49,
+        "losses": 1,
+        "draws": 0,
+        "winrate": 0.98,
+        "avg_turns": 17
+      },
+      "nonn_vs_baseline": {
+        "wins": 49,
+        "losses": 1,
+        "draws": 0,
+        "winrate": 0.98,
+        "avg_turns": 17
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "cardrush_1456",
+      "deck_name": "赤青エース",
+      "nn_vs_baseline": {
+        "wins": 50,
+        "losses": 0,
+        "draws": 0,
+        "winrate": 1.0,
+        "avg_turns": 15.38
+      },
+      "nonn_vs_baseline": {
+        "wins": 50,
+        "losses": 0,
+        "draws": 0,
+        "winrate": 1.0,
+        "avg_turns": 15.38
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "tcgportal_bonney",
+      "deck_name": "赤黄ボニー",
+      "nn_vs_baseline": {
+        "wins": 14,
+        "losses": 36,
+        "draws": 0,
+        "winrate": 0.28,
+        "avg_turns": 12.98
+      },
+      "nonn_vs_baseline": {
+        "wins": 11,
+        "losses": 39,
+        "draws": 0,
+        "winrate": 0.22,
+        "avg_turns": 14.88
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.06
+    },
+    {
+      "deck": "tcgportal_calgara",
+      "deck_name": "黄カルガラ",
+      "nn_vs_baseline": {
+        "wins": 36,
+        "losses": 14,
+        "draws": 0,
+        "winrate": 0.72,
+        "avg_turns": 12.02
+      },
+      "nonn_vs_baseline": {
+        "wins": 36,
+        "losses": 14,
+        "draws": 0,
+        "winrate": 0.72,
+        "avg_turns": 12.02
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "tcgportal_coby",
+      "deck_name": "赤黒コビー",
+      "nn_vs_baseline": {
+        "wins": 12,
+        "losses": 38,
+        "draws": 0,
+        "winrate": 0.24,
+        "avg_turns": 12.7
+      },
+      "nonn_vs_baseline": {
+        "wins": 0,
+        "losses": 50,
+        "draws": 0,
+        "winrate": 0.0,
+        "avg_turns": 14.06
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.24
+    },
+    {
+      "deck": "tcgportal_corazon",
+      "deck_name": "紫黄ロシナンテ",
+      "nn_vs_baseline": {
+        "wins": 42,
+        "losses": 8,
+        "draws": 0,
+        "winrate": 0.84,
+        "avg_turns": 13.74
+      },
+      "nonn_vs_baseline": {
+        "wins": 42,
+        "losses": 8,
+        "draws": 0,
+        "winrate": 0.84,
+        "avg_turns": 13.74
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "tcgportal_hancock",
+      "deck_name": "青黄ハンコック",
+      "nn_vs_baseline": {
+        "wins": 32,
+        "losses": 18,
+        "draws": 0,
+        "winrate": 0.64,
+        "avg_turns": 15.34
+      },
+      "nonn_vs_baseline": {
+        "wins": 32,
+        "losses": 18,
+        "draws": 0,
+        "winrate": 0.64,
+        "avg_turns": 15.34
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "tcgportal_op11_luffy",
+      "deck_name": "青紫ルフィ",
+      "nn_vs_baseline": {
+        "wins": 45,
+        "losses": 5,
+        "draws": 0,
+        "winrate": 0.9,
+        "avg_turns": 16
+      },
+      "nonn_vs_baseline": {
+        "wins": 45,
+        "losses": 5,
+        "draws": 0,
+        "winrate": 0.9,
+        "avg_turns": 16
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    },
+    {
+      "deck": "tcgportal_op13_luffy",
+      "deck_name": "赤緑ルフィ（OP13）",
+      "nn_vs_baseline": {
+        "wins": 27,
+        "losses": 23,
+        "draws": 0,
+        "winrate": 0.54,
+        "avg_turns": 11.96
+      },
+      "nonn_vs_baseline": {
+        "wins": 27,
+        "losses": 23,
+        "draws": 0,
+        "winrate": 0.54,
+        "avg_turns": 11.96
+      },
+      "n_games": 50,
+      "baseline": "greedy",
+      "delta": 0.0
+    }
+  ]
+}

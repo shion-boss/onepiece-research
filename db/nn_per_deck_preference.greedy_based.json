@@ -1,0 +1,42 @@
+{
+  "_generated_at": "2026-05-17T14:18:45Z",
+  "_source": "db/absolute_strength_v5_vs_greedy.json",
+  "_threshold_pt": 5.0,
+  "default": false,
+  "preferences": {
+    "cardrush_1342": false,
+    "cardrush_1385": false,
+    "cardrush_1392": false,
+    "cardrush_1399": false,
+    "cardrush_1439": true,
+    "cardrush_1453": false,
+    "cardrush_1454": false,
+    "cardrush_1455": false,
+    "cardrush_1456": false,
+    "tcgportal_bonney": true,
+    "tcgportal_calgara": false,
+    "tcgportal_coby": true,
+    "tcgportal_corazon": false,
+    "tcgportal_hancock": false,
+    "tcgportal_op11_luffy": false,
+    "tcgportal_op13_luffy": false
+  },
+  "deltas_pt": {
+    "cardrush_1342": -16.0,
+    "cardrush_1385": -48.0,
+    "cardrush_1392": -6.0,
+    "cardrush_1399": -14.0,
+    "cardrush_1439": 18.0,
+    "cardrush_1453": -28.0,
+    "cardrush_1454": -50.0,
+    "cardrush_1455": -78.0,
+    "cardrush_1456": -62.0,
+    "tcgportal_bonney": 6.0,
+    "tcgportal_calgara": -28.0,
+    "tcgportal_coby": 24.0,
+    "tcgportal_corazon": -44.0,
+    "tcgportal_hancock": -34.0,
+    "tcgportal_op11_luffy": -22.0,
+    "tcgportal_op13_luffy": -20.0
+  }
+}

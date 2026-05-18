@@ -61,7 +61,10 @@ class EstimatedHand:
 
 _USE_CLASSIFIER_FOR_POOL: bool = True
 _CLASSIFIER_POOL_MIN_CONFIDENCE: float = 0.5
+_VARIANT_POOL_MIN_CONFIDENCE: float = 0.6  # variant 識別はより高い信頼度が必要
+_VARIANT_MIN_OBSERVATIONS: int = 2  # variant 採用には最低 2 枚の観測カード
 _ARCHETYPE_RECIPE_CACHE: Optional[dict[str, list[CardDef]]] = None
+_VARIANT_RECIPE_CACHE: Optional[dict[tuple[str, int], list[CardDef]]] = None
 
 
 def set_pool_mode(use_classifier: bool, min_confidence: float = 0.5) -> None:
@@ -128,14 +131,85 @@ def _load_archetype_recipes() -> dict[str, list[CardDef]]:
 
 def reset_pool_cache_for_testing() -> None:
     """pool cache を強制リセット (= test / refresh 用)。"""
-    global _ARCHETYPE_RECIPE_CACHE
+    global _ARCHETYPE_RECIPE_CACHE, _VARIANT_RECIPE_CACHE
     _ARCHETYPE_RECIPE_CACHE = None
+    _VARIANT_RECIPE_CACHE = None
+
+
+def _load_variant_recipes() -> dict[tuple[str, int], list[CardDef]]:
+    """全 leader × variant の代表 recipe を CardDef リストとしてロード (Phase 8、 2026-05-16)。
+
+    入力: db/data_layer_64_status.json + decks/<slug>/variant_<id>.json
+    Returns: `{(leader_id, variant_id): [CardDef × count]}`
+    """
+    global _VARIANT_RECIPE_CACHE
+    if _VARIANT_RECIPE_CACHE is not None:
+        return _VARIANT_RECIPE_CACHE
+
+    from pathlib import Path
+    import json as _json
+    from .deck import CardRepository
+
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    status_path = _PROJECT_ROOT / "db" / "data_layer_64_status.json"
+    decks_root = _PROJECT_ROOT / "decks"
+    cards_path = _PROJECT_ROOT / "db" / "cards.json"
+
+    out: dict[tuple[str, int], list[CardDef]] = {}
+    if not status_path.exists():
+        _VARIANT_RECIPE_CACHE = out
+        return out
+
+    try:
+        repo = CardRepository.from_json(cards_path)
+    except Exception:
+        _VARIANT_RECIPE_CACHE = out
+        return out
+
+    try:
+        status = _json.loads(status_path.read_text(encoding="utf-8"))
+    except Exception:
+        _VARIANT_RECIPE_CACHE = out
+        return out
+
+    for leader_id, info in status.get("leaders", {}).items():
+        slug = info.get("slug")
+        n_variants = info.get("n_variants", 0)
+        if not slug or n_variants <= 0:
+            continue
+        for vid in range(n_variants):
+            vpath = decks_root / slug / f"variant_{vid}.json"
+            if not vpath.exists():
+                continue
+            try:
+                vrec = _json.loads(vpath.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            cards: list[CardDef] = []
+            for entry in vrec.get("main", []):
+                cid = entry.get("card_id")
+                count = entry.get("count", 0)
+                if not cid or count <= 0:
+                    continue
+                try:
+                    card = repo.get(cid)
+                except KeyError:
+                    continue
+                cards.extend([card] * count)
+            if cards:
+                out[(leader_id, vid)] = cards
+
+    _VARIANT_RECIPE_CACHE = out
+    return out
 
 
 def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
-    """classifier で archetype を推定 → archetype recipe - 観測済 を pool に。
+    """classifier で archetype + variant を推定 → recipe - 観測済 を pool に。
 
-    高信頼度 (≥ `_CLASSIFIER_POOL_MIN_CONFIDENCE`) でのみ archetype pool を返す。
+    Phase 8 (= 2026-05-16): variant 信頼度が `_VARIANT_POOL_MIN_CONFIDENCE` 以上なら
+    variant 別 recipe を使い、 未満なら archetype 全体 recipe にフォールバック。
+
+    高信頼度 (≥ `_CLASSIFIER_POOL_MIN_CONFIDENCE`) でのみ pool を返す。
     低信頼度 / classifier 不在なら None を返し、 呼出側で fallback。
     """
     try:
@@ -144,29 +218,60 @@ def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
         probs = clf.classify_from_state(state, opp_idx)
     except Exception:
         return None
-    if not probs:
-        return None
-    top_arch, top_prob = max(probs.items(), key=lambda x: x[1])
-    if top_prob < _CLASSIFIER_POOL_MIN_CONFIDENCE:
-        return None
 
-    recipes = _load_archetype_recipes()
-    base_cards = recipes.get(top_arch)
-    if not base_cards:
-        # alias で再試行 (= 「空島ルフィ → 黄ルフィ（OP15）」 等)
-        try:
-            from .deck_classifier import ARCHETYPE_ALIASES
-            for raw_name, canonical in ARCHETYPE_ALIASES.items():
-                if canonical == top_arch and raw_name in recipes:
-                    base_cards = recipes[raw_name]
-                    break
-        except Exception:
-            pass
-    if not base_cards:
-        return None
+    opp = state.players[opp_idx]
+    opp_leader_id = opp.leader.card.card_id if opp.leader else None
+
+    base_cards: Optional[list[CardDef]] = None
+    pool_source = "fallback"
+
+    # Phase 8: variant 推定を最優先で試す (= 同 leader 内 variant 信頼度高なら最精度)
+    # ただし観測カード数 < _VARIANT_MIN_OBSERVATIONS なら採用しない (= 初期 turn の誤判定回避)
+    if opp_leader_id:
+        observed_ids = _collect_observed(state, opp_idx)
+        if len(observed_ids) >= _VARIANT_MIN_OBSERVATIONS:
+            try:
+                v_probs = clf.classify_with_variant(
+                    observed_card_ids=observed_ids,
+                    opp_leader_id=opp_leader_id,
+                )
+            except Exception:
+                v_probs = {}
+
+            if v_probs:
+                top_vid, top_v_prob = max(v_probs.items(), key=lambda x: x[1])
+                if top_v_prob >= _VARIANT_POOL_MIN_CONFIDENCE:
+                    v_recipes = _load_variant_recipes()
+                    cards = v_recipes.get((opp_leader_id, top_vid))
+                    if cards:
+                        base_cards = cards
+                        pool_source = f"variant:{opp_leader_id}:{top_vid}"
+
+    # variant 不採用 → archetype level fallback (= 既存挙動)
+    if base_cards is None:
+        if not probs:
+            return None
+        top_arch, top_prob = max(probs.items(), key=lambda x: x[1])
+        if top_prob < _CLASSIFIER_POOL_MIN_CONFIDENCE:
+            return None
+
+        recipes = _load_archetype_recipes()
+        base_cards = recipes.get(top_arch)
+        if not base_cards:
+            # alias で再試行 (= 「空島ルフィ → 黄ルフィ（OP15）」 等)
+            try:
+                from .deck_classifier import ARCHETYPE_ALIASES
+                for raw_name, canonical in ARCHETYPE_ALIASES.items():
+                    if canonical == top_arch and raw_name in recipes:
+                        base_cards = recipes[raw_name]
+                        break
+            except Exception:
+                pass
+        if not base_cards:
+            return None
+        pool_source = f"archetype:{top_arch}"
 
     # 観測済 (= 場 / トラッシュ / ステージ) を recipe から引く
-    opp = state.players[opp_idx]
     observed_counts: dict[str, int] = {}
     for ip in opp.characters:
         observed_counts[ip.card.card_id] = observed_counts.get(ip.card.card_id, 0) + 1
@@ -183,6 +288,19 @@ def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
             continue
         remaining.append(card)
     return remaining
+
+
+def _collect_observed(state: GameState, opp_idx: int) -> list[str]:
+    """state から opp の可視カード id をリストで返す (= classify_with_variant 用)。"""
+    opp = state.players[opp_idx]
+    observed: list[str] = []
+    for ip in opp.characters:
+        observed.append(ip.card.card_id)
+    for ip in opp.stages:
+        observed.append(ip.card.card_id)
+    for c in opp.trash:
+        observed.append(c.card_id)
+    return observed
 
 
 def _opponent_pool(state: GameState, opp_idx: int) -> list[CardDef]:
@@ -541,6 +659,119 @@ def expected_counter_from_don_bluff(
             pass
 
     return int(expected)
+
+
+def _is_lethal_counter_event(card) -> bool:
+    """attacker を KO する counter event か判定 (= 雷迎相当)。
+
+    判定基準: category == EVENT かつ counter > 0 かつ text に「アタック」 + 「KO/ＫＯ」 を含む。
+    雷迎 (= OP09-077) 等の attacker KO 効果を拾う簡易判定。
+    精度向上は Step 9 反復で card_effects.json primitive 解析に置換予定。
+    """
+    try:
+        from .core import Category
+        if card.category != Category.EVENT:
+            return False
+        if card.counter <= 0:
+            return False
+        text = card.text or ""
+        return "アタック" in text and ("KO" in text or "ＫＯ" in text)
+    except Exception:
+        return False
+
+
+def probability_life_trigger_lethal_counter(
+    state: GameState,
+    me_idx: int,
+    n_attacks: int,
+) -> float:
+    """関数 8 (= 2026-05-16): n_attacks 回 leader にアタック時、 ライフトリガーで
+    attacker KO される確率 (= 雷迎リスク)。
+
+    計算: opp.life のうち未公開部分から「雷迎相当 counter event」 を引く確率を
+    ハイパージオメトリックで算出。
+    """
+    if n_attacks <= 0:
+        return 0.0
+
+    opp_idx = 1 - me_idx
+    opp = state.players[opp_idx]
+    n_life_unknown = len(opp.life)
+    if n_life_unknown == 0:
+        return 0.0
+
+    # opp.life + deck から「雷迎相当」 を引く想定 (= プール = deck + hand + life の未公開部分)
+    pool = _opponent_pool(state, opp_idx)
+    n_lethal = sum(1 for c in pool if _is_lethal_counter_event(c))
+    if n_lethal == 0:
+        return 0.0
+
+    n_pool = len(pool)
+    n_draw = min(n_attacks, n_life_unknown, n_pool)
+    if n_pool < n_draw:
+        return 1.0
+
+    # ハイパージオメトリック: P(zero) = Π (n_pool - n_lethal - i) / (n_pool - i)
+    p_zero = 1.0
+    for i in range(n_draw):
+        denom = n_pool - i
+        if denom <= 0:
+            return 1.0
+        p_zero *= (n_pool - n_lethal - i) / denom
+        if p_zero <= 0.0:
+            return 1.0
+    return 1.0 - p_zero
+
+
+def update_belief_from_action(
+    state: GameState,
+    opp_idx: int,
+    opp_action,
+    prior_pmf: dict[int, float],
+    n_samples: int = 200,
+) -> dict[int, float]:
+    """関数 12 (= 2026-05-16): opp の actual action 観測で counter pmf を Bayesian 更新。
+
+    `P(hand | action) ∝ P(action | hand) × P(hand)` を MC sampling で近似。
+
+    Args:
+        state: GameState
+        opp_idx: opp プレイヤー idx
+        opp_action: 観測した opp の action
+        prior_pmf: 既存の counter_total pmf (= counter_total_pmf 出力)
+        n_samples: MC sample 数 (default 200)
+
+    Returns:
+        posterior_pmf (= {counter_total: probability})
+        likelihood ≈ 0 なら prior_pmf をそのまま返す (= 更新失敗 fallback)。
+    """
+    import random as _random
+    rng = state.rng or _random.Random()
+
+    samples: list[tuple[list, float]] = []
+    try:
+        from . import opponent_action_model
+    except Exception:
+        return prior_pmf
+
+    for _ in range(n_samples):
+        hand_sample = sample_opponent_hand(state, opp_idx, rng)
+        try:
+            lk = opponent_action_model.action_likelihood(state, opp_idx, opp_action, hand_sample)
+        except Exception:
+            lk = 1.0 / 10  # uniform fallback
+        samples.append((hand_sample, lk))
+
+    total_weight = sum(lk for _, lk in samples)
+    if total_weight <= 0:
+        return prior_pmf  # 全 likelihood ≈ 0 → prior 維持
+
+    posterior_pmf: dict[int, float] = {}
+    for hand_sample, lk in samples:
+        counter_total = sum(int(getattr(c, "counter", 0)) for c in hand_sample)
+        posterior_pmf[counter_total] = posterior_pmf.get(counter_total, 0.0) + lk / total_weight
+
+    return posterior_pmf
 
 
 def determinize_state(

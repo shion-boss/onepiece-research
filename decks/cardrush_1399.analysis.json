@@ -87,7 +87,7 @@
   "mulligan_keep_criteria": [
     "コスト 3 以下のキャラ ≥ 1 枚",
     "サーチ / ドローカード ≥ 1 枚",
-    "リーダー特徴《ドレスローザ/革命軍》を持つキャラ ≥ 1 枚"
+    "リーダー特徴《革命軍/ドレスローザ》を持つキャラ ≥ 1 枚"
   ],
   "mulligan_throw_criteria": [
     "5 コスト以上のカードしかない",
@@ -229,6 +229,18 @@
     },
     {
       "type": "avoid_life_loss",
+      "value": true
+    },
+    {
+      "type": "have_search_loop",
+      "value": true
+    },
+    {
+      "type": "have_removal_arsenal",
+      "value": true
+    },
+    {
+      "type": "have_draw_engine",
       "value": true
     }
   ]

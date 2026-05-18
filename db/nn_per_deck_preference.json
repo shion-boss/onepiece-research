@@ -1,0 +1,41 @@
+{
+  "_note": "mirror-based: NN-on vs NoNN-on で NN > 55% のみ NN-on (= 2026-05-18)",
+  "_source": "db/nn_direct_v5_pure.json",
+  "default": false,
+  "preferences": {
+    "cardrush_1342": false,
+    "cardrush_1385": false,
+    "cardrush_1392": false,
+    "cardrush_1399": false,
+    "cardrush_1439": false,
+    "cardrush_1453": false,
+    "cardrush_1454": false,
+    "cardrush_1455": false,
+    "cardrush_1456": false,
+    "tcgportal_bonney": false,
+    "tcgportal_calgara": false,
+    "tcgportal_coby": true,
+    "tcgportal_corazon": false,
+    "tcgportal_hancock": false,
+    "tcgportal_op11_luffy": false,
+    "tcgportal_op13_luffy": false
+  },
+  "mirror_winrates_pt": {
+    "cardrush_1342": 30.0,
+    "cardrush_1385": 18.0,
+    "cardrush_1392": 28.0,
+    "cardrush_1399": 28.0,
+    "cardrush_1439": 44.0,
+    "cardrush_1453": 22.0,
+    "cardrush_1454": 12.0,
+    "cardrush_1455": 2.0,
+    "cardrush_1456": 28.0,
+    "tcgportal_bonney": 32.0,
+    "tcgportal_calgara": 20.0,
+    "tcgportal_coby": 100.0,
+    "tcgportal_corazon": 22.0,
+    "tcgportal_hancock": 18.0,
+    "tcgportal_op11_luffy": 34.0,
+    "tcgportal_op13_luffy": 32.0
+  }
+}
