@@ -291,6 +291,49 @@ class EndPhasePenaltyAI(_NoNNPlanningBase):
                 os.environ["ONEPIECE_END_PHASE_PENALTY"] = saved
 
 
+class AlphaZeroMCTSAI(_NoNNPlanningBase):
+    """Plan D + MCTS (= 2026-05-18 本格 AlphaZero 構造):
+
+    既存 plan_search の beam search ではなく、 **真の MCTS** で探索。
+    leaf state の eval を AlphaZero 風 value NN (= db/value_nn_alphazero.pt) で計算。
+
+    既存 engine.ai.MCTSAI を継承して NN value 注入版を作る。
+    rollout が NN value で置換 → 探索速度 + 評価質 両方アップ。
+    """
+
+    name = "AlphaZeroMCTS"
+
+    def __init__(self, *args, n_simulations: int = 50, c_uct: float = 1.41, **kwargs):
+        # PlanningAI 側は使わない、 MCTS を choose_action で直接呼ぶ
+        super().__init__(*args, **kwargs)
+        from .ai import MCTSAI
+        self._mcts = MCTSAI(
+            rng=kwargs.get("rng"),
+            n_simulations=n_simulations,
+            c_uct=c_uct,
+            rollout_depth=6,  # 軽め (= NN value で leaf eval なら rollout 不要)
+            deck_analysis=kwargs.get("deck_analysis"),
+        )
+
+    def choose_action(self, state):
+        # MCTS で choose_action、 ただし leaf eval で NN value を使う
+        # 既存 MCTSAI.choose_action は rollout で eval、 NN は別 path
+        # ここでは ONEPIECE_AZ_VALUE_NN を立てて compute_score 経由で NN value 出すよう促す
+        import os
+        saved = os.environ.get("ONEPIECE_AZ_VALUE_NN")
+        os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+        try:
+            with nn_disabled():
+                # nn_disabled で v1-v5 v5 NN は無効化、 AZ value NN のみ通る
+                # ただし AZ NN 自体は別 module、 nn_disabled の影響受けない (= 別 path)
+                return self._mcts.choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_AZ_VALUE_NN"]
+            else:
+                os.environ["ONEPIECE_AZ_VALUE_NN"] = saved
+
+
 class AlphaZeroValueAI(TwoTurnPlanningAI):
     """Plan D (= 2026-05-18): AlphaZero 風 value NN を leaf eval で使う TwoTurn AI。
 
