@@ -52,6 +52,10 @@ class WeightNN(nn.Module):
 
     softplus で positive 保証、 BASE_SCALES で各 weight の物理 scale に合わせる。
     output weights[k] = softplus(linear(...)) × BASE_SCALES[k]
+
+    hidden_dim 引数で大型化対応 (= 2026-05-18):
+      256 (= default、 ~80K params): 朝の supervised 学習用
+      512 (= big、 ~300K params): Phase 2 RL で 大量データ + 大型 model
     """
 
     def __init__(self, input_dim: int = 172, hidden_dim: int = 256, dropout: float = 0.1):
@@ -76,6 +80,16 @@ class WeightNN(nn.Module):
             "base_scales",
             torch.tensor([BASE_SCALES[k] for k in WEIGHT_KEYS], dtype=torch.float32),
         )
+
+
+class WeightNNBig(WeightNN):
+    """大型版: hidden=512 (= ~300K params)。 学習データ大量時に表現力アップ用。
+
+    state_dict は WeightNN と互換性なし (= 別 NN として save/load)。
+    """
+
+    def __init__(self, input_dim: int = 172, dropout: float = 0.1):
+        super().__init__(input_dim=input_dim, hidden_dim=512, dropout=dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """state → 9 dim weights (= positive、 base scale 適用後)。"""
