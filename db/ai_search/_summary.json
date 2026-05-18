@@ -1,0 +1,130 @@
+{
+  "cases": [
+    {
+      "label": "beam2_depth3_baseline_check",
+      "avg_winrate": 0.44375,
+      "delta_pt": -5.625000000000002,
+      "wins": 4,
+      "losses": 8,
+      "elapsed_sec": 1156.9047944545746,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam3_depth3",
+      "avg_winrate": 0.425,
+      "delta_pt": -7.500000000000001,
+      "wins": 4,
+      "losses": 9,
+      "elapsed_sec": 810.0405404567719,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam4_depth3",
+      "avg_winrate": 0.4625,
+      "delta_pt": -3.749999999999998,
+      "wins": 5,
+      "losses": 8,
+      "elapsed_sec": 936.8044333457947,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam2_depth4",
+      "avg_winrate": 0.4625,
+      "delta_pt": -3.749999999999998,
+      "wins": 4,
+      "losses": 9,
+      "elapsed_sec": 695.0361037254333,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam3_depth4",
+      "avg_winrate": 0.4625,
+      "delta_pt": -3.749999999999998,
+      "wins": 5,
+      "losses": 8,
+      "elapsed_sec": 909.5896344184875,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam4_depth4",
+      "avg_winrate": 0.4375,
+      "delta_pt": -6.25,
+      "wins": 4,
+      "losses": 9,
+      "elapsed_sec": 1148.8404276371002,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam2_depth5",
+      "avg_winrate": 0.49375,
+      "delta_pt": -0.6249999999999978,
+      "wins": 6,
+      "losses": 7,
+      "elapsed_sec": 722.0576620101929,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "LethalRusherAI",
+      "avg_winrate": 0.46875,
+      "delta_pt": -3.125,
+      "wins": 5,
+      "losses": 9,
+      "elapsed_sec": 617.7677659988403,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "DynamicBeamAI",
+      "avg_winrate": 0.44375,
+      "delta_pt": -5.625000000000002,
+      "wins": 4,
+      "losses": 8,
+      "elapsed_sec": 1101.864226102829,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "HybridGreedyPlanning",
+      "avg_winrate": 0.46875,
+      "delta_pt": -3.125,
+      "wins": 5,
+      "losses": 9,
+      "elapsed_sec": 661.2641034126282,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "AdaptiveBeamDepthAI",
+      "avg_winrate": 0.45625,
+      "delta_pt": -4.375000000000001,
+      "wins": 3,
+      "losses": 8,
+      "elapsed_sec": 878.51686835289,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam4_depth5",
+      "avg_winrate": 0.46875,
+      "delta_pt": -3.125,
+      "wins": 5,
+      "losses": 8,
+      "elapsed_sec": 1299.4032001495361,
+      "n_games_per_deck": 10
+    },
+    {
+      "label": "PlanningAI_beam3_depth5",
+      "avg_winrate": 0.45,
+      "delta_pt": -4.999999999999999,
+      "wins": 4,
+      "losses": 7,
+      "elapsed_sec": 991.9487373828888,
+      "n_games_per_deck": 10
+    }
+  ],
+  "best": {
+    "label": "PlanningAI_beam2_depth5",
+    "avg_winrate": 0.49375,
+    "delta_pt": -0.6249999999999978,
+    "wins": 6,
+    "losses": 7,
+    "elapsed_sec": 722.0576620101929,
+    "n_games_per_deck": 10
+  }
+}

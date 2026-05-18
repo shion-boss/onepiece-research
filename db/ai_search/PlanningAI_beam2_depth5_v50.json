@@ -1,0 +1,176 @@
+{
+  "label": "PlanningAI_beam2_depth5_v50",
+  "ai_class": "engine.ai_experimental._NoNNPlanningBase",
+  "ai_kwargs": {
+    "beam_width": 2,
+    "max_depth": 5
+  },
+  "n_games_per_deck": 50,
+  "seed": 42,
+  "computed_at": "2026-05-17T19:28:28Z",
+  "partial": false,
+  "decks_done": 16,
+  "decks_total": 16,
+  "results": [
+    {
+      "deck": "cardrush_1342",
+      "deck_name": "紫ドフラミンゴ",
+      "improved_wins": 18,
+      "baseline_wins": 32,
+      "draws": 0,
+      "improved_winrate": 0.36,
+      "avg_turns": 21.42,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1385",
+      "deck_name": "黒クロコダイル",
+      "improved_wins": 29,
+      "baseline_wins": 21,
+      "draws": 0,
+      "improved_winrate": 0.58,
+      "avg_turns": 14.92,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1392",
+      "deck_name": "黒イム",
+      "improved_wins": 24,
+      "baseline_wins": 26,
+      "draws": 0,
+      "improved_winrate": 0.48,
+      "avg_turns": 13.42,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1399",
+      "deck_name": "赤青ルーシー",
+      "improved_wins": 24,
+      "baseline_wins": 26,
+      "draws": 0,
+      "improved_winrate": 0.48,
+      "avg_turns": 11.78,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1439",
+      "deck_name": "青黄ナミ",
+      "improved_wins": 27,
+      "baseline_wins": 23,
+      "draws": 0,
+      "improved_winrate": 0.54,
+      "avg_turns": 14.04,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1453",
+      "deck_name": "緑ミホーク",
+      "improved_wins": 23,
+      "baseline_wins": 27,
+      "draws": 0,
+      "improved_winrate": 0.46,
+      "avg_turns": 19.36,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1454",
+      "deck_name": "紫エネル",
+      "improved_wins": 25,
+      "baseline_wins": 25,
+      "draws": 0,
+      "improved_winrate": 0.5,
+      "avg_turns": 17.84,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1455",
+      "deck_name": "空島ルフィ",
+      "improved_wins": 27,
+      "baseline_wins": 23,
+      "draws": 0,
+      "improved_winrate": 0.54,
+      "avg_turns": 43.1,
+      "n_games": 50
+    },
+    {
+      "deck": "cardrush_1456",
+      "deck_name": "赤青エース",
+      "improved_wins": 28,
+      "baseline_wins": 22,
+      "draws": 0,
+      "improved_winrate": 0.56,
+      "avg_turns": 19.04,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_bonney",
+      "deck_name": "赤黄ボニー",
+      "improved_wins": 22,
+      "baseline_wins": 28,
+      "draws": 0,
+      "improved_winrate": 0.44,
+      "avg_turns": 14.14,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_calgara",
+      "deck_name": "黄カルガラ",
+      "improved_wins": 22,
+      "baseline_wins": 28,
+      "draws": 0,
+      "improved_winrate": 0.44,
+      "avg_turns": 15.5,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_coby",
+      "deck_name": "赤黒コビー",
+      "improved_wins": 22,
+      "baseline_wins": 28,
+      "draws": 0,
+      "improved_winrate": 0.44,
+      "avg_turns": 60.92,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_corazon",
+      "deck_name": "紫黄ロシナンテ",
+      "improved_wins": 28,
+      "baseline_wins": 22,
+      "draws": 0,
+      "improved_winrate": 0.56,
+      "avg_turns": 15.5,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_hancock",
+      "deck_name": "青黄ハンコック",
+      "improved_wins": 23,
+      "baseline_wins": 27,
+      "draws": 0,
+      "improved_winrate": 0.46,
+      "avg_turns": 16.48,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_op11_luffy",
+      "deck_name": "青紫ルフィ",
+      "improved_wins": 22,
+      "baseline_wins": 28,
+      "draws": 0,
+      "improved_winrate": 0.44,
+      "avg_turns": 19.3,
+      "n_games": 50
+    },
+    {
+      "deck": "tcgportal_op13_luffy",
+      "deck_name": "赤緑ルフィ（OP13）",
+      "improved_wins": 23,
+      "baseline_wins": 27,
+      "draws": 0,
+      "improved_winrate": 0.46,
+      "avg_turns": 11.16,
+      "n_games": 50
+    }
+  ]
+}

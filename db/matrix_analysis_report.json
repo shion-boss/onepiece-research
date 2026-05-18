@@ -1,0 +1,968 @@
+{
+  "A_path": "db/matchup_matrix.step7_a_nn_off.json",
+  "B_path": "db/matchup_matrix.step7_b_nn_on.json",
+  "deck_count": 16,
+  "deck_avg_A": {
+    "cardrush_1342": 0.4966666666666667,
+    "cardrush_1385": 0.43666666666666665,
+    "cardrush_1392": 0.16,
+    "cardrush_1399": 0.41000000000000003,
+    "cardrush_1439": 0.5466666666666666,
+    "cardrush_1453": 0.36000000000000004,
+    "cardrush_1454": 0.56,
+    "cardrush_1455": 0.8366666666666667,
+    "cardrush_1456": 0.9633333333333333,
+    "tcgportal_bonney": 0.7933333333333333,
+    "tcgportal_calgara": 0.36333333333333334,
+    "tcgportal_coby": 0.010000000000000002,
+    "tcgportal_corazon": 0.2833333333333333,
+    "tcgportal_hancock": 0.5933333333333334,
+    "tcgportal_op11_luffy": 0.7899999999999999,
+    "tcgportal_op13_luffy": 0.38666666666666666
+  },
+  "deck_avg_B": {
+    "cardrush_1342": 0.4233333333333333,
+    "cardrush_1385": 0.2866666666666667,
+    "cardrush_1392": 0.41333333333333333,
+    "cardrush_1399": 0.5266666666666667,
+    "cardrush_1439": 0.62,
+    "cardrush_1453": 0.23333333333333334,
+    "cardrush_1454": 0.38333333333333336,
+    "cardrush_1455": 0.7266666666666667,
+    "cardrush_1456": 0.8433333333333334,
+    "tcgportal_bonney": 0.7566666666666666,
+    "tcgportal_calgara": 0.4033333333333333,
+    "tcgportal_coby": 0.26333333333333336,
+    "tcgportal_corazon": 0.17,
+    "tcgportal_hancock": 0.6966666666666667,
+    "tcgportal_op11_luffy": 0.8466666666666666,
+    "tcgportal_op13_luffy": 0.4033333333333333
+  },
+  "deck_deltas": [
+    {
+      "deck": "tcgportal_coby",
+      "A_wr": 0.010000000000000002,
+      "B_wr": 0.26333333333333336,
+      "delta_pt": 25.333333333333336
+    },
+    {
+      "deck": "cardrush_1392",
+      "A_wr": 0.16,
+      "B_wr": 0.41333333333333333,
+      "delta_pt": 25.33333333333333
+    },
+    {
+      "deck": "cardrush_1399",
+      "A_wr": 0.41000000000000003,
+      "B_wr": 0.5266666666666667,
+      "delta_pt": 11.66666666666667
+    },
+    {
+      "deck": "tcgportal_hancock",
+      "A_wr": 0.5933333333333334,
+      "B_wr": 0.6966666666666667,
+      "delta_pt": 10.333333333333329
+    },
+    {
+      "deck": "cardrush_1439",
+      "A_wr": 0.5466666666666666,
+      "B_wr": 0.62,
+      "delta_pt": 7.333333333333336
+    },
+    {
+      "deck": "tcgportal_op11_luffy",
+      "A_wr": 0.7899999999999999,
+      "B_wr": 0.8466666666666666,
+      "delta_pt": 5.666666666666664
+    },
+    {
+      "deck": "tcgportal_calgara",
+      "A_wr": 0.36333333333333334,
+      "B_wr": 0.4033333333333333,
+      "delta_pt": 3.9999999999999982
+    },
+    {
+      "deck": "tcgportal_op13_luffy",
+      "A_wr": 0.38666666666666666,
+      "B_wr": 0.4033333333333333,
+      "delta_pt": 1.6666666666666663
+    },
+    {
+      "deck": "tcgportal_bonney",
+      "A_wr": 0.7933333333333333,
+      "B_wr": 0.7566666666666666,
+      "delta_pt": -3.6666666666666736
+    },
+    {
+      "deck": "cardrush_1342",
+      "A_wr": 0.4966666666666667,
+      "B_wr": 0.4233333333333333,
+      "delta_pt": -7.333333333333342
+    },
+    {
+      "deck": "cardrush_1455",
+      "A_wr": 0.8366666666666667,
+      "B_wr": 0.7266666666666667,
+      "delta_pt": -10.999999999999998
+    },
+    {
+      "deck": "tcgportal_corazon",
+      "A_wr": 0.2833333333333333,
+      "B_wr": 0.17,
+      "delta_pt": -11.333333333333332
+    },
+    {
+      "deck": "cardrush_1456",
+      "A_wr": 0.9633333333333333,
+      "B_wr": 0.8433333333333334,
+      "delta_pt": -11.99999999999999
+    },
+    {
+      "deck": "cardrush_1453",
+      "A_wr": 0.36000000000000004,
+      "B_wr": 0.23333333333333334,
+      "delta_pt": -12.666666666666671
+    },
+    {
+      "deck": "cardrush_1385",
+      "A_wr": 0.43666666666666665,
+      "B_wr": 0.2866666666666667,
+      "delta_pt": -14.999999999999996
+    },
+    {
+      "deck": "cardrush_1454",
+      "A_wr": 0.56,
+      "B_wr": 0.38333333333333336,
+      "delta_pt": -17.666666666666668
+    }
+  ],
+  "top_reversal_cells": [
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "tcgportal_corazon",
+      "A_wr": 0.0,
+      "B_wr": 0.8,
+      "delta_pt": 80.0
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.0,
+      "B_wr": 0.75,
+      "delta_pt": 75.0
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "cardrush_1392",
+      "A_wr": 1.0,
+      "B_wr": 0.3,
+      "delta_pt": -70.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "cardrush_1453",
+      "A_wr": 0.0,
+      "B_wr": 0.7,
+      "delta_pt": 70.0
+    },
+    {
+      "deck_a": "cardrush_1456",
+      "deck_b": "tcgportal_op11_luffy",
+      "A_wr": 0.95,
+      "B_wr": 0.3,
+      "delta_pt": -64.99999999999999
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.75,
+      "B_wr": 0.15,
+      "delta_pt": -60.0
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.45,
+      "delta_pt": -55.00000000000001
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_b": "cardrush_1455",
+      "A_wr": 0.3,
+      "B_wr": 0.85,
+      "delta_pt": 55.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1453",
+      "A_wr": 0.15,
+      "B_wr": 0.7,
+      "delta_pt": 54.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.35,
+      "B_wr": 0.85,
+      "delta_pt": 50.0
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_op13_luffy",
+      "A_wr": 0.3,
+      "B_wr": 0.8,
+      "delta_pt": 50.0
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.5,
+      "delta_pt": -50.0
+    },
+    {
+      "deck_a": "cardrush_1456",
+      "deck_b": "tcgportal_bonney",
+      "A_wr": 0.85,
+      "B_wr": 0.35,
+      "delta_pt": -50.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.15,
+      "B_wr": 0.65,
+      "delta_pt": 50.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1453",
+      "A_wr": 0.2,
+      "B_wr": 0.7,
+      "delta_pt": 49.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.1,
+      "B_wr": 0.55,
+      "delta_pt": 45.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.1,
+      "B_wr": 0.55,
+      "delta_pt": 45.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.9,
+      "B_wr": 0.45,
+      "delta_pt": -45.0
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.75,
+      "B_wr": 0.3,
+      "delta_pt": -45.0
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.85,
+      "B_wr": 0.4,
+      "delta_pt": -44.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.95,
+      "B_wr": 0.5,
+      "delta_pt": -44.99999999999999
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.55,
+      "delta_pt": -44.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.1,
+      "B_wr": 0.5,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.6,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.45,
+      "B_wr": 0.85,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.4,
+      "B_wr": 0.0,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.5,
+      "B_wr": 0.1,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.1,
+      "B_wr": 0.5,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.0,
+      "B_wr": 0.4,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.45,
+      "B_wr": 0.05,
+      "delta_pt": -40.0
+    }
+  ],
+  "color_groups": {
+    "紫": {
+      "n": 2,
+      "avg": 0.5283333333333333
+    },
+    "黒": {
+      "n": 2,
+      "avg": 0.29833333333333334
+    },
+    "赤/青": {
+      "n": 2,
+      "avg": 0.6866666666666666
+    },
+    "青/黄": {
+      "n": 2,
+      "avg": 0.5700000000000001
+    },
+    "緑": {
+      "n": 1,
+      "avg": 0.36000000000000004
+    },
+    "黄": {
+      "n": 2,
+      "avg": 0.6
+    },
+    "赤/黄": {
+      "n": 1,
+      "avg": 0.7933333333333333
+    },
+    "赤/黒": {
+      "n": 1,
+      "avg": 0.010000000000000002
+    },
+    "紫/黄": {
+      "n": 1,
+      "avg": 0.2833333333333333
+    },
+    "青/紫": {
+      "n": 1,
+      "avg": 0.7899999999999999
+    },
+    "赤/緑": {
+      "n": 1,
+      "avg": 0.38666666666666666
+    }
+  },
+  "salvation_cells": [
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "tcgportal_corazon",
+      "A_wr": 0.0,
+      "B_wr": 0.8,
+      "delta_pt": 80.0
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.0,
+      "B_wr": 0.75,
+      "delta_pt": 75.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "cardrush_1453",
+      "A_wr": 0.0,
+      "B_wr": 0.7,
+      "delta_pt": 70.0
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_b": "cardrush_1455",
+      "A_wr": 0.3,
+      "B_wr": 0.85,
+      "delta_pt": 55.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1453",
+      "A_wr": 0.15,
+      "B_wr": 0.7,
+      "delta_pt": 54.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.35,
+      "B_wr": 0.85,
+      "delta_pt": 50.0
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_op13_luffy",
+      "A_wr": 0.3,
+      "B_wr": 0.8,
+      "delta_pt": 50.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.15,
+      "B_wr": 0.65,
+      "delta_pt": 50.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1453",
+      "A_wr": 0.2,
+      "B_wr": 0.7,
+      "delta_pt": 49.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.1,
+      "B_wr": 0.55,
+      "delta_pt": 45.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.1,
+      "B_wr": 0.55,
+      "delta_pt": 45.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.1,
+      "B_wr": 0.5,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.45,
+      "B_wr": 0.85,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.1,
+      "B_wr": 0.5,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.0,
+      "B_wr": 0.4,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_b": "cardrush_1456",
+      "A_wr": 0.1,
+      "B_wr": 0.5,
+      "delta_pt": 40.0
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_corazon",
+      "A_wr": 0.3,
+      "B_wr": 0.65,
+      "delta_pt": 35.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.0,
+      "B_wr": 0.35,
+      "delta_pt": 35.0
+    },
+    {
+      "deck_a": "tcgportal_hancock",
+      "deck_b": "tcgportal_bonney",
+      "A_wr": 0.15,
+      "B_wr": 0.5,
+      "delta_pt": 35.0
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_b": "tcgportal_bonney",
+      "A_wr": 0.5,
+      "B_wr": 0.85,
+      "delta_pt": 35.0
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_b": "tcgportal_corazon",
+      "A_wr": 0.4,
+      "B_wr": 0.75,
+      "delta_pt": 35.0
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.6,
+      "B_wr": 0.9,
+      "delta_pt": 30.000000000000004
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.7,
+      "B_wr": 1.0,
+      "delta_pt": 30.000000000000004
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "tcgportal_op11_luffy",
+      "A_wr": 0.05,
+      "B_wr": 0.35,
+      "delta_pt": 30.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.0,
+      "B_wr": 0.3,
+      "delta_pt": 30.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "tcgportal_op13_luffy",
+      "A_wr": 0.05,
+      "B_wr": 0.35,
+      "delta_pt": 30.0
+    },
+    {
+      "deck_a": "tcgportal_hancock",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.65,
+      "B_wr": 0.95,
+      "delta_pt": 29.999999999999993
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1342",
+      "A_wr": 0.35,
+      "B_wr": 0.6,
+      "delta_pt": 25.0
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "tcgportal_corazon",
+      "A_wr": 0.6,
+      "B_wr": 0.85,
+      "delta_pt": 25.0
+    },
+    {
+      "deck_a": "cardrush_1455",
+      "deck_b": "cardrush_1456",
+      "A_wr": 0.05,
+      "B_wr": 0.3,
+      "delta_pt": 25.0
+    },
+    {
+      "deck_a": "tcgportal_coby",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.05,
+      "B_wr": 0.3,
+      "delta_pt": 25.0
+    },
+    {
+      "deck_a": "tcgportal_hancock",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.7,
+      "B_wr": 0.95,
+      "delta_pt": 25.0
+    },
+    {
+      "deck_a": "tcgportal_hancock",
+      "deck_b": "tcgportal_op11_luffy",
+      "A_wr": 0.15,
+      "B_wr": 0.4,
+      "delta_pt": 25.0
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.45,
+      "B_wr": 0.7,
+      "delta_pt": 24.999999999999993
+    },
+    {
+      "deck_a": "tcgportal_hancock",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.6,
+      "B_wr": 0.8,
+      "delta_pt": 20.000000000000007
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.05,
+      "B_wr": 0.25,
+      "delta_pt": 20.0
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_b": "cardrush_1456",
+      "A_wr": 0.15,
+      "B_wr": 0.35,
+      "delta_pt": 20.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1455",
+      "A_wr": 0.0,
+      "B_wr": 0.2,
+      "delta_pt": 20.0
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_b": "cardrush_1385",
+      "A_wr": 0.45,
+      "B_wr": 0.65,
+      "delta_pt": 20.0
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_b": "tcgportal_bonney",
+      "A_wr": 0.05,
+      "B_wr": 0.25,
+      "delta_pt": 20.0
+    }
+  ],
+  "weakened_cells": [
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "cardrush_1392",
+      "A_wr": 1.0,
+      "B_wr": 0.3,
+      "delta_pt": -70.0
+    },
+    {
+      "deck_a": "cardrush_1456",
+      "deck_b": "tcgportal_op11_luffy",
+      "A_wr": 0.95,
+      "B_wr": 0.3,
+      "delta_pt": -64.99999999999999
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.75,
+      "B_wr": 0.15,
+      "delta_pt": -60.0
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.45,
+      "delta_pt": -55.00000000000001
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.5,
+      "delta_pt": -50.0
+    },
+    {
+      "deck_a": "cardrush_1456",
+      "deck_b": "tcgportal_bonney",
+      "A_wr": 0.85,
+      "B_wr": 0.35,
+      "delta_pt": -50.0
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.9,
+      "B_wr": 0.45,
+      "delta_pt": -45.0
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.75,
+      "B_wr": 0.3,
+      "delta_pt": -45.0
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.85,
+      "B_wr": 0.4,
+      "delta_pt": -44.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.95,
+      "B_wr": 0.5,
+      "delta_pt": -44.99999999999999
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.55,
+      "delta_pt": -44.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.6,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.4,
+      "B_wr": 0.0,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.5,
+      "B_wr": 0.1,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.45,
+      "B_wr": 0.05,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 1.0,
+      "B_wr": 0.6,
+      "delta_pt": -40.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.95,
+      "B_wr": 0.55,
+      "delta_pt": -39.99999999999999
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1399",
+      "A_wr": 0.6,
+      "B_wr": 0.25,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.75,
+      "B_wr": 0.4,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.75,
+      "B_wr": 0.4,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1439",
+      "A_wr": 0.5,
+      "B_wr": 0.15,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "cardrush_1455",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.9,
+      "B_wr": 0.55,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "tcgportal_corazon",
+      "deck_b": "cardrush_1399",
+      "A_wr": 0.4,
+      "B_wr": 0.05,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "tcgportal_op11_luffy",
+      "deck_b": "cardrush_1399",
+      "A_wr": 0.9,
+      "B_wr": 0.55,
+      "delta_pt": -35.0
+    },
+    {
+      "deck_a": "cardrush_1439",
+      "deck_b": "cardrush_1392",
+      "A_wr": 1.0,
+      "B_wr": 0.7,
+      "delta_pt": -30.000000000000004
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.45,
+      "B_wr": 0.15,
+      "delta_pt": -30.000000000000004
+    },
+    {
+      "deck_a": "cardrush_1455",
+      "deck_b": "cardrush_1399",
+      "A_wr": 1.0,
+      "B_wr": 0.7,
+      "delta_pt": -30.000000000000004
+    },
+    {
+      "deck_a": "cardrush_1455",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 1.0,
+      "B_wr": 0.7,
+      "delta_pt": -30.000000000000004
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.6,
+      "B_wr": 0.3,
+      "delta_pt": -30.0
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "tcgportal_calgara",
+      "A_wr": 0.85,
+      "B_wr": 0.55,
+      "delta_pt": -29.999999999999993
+    },
+    {
+      "deck_a": "cardrush_1456",
+      "deck_b": "cardrush_1455",
+      "A_wr": 0.95,
+      "B_wr": 0.65,
+      "delta_pt": -29.999999999999993
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.4,
+      "B_wr": 0.15,
+      "delta_pt": -25.0
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.45,
+      "B_wr": 0.2,
+      "delta_pt": -25.0
+    },
+    {
+      "deck_a": "tcgportal_bonney",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.85,
+      "B_wr": 0.6,
+      "delta_pt": -25.0
+    },
+    {
+      "deck_a": "tcgportal_calgara",
+      "deck_b": "tcgportal_coby",
+      "A_wr": 0.9,
+      "B_wr": 0.65,
+      "delta_pt": -25.0
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_b": "cardrush_1392",
+      "A_wr": 0.75,
+      "B_wr": 0.5,
+      "delta_pt": -25.0
+    },
+    {
+      "deck_a": "tcgportal_op13_luffy",
+      "deck_b": "cardrush_1399",
+      "A_wr": 0.45,
+      "B_wr": 0.2,
+      "delta_pt": -25.0
+    },
+    {
+      "deck_a": "tcgportal_bonney",
+      "deck_b": "cardrush_1399",
+      "A_wr": 0.9,
+      "B_wr": 0.7,
+      "delta_pt": -20.000000000000007
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1454",
+      "A_wr": 0.4,
+      "B_wr": 0.2,
+      "delta_pt": -20.0
+    },
+    {
+      "deck_a": "cardrush_1453",
+      "deck_b": "tcgportal_hancock",
+      "A_wr": 0.25,
+      "B_wr": 0.05,
+      "delta_pt": -20.0
+    },
+    {
+      "deck_a": "cardrush_1454",
+      "deck_b": "cardrush_1399",
+      "A_wr": 0.35,
+      "B_wr": 0.15,
+      "delta_pt": -20.0
+    }
+  ]
+}
