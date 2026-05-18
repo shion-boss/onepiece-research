@@ -291,6 +291,48 @@ class EndPhasePenaltyAI(_NoNNPlanningBase):
                 os.environ["ONEPIECE_END_PHASE_PENALTY"] = saved
 
 
+class AdaptiveComboAI:
+    """2026-05-18 統合 best 候補: 既存 adaptive (= per-deck NN preference) + ComboDim。
+
+    既存 DeepPlanningAI を そのまま使い、 choose_action 中に ONEPIECE_COMBO_DIM=1 を set。
+    adaptive 機構 (= per-deck NN on/off + db/nn_per_deck_preference.json) は自動継承。
+    """
+
+    name = "AdaptiveCombo"
+
+    def __init__(self, rng=None, deck_analysis=None, **kwargs):
+        from .ai import DeepPlanningAI
+        self._inner = DeepPlanningAI(
+            rng=rng, deck_analysis=deck_analysis,
+            beam_width=kwargs.get("beam_width", 2),
+            max_depth=kwargs.get("max_depth", 3),
+            adaptive=kwargs.get("adaptive", False),
+        )
+        # 互換: AI factory が set_ai_opp / choose_defense を呼べるよう transparent forward
+        self.rng = rng
+        self.deck_analysis = deck_analysis
+
+    def set_ai_opp(self, ai_opp):
+        if hasattr(self._inner, "set_ai_opp"):
+            self._inner.set_ai_opp(ai_opp)
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_COMBO_DIM")
+        os.environ["ONEPIECE_COMBO_DIM"] = "1"
+        try:
+            return self._inner.choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_COMBO_DIM"]
+            else:
+                os.environ["ONEPIECE_COMBO_DIM"] = saved
+
+    def choose_defense(self, state, attacker, target, is_leader_attack, defender):
+        # adaptive AI と同じく defense は ComboDim 不要 (= defense 判断は別軸)
+        return self._inner.choose_defense(state, attacker, target, is_leader_attack, defender)
+
+
 class ComboAwarePlanningAI(_NoNNPlanningBase):
     """2026-05-18 ユーザ示唆: event 使用後の「コンボ可能性」 を evaluator に反映する AI。
 
