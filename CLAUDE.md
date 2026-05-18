@@ -190,11 +190,20 @@ onepiece_research/
   - 7K: リーダー攻撃先行 + blocker play 遅延 (= life trigger 対策)
   - 累計 108 新規 tests / 全 pass、 期待効果 +15〜+30pt vs 旧 PlanningAI
   - 残 sub-step (= 7F-1/2/5/6/7、 directory restructure 等) は別 task で運用整備
-- [ ] **Phase 8 計画中**: 学習基盤 / self-play AI (= 2-4 ヶ月、 期待 +20〜40pt)
-  - 8A: self-play インフラ整備 (= replay 蓄積 + 並列実行)
-  - 8B: policy + value 学習器 (= 決定論化 + AlphaZero 型 NN)
-  - 8C: 1 matchup 集中学習 (= 紫エネル vs 緑ミホーク 等で 超人 AI 水準)
-  - 8D: archetype-aware general policy (= 全 matchup を 1 NN で扱う)
+- [~] **Phase 8 進行中 (2026-05-17~18)**: 学習基盤 / self-play AI (= 期待 +20〜40pt)
+  - ✅ **Step 7 完了 (2026-05-17 夜)**: matrix 16×16 完走、 adaptive AI (= per-deck NN preference) で
+    mirror baseline +2.0pt 確定、 default 化済 (= PR #1 main 統合)
+  - ✅ **adaptive AI mirror-based**: db/nn_per_deck_preference.json で NN-on: tcgportal_coby のみ
+  - 🟡 **Phase 2 RL (= Plan F)**: WeightNN supervised + REINFORCE で 動的重み学習
+    - Step 1 supervised 完了 (= -3pt、 教師の限界)
+    - cycle 1 snapshot collection 進行中 (= 1000 試合、 2026-05-18 朝)
+  - 🟡 **Plan D AlphaZero**: MCTS rollout で P(win|state) 計算 → value NN 学習
+    - infrastructure 完成 (= engine/value_nn_alphazero.py + collect_mcts_rollout_snapshots.py)
+    - 学習データ収集 + Colab 学習 待ち
+  - 📋 **Plan E genetic**: 多 AI variant × tournament で 進化的探索 (= skeleton 完成)
+  - 📋 **MegaPlanningAI**: TwoTurn + AZ value + WeightNN + adaptive 統合
+  - 📋 **AdaptiveComboAI**: adaptive + 評価関数 ComboDim (= 自キャラ最大攻撃 で KO 可能性) 統合
+  - 詳細: [[project_morning_status_summary]]
 - [ ] **Phase 9 計画中**: 分散コンピューティング / ボランティア参加 (= 1-3 ヶ月)
   - 9A: 内部分散インフラ (= /api/research/* + research_client.py)
   - 9B: 公開可能版 (= UI + GitHub OAuth + 検証強化)
@@ -204,12 +213,24 @@ onepiece_research/
 
 ### 現在のメタ Tier
 
-> **注**: 2026-05-12 R67 時点の旧 Tier 表 (6 デッキ pool, Greedy 同士) は
-> `db/matchup_matrix.greedy_baseline.json` に保管済。 2026-05-14 から **16 デッキ pool
-> + PlanningAI 同士の matrix** に移行中 (= 走行中の `bun1t1aya` 完了後に Tier 表更新)。
-> 暫定 Tier は完了後に追記。
+> **注**: 2026-05-17 夜の Step 7 matrix (= 16×16 × 20 戦、 7.2h) 完走済。
+> `db/matchup_matrix.step7_a_nn_off.json` (= 線形 eval mirror) と `step7_b_nn_on.json` (= NN v1 mirror) で
+> 各 deck 平均勝率 + NN 引き起こす相性逆転 cell ±50pt 14 個 等の 詳細 insight。
+> 詳細 analysis: `scripts/analyze_matrix.py` + `db/matrix_analysis_report.json` (= 10 軸)。
 
-R71 (= PlanningAI default 化 + tcg-portal top-16 pool 化) 後の matrix 結果は完了次第ここに反映。
+**Tier (= A-arm 線形 eval mirror、 2026-05-17):**
+```
+S: cardrush_1456 96.3%, cardrush_1455 83.7%, tcgportal_bonney 79.3%, tcgportal_op11_luffy 79.0%
+A: tcgportal_hancock 59.3%, cardrush_1454 56.0%, cardrush_1439 54.7%, cardrush_1342 49.7%
+B: cardrush_1385 43.7%, cardrush_1399 41.0%, tcgportal_corazon 28.3% (= partial 5 セル)
+C: tcgportal_calgara 36.3%, cardrush_1453 36.0%, cardrush_1392 16.0%
+F: tcgportal_coby 1.0% (= 線形 eval で 死に体、 NN で +25pt 救済される)
+```
+
+NN 入れた時の変化 (= B-arm の 差分):
+- 救済: tcgportal_coby +25pt、 cardrush_1392 +25pt
+- 弱体化: cardrush_1454 -18pt、 cardrush_1455 -11pt、 cardrush_1456 -12pt
+- → これが adaptive AI (= per-deck NN preference) の根拠
 
 **評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 他デッキが効果を正しく
 発揮できるようになった結果、 相対的に成績が下がったデッキも存在する。
