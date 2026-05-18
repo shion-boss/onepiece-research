@@ -60,7 +60,23 @@ nohup .venv/bin/python scripts/collect_twoturn_snapshots.py \
   --output db/twoturn_snapshots_cycle2.jsonl > logs/cascade5_cycle2.log 2>&1 &
 echo "  PID=$!"
 
-echo "[6/6] Plan D MCTS rollout snapshot collection 起動 (= 重い、 ETA 1-2h)"
+echo "[6/8] AdaptiveImitation mirror eval (= adaptive + 大会レシピ prior 統合)"
+nohup .venv/bin/python scripts/run_ai_mirror_eval.py \
+  --ai-class engine.ai_experimental.AdaptiveImitationAI \
+  --ai-kwargs '{}' \
+  --output db/ai_search/AdaptiveImitation_n10.json \
+  --n-games 10 --label adaptive_imitation > logs/cascade6_adaptive_imit.log 2>&1 &
+echo "  PID=$!"
+
+echo "[7/8] ImitationPrior 単独 mirror eval"
+nohup .venv/bin/python scripts/run_ai_mirror_eval.py \
+  --ai-class engine.ai_experimental.ImitationPriorAI \
+  --ai-kwargs '{}' \
+  --output db/ai_search/ImitationPrior_n10.json \
+  --n-games 10 --label imitation_prior > logs/cascade7_imit_prior.log 2>&1 &
+echo "  PID=$!"
+
+echo "[8/8] Plan D MCTS rollout snapshot collection 起動 (= 重い、 ETA 1-2h)"
 nohup .venv/bin/python scripts/collect_mcts_rollout_snapshots.py \
   --n-games 500 --workers 2 \
   --rollouts-per-state 10 --max-rollout-turns 6 \
