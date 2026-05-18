@@ -278,6 +278,15 @@ def search_turn_plan(
     if _USE_POLICY:
         from .nn_eval import compute_policy_nn  # 動的 import (= NN 無効時 import skip)
 
+    # === Plan Imit-3 (= 2026-05-18): imitation prior 注入 ===
+    # 大会優勝レシピから抽出した「人間が選ぶカード」 prior を beam selection に組み込む。
+    # PlayCharacter / PlayEvent action で その card の人間採用率 × W_IMIT を bonus 加算。
+    # ONEPIECE_PLAN_IMITATION_W 環境変数で制御 (= default 0 無効、 1000+ で有効)。
+    _W_IMIT = float(_os.environ.get("ONEPIECE_PLAN_IMITATION_W", "0"))
+    _USE_IMIT = _W_IMIT > 0
+    if _USE_IMIT:
+        from .imitation_prior import get_card_play_prior
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -333,6 +342,22 @@ def search_turn_plan(
                     prob = policy_dict.get(action_cls)
                     if prob is not None:
                         score = score + _W_POLICY * math.log(max(prob, 1e-6))
+
+                # Plan Imit-3: imitation prior bonus (= 人間採用率の高いカードを beam に優先)
+                if _USE_IMIT:
+                    try:
+                        card_id = None
+                        # PlayCharacter / PlayEvent / PlayStage action は card 属性を持つ
+                        if hasattr(action, "card") and action.card is not None:
+                            card_id = getattr(action.card, "card_id", None)
+                        if card_id:
+                            me_leader_id = getattr(cur_state.players[me_idx].leader.card, "card_id", None)
+                            if me_leader_id:
+                                prior = get_card_play_prior(me_leader_id, card_id)
+                                # adoption_rate 0.5 を baseline、 上振れで bonus / 下振れで penalty
+                                score = score + _W_IMIT * (prior - 0.5)
+                    except Exception:
+                        pass  # imitation 失敗時は plan_search 止めない
 
                 next_frontier.append((child, plan + [action], score))
 

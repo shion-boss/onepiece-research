@@ -291,6 +291,79 @@ class EndPhasePenaltyAI(_NoNNPlanningBase):
                 os.environ["ONEPIECE_END_PHASE_PENALTY"] = saved
 
 
+class ImitationPriorAI(_NoNNPlanningBase):
+    """Plan Imit-3 (= 2026-05-18): imitation prior を plan_search に注入 PlanningAI。
+
+    db/imitation_patterns.json (= 大会優勝レシピから抽出) の core cards 採用率を
+    plan_search の beam selection bonus にする → 「人間が選ぶカード」 を 優先 play。
+    紫エネル等 event 主体 deck で 効果期待。
+
+    ONEPIECE_PLAN_IMITATION_W=2000 (= default 2000、 重みは tunable)。
+    """
+
+    name = "ImitationPrior"
+
+    def __init__(self, *args, imitation_weight: float = 2000.0, **kwargs):
+        kwargs.setdefault("beam_width", 2)
+        kwargs.setdefault("max_depth", 3)
+        kwargs.setdefault("adaptive", False)
+        super().__init__(*args, **kwargs)
+        self.imitation_weight = imitation_weight
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_PLAN_IMITATION_W")
+        os.environ["ONEPIECE_PLAN_IMITATION_W"] = str(self.imitation_weight)
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_PLAN_IMITATION_W"]
+            else:
+                os.environ["ONEPIECE_PLAN_IMITATION_W"] = saved
+
+
+class AdaptiveImitationAI:
+    """2026-05-18: adaptive AI + imitation prior 統合。
+
+    既存 adaptive (= +2pt) に 大会優勝レシピ prior 注入。
+    紫エネル系 deck で 「core event を優先 play」 等の改善期待。
+    """
+
+    name = "AdaptiveImitation"
+
+    def __init__(self, rng=None, deck_analysis=None, imitation_weight: float = 1500.0, **kwargs):
+        from .ai import DeepPlanningAI
+        self._inner = DeepPlanningAI(
+            rng=rng, deck_analysis=deck_analysis,
+            beam_width=kwargs.get("beam_width", 2),
+            max_depth=kwargs.get("max_depth", 3),
+            adaptive=kwargs.get("adaptive", False),
+        )
+        self.imitation_weight = imitation_weight
+        self.rng = rng
+        self.deck_analysis = deck_analysis
+
+    def set_ai_opp(self, ai_opp):
+        if hasattr(self._inner, "set_ai_opp"):
+            self._inner.set_ai_opp(ai_opp)
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_PLAN_IMITATION_W")
+        os.environ["ONEPIECE_PLAN_IMITATION_W"] = str(self.imitation_weight)
+        try:
+            return self._inner.choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_PLAN_IMITATION_W"]
+            else:
+                os.environ["ONEPIECE_PLAN_IMITATION_W"] = saved
+
+    def choose_defense(self, state, attacker, target, is_leader_attack, defender):
+        return self._inner.choose_defense(state, attacker, target, is_leader_attack, defender)
+
+
 class AdaptiveComboAI:
     """2026-05-18 統合 best 候補: 既存 adaptive (= per-deck NN preference) + ComboDim。
 
