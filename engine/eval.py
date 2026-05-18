@@ -1654,6 +1654,42 @@ def compute_score(
         ):
             score += (sv - ov) * w
 
+    # ===== コンボ可能性 dim (= 2026-05-18 ユーザ「event 後のコンボ判断」 対応) =====
+    # ONEPIECE_COMBO_DIM=1 で有効化、 default OFF (= 後方互換)。
+    # 自分の active キャラの最大攻撃力 (= power + DON 付与可能数 × 1000) で
+    # 相手キャラを KO 可能数を count → bonus / penalty。
+    # event 後の state で「-1000 した相手キャラを 5000 攻撃で KO 可能」 等を 自然に score 化。
+    if os.environ.get("ONEPIECE_COMBO_DIM") == "1":
+        try:
+            # 自分の active キャラの max attack (= 簡略: power + 残 DON × 1000、 1 体に集中想定)
+            me_don_remaining = sum(1 for d in me.don_active if d == 0) if hasattr(me, "don_active") else len([d for d in getattr(me, "dons", []) if not d.attached])
+            # actual cost-payable DON 数を取るのは難しい、 簡略 me.don_active を見る
+            try:
+                me_don_available = len([d for d in me.don_active if d == 0])
+            except Exception:
+                me_don_available = 0
+            active_charas_power = [c.power for c in me.characters if not c.rested]
+            if active_charas_power:
+                max_attack = max(active_charas_power) + me_don_available * 1000
+            else:
+                max_attack = 0
+
+            # 相手キャラ KO 可能数
+            opp_chara_powers = [c.power for c in opp.characters]
+            ko_possible = sum(1 for p in opp_chara_powers if max_attack >= p)
+
+            # bonus: KO 可能 1 体ごと +500pt
+            score += ko_possible * 500
+
+            # leader 攻撃可能性: 自分 max_attack ≥ opp.leader.power → +bonus
+            try:
+                if max_attack >= opp.leader.power:
+                    score += 800
+            except Exception:
+                pass
+        except Exception:
+            pass  # eval は止めない
+
     # ===== EndPhase penalty (= 2026-05-18 bad_moves 対応) =====
     # 自分のターン終了直後 (= state.turn_player_idx が opp に切替) で 未消費リソースあれば penalty。
     # plan_search の leaf state は ターン終了後を想定、 「使い切れなかった」 を score で抑制 →

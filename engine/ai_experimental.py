@@ -291,6 +291,30 @@ class EndPhasePenaltyAI(_NoNNPlanningBase):
                 os.environ["ONEPIECE_END_PHASE_PENALTY"] = saved
 
 
+class ComboAwarePlanningAI(_NoNNPlanningBase):
+    """2026-05-18 ユーザ示唆: event 使用後の「コンボ可能性」 を evaluator に反映する AI。
+
+    ONEPIECE_COMBO_DIM=1 を choose_action 中に set、 compute_score に「自キャラ最大攻撃で
+    相手キャラ KO 可能数」 を bonus 化 → plan_search が event 後の攻撃通過 plan を 自然に優先。
+
+    紫エネル の event カード (= -1000/-5000/-8000 系) で本来の効果が活きるよう誘導。
+    """
+
+    name = "ComboAwarePlanning"
+
+    def choose_action(self, state):
+        import os
+        saved = os.environ.get("ONEPIECE_COMBO_DIM")
+        os.environ["ONEPIECE_COMBO_DIM"] = "1"
+        try:
+            return super().choose_action(state)
+        finally:
+            if saved is None:
+                del os.environ["ONEPIECE_COMBO_DIM"]
+            else:
+                os.environ["ONEPIECE_COMBO_DIM"] = saved
+
+
 class AlphaZeroMCTSAI(_NoNNPlanningBase):
     """Plan D + MCTS (= 2026-05-18 本格 AlphaZero 構造):
 
