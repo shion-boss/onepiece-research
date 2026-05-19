@@ -192,6 +192,7 @@ def search_turn_plan(
     max_turns: int = 1,
     ai_self=None,
     me_deck_analysis: "Optional[dict]" = None,
+    me_target_spec: "Optional[dict]" = None,
 ) -> tuple[list, float]:
     """MAIN フェーズ開始時に呼ぶ。 ターン全体プランを beam search。
 
@@ -305,6 +306,25 @@ def search_turn_plan(
             elif hasattr(state, "players") and hasattr(state.players[me_idx], "deck_analysis"):
                 _me_deck_analysis = state.players[me_idx].deck_analysis
 
+    # === Plan H (= 2026-05-19): goal-directed target bonus ===
+    # Claude が 書いた target spec (= decks/<slug>.target_v1.json) を 読み込み、
+    # leaf state が target condition match で bonus 加算。
+    # ONEPIECE_GOAL_TARGET_W 環境変数 (= default 0 無効、 1.0+ で 有効)。
+    # bonus magnitude は target.bonus (= 500-2000) で 直接 表現、 W は スケール係数。
+    _W_GOAL_TARGET = float(_os.environ.get("ONEPIECE_GOAL_TARGET_W", "0"))
+    _USE_GOAL_TARGET = _W_GOAL_TARGET > 0
+    _me_target_spec = me_target_spec
+    if _USE_GOAL_TARGET:
+        from .target_dsl import compute_target_match_bonus, load_target_spec
+        # fallback: state._goal_target_spec → state.players[me_idx].deck_slug の順 で auto-load
+        if _me_target_spec is None:
+            _me_target_spec = getattr(state, "_goal_target_spec", None)
+        if _me_target_spec is None:
+            me_player = state.players[me_idx]
+            me_deck_slug = getattr(me_player, "deck_slug", None)
+            if me_deck_slug:
+                _me_target_spec = load_target_spec(me_deck_slug)
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -389,6 +409,19 @@ def search_turn_plan(
                                 score = score + _W_TURN_PLAN
                     except Exception:
                         pass  # turn_plan 失敗時は plan_search 止めない
+
+                # Plan H: goal-directed target bonus (= 2026-05-19)
+                # Claude が 書いた target spec で 「ターン目標 達成 leaf」 に bonus 加算。
+                # target.bonus (= 500-2000) を W_GOAL_TARGET で スケール。
+                if _USE_GOAL_TARGET and _me_target_spec:
+                    try:
+                        target_bonus = compute_target_match_bonus(
+                            child, me_idx, _me_target_spec, child.turn_number
+                        )
+                        if target_bonus > 0:
+                            score = score + _W_GOAL_TARGET * target_bonus
+                    except Exception:
+                        pass  # target match 失敗時は plan_search 止めない
 
                 next_frontier.append((child, plan + [action], score))
 

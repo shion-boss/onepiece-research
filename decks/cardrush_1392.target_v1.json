@@ -1,0 +1,135 @@
+{
+  "deck_slug": "cardrush_1392",
+  "leader_id": "OP13-079",
+  "archetype": "control",
+  "synergy_feature": "天竜人",
+  "finisher_cost": 10,
+  "blocker_scarce": false,
+  "generated_by": "Plan H inline (= Claude Code session, 2026-05-19 custom)",
+  "model": "claude-opus-4-7",
+  "notes": "黒イム 五老星 control。 リーダー OP13-079 (= 黒 5/4、 イベ 2c+ 不可、 起動メイン 天竜人/手札→トラッシュ で 1 ドロー)。 主要 finisher: トラッシュ 7+ で 全 五老星 chara が 場離れず (= OP13-083 サターン 4c BLK + 五老星 サーチ、 OP13-089 ウォーキュリー 4c BLK + KO 時 ドロー、 OP13-091 マーカス・マーズ 6c BLK + 5以下 KO、 OP13-080 ナス寿郎 6c 速攻)、 T10 OP13-082 五老星 10c 12000 (= 起動メイン 全 chara → トラッシュ 5 体 復活)、 PRB02-014 サボ 6c 6000 BLK (= トラッシュ 15+ で コスト-3)。 blocker 12 枚 = 極めて強固。 戦略: トラッシュ 蓄積 を 早急に → 中盤 五老星 chara を 場厚く → 終盤 五老星 起動で 復活 lethal。",
+  "entries": [
+    {"turn": 1, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_hand_ge": 5, "self_chara_count_ge": 1}, "bonus": 1000, "description": "T1: 1c 天竜人 chara (= ある場合) play、 起動メイン で トラッシュ 1 蓄積、 手札 5+ 維持"},
+      {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 700, "description": "fallback: 手札 5 重視 (= イム 起動メイン 用)"},
+      {"priority": 3, "if": {"self_leader_attached_don_ge": 1}, "bonus": 500, "description": "fallback: don 余り leader"}
+    ]},
+    {"turn": 1, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_hand_ge": 5}, "bonus": 1000, "description": "behind T1: 手札 5 + 起動メイン トラッシュ → 1 ドロー で 仕込み"},
+      {"priority": 2, "if": {"self_chara_count_ge": 1}, "bonus": 600, "description": "fallback"}
+    ]},
+    {"turn": 1, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_hand_ge": 5, "self_leader_attached_don_ge": 1}, "bonus": 1100, "description": "advantage T1: 手札 5 + don 付与"},
+      {"priority": 2, "if": {"self_chara_count_ge": 1}, "bonus": 600, "description": "fallback"}
+    ]},
+    {"turn": 2, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_hand_ge": 5, "self_chara_count_ge": 2, "self_trash_count_ge": 2}, "bonus": 1100, "description": "T2: 起動メイン 連発 (= 手札→トラッシュ 蓄積)、 場 2 + トラッシュ 2+"},
+      {"priority": 2, "if": {"self_hand_ge": 5, "self_trash_count_ge": 2}, "bonus": 800, "description": "fallback"}
+    ]},
+    {"turn": 2, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_counter_in_hand_ge": 5000, "self_hand_ge": 5}, "bonus": 1200, "description": "behind T2: counter 5000 + 手札 5、 ライフ受け で トラッシュ蓄積"},
+      {"priority": 2, "if": {"self_counter_in_hand_ge": 5000}, "bonus": 800, "description": "fallback"}
+    ]},
+    {"turn": 2, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_chara_count_ge": 2, "self_leader_attached_don_ge": 1}, "bonus": 1100, "description": "advantage T2: 場 2 + don 付与"},
+      {"priority": 2, "if": {"self_chara_count_ge": 2}, "bonus": 700, "description": "fallback"}
+    ]},
+    {"turn": 3, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_trash_count_ge": 4, "self_hand_ge": 5, "self_chara_count_ge": 2}, "bonus": 1200, "description": "T3: トラッシュ 4+ 蓄積 (= 起動メイン 連打)、 場 2 + 手札 5、 T4 サターン 着地準備"},
+      {"priority": 2, "if": {"self_trash_count_ge": 4, "self_hand_ge": 5}, "bonus": 800, "description": "fallback"}
+    ]},
+    {"turn": 3, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_counter_in_hand_ge": 6000, "self_trash_count_ge": 4}, "bonus": 1300, "description": "behind T3: counter 6000 + トラッシュ 4、 ライフ受け で 一気にトラッシュ 7+ path"},
+      {"priority": 2, "if": {"self_counter_in_hand_ge": 6000}, "bonus": 800, "description": "fallback"}
+    ]},
+    {"turn": 3, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_chara_count_ge": 2, "self_chara_attached_don_ge": 1}, "bonus": 1150, "description": "advantage T3: 場 2 + chara don 付与 push"},
+      {"priority": 2, "if": {"self_chara_count_ge": 2}, "bonus": 700, "description": "fallback"}
+    ]},
+    {"turn": 4, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_trash_count_ge": 7, "self_chara_feature_count_ge": {"feature": "五老星", "count": 1}, "self_field_power_ge": 5000}, "bonus": 1500, "description": "T4: OP13-083 サターン 4c 5000 (= 五老星、 トラッシュ 7+ で 場離れず + サーチ) or OP13-089 ウォーキュリー 4c BLK 5000 着地、 トラッシュ 7 確立"},
+      {"priority": 2, "if": {"self_chara_feature_count_ge": {"feature": "五老星", "count": 1}, "self_field_power_ge": 4000}, "bonus": 1000, "description": "fallback: トラッシュ <7 でも 五老星 1 体"},
+      {"priority": 3, "if": {"self_field_power_ge": 4000}, "bonus": 600, "description": "fallback"}
+    ]},
+    {"turn": 4, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_blocker_count_ge": 1, "self_counter_in_hand_ge": 7000, "self_trash_count_ge": 6}, "bonus": 1600, "description": "behind T4: ウォーキュリー BLK + counter 7000 + トラッシュ 6、 防御層 完備"},
+      {"priority": 2, "if": {"self_counter_in_hand_ge": 7000}, "bonus": 900, "description": "fallback"}
+    ]},
+    {"turn": 4, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_field_power_ge": 6000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 2}}, "bonus": 1300, "description": "advantage T4: 場 power 6000 + 五老星 2、 push"},
+      {"priority": 2, "if": {"self_field_power_ge": 5000}, "bonus": 800, "description": "fallback"}
+    ]},
+    {"turn": 5, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_trash_count_ge": 8, "self_chara_feature_count_ge": {"feature": "五老星", "count": 2}, "self_blocker_count_ge": 1, "self_hand_ge": 4}, "bonus": 1600, "description": "T5: トラッシュ 8 + 五老星 2 + blocker、 全員 場離れず で 不死身化"},
+      {"priority": 2, "if": {"self_field_power_ge": 7000, "self_blocker_count_ge": 1}, "bonus": 1000, "description": "fallback"}
+    ]},
+    {"turn": 5, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_blocker_count_ge": 2, "self_counter_in_hand_ge": 8000, "self_trash_count_ge": 7}, "bonus": 1700, "description": "behind T5: blocker 2 + counter 8000 + トラッシュ 7、 受け切る + 五老星 反撃"},
+      {"priority": 2, "if": {"self_blocker_count_ge": 1, "self_counter_in_hand_ge": 8000}, "bonus": 1000, "description": "fallback"}
+    ]},
+    {"turn": 5, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_field_power_ge": 8000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 3}}, "bonus": 1500, "description": "advantage T5: 場 8000 + 五老星 3、 制圧"},
+      {"priority": 2, "if": {"self_field_power_ge": 6000}, "bonus": 900, "description": "fallback"}
+    ]},
+    {"turn": 6, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_chara_feature_count_ge": {"feature": "五老星", "count": 3}, "self_blocker_count_ge": 2, "self_trash_count_ge": 10}, "bonus": 1700, "description": "T6: OP13-091 マーカス・マーズ 6c BLK (= 5以下 KO) or OP13-080 ナス寿郎 6c 速攻 着地、 五老星 3 + blocker 2"},
+      {"priority": 2, "if": {"self_chara_feature_count_ge": {"feature": "五老星", "count": 2}, "self_blocker_count_ge": 1}, "bonus": 1100, "description": "fallback"}
+    ]},
+    {"turn": 6, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_blocker_count_ge": 2, "self_counter_in_hand_ge": 8000, "self_trash_count_ge": 10}, "bonus": 1800, "description": "behind T6: blocker 2 + counter 8000 + トラッシュ 10、 マーカス で 相手 chara KO"},
+      {"priority": 2, "if": {"self_blocker_count_ge": 2}, "bonus": 1100, "description": "fallback"}
+    ]},
+    {"turn": 6, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_field_power_ge": 10000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 3}, "opp_life_le": 3}, "bonus": 1700, "description": "advantage T6: 場 10000 + 五老星 3 + 相手ライフ 3"},
+      {"priority": 2, "if": {"self_field_power_ge": 8000}, "bonus": 1000, "description": "fallback"}
+    ]},
+    {"turn": 7, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_chara_feature_count_ge": {"feature": "五老星", "count": 4}, "self_blocker_count_ge": 2, "self_trash_count_ge": 10}, "bonus": 1800, "description": "T7: OP13-084 ピーター 7c (= 五老星 元 power 7000 化) + PRB02-014 サボ 6c BLK (= トラッシュ 15+ で 3c)、 場 4 五老星 + blocker 2"},
+      {"priority": 2, "if": {"self_chara_feature_count_ge": {"feature": "五老星", "count": 3}, "self_blocker_count_ge": 1}, "bonus": 1200, "description": "fallback"}
+    ]},
+    {"turn": 7, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_blocker_count_ge": 3, "self_counter_in_hand_ge": 8000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 3}}, "bonus": 1900, "description": "behind T7: blocker 3 + counter 8000 + 五老星 3、 完全 防御"},
+      {"priority": 2, "if": {"self_blocker_count_ge": 2, "self_counter_in_hand_ge": 10000}, "bonus": 1200, "description": "fallback"}
+    ]},
+    {"turn": 7, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_field_power_ge": 12000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 4}, "opp_life_le": 2}, "bonus": 1850, "description": "advantage T7: 場 12000 + 五老星 4 + 相手ライフ 2"},
+      {"priority": 2, "if": {"self_field_power_ge": 10000, "opp_life_le": 3}, "bonus": 1300, "description": "fallback"}
+    ]},
+    {"turn": 8, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_field_power_ge": 14000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 4}, "self_blocker_count_ge": 2}, "bonus": 1850, "description": "T8: 場 14000 + 五老星 4 + blocker 2、 T10 五老星 起動メイン 準備"},
+      {"priority": 2, "if": {"self_field_power_ge": 12000, "self_blocker_count_ge": 1}, "bonus": 1300, "description": "fallback"}
+    ]},
+    {"turn": 8, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_blocker_count_ge": 3, "self_counter_in_hand_ge": 10000, "self_trash_count_ge": 15}, "bonus": 1800, "description": "behind T8: blocker 3 + counter 10000 + トラッシュ 15、 受け切る + サボ コスト-3 化"},
+      {"priority": 2, "if": {"self_counter_in_hand_ge": 12000}, "bonus": 1100, "description": "fallback"}
+    ]},
+    {"turn": 8, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"self_field_power_ge": 14000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 5}, "opp_life_le": 2}, "bonus": 1900, "description": "advantage T8: 場 14000 + 五老星 5、 lethal 直前"},
+      {"priority": 2, "if": {"self_field_power_ge": 12000, "opp_life_le": 3}, "bonus": 1300, "description": "fallback"}
+    ]},
+    {"turn": 9, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "self_field_power_ge": 15000, "opp_life_le": 2}, "bonus": 1950, "description": "T9: 大型 finisher (= T10 OP13-082 五老星 直前) 着地、 場 15000 + 相手ライフ 2"},
+      {"priority": 2, "if": {"self_field_power_ge": 13000, "opp_life_le": 3}, "bonus": 1300, "description": "fallback"}
+    ]},
+    {"turn": 9, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_blocker_count_ge": 3, "self_counter_in_hand_ge": 12000, "self_chara_feature_count_ge": {"feature": "五老星", "count": 4}}, "bonus": 1900, "description": "behind T9: blocker 3 + counter 12000、 五老星 大量 + 受け切る"},
+      {"priority": 2, "if": {"self_counter_in_hand_ge": 12000}, "bonus": 1100, "description": "fallback"}
+    ]},
+    {"turn": 9, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"opp_life_le": 1, "self_finisher_on_field_ge": 1, "self_field_power_ge": 14000}, "bonus": 2000, "description": "advantage T9: 相手ライフ 1 + finisher、 確実 lethal"},
+      {"priority": 2, "if": {"opp_life_le": 2, "self_field_power_ge": 12000}, "bonus": 1500, "description": "fallback"}
+    ]},
+    {"turn": 10, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "even", "targets": [
+      {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "self_field_power_ge": 16000, "opp_life_le": 1}, "bonus": 2000, "description": "T10: OP13-082 五老星 10c 12000 (= 起動メイン 全 chara→トラッシュ 5 体 復活) 着地、 場 16000 + 相手ライフ 1"},
+      {"priority": 2, "if": {"self_finisher_on_field_ge": 1, "self_field_power_ge": 13000}, "bonus": 1400, "description": "fallback"}
+    ]},
+    {"turn": 10, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "behind", "targets": [
+      {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "self_field_power_ge": 14000, "self_counter_in_hand_ge": 8000}, "bonus": 1800, "description": "behind T10: 五老星 起動 + 場 14000 + counter で 一気詰め"},
+      {"priority": 2, "if": {"self_counter_in_hand_ge": 12000}, "bonus": 1000, "description": "fallback: 引き分け"}
+    ]},
+    {"turn": 10, "opp_leader_id": "OP13-079", "opp_deck_slug": "cardrush_1392", "opp_archetype": "control", "self_condition": "advantage", "targets": [
+      {"priority": 1, "if": {"opp_life_le": 0, "self_finisher_on_field_ge": 1}, "bonus": 2000, "description": "advantage T10: 相手ライフ 0 + finisher、 確実 lethal"},
+      {"priority": 2, "if": {"opp_life_le": 1, "self_field_power_ge": 14000}, "bonus": 1500, "description": "fallback"}
+    ]}
+  ]
+}
