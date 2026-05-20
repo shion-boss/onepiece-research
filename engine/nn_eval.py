@@ -28,8 +28,19 @@ from typing import Optional
 
 import json
 
-import torch
-import torch.nn as nn
+# torch conditional import (= 2026-05-20、 Vercel function で torch 未 install でも module load 可能)
+try:
+    import torch
+    import torch.nn as nn
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
+    torch = None  # type: ignore
+    # nn placeholder = NNEvaluator class 定義 を skip させる ため
+    class _NNPlaceholder:
+        class Module:
+            pass
+    nn = _NNPlaceholder  # type: ignore
 
 from .core import GameState
 from .state_encoder import encode_state, encoded_dim
@@ -224,8 +235,11 @@ def get_model() -> Optional[nn.Module]:
     state_dict の構造から SimpleEvaluator / StateEncoderEvaluator を auto-detect。
 
     nn_flags.is_nn_forced_disabled() == True の時は path 存在に関係なく None を返す。
+    torch 未 install 環境 (= Vercel function 等) では 常に None。
     """
     global _MODEL_CACHE, _MODEL_LOADED_PATH
+    if not _TORCH_AVAILABLE:
+        return None
     if is_nn_forced_disabled():
         return None
     if _MODEL_CACHE is not None:

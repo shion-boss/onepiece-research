@@ -2268,7 +2268,7 @@ class DeepPlanningAI(GreedyAI):
     def choose_action(self, state: GameState) -> Action:
         from .plan_search import search_turn_plan
         from .nn_per_deck import should_use_nn as _should_use_nn
-        from .nn_eval import nn_disabled as _nn_disabled
+        from .nn_flags import nn_disabled as _nn_disabled  # torch 非依存 (= 2026-05-20、 Vercel OOM 対策)
 
         # MatchupProfile / role priority のロード (= GreedyAI._ensure_matchup_overrides)
         self._ensure_matchup_overrides(state, state.turn_player_idx)
