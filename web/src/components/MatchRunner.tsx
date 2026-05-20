@@ -123,7 +123,12 @@ export function MatchRunner({
 
   return (
     <div className="space-y-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h2 className="text-lg font-medium">対戦シミュレーション</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-medium">対戦シミュレーション</h2>
+        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" title="現 default AI: GoalDirectedAI v1 spec + adaptive=True (= 旧 PlanningAI baseline より mirror eval +6pt 改善 確証)">
+          AI: GoalDirectedAI v1
+        </span>
+      </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
