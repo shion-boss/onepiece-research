@@ -68,6 +68,11 @@ _EXTENDED_KEYS = {
     "self_hand_le",
     "self_leader_attached_don_ge",
     "self_finisher_on_field_ge",
+    "min_attacks_this_turn_ge",
+    "min_leader_attacks_this_turn_ge",
+    "opp_field_total_power_le",
+    "opp_active_chara_count_le",
+    "opp_chara_count_le",
 }
 
 
@@ -94,10 +99,33 @@ def _card_is_finisher(card) -> bool:
     return int(getattr(card, "cost", 0) or 0) >= 7
 
 
-def _extended_eval(cond: dict[str, Any], state: GameState, me) -> bool:
-    """eval_condition でカバーされない target 固有 primitive を 評価。"""
+def _count_attacks_in_plan(plan, leader_only: bool = False) -> int:
+    """plan list (= action 列) の attack 数 を カウント。 leader_only=True で AttackLeader のみ。"""
+    if not plan:
+        return 0
+    from .game import AttackLeader, AttackCharacter
+    if leader_only:
+        return sum(1 for a in plan if isinstance(a, AttackLeader))
+    return sum(1 for a in plan if isinstance(a, (AttackLeader, AttackCharacter)))
+
+
+def _extended_eval(cond: dict[str, Any], state: GameState, me, plan=None) -> bool:
+    """eval_condition でカバーされない target 固有 primitive を 評価。
+
+    plan: plan_search の 現 plan (= action 列)、 min_attacks_*_ge 系で 使用。
+    """
     if not cond:
         return True
+    # opp 参照 (= counter-play primitive 用)
+    opp = None
+    for k in cond:
+        if k.startswith("opp_"):
+            # state.players の中で me ではない player を opp とする
+            for p in state.players:
+                if p is not me:
+                    opp = p
+                    break
+            break
     for k, v in cond.items():
         if k == "self_field_power_ge":
             total = sum(c.power for c in me.characters)
@@ -136,6 +164,29 @@ def _extended_eval(cond: dict[str, Any], state: GameState, me) -> bool:
         elif k == "self_hand_le":
             if len(me.hand) > int(v):
                 return False
+        elif k == "min_attacks_this_turn_ge":
+            if _count_attacks_in_plan(plan, leader_only=False) < int(v):
+                return False
+        elif k == "min_leader_attacks_this_turn_ge":
+            if _count_attacks_in_plan(plan, leader_only=True) < int(v):
+                return False
+        elif k == "opp_field_total_power_le":
+            if opp is None:
+                return False
+            total = sum(c.power for c in opp.characters)
+            if total > int(v):
+                return False
+        elif k == "opp_active_chara_count_le":
+            if opp is None:
+                return False
+            count = sum(1 for c in opp.characters if not c.rested)
+            if count > int(v):
+                return False
+        elif k == "opp_chara_count_le":
+            if opp is None:
+                return False
+            if len(opp.characters) > int(v):
+                return False
         else:
             # 未知 key (= 拡張テーブル に 漏れ) は False 扱い (暴発防止)
             return False
@@ -148,12 +199,14 @@ def _extended_eval(cond: dict[str, Any], state: GameState, me) -> bool:
 
 
 def evaluate_target_condition(
-    cond: dict[str, Any], state: GameState, me_idx: int
+    cond: dict[str, Any], state: GameState, me_idx: int, plan=None
 ) -> bool:
     """target spec の 'if' 節 を 評価。
 
     既存 `eval_condition` の primitive + Plan H 拡張 primitive を 統合評価。
     すべて True で True (= AND)。 dict が 空 なら True。
+
+    plan: plan_search の 現 plan (= action 列)、 min_attacks_*_ge 系で 使用。
     """
     if not cond:
         return True
@@ -162,7 +215,7 @@ def evaluate_target_condition(
     ext_cond = {k: v for k, v in cond.items() if k in _EXTENDED_KEYS}
     base_cond = {k: v for k, v in cond.items() if k not in _EXTENDED_KEYS}
 
-    if ext_cond and not _extended_eval(ext_cond, state, me):
+    if ext_cond and not _extended_eval(ext_cond, state, me, plan):
         return False
     if base_cond and not eval_condition(base_cond, state, me, None):
         return False
@@ -225,7 +278,7 @@ def find_matching_entries(
     weight ∈ [0, 1]、 turn_weight × cond_weight。
 
     - turn: 厳密一致 → 1.0、 ±1 → 0.6、 else → 0 (skip)
-    - opp_leader_id: 厳密 一致 のみ (= 違う leader の entry は 無関係)
+    - opp_leader_id: 厳密一致 → 1.0、 None / "" (= wildcard) → 0.7 (= leader 不問 generic)
     - condition: _CONDITION_COMPAT table で 0.3〜1.0
     """
     if not target_spec:
@@ -238,8 +291,14 @@ def find_matching_entries(
     matches: list[tuple[dict, float]] = []
 
     for entry in entries:
-        if entry.get("opp_leader_id") != opp_leader_id:
-            continue
+        e_opp_leader = entry.get("opp_leader_id")
+        # wildcard match (= opp_leader_id None/"" で 全 leader 共通 generic entry)
+        if e_opp_leader is None or e_opp_leader == "":
+            leader_w = 0.7  # leader 別 entry より 低 priority
+        elif e_opp_leader == opp_leader_id:
+            leader_w = 1.0
+        else:
+            continue  # 別 leader の entry は 無関係
         e_turn = entry.get("turn", 0)
         turn_diff = abs(e_turn - turn_number)
         if turn_diff == 0:
@@ -252,7 +311,7 @@ def find_matching_entries(
         cond_w = cond_table.get(e_cond, 0.0)
         if cond_w <= 0:
             continue
-        weight = turn_w * cond_w
+        weight = leader_w * turn_w * cond_w
         matches.append((entry, weight))
 
     return matches
@@ -282,6 +341,7 @@ def compute_target_match_bonus(
     target_spec: dict,
     turn_number: int,
     cap: int = 3000,
+    plan=None,
 ) -> int:
     """plan_search の leaf eval で 呼ばれる bonus 計算 (= 集約 版、 2026-05-19 更新)。
 
@@ -317,7 +377,7 @@ def compute_target_match_bonus(
         sorted_targets = sorted(targets, key=lambda t: t.get("priority", 999))
         for tgt in sorted_targets:
             if_cond = tgt.get("if", {})
-            if evaluate_target_condition(if_cond, state, me_idx):
+            if evaluate_target_condition(if_cond, state, me_idx, plan):
                 target_bonus = int(tgt.get("bonus", 0))
                 total_bonus += weight * importance * target_bonus
                 break  # priority chain で 1 つ 採用、 次 entry へ
@@ -332,24 +392,28 @@ _TARGET_SPEC_CACHE: dict[str, dict] = {}
 
 
 def load_target_spec(
-    deck_slug: str, base_dir: Optional[Path] = None
+    deck_slug: str, base_dir: Optional[Path] = None, version: str = "v1"
 ) -> Optional[dict]:
-    """decks/<slug>.target_v1.json を 読み込む (= memo cache)。 なければ None。"""
-    if deck_slug in _TARGET_SPEC_CACHE:
-        return _TARGET_SPEC_CACHE[deck_slug]
+    """decks/<slug>.target_<version>.json を 読み込む (= memo cache)。 なければ None。
+
+    version: "v1" (= default、 既存) or "v2" (= cross-trained、 2026-05-20)
+    """
+    cache_key = f"{deck_slug}:{version}"
+    if cache_key in _TARGET_SPEC_CACHE:
+        return _TARGET_SPEC_CACHE[cache_key]
 
     if base_dir is None:
         base_dir = Path(__file__).resolve().parent.parent / "decks"
-    path = base_dir / f"{deck_slug}.target_v1.json"
+    path = base_dir / f"{deck_slug}.target_{version}.json"
     if not path.exists():
-        _TARGET_SPEC_CACHE[deck_slug] = None  # type: ignore[assignment]
+        _TARGET_SPEC_CACHE[cache_key] = None  # type: ignore[assignment]
         return None
     try:
         spec = json.loads(path.read_text(encoding="utf-8"))
-        _TARGET_SPEC_CACHE[deck_slug] = spec
+        _TARGET_SPEC_CACHE[cache_key] = spec
         return spec
     except Exception:
-        _TARGET_SPEC_CACHE[deck_slug] = None  # type: ignore[assignment]
+        _TARGET_SPEC_CACHE[cache_key] = None  # type: ignore[assignment]
         return None
 
 

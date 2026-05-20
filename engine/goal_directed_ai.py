@@ -62,6 +62,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         goal_target_w: float = 1.0,
         target_spec: Optional[dict] = None,
         deck_slug: Optional[str] = None,
+        spec_version: str = "v1",
         **kwargs,
     ):
         """
@@ -69,6 +70,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
             goal_target_w: target.bonus に かける スケール係数 (= default 1.0)。
             target_spec: 明示指定の target spec dict。 None なら deck_slug or auto-load。
             deck_slug: target spec を load する deck slug。 None なら state から auto-detect。
+            spec_version: "v1" (= default refined) or "v2" (= cross-trained、 2026-05-20)
         """
         kwargs.setdefault("beam_width", 4)
         kwargs.setdefault("max_depth", 6)
@@ -77,20 +79,31 @@ class GoalDirectedAI(_NoNNPlanningBase):
         self._goal_target_w = goal_target_w
         self._explicit_target_spec = target_spec
         self._deck_slug = deck_slug
+        self._spec_version = spec_version
 
     def _resolve_target_spec(self, state: GameState) -> Optional[dict]:
-        """target spec を 解決。 優先順位: 明示 > deck_slug 引数 > state から auto-detect。"""
+        """target spec を 解決。 優先順位: 明示 > deck_slug 引数 > state から auto-detect。
+
+        v3 (= NN value 統合) で target_v3.json なし の 場合、 v1 file を fallback load。
+        """
         if self._explicit_target_spec is not None:
             return self._explicit_target_spec
         if self._deck_slug:
-            return load_target_spec(self._deck_slug)
+            spec = load_target_spec(self._deck_slug, version=self._spec_version)
+            # v3 で .target_v3.json なし → v1 fallback (= NN value + v1 spec 統合)
+            if spec is None and self._spec_version != "v1":
+                spec = load_target_spec(self._deck_slug, version="v1")
+            return spec
         # auto-detect from state.players[me_idx].deck_slug
         me_idx = state.turn_player_idx
         try:
             me_player = state.players[me_idx]
             slug = getattr(me_player, "deck_slug", None)
             if slug:
-                return load_target_spec(slug)
+                spec = load_target_spec(slug, version=self._spec_version)
+                if spec is None and self._spec_version != "v1":
+                    spec = load_target_spec(slug, version="v1")
+                return spec
         except Exception:
             pass
         return None
@@ -98,6 +111,14 @@ class GoalDirectedAI(_NoNNPlanningBase):
     def choose_action(self, state: GameState):
         saved = os.environ.get("ONEPIECE_GOAL_TARGET_W")
         os.environ["ONEPIECE_GOAL_TARGET_W"] = str(self._goal_target_w)
+        # v3: Phase H-3 NN value 加算 path (= 2026-05-20)
+        # spec_version="v3" で ONEPIECE_AZ_VALUE_NN=1 set、 plan_search の leaf eval で
+        # compute_value_az 経由 P(win) を score 加算。 ONEPIECE_AZ_VALUE_NN_PATH で model 指定。
+        saved_nn = os.environ.get("ONEPIECE_AZ_VALUE_NN")
+        saved_nn_path = os.environ.get("ONEPIECE_AZ_VALUE_NN_PATH")
+        if self._spec_version == "v3":
+            os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
+            os.environ["ONEPIECE_AZ_VALUE_NN_PATH"] = "db/value_nn_phase_h3.pt"
         # target spec を state に attach (= search_turn_plan の auto-load で 拾う)。
         # 既存 attached spec が あれば 上書きしない (= 多重呼出し対応)
         target_spec = self._resolve_target_spec(state)
@@ -112,6 +133,16 @@ class GoalDirectedAI(_NoNNPlanningBase):
                 os.environ.pop("ONEPIECE_GOAL_TARGET_W", None)
             else:
                 os.environ["ONEPIECE_GOAL_TARGET_W"] = saved
+            # NN env restore
+            if self._spec_version == "v3":
+                if saved_nn is None:
+                    os.environ.pop("ONEPIECE_AZ_VALUE_NN", None)
+                else:
+                    os.environ["ONEPIECE_AZ_VALUE_NN"] = saved_nn
+                if saved_nn_path is None:
+                    os.environ.pop("ONEPIECE_AZ_VALUE_NN_PATH", None)
+                else:
+                    os.environ["ONEPIECE_AZ_VALUE_NN_PATH"] = saved_nn_path
             if attached:
                 try:
                     delattr(state, "_goal_target_spec")

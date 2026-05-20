@@ -167,3 +167,4 @@ db/mcts_rollout_snapshots*.jsonl
 db/mcts_rollout_combined.jsonl
 db/mcts_rollout_by_deck/
 db/mcts_rollout_by_deck.tar.gz
+*.bak_before_*

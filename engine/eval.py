@@ -434,7 +434,9 @@ def compute_dynamic_weights_v2(state: "GameState", me_idx: int) -> dict[str, flo
     w_hand = base.W_HAND * (w_hand_self_mult + w_hand_opp_mult) / 2
 
     # DON 一律低 (= ohtsuki さん指摘で「数」 ではなく「質」 で評価、 W_DON は score 化しない方向)
-    w_don = base.W_DON * 0.4
+    # 2026-05-20: snapshot 解析 で REFRESH DON return が critical board_eval drop 起こす confirmed、
+    # 0.4 → 0.1 に さらに 削減 (= DON 数 評価 を ほぼ 無効化)。
+    w_don = base.W_DON * 0.1
 
     opp_field_strength = 1.0
     if opp_field_power >= 15000:

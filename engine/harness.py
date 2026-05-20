@@ -21,6 +21,16 @@ from .deck import DeckList
 from .effects import load_effect_overlay
 from .game import GameState, setup_game, play_until_main, Phase
 from .ai import GreedyAI, PlanningAI, RandomAI, play_one_action
+from .goal_directed_ai import GoalDirectedAI
+
+
+def _default_ai_factory(rng, deck_analysis=None):
+    """harness の new default AI (= 2026-05-20): GoalDirectedAI(v1 spec + adaptive=True)。
+
+    過去 default の PlanningAI と 比較 で +6pt 改善 確証済 (= wave 1+2+3+4_r1、 14 deck × 60g)。
+    deck_slug は deck_analysis から auto-detect (= goal_directed_ai._resolve_target_spec)。
+    """
+    return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=True, spec_version="v1")
 
 
 @dataclass
@@ -114,8 +124,8 @@ def run_matchup(
     deck2: DeckList,
     n_games: int = 100,
     seed: int = 0,
-    ai_factory_1=PlanningAI,
-    ai_factory_2=PlanningAI,
+    ai_factory_1=_default_ai_factory,
+    ai_factory_2=_default_ai_factory,
     max_actions_per_game: int = 1500,
     verbose: bool = False,
     effects_overlay: Optional[dict] = None,

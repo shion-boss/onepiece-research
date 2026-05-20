@@ -416,7 +416,8 @@ def search_turn_plan(
                 if _USE_GOAL_TARGET and _me_target_spec:
                     try:
                         target_bonus = compute_target_match_bonus(
-                            child, me_idx, _me_target_spec, child.turn_number
+                            child, me_idx, _me_target_spec, child.turn_number,
+                            plan=plan + [action],
                         )
                         if target_bonus > 0:
                             score = score + _W_GOAL_TARGET * target_bonus

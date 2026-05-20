@@ -109,6 +109,9 @@ class DeckClassifier:
     # P(card_id | variant) per (leader_id, variant_id)
     variant_card_probs: dict[str, dict[int, dict[str, float]]] = field(default_factory=dict)
 
+    # === memo cache (= 2026-05-19、 plan_search で 数百万回呼出し 緩和) ===
+    _classify_cache: dict = field(default_factory=dict, repr=False)
+
     @classmethod
     def build(
         cls,
@@ -237,6 +240,13 @@ class DeckClassifier:
         if not self.card_probs:
             return {}
 
+        # memo cache (= 2026-05-19、 30g 連続 累積問題 緩和)
+        # plan_search 内 で 同 (opp_leader, observed) が 数百万回 呼ばれる、 cache hit 99%+ 期待
+        cache_key = (opp_leader_id, tuple(sorted(observed_card_ids)))
+        cached = self._classify_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         # log-likelihood + log-prior
         scores: dict[str, float] = {}
         for arch in self.card_probs:
@@ -268,8 +278,14 @@ class DeckClassifier:
         total = sum(exp_scores.values())
         if total == 0:
             n = len(scores)
-            return {arch: 1.0 / n for arch in scores}
-        return {arch: v / total for arch, v in exp_scores.items()}
+            result = {arch: 1.0 / n for arch in scores}
+        else:
+            result = {arch: v / total for arch, v in exp_scores.items()}
+
+        # cache 保存 (= 上限 10000 entries で 暴走防止)
+        if len(self._classify_cache) < 10000:
+            self._classify_cache[cache_key] = result
+        return result
 
     def classify_from_state(
         self,

@@ -2210,16 +2210,20 @@ class DeepPlanningAI(GreedyAI):
         ai_opp=None,
         adaptive: bool = True,
         max_turns: int = 1,
+        adaptive_max_turns_cap: Optional[int] = None,
     ):
         super().__init__(rng=rng, deck_analysis=deck_analysis)
         # adaptive=False で旧挙動 (= 固定 beam_width / max_depth、 max_turns 設定可能)
         # 後方互換 + テスト用 escape hatch
         # max_turns: 2026-05-18 追加。 adaptive=False で多ターン読みを有効化する用。
         #            >1 の場合は plan_search に max_turns を渡して相手ターン sim 込みで探索。
+        # adaptive_max_turns_cap: 2026-05-19 追加。 adaptive=True で _compute_adaptive_params が
+        #            返す max_turns を 上限 cap で 抑える (= T6+ plan-to-end の計算量爆発を切る)。
         self.beam_width = beam_width
         self.max_depth = max_depth
         self.adaptive = adaptive
         self.max_turns_fixed = max_turns
+        self.adaptive_max_turns_cap = adaptive_max_turns_cap
         # ai_opp が未指定なら self を defense sim 用に流用 (= self-play 簡略モデル)
         self._ai_opp = ai_opp
 
@@ -2246,13 +2250,20 @@ class DeepPlanningAI(GreedyAI):
             conf = 0.5
 
         if turn <= 2:
-            return (4, 1, 6)
-        if turn <= 5:
-            return (4, 2, 5)
+            result = (4, 1, 6)
+        elif turn <= 5:
+            result = (4, 2, 5)
         # T6+ = ゲーム終了射程、 plan-to-end mode
-        if conf >= 0.95:
-            return (3, MAX_TURNS_HARD_CAP, 4)
-        return (3, 3, 4)
+        elif conf >= 0.95:
+            result = (3, MAX_TURNS_HARD_CAP, 4)
+        else:
+            result = (3, 3, 4)
+
+        # adaptive_max_turns_cap で max_turns を 抑える (= 2026-05-19、 計算量制御用)
+        cap = getattr(self, "adaptive_max_turns_cap", None)
+        if cap is not None and result[1] > cap:
+            return (result[0], cap, result[2])
+        return result
 
     def choose_action(self, state: GameState) -> Action:
         from .plan_search import search_turn_plan
