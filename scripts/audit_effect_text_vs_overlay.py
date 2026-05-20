@@ -112,8 +112,17 @@ def audit_card(cid: str, entries: list) -> list[dict]:
             })
             break
 
-    # 4) 「相手のキャラN枚をKOする」 → overlay に ko / ko_multi
-    if re.search(r"相手の.*?キャラ\s*\d*\s*枚.{0,30}(?:KO|ＫＯ)する", text):
+    # 4-6) text を 「...できる：」 で 分割 し、 effect 側 (= 後半) で 検査。
+    # cost 句 (= 前半) に 含まれる primitive は overlay 必須 ではない (= cost として 別 処理)。
+    effect_only = text
+    # 全 「...できる：」 で 分割 → 効果側 (= ":" 以降) を 連結
+    parts = re.split(r"(?:こと)?できる(?:：|:)", text)
+    if len(parts) > 1:
+        # 偶数 index は cost、 奇数 index は effect (= 厳密 ではない が 簡略)
+        # 全 ":...：" 後 を effect として 連結
+        effect_only = " ".join(parts[1:])
+
+    if re.search(r"相手の.*?キャラ\s*\d*\s*枚.{0,30}(?:KO|ＫＯ)する", effect_only):
         if not has_primitive_in_entries(entries, "ko") and \
            not has_primitive_in_entries(entries, "ko_multi") and \
            not has_primitive_in_entries(entries, "ko_all_others"):
@@ -124,8 +133,7 @@ def audit_card(cid: str, entries: list) -> list[dict]:
                 "severity": 4,
             })
 
-    # 5) 「キャラN枚を持ち主の手札に戻す」 → return_to_hand
-    if re.search(r"キャラ\s*\d*\s*枚.{0,30}持ち主の手札に戻す", text):
+    if re.search(r"キャラ\s*\d*\s*枚.{0,30}持ち主の手札に戻す", effect_only):
         if not has_primitive_in_entries(entries, "return_to_hand") and \
            not has_primitive_in_entries(entries, "return_to_hand_multi"):
             issues.append({
@@ -135,8 +143,7 @@ def audit_card(cid: str, entries: list) -> list[dict]:
                 "severity": 4,
             })
 
-    # 6) 「相手のキャラN枚をレストにする」 → rest
-    if re.search(r"相手の.*?キャラ\s*\d*\s*枚.{0,30}をレストにする", text):
+    if re.search(r"相手の.*?キャラ\s*\d*\s*枚.{0,30}をレストにする", effect_only):
         if not has_primitive_in_entries(entries, "rest"):
             issues.append({
                 "card_id": cid,

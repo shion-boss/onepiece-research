@@ -471,6 +471,14 @@
       "do": [
         {
           "self_hand_to_deck_bottom": 2
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 1
+            }
+          }
         }
       ]
     }
@@ -531,6 +539,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -877,6 +891,12 @@
       "do": [
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -1002,6 +1022,14 @@
       "do": [
         {
           "rest": "one_opponent_character_le_5000"
+        },
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ]
     }
@@ -1072,6 +1100,14 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
           }
         }
       ]
@@ -2564,6 +2600,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 4000
+            }
+          }
         }
       ],
       "cost": {
@@ -2696,6 +2740,12 @@
           "cost_minus": {
             "target": "one_opponent_character_le_5000",
             "amount": 1
+          }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
           }
         }
       ]
@@ -3277,6 +3327,14 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
           }
         }
       ]
@@ -5247,6 +5305,14 @@
               "cost_le": 5
             },
             "limit": 1
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
           }
         }
       ]
@@ -7674,6 +7740,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_2cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 2
+            }
+          }
         }
       ]
     }
@@ -10940,10 +11014,17 @@
   ],
   "EB01-021_p2": [
     {
-      "_text": "【自分のターン終了時】コスト2以上 インペルダウン キャラ1枚を手札に戻す → add_don 1",
-      "when": "on_turn_end",
+      "_text": "【自分のターン終了時】コスト2以上インペルダウンキャラ1枚を手札戻し → add_don 1",
+      "when": "end_of_turn",
       "if": {
-        "self_turn": true
+        "self_turn": true,
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "インペルダウン",
+            "cost_ge": 2
+          },
+          "count": 1
+        }
       },
       "do": [
         {
@@ -11382,22 +11463,42 @@
   ],
   "EB01-021": [
     {
-      "_text": "ハンニャバル 自ターン終了時 1ドロー (自動生成)",
+      "_text": "【自分のターン終了時】コスト2以上インペルダウンキャラ1枚を手札戻し → add_don 1",
       "when": "end_of_turn",
+      "if": {
+        "self_turn": true,
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "インペルダウン",
+            "cost_ge": 2
+          },
+          "count": 1
+        }
+      },
       "do": [
         {
-          "draw": 1
+          "add_don": 1
         }
       ]
     }
   ],
   "EB01-021_p1": [
     {
-      "_text": "ハンニャバル 自ターン終了時 1ドロー (自動生成)",
+      "_text": "【自分のターン終了時】コスト2以上インペルダウンキャラ1枚を手札戻し → add_don 1",
       "when": "end_of_turn",
+      "if": {
+        "self_turn": true,
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "インペルダウン",
+            "cost_ge": 2
+          },
+          "count": 1
+        }
+      },
       "do": [
         {
-          "draw": 1
+          "add_don": 1
         }
       ]
     }
@@ -11543,6 +11644,12 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ]
     }
@@ -11558,6 +11665,12 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ]
     }
@@ -12253,6 +12366,22 @@
             "amount": 1000,
             "duration": "battle"
           }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 4000
+            }
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 4000
+            }
+          }
         }
       ]
     }
@@ -12267,6 +12396,22 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "battle"
+          }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 4000
+            }
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 4000
+            }
           }
         }
       ]
@@ -12350,6 +12495,14 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ]
     }
@@ -12364,6 +12517,14 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ]
     }
@@ -13691,6 +13852,14 @@
             "amount": 1000,
             "duration": "battle"
           }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3
+            }
+          }
         }
       ]
     }
@@ -13705,6 +13874,14 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "battle"
+          }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3
+            }
           }
         }
       ]
@@ -14481,6 +14658,14 @@
               }
             ]
           }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "truly_original_power_le": 7000
+            }
+          }
         }
       ],
       "if": {
@@ -14664,6 +14849,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ]
     }
@@ -16573,6 +16766,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "cost": {
@@ -18448,6 +18649,12 @@
       "do": [
         {
           "add_rested_don": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ]
     }
@@ -18718,6 +18925,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3
+            }
+          }
         }
       ],
       "cost": {
@@ -19706,6 +19921,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ],
       "cost": {
@@ -19817,6 +20040,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ]
     }
@@ -19893,6 +20124,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_6cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 6
+            }
+          }
         }
       ]
     },
@@ -19927,6 +20166,12 @@
             "target": "self",
             "amount": 3000,
             "duration": "turn"
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
           }
         }
       ]
@@ -21925,6 +22170,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ]
     },
@@ -21968,6 +22221,14 @@
         },
         {
           "ko": "one_opponent_character_cost_le_1cost"
+        },
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 1
+            }
+          }
         }
       ]
     },
@@ -22379,6 +22640,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ],
       "cost": {
@@ -23516,6 +23785,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_2cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 2
+            }
+          }
         }
       ]
     }
@@ -23647,6 +23924,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -23870,6 +24153,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -24658,6 +24947,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 3000
+            }
+          }
         }
       ],
       "conditions": [
@@ -25422,6 +25719,14 @@
             },
             "limit": 1
           }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
+          }
         }
       ]
     }
@@ -26047,6 +26352,12 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "if": {
@@ -27315,6 +27626,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -27881,6 +28198,12 @@
           "cost_minus": {
             "target": "one_opponent_character_le_5000",
             "amount": 1
+          }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
           }
         }
       ]
@@ -28657,6 +28980,14 @@
               "cost_le": 5
             },
             "limit": 1
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
           }
         }
       ]
@@ -30013,6 +30344,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "cost": {
@@ -30751,6 +31090,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ],
       "cost": {
@@ -30765,6 +31112,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ],
       "cost": {
@@ -31833,6 +32188,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "cost": {
@@ -32586,6 +32949,12 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "if": {
@@ -32604,6 +32973,14 @@
               "cost_le": 3
             },
             "limit": 1
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
           }
         }
       ]
@@ -32734,6 +33111,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ],
       "cost": {
@@ -32857,6 +33242,14 @@
       "do": [
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 6
+            }
+          }
         }
       ],
       "cost": {
@@ -32871,6 +33264,14 @@
       "do": [
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 6
+            }
+          }
         }
       ],
       "cost": {
@@ -33348,6 +33749,14 @@
               "cost_le": 3
             },
             "limit": 1
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
           }
         }
       ]
@@ -33983,6 +34392,12 @@
             "target": "one_opponent_character_le_5000",
             "amount": 1
           }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ]
     },
@@ -34008,6 +34423,12 @@
           "cost_minus": {
             "target": "one_opponent_character_le_5000",
             "amount": 1
+          }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
           }
         }
       ]
@@ -34868,6 +35289,12 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "if": {
@@ -35029,6 +35456,12 @@
       "do": [
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -37983,6 +38416,12 @@
             "target": "one_opponent_character_le_5000",
             "amount": 1
           }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ]
     },
@@ -39216,6 +39655,12 @@
             "amount": 4000,
             "duration": "battle"
           }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ]
     },
@@ -39239,6 +39684,12 @@
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
           }
         }
       ]
@@ -39339,6 +39790,14 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "cost": {
@@ -41924,6 +42383,14 @@
             },
             "limit": 1
           }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
+          }
         }
       ]
     }
@@ -43293,6 +43760,14 @@
       "do": [
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 6
+            }
+          }
         }
       ],
       "cost": {
@@ -43578,6 +44053,12 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "if": {
@@ -49007,6 +49488,12 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "if": {
@@ -50870,6 +51357,14 @@
               "feature": "魚人族"
             },
             "limit": 1
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_le": 3
+            }
           }
         }
       ],
@@ -58210,6 +58705,14 @@
               }
             ]
           }
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 6
+            }
+          }
         }
       ],
       "cost": {
@@ -58504,6 +59007,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -59400,6 +59909,12 @@
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
           }
         }
       ]
@@ -63700,6 +64215,12 @@
         },
         {
           "mill_self_top": 2
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -70282,6 +70803,12 @@
       "do": [
         {
           "untap": "self"
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -70297,6 +70824,12 @@
       "do": [
         {
           "untap": "self"
+        },
+        {
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {}
+          }
         }
       ],
       "cost": {
@@ -71587,6 +72120,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "if": {
@@ -72731,6 +73272,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "if": {
@@ -78720,6 +79269,14 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 5
+            }
+          }
         }
       ],
       "if": {
@@ -81002,7 +81559,28 @@
   ],
   "OP06-044_p1": [],
   "OP06-044_r1": [],
-  "OP06-076_r1": [],
+  "OP06-076_r1": [
+    {
+      "_text": "【自分のターン中】【ターン1回】自ドン デッキ戻った時 相手 cost 2 以下 1枚 KO",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 2
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP07-029_r1": [
     {
       "_text": "OP07-029_r1 条件付き 【ブロッカー】 grant (= 自動生成 from 公式 text)",
@@ -81352,7 +81930,26 @@
     }
   ],
   "OP14-021": [],
-  "OP14-028": [],
+  "OP14-028": [
+    {
+      "_text": "【自分のターン中】このキャラレストになった時 相手レストcost2-キャラ 1枚 KO",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 2,
+              "rested": true
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP14-032": [],
   "OP14-034": [],
   "OP14-035": [],
@@ -82686,8 +83283,48 @@
     }
   ],
   "OP01-025_p2": [],
-  "ST10-006": [],
-  "ST10-007": [],
+  "ST10-006": [
+    {
+      "_text": "【ターン1回】相手ブロッカー発動時 相手 power 8000- キャラ KO",
+      "when": "on_opp_blocker_use",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 8000
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST10-007": [
+    {
+      "_text": "【自分のターン中】【ターン1回】自ドン デッキ戻った時 相手 cost 3 以下 1枚 KO",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "rested_required": true
+            }
+          }
+        }
+      ]
+    }
+  ],
   "ST10-011": [],
   "ST10-014": [],
   "ST09-010": [],
@@ -82783,9 +83420,63 @@
     }
   ],
   "P-120": [],
-  "ST10-006_p2": [],
-  "ST10-006_p3": [],
-  "ST10-006_p4": [],
+  "ST10-006_p2": [
+    {
+      "_text": "【ターン1回】相手ブロッカー発動時 相手 power 8000- キャラ KO",
+      "when": "on_opp_blocker_use",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 8000
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST10-006_p3": [
+    {
+      "_text": "【ターン1回】相手ブロッカー発動時 相手 power 8000- キャラ KO",
+      "when": "on_opp_blocker_use",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 8000
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST10-006_p4": [
+    {
+      "_text": "【ターン1回】相手ブロッカー発動時 相手 power 8000- キャラ KO",
+      "when": "on_opp_blocker_use",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 8000
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP05-030_p1": [],
   "OP10-049_p1": [],
   "OP10-108_p2": [
