@@ -747,6 +747,61 @@ def eval_condition(
 # --------------------------------------------------------------------------- #
 # 対象選択ヘルパ
 # --------------------------------------------------------------------------- #
+def _should_human_pick(state: GameState) -> bool:
+    """人間 操作中 か (= state.human_player_idx == 現 turn_player_idx)。"""
+    return (
+        state.human_player_idx is not None
+        and state.turn_player_idx == state.human_player_idx
+    )
+
+
+def _maybe_request_target_pick(
+    state: GameState,
+    candidates: list,
+    limit: int,
+    primitive_kind: str,
+    primitive_value: Any,
+    self_inplay: Optional[InPlay],
+    description: str = "",
+) -> bool:
+    """候補 が limit を 超え 人間 操作中 なら pending_choice を 立てて True を 返す。
+
+    True 返却 時 は 呼び出し側 で 該当 primitive を 中断する (= 空 list を 返す等)。
+    """
+    if not _should_human_pick(state):
+        return False
+    if len(candidates) <= limit:
+        return False
+    me = state.players[state.turn_player_idx]
+    opp = state.opponent
+    cand_list = []
+    for c in candidates:
+        owner = "self" if c in [me.leader, *me.characters, *me.stages] else "opp"
+        cand_list.append({
+            "iid": c.instance_id,
+            "card_id": c.card.card_id,
+            "name": c.card.name,
+            "power": c.power,
+            "rested": c.rested,
+            "attached_dons": c.attached_dons,
+            "owner": owner,
+            "is_leader": c is (me.leader if owner == "self" else opp.leader),
+        })
+    state.pending_choice = {
+        "kind": "target_pick",
+        "primitive_kind": primitive_kind,
+        "primitive_value": primitive_value,
+        "candidates": cand_list,
+        "limit": limit,
+        "self_inplay_iid": self_inplay.instance_id if self_inplay else None,
+        "description": description or f"対象 {limit} 枚 を 選択",
+    }
+    state.push_log(
+        f"  効果: {primitive_kind} 選択 待ち ({len(candidates)}枚 候補 から {limit}枚)"
+    )
+    return True
+
+
 def _resolve_target(
     target_spec: Any,
     state: GameState,
@@ -754,7 +809,16 @@ def _resolve_target(
     opp: Player,
     self_inplay: Optional[InPlay],
 ) -> list[InPlay]:
-    """target 指定文字列または辞書から対象 InPlay リストを返す。"""
+    """target 指定文字列または辞書から対象 InPlay リストを返す。
+
+    内部 hooks:
+    - target_spec が dict で `_iid_picks` を 持つ 場合、 候補 から その iid のみ 残す
+      (= 人間 選択 resolved 後 の 再実行 で 使用)
+    """
+    # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
+    iid_picks: Optional[list[int]] = None
+    if isinstance(target_spec, dict) and "_iid_picks" in target_spec:
+        iid_picks = target_spec["_iid_picks"]
     # 辞書 spec で type-based dispatch
     if isinstance(target_spec, dict) and "type" in target_spec:
         t = target_spec["type"]
@@ -773,6 +837,14 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             cands = [ip for ip in [me.leader, *me.characters]
                      if _matches_filter(ip.card, filt)]
+            if iid_picks is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if _maybe_request_target_pick(
+                state, cands, 1, "one_self_chara_or_leader_filtered",
+                target_spec, self_inplay,
+                description="自リーダー or キャラ から 1 枚 選択",
+            ):
+                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "one_self_chara_filtered":
@@ -780,6 +852,14 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.characters
                      if _matches_filter(ip.card, filt)]
+            if iid_picks is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if _maybe_request_target_pick(
+                state, cands, 1, "one_self_chara_filtered",
+                target_spec, self_inplay,
+                description="自キャラ から 1 枚 選択",
+            ):
+                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "all_self_chara_filtered":
@@ -800,7 +880,6 @@ def _resolve_target(
         if t == "one_opponent_character_filtered":
             # 相手キャラから filter にマッチする 1 枚 (= パワー高い順、 attached_don 等の属性条件も追加サポート)
             filt = target_spec.get("filter", {})
-            # 追加条件: attached_don_ge, rested
             attached_don_ge = int(filt.get("attached_don_ge", 0))
             rested_required = bool(filt.get("rested", False))
             cands = []
@@ -811,10 +890,17 @@ def _resolve_target(
                     continue
                 if rested_required and not ip.rested:
                     continue
-                # 現在パワー条件 (= InPlay.power; "現在のパワー" 用)
                 if "current_power_le" in filt and ip.power > int(filt["current_power_le"]):
                     continue
                 cands.append(ip)
+            if iid_picks is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if _maybe_request_target_pick(
+                state, cands, 1, "one_opponent_character_filtered",
+                target_spec, self_inplay,
+                description="相手キャラ から 1 枚 選択",
+            ):
+                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "one_opponent_inplay_filtered":
@@ -822,6 +908,14 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             cands = [opp.leader, *opp.characters]
             cands = [ip for ip in cands if _matches_filter(ip.card, filt)]
+            if iid_picks is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if _maybe_request_target_pick(
+                state, cands, 1, "one_opponent_inplay_filtered",
+                target_spec, self_inplay,
+                description="相手リーダー or キャラ から 1 枚 選択",
+            ):
+                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
     if target_spec in (None, "self") and self_inplay is not None:
@@ -3877,18 +3971,50 @@ def run_do_array(
 
 
 def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
-    """人間 選択 を 反映 して pending_choice を 解消。 search_top_n 用。
+    """人間 選択 を 反映 して pending_choice を 解消。
 
-    picks: 公開された seen[] の中で 選んだ idx の list (= 0-based、 max=limit)。
+    picks の 意味 は choice.kind 別:
+    - "search_top_n": 公開された seen[] の中で 選んだ idx の list (= 0-based)
+    - "target_pick": candidates[] の中で 選んだ idx の list
     """
     choice = state.pending_choice
     if choice is None:
         return
-    if choice.get("kind") != "search_top_n":
-        # 他種 choice は 未実装。 とりあえず クリア
+    kind = choice.get("kind")
+    me = state.players[state.turn_player_idx]
+    opp = state.opponent
+
+    if kind == "target_pick":
+        # target_pick: choices[i] → 該当 iid を 抜き出し、 _iid_picks を 渡して 再実行
+        candidates = choice.get("candidates", [])
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        picked_iids = [candidates[i]["iid"] for i in valid_picks]
+        primitive_kind = choice.get("primitive_kind", "")
+        primitive_value = choice.get("primitive_value") or {}
+        self_inplay_iid = choice.get("self_inplay_iid")
+        # self_inplay を 復元
+        self_inplay = None
+        if self_inplay_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == self_inplay_iid:
+                    self_inplay = ip
+                    break
+        # 再実行: target_spec に _iid_picks を 追加
+        if isinstance(primitive_value, dict):
+            new_spec = dict(primitive_value)
+            new_spec["_iid_picks"] = picked_iids
+        else:
+            new_spec = primitive_value
+        state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
+        state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
+        execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind != "search_top_n":
+        # 未知 kind は クリア のみ
         state.pending_choice = None
         return
-    me = state.players[state.turn_player_idx]
     depth = int(choice.get("depth", 5))
     destination = choice.get("destination", "hand")
     rest_remain = choice.get("rest_remain", "bottom")

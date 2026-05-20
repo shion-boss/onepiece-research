@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CardImage } from "./CardImage";
 import {
   applyHumanAction,
+  applyHumanChoice,
   applyHumanDefense,
   endHumanMatch,
   startHumanMatch,
@@ -13,24 +16,7 @@ import {
 import type { CharSnapshot, PlayerSnapshot, StateSnapshot } from "@/lib/types";
 
 /**
- * 人間 vs AI 対戦 component (= OPTCGSim 風 UI)。
- *
- * Layout:
- *  ┌────────────────────────────────────────────────┐
- *  │ ┌─ log ─┐  ┌── 相手 マット (上向き) ─────────┐ │
- *  │ │       │  │ ライフ縦  キャラ5  デッキ     │ │
- *  │ │       │  │           リーダー ステージ TRH │ │
- *  │ │       │  │  DON横                          │ │
- *  │ │       │  ╞══════════════════════════════════╡
- *  │ │       │  │  DON横                          │ │
- *  │ │       │  │  リーダー ステージ TRH          │ │
- *  │ │       │  │ ライフ縦  キャラ5  デッキ     │ │
- *  │ └───────┘  └──────────────────────────────────┘ │
- *  │           ┌── 手札 横並び ──────────────────┐  │
- *  │           │  🃏 🃏 🃏 🃏 🃏 🃏 🃏          │  │
- *  │           └──────────────────────────────────┘  │
- *  │                              [Deploy] [Cancel] │
- *  └────────────────────────────────────────────────┘
+ * 人間 vs AI 対戦 component (= OPTCGSim 風 + 重ね 手札 + D&D 対応)。
  */
 
 type DeckOption = { slug: string; name: string };
@@ -41,6 +27,32 @@ type Selection =
   | { kind: "self_chara"; iid: number }
   | { kind: "self_leader" }
   | { kind: "attack_pending"; attackerIid: number };
+
+type HoverInfo =
+  | { kind: "hand"; cardId: string }
+  | {
+      kind: "chara";
+      cardId: string;
+      name: string;
+      power: number;
+      attached_dons: number;
+      rested: boolean;
+      keywords: string[];
+      isLeader: boolean;
+    }
+  | null;
+
+type DragPayload =
+  | { kind: "hand"; handIdx: number }
+  | { kind: "chara"; iid: number }
+  | { kind: "don" };
+
+type DropTarget =
+  | { kind: "self_field" }
+  | { kind: "self_leader" }
+  | { kind: "self_chara"; iid: number }
+  | { kind: "opp_leader" }
+  | { kind: "opp_chara"; iid: number };
 
 export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [deckA, setDeckA] = useState<string>(decks[0]?.slug ?? "");
@@ -53,14 +65,45 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<Selection>(null);
-  // 攻撃中: target 候補 を 表示 + マウス 位置 追従 矢印
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  // 防御 panel state
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [counterIdxs, setCounterIdxs] = useState<number[]>([]);
   const [blockerIid, setBlockerIid] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<HoverInfo>(null);
+  const [drag, setDrag] = useState<DragPayload | null>(null);
+  const [trashViewer, setTrashViewer] = useState<"me" | "opp" | null>(null);
 
   const sessionId = state?.session_id;
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+  // applyAction 重複 防止 (= 連打 / 連 drop で 同時 fetch を 防ぐ)
+  const applyInFlightRef = useRef(false);
+
+  // frame 再生 ヘルパ (= AI ターン を ログ通り 順次 表示)
+  // delay の デフォルト は 700ms。 最後の frame は 通常 setState に 任せる ので 含めない。
+  async function playFrames(
+    final: HumanMatchState,
+    frames: Record<string, unknown>[],
+    perFrameMs: number = 700,
+  ) {
+    if (frames.length === 0) {
+      setState(final);
+      return;
+    }
+    for (let i = 0; i < frames.length - 1; i++) {
+      const f = frames[i];
+      setState({
+        ...final,
+        snapshot: f,
+        legal_actions: [],
+        pending_kind: null,
+        log: typeof f.log === "string" ? [String(f.log)] : final.log,
+      });
+      await new Promise((resolve) => setTimeout(resolve, perFrameMs));
+    }
+    setState(final);
+  }
 
   async function handleStart() {
     setError(null);
@@ -74,7 +117,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         seed,
         human_first: hf,
       });
-      setState(next);
+      // 相手先行 等 で 初期 frame が 複数 ある場合 は 順次 再生
+      const frames = next.frames ?? [];
+      if (frames.length > 1) {
+        setState(next); // 初期 board state を 一旦 表示
+        await playFrames(next, frames, 700);
+      } else {
+        setState(next);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -82,17 +132,52 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     }
   }
 
-  async function applyAction(action: HumanLegalAction) {
+  async function applyAction(
+    action: HumanLegalAction,
+    opts?: { keepSelection?: boolean },
+  ) {
     if (!sessionId) return;
+    if (applyInFlightRef.current) return; // 連打 / 連 drop 防止
+    applyInFlightRef.current = true;
     setError(null);
     setBusy(true);
-    setSelection(null);
+    if (!opts?.keepSelection) setSelection(null);
+    setDrag(null);
     try {
       const next = await applyHumanAction(sessionId, action.idx);
-      setState(next);
+      // AI ターン 等 で frame が 複数 あれば 順次 再生
+      const frames = next.frames ?? [];
+      if (frames.length > 1) {
+        await playFrames(next, frames, 700);
+      } else {
+        setState(next);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
+      applyInFlightRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function handleChoiceSubmit(picks: number[]) {
+    if (!sessionId) return;
+    if (applyInFlightRef.current) return;
+    applyInFlightRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const next = await applyHumanChoice(sessionId, picks);
+      const frames = next.frames ?? [];
+      if (frames.length > 1) {
+        await playFrames(next, frames, 700);
+      } else {
+        setState(next);
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      applyInFlightRef.current = false;
       setBusy(false);
     }
   }
@@ -114,9 +199,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   }
 
   async function handleEnd() {
-    if (!sessionId) return;
-    await endHumanMatch(sessionId);
+    if (sessionId) {
+      try {
+        await endHumanMatch(sessionId);
+      } catch {
+        /* ignore */
+      }
+    }
     setState(null);
+    router.push("/");
   }
 
   useEffect(() => {
@@ -127,6 +218,18 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // ESC で 選択 / drag をキャンセル
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setSelection(null);
+        setDrag(null);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!state) {
     return (
@@ -150,7 +253,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const snap = state.snapshot as StateSnapshot | null;
   if (!snap) {
     return (
-      <div className="rounded border border-zinc-300 p-4 text-sm">
+      <div className="m-6 rounded border border-zinc-300 p-4 text-sm">
         snapshot 取得失敗
       </div>
     );
@@ -159,6 +262,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const isHumanTurn = state.turn_player_idx === state.human_idx;
   const isDefensePending = state.pending_kind === "defense";
   const isActionPending = state.pending_kind === "action";
+  const isChoicePending = state.pending_kind === "choice";
   const me = snap.players[state.human_idx];
   const opp = snap.players[state.ai_idx];
   const canAct = isHumanTurn && isActionPending && !busy;
@@ -182,6 +286,25 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const arr = actionsByIid.get(a.attacker_iid) ?? [];
       arr.push(a);
       actionsByIid.set(a.attacker_iid, arr);
+    }
+    // AttachDonToCharacter は target_iid (= self chara) で index
+    if (a.kind === "AttachDonToCharacter" && a.target_iid !== undefined) {
+      const arr = actionsByIid.get(a.target_iid) ?? [];
+      arr.push(a);
+      actionsByIid.set(a.target_iid, arr);
+    }
+    // AttachDonToLeader は leader 自身に iid が無いので自リーダー iid で index
+    if (a.kind === "AttachDonToLeader") {
+      const leaderIid = me.leader.instance_id;
+      const arr = actionsByIid.get(leaderIid) ?? [];
+      arr.push(a);
+      actionsByIid.set(leaderIid, arr);
+    }
+    // ActivateMain は source_iid (= 起動元 self chara) で index
+    if (a.source_iid !== undefined) {
+      const arr = actionsByIid.get(a.source_iid) ?? [];
+      arr.push(a);
+      actionsByIid.set(a.source_iid, arr);
     }
     if (a.kind === "EndPhase") endPhaseAction = a;
   }
@@ -231,53 +354,67 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     if (action) applyAction(action);
   }
 
-  // 右下 confirm ボタン の primary action を 決定
-  function primaryActionForSelection(): HumanLegalAction | undefined {
-    if (!selection) return undefined;
-    if (selection.kind === "hand") {
-      return (actionsByHand.get(selection.handIdx) ?? [])[0];
-    }
-    if (selection.kind === "self_leader") {
-      // AttachDonToLeader 優先
-      return (actionsByIid.get(me.leader.instance_id) ?? [])[0];
-    }
-    if (selection.kind === "self_chara") {
-      const acts = actionsByIid.get(selection.iid) ?? [];
-      // attack あれば まず attacker mode に
-      const attack = acts.find(
-        (a) => a.kind === "AttackLeader" || a.kind === "AttackCharacter",
-      );
-      if (attack) return attack;
-      return acts[0];
-    }
-    return undefined;
-  }
-
-  function confirmSelection() {
-    if (!selection) return;
-    const primary = primaryActionForSelection();
-    if (!primary) return;
-    // 攻撃系: attacker mode 切替
-    if (
-      (primary.kind === "AttackLeader" || primary.kind === "AttackCharacter") &&
-      primary.attacker_iid !== undefined
-    ) {
-      setSelection({ kind: "attack_pending", attackerIid: primary.attacker_iid });
+  // === drop handler === //
+  function handleDrop(target: DropTarget) {
+    if (!drag) {
+      setDrag(null);
       return;
     }
-    applyAction(primary);
+    // canAct false (= busy / AI turn 等) でも legal_actions に action が
+    // あれば 試みる (= サーバ側 が validate)。 busy 中の applyAction は
+    // applyInFlightRef で hard guard 済。
+    let action: HumanLegalAction | undefined;
+    if (drag.kind === "hand") {
+      const acts = actionsByHand.get(drag.handIdx) ?? [];
+      if (
+        target.kind === "self_field" ||
+        target.kind === "self_leader" ||
+        target.kind === "self_chara"
+      ) {
+        action =
+          acts.find((a) => a.kind === "PlayCharacter") ??
+          acts.find((a) => a.kind === "PlayStage") ??
+          acts.find((a) => a.kind === "PlayEvent");
+      } else {
+        action = acts.find((a) => a.kind === "PlayEvent");
+      }
+    } else if (drag.kind === "chara") {
+      if (target.kind === "opp_leader") {
+        action = state!.legal_actions.find(
+          (a) => a.kind === "AttackLeader" && a.attacker_iid === drag.iid,
+        );
+      } else if (target.kind === "opp_chara") {
+        action = state!.legal_actions.find(
+          (a) =>
+            a.kind === "AttackCharacter" &&
+            a.attacker_iid === drag.iid &&
+            a.target_iid === target.iid,
+        );
+      }
+    } else if (drag.kind === "don") {
+      if (target.kind === "self_leader") {
+        action = state!.legal_actions.find(
+          (a) => a.kind === "AttachDonToLeader",
+        );
+      } else if (target.kind === "self_chara") {
+        action = state!.legal_actions.find(
+          (a) =>
+            a.kind === "AttachDonToCharacter" && a.target_iid === target.iid,
+        );
+      }
+    }
+    setDrag(null);
+    if (action) applyAction(action);
   }
 
-  function cancelSelection() {
-    setSelection(null);
-  }
+  type SelectionAction = {
+    action: HumanLegalAction;
+    label: string;
+    mode: "attack" | "apply";
+  };
 
-  // 右下 ボタン の ラベル
-  function primaryButtonLabel(): string {
-    if (selection?.kind === "attack_pending") return "対象を選択";
-    const primary = primaryActionForSelection();
-    if (!primary) return "";
-    switch (primary.kind) {
+  function actionShortLabel(kind: string): string {
+    switch (kind) {
       case "PlayCharacter":
         return "Deploy";
       case "PlayEvent":
@@ -285,22 +422,153 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       case "PlayStage":
         return "Place Stage";
       case "AttachDonToLeader":
-        return "Attach DON → Leader";
+        return "DON → Leader";
       case "AttachDonToCharacter":
-        return "Attach DON → Character";
+        return "DON 付与";
       case "AttackLeader":
       case "AttackCharacter":
         return "⚔ Attack";
       case "ActivateMain":
         return "Activate Main";
       default:
-        return primary.label || primary.kind;
+        return kind;
     }
   }
 
-  // attacker iid の field 位置 (= attack 矢印 の 起点)
+  function getSelectionActions(): SelectionAction[] {
+    if (!selection) return [];
+    let acts: HumanLegalAction[] = [];
+    if (selection.kind === "hand") {
+      acts = actionsByHand.get(selection.handIdx) ?? [];
+    } else if (selection.kind === "self_leader") {
+      acts = actionsByIid.get(me.leader.instance_id) ?? [];
+    } else if (selection.kind === "self_chara") {
+      acts = actionsByIid.get(selection.iid) ?? [];
+    }
+    const result: SelectionAction[] = [];
+    const seenKinds = new Set<string>();
+    // Attack 系 は target 別 に 大量 に 存在 する ので 1 つ に 集約
+    const attack = acts.find(
+      (a) => a.kind === "AttackLeader" || a.kind === "AttackCharacter",
+    );
+    if (attack) {
+      result.push({ action: attack, label: "⚔ Attack", mode: "attack" });
+      seenKinds.add("Attack");
+    }
+    for (const a of acts) {
+      if (a.kind === "AttackLeader" || a.kind === "AttackCharacter") continue;
+      if (seenKinds.has(a.kind)) continue;
+      seenKinds.add(a.kind);
+      result.push({
+        action: a,
+        label: actionShortLabel(a.kind),
+        mode: "apply",
+      });
+    }
+    return result;
+  }
+
+  function handleSelectionActionClick(sa: SelectionAction) {
+    if (sa.mode === "attack" && sa.action.attacker_iid !== undefined) {
+      setSelection({
+        kind: "attack_pending",
+        attackerIid: sa.action.attacker_iid,
+      });
+      return;
+    }
+    // DON 付与 系 は 連続 付与 し やすい よう selection を 維持
+    const keepSelection =
+      sa.action.kind === "AttachDonToLeader" ||
+      sa.action.kind === "AttachDonToCharacter";
+    applyAction(sa.action, { keepSelection });
+  }
+
+  function cancelSelection() {
+    setSelection(null);
+  }
+
   const attackerIid =
     selection?.kind === "attack_pending" ? selection.attackerIid : null;
+
+  // preview priority:
+  //   trash modal hover > selection (= ロック) > hover > nothing
+  // 選択中 は hover で 表示 を 変えない (= ただし トラッシュ閲覧中 は hover 優先)
+  let previewCardId: string | null = null;
+  let previewMeta:
+    | {
+        kind: "chara";
+        cardId: string;
+        name: string;
+        power: number;
+        attached_dons: number;
+        rested: boolean;
+        keywords: string[];
+        isLeader: boolean;
+      }
+    | null = null;
+
+  if (trashViewer && hovered?.kind === "hand") {
+    previewCardId = hovered.cardId;
+  } else if (trashViewer && hovered?.kind === "chara") {
+    previewCardId = hovered.cardId;
+    previewMeta = hovered;
+  } else if (selection) {
+    if (selection.kind === "hand") {
+      previewCardId = me.hand[selection.handIdx] ?? null;
+    } else if (selection.kind === "self_leader") {
+      const ch = me.leader;
+      previewCardId = ch.card_id;
+      previewMeta = {
+        kind: "chara",
+        cardId: ch.card_id,
+        name: ch.name,
+        power: ch.power,
+        attached_dons: ch.attached_dons,
+        rested: ch.rested,
+        keywords: ch.keywords,
+        isLeader: true,
+      };
+    } else if (selection.kind === "self_chara") {
+      const ch = me.characters.find((c) => c.instance_id === selection.iid);
+      if (ch) {
+        previewCardId = ch.card_id;
+        previewMeta = {
+          kind: "chara",
+          cardId: ch.card_id,
+          name: ch.name,
+          power: ch.power,
+          attached_dons: ch.attached_dons,
+          rested: ch.rested,
+          keywords: ch.keywords,
+          isLeader: false,
+        };
+      }
+    } else if (selection.kind === "attack_pending") {
+      const isLeaderAttacker =
+        me.leader.instance_id === selection.attackerIid;
+      const attacker = isLeaderAttacker
+        ? me.leader
+        : me.characters.find((c) => c.instance_id === selection.attackerIid);
+      if (attacker) {
+        previewCardId = attacker.card_id;
+        previewMeta = {
+          kind: "chara",
+          cardId: attacker.card_id,
+          name: attacker.name,
+          power: attacker.power,
+          attached_dons: attacker.attached_dons,
+          rested: attacker.rested,
+          keywords: attacker.keywords,
+          isLeader: isLeaderAttacker,
+        };
+      }
+    }
+  } else if (hovered?.kind === "hand") {
+    previewCardId = hovered.cardId;
+  } else if (hovered?.kind === "chara") {
+    previewCardId = hovered.cardId;
+    previewMeta = hovered;
+  }
 
   return (
     <div
@@ -311,47 +579,28 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           setMousePos({ x: e.clientX - r.left, y: e.clientY - r.top });
         }
       }}
-      className="relative flex h-[calc(100vh-7rem)] flex-col gap-2 overflow-hidden rounded-xl border border-amber-900/40 p-3"
+      onClick={() => {
+        // 背景 (= ボタン以外) クリックで 選択 を 解除
+        // ボタン clicks は 各 ハンドラ で stopPropagation 済
+        if (selection) setSelection(null);
+      }}
+      className="relative flex h-[100dvh] w-full flex-col gap-2 overflow-hidden p-2"
       style={{
         backgroundImage:
           "radial-gradient(ellipse at center, #6b4423 0%, #3d2817 100%)",
       }}
     >
-      {/* ヘッダ */}
-      <div className="flex shrink-0 items-center gap-2 rounded bg-black/40 px-3 py-1.5 text-xs text-zinc-100 backdrop-blur">
-        <span className="font-semibold">
-          Turn {state.turn} ({state.phase})
-        </span>
-        <span
-          className={
-            isHumanTurn
-              ? "rounded bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white"
-              : "rounded bg-rose-500 px-2 py-0.5 text-xs font-bold text-white"
-          }
-        >
-          {isHumanTurn ? "YOUR TURN" : "AI TURN"}
-        </span>
-        {state.game_over && (
-          <span className="rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
-            GAME OVER:{" "}
-            {state.winner === state.human_idx
-              ? "🎉 WIN"
-              : state.winner === state.ai_idx
-                ? "LOSE"
-                : "DRAW"}
-          </span>
-        )}
-        <span className="ml-auto text-zinc-300">
-          sid={sessionId?.slice(0, 8)}
-        </span>
-        <button
-          type="button"
-          onClick={handleEnd}
-          className="rounded border border-zinc-500 px-2 py-0.5 text-xs hover:bg-zinc-700"
-        >
-          End
-        </button>
-      </div>
+      {/* 右上 対戦終了 ボタン (= 常時表示、 押下で home へ) */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleEnd();
+        }}
+        className="absolute top-2 right-2 z-40 rounded-lg border border-rose-400 bg-rose-700/90 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur hover:bg-rose-600"
+      >
+        ✕ 対戦終了
+      </button>
 
       {error && (
         <div className="shrink-0 rounded border border-red-500 bg-red-950/80 p-2 text-sm text-red-100">
@@ -359,13 +608,30 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-3">
-        {/* 左 サイド: log */}
-        <LogSidebar log={state.log} />
+      <div className="flex min-h-0 flex-1 gap-2 overflow-hidden">
+        {/* 左 サイド: opp info → log → self stats → 自手札 */}
+        <div className="flex min-w-[280px] flex-1 min-h-0 flex-col gap-2">
+          <OpponentInfoPanel opp={opp} />
+          <LogSidebar log={state.log} />
+          <SelfInfoPanel me={me} />
+          <HandRow
+            hand={me.hand}
+            actionsByHand={actionsByHand}
+            canAct={canAct}
+            selectedIdx={selection?.kind === "hand" ? selection.handIdx : null}
+            draggingHandIdx={
+              drag?.kind === "hand" ? drag.handIdx : null
+            }
+            onClick={clickHandCard}
+            onHover={setHovered}
+            onDragStart={(handIdx) => setDrag({ kind: "hand", handIdx })}
+            onDragEnd={() => setDrag(null)}
+          />
+        </div>
 
-        {/* 中央: マット (上下対峙) + 手札 */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {/* 相手 マット (= 上、 反転表示) */}
+        {/* 中央: マット (= 5 横向き chara が 収まる固定幅) */}
+        <div className="flex min-h-0 w-[780px] shrink-0 flex-col gap-2">
+          {/* 相手 マット */}
           <PlayerMat
             player={opp}
             isMe={false}
@@ -377,12 +643,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onSelfLeaderClick={() => {}}
             actionsByIid={actionsByIid}
             canAct={false}
+            drag={drag}
+            onDropTarget={handleDrop}
+            onHover={setHovered}
+            onTrashClick={() => setTrashViewer("opp")}
           />
 
-          {/* 仕切り */}
-          <div className="shrink-0 h-px bg-amber-100/30" />
+          <div className="h-px shrink-0 bg-amber-100/30" />
 
-          {/* 自分 マット (= 下) */}
+          {/* 自分 マット */}
           <PlayerMat
             player={me}
             isMe={true}
@@ -395,30 +664,34 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             actionsByIid={actionsByIid}
             canAct={canAct}
             selection={selection}
-          />
-
-          {/* 手札 */}
-          <HandRow
-            hand={me.hand}
-            actionsByHand={actionsByHand}
-            canAct={canAct}
-            selectedIdx={selection?.kind === "hand" ? selection.handIdx : null}
-            onClick={clickHandCard}
+            drag={drag}
+            onDropTarget={handleDrop}
+            onHover={setHovered}
+            onDragStart={(p) => setDrag(p)}
+            onDragEnd={() => setDrag(null)}
+            onTrashClick={() => setTrashViewer("me")}
           />
         </div>
 
-        {/* 右 サイド: 確定ボタン + フェーズ */}
-        <RightActionPanel
+        {/* 右 サイド: hover preview + action panel */}
+        <RightPanel
+          previewCardId={previewCardId}
+          previewMeta={previewMeta}
           canAct={canAct}
           selection={selection}
-          primaryLabel={primaryButtonLabel()}
-          onConfirm={confirmSelection}
+          availableActions={getSelectionActions()}
+          onActionClick={handleSelectionActionClick}
           onCancel={cancelSelection}
           endPhaseAction={endPhaseAction}
           onEndPhase={() => endPhaseAction && applyAction(endPhaseAction)}
           isHumanTurn={isHumanTurn}
           isDefensePending={isDefensePending}
           gameOver={state.game_over}
+          winner={state.winner}
+          humanIdx={state.human_idx}
+          aiIdx={state.ai_idx}
+          turn={state.turn}
+          phase={state.phase}
         />
       </div>
 
@@ -433,19 +706,49 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           setCounterIdxs={setCounterIdxs}
           onSubmit={handleDefenseSubmit}
           busy={busy}
+          onHover={setHovered}
         />
       )}
 
-      {/* 攻撃 矢印 SVG (= attacker → マウス) */}
+      {/* 攻撃 矢印 SVG */}
       {attackerIid !== null && mousePos && (
         <AttackArrow attackerIid={attackerIid} mousePos={mousePos} />
+      )}
+
+      {/* interactive 選択 modal (= kind 別に dispatch) */}
+      {isChoicePending && state.pending_payload && (
+        state.pending_payload.kind === "target_pick" ? (
+          <TargetPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : (
+          <SearchChoiceModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        )
+      )}
+
+      {/* トラッシュ閲覧 modal (= 右パネル除いて 中央+左 をカバー、 hover は右パネル preview へ) */}
+      {trashViewer && (
+        <TrashViewer
+          side={trashViewer}
+          cards={trashViewer === "me" ? me.trash : opp.trash}
+          onClose={() => setTrashViewer(null)}
+          onHover={setHovered}
+        />
       )}
     </div>
   );
 }
 
 // ========================================================================== //
-// 開始 panel
+// StartPanel (= heading 内蔵)
 // ========================================================================== //
 
 function StartPanel({
@@ -476,84 +779,104 @@ function StartPanel({
   error: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-lg font-semibold">対戦設定</h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_120px_140px_auto]">
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-zinc-500">自分のデッキ</span>
-          <select
-            value={deckA}
-            onChange={(e) => setDeckA(e.target.value)}
-            className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-            disabled={busy}
-          >
-            {decks.map((d) => (
-              <option key={d.slug} value={d.slug}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-zinc-500">AI のデッキ</span>
-          <select
-            value={deckB}
-            onChange={(e) => setDeckB(e.target.value)}
-            className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-            disabled={busy}
-          >
-            {decks.map((d) => (
-              <option key={d.slug} value={d.slug}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-zinc-500">seed</span>
-          <input
-            type="number"
-            value={seed}
-            onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-            className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-            disabled={busy}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-zinc-500">先攻</span>
-          <select
-            value={humanFirst}
-            onChange={(e) =>
-              setHumanFirst(e.target.value as "random" | "first" | "second")
-            }
-            className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-            disabled={busy}
-          >
-            <option value="random">ランダム</option>
-            <option value="first">自分が先攻</option>
-            <option value="second">AI が先攻</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={busy || !deckA || !deckB}
-          className="self-end rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/"
+          className="rounded border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
-          {busy ? "開始中..." : "▶ 対戦開始"}
-        </button>
+          ← ホームへ
+        </Link>
       </div>
-      {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-          {error}
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          人間 vs AI 対戦 (大会練習)
+        </h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          GoalDirectedAI と 実際に 対戦 します。 手札 を 自フィールド に
+          ドラッグ で deploy、 自キャラ を 相手 に ドラッグ で attack、
+          DON を 自リーダー/キャラ に ドラッグ で attach。
+        </p>
+      </header>
+      <div className="flex flex-col gap-3 rounded border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="text-lg font-semibold">対戦設定</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_120px_140px_auto]">
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-zinc-500">自分のデッキ</span>
+            <select
+              value={deckA}
+              onChange={(e) => setDeckA(e.target.value)}
+              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              disabled={busy}
+            >
+              {decks.map((d) => (
+                <option key={d.slug} value={d.slug}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-zinc-500">AI のデッキ</span>
+            <select
+              value={deckB}
+              onChange={(e) => setDeckB(e.target.value)}
+              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              disabled={busy}
+            >
+              {decks.map((d) => (
+                <option key={d.slug} value={d.slug}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-zinc-500">seed</span>
+            <input
+              type="number"
+              value={seed}
+              onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
+              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              disabled={busy}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-zinc-500">先攻</span>
+            <select
+              value={humanFirst}
+              onChange={(e) =>
+                setHumanFirst(e.target.value as "random" | "first" | "second")
+              }
+              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              disabled={busy}
+            >
+              <option value="random">ランダム</option>
+              <option value="first">自分が先攻</option>
+              <option value="second">AI が先攻</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={busy || !deckA || !deckB}
+            className="self-end rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {busy ? "開始中..." : "▶ 対戦開始"}
+          </button>
         </div>
-      )}
+        {error && (
+          <div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+            {error}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // ========================================================================== //
-// PlayerMat (= 公式 マット 配置)
+// PlayerMat
 // ========================================================================== //
 
 function PlayerMat({
@@ -568,6 +891,12 @@ function PlayerMat({
   actionsByIid,
   canAct,
   selection,
+  drag,
+  onDropTarget,
+  onHover,
+  onDragStart,
+  onDragEnd,
+  onTrashClick,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -580,45 +909,77 @@ function PlayerMat({
   actionsByIid: Map<number, HumanLegalAction[]>;
   canAct: boolean;
   selection?: Selection;
+  drag: DragPayload | null;
+  onDropTarget: (t: DropTarget) => void;
+  onHover: (h: HoverInfo) => void;
+  onDragStart?: (p: DragPayload) => void;
+  onDragEnd?: () => void;
+  onTrashClick: () => void;
 }) {
+  // どの drag を 受け入れる か
+  const acceptHandDrop = isMe && drag?.kind === "hand";
+  const acceptDonDrop = isMe && drag?.kind === "don";
+  const acceptAttackDrop = !isMe && drag?.kind === "chara";
+
+  function matDragOver(e: React.DragEvent) {
+    if (acceptHandDrop) e.preventDefault();
+  }
+  function matDrop(e: React.DragEvent) {
+    if (acceptHandDrop) {
+      e.preventDefault();
+      onDropTarget({ kind: "self_field" });
+    }
+  }
+
   return (
     <div
+      onDragOver={matDragOver}
+      onDrop={matDrop}
       className={
-        "relative flex min-h-0 flex-1 rounded-lg border-2 p-2 " +
+        "relative flex min-h-0 flex-1 rounded-lg border-2 p-2 transition " +
         (isMe
           ? "border-emerald-400/60 bg-emerald-950/40"
-          : "border-rose-400/60 bg-rose-950/40")
+          : "border-rose-400/60 bg-rose-950/40") +
+        (acceptHandDrop || acceptDonDrop || acceptAttackDrop
+          ? " ring-4 ring-yellow-400/60"
+          : "")
       }
     >
-      {/* 左端: ライフ 縦 + DON デッキ */}
-      <div className="flex shrink-0 flex-col items-center justify-between gap-1 pr-2">
-        <div className="text-[10px] font-bold text-zinc-200">
+      {/* 左端: ライフ + DON デッキ。 相手 mat は 縦反転 (= DON Deck が opp の 奥側) */}
+      <div
+        className={
+          "flex shrink-0 items-center justify-between gap-2 pr-3 " +
+          (isMe ? "flex-col" : "flex-col-reverse")
+        }
+      >
+        <div className="text-xs font-bold text-zinc-100">
           LIFE × {player.life_count}
         </div>
         <LifeStack count={player.life_count} />
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-[10px] text-zinc-300">DON Deck</div>
+          <div className="text-xs text-zinc-300">DON Deck</div>
           <div className="relative">
-            <img src="/assets/don.png" alt="DON" className="h-10 w-7 rounded shadow" />
-            <span className="absolute -bottom-1 -right-1 rounded bg-amber-600 px-1 text-[8px] font-bold text-white">
+            <img
+              src="/assets/don.png"
+              alt="DON"
+              className="h-14 w-10 rounded shadow"
+            />
+            <span className="absolute -bottom-1 -right-1 rounded bg-amber-600 px-1.5 text-[11px] font-bold text-white">
               {player.don_remaining_in_deck}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 中央: フィールド (= キャラ 5 + リーダー / ステージ / デッキ + DON コスト)
-        公式マット 配置: キャラ は 仕切り 側 (= 相手 と 対峙)、 DON は 自分側 手前。
-        - 相手 マット (上): 上から DON → リーダー段 → キャラ (= キャラ が 仕切り 接触)
-        - 自分 マット (下): 上から キャラ → リーダー段 → DON (= キャラ が 仕切り 接触)
-      */}
+      {/* 中央: フィールド */}
       <div className="flex min-h-0 flex-1 flex-col justify-between gap-1">
-        {/* 上段: 相手 マットなら DON (= 相手 手前)、 自分 マットなら キャラ (= 自分 奥) */}
+        {/* 上段: 自分ならキャラ、 相手なら DON 表示 */}
         {!isMe ? (
           <DonRow
             donActive={player.don_active}
             donRested={player.don_rested}
             donTotal={player.don_total}
+            isMe={false}
           />
         ) : (
           <CharacterRow
@@ -629,6 +990,12 @@ function PlayerMat({
             actionsByIid={actionsByIid}
             onChara={onSelfCharaClick}
             selection={selection}
+            isMe={true}
+            drag={drag}
+            onDropTarget={onDropTarget}
+            onHover={onHover}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
           />
         )}
 
@@ -644,9 +1011,13 @@ function PlayerMat({
           isLeaderSelected={isMe && selection?.kind === "self_leader"}
           isLeaderAttacker={attackerIid === player.leader.instance_id}
           onLeaderClick={isMe ? onSelfLeaderClick : onLeaderClick}
+          drag={drag}
+          onDropTarget={onDropTarget}
+          onHover={onHover}
+          onTrashClick={onTrashClick}
         />
 
-        {/* 下段: 相手 マットなら キャラ (= 相手 奥、 仕切り 接触)、 自分 マットなら DON (= 自分 手前) */}
+        {/* 下段: 相手ならキャラ (= 仕切り接触)、 自分なら DON (= 手前) */}
         {!isMe ? (
           <CharacterRow
             chars={player.characters}
@@ -656,45 +1027,52 @@ function PlayerMat({
             actionsByIid={actionsByIid}
             onChara={onCharaClick}
             selection={selection}
+            isMe={false}
+            drag={drag}
+            onDropTarget={onDropTarget}
+            onHover={onHover}
           />
         ) : (
           <DonRow
             donActive={player.don_active}
             donRested={player.don_rested}
             donTotal={player.don_total}
+            isMe={true}
+            onDragStart={() => onDragStart?.({ kind: "don" })}
+            onDragEnd={onDragEnd}
           />
         )}
       </div>
 
-      {/* ヘッダ ラベル */}
-      <div
-        className={
-          "absolute top-1 left-1/2 -translate-x-1/2 rounded px-2 py-0.5 text-[10px] font-bold " +
-          (isMe ? "bg-emerald-700 text-white" : "bg-rose-700 text-white")
-        }
-      >
-        {isMe ? "YOU" : "AI"} | Hand {player.hand_count} | Deck {player.deck_count} | Trash {player.trash_count}
-      </div>
     </div>
   );
 }
 
 function LifeStack({ count }: { count: number }) {
+  if (count === 0) {
+    return (
+      <div className="rounded border border-red-500 px-3 py-1 text-xs text-red-300">
+        0
+      </div>
+    );
+  }
+  // 横向き レイアウト 中で 縦横比 5:7 を 保持 する ため、
+  // 縦長 image を rotate-90 で 横倒し に する (= wrapper は landscape、 中身 は portrait)
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col items-center">
       {Array.from({ length: count }).map((_, i) => (
-        <img
+        <div
           key={i}
-          src="/assets/ura.png"
-          alt="life"
-          className="h-6 w-9 rounded shadow"
-        />
-      ))}
-      {count === 0 && (
-        <div className="rounded border border-red-500 px-2 py-1 text-[10px] text-red-300">
-          0
+          style={{ marginTop: i === 0 ? 0 : -28 }}
+          className="relative h-14 w-20"
+        >
+          <img
+            src="/assets/ura.png"
+            alt="life"
+            className="absolute left-1/2 top-1/2 h-20 w-14 -translate-x-1/2 -translate-y-1/2 rotate-90 rounded shadow ring-1 ring-amber-100/20"
+          />
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -703,42 +1081,67 @@ function DonRow({
   donActive,
   donRested,
   donTotal,
+  isMe,
+  onDragStart,
+  onDragEnd,
 }: {
   donActive: number;
   donRested: number;
   donTotal: number;
+  isMe: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }) {
   const totalShown = Math.min(donTotal, 12);
   return (
-    <div className="flex shrink-0 items-center gap-1 rounded bg-black/30 px-2 py-1">
-      <span className="text-[10px] text-zinc-300">DON</span>
-      <div className="flex flex-wrap gap-0.5">
+    <div className="flex shrink-0 items-center gap-1 rounded bg-black/30 px-3 py-1.5">
+      <span className="text-xs font-bold text-zinc-200">DON</span>
+      <div className="flex flex-wrap gap-1">
         {Array.from({ length: donActive }).map((_, i) => (
-          <img
+          <button
             key={`a-${i}`}
-            src="/assets/don.png"
-            alt="DON"
-            className="h-7 w-5 rounded shadow ring-1 ring-amber-400"
-          />
+            type="button"
+            draggable={isMe && donActive > 0}
+            onDragStart={() => onDragStart?.()}
+            onDragEnd={() => onDragEnd?.()}
+            className={
+              "h-10 w-7 rounded ring-1 ring-amber-400 " +
+              (isMe ? "cursor-grab active:cursor-grabbing" : "cursor-default")
+            }
+            title={isMe ? "ドラッグで Leader/Character に attach" : "DON"}
+          >
+            <img
+              src="/assets/don.png"
+              alt="DON"
+              className="h-full w-full rounded shadow"
+              draggable={false}
+            />
+          </button>
         ))}
-        {Array.from({ length: donRested }).map((_, i) => (
-          <img
-            key={`r-${i}`}
-            src="/assets/don.png"
-            alt="DON rested"
-            className="h-5 w-7 rotate-90 rounded opacity-60 shadow"
-          />
-        ))}
+        {donRested > 0 && (
+          <div className="flex">
+            {Array.from({ length: donRested }).map((_, i) => (
+              <div
+                key={`r-${i}`}
+                style={{ marginLeft: i === 0 ? 0 : -20 }}
+                className="relative h-7 w-10"
+              >
+                <img
+                  src="/assets/don.png"
+                  alt="DON rested"
+                  className="absolute left-1/2 top-1/2 h-10 w-7 -translate-x-1/2 -translate-y-1/2 rotate-90 rounded opacity-70 shadow"
+                />
+              </div>
+            ))}
+          </div>
+        )}
         {Array.from({ length: Math.max(0, totalShown - donActive - donRested) }).map(
           (_, i) => (
-            <div
-              key={`p-${i}`}
-              className="h-7 w-5 rounded bg-zinc-700/40"
-            />
+            <div key={`p-${i}`} className="h-10 w-7 rounded bg-zinc-700/40" />
           ),
         )}
       </div>
-      <span className="ml-auto text-[10px] text-zinc-300">
+      <span className="ml-auto text-xs font-semibold text-amber-200">
         {donActive}A / {donRested}R
       </span>
     </div>
@@ -753,6 +1156,10 @@ function CenterRow({
   isLeaderSelected,
   isLeaderAttacker,
   onLeaderClick,
+  drag,
+  onDropTarget,
+  onHover,
+  onTrashClick,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -761,22 +1168,46 @@ function CenterRow({
   isLeaderSelected: boolean;
   isLeaderAttacker: boolean;
   onLeaderClick: () => void;
+  drag: DragPayload | null;
+  onDropTarget: (t: DropTarget) => void;
+  onHover: (h: HoverInfo) => void;
+  onTrashClick: () => void;
 }) {
+  // Leader drop 受け入れ:
+  //  自リーダー: DON drag / hand drag (= PlayStage 等)
+  //  相手リーダー: chara drag (= AttackLeader)
+  const acceptOnLeader = isMe
+    ? drag?.kind === "don" || drag?.kind === "hand"
+    : drag?.kind === "chara";
+
+  function leaderDragOver(e: React.DragEvent) {
+    if (acceptOnLeader) e.preventDefault();
+  }
+  function leaderDrop(e: React.DragEvent) {
+    if (!acceptOnLeader) return;
+    e.preventDefault();
+    onDropTarget(isMe ? { kind: "self_leader" } : { kind: "opp_leader" });
+  }
   return (
-    <div className="flex shrink-0 items-center justify-center gap-2 py-1">
-      <CharCard
-        ch={player.leader}
-        isLeader={true}
-        isMine={isMe}
-        isAttacker={isLeaderAttacker}
-        isTarget={isLeaderTarget}
-        isActable={isLeaderActable}
-        isSelected={isLeaderSelected}
-        onClick={onLeaderClick}
-        size="leader"
-      />
+    <div className="flex shrink-0 items-center justify-center gap-3 py-1">
+      <div onDragOver={leaderDragOver} onDrop={leaderDrop}>
+        <CharCard
+          ch={player.leader}
+          isLeader={true}
+          isMine={isMe}
+          isAttacker={isLeaderAttacker}
+          isTarget={isLeaderTarget}
+          isActable={isLeaderActable}
+          isSelected={isLeaderSelected}
+          onClick={onLeaderClick}
+          size="leader"
+          onHover={onHover}
+          draggable={false}
+          dropHint={acceptOnLeader}
+        />
+      </div>
       <div className="flex flex-col items-center gap-0.5">
-        <div className="text-[9px] text-zinc-300">STAGE</div>
+        <div className="text-[10px] font-semibold text-zinc-300">STAGE</div>
         {player.stages[0] ? (
           <CharCard
             ch={player.stages[0]}
@@ -788,38 +1219,63 @@ function CenterRow({
             isSelected={false}
             onClick={() => {}}
             size="small"
+            onHover={onHover}
+            draggable={false}
           />
         ) : (
-          <div className="flex h-16 w-12 items-center justify-center rounded border border-dashed border-zinc-600 text-[8px] text-zinc-500">
+          <div className="flex h-32 w-24 items-center justify-center rounded border border-dashed border-zinc-600 text-xs text-zinc-500">
             empty
           </div>
         )}
       </div>
       <div className="flex flex-col items-center gap-0.5">
-        <div className="text-[9px] text-zinc-300">DECK</div>
+        <div className="text-xs font-semibold text-zinc-300">DECK</div>
         <div className="relative">
           <img
             src="/assets/ura.png"
             alt="deck"
-            className="h-16 w-12 rounded shadow"
+            className="h-32 w-24 rounded shadow"
           />
-          <span className="absolute -bottom-1 -right-1 rounded bg-zinc-900 px-1 text-[9px] font-bold text-white">
+          <span className="absolute -bottom-1 -right-1 rounded bg-zinc-900 px-1.5 text-xs font-bold text-white">
             {player.deck_count}
           </span>
         </div>
       </div>
       <div className="flex flex-col items-center gap-0.5">
-        <div className="text-[9px] text-zinc-300">TRASH</div>
-        <div
+        <div className="text-xs font-semibold text-zinc-300">TRASH</div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (player.trash_count > 0) onTrashClick();
+          }}
+          disabled={player.trash_count === 0}
           className={
-            "relative h-16 w-12 rounded border border-dashed border-zinc-600 " +
-            (player.trash_count > 0 ? "bg-zinc-700/40" : "")
+            "relative h-32 w-24 rounded border border-dashed border-zinc-600 transition " +
+            (player.trash_count > 0
+              ? "cursor-pointer bg-zinc-700/40 hover:border-emerald-400 hover:bg-zinc-700/60"
+              : "cursor-default")
+          }
+          title={
+            player.trash_count > 0
+              ? `${player.trash_count} 枚 - clickで閲覧`
+              : "空"
           }
         >
-          <span className="absolute bottom-0 right-0 rounded bg-zinc-900 px-1 text-[9px] font-bold text-white">
+          {player.trash.length > 0 && (
+            <img
+              src={`/cards/${player.trash[player.trash.length - 1]}.png`}
+              alt="top trash"
+              className="absolute inset-0 h-full w-full rounded object-cover opacity-80"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          )}
+          <span className="absolute bottom-0 right-0 rounded bg-zinc-900 px-1.5 text-xs font-bold text-white">
             {player.trash_count}
           </span>
-        </div>
+        </button>
       </div>
     </div>
   );
@@ -833,6 +1289,12 @@ function CharacterRow({
   actionsByIid,
   onChara,
   selection,
+  isMe,
+  drag,
+  onDropTarget,
+  onHover,
+  onDragStart,
+  onDragEnd,
 }: {
   chars: CharSnapshot[];
   attackerIid: number | null;
@@ -841,19 +1303,37 @@ function CharacterRow({
   actionsByIid: Map<number, HumanLegalAction[]>;
   onChara: (iid: number) => void;
   selection?: Selection;
+  isMe: boolean;
+  drag: DragPayload | null;
+  onDropTarget: (t: DropTarget) => void;
+  onHover: (h: HoverInfo) => void;
+  onDragStart?: (p: DragPayload) => void;
+  onDragEnd?: () => void;
 }) {
-  // 5 枠 表示 (= 空 枠 placeholder 含む)
   const slots: (CharSnapshot | null)[] = [...chars];
   while (slots.length < 5) slots.push(null);
   return (
-    <div className="flex shrink-0 items-center justify-center gap-1 py-1">
+    <div className="flex shrink-0 items-center justify-center gap-x-10 py-1">
       {slots.map((c, i) => {
         if (!c) {
           return (
             <div
               key={`slot-${i}`}
-              className="h-20 w-14 rounded border border-dashed border-zinc-600/50"
+              className={
+                "h-32 w-24 rounded border border-dashed " +
+                (isMe && drag?.kind === "hand"
+                  ? "border-yellow-400 bg-yellow-900/30"
+                  : "border-zinc-600/50")
+              }
               data-iid="empty"
+              onDragOver={(e) => {
+                if (isMe && drag?.kind === "hand") e.preventDefault();
+              }}
+              onDrop={(e) => {
+                if (!isMe || drag?.kind !== "hand") return;
+                e.preventDefault();
+                onDropTarget({ kind: "self_field" });
+              }}
             />
           );
         }
@@ -862,19 +1342,61 @@ function CharacterRow({
           canAct && (actionsByIid.get(c.instance_id)?.length ?? 0) > 0;
         const isSelected =
           selection?.kind === "self_chara" && selection.iid === c.instance_id;
+
+        // Drop target:
+        //  自キャラ: DON drag (= AttachDonToCharacter)
+        //  相手キャラ: chara drag (= AttackCharacter)
+        const acceptOnThis = isMe
+          ? drag?.kind === "don"
+          : drag?.kind === "chara";
+
+        // Draggable:
+        //  自キャラ で attack action あれば draggable
+        const isAttackSrc =
+          isMe &&
+          canAct &&
+          (actionsByIid.get(c.instance_id) ?? []).some(
+            (a) =>
+              a.kind === "AttackLeader" || a.kind === "AttackCharacter",
+          );
+
         return (
-          <CharCard
+          <div
             key={c.instance_id}
-            ch={c}
-            isLeader={false}
-            isMine={true}
-            isAttacker={isAttacker}
-            isTarget={canSelectAsTarget}
-            isActable={isActable}
-            isSelected={isSelected}
-            onClick={() => onChara(c.instance_id)}
-            size="small"
-          />
+            onDragOver={(e) => {
+              if (acceptOnThis) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              if (!acceptOnThis) return;
+              e.preventDefault();
+              onDropTarget(
+                isMe
+                  ? { kind: "self_chara", iid: c.instance_id }
+                  : { kind: "opp_chara", iid: c.instance_id },
+              );
+            }}
+          >
+            <CharCard
+              ch={c}
+              isLeader={false}
+              isMine={isMe}
+              isAttacker={isAttacker}
+              isTarget={canSelectAsTarget}
+              isActable={isActable}
+              isSelected={isSelected}
+              onClick={() => onChara(c.instance_id)}
+              size="small"
+              onHover={onHover}
+              draggable={isAttackSrc}
+              onDragStart={
+                isAttackSrc
+                  ? () => onDragStart?.({ kind: "chara", iid: c.instance_id })
+                  : undefined
+              }
+              onDragEnd={onDragEnd}
+              dropHint={acceptOnThis}
+            />
+          </div>
         );
       })}
     </div>
@@ -890,6 +1412,11 @@ function CharCard({
   isSelected,
   onClick,
   size,
+  onHover,
+  draggable,
+  onDragStart,
+  onDragEnd,
+  dropHint,
 }: {
   ch: CharSnapshot;
   isLeader: boolean;
@@ -900,8 +1427,13 @@ function CharCard({
   isSelected: boolean;
   onClick: () => void;
   size: "leader" | "small";
+  onHover: (h: HoverInfo) => void;
+  draggable?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  dropHint?: boolean;
 }) {
-  const dim = size === "leader" ? "h-24 w-18" : "h-20 w-14";
+  const dim = size === "leader" ? "h-40 w-28" : "h-32 w-24";
   const ringClass = isSelected
     ? "ring-4 ring-yellow-400 ring-offset-2 ring-offset-amber-950"
     : isAttacker
@@ -910,15 +1442,41 @@ function CharCard({
         ? "ring-2 ring-rose-500 hover:ring-rose-400 hover:ring-4"
         : isActable
           ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
-          : "ring-1 ring-zinc-700";
-  const cursor = isActable || isTarget ? "cursor-pointer" : "cursor-default";
+          : dropHint
+            ? "ring-2 ring-yellow-400"
+            : "ring-1 ring-zinc-700";
+  const cursor =
+    draggable
+      ? "cursor-grab active:cursor-grabbing"
+      : isActable || isTarget
+        ? "cursor-pointer"
+        : "cursor-default";
   return (
     <button
       type="button"
       data-iid={ch.instance_id}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      draggable={draggable}
+      onDragStart={() => onDragStart?.()}
+      onDragEnd={() => onDragEnd?.()}
+      onMouseEnter={() =>
+        onHover({
+          kind: "chara",
+          cardId: ch.card_id,
+          name: ch.name,
+          power: ch.power,
+          attached_dons: ch.attached_dons,
+          rested: ch.rested,
+          keywords: ch.keywords,
+          isLeader,
+        })
+      }
+      onMouseLeave={() => onHover(null)}
       className={`group relative inline-block ${cursor} transition`}
-      title={`${ch.name} (P=${ch.power}, iid=${ch.instance_id}${ch.rested ? ", R" : ""}${ch.attached_dons > 0 ? `, +${ch.attached_dons}d` : ""})`}
+      title={ch.name}
     >
       <div
         className={`overflow-hidden rounded ${ringClass} ${ch.rested ? "rotate-90" : ""}`}
@@ -929,16 +1487,16 @@ function CharCard({
           className={`${dim} object-cover`}
         />
       </div>
-      <span className="absolute top-0 left-0 rounded-br bg-black/80 px-1 text-[10px] font-bold text-white">
+      <span className="absolute top-0 left-0 rounded-br bg-black/80 px-1 text-xs font-bold text-white">
         {ch.power}
       </span>
       {ch.attached_dons > 0 && (
-        <span className="absolute bottom-0 right-0 rounded-tl bg-amber-600 px-1 text-[9px] font-bold text-white">
+        <span className="absolute bottom-0 right-0 rounded-tl bg-amber-600 px-1 text-[11px] font-bold text-white">
           +{ch.attached_dons}d
         </span>
       )}
       {ch.summoning_sickness && !isLeader && (
-        <span className="absolute top-0 right-0 rounded-bl bg-blue-600 px-1 text-[8px] text-white">
+        <span className="absolute top-0 right-0 rounded-bl bg-blue-600 px-1 text-[10px] text-white">
           zZ
         </span>
       )}
@@ -947,7 +1505,7 @@ function CharCard({
           {ch.keywords.map((k) => (
             <span
               key={k}
-              className="rounded-tr bg-zinc-900/90 px-0.5 text-[8px] text-white"
+              className="rounded-tr bg-zinc-900/90 px-1 text-[10px] font-bold text-white"
               title={k}
             >
               {k[0]}
@@ -960,7 +1518,7 @@ function CharCard({
 }
 
 // ========================================================================== //
-// 手札 row
+// 手札 row (= overlapping fan、 hover で 持ち上げ)
 // ========================================================================== //
 
 function HandRow({
@@ -968,58 +1526,152 @@ function HandRow({
   actionsByHand,
   canAct,
   selectedIdx,
+  draggingHandIdx,
   onClick,
+  onHover,
+  onDragStart,
+  onDragEnd,
 }: {
   hand: string[];
   actionsByHand: Map<number, HumanLegalAction[]>;
   canAct: boolean;
   selectedIdx: number | null;
+  draggingHandIdx: number | null;
   onClick: (idx: number) => void;
+  onHover: (h: HoverInfo) => void;
+  onDragStart: (handIdx: number) => void;
+  onDragEnd: () => void;
 }) {
+  // overlap 量 は 枚数 と 横幅 に 応じて 自動調整 (= card 幅 ~ 137px @ h-48)
+  const overlap = hand.length <= 6 ? 76 : hand.length <= 9 ? 96 : 112;
   return (
-    <div className="flex shrink-0 items-center justify-center gap-1 rounded bg-black/40 p-2">
-      <span className="shrink-0 text-[10px] font-bold text-zinc-200">
-        HAND ({hand.length})
-      </span>
-      <div className="flex flex-wrap gap-1">
+    <div className="relative flex h-24 shrink-0 items-start justify-center overflow-visible rounded border border-emerald-400/50 bg-emerald-950/40">
+      <div className="flex shrink-0 items-start">
         {hand.map((cardId, i) => {
           const playable = canAct && (actionsByHand.get(i)?.length ?? 0) > 0;
           const selected = selectedIdx === i;
+          const dragging = draggingHandIdx === i;
           const ring = selected
-            ? "ring-4 ring-yellow-400 -translate-y-2"
+            ? "ring-4 ring-yellow-400"
             : playable
-              ? "ring-2 ring-emerald-400 hover:-translate-y-1 hover:ring-emerald-300"
-              : "ring-1 ring-zinc-700 opacity-80";
+              ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
+              : "ring-1 ring-zinc-700 opacity-90";
           return (
             <button
               key={i}
               type="button"
-              onClick={() => onClick(i)}
-              disabled={!playable}
-              className={`relative inline-block transition ${ring} rounded overflow-hidden ${playable ? "cursor-pointer" : "cursor-default"}`}
+              draggable={playable}
+              onDragStart={() => onDragStart(i)}
+              onDragEnd={onDragEnd}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick(i);
+              }}
+              onMouseEnter={() => onHover({ kind: "hand", cardId })}
+              onMouseLeave={() => onHover(null)}
+              disabled={!playable && !canAct}
+              style={{
+                marginLeft: i === 0 ? 0 : -overlap,
+                zIndex: selected ? 50 : i,
+                opacity: dragging ? 0 : undefined,
+              }}
+              className={`relative inline-block rounded transition duration-150 ease-out ${ring} ${
+                playable
+                  ? "cursor-grab active:cursor-grabbing hover:-translate-y-4 hover:z-50"
+                  : "cursor-default hover:-translate-y-2 hover:z-50"
+              } ${selected ? "-translate-y-6" : ""}`}
               title={cardId}
             >
               <CardImage
                 cardId={cardId}
                 alt={cardId}
-                className="h-24 w-auto object-cover"
+                className="h-48 w-auto rounded object-cover shadow-lg"
               />
             </button>
           );
         })}
+        {hand.length === 0 && (
+          <div className="px-6 py-4 text-sm text-zinc-400">手札なし</div>
+        )}
       </div>
     </div>
   );
 }
 
 // ========================================================================== //
-// 左 サイド: log
+// 左 サイド: opp info (= hand 裏面 + DON 視覚化)
+// ========================================================================== //
+
+function StatBadge({
+  player,
+  label,
+  color,
+}: {
+  player: PlayerSnapshot;
+  label: string;
+  color: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-zinc-100">
+      <span className={`rounded px-2 py-0.5 text-sm ${color}`}>{label}</span>
+      <span className="rounded bg-black/40 px-2 py-0.5">
+        Hand{" "}
+        <span className="text-base text-yellow-200">{player.hand_count}</span>
+      </span>
+      <span className="rounded bg-black/40 px-2 py-0.5">
+        DON{" "}
+        <span className="text-base text-amber-200">{player.don_total}</span>
+      </span>
+      <span className="rounded bg-black/40 px-2 py-0.5">
+        Life{" "}
+        <span className="text-base text-orange-200">{player.life_count}</span>
+      </span>
+      <span className="opacity-70">
+        Deck {player.deck_count} · Trash {player.trash_count}
+      </span>
+    </div>
+  );
+}
+
+function SelfInfoPanel({ me }: { me: PlayerSnapshot }) {
+  return (
+    <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
+      <StatBadge player={me} label="YOU" color="bg-emerald-700 text-white" />
+    </div>
+  );
+}
+
+function OpponentInfoPanel({ opp }: { opp: PlayerSnapshot }) {
+  return (
+    <div className="shrink-0 rounded border border-rose-400/50 bg-rose-950/40 p-3">
+      <div className="mb-2">
+        <StatBadge player={opp} label="AI" color="bg-rose-700 text-white" />
+      </div>
+      <div className="flex flex-wrap gap-0.5">
+        {Array.from({ length: opp.hand_count }).map((_, i) => (
+          <img
+            key={i}
+            src="/assets/ura.png"
+            alt="opp hand"
+            className="h-12 w-9 rounded shadow ring-1 ring-rose-300/30"
+          />
+        ))}
+        {opp.hand_count === 0 && (
+          <span className="text-xs text-rose-300">手札なし</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// 左 サイド 下部: log
 // ========================================================================== //
 
 function LogSidebar({ log }: { log: string[] }) {
   return (
-    <div className="flex w-48 shrink-0 flex-col overflow-hidden rounded bg-black/50 p-2 text-[10px] text-zinc-200">
-      <div className="mb-1 shrink-0 font-bold">LOG</div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded bg-black/50 p-2 text-xs text-zinc-200">
+      <div className="mb-1 shrink-0 text-sm font-bold">LOG</div>
       <div className="flex-1 overflow-y-auto font-mono">
         {log.map((line, i) => (
           <div
@@ -1036,95 +1688,225 @@ function LogSidebar({ log }: { log: string[] }) {
 }
 
 // ========================================================================== //
-// 右 サイド: action panel
+// 右 サイド: hover preview + action panel + turn/end
 // ========================================================================== //
 
-function RightActionPanel({
+function RightPanel({
+  previewCardId,
+  previewMeta,
   canAct,
   selection,
-  primaryLabel,
-  onConfirm,
+  availableActions,
+  onActionClick,
   onCancel,
   endPhaseAction,
   onEndPhase,
   isHumanTurn,
   isDefensePending,
   gameOver,
+  winner,
+  humanIdx,
+  aiIdx,
+  turn,
+  phase,
 }: {
+  previewCardId: string | null;
+  previewMeta:
+    | {
+        kind: "chara";
+        name: string;
+        power: number;
+        attached_dons: number;
+        rested: boolean;
+        keywords: string[];
+        isLeader: boolean;
+        cardId: string;
+      }
+    | null;
   canAct: boolean;
   selection: Selection;
-  primaryLabel: string;
-  onConfirm: () => void;
+  availableActions: {
+    action: HumanLegalAction;
+    label: string;
+    mode: "attack" | "apply";
+  }[];
+  onActionClick: (sa: {
+    action: HumanLegalAction;
+    label: string;
+    mode: "attack" | "apply";
+  }) => void;
   onCancel: () => void;
   endPhaseAction?: HumanLegalAction;
   onEndPhase: () => void;
   isHumanTurn: boolean;
   isDefensePending: boolean;
   gameOver: boolean;
+  winner: number | null;
+  humanIdx: number;
+  aiIdx: number;
+  turn: number;
+  phase: string;
 }) {
+  const turnLabel = gameOver
+    ? winner === humanIdx
+      ? "🎉 WIN"
+      : winner === aiIdx
+        ? "LOSE"
+        : "DRAW"
+    : isHumanTurn
+      ? "YOUR TURN"
+      : "AI TURN";
+  const turnColor = gameOver
+    ? "bg-amber-500"
+    : isHumanTurn
+      ? "bg-emerald-500"
+      : "bg-rose-500";
+
   return (
-    <div className="flex w-44 shrink-0 flex-col gap-2 rounded bg-black/40 p-2">
-      <div className="text-[10px] font-bold text-zinc-200">ACTION</div>
-      <div className="flex flex-1 flex-col gap-2">
+    <div className="flex w-[480px] shrink-0 flex-col gap-2">
+      {/* turn / phase */}
+      <div className="flex shrink-0 items-center gap-2 rounded bg-black/50 px-2 py-1.5 pr-28 text-xs text-zinc-100">
+        <span className="font-semibold">
+          T{turn} {phase}
+        </span>
+        <span
+          className={`rounded px-2 py-0.5 text-xs font-bold text-white ${turnColor}`}
+        >
+          {turnLabel}
+        </span>
+      </div>
+
+      {/* preview */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded bg-black/40 p-2">
+        <div className="text-xs font-bold text-zinc-200">PREVIEW</div>
+        {previewCardId ? (
+          <>
+            <div className="flex justify-center">
+              <CardImage
+                cardId={previewCardId}
+                alt={previewCardId}
+                className="max-h-[calc(100vh-260px)] w-full max-w-[440px] rounded object-contain shadow-2xl"
+              />
+            </div>
+            {previewMeta && (
+              <div className="rounded bg-zinc-900/60 p-2 text-xs text-zinc-100">
+                <div className="font-bold">{previewMeta.name}</div>
+                <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px] text-zinc-300">
+                  <span>Power</span>
+                  <span className="text-right font-mono text-zinc-100">
+                    {previewMeta.power}
+                  </span>
+                  <span>DON</span>
+                  <span className="text-right font-mono text-amber-300">
+                    +{previewMeta.attached_dons}
+                  </span>
+                  <span>状態</span>
+                  <span className="text-right font-mono">
+                    {previewMeta.rested ? "rested" : "active"}
+                  </span>
+                  {previewMeta.keywords.length > 0 && (
+                    <>
+                      <span>Keywords</span>
+                      <span className="text-right font-mono text-emerald-300">
+                        {previewMeta.keywords.join(", ")}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-xs text-zinc-400">
+            カードに hover で 拡大表示
+          </div>
+        )}
+      </div>
+
+      {/* action */}
+      <div className="flex shrink-0 flex-col gap-2 rounded bg-black/40 p-2">
+        <div className="text-xs font-bold text-zinc-200">ACTION</div>
         {gameOver && (
-          <div className="rounded bg-amber-700 p-3 text-center text-sm font-bold text-white">
+          <div className="rounded bg-amber-700 p-3 text-center text-base font-bold text-white">
             GAME OVER
           </div>
         )}
         {!gameOver && !isHumanTurn && (
-          <div className="rounded bg-rose-900/60 p-3 text-center text-xs text-rose-100">
+          <div className="rounded bg-rose-900/60 p-3 text-center text-sm text-rose-100">
             AI 思考中...
           </div>
         )}
         {!gameOver && isDefensePending && (
-          <div className="rounded bg-amber-700 p-3 text-center text-xs text-white">
-            ⚠ 防御 中
+          <div className="rounded bg-amber-700 p-3 text-center text-sm text-white">
+            ⚠ 防御中
             <br />
-            下 のパネルで 選択
+            下のパネルで選択
           </div>
         )}
         {canAct && !selection && (
-          <div className="rounded bg-emerald-900/60 p-3 text-center text-xs text-emerald-100">
-            カード を 選択 してください
-            <div className="mt-1 text-[9px] text-emerald-200">
-              手札 / 自リーダー / 自キャラ click
+          <div className="rounded bg-emerald-900/60 p-3 text-center text-sm text-emerald-100">
+            操作: ドラッグ&ドロップ
+            <div className="mt-1 text-xs text-emerald-200">
+              手札→フィールド / 自キャラ→相手 / DON→自リーダー&キャラ
             </div>
           </div>
         )}
         {canAct && selection?.kind === "attack_pending" && (
-          <div className="rounded bg-orange-700 p-3 text-center text-xs text-white">
+          <div className="rounded bg-orange-700 p-3 text-center text-sm text-white">
             ⚔ 攻撃中
-            <div className="mt-1 text-[9px]">対象 (リーダー or キャラ) click</div>
+            <div className="mt-1 text-xs">対象 click / Esc キャンセル</div>
           </div>
         )}
-        {canAct && selection && selection.kind !== "attack_pending" && (
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded bg-emerald-600 p-3 text-base font-bold text-white shadow-lg hover:bg-emerald-500"
-          >
-            {primaryLabel}
-          </button>
-        )}
+        {canAct &&
+          selection &&
+          selection.kind !== "attack_pending" &&
+          availableActions.length > 0 && (
+            <div
+              className={
+                "grid gap-2 " +
+                (availableActions.length > 1 ? "grid-cols-2" : "grid-cols-1")
+              }
+            >
+              {availableActions.map((sa, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onActionClick(sa);
+                  }}
+                  className="rounded bg-emerald-600 p-3 text-sm font-bold text-white shadow hover:bg-emerald-500"
+                >
+                  {sa.label}
+                </button>
+              ))}
+            </div>
+          )}
         {canAct && selection && (
           <button
             type="button"
-            onClick={onCancel}
-            className="rounded bg-zinc-700 p-2 text-xs text-white hover:bg-zinc-600"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel();
+            }}
+            className="rounded bg-zinc-700 p-2 text-sm text-white hover:bg-zinc-600"
           >
-            Cancel
+            Cancel (Esc)
+          </button>
+        )}
+        {canAct && endPhaseAction && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEndPhase();
+            }}
+            className="rounded bg-rose-600 p-2 text-sm font-bold text-white hover:bg-rose-500"
+          >
+            ターン終了
           </button>
         )}
       </div>
-      {canAct && endPhaseAction && (
-        <button
-          type="button"
-          onClick={onEndPhase}
-          className="rounded bg-rose-600 p-2 text-xs font-bold text-white hover:bg-rose-500"
-        >
-          ターン終了
-        </button>
-      )}
     </div>
   );
 }
@@ -1194,6 +1976,317 @@ function AttackArrow({
 }
 
 // ========================================================================== //
+// 人間 interactive 選択 modal (= search_top_n 等)
+// ========================================================================== //
+
+function SearchChoiceModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const cards =
+    (payload.cards as
+      | { idx: number; card_id: string; name: string; matches_filter: boolean }[]
+      | undefined) ?? [];
+  const limit = Number(payload.limit ?? 1);
+  const destination = String(payload.destination ?? "hand");
+  const restRemain = String(payload.rest_remain ?? "bottom");
+  const depth = Number(payload.depth ?? cards.length);
+  const [picked, setPicked] = useState<number[]>([]);
+
+  function togglePick(idx: number, allowed: boolean) {
+    if (!allowed) return;
+    if (picked.includes(idx)) {
+      setPicked(picked.filter((x) => x !== idx));
+    } else if (picked.length < limit) {
+      setPicked([...picked, idx]);
+    }
+  }
+
+  const destLabel = destination === "play" ? "場に登場" : "手札に加える";
+  const restLabel =
+    restRemain === "trash"
+      ? "トラッシュ"
+      : restRemain === "top"
+        ? "デッキの上"
+        : "デッキの下";
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-amber-200">
+            デッキ 上 {depth} 枚 公開
+          </h3>
+          <span className="text-sm text-zinc-300">
+            最大 {limit} 枚 を {destLabel} (= 残りは {restLabel})
+          </span>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {picked.length} / {limit}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-3 overflow-y-auto pr-2">
+          {cards.map((c) => {
+            const allowed = c.matches_filter;
+            const isSelected = picked.includes(c.idx);
+            return (
+              <button
+                key={c.idx}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePick(c.idx, allowed);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                disabled={!allowed}
+                className={
+                  "relative rounded transition " +
+                  (isSelected
+                    ? "ring-4 ring-amber-400 -translate-y-2"
+                    : allowed
+                      ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
+                      : "ring-1 ring-zinc-700 opacity-50 cursor-not-allowed")
+                }
+                title={
+                  allowed ? c.name : `${c.name} (条件 非該当 → 選択不可)`
+                }
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-72 w-auto rounded shadow-xl"
+                />
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            条件 非該当 のカード は 選択 不可 (= グレー)。 緑枠 = 選択可。
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(picked);
+            }}
+            disabled={busy || picked.length === 0}
+            className="ml-auto rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+          >
+            確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// 人間 interactive 対象選択 modal (= ko / return_to_hand / power_pump 等)
+// ========================================================================== //
+
+function TargetPickModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const candidates =
+    (payload.candidates as
+      | {
+          iid: number;
+          card_id: string;
+          name: string;
+          power: number;
+          rested: boolean;
+          attached_dons: number;
+          owner: "self" | "opp";
+          is_leader: boolean;
+        }[]
+      | undefined) ?? [];
+  const limit = Number(payload.limit ?? 1);
+  const description = String(payload.description ?? "対象 を 選択");
+  const primitiveKind = String(payload.primitive_kind ?? "");
+  const [picked, setPicked] = useState<number[]>([]);
+
+  function togglePick(idx: number) {
+    if (picked.includes(idx)) {
+      setPicked(picked.filter((x) => x !== idx));
+    } else if (picked.length < limit) {
+      setPicked([...picked, idx]);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-amber-200">{description}</h3>
+          <span className="text-sm text-zinc-300">({primitiveKind})</span>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {picked.length} / {limit}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-3 overflow-y-auto pr-2">
+          {candidates.map((c, idx) => {
+            const isSelected = picked.includes(idx);
+            const ownerColor = c.owner === "opp" ? "rose" : "emerald";
+            return (
+              <button
+                key={`${c.iid}-${idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePick(idx);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                className={
+                  "relative rounded transition " +
+                  (isSelected
+                    ? "ring-4 ring-amber-400 -translate-y-2"
+                    : `ring-2 ring-${ownerColor}-400 hover:ring-emerald-300`)
+                }
+                title={`${c.name} (P=${c.power}, ${c.rested ? "rested" : "active"}${c.attached_dons > 0 ? `, +${c.attached_dons}d` : ""})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className={`h-56 w-auto rounded shadow-xl ${c.rested ? "rotate-90" : ""}`}
+                />
+                <span
+                  className={
+                    "absolute top-0 left-0 rounded-br px-1.5 text-xs font-bold text-white " +
+                    (c.owner === "opp" ? "bg-rose-600" : "bg-emerald-600")
+                  }
+                >
+                  {c.owner === "opp" ? "AI" : "YOU"}
+                  {c.is_leader ? " · L" : ""}
+                </span>
+                <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1.5 text-xs font-bold text-white">
+                  P{c.power}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            候補をクリックして 選択 (最大 {limit} 枚)。
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(picked);
+            }}
+            disabled={busy || picked.length === 0}
+            className="ml-auto rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+          >
+            確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// トラッシュ閲覧 modal
+// ========================================================================== //
+
+function TrashViewer({
+  side,
+  cards,
+  onClose,
+  onHover,
+}: {
+  side: "me" | "opp";
+  cards: string[];
+  onClose: () => void;
+  onHover: (h: HoverInfo) => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      // 右パネル (= w-[480px]) を 除いて 左+中央 のみ カバー
+      // 480 + gap-2(8) + p-2(8) ≈ 488px を 右側 から 開ける
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/80 p-6"
+      style={{ right: "488px" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border border-zinc-600 bg-zinc-900 p-4 shadow-2xl"
+      >
+        <div className="mb-3 flex items-center gap-3">
+          <h3 className="text-lg font-bold text-zinc-100">
+            {side === "me" ? "YOUR TRASH" : "OPP TRASH"} ({cards.length})
+          </h3>
+          <span className="text-xs text-zinc-400">
+            新しい順 (= 上が最新)
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto rounded border border-zinc-500 px-3 py-1 text-sm text-white hover:bg-zinc-700"
+          >
+            ✕ 閉じる
+          </button>
+        </div>
+        {cards.length === 0 ? (
+          <div className="py-12 text-center text-sm text-zinc-400">
+            トラッシュは空です
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-3 overflow-y-auto pr-2">
+            {/* 新しい順 (= 最新が先頭) */}
+            {[...cards].reverse().map((cardId, i) => (
+              <div
+                key={`${cardId}-${i}`}
+                onMouseEnter={() => onHover({ kind: "hand", cardId })}
+                onMouseLeave={() => onHover(null)}
+                className="relative rounded hover:ring-2 hover:ring-emerald-400"
+                title={cardId}
+              >
+                <CardImage
+                  cardId={cardId}
+                  alt={cardId}
+                  className="h-72 w-auto rounded shadow-xl ring-1 ring-zinc-700"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
 // 防御 overlay
 // ========================================================================== //
 
@@ -1206,6 +2299,7 @@ function DefenseOverlay({
   setCounterIdxs,
   onSubmit,
   busy,
+  onHover,
 }: {
   payload: Record<string, unknown> | null;
   me: PlayerSnapshot;
@@ -1215,6 +2309,7 @@ function DefenseOverlay({
   setCounterIdxs: (v: number[]) => void;
   onSubmit: () => void;
   busy: boolean;
+  onHover: (h: HoverInfo) => void;
 }) {
   const blockerIids =
     (payload?.legal_blocker_iids as number[] | undefined) ?? [];
@@ -1235,19 +2330,22 @@ function DefenseOverlay({
   );
 
   return (
-    <div className="absolute inset-x-4 bottom-4 z-50 rounded-lg border-2 border-amber-400 bg-amber-950/95 p-3 shadow-xl backdrop-blur">
-      <div className="mb-2 text-sm font-bold text-amber-200">
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute inset-x-4 bottom-4 z-50 rounded-lg border-2 border-amber-400 bg-amber-950/95 p-3 shadow-xl backdrop-blur"
+    >
+      <div className="mb-2 text-base font-bold text-amber-200">
         ⚠ 相手が {isLeaderAttack ? "リーダー" : "キャラ"} を攻撃中 — 防御
       </div>
       <div className="flex gap-4">
         <div>
-          <div className="text-xs font-semibold text-amber-200">Blocker</div>
+          <div className="text-sm font-semibold text-amber-200">Blocker</div>
           <div className="mt-1 flex flex-wrap items-center gap-1">
             <button
               type="button"
               onClick={() => setBlockerIid(null)}
               className={
-                "rounded px-2 py-1 text-xs " +
+                "rounded px-2 py-1 text-sm " +
                 (blockerIid === null
                   ? "bg-amber-500 text-white"
                   : "border border-amber-400 bg-amber-900/40 text-amber-100")
@@ -1260,6 +2358,19 @@ function DefenseOverlay({
                 key={c.instance_id}
                 type="button"
                 onClick={() => setBlockerIid(c.instance_id)}
+                onMouseEnter={() =>
+                  onHover({
+                    kind: "chara",
+                    cardId: c.card_id,
+                    name: c.name,
+                    power: c.power,
+                    attached_dons: c.attached_dons,
+                    rested: c.rested,
+                    keywords: c.keywords,
+                    isLeader: false,
+                  })
+                }
+                onMouseLeave={() => onHover(null)}
                 className={
                   "rounded transition " +
                   (blockerIid === c.instance_id
@@ -1271,19 +2382,19 @@ function DefenseOverlay({
                 <CardImage
                   cardId={c.card_id}
                   alt={c.name}
-                  className="h-20 w-auto rounded"
+                  className="h-28 w-auto rounded"
                 />
               </button>
             ))}
           </div>
         </div>
         <div className="flex-1">
-          <div className="text-xs font-semibold text-amber-200">
+          <div className="text-sm font-semibold text-amber-200">
             Counter ({counterIdxs.length})
           </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {counterIdxsAvail.length === 0 && (
-              <span className="text-xs text-amber-300">
+              <span className="text-sm text-amber-300">
                 手札に counter 無し
               </span>
             )}
@@ -1292,6 +2403,10 @@ function DefenseOverlay({
                 key={idx}
                 type="button"
                 onClick={() => toggleCounter(idx)}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: me.hand[idx] })
+                }
+                onMouseLeave={() => onHover(null)}
                 className={
                   "rounded transition " +
                   (counterIdxs.includes(idx)
@@ -1302,7 +2417,7 @@ function DefenseOverlay({
                 <CardImage
                   cardId={me.hand[idx]}
                   alt={me.hand[idx]}
-                  className="h-20 w-auto rounded"
+                  className="h-28 w-auto rounded"
                 />
               </button>
             ))}
@@ -1312,7 +2427,7 @@ function DefenseOverlay({
           type="button"
           onClick={onSubmit}
           disabled={busy}
-          className="self-end rounded bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-400 disabled:opacity-50"
+          className="self-end rounded bg-amber-500 px-4 py-2 text-base font-bold text-white hover:bg-amber-400 disabled:opacity-50"
         >
           防御確定
         </button>
