@@ -544,6 +544,112 @@ export async function fetchFaqSources(): Promise<FaqSource[]> {
   return res.json();
 }
 
+// ---- Phase A: 人間 vs AI 対戦 セッション API ---- //
+
+export type HumanLegalAction = {
+  idx: number;
+  kind: string;
+  label: string;
+  hand_idx?: number;
+  iid?: number;
+  attacker_iid?: number;
+  target_iid?: number;
+  n?: number;
+};
+
+export type HumanMatchState = {
+  session_id?: string;
+  game_over: boolean;
+  winner: number | null;
+  turn: number;
+  turn_player_idx: number;
+  phase: string;
+  human_idx: number;
+  ai_idx: number;
+  pending_kind: "action" | "defense" | null;
+  pending_payload: Record<string, unknown> | null;
+  log: string[];
+  snapshot: Record<string, unknown> | null;
+  legal_actions: HumanLegalAction[];
+  snapshots_count: number;
+  deck_a_slug: string;
+  deck_b_slug: string;
+};
+
+export async function startHumanMatch(
+  deckASlug: string,
+  deckBSlug: string,
+  opts: { seed?: number; human_first?: boolean | null } = {},
+): Promise<HumanMatchState> {
+  const res = await fetch(`${API}/api/human_match`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deck_a_slug: deckASlug,
+      deck_b_slug: deckBSlug,
+      seed: opts.seed ?? 42,
+      human_first: opts.human_first ?? null,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`startHumanMatch failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function fetchHumanMatch(sid: string): Promise<HumanMatchState> {
+  const res = await fetch(`${API}/api/human_match/${sid}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchHumanMatch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function applyHumanAction(
+  sid: string,
+  actionIdx: number,
+): Promise<HumanMatchState> {
+  const res = await fetch(`${API}/api/human_match/${sid}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action_idx: actionIdx }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`applyHumanAction failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function applyHumanDefense(
+  sid: string,
+  blockerIid: number | null,
+  counterCardIdxs: number[],
+): Promise<HumanMatchState> {
+  const res = await fetch(`${API}/api/human_match/${sid}/defense`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      blocker_iid: blockerIid,
+      counter_card_idxs: counterCardIdxs,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`applyHumanDefense failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function endHumanMatch(sid: string): Promise<void> {
+  await fetch(`${API}/api/human_match/${sid}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+}
+
 export async function fetchMatchHistory(
   deckId?: string,
   limit = 20,

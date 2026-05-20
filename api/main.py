@@ -2905,3 +2905,143 @@ def list_spectate_comment_clusters(
     comments = _load_spectate_comments(replay_key=replay_key)
     clusters = cluster_comments(comments)
     return [cl.to_dict() for cl in clusters]
+
+
+# --------------------------------------------------------------------------- #
+# Phase A: 人間 vs AI 対戦 セッション API
+# --------------------------------------------------------------------------- #
+# in-memory session store (= production は redis 等)。 session_id → HumanSession
+_HUMAN_SESSIONS: dict[str, "object"] = {}
+
+
+class HumanMatchStart(BaseModel):
+    deck_a_slug: str  # 人間 使用 deck
+    deck_b_slug: str  # AI 使用 deck
+    seed: Optional[int] = 42
+    human_first: Optional[bool] = None  # None=random
+
+
+class HumanActionIn(BaseModel):
+    action_idx: int
+
+
+class HumanDefenseIn(BaseModel):
+    blocker_iid: Optional[int] = None
+    counter_card_idxs: list[int] = []
+
+
+def _load_deck_by_slug(slug: str):
+    repo = get_repo()
+    deck_path = ROOT / "decks" / f"{slug}.json"
+    if not deck_path.exists():
+        raise HTTPException(404, f"deck '{slug}' not found")
+    return make_deck_from_dict(
+        json.loads(deck_path.read_text(encoding="utf-8")), repo
+    )
+
+
+def _load_deck_analysis(slug: str) -> Optional[dict]:
+    ana_path = ROOT / "decks" / f"{slug}.analysis.json"
+    if ana_path.exists():
+        try:
+            return json.loads(ana_path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
+def _build_default_ai_factory(deck_slug: str):
+    """harness default factory (= GoalDirectedAI v1) を 構築。"""
+    from engine.harness import _default_ai_factory  # lazy import
+    return _default_ai_factory
+
+
+@app.post("/api/human_match")
+def human_match_start(req: HumanMatchStart):
+    """人間 vs AI セッション 開始。 session_id を 返す + 初期 state。"""
+    from engine.human_session import HumanSession  # lazy import
+
+    deck_a = _load_deck_by_slug(req.deck_a_slug)
+    deck_b = _load_deck_by_slug(req.deck_b_slug)
+    overlay_path = ROOT / "db" / "card_effects.json"
+    overlay = load_effect_overlay(overlay_path)
+
+    ai_factory = _build_default_ai_factory(req.deck_b_slug)
+    deck_b_analysis = _load_deck_analysis(req.deck_b_slug)
+    deck_a_analysis = _load_deck_analysis(req.deck_a_slug)
+
+    session = HumanSession(
+        deck_a=deck_a,
+        deck_b=deck_b,
+        ai_factory=ai_factory,
+        seed=req.seed or 42,
+        effects_overlay=overlay,
+        deck_a_analysis=deck_a_analysis,
+        deck_b_analysis=deck_b_analysis,
+        human_first=req.human_first,
+    )
+    session.advance_until_pause()
+
+    import uuid
+
+    sid = uuid.uuid4().hex[:16]
+    _HUMAN_SESSIONS[sid] = session
+
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    return payload
+
+
+@app.get("/api/human_match/{sid}")
+def human_match_status(sid: str):
+    session = _HUMAN_SESSIONS.get(sid)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    return session.snapshot_payload()
+
+
+@app.post("/api/human_match/{sid}/action")
+def human_match_action(sid: str, req: HumanActionIn):
+    session = _HUMAN_SESSIONS.get(sid)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    try:
+        session.apply_human_action(req.action_idx)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return session.snapshot_payload()
+
+
+@app.post("/api/human_match/{sid}/defense")
+def human_match_defense(sid: str, req: HumanDefenseIn):
+    session = _HUMAN_SESSIONS.get(sid)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    try:
+        session.apply_human_defense(req.blocker_iid, req.counter_card_idxs)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return session.snapshot_payload()
+
+
+@app.delete("/api/human_match/{sid}")
+def human_match_end(sid: str):
+    session = _HUMAN_SESSIONS.pop(sid, None)
+    saved_replay_id = None
+    if session is not None and getattr(session, "state", None) is not None:
+        # 試合終了 していれば 棋譜保存
+        if session.state.game_over:
+            saved_replay_id = session.save_replay()
+    return {"ok": True, "replay_id": saved_replay_id}
+
+
+@app.post("/api/human_match/{sid}/save_replay")
+def human_match_save_replay(sid: str):
+    """試合終了後 (= game_over=true) に 棋譜 を SQLite 保存。"""
+    session = _HUMAN_SESSIONS.get(sid)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    rid = session.save_replay()
+    if rid is None:
+        raise HTTPException(400, "game not over or save failed")
+    return {"replay_id": rid}
