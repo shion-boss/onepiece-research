@@ -81,35 +81,88 @@ class CardDef:
     def has_keyword(self, keyword):
         return f"[{keyword}]" in self.text or "【" + keyword + "】" in self.text
 
+    def has_innate_keyword(self, keyword):
+        """テキストに 【keyword】 が innate (常時所持) として 登場するか 判定。
+
+        以下は 条件付き / 動的付与なので innate ではない:
+        - 「場合、〜【keyword】を得る」 (= 状態 条件)
+        - 「：〜【keyword】を得る」 (= 活性化/起動)
+        - 直後が 「を得」「を発動」「になる」 (= 動的 grant)
+        - 直後が 「を発動できない」 (= 相手キーワード disable)
+        - 「【ドン‼×N】このキャラは【keyword】」 (= 静的 don 条件)
+
+        innate と 判定する 例:
+        - 「【ブロッカー】(相手のアタックの後...)」 (= 効果定義 で 説明)
+        - 「【速攻】このカードは登場したターンに...」 (= 説明)
+        - 文末 単独 出現
+        """
+        text = self.text
+        if not text:
+            return False
+        brackets = [f"【{keyword}】", f"[{keyword}]"]
+        if not any(b in text for b in brackets):
+            return False
+        sentences = text.replace("\n", "。").split("。")
+        for s in sentences:
+            for bracket in brackets:
+                idx = s.find(bracket)
+                if idx == -1:
+                    continue
+                after = s[idx + len(bracket) : idx + len(bracket) + 20]
+                before = s[:idx]
+                # 動的 grant / disable
+                if after.startswith(("を得", "を発動", "になる", "を持つ", "を持た")):
+                    continue
+                # 「【ブロッカー】を発動できない」 系
+                if "発動できない" in after[:10]:
+                    continue
+                # 条件節 内
+                if "場合" in before:
+                    continue
+                if "：" in before or ":" in before:
+                    continue
+                # 【ドン‼×N】 等 の 直前 マーカー (= 静的 don 条件)
+                # before の 末尾 が 】 で 終わる かつ ドン or × を 含む
+                if before.endswith("】"):
+                    last_bracket = before.rfind("【")
+                    if last_bracket >= 0:
+                        marker = before[last_bracket:]
+                        if "ドン" in marker or "×" in marker or "ターン1回" in marker:
+                            continue
+                return True
+        return False
+
     @property
     def is_blocker(self):
-        return self.has_keyword("ブロッカー")
+        return self.has_innate_keyword("ブロッカー")
 
     @property
     def is_rush(self):
-        return self.has_keyword("スピード") or self.has_keyword("速攻")
+        return self.has_innate_keyword("スピード") or self.has_innate_keyword("速攻")
 
     @property
     def is_rush_chara_only(self):
         """【速攻：キャラ】(公式 10-1-1 派生): 登場ターン中も相手キャラへのみアタック可能。
         is_rush とは独立。is_rush=False かつ summoning_sickness=True でも、
         この属性で「相手キャラ攻撃のみ」例外的に許可する。"""
-        return self.has_keyword("速攻：キャラ") or self.has_keyword("速攻:キャラ")
+        return self.has_innate_keyword("速攻：キャラ") or self.has_innate_keyword(
+            "速攻:キャラ"
+        )
 
     @property
     def is_double_attack(self):
         """【ダブルアタック】: アタックでリーダーライフに与えるダメージが 1→2"""
-        return self.has_keyword("ダブルアタック")
+        return self.has_innate_keyword("ダブルアタック")
 
     @property
     def is_banish(self):
         """【バニッシュ】: リーダーライフにダメージを与えた場合、ライフはトラッシュへ (トリガー発動せず)"""
-        return self.has_keyword("バニッシュ")
+        return self.has_innate_keyword("バニッシュ")
 
     @property
     def has_no_block(self):
         """【ブロック不可】: このカードのアタック中、相手は【ブロッカー】を発動できない"""
-        return self.has_keyword("ブロック不可")
+        return self.has_innate_keyword("ブロック不可")
 
     def __deepcopy__(self, memo):
         # frozen=True で immutable。 sim 中 1 ゲームに 60+ 枚の card 参照が

@@ -715,7 +715,7 @@ def legal_actions(state: GameState) -> list[Action]:
                 or ch.cannot_attack_through_opp_turn
             ):
                 continue
-            if ch.summoning_sickness:
+            if ch.summoning_sickness and not ch.is_rush_now:
                 # 召喚酔いでも 速攻:キャラ なら例外的に「キャラ攻撃のみ」可能
                 if ch.is_rush_chara_only_now:
                     chara_only_attackers.append(ch)
@@ -802,7 +802,9 @@ def _build_action_context(state: GameState, action: Action) -> dict:
         ctx["target_card_name"] = ch.card.name
         ctx["target_rested"] = ch.rested
         ctx["target_summoning_sickness"] = ch.summoning_sickness
-        ctx["target_can_attack_now"] = (not ch.rested) and (not ch.summoning_sickness)
+        ctx["target_can_attack_now"] = (not ch.rested) and (
+            (not ch.summoning_sickness) or ch.is_rush_now
+        )
         ctx["target_attached_don_before"] = ch.attached_dons
         ctx["n"] = action.n
         return ctx
@@ -863,7 +865,7 @@ def _build_action_context(state: GameState, action: Action) -> dict:
         ctx["hand_size"] = len(me.hand)
         ctx["active_chara_remaining"] = sum(
             1 for c in me.characters
-            if not c.rested and not c.summoning_sickness
+            if not c.rested and (not c.summoning_sickness or c.is_rush_now)
         )
         ctx["leader_unrested"] = not me.leader.rested
         return ctx
