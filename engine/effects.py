@@ -683,6 +683,15 @@ def eval_condition(
             target_name = str(v)
             if not any(s.card.name == target_name for s in me.stages):
                 return False
+        elif k == "opp_or_self_chara_cost_eq_0_exists" and opp is not None:
+            # 自場 or 相手場 に コスト0 の キャラ が いる
+            # OP02-095 シャーロット・モスカート 「コスト0のキャラがいる場合」 等
+            target_cost = int(v)
+            has = any(c.card.cost == target_cost for c in me.characters) or any(
+                c.card.cost == target_cost for c in opp.characters
+            )
+            if not has:
+                return False
         elif k == "don_count_ge":
             # 統一 alias: 自分のドン!! 合算 (active + rested + attached) ≥ N。
             # = self_don_ge と同義。 overlay 側で表現の揺れを吸収するため両方対応。

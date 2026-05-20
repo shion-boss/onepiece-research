@@ -131,7 +131,8 @@ def main():
     impl_when = engine_keys["when"]
     impl_cost = engine_keys["cost"]
 
-    # ad-hoc adapter: 既知 alias / handled differently
+    # ad-hoc adapter: 既知 alias / handled differently (= elif k 形式 ではない 個別処理)
+    # engine src 内 で 個別 if/grep ベース で 処理されている primitives を 明示的 認識
     additional_when = {
         "on_attached_don",  # evaluate_static_effects で 個別 処理
         "on_play",
@@ -139,10 +140,18 @@ def main():
         "on_block",
         "on_ko",
         "on_turn_end",
+        "end_of_turn",  # = on_turn_end alias (= _enqueue_field_when "end_of_turn")
+        "opp_attack",  # = opp_attack_on_leader / opp_attack_on_chara alias
+        "in_hand",  # = 手札 静的 効果 (= 個別処理)
+        "game_start",  # = 初期化 個別処理
+        "setup_modifier",  # = 内部
+        "on_self_life_lost",  # = trigger 個別
+        "don_phase_modifier",  # = 内部 don phase 個別
         "activate_main",
         "main",
         "counter",
         "trigger",
+        "replace_rest",  # = レスト 置換 個別
         "on_self_chara_leave_by_self_effect",
         "on_self_rested",
         "on_self_hand_discarded",
@@ -162,11 +171,54 @@ def main():
         "opp_event_played",
         "opp_trigger_fired",
         "self_event_played",
-        "on_self_event_played",
         "on_attack_finish",
         "on_attack_start",
     }
     impl_when = impl_when | additional_when
+
+    # 個別処理 do primitives (= elif k 形式 ではなく `if "X" in primitive:` 等で 処理)
+    additional_do = {
+        "set_ko_immune",  # evaluate_static_effects 個別
+        "set_attack_taunt",
+        "set_base_cost",
+        "set_base_power",
+        "set_cannot_attack_static",
+        "set_opp_protect_static",
+        "set_ko_immune_battle_only",
+        "set_immune_attribute_in_battle",
+        "set_base_cost_filtered_static",
+        "reduce_play_cost_filtered_static",
+        "auto_attach_to_leader",
+        "summon_stage_from_deck_with_feature",
+        "look_top_n_filter_to_hand",  # 未実装 (= EB04-029 で 検出、 search 代用)
+        "_if_clause",  # audit syntactic noise
+    }
+    impl_do_or_if = impl_do_or_if | additional_do
+
+    # 個別処理 if primitives (= conditions 内 sub-field)
+    additional_if = {
+        "leader_features_any",  # leader_feature alias
+        "target",  # target sub-field
+        "target_feature",
+        "target_color",
+        "target_name_exclude",
+        "target_power_le",
+        "target_power_ge",
+        "target_cost_le",
+        "target_attribute",
+        "target_base_power_le",
+        "by_opp_effect",  # condition modifier
+        "by_opp_chara_effect",
+    }
+    impl_do_or_if = impl_do_or_if | additional_if
+
+    # cost field (= cost dict 内 で 個別処理)
+    additional_cost = {
+        "discard_hand",  # = cost.get("discard_hand")
+        "discard_self_hand",  # alias?
+        "discard_feature",  # cost modifier
+    }
+    impl_cost = impl_cost | additional_cost
 
     results: dict[str, dict] = {}
     for name, s in overlay_stats.items():
