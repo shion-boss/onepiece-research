@@ -1658,7 +1658,10 @@
         {
           "rest": "one_opponent_character_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP07-059": [
@@ -1819,7 +1822,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "青黄ナミ アタック時 1ドロー (ライフ離れた時の代替)",
@@ -1831,7 +1837,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP12-020": [
@@ -1932,7 +1941,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     },
     {
       "_text": "赤青エース ドン1+ 自分アタック時 1ドロー",
@@ -1944,7 +1956,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP13-003": [
@@ -2118,7 +2133,10 @@
         {
           "redirect_attack": "self_leader"
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP14-079": [
@@ -11640,7 +11658,10 @@
         {
           "self_turn": true
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP13-100_p1": [
@@ -11656,7 +11677,10 @@
         {
           "self_turn": true
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP12-001": [
@@ -49276,7 +49300,9 @@
         {
           "give_keyword": {
             "target": "one_self_chara_filtered",
-            "filter": {"feature": "ドレスローザ"},
+            "filter": {
+              "feature": "ドレスローザ"
+            },
             "keyword": "ブロッカー",
             "duration": "next_opp_turn_end"
           }
@@ -61798,7 +61824,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 2
+        "discard_hand": 2,
+        "once_per_turn": true
       }
     }
   ],
@@ -80168,6 +80195,22 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        }
+      ]
     }
   ],
   "OP07-031_p1": [],
@@ -80942,6 +80985,22 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
+        }
+      ]
     }
   ],
   "OP07-029_p1": [
@@ -80958,6 +81017,22 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        }
+      ]
+    },
+    {
+      "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_any"
         }
       ]
     }
@@ -81516,6 +81591,26 @@
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、 代わりにこのキャラを、 このターン中、 パワー-2000できる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -2000,
+            "duration": "turn"
           }
         }
       ]
