@@ -607,24 +607,28 @@ function PlayerMat({
         </div>
       </div>
 
-      {/* 中央: フィールド (= キャラ 5 + リーダー / ステージ / デッキ + DON コスト) */}
+      {/* 中央: フィールド (= キャラ 5 + リーダー / ステージ / デッキ + DON コスト)
+        公式マット 配置: キャラ は 仕切り 側 (= 相手 と 対峙)、 DON は 自分側 手前。
+        - 相手 マット (上): 上から DON → リーダー段 → キャラ (= キャラ が 仕切り 接触)
+        - 自分 マット (下): 上から キャラ → リーダー段 → DON (= キャラ が 仕切り 接触)
+      */}
       <div className="flex min-h-0 flex-1 flex-col justify-between gap-1">
-        {/* 上段 (= 相手 マット なら キャラ、 自分 マット なら DON コスト) */}
+        {/* 上段: 相手 マットなら DON (= 相手 手前)、 自分 マットなら キャラ (= 自分 奥) */}
         {!isMe ? (
-          <CharacterRow
-            chars={player.characters}
-            attackerIid={attackerIid}
-            canSelectAsTarget={canSelectAsTarget}
-            canAct={false}
-            actionsByIid={actionsByIid}
-            onChara={onCharaClick}
-            selection={selection}
-          />
-        ) : (
           <DonRow
             donActive={player.don_active}
             donRested={player.don_rested}
             donTotal={player.don_total}
+          />
+        ) : (
+          <CharacterRow
+            chars={player.characters}
+            attackerIid={attackerIid}
+            canSelectAsTarget={false}
+            canAct={canAct}
+            actionsByIid={actionsByIid}
+            onChara={onSelfCharaClick}
+            selection={selection}
           />
         )}
 
@@ -642,22 +646,22 @@ function PlayerMat({
           onLeaderClick={isMe ? onSelfLeaderClick : onLeaderClick}
         />
 
-        {/* 下段 (= 相手 マット なら DON コスト、 自分 マット なら キャラ) */}
+        {/* 下段: 相手 マットなら キャラ (= 相手 奥、 仕切り 接触)、 自分 マットなら DON (= 自分 手前) */}
         {!isMe ? (
+          <CharacterRow
+            chars={player.characters}
+            attackerIid={attackerIid}
+            canSelectAsTarget={canSelectAsTarget}
+            canAct={false}
+            actionsByIid={actionsByIid}
+            onChara={onCharaClick}
+            selection={selection}
+          />
+        ) : (
           <DonRow
             donActive={player.don_active}
             donRested={player.don_rested}
             donTotal={player.don_total}
-          />
-        ) : (
-          <CharacterRow
-            chars={player.characters}
-            attackerIid={attackerIid}
-            canSelectAsTarget={false}
-            canAct={canAct}
-            actionsByIid={actionsByIid}
-            onChara={onSelfCharaClick}
-            selection={selection}
           />
         )}
       </div>
