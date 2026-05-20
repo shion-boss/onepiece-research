@@ -1861,6 +1861,22 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
+      "when": "on_self_life_taken",
+      "if": {
+        "self_turn": true,
+        "self_hand_le": 7
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP12-020": [
@@ -2116,6 +2132,18 @@
     }
   ],
   "OP14-041": [
+    {
+      "_text": "【相手のターン中】自分のキャラが登場した時、カード1枚を引く",
+      "when": "on_self_chara_played",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    },
     {
       "_text": "【ドン!!×1】【ターン1回】自分の元々のパワー5000以上の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、相手のライフの上から1枚までを、持ち主の手札に加える。",
       "when": "on_self_chara_ko",
@@ -5530,6 +5558,22 @@
           "self_turn": true
         }
       ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自ドン2+デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true,
+        "returned_don_count_ge": 2
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "PRB02-012": [
@@ -8717,11 +8761,18 @@
   ],
   "OP08-076": [
     {
-      "_text": "(黄 イベ) メイン: ドン+1, 相手6000以上で +1ドン",
+      "_text": "【メイン】ドン!!デッキからドン!!1枚を追加。その後、相手のパワー6000以上のキャラがいる場合、追加で1枚",
       "when": "main",
       "do": [
         {
-          "add_don": 2
+          "add_don": 1
+        },
+        {
+          "add_don": 1,
+          "_chain": "if_prev_succeeded",
+          "_condition": {
+            "opp_chara_power_ge": 6000
+          }
         }
       ]
     }
@@ -10890,11 +10941,14 @@
   ],
   "EB01-021_p2": [
     {
-      "_text": "ハンニャバル 自ターン終了時 1ドロー (自動生成)",
-      "when": "end_of_turn",
+      "_text": "【自分のターン終了時】コスト2以上 インペルダウン キャラ1枚を手札に戻す → add_don 1",
+      "when": "on_turn_end",
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "draw": 1
+          "add_don": 1
         }
       ]
     }
@@ -11004,6 +11058,18 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "add_don": 1,
+          "_chain": "if_prev_succeeded",
+          "_condition": {
+            "self_don_count_eq": 0,
+            "_or": [
+              {
+                "self_don_count_ge": 3
+              }
+            ]
+          }
         }
       ]
     }
@@ -11672,6 +11738,18 @@
   ],
   "OP14-041_p1": [
     {
+      "_text": "【相手のターン中】自分のキャラが登場した時、カード1枚を引く",
+      "when": "on_self_chara_played",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    },
+    {
       "_text": "【ドン!!×1】【ターン1回】自分の元々のパワー5000以上の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、相手のライフの上から1枚までを、持ち主の手札に加える。",
       "when": "on_self_chara_ko",
       "conditions": [
@@ -12110,6 +12188,22 @@
           "self_turn": true
         }
       ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
+      "when": "on_self_life_taken",
+      "if": {
+        "self_turn": true,
+        "self_hand_le": 7
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP11-062": [
@@ -12293,6 +12387,21 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
+      "when": "on_self_event_played",
+      "if": {
+        "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP10-003_p1": [
@@ -12310,6 +12419,21 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
+      "when": "on_self_event_played",
+      "if": {
+        "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -13511,6 +13635,19 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【ドン!!×1】【アタック時】自分のライフと手札の合計枚数が4枚以下の場合、カード1枚を引く",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_life_plus_hand_le": 4
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP04-040_p1": [
@@ -13538,6 +13675,19 @@
             "amount": 1000,
             "duration": "static"
           }
+        }
+      ]
+    },
+    {
+      "_text": "【ドン!!×1】【アタック時】自分のライフと手札の合計枚数が4枚以下の場合、カード1枚を引く",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_life_plus_hand_le": 4
+      },
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -13882,6 +14032,18 @@
   ],
   "OP02-049": [
     {
+      "_text": "【自分のターン終了時】自分の手札が0枚の場合、カード2枚を引く",
+      "when": "on_turn_end",
+      "if": {
+        "self_hand_eq": 0
+      },
+      "do": [
+        {
+          "draw": 2
+        }
+      ]
+    },
+    {
       "_text": "エンポリオ・イワンコフ 自ターン終了時: 手札0なら 2ドロー",
       "when": "end_of_turn",
       "if": {
@@ -13895,6 +14057,18 @@
     }
   ],
   "OP02-049_p1": [
+    {
+      "_text": "【自分のターン終了時】自分の手札が0枚の場合、カード2枚を引く",
+      "when": "on_turn_end",
+      "if": {
+        "self_hand_eq": 0
+      },
+      "do": [
+        {
+          "draw": 2
+        }
+      ]
+    },
     {
       "_text": "エンポリオ・イワンコフ 自ターン終了時 1ドロー (自動生成)",
       "when": "end_of_turn",
@@ -14186,6 +14360,22 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "【ドン!!×1】【自分のターン中】【ターン1回】相手のキャラがKOされた時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
+      "when": "on_opp_chara_ko",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP01-061_p1": [
@@ -14208,6 +14398,22 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "【ドン!!×1】【自分のターン中】【ターン1回】相手のキャラがKOされた時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
+      "when": "on_opp_chara_ko",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP01-062": [
@@ -14224,6 +14430,19 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【ドン!!×1】自分がイベントを発動した時、自分の手札が4枚以下の場合、カード1枚を引く",
+      "when": "on_self_event_played",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_hand_le": 4
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP01-062_p1": [
@@ -14238,6 +14457,19 @@
             "amount": 1000,
             "duration": "static"
           }
+        }
+      ]
+    },
+    {
+      "_text": "【ドン!!×1】自分がイベントを発動した時、自分の手札が4枚以下の場合、カード1枚を引く",
+      "when": "on_self_event_played",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_hand_le": 4
+      },
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -14546,6 +14778,18 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "add_don": 1,
+          "_chain": "if_prev_succeeded",
+          "_condition": {
+            "self_don_count_eq": 0,
+            "_or": [
+              {
+                "self_don_count_ge": 3
+              }
+            ]
+          }
         }
       ]
     }
@@ -15342,6 +15586,19 @@
           }
         }
       ]
+    },
+    {
+      "_text": "【ドン!!×1】【アタック時】自分の手札が3枚以下の場合、カード1枚を引く",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_hand_le": 3
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "P-076": [
@@ -15717,6 +15974,21 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
+      "when": "on_self_event_played",
+      "if": {
+        "opp_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP12-020_p2": [
@@ -15800,6 +16072,19 @@
             "amount": 1000,
             "duration": "static"
           }
+        }
+      ]
+    },
+    {
+      "_text": "【ドン!!×1】【アタック時】自分の手札が3枚以下の場合、カード1枚を引く",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_hand_le": 3
+      },
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -24959,11 +25244,18 @@
   ],
   "OP08-076_p1": [
     {
-      "_text": "(黄 イベ) メイン: ドン+1, 相手6000以上で +1ドン",
+      "_text": "【メイン】ドン!!デッキからドン!!1枚を追加。その後、相手のパワー6000以上のキャラがいる場合、追加で1枚",
       "when": "main",
       "do": [
         {
-          "add_don": 2
+          "add_don": 1
+        },
+        {
+          "add_don": 1,
+          "_chain": "if_prev_succeeded",
+          "_condition": {
+            "opp_chara_power_ge": 6000
+          }
         }
       ]
     }
@@ -28156,6 +28448,22 @@
       "conditions": [
         {
           "self_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自ドン2+デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true,
+        "returned_don_count_ge": 2
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -33796,6 +34104,9 @@
       "when": "on_play",
       "do": [
         {
+          "life_to_hand": 1
+        },
+        {
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
@@ -34611,6 +34922,22 @@
       "conditions": [
         {
           "self_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自ドン2+デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true,
+        "returned_don_count_ge": 2
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -39905,11 +40232,18 @@
   ],
   "OP08-076_r1": [
     {
-      "_text": "(黄 イベ) メイン: ドン+1, 相手6000以上で +1ドン",
+      "_text": "【メイン】ドン!!デッキからドン!!1枚を追加。その後、相手のパワー6000以上のキャラがいる場合、追加で1枚",
       "when": "main",
       "do": [
         {
-          "add_don": 2
+          "add_don": 1
+        },
+        {
+          "add_don": 1,
+          "_chain": "if_prev_succeeded",
+          "_condition": {
+            "opp_chara_power_ge": 6000
+          }
         }
       ]
     }
@@ -53488,6 +53822,19 @@
           "return_to_hand": "one_opponent_character_cost_le_4"
         }
       ]
+    },
+    {
+      "_text": "【メイン】多色リーダー + 手札6以下で カード2枚引く (二択の片方)",
+      "when": "main",
+      "if": {
+        "leader_color": "多色",
+        "self_hand_le": 6
+      },
+      "do": [
+        {
+          "draw": 2
+        }
+      ]
     }
   ],
   "OP12-060_p1": [
@@ -60678,6 +61025,22 @@
     }
   ],
   "OP06-017": [
+    {
+      "_text": "【メイン】自分のライフ1枚を手札に加える：自分のリーダーかキャラ1枚パワー+3000 turn",
+      "when": "main",
+      "do": [
+        {
+          "life_to_hand": 1
+        },
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 3000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
     {
       "_text": "OP06-017 counter: 自分のライフ1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
       "when": "counter",
@@ -74053,11 +74416,17 @@
   ],
   "ST06-015": [
     {
-      "_text": "ST06-015 main: カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
+      "_text": "【メイン】カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2",
       "when": "main",
       "do": [
         {
-          "force_opp_discard": 1
+          "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2
+          }
         }
       ]
     },
@@ -81545,8 +81914,40 @@
       ]
     }
   ],
-  "PRB02-009": [],
-  "PRB02-009_p1": [],
+  "PRB02-009": [
+    {
+      "_text": "このキャラが相手の効果でレストになった時、 トラッシュ + draw 2 を 選択 発動 可",
+      "when": "on_self_rested",
+      "if": {
+        "by_opp_effect": true
+      },
+      "cost": {
+        "trash_self": true
+      },
+      "do": [
+        {
+          "draw": 2
+        }
+      ]
+    }
+  ],
+  "PRB02-009_p1": [
+    {
+      "_text": "このキャラが相手の効果でレストになった時、 トラッシュ + draw 2 を 選択 発動 可",
+      "when": "on_self_rested",
+      "if": {
+        "by_opp_effect": true
+      },
+      "cost": {
+        "trash_self": true
+      },
+      "do": [
+        {
+          "draw": 2
+        }
+      ]
+    }
+  ],
   "ST16-003_p1": [],
   "ST16-003_r1": [],
   "ST16-005_p1": [],
@@ -82243,9 +82644,49 @@
   "OP08-006": [],
   "OP08-020": [],
   "OP08-029": [],
-  "OP08-045": [],
+  "OP08-045": [
+    {
+      "_text": "KO される か 相手効果で 場離脱する 時 代わりに トラッシュ + draw 1",
+      "when": "replace_leave",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "trash_self": true
+        }
+      ],
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    }
+  ],
   "OP08-046": [],
-  "OP08-056": [],
+  "OP08-056": [
+    {
+      "_text": "【自分のターン中】【ターン1回】自分の『白ひげ海賊団』キャラが効果で場離脱時、 draw 1 + 手札1デッキへ",
+      "when": "on_self_chara_leave_by_self_effect",
+      "if": {
+        "self_turn": true,
+        "victim_feature_in": [
+          "白ひげ海賊団"
+        ]
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "discard_self_to_deck_top": 1
+        }
+      ]
+    }
+  ],
   "OP08-067": [],
   "OP08-067_p1": [],
   "OP08-072": [],
@@ -82350,7 +82791,31 @@
   "OP07-042": [],
   "OP07-069": [],
   "OP07-087": [],
-  "OP05-074_p3": [],
+  "OP05-074_p3": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
   "OP06-002": [
     {
       "_text": "OP06-002 条件付き 【バニッシュ】 grant (= 自動生成 from 公式 text)",
@@ -82500,9 +82965,81 @@
     }
   ],
   "OP05-066": [],
-  "OP05-074": [],
-  "OP05-074_p1": [],
-  "OP05-074_p2": [],
+  "OP05-074": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
+  "OP05-074_p1": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
+  "OP05-074_p2": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
   "OP05-084": [],
   "OP05-086": [
     {
@@ -82822,8 +83359,48 @@
   "OP01-121_p1": [],
   "ST30-003": [],
   "ST30-003_p1": [],
-  "ST30-009": [],
-  "ST30-009_p1": [],
+  "ST30-009": [
+    {
+      "_text": "元々パワー6000の自キャラが相手効果で場離脱時、 代わりにトラッシュ + draw 1",
+      "when": "replace_leave",
+      "if": {
+        "target": "other_self_chara",
+        "target_truly_original_power_eq": 6000,
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "trash_self": true
+        }
+      ],
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    }
+  ],
+  "ST30-009_p1": [
+    {
+      "_text": "元々パワー6000の自キャラが相手効果で場離脱時、 代わりにトラッシュ + draw 1",
+      "when": "replace_leave",
+      "if": {
+        "target": "other_self_chara",
+        "target_truly_original_power_eq": 6000,
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "trash_self": true
+        }
+      ],
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    }
+  ],
   "ST30-011": [],
   "ST30-011_p1": [],
   "ST29-008": [],

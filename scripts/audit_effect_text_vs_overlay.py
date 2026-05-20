@@ -76,8 +76,9 @@ def audit_card(cid: str, entries: list) -> list[dict]:
                 })
                 break  # 1 度 検出 で 十分
 
-    # 2) 「ライフ N 枚 を 手札 に 加える」 → life_to_hand: N
-    for m in re.finditer(r"ライフ\s*(\d+)\s*枚.{0,15}手札に加える", text):
+    # 2) 「自分のライフ N 枚 を 手札 に 加える」 → life_to_hand: N
+    # 注: 「相手は自身のライフ」 は mill_opp_life_to_hand なので 別 primitive (= audit 対象外)
+    for m in re.finditer(r"自分のライフ\s*(\d+)\s*枚.{0,15}手札に加える", text):
         n = int(m.group(1))
         if not has_primitive_in_entries(
             entries, "life_to_hand",
