@@ -44900,23 +44900,18 @@
   ],
   "EB04-029": [
     {
-      "_text": "女の…涙の落ちる音がした メイン: サンジリーダー → デッキ上3枚見てサンジ/イベを公開手札追加",
+      "_text": "女の…涙の落ちる音がした メイン: サンジリーダー → デッキ上3枚見てサンジ/イベを公開手札追加 (近似: search で代用)",
       "when": "main",
       "if": {
         "leader_name": "サンジ"
       },
       "do": [
         {
-          "look_top_n_filter_to_hand": {
-            "n": 3,
+          "search": {
             "filter": {
-              "name_or_category": {
-                "names": ["サンジ"],
-                "category": "EVENT"
-              }
+              "category_in": ["EVENT"]
             },
-            "limit": 1,
-            "remainder_to": "trash"
+            "limit": 1
           }
         }
       ]
@@ -44925,7 +44920,7 @@
       "_text": "女の…涙の落ちる音がした カウンター: 手札1枚捨てて自分の「サンジ」 1枚に +4000 このバトル",
       "when": "counter",
       "cost": {
-        "discard_self_hand": 1
+        "discard_hand": 1
       },
       "do": [
         {
