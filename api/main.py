@@ -52,14 +52,17 @@ def _on_startup():
 
 # CORS 設定。 本番では env ALLOWED_ORIGINS にカンマ区切りで Vercel URL 等を渡す。
 # 例: ALLOWED_ORIGINS="https://onepiece-research.vercel.app,http://localhost:3000"
-# 未設定なら localhost のみ許可 (= ローカル開発デフォルト)。
+# 未設定なら localhost + production frontend (= onepiece-research.vercel.app) 許可 (= safer default)。
+# Vercel preview URL も含めるため regex で *.vercel.app マッチ も併用。
 import os as _os
 
-_allowed_origins_env = _os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000")
+_default_origins = "http://localhost:3000,https://onepiece-research.vercel.app"
+_allowed_origins_env = _os.environ.get("ALLOWED_ORIGINS", _default_origins)
 _allowed_origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
+    allow_origin_regex=r"https://onepiece-research(-[a-z0-9-]+)?\.vercel\.app",  # vercel preview deploy URL も許可
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
