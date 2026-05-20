@@ -3714,16 +3714,19 @@
   ],
   "OP03-122": [
     {
-      "_text": "OP03-122 on_play: コスト6以下のキャラ1枚までを、持ち主の手札に戻す。その後、カード2枚を引き、自分の手札2枚を捨てる。",
+      "_text": "【登場時】コスト6以下のキャラ1枚を手札に戻す。 その後、 draw 2 + 手札2捨て",
       "when": "on_play",
       "do": [
         {
+          "return_to_hand": "one_opponent_character_cost_le_6"
+        },
+        {
+          "draw": 2
+        },
+        {
           "trash_self_hand_random": 2
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP04-002": [
@@ -6655,19 +6658,23 @@
   ],
   "PRB02-001": [
     {
-      "_text": "PRB02-001 on_attack: 相手の元々のパワー3000以下のキャラ1枚までを、KOする。その後、自分の手札が6枚以下の場合、カード1枚を引く。",
+      "_text": "【アタック時】相手の元々のパワー3000以下のキャラ1枚をKO。 その後、 手札6以下で draw 1",
       "when": "on_attack",
       "do": [
         {
-          "draw": 1
-        }
-      ],
-      "conditions": [
-        {
-          "self_hand_count_le": 6
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 3000
+            }
+          }
         },
         {
-          "opp_turn": true
+          "draw": 1,
+          "_chain": "always",
+          "_condition": {
+            "self_hand_le": 6
+          }
         }
       ]
     }
@@ -7584,16 +7591,25 @@
   ],
   "OP04-112": [
     {
-      "_text": "OP04-112 on_play: お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。その後、自分のライフが1枚以下の場合、自分のデッキの上から1枚までを、ライフの上に加",
+      "_text": "【登場時】お互いライフ合計コスト以下の相手キャラ1枚KO + 自ライフ1以下で put_top_to_life 1",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_self_plus_opp_life": true
+            }
+          }
+        },
+        {
+          "put_top_to_life": 1,
+          "_chain": "always",
+          "_condition": {
+            "self_life_le": 1
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     }
   ],
   "OP15-056": [

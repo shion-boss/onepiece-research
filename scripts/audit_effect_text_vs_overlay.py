@@ -112,6 +112,39 @@ def audit_card(cid: str, entries: list) -> list[dict]:
             })
             break
 
+    # 4) 「相手のキャラN枚をKOする」 → overlay に ko / ko_multi
+    if re.search(r"相手の.*?キャラ\s*\d*\s*枚.{0,30}(?:KO|ＫＯ)する", text):
+        if not has_primitive_in_entries(entries, "ko") and \
+           not has_primitive_in_entries(entries, "ko_multi") and \
+           not has_primitive_in_entries(entries, "ko_all_others"):
+            issues.append({
+                "card_id": cid,
+                "kind": "missing_ko",
+                "text": text[:140],
+                "severity": 4,
+            })
+
+    # 5) 「キャラN枚を持ち主の手札に戻す」 → return_to_hand
+    if re.search(r"キャラ\s*\d*\s*枚.{0,30}持ち主の手札に戻す", text):
+        if not has_primitive_in_entries(entries, "return_to_hand") and \
+           not has_primitive_in_entries(entries, "return_to_hand_multi"):
+            issues.append({
+                "card_id": cid,
+                "kind": "missing_return_to_hand",
+                "text": text[:140],
+                "severity": 4,
+            })
+
+    # 6) 「相手のキャラN枚をレストにする」 → rest
+    if re.search(r"相手の.*?キャラ\s*\d*\s*枚.{0,30}をレストにする", text):
+        if not has_primitive_in_entries(entries, "rest"):
+            issues.append({
+                "card_id": cid,
+                "kind": "missing_rest_opp",
+                "text": text[:140],
+                "severity": 4,
+            })
+
     return issues
 
 
