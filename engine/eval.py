@@ -434,7 +434,9 @@ def compute_dynamic_weights_v2(state: "GameState", me_idx: int) -> dict[str, flo
     w_hand = base.W_HAND * (w_hand_self_mult + w_hand_opp_mult) / 2
 
     # DON 一律低 (= ohtsuki さん指摘で「数」 ではなく「質」 で評価、 W_DON は score 化しない方向)
-    w_don = base.W_DON * 0.4
+    # 2026-05-20: snapshot 解析 で REFRESH DON return が critical board_eval drop 起こす confirmed、
+    # 0.4 → 0.1 に さらに 削減 (= DON 数 評価 を ほぼ 無効化)。
+    w_don = base.W_DON * 0.1
 
     opp_field_strength = 1.0
     if opp_field_power >= 15000:
@@ -1387,6 +1389,24 @@ def compute_score(
     # 状態依存で W_LIFE / W_HAND / W_DON / W_BLOCKER 等を動的計算 (= 関数化)。
     # ONEPIECE_DYNAMIC_WEIGHTS=1 で有効化、 default は固定重み (= 後方互換)。
     # ONEPIECE_WEIGHT_NN=1 で重み NN (= Plan F) を使う、 dynamic_v2 教師として fallback。
+    # Plan D (= 2026-05-18 AlphaZero 風 value NN) 統合 path
+    # ONEPIECE_AZ_VALUE_NN=1 で有効化、 plan_search の leaf eval で「真の P(win) ベース score」 を返す。
+    # 既存 NN value 経路 (= v1-v5) は線形 fallback、 Plan D は別 NN (= value_nn_alphazero.pt)。
+    if os.environ.get("ONEPIECE_AZ_VALUE_NN") == "1":
+        try:
+            from .value_nn_alphazero import compute_value_az
+            az_score = compute_value_az(state, me_idx)
+            if az_score is not None:
+                if state.game_over:
+                    if state.winner == me_idx:
+                        return float(DEFAULT_WEIGHTS.W_GAME_OVER)
+                    elif state.winner is not None:
+                        return float(-DEFAULT_WEIGHTS.W_GAME_OVER)
+                    return 0.0
+                return az_score
+        except Exception:
+            pass  # fallback
+
     _use_weight_nn = os.environ.get("ONEPIECE_WEIGHT_NN") == "1"
     _use_dynamic = os.environ.get("ONEPIECE_DYNAMIC_WEIGHTS") == "1" or _use_weight_nn
     if _use_weight_nn:
@@ -1635,6 +1655,42 @@ def compute_score(
             state, me_idx, me, opp, sm, om, self_lethal, opp_lethal, weights,
         ):
             score += (sv - ov) * w
+
+    # ===== コンボ可能性 dim (= 2026-05-18 ユーザ「event 後のコンボ判断」 対応) =====
+    # ONEPIECE_COMBO_DIM=1 で有効化、 default OFF (= 後方互換)。
+    # 自分の active キャラの最大攻撃力 (= power + DON 付与可能数 × 1000) で
+    # 相手キャラを KO 可能数を count → bonus / penalty。
+    # event 後の state で「-1000 した相手キャラを 5000 攻撃で KO 可能」 等を 自然に score 化。
+    if os.environ.get("ONEPIECE_COMBO_DIM") == "1":
+        try:
+            # 自分の active キャラの max attack (= 簡略: power + 残 DON × 1000、 1 体に集中想定)
+            me_don_remaining = sum(1 for d in me.don_active if d == 0) if hasattr(me, "don_active") else len([d for d in getattr(me, "dons", []) if not d.attached])
+            # actual cost-payable DON 数を取るのは難しい、 簡略 me.don_active を見る
+            try:
+                me_don_available = len([d for d in me.don_active if d == 0])
+            except Exception:
+                me_don_available = 0
+            active_charas_power = [c.power for c in me.characters if not c.rested]
+            if active_charas_power:
+                max_attack = max(active_charas_power) + me_don_available * 1000
+            else:
+                max_attack = 0
+
+            # 相手キャラ KO 可能数
+            opp_chara_powers = [c.power for c in opp.characters]
+            ko_possible = sum(1 for p in opp_chara_powers if max_attack >= p)
+
+            # bonus: KO 可能 1 体ごと +500pt
+            score += ko_possible * 500
+
+            # leader 攻撃可能性: 自分 max_attack ≥ opp.leader.power → +bonus
+            try:
+                if max_attack >= opp.leader.power:
+                    score += 800
+            except Exception:
+                pass
+        except Exception:
+            pass  # eval は止めない
 
     # ===== EndPhase penalty (= 2026-05-18 bad_moves 対応) =====
     # 自分のターン終了直後 (= state.turn_player_idx が opp に切替) で 未消費リソースあれば penalty。

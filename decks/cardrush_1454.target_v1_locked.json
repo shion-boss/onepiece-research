@@ -1,0 +1,1193 @@
+{
+  "deck_slug": "cardrush_1454",
+  "leader_id": "OP15-058",
+  "archetype": "midrange",
+  "synergy_feature": "空島",
+  "finisher_cost": 8,
+  "blocker_scarce": false,
+  "generated_by": "Plan H inline (= Claude Code session, 2026-05-19 custom)",
+  "model": "claude-opus-4-7",
+  "notes": "紫エネル 空島 高速 (= 超 ドンランプ midrange)。 リーダー OP15-058 (= 紫 5/5、 ドン デッキ 6 枚、 起動メイン T2+ で ドン 5 追加 + chara 4 don 付与 = 超ランプ)。 主要 finisher: T6 OP15-118 エネル 6c 8000 (= 場ドン 6 以下 で 場離れず + power+2000、 登場時 5 サーチ)、 T4 OP09-072 フランキー 4c BLK 5000 (= ドン-2 で 2 ドロー)、 T4 OP12-063 レイジュ 4c BLK 5000 (= イベ 4+ で +2000)、 T5 OP10-067 セニョール・ピンク 5c 6000 (= ドン-1 紫イベ サーチ)。 blocker 7。 戦略: T2 起動メイン で 急ランプ → T3-T4 で 大型 早期着地 → 場ドン 6 以下 で エネル 不死身化 + 高速 攻撃。",
+  "entries": [
+    {
+      "turn": 1,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_hand_ge": 5
+          },
+          "bonus": 1000,
+          "description": "T1 1c chara、 手札 5"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1
+          },
+          "bonus": 600,
+          "description": "fallback"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "self_leader_attached_don_ge": 1
+          },
+          "bonus": 500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_hand_ge": 5
+          },
+          "bonus": 1000,
+          "description": "後攻 T1"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1
+          },
+          "bonus": 600,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_leader_attached_don_ge": 1
+          },
+          "bonus": 1100,
+          "description": "advantage T1"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1
+          },
+          "bonus": 600,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_hand_ge": 5,
+            "self_don_active_ge": 5
+          },
+          "bonus": 1200,
+          "description": "T2 起動メイン (= ドン 5 追加 + chara 4 don 付与) で 超ランプ trigger、 場 2 + 手札 5"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_hand_ge": 4
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_counter_in_hand_ge": 5000,
+            "self_hand_ge": 5
+          },
+          "bonus": 1200,
+          "description": "behind T2: counter 5000"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 5000
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_chara_attached_don_ge": 1
+          },
+          "bonus": 1100,
+          "description": "advantage T2: chara don 付与 push"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 700,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 3,
+            "self_field_power_ge": 5000,
+            "self_hand_ge": 5
+          },
+          "bonus": 1300,
+          "description": "T3: 超ランプ で T4 大型 早期着地 path、 場 3 + power 5000"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_hand_ge": 5
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_counter_in_hand_ge": 6000,
+            "self_chara_count_ge": 2
+          },
+          "bonus": 1300,
+          "description": "behind T3: counter 6000"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 6000
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 3,
+            "self_chara_attached_don_ge": 1
+          },
+          "bonus": 1150,
+          "description": "advantage T3"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 3
+          },
+          "bonus": 700,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_field_power_ge": 6000,
+            "self_hand_ge": 5
+          },
+          "bonus": 1500,
+          "description": "T4: OP09-072 フランキー 4c BLK 5000 (= ドン-2 で 2 ドロー) or OP12-063 レイジュ 4c BLK 5000、 場 6000 + blocker"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 5000,
+            "self_chara_count_ge": 3
+          },
+          "bonus": 900,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 7000
+          },
+          "bonus": 1500,
+          "description": "behind T4: フランキー BLK + counter 7000"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 7000
+          },
+          "bonus": 900,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_field_power_ge": 7000,
+            "self_chara_count_ge": 3,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1300,
+          "description": "advantage T4: 場 7000 + blocker"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 5000
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_field_power_ge": 8000,
+            "self_chara_count_ge": 3,
+            "self_hand_ge": 5,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1600,
+          "description": "T5: OP10-067 セニョール・ピンク 5c 6000 (= ドン-1 紫イベ サーチ + ドン アクティブ) 着地、 場 8000 + blocker + chara 3"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 7000,
+            "self_chara_count_ge": 3
+          },
+          "bonus": 1000,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1700,
+          "description": "behind T5: blocker 2 + counter 8000"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1100,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_field_power_ge": 9000,
+            "self_chara_feature_count_ge": {
+              "feature": "空島",
+              "count": 3
+            },
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "advantage T5: 場 9000 + 空島 3"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 7000
+          },
+          "bonus": 900,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 12000,
+            "self_blocker_count_ge": 1,
+            "self_chara_count_ge": 4,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1700,
+          "description": "T6: OP15-118 エネル 6c 8000 (= 場ドン 6 以下 で 場離れず +2000、 登場時 5 サーチ) 着地、 場 12000 + blocker"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 10000,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1100,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000,
+            "self_finisher_on_field_ge": 1
+          },
+          "bonus": 1800,
+          "description": "behind T6: blocker 2 + counter 8000 + エネル 着地"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1000,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 12000,
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1700,
+          "description": "advantage T6: エネル + 場 12000 + 相手ライフ 3"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 9000
+          },
+          "bonus": 1000,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 13000,
+            "self_blocker_count_ge": 1,
+            "self_hand_ge": 4,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1800,
+          "description": "T7: エネル 不死身化 維持 + 中堅 連打、 場 13000 + blocker"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 11000,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1200,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000,
+            "self_finisher_on_field_ge": 1
+          },
+          "bonus": 1900,
+          "description": "behind T7: blocker 2 + counter 8000 + エネル"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 10000
+          },
+          "bonus": 1200,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 13000,
+            "opp_life_le": 2,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1850,
+          "description": "advantage T7: エネル + 場 13000 + 相手ライフ 2"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 11000,
+            "opp_life_le": 3
+          },
+          "bonus": 1300,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 15000,
+            "self_blocker_count_ge": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1900,
+          "description": "T8: エネル 2 体目 (= 不死身 ペア) or 中堅 連打、 場 15000 + blocker"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1300,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 10000,
+            "self_finisher_on_field_ge": 1
+          },
+          "bonus": 1800,
+          "description": "behind T8: blocker 2 + counter 10000 + エネル"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1100,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 14000,
+            "opp_life_le": 1,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1950,
+          "description": "advantage T8: エネル + 場 14000 + 相手ライフ 1"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 12000,
+            "opp_life_le": 2
+          },
+          "bonus": 1300,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 16000,
+            "opp_life_le": 1,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1950,
+          "description": "T9: 場 16000 + finisher 2 + 相手ライフ 1"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1300,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 12000,
+            "self_finisher_on_field_ge": 1
+          },
+          "bonus": 1900,
+          "description": "behind T9: 受け継続 + エネル"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1100,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 1,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "advantage T9: 相手ライフ 0 + finisher"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 17000,
+            "opp_life_le": 1,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "T10: 場 17000 + エネル 2 体 + 相手ライフ 1 = lethal"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 14000
+          },
+          "bonus": 1400,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 15000,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1800,
+          "description": "behind T10: エネル + 場 15000 + counter で 一気詰め"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1000,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP15-058",
+      "opp_deck_slug": "cardrush_1454",
+      "opp_archetype": "midrange",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 1,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "advantage T10: 相手ライフ 0 + finisher"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 15000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP15-058",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    }
+  ]
+}

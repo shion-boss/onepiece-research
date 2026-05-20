@@ -213,17 +213,32 @@ def _should_mulligan(
 ) -> bool:
     """AI ヒューリスティックでマリガン判断。
 
-    deck_analysis があれば mulligan_keep_card_ids ベースで判定:
-      - 手札に「キープしたい主力カード」が1枚以上 → キープ (mulligan しない)
-      - 0枚 → マリガン
-    無ければフォールバック (= 「コスト3以下のキャラ」が0枚ならマリガン)。
+    優先順位:
+      1. deck_analysis.mulligan_keep_card_ids (= 手書き、 deck/<slug>.analysis.json)
+      2. imitation prior (= db/imitation_patterns.json 大会優勝レシピ採用率、 2026-05-18 追加)
+      3. fallback (= 「コスト3以下のキャラ」 が0枚ならマリガン)
     """
     if deck_analysis:
         keep_ids = set(deck_analysis.get("mulligan_keep_card_ids") or [])
         if keep_ids:
             has_key = any(c.card_id in keep_ids for c in p.hand)
             return not has_key
-    # フォールバック
+
+    # 2. imitation prior (= 大会優勝レシピ採用率) を活用
+    try:
+        from .imitation_prior import get_mulligan_priority
+        leader_id = getattr(p.leader.card, "card_id", None)
+        if leader_id:
+            # 手札の mulligan keep score 合計 (= 高優先候補がいくつあるか)
+            scores = [get_mulligan_priority(leader_id, c.card_id) for c in p.hand]
+            # 高 score (= 0.5+ = 採用率 50%+ の mulligan candidate) が 1 枚以上で keep
+            has_high_priority = any(s >= 0.5 for s in scores)
+            if has_high_priority:
+                return False  # keep (= 大会優勝 mulligan keep 候補がある)
+    except Exception:
+        pass  # imitation 失敗時は fallback へ
+
+    # 3. fallback
     low_cost_chars = [
         c for c in p.hand
         if c.category == Category.CHARACTER and c.cost <= 3

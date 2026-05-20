@@ -134,6 +134,7 @@ def reset_pool_cache_for_testing() -> None:
     global _ARCHETYPE_RECIPE_CACHE, _VARIANT_RECIPE_CACHE
     _ARCHETYPE_RECIPE_CACHE = None
     _VARIANT_RECIPE_CACHE = None
+    _ARCHETYPE_POOL_CACHE.clear()
 
 
 def _load_variant_recipes() -> dict[tuple[str, int], list[CardDef]]:
@@ -203,6 +204,11 @@ def _load_variant_recipes() -> dict[tuple[str, int], list[CardDef]]:
     return out
 
 
+# === memo cache (= 2026-05-19、 30g 累積問題 緩和、 read-only 共有なので 安全) ===
+_ARCHETYPE_POOL_CACHE: dict = {}
+_POOL_CACHE_MAX = 10000
+
+
 def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
     """classifier で archetype + variant を推定 → recipe - 観測済 を pool に。
 
@@ -212,15 +218,26 @@ def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
     高信頼度 (≥ `_CLASSIFIER_POOL_MIN_CONFIDENCE`) でのみ pool を返す。
     低信頼度 / classifier 不在なら None を返し、 呼出側で fallback。
     """
+    # memo cache 確認 (= 2026-05-19、 4.9M call の 99%+ が cache hit 期待)
+    opp = state.players[opp_idx]
+    opp_leader_id = opp.leader.card.card_id if opp.leader else None
+    chara_ids = tuple(sorted(ip.card.card_id for ip in opp.characters))
+    stage_ids = tuple(sorted(ip.card.card_id for ip in opp.stages))
+    trash_ids = tuple(sorted(c.card_id for c in opp.trash))
+    cache_key = (opp_leader_id, chara_ids, stage_ids, trash_ids)
+    cached = _ARCHETYPE_POOL_CACHE.get(cache_key)
+    if cached is not None:
+        # sentinel None → cache miss、 cached_NONE → 真に None だった (= 低信頼度)
+        return None if cached == "NONE_SENTINEL" else cached
+
     try:
         from . import deck_classifier
         clf = deck_classifier.get_default_classifier()
         probs = clf.classify_from_state(state, opp_idx)
     except Exception:
+        if len(_ARCHETYPE_POOL_CACHE) < _POOL_CACHE_MAX:
+            _ARCHETYPE_POOL_CACHE[cache_key] = "NONE_SENTINEL"
         return None
-
-    opp = state.players[opp_idx]
-    opp_leader_id = opp.leader.card.card_id if opp.leader else None
 
     base_cards: Optional[list[CardDef]] = None
     pool_source = "fallback"
@@ -250,9 +267,13 @@ def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
     # variant 不採用 → archetype level fallback (= 既存挙動)
     if base_cards is None:
         if not probs:
+            if len(_ARCHETYPE_POOL_CACHE) < _POOL_CACHE_MAX:
+                _ARCHETYPE_POOL_CACHE[cache_key] = "NONE_SENTINEL"
             return None
         top_arch, top_prob = max(probs.items(), key=lambda x: x[1])
         if top_prob < _CLASSIFIER_POOL_MIN_CONFIDENCE:
+            if len(_ARCHETYPE_POOL_CACHE) < _POOL_CACHE_MAX:
+                _ARCHETYPE_POOL_CACHE[cache_key] = "NONE_SENTINEL"
             return None
 
         recipes = _load_archetype_recipes()
@@ -268,6 +289,8 @@ def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
             except Exception:
                 pass
         if not base_cards:
+            if len(_ARCHETYPE_POOL_CACHE) < _POOL_CACHE_MAX:
+                _ARCHETYPE_POOL_CACHE[cache_key] = "NONE_SENTINEL"
             return None
         pool_source = f"archetype:{top_arch}"
 
@@ -287,6 +310,9 @@ def _archetype_pool(state: GameState, opp_idx: int) -> Optional[list[CardDef]]:
             observed_counts[cid] -= 1
             continue
         remaining.append(card)
+    # cache 保存 (= read-only 共有、 4.9M call の 99%+ が cache hit 期待)
+    if len(_ARCHETYPE_POOL_CACHE) < _POOL_CACHE_MAX:
+        _ARCHETYPE_POOL_CACHE[cache_key] = remaining
     return remaining
 
 

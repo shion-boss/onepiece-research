@@ -191,6 +191,8 @@ def search_turn_plan(
     max_depth: int = 8,
     max_turns: int = 1,
     ai_self=None,
+    me_deck_analysis: "Optional[dict]" = None,
+    me_target_spec: "Optional[dict]" = None,
 ) -> tuple[list, float]:
     """MAIN フェーズ開始時に呼ぶ。 ターン全体プランを beam search。
 
@@ -278,6 +280,51 @@ def search_turn_plan(
     if _USE_POLICY:
         from .nn_eval import compute_policy_nn  # 動的 import (= NN 無効時 import skip)
 
+    # === Plan Imit-3 (= 2026-05-18): imitation prior 注入 ===
+    # 大会優勝レシピから抽出した「人間が選ぶカード」 prior を beam selection に組み込む。
+    # PlayCharacter / PlayEvent action で その card の人間採用率 × W_IMIT を bonus 加算。
+    # ONEPIECE_PLAN_IMITATION_W 環境変数で制御 (= default 0 無効、 1000+ で有効)。
+    _W_IMIT = float(_os.environ.get("ONEPIECE_PLAN_IMITATION_W", "0"))
+    _USE_IMIT = _W_IMIT > 0
+    if _USE_IMIT:
+        from .imitation_prior import get_card_play_prior
+
+    # === Plan G (= 2026-05-18 夜): turn_plan-directed bonus ===
+    # decks/<slug>.analysis.json の ideal_moves で 指定された「現 turn の candidate cards」 を
+    # play する action に bonus。 人間プレイヤーの 「T1: 1 コスト、 T4: 中堅、 T6: フィニッシャー」
+    # 的な goal-directed planning を 模擬。
+    # ONEPIECE_TURN_PLAN_W 環境変数 (= default 0 無効、 3000+ で 強い goal-bias)。
+    _W_TURN_PLAN = float(_os.environ.get("ONEPIECE_TURN_PLAN_W", "0"))
+    _USE_TURN_PLAN = _W_TURN_PLAN > 0
+    _me_deck_analysis = me_deck_analysis
+    if _USE_TURN_PLAN:
+        from .turn_plan import get_turn_plan_candidates
+        # fallback: state や player から 取得 試行 (= caller が 渡さない場合)
+        if _me_deck_analysis is None:
+            if hasattr(state, "deck_analyses") and isinstance(state.deck_analyses, dict):
+                _me_deck_analysis = state.deck_analyses.get(me_idx)
+            elif hasattr(state, "players") and hasattr(state.players[me_idx], "deck_analysis"):
+                _me_deck_analysis = state.players[me_idx].deck_analysis
+
+    # === Plan H (= 2026-05-19): goal-directed target bonus ===
+    # Claude が 書いた target spec (= decks/<slug>.target_v1.json) を 読み込み、
+    # leaf state が target condition match で bonus 加算。
+    # ONEPIECE_GOAL_TARGET_W 環境変数 (= default 0 無効、 1.0+ で 有効)。
+    # bonus magnitude は target.bonus (= 500-2000) で 直接 表現、 W は スケール係数。
+    _W_GOAL_TARGET = float(_os.environ.get("ONEPIECE_GOAL_TARGET_W", "0"))
+    _USE_GOAL_TARGET = _W_GOAL_TARGET > 0
+    _me_target_spec = me_target_spec
+    if _USE_GOAL_TARGET:
+        from .target_dsl import compute_target_match_bonus, load_target_spec
+        # fallback: state._goal_target_spec → state.players[me_idx].deck_slug の順 で auto-load
+        if _me_target_spec is None:
+            _me_target_spec = getattr(state, "_goal_target_spec", None)
+        if _me_target_spec is None:
+            me_player = state.players[me_idx]
+            me_deck_slug = getattr(me_player, "deck_slug", None)
+            if me_deck_slug:
+                _me_target_spec = load_target_spec(me_deck_slug)
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -315,12 +362,12 @@ def search_turn_plan(
                 ):
                     if (child.turn_number - start_turn_number) < max_turns:
                         try:
-                            # plan_search 枝刈り (R72+): opp sim の hard_cap=5 (= 元 30)
-                            # で 1 leaf あたりの opp_turn 計算量を抑える。
-                            # plan_search 全体で opp_turn が leaves × 30 → leaves × 5 に。
+                            # plan_search 枝刈り: opp sim の hard_cap を env で可変化。
+                            # default 5 (= 軽量)、 3-turn lookahead で 8 推奨 (= opp が攻撃完走)。
+                            _opp_hard_cap = int(_os.environ.get("ONEPIECE_OPP_HARD_CAP", "5"))
                             _simulate_opp_turn(
                                 child, opp_idx, opp_sim_ai, self_defense_ai,
-                                hard_cap_actions=5,
+                                hard_cap_actions=_opp_hard_cap,
                             )
                         except Exception:
                             pass
@@ -333,6 +380,49 @@ def search_turn_plan(
                     prob = policy_dict.get(action_cls)
                     if prob is not None:
                         score = score + _W_POLICY * math.log(max(prob, 1e-6))
+
+                # Plan Imit-3: imitation prior bonus (= 人間採用率の高いカードを beam に優先)
+                if _USE_IMIT:
+                    try:
+                        card_id = None
+                        # PlayCharacter / PlayEvent / PlayStage action は card 属性を持つ
+                        if hasattr(action, "card") and action.card is not None:
+                            card_id = getattr(action.card, "card_id", None)
+                        if card_id:
+                            me_leader_id = getattr(cur_state.players[me_idx].leader.card, "card_id", None)
+                            if me_leader_id:
+                                prior = get_card_play_prior(me_leader_id, card_id)
+                                # adoption_rate 0.5 を baseline、 上振れで bonus / 下振れで penalty
+                                score = score + _W_IMIT * (prior - 0.5)
+                    except Exception:
+                        pass  # imitation 失敗時は plan_search 止めない
+
+                # Plan G: turn_plan bonus (= 現 turn の candidate_cards に bonus)
+                if _USE_TURN_PLAN and _me_deck_analysis:
+                    try:
+                        card_id = None
+                        if hasattr(action, "card") and action.card is not None:
+                            card_id = getattr(action.card, "card_id", None)
+                        if card_id:
+                            cands = get_turn_plan_candidates(_me_deck_analysis, cur_state.turn_number)
+                            if card_id in cands:
+                                score = score + _W_TURN_PLAN
+                    except Exception:
+                        pass  # turn_plan 失敗時は plan_search 止めない
+
+                # Plan H: goal-directed target bonus (= 2026-05-19)
+                # Claude が 書いた target spec で 「ターン目標 達成 leaf」 に bonus 加算。
+                # target.bonus (= 500-2000) を W_GOAL_TARGET で スケール。
+                if _USE_GOAL_TARGET and _me_target_spec:
+                    try:
+                        target_bonus = compute_target_match_bonus(
+                            child, me_idx, _me_target_spec, child.turn_number,
+                            plan=plan + [action],
+                        )
+                        if target_bonus > 0:
+                            score = score + _W_GOAL_TARGET * target_bonus
+                    except Exception:
+                        pass  # target match 失敗時は plan_search 止めない
 
                 next_frontier.append((child, plan + [action], score))
 

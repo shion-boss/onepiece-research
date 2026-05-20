@@ -1,0 +1,3148 @@
+{
+  "deck_slug": "cardrush_1456",
+  "leader_id": "OP13-002",
+  "archetype": "control",
+  "generated_by": "Plan H inline (= Claude Code session, 2026-05-19)",
+  "model": "claude-opus-4-7",
+  "entries": [
+    {
+      "turn": 1,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_hand_ge": 4
+          },
+          "bonus": 1000,
+          "description": "T1 イゾウ等 1c 白ひげ chara を出してサーチ起動、 手札維持で 中盤に繋ぐ"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1
+          },
+          "bonus": 600,
+          "description": "fallback: 何でもいい 1c chara で field 確保"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "self_leader_attached_don_ge": 1
+          },
+          "bonus": 500,
+          "description": "fallback: don 余り leader 付与で テンポ"
+        }
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_hand_ge": 4
+          },
+          "bonus": 1000,
+          "description": "後攻 でも 1c サーチ 起動、 序盤 落ち着いて 手数確保"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1
+          },
+          "bonus": 600,
+          "description": "fallback: 1c chara 設置"
+        }
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_leader_attached_don_ge": 1
+          },
+          "bonus": 1100,
+          "description": "T1 で advantage は稀、 サーチ chara + don 付与 で leader pressure 両立"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1
+          },
+          "bonus": 600,
+          "description": "fallback: 1c chara"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "self_hand_ge": 4
+          },
+          "bonus": 1100,
+          "description": "白ひげ chara を 2 体目展開 (= サーチ連打)、 手札 4+ 確保"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 700,
+          "description": "fallback: 白ひげ じゃなくても 2 体並べる"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_leader_attached_don_ge": 1
+          },
+          "bonus": 500,
+          "description": "fallback: 1c + leader don 付与 で push"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_counter_in_hand_ge": 6000
+          },
+          "bonus": 1200,
+          "description": "コビー の速攻 受ける、 場 2 体 + 手札 counter 6000+ 確保"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_hand_ge": 5
+          },
+          "bonus": 800,
+          "description": "サーチ で 手札補充 優先 (= 後で マルコ/ハンコック を 引きたい)"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            }
+          },
+          "bonus": 1100,
+          "description": "白ひげ + 他 chara 展開、 advantage 維持"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 700,
+          "description": "fallback: 2 体並べ"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_hand_ge": 5,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            }
+          },
+          "bonus": 1100,
+          "description": "T3 はまだ大物前、 chara 2 体 + 手札 5 + 白ひげ で 中盤準備"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_counter_in_hand_ge": 6000
+          },
+          "bonus": 800,
+          "description": "fallback: counter 温存 で 受け 体勢"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1300,
+          "description": "vs コビー で behind は 危険、 blocker 1 体 + counter 8000+ で 命綱"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1000,
+          "description": "blocker 引けず でも counter で 受ける"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_hand_ge": 4
+          },
+          "bonus": 500,
+          "description": "fallback: 何かしら 場 + 手札維持"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_chara_attached_don_ge": 1
+          },
+          "bonus": 1100,
+          "description": "advantage 維持 で leader/chara に don 付与 pressure 継続"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 700,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_field_power_ge": 4000,
+            "self_hand_ge": 4
+          },
+          "bonus": 1500,
+          "description": "T4 マルコ PRB02-008 (= 4c blocker 5000、 KO時 2 ドロー) で 受け確立 + 手札補充 source"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_count_ge": 2,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 900,
+          "description": "fallback: マルコ 引けず、 4c chara + counter で 受け"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 500,
+          "description": "fallback: 場 2 体"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1700,
+          "description": "behind なら blocker 必須、 マルコ + counter 8000 で 受け切る"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1100,
+          "description": "blocker 1 体 だけでも 立てる"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "self_counter_in_hand_ge": 10000
+          },
+          "bonus": 700,
+          "description": "blocker なし でも 高 counter で 受ける"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_field_power_ge": 6000,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            }
+          },
+          "bonus": 1200,
+          "description": "advantage 維持、 白ひげ 2 体 + 場 power 6000 で pressure"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "self_hand_ge": 5,
+            "self_blocker_count_ge": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "T5 ヤマト OP13-054 (= 5c draw chara) で 手札継続、 白ひげ 2 体 + blocker で 防御層厚く"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 900,
+          "description": "fallback: ヤマト 引けず、 5c chara + blocker"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1700,
+          "description": "behind で blocker 2 体 + counter 8000 (= マルコ + 他 blocker、 ライフ 守る)"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_field_power_ge": 5000
+          },
+          "bonus": 1100,
+          "description": "fallback: blocker 1 + 場 power 5000+"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_field_power_ge": 8000,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1300,
+          "description": "advantage で 場 power 8000 + 白ひげ 2 体、 リーサル準備 開始"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_count_ge": 3
+          },
+          "bonus": 800,
+          "description": "fallback: 場 3 体"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_chara_count_ge": 2,
+            "self_blocker_count_ge": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1700,
+          "description": "T6 ジョズ OP08-047 (= 6c 7000 finisher) or ハンコック OP07-051 (= 6c 除去) を着地、 場 finisher + blocker で 攻防両立"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_power_ge": 6000,
+            "self_chara_count_ge": 2
+          },
+          "bonus": 1000,
+          "description": "fallback: finisher 引けず、 6000 power chara で 中堅"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 6000
+          },
+          "bonus": 1800,
+          "description": "behind で ハンコック (= 相手 chara 除去) 優先、 blocker 2 + counter 6000+ で 命綱"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1200,
+          "description": "fallback: ハンコック 引けず、 blocker 2 体 + counter で 受け継続"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 10000,
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1800,
+          "description": "advantage で ジョズ 着地、 相手ライフ 3 以下 まで 削る (= リーサル 視野)"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 8000
+          },
+          "bonus": 1100,
+          "description": "fallback: 場 power 8000+"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 12000,
+            "self_blocker_count_ge": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1900,
+          "description": "T7 ロロノア・ゾロ EB04-007 (= 7c 9000) で finisher 2 体、 場 power 12000、 blocker 1 で 防御維持"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 10000
+          },
+          "bonus": 1300,
+          "description": "fallback: ゾロ 引けず、 finisher 1 体"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 6000
+          },
+          "bonus": 1900,
+          "description": "behind で finisher + blocker 2 + counter で 反撃準備、 受け継続"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2
+          },
+          "bonus": 1100,
+          "description": "fallback: blocker 維持"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 13000,
+            "opp_life_le": 2,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "advantage で finisher 2 体 + 相手ライフ 2 以下 = 次ターン リーサル 圏内"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_power_ge": 12000,
+            "opp_life_le": 3
+          },
+          "bonus": 1400,
+          "description": "fallback: 場 power 12000 + ライフ 3"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 15000,
+            "opp_life_le": 2,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "T8 白ひげ ST22-015 (= 8c 大物) 着地、 finisher 2 + 場 power 15000、 相手ライフ 2 = リーサル直前"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 12000
+          },
+          "bonus": 1300,
+          "description": "fallback: 白ひげ 引けず でも finisher 2 体維持"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_counter_in_hand_ge": 8000,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1900,
+          "description": "behind T8 でも 白ひげ + counter で 一発逆転 期待、 finisher 2 構築"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 10000
+          },
+          "bonus": 1100,
+          "description": "fallback: 受け継続、 ライフ 切れ ない を 優先"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 1,
+            "self_finisher_on_field_ge": 2,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "advantage で 相手ライフ 1 = リーサル 確定圏、 finisher 連打 で 詰める"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 2,
+            "self_field_power_ge": 14000
+          },
+          "bonus": 1500,
+          "description": "fallback: ライフ 2、 場 power 14000+"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 12000,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "T9 リーサル ターン、 相手ライフ 1 = 確実 リーサル 構築"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 2,
+            "self_finisher_on_field_ge": 2
+          },
+          "bonus": 1400,
+          "description": "fallback: ライフ 2 = 次ターン リーサル"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_counter_in_hand_ge": 10000,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1900,
+          "description": "behind T9 でも 反撃 路線、 エドワード・ニューゲート OP13-042 (= 10c draw) 引いて 立て直し"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1100,
+          "description": "fallback: ライフ 切れ ない 受け"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 1,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "advantage で 相手ライフ 0 = 勝利目前、 leader アタック で 詰め"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 12000
+          },
+          "bonus": 1500,
+          "description": "fallback: ライフ 1 残り"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_field_power_ge": 10000,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "T10 リーサル、 相手ライフ 0 + 場 finisher 連打"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_finisher_on_field_ge": 2
+          },
+          "bonus": 1400,
+          "description": "fallback: ライフ 1、 次ターン 確実"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 14000,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1800,
+          "description": "behind T10 reverse、 場 14000 + counter で 一気詰め"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1000,
+          "description": "fallback: 受け継続 で 引き分け 狙い"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP11-001",
+      "opp_deck_slug": "tcgportal_coby",
+      "opp_archetype": "aggro",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 2,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "advantage で 相手ライフ 0 + finisher 2、 確実 lethal"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_hand_ge": 5
+          },
+          "bonus": 1100,
+          "description": "mirror 序盤 サーチ chara で 手札優位、 マルコ/ゾロ/ジョズ 早期 探索"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_hand_ge": 5
+          },
+          "bonus": 700,
+          "description": "fallback: 手札 5 維持 (= mirror は 手札 ridge 重要)"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "self_hand_ge": 5
+          },
+          "bonus": 1200,
+          "description": "mirror T3 で 白ひげ 2 体、 サーチ 2 連 で 中盤 finisher 確実 探し"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_hand_ge": 4
+          },
+          "bonus": 700,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "self_hand_ge": 5
+          },
+          "bonus": 1400,
+          "description": "mirror T4 マルコ (= 白ひげ blocker + draw KO) play で 防御層 + ドロー source 確立"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_hand_ge": 4
+          },
+          "bonus": 900,
+          "description": "fallback: blocker 1 確保"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 3
+            },
+            "self_hand_ge": 5,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "mirror T5 ヤマト (= 5c draw) + 白ひげ 3 体 で 手札ロス なし 中盤 push"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_count_ge": 3,
+            "self_hand_ge": 4
+          },
+          "bonus": 900,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_chara_count_ge": 3,
+            "self_blocker_count_ge": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1600,
+          "description": "mirror T6 ジョズ or ハンコック で finisher 1 着地、 場 3 体 で 圧 + blocker 維持"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 3,
+            "self_field_power_ge": 9000
+          },
+          "bonus": 1000,
+          "description": "fallback: 場 3 + 9000 power"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 12000,
+            "self_blocker_count_ge": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1800,
+          "description": "mirror T7 ゾロ (= 7c 9000) で finisher 2 体目、 場 12000 + blocker で 攻防両立"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 10000
+          },
+          "bonus": 1200,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 15000,
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1900,
+          "description": "mirror T8 白ひげ ST22-015 (= 8c) で 一気 push、 場 15000 + 相手ライフ 3 = リーサル 圏"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1300,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 1,
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 13000,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "mirror T9 ニューゲート (= 10c で draw + 構築) で リーサル 確定、 相手ライフ 1"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 2,
+            "self_finisher_on_field_ge": 2
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "even",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 2,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "mirror T10 リーサル ターン、 相手ライフ 0 で 詰め"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_hand_ge": 5,
+            "self_counter_in_hand_ge": 4000
+          },
+          "bonus": 1100,
+          "description": "mirror behind T2: サーチ + 手札 5 + counter 4000、 巻き返し 仕込み"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 1,
+            "self_hand_ge": 5
+          },
+          "bonus": 700,
+          "description": "fallback: 手札 確保"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            },
+            "self_leader_attached_don_ge": 2
+          },
+          "bonus": 1100,
+          "description": "mirror advantage T2: 白ひげ chara + leader 強化 で pressure"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 700,
+          "description": "fallback: 場 2 体"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "self_counter_in_hand_ge": 6000,
+            "self_hand_ge": 5
+          },
+          "bonus": 1200,
+          "description": "mirror behind T3: 白ひげ 2 体 + counter 6000+、 マルコ サーチ 急ぐ"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_counter_in_hand_ge": 6000,
+            "self_hand_ge": 4
+          },
+          "bonus": 800,
+          "description": "fallback: counter 確保"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_chara_count_ge": 2,
+            "self_chara_attached_don_ge": 1,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 1
+            }
+          },
+          "bonus": 1200,
+          "description": "mirror advantage T3: 場 2 体 + don 付与 + 白ひげ で leader 強化 攻撃"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 2
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 6000,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            }
+          },
+          "bonus": 1500,
+          "description": "mirror behind T4: マルコ 必達 (= blocker + draw)、 白ひげ 2 体 で 防御層 厚く"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_hand_ge": 4
+          },
+          "bonus": 900,
+          "description": "fallback: blocker 1 確保"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_field_power_ge": 7000,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 2
+            },
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1300,
+          "description": "mirror advantage T4: 場 power 7000 + 白ひげ 2 + blocker、 攻防両立 で advantage 維持"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_chara_count_ge": 3
+          },
+          "bonus": 800,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000,
+            "self_hand_ge": 5
+          },
+          "bonus": 1600,
+          "description": "mirror behind T5: blocker 2 + counter 8000 + 手札 5、 防御完全構築 + ハンコック で 反撃 仕込み"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1000,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_field_power_ge": 9000,
+            "self_chara_feature_count_ge": {
+              "feature": "白ひげ海賊団",
+              "count": 3
+            },
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1400,
+          "description": "mirror advantage T5: ヤマト draw + 場 9000 + 白ひげ 3、 中盤 攻撃 pressure"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_field_count_ge": 3,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 900,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 6000
+          },
+          "bonus": 1700,
+          "description": "mirror behind T6: ハンコック で 相手 finisher 除去 + blocker 2 維持、 反撃 開始"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1100,
+          "description": "fallback: 受け継続"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 11000,
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1700,
+          "description": "mirror advantage T6: ジョズ finisher + 場 11000 + 相手ライフ 3、 リーサル 前段階"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_field_power_ge": 9000
+          },
+          "bonus": 1100,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 1,
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1800,
+          "description": "mirror behind T7: ゾロ finisher + blocker 2 + counter 8000、 反撃中"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_finisher_on_field_ge": 1
+          },
+          "bonus": 1200,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 13000,
+            "opp_life_le": 2,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1900,
+          "description": "mirror advantage T7: ゾロ + ジョズ で finisher 2 + 相手ライフ 2、 次ターン リーサル"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "opp_life_le": 3
+          },
+          "bonus": 1400,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_blocker_count_ge": 1,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1900,
+          "description": "mirror behind T8: 白ひげ ST22-015 で 一発逆転、 finisher 2 + blocker + counter"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 10000
+          },
+          "bonus": 1200,
+          "description": "fallback: 受け継続"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 1,
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 14000,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "mirror advantage T8: 相手ライフ 1 = リーサル直前、 白ひげ + finisher 連打"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 2,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_counter_in_hand_ge": 10000,
+            "self_blocker_count_ge": 1
+          },
+          "bonus": 1900,
+          "description": "mirror behind T9: ニューゲート draw + finisher 2、 counter 10000 で 反撃強行"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1200,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 2,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "mirror advantage T9: 相手ライフ 0 + finisher 2 = 勝利確定"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 13000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "behind",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "self_finisher_on_field_ge": 2,
+            "self_field_power_ge": 14000,
+            "self_counter_in_hand_ge": 8000
+          },
+          "bonus": 1800,
+          "description": "mirror behind T10: 反撃 最終局、 場 14000 + counter で 一気詰め"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "self_blocker_count_ge": 2,
+            "self_counter_in_hand_ge": 12000
+          },
+          "bonus": 1100,
+          "description": "fallback: 引き分け 狙い"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP13-002",
+      "opp_deck_slug": "cardrush_1456",
+      "opp_archetype": "control",
+      "self_condition": "advantage",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 0,
+            "self_finisher_on_field_ge": 2,
+            "min_attacks_this_turn_ge": 1,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2000,
+          "description": "mirror advantage T10: 相手ライフ 0 + finisher 2、 確実 lethal"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 1,
+            "self_field_power_ge": 14000
+          },
+          "bonus": 1500,
+          "description": "fallback"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "advantage",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": "OP13-002",
+      "self_condition": "even",
+      "importance": 2.0,
+      "notes": "致命打 圏内 generic (= 2026-05-19 全 deck 一括 追加): opp_life≤2 で attack 必須",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 3000,
+          "description": "致命打 leader + 他 attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打 圏内 attack 必須"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 5,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 6,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 7,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": null,
+      "self_condition": "advantage",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": null,
+      "self_condition": "even",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_leader_id": null,
+      "self_condition": "behind",
+      "importance": 1.0,
+      "notes": "generic: leader不問 普遍戦略",
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "opp_life_le": 2,
+            "min_leader_attacks_this_turn_ge": 1,
+            "min_attacks_this_turn_ge": 2
+          },
+          "bonus": 2500,
+          "description": "致命打圏内: leader attack + 連続attack"
+        },
+        {
+          "priority": 2,
+          "if": {
+            "opp_life_le": 3,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1500,
+          "description": "致命打圏内 attack 必須"
+        },
+        {
+          "priority": 3,
+          "if": {
+            "opp_chara_count_le": 1,
+            "min_attacks_this_turn_ge": 1
+          },
+          "bonus": 1200,
+          "description": "相手場ほぼ無 で attack"
+        },
+        {
+          "priority": 4,
+          "if": {
+            "opp_field_total_power_le": 6000,
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 1000,
+          "description": "相手場power弱 で leader attack"
+        }
+      ]
+    }
+  ]
+}

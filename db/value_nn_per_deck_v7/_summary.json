@@ -1,0 +1,98 @@
+{
+  "cardrush_1342": {
+    "snaps": 691,
+    "elapsed_s": 2.2527456283569336,
+    "final_loss": 0.03102465222279231,
+    "mean_p_win": 0.5578871369361877
+  },
+  "cardrush_1385": {
+    "snaps": 745,
+    "elapsed_s": 1.410907506942749,
+    "final_loss": 0.036312603391706944,
+    "mean_p_win": 0.5523489713668823
+  },
+  "cardrush_1392": {
+    "snaps": 657,
+    "elapsed_s": 1.3289341926574707,
+    "final_loss": 0.05762821932633718,
+    "mean_p_win": 0.5007610321044922
+  },
+  "cardrush_1399": {
+    "snaps": 766,
+    "elapsed_s": 1.4721465110778809,
+    "final_loss": 0.048748681942621865,
+    "mean_p_win": 0.5385117530822754
+  },
+  "cardrush_1439": {
+    "snaps": 517,
+    "elapsed_s": 1.1530566215515137,
+    "final_loss": 0.05291677787899971,
+    "mean_p_win": 0.4564796984195709
+  },
+  "cardrush_1453": {
+    "snaps": 606,
+    "elapsed_s": 1.2782552242279053,
+    "final_loss": 0.02865731418132782,
+    "mean_p_win": 0.5849835276603699
+  },
+  "cardrush_1454": {
+    "snaps": 883,
+    "elapsed_s": 4.928502082824707,
+    "final_loss": 0.03243561887315342,
+    "mean_p_win": 0.5062287449836731
+  },
+  "cardrush_1455": {
+    "snaps": 611,
+    "elapsed_s": 1.2756893634796143,
+    "final_loss": 0.04011293798685074,
+    "mean_p_win": 0.5458264946937561
+  },
+  "cardrush_1456": {
+    "snaps": 604,
+    "elapsed_s": 1.2543704509735107,
+    "final_loss": 0.03512487821280956,
+    "mean_p_win": 0.5554635524749756
+  },
+  "tcgportal_bonney": {
+    "snaps": 655,
+    "elapsed_s": 1.352802038192749,
+    "final_loss": 0.041528103252251945,
+    "mean_p_win": 0.5511450171470642
+  },
+  "tcgportal_calgara": {
+    "snaps": 620,
+    "elapsed_s": 1.1552774906158447,
+    "final_loss": 0.05879636406898499,
+    "mean_p_win": 0.602419376373291
+  },
+  "tcgportal_coby": {
+    "snaps": 745,
+    "elapsed_s": 1.362248182296753,
+    "final_loss": 0.04497842428584894,
+    "mean_p_win": 0.5261744856834412
+  },
+  "tcgportal_corazon": {
+    "snaps": 831,
+    "elapsed_s": 1.598276138305664,
+    "final_loss": 0.032392515135662894,
+    "mean_p_win": 0.6456077098846436
+  },
+  "tcgportal_hancock": {
+    "snaps": 702,
+    "elapsed_s": 1.4023022651672363,
+    "final_loss": 0.04719096732636293,
+    "mean_p_win": 0.5206552743911743
+  },
+  "tcgportal_op11_luffy": {
+    "snaps": 774,
+    "elapsed_s": 1.5782597064971924,
+    "final_loss": 0.06377429169203554,
+    "mean_p_win": 0.49741601943969727
+  },
+  "tcgportal_op13_luffy": {
+    "snaps": 557,
+    "elapsed_s": 1.2132413387298584,
+    "final_loss": 0.03853383846580982,
+    "mean_p_win": 0.6777378916740417
+  }
+}

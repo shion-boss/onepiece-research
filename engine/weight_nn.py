@@ -52,6 +52,10 @@ class WeightNN(nn.Module):
 
     softplus で positive 保証、 BASE_SCALES で各 weight の物理 scale に合わせる。
     output weights[k] = softplus(linear(...)) × BASE_SCALES[k]
+
+    hidden_dim 引数で大型化対応 (= 2026-05-18):
+      256 (= default、 ~80K params): 朝の supervised 学習用
+      512 (= big、 ~300K params): Phase 2 RL で 大量データ + 大型 model
     """
 
     def __init__(self, input_dim: int = 172, hidden_dim: int = 256, dropout: float = 0.1):
@@ -91,6 +95,13 @@ class WeightNN(nn.Module):
             x = torch.tensor(state_encoded, dtype=torch.float32).unsqueeze(0)
             w = self.forward(x).squeeze(0).tolist()
             return {k: w[i] for i, k in enumerate(WEIGHT_KEYS)}
+
+
+class WeightNNBig(WeightNN):
+    """大型版: hidden=512 (= ~300K params)。 forward / predict_weights は親クラスから継承。"""
+
+    def __init__(self, input_dim: int = 172, dropout: float = 0.1):
+        super().__init__(input_dim=input_dim, hidden_dim=512, dropout=dropout)
 
 
 # global model cache (= 1 度 load して使い回す)
