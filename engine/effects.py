@@ -653,6 +653,36 @@ def eval_condition(
             need = int(v)
             if not any(c.power >= need for c in me.characters):
                 return False
+        elif k == "self_inplay_power_ge":
+            # このキャラ自身 (self_inplay) の power が N 以上
+            # OP06-002 イナズマ「このキャラのパワーが7000以上の場合」 等
+            if self_inplay is None:
+                return False
+            if self_inplay.power < int(v):
+                return False
+        elif k == "self_inplay_attached_dons_ge":
+            # このキャラ自身 の attached_dons (= 付与されているドン) が N 以上
+            # OP13-112 ベガパンク「自分の付与されているドン‼が合計2枚以上ある場合」
+            if self_inplay is None:
+                return False
+            if self_inplay.attached_dons < int(v):
+                return False
+        elif k == "self_life_lt_opp" and opp is not None:
+            # 自分のライフ枚数 が 相手より少ない
+            # OP03-108 等「自分のライフの枚数が相手より少ない場合」
+            if bool(v) != (len(me.life) < len(opp.life)):
+                return False
+        elif k == "leader_color_multi":
+            # 自リーダー が 多色 (= 2 色以上)
+            colors = list(me.leader.card.color)
+            if bool(v) != (len(colors) >= 2):
+                return False
+        elif k == "self_stage_named":
+            # 自分の場 (stages) に 指定名 の ステージカード あり
+            # EB02-033 「自分の場に『ゴーイング・メリー号』がある場合」 等
+            target_name = str(v)
+            if not any(s.card.name == target_name for s in me.stages):
+                return False
         elif k == "don_count_ge":
             # 統一 alias: 自分のドン!! 合算 (active + rested + attached) ≥ N。
             # = self_don_ge と同義。 overlay 側で表現の揺れを吸収するため両方対応。

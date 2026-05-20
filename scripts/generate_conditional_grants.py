@@ -82,6 +82,49 @@ def find_grant_sentences(text: str, keyword: str) -> list[tuple[str, str]]:
     return results
 
 
+def detect_static_donN_grant(text: str, keyword: str) -> int | None:
+    """「【ドン!!×N】このキャラは【keyword】を得る」 パターン を 検出。
+
+    Returns: N (= n_required) or None
+    """
+    bracket = f"【{keyword}】"
+    # 同 sentence 内 で 【ドン!!×N】 prefix + このキャラは【kw】を得る
+    pattern = re.compile(
+        r"【ドン[‼!]{1,2}[×x](\d+)】.*?このキャラは" + re.escape(bracket) + r"を得る"
+    )
+    m = pattern.search(text)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def detect_pay_don_grant(text: str, keyword: str) -> int | None:
+    """「【登場時】ドン!!-N(自分の場のドン!!を...): ... 【keyword】を得る」 パターン を 検出。
+
+    Returns: N (= pay_don cost) or None
+    """
+    bracket = f"【{keyword}】"
+    # 同 sentence 内 で 【登場時】 + ドン-N + 【kw】を得る
+    pattern = re.compile(
+        r"【登場時】.*?ドン[‼!]{1,2}-(\d+)[(（].*?[）)]：.*?このキャラは、?(?:このターン中、)?"
+        + re.escape(bracket)
+        + r"を得る"
+    )
+    m = pattern.search(text)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def detect_on_hand_discarded_grant(text: str, keyword: str) -> bool:
+    """「効果で自分の手札が捨てられた時、このキャラは、このターン中、【keyword】を得る」 パターン。"""
+    bracket = f"【{keyword}】"
+    return (
+        "効果で自分の手札が捨てられた時、このキャラは" in text
+        and f"{bracket}を得る" in text
+    )
+
+
 # 条件節 → DSL if 句 (= public mapping)
 CONDITION_PATTERNS = [
     # (regex, DSL key, value_extractor)
@@ -92,12 +135,18 @@ CONDITION_PATTERNS = [
     (r"自分のリーダーが多色", "leader_color_multi", lambda m: True),
     (r"自分のリーダーが([^で]+?)で、相手の場のドン[‼!]{1,2}が(\d+)枚以上", "leader_color_and_opp_don_ge", lambda m: (m.group(1), int(m.group(2)))),
     (r"自分のトラッシュが(\d+)枚以上", "self_trash_count_ge", lambda m: int(m.group(1))),
+    (r"自分のトラッシュにイベントが(\d+)枚以上", "self_trash_event_count_ge", lambda m: int(m.group(1))),
     (r"自分のライフが(\d+)枚以下", "self_life_le", lambda m: int(m.group(1))),
     (r"自分のライフが(\d+)枚以上", "self_life_ge", lambda m: int(m.group(1))),
     (r"自分のライフの枚数が相手より少ない", "self_life_lt_opp", lambda m: True),
+    (r"自分の手札が(\d+)枚以下", "self_hand_count_le", lambda m: int(m.group(1))),
+    (r"自分の場のドン[‼!]{1,2}が(\d+)枚以下", "self_don_le", lambda m: int(m.group(1))),
+    (r"自分の場にドン[‼!]{1,2}が(\d+)枚ある", "self_don_ge", lambda m: int(m.group(1))),
     (r"自分の場のドン[‼!]{1,2}が(\d+)枚以上", "self_don_ge", lambda m: int(m.group(1))),
     (r"自分の場のドン[‼!]{1,2}が相手の場のドン[‼!]{1,2}の枚数以下", "don_diff_le", lambda m: 0),
     (r"自分の場のドン[‼!]{1,2}が相手の場のドン[‼!]{1,2}の枚数より(\d+)枚以上少ない", "don_diff_le", lambda m: -int(m.group(1))),
+    (r"自分の付与されているドン[‼!]{1,2}が合計(\d+)枚以上", "self_inplay_attached_dons_ge", lambda m: int(m.group(1))),
+    (r"このキャラのパワーが(\d+)以上", "self_inplay_power_ge", lambda m: int(m.group(1))),
     (r"相手の場のキャラ?が?(\d+)枚以上", "opp_chara_count_ge", lambda m: int(m.group(1))),
     (r"相手のコスト(\d+)以下のキャラ", "opp_chara_cost_le_exists", lambda m: int(m.group(1))),
     (r"コスト0のキャラ", "opp_or_self_chara_cost_eq_0_exists", lambda m: 0),
@@ -175,6 +224,45 @@ def parse_condition_text(cond_text: str, card_name: str = "") -> dict | None:
                 "count": n,
             }
             matched_any = True
+        # 「自分の元々のコスト N 以上のキャラ が M 枚以上 いる場合」 (cost_ge filter)
+        m_cost = re.search(
+            r"自分の(?:元々の)?コスト(\d+)(?:以上|から\d+|以下)?のキャラが(\d+)枚以上いる",
+            part,
+        )
+        if m_cost:
+            cost_n = int(m_cost.group(1))
+            chara_n = int(m_cost.group(2))
+            cond_dict["self_chara_filtered_count_ge"] = {
+                "filter": {"cost_ge": cost_n},
+                "count": chara_n,
+            }
+            matched_any = True
+        # 「自分のコスト N 以上のキャラがいる場合」 (count=1 default)
+        m_cost2 = re.search(r"自分のコスト(\d+)以上のキャラがいる", part)
+        if m_cost2:
+            cost_n = int(m_cost2.group(1))
+            cond_dict["self_chara_filtered_count_ge"] = {
+                "filter": {"cost_ge": cost_n},
+                "count": 1,
+            }
+            matched_any = True
+        # 「このキャラ以外の自分のパワー N 以上のキャラ がいる場合」 (= exclude_name = self)
+        # exclude_name は generate_entry で 動的に self_name を 設定する 必要 → そこで処理
+        m_self_excl_pow = re.search(
+            r"このキャラ以外の自分のパワー(\d+)以上のキャラがいる", part
+        )
+        if m_self_excl_pow:
+            cond_dict["_self_excl_other_chara_power_ge"] = int(m_self_excl_pow.group(1))
+            matched_any = True
+        # 「このカード以外の特徴《X》を持つキャラ がいる場合」 (exclude self by name)
+        m_self_excl_feat = re.search(
+            r"このカード以外の特徴《([^》]+)》を持つキャラがいる", part
+        )
+        if m_self_excl_feat:
+            cond_dict["_self_excl_other_chara_feature"] = m_self_excl_feat.group(1)
+            matched_any = True
+        # 「このキャラ以外の自分のコスト N 以上 の X 色 のキャラ すべて」 系 → grant target 別
+        # → 今は skip (target=self 限定の 自動生成)
         # 「[name]」以外の自分の<color>の特徴《X》を持つキャラ がいる
         m5 = re.search(
             r"「([^」]+)」以外の自分の([^の]+?)の特徴《([^》]+)》を持つキャラ.*?いる",
@@ -270,6 +358,50 @@ def generate_entry(
     card_id: str, card_text: str, keyword: str
 ) -> dict | None:
     """text から 完全な overlay entry を 生成。 失敗時 None。"""
+    # Priority 1: 【ドン!!×N】static grant
+    don_n = detect_static_donN_grant(card_text, keyword)
+    if don_n is not None:
+        return {
+            "_text": f"{card_id} 【ドン×{don_n}】 このキャラは【{keyword}】を得る (= 自動生成)",
+            "when": "on_attached_don",
+            "n": don_n,
+            "do": [
+                {"give_keyword": {"target": "self", "keyword": keyword}}
+            ],
+        }
+    # Priority 2: 【登場時】 ドン-N pay cost grant
+    pay_n = detect_pay_don_grant(card_text, keyword)
+    if pay_n is not None:
+        return {
+            "_text": f"{card_id} 【登場時】 ドン-{pay_n} で 【{keyword}】 (= 自動生成)",
+            "when": "on_play",
+            "cost": {"pay_don": pay_n},
+            "do": [
+                {
+                    "give_keyword": {
+                        "target": "self",
+                        "keyword": keyword,
+                        "duration": "turn",
+                    }
+                }
+            ],
+        }
+    # Priority 3: 「効果で自分の手札が捨てられた時、 【kw】を得る」
+    if detect_on_hand_discarded_grant(card_text, keyword):
+        return {
+            "_text": f"{card_id} 効果で自分の手札が捨てられた時 【{keyword}】 を得る (= 自動生成)",
+            "when": "on_self_hand_discarded",
+            "do": [
+                {
+                    "give_keyword": {
+                        "target": "self",
+                        "keyword": keyword,
+                        "duration": "turn",
+                    }
+                }
+            ],
+        }
+    # Priority 4: 通常 「〜場合、 【kw】を得る」
     grants = find_grant_sentences(card_text, keyword)
     if not grants:
         return None
@@ -277,6 +409,33 @@ def generate_entry(
     cond_dict = parse_condition_text(cond_text, card_id)
     if cond_dict is None:
         return None
+    # 動的 「このキャラ以外」 系 → exclude_name = self_name で 後解決
+    # ここで card_id → 公式 name に 解決する 必要
+    if "_self_excl_other_chara_power_ge" in cond_dict:
+        # card_id → name: cards.json 経由 (= 仮にここで直接 lookup する simple 実装)
+        try:
+            cards_local = json.load(open(CARDS_JSON, encoding="utf-8"))
+            name_by_id = {c["card_id"]: c["name"] for c in cards_local}
+            self_name = name_by_id.get(card_id, "")
+            power = cond_dict.pop("_self_excl_other_chara_power_ge")
+            cond_dict["self_chara_filtered_count_ge"] = {
+                "filter": {"power_ge": power, "exclude_name": self_name},
+                "count": 1,
+            }
+        except Exception:
+            cond_dict.pop("_self_excl_other_chara_power_ge", None)
+    if "_self_excl_other_chara_feature" in cond_dict:
+        try:
+            cards_local = json.load(open(CARDS_JSON, encoding="utf-8"))
+            name_by_id = {c["card_id"]: c["name"] for c in cards_local}
+            self_name = name_by_id.get(card_id, "")
+            feature = cond_dict.pop("_self_excl_other_chara_feature")
+            cond_dict["self_chara_filtered_count_ge"] = {
+                "filter": {"feature": feature, "exclude_name": self_name},
+                "count": 1,
+            }
+        except Exception:
+            cond_dict.pop("_self_excl_other_chara_feature", None)
     when, duration = detect_when_and_duration(card_text, keyword)
     do_item = {
         "give_keyword": {
