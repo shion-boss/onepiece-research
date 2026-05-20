@@ -2183,7 +2183,10 @@ def execute_effect(
         elif k == "return_to_deck_bottom":
             # 対象 (相手 or 自分のキャラ) を持ち主のデッキの下に置く
             target_spec = v if isinstance(v, str) else (v.get("target", "one_opponent_character_le_5000") if isinstance(v, dict) else "one_opponent_character_le_5000")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="return_to_deck_bottom", outer_value=v,
+            )
             _rtd_any = False
             for t in targets:
                 if t in opp.characters:
@@ -2402,7 +2405,10 @@ def execute_effect(
             target_spec = spec.get("target", "self_leader")
             n = int(spec.get("count", 1))
             per_target = bool(spec.get("per_target", False))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="attach_don", outer_value=v,
+            )
             if not targets:
                 continue
             if per_target:
@@ -2434,7 +2440,10 @@ def execute_effect(
             target_spec = spec.get("target", "self_leader")
             n = int(spec.get("count", 1))
             per_target = bool(spec.get("per_target", False))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="attach_rested_don", outer_value=v,
+            )
             if not targets:
                 continue
             if per_target:
@@ -2900,6 +2909,79 @@ def execute_effect(
             state.push_log(
                 f"  効果: 相手レストキャラ stay_rested → {[t.card.name for t in targets]}"
             )
+        elif k == "keep_opp_rested_chara_with_don_ge_next_refresh":
+            # 「相手のドン!! が N 枚以上付与されているレストのキャラ M 枚までは、
+            # 次の相手のリフレッシュフェイズでアクティブにならない」 (OP15-025 等)。
+            # spec: {"don_ge": 3, "limit": 1}
+            spec_val = v if isinstance(v, dict) else {}
+            don_ge = int(spec_val.get("don_ge", 1))
+            limit = int(spec_val.get("limit", 1))
+            cands = [c for c in opp.characters if c.rested and c.attached_dons >= don_ge]
+            cands.sort(key=lambda c: -c.power)
+            for t in cands[:limit]:
+                t.stay_rested_next_refresh = True
+            state.push_log(
+                f"  効果: 相手 ドン{don_ge}+付与レストキャラ stay_rested → "
+                f"{[t.card.name for t in cands[:limit]]}"
+            )
+        elif k == "transfer_attached_don_to_feature":
+            # 「自分の付与されているドン!! N 枚までを、 自分の特徴 X を持つキャラ 1 枚に
+            # 付与する」 (EB02-009 アンナ等)。
+            # spec: {"feature": "麦わらの一味", "count": 1}
+            spec_val = v if isinstance(v, dict) else {}
+            feature = spec_val.get("feature", "")
+            count = int(spec_val.get("count", 1))
+            # 取り出し元: leader と キャラ から attached_dons > 0
+            sources = [
+                ip for ip in [me.leader, *me.characters]
+                if ip.attached_dons > 0
+            ]
+            if not sources:
+                return False
+            # 移動先: feature 一致 self chara
+            targets = [
+                c for c in me.characters if feature in c.card.features
+            ]
+            if not targets:
+                return False
+            # AI 簡易: source は power 低い順 (= 弱いキャラから剥がす)、 target は power 高い順
+            sources.sort(key=lambda ip: ip.power)
+            targets.sort(key=lambda ip: -ip.power)
+            source = sources[0]
+            target = targets[0]
+            take = min(count, source.attached_dons)
+            source.attached_dons -= take
+            target.attached_dons += take
+            state.push_log(
+                f"  効果: 付与ドン移動 {source.card.name}-{take} → {target.card.name}+{take}"
+            )
+        elif k == "reveal_opp_hand_and_if_event_mill_life":
+            # 「相手の手札 1 枚を選び、 公開する。 公開したカードがイベントの場合、
+            # 相手のライフ N 枚までを、 持ち主のデッキの下に置く」 (OP01-063 等)。
+            # spec: {"mill_life": 1}
+            spec_val = v if isinstance(v, dict) else {}
+            mill_n = int(spec_val.get("mill_life", 1))
+            if not opp.hand:
+                state.push_log("  効果: 相手手札なし (不発)")
+                return False
+            # AI 簡易: ランダム 1 枚 公開 (= 公式は「自分が選ぶ」 だが対戦時は隠匿)
+            idx = state.rng.randrange(len(opp.hand))
+            revealed = opp.hand[idx]
+            state.push_log(f"  効果: 相手手札公開 → {revealed.name} ({revealed.category.value})")
+            from .core import Category as _Cat
+            if revealed.category == _Cat.EVENT:
+                # ライフ N 枚を デッキ下 に
+                actually_milled = 0
+                for _ in range(mill_n):
+                    if not opp.life:
+                        break
+                    opp.deck.append(opp.life.pop(0))
+                    actually_milled += 1
+                state.push_log(
+                    f"  効果: 公開カード EVENT → 相手ライフ {actually_milled} 枚 デッキ下へ"
+                )
+            else:
+                state.push_log("  効果: 公開カード非EVENT (ライフ操作不発)")
         elif k == "keep_opp_rested_inplay_next_refresh":
             # 「相手のレストのリーダーとキャラ N 枚は、 次の相手のリフレッシュフェイズで
             # アクティブにならない」 OP07-059 フォクシー等。
