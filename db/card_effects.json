@@ -638,6 +638,34 @@
           "ko": "one_opponent_character_power_le_3000"
         }
       ]
+    },
+    {
+      "_text": "マルコ KO時: 手札からイベント1枚を捨てることができる: このキャラカードをトラッシュからレストで登場させる。",
+      "when": "on_ko",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_filtered": {
+                  "filter": {
+                    "category": "EVENT"
+                  },
+                  "n": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP03-024": [
@@ -2059,7 +2087,47 @@
       ]
     }
   ],
-  "OP14-080": [],
+  "OP14-080": [
+    {
+      "_text": "【起動メイン】【ターン1回】自分の特徴《スリラーバーク海賊団》を持つキャラ1枚をKOできる：自分のリーダーとキャラすべてを、このターン中、パワー+1000。",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true,
+        "ko_self_with_filter": {
+          "feature": "スリラーバーク海賊団"
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【アタック時】自分の手札3枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "when": "on_attack",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 3
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "OP15-001": [
     {
       "_text": "don×1 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする",
@@ -10276,6 +10344,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "青紫サンジ アタック時: 自分の場のドン‼が相手以下の場合、 ドンデッキからドン1枚をレストで追加",
+      "when": "on_attack",
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
     }
   ],
   "PRB01-001": [
@@ -16811,15 +16891,27 @@
   ],
   "OP02-004": [
     {
-      "_text": "OP02-004 ニューゲート 登場時: 自リーダー +2000 ターン中",
+      "_text": "OP02-004 ニューゲート 登場時: 自リーダー +2000 次の自分のターン開始時まで",
       "when": "on_play",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_self_turn_start"
           }
+        }
+      ]
+    },
+    {
+      "_text": "OP02-004 ニューゲート アタック時 [ドン×2]: 相手のパワー3000以下のキャラ1枚までを、KOする",
+      "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 2
+      },
+      "do": [
+        {
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -44810,11 +44902,37 @@
     {
       "_text": "女の…涙の落ちる音がした メイン: サンジリーダー → デッキ上3枚見てサンジ/イベを公開手札追加",
       "when": "main",
+      "if": {
+        "leader_name": "サンジ"
+      },
       "do": [
         {
-          "search": {
-            "filter": {},
-            "limit": 1
+          "look_top_n_filter_to_hand": {
+            "n": 3,
+            "filter": {
+              "name_or_category": {
+                "names": ["サンジ"],
+                "category": "EVENT"
+              }
+            },
+            "limit": 1,
+            "remainder_to": "trash"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "女の…涙の落ちる音がした カウンター: 手札1枚捨てて自分の「サンジ」 1枚に +4000 このバトル",
+      "when": "counter",
+      "cost": {
+        "discard_self_hand": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_self_chara_named_サンジ",
+            "amount": 4000,
+            "duration": "battle"
           }
         }
       ]

@@ -1,0 +1,2162 @@
+[
+  {
+    "card_id": "EB02-012",
+    "name": "ガイモン",
+    "category": "CHARACTER",
+    "text": "自分の「サーファンクル」がいる場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB02-033",
+    "name": "クラバウターマン",
+    "category": "CHARACTER",
+    "text": "自分の場に「ゴーイング・メリー号」がある場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB02-061",
+    "name": "モンキー・D・ルフィ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、このキャラは【速攻】を得る。【アタック時】【ターン1回】自分のアクティブのドン‼2枚をドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、自分のライフの上から1枚を手札に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB02-061_p1",
+    "name": "モンキー・D・ルフィ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、このキャラは【速攻】を得る。【アタック時】【ターン1回】自分のアクティブのドン‼2枚をドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、自分のライフの上から1枚を手札に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB02-061_p2",
+    "name": "モンキー・D・ルフィ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、このキャラは【速攻】を得る。【アタック時】【ターン1回】自分のアクティブのドン‼2枚をドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、自分のライフの上から1枚を手札に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB02-061_p3",
+    "name": "モンキー・Ｄ・ルフィ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、このキャラは【速攻】を得る。【アタック時】【ターン1回】自分のアクティブのドン‼2枚をドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、自分のライフの上から1枚を手札に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB02-061_r1",
+    "name": "モンキー・Ｄ・ルフィ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが多色で、相手の場のドン‼が5枚以上ある場合、このキャラは【速攻】を得る。【アタック時】【ターン1回】自分のアクティブのドン‼2枚をドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、自分のライフの上から1枚を手札に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB03-018",
+    "name": "たしぎ",
+    "category": "CHARACTER",
+    "text": "【相手のターン中】このキャラは相手の効果でKOされず、【ブロッカー】を得る。【自分のターン終了時】自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB03-018_p1",
+    "name": "たしぎ",
+    "category": "CHARACTER",
+    "text": "【相手のターン中】このキャラは相手の効果でKOされず、【ブロッカー】を得る。【自分のターン終了時】自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB03-018_p2",
+    "name": "たしぎ",
+    "category": "CHARACTER",
+    "text": "【相手のターン中】このキャラは相手の効果でKOされず、【ブロッカー】を得る。【自分のターン終了時】自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "EB03-044",
+    "name": "ブラックマリア",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが多色の場合、このキャラは【ブロッカー】を得る。【登場時】自分のデッキの上から5枚を見て、「鬼ヶ島」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「鬼ヶ島」1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP01-068",
+    "name": "ゲッコー・モリア",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】自分の手札が5枚以上の場合、このキャラは、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP01-097",
+    "name": "クイーン",
+    "category": "CHARACTER",
+    "text": "【登場時】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。その後、相手のキャラ1枚までを、このターン中、パワー-2000。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP01-097_p1",
+    "name": "クイーン",
+    "category": "CHARACTER",
+    "text": "【登場時】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。その後、相手のキャラ1枚までを、このターン中、パワー-2000。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-013",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ2枚までを、このターン中、パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-013_p1",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ2枚までを、このターン中、パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-013_p2",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ2枚までを、このターン中、パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-013_p3",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ2枚までを、このターン中、パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-013_p5",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ2枚までを、このターン中、パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-013_r1",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ2枚までを、このターン中、パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-031",
+    "name": "光月トキ",
+    "category": "CHARACTER",
+    "text": "自分のキャラの「光月おでん」がいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-031_p1",
+    "name": "光月トキ",
+    "category": "CHARACTER",
+    "text": "自分のキャラの「光月おでん」がいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-062",
+    "name": "モンキー・Ｄ・ルフィ",
+    "category": "CHARACTER",
+    "text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-062_p1",
+    "name": "モンキー・Ｄ・ルフィ",
+    "category": "CHARACTER",
+    "text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-074",
+    "name": "サルデス",
+    "category": "CHARACTER",
+    "text": "自分の「ブルゴリ」は【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP02-095",
+    "name": "オニグモ",
+    "category": "CHARACTER",
+    "text": "コスト0のキャラがいる場合、このキャラは【バニッシュ】を得る。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-016",
+    "name": "炎帝",
+    "category": "EVENT",
+    "text": "【メイン】自分のリーダーが「ポートガス・D・エース」の場合、相手のパワー8000以下のキャラ1枚までを、KOし、自分のリーダーは、このターン中、【ダブルアタック】を得て、パワー+3000。(このカードが与えるダメージは2になる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-025",
+    "name": "クリーク",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の手札1枚を捨てることができる：相手のレストのコスト4以下のキャラ2枚までを、KOする。【ドン!!×1】このキャラは【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-025_p1",
+    "name": "クリーク",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の手札1枚を捨てることができる：相手のレストのコスト4以下のキャラ2枚までを、KOする。【ドン!!×1】このキャラは【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-059",
+    "name": "カク",
+    "category": "CHARACTER",
+    "text": "【アタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【バニッシュ】を得る。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-090",
+    "name": "ブルーノ",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【KO時】自分のトラッシュからコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-108",
+    "name": "シャーロット・クラッカー",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】自分のライフの枚数が相手より少ない場合、このキャラは【ダブルアタック】を得て、パワー+1000。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-108_p1",
+    "name": "シャーロット・クラッカー",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】自分のライフの枚数が相手より少ない場合、このキャラは【ダブルアタック】を得て、パワー+1000。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-108_p2",
+    "name": "シャーロット・クラッカー",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】自分のライフの枚数が相手より少ない場合、このキャラは【ダブルアタック】を得て、パワー+1000。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP03-108_r1",
+    "name": "シャーロット・クラッカー",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】自分のライフの枚数が相手より少ない場合、このキャラは【ダブルアタック】を得て、パワー+1000。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-001",
+    "name": "ネフェルタリ・ビビ",
+    "category": "LEADER",
+    "text": "このリーダーはアタックできない。【起動メイン】【ターン1回】➁(コストエリアのドン!!を指定の数レストにできる)：カード1枚を引き、自分のキャラ1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-001_p1",
+    "name": "ネフェルタリ・ビビ",
+    "category": "LEADER",
+    "text": "このリーダーはアタックできない。【起動メイン】【ターン1回】➁(コストエリアのドン!!を指定の数レストにできる)：カード1枚を引き、自分のキャラ1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-005",
+    "name": "クンフージュゴン",
+    "category": "CHARACTER",
+    "text": "このキャラ以外の自分の「クンフージュゴン」がいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-071",
+    "name": "Mr.4(ベーブ)",
+    "category": "CHARACTER",
+    "text": "【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【ブロッカー】を得て、パワー+1000。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-093",
+    "name": "ゴムゴムの大猿王銃",
+    "category": "EVENT",
+    "text": "【メイン】自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+6000。その後、自分のトラッシュが15枚以上ある場合、そのカードは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-108",
+    "name": "シャーロット・モスカート",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】このキャラは【バニッシュ】を得る。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-115",
+    "name": "銃・擬鬼",
+    "category": "EVENT",
+    "text": "【メイン】自分のライフの上か下から1枚を手札に加えることができる：自分の特徴《ワノ国》を持つキャラ1枚までは、このターン中、【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-118",
+    "name": "ネフェルタリ・ビビ",
+    "category": "CHARACTER",
+    "text": "このキャラ以外の自分のコスト3以上の赤のキャラすべては、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP04-118_p1",
+    "name": "ネフェルタリ・ビビ",
+    "category": "CHARACTER",
+    "text": "このキャラ以外の自分のコスト3以上の赤のキャラすべては、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP05-003",
+    "name": "イナズマ",
+    "category": "CHARACTER",
+    "text": "このキャラ以外の自分のパワー7000以上のキャラがいる場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP05-062",
+    "name": "おナミ",
+    "category": "CHARACTER",
+    "text": "自分の場にドン!!が10枚ある場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP05-080",
+    "name": "エリザベローⅡ世",
+    "category": "CHARACTER",
+    "text": "【アタック時】【ターン1回】自分のトラッシュのカード20枚をデッキに戻しシャッフルできる：このキャラは、このバトル中、【ダブルアタック】を得て、パワー+10000。(このカードが与えるダメージは2になる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP05-086",
+    "name": "ネフェルタリ・ビビ",
+    "category": "CHARACTER",
+    "text": "自分のトラッシュが10枚以上ある場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP05-086_p1",
+    "name": "ネフェルタリ・ビビ",
+    "category": "CHARACTER",
+    "text": "自分のトラッシュが10枚以上ある場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-002",
+    "name": "イナズマ",
+    "category": "CHARACTER",
+    "text": "このキャラのパワーが7000以上の場合、このキャラは【バニッシュ】を得る。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-010",
+    "name": "ダグラス・バレット",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《FILM》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-054",
+    "name": "ボルサリーノ",
+    "category": "CHARACTER",
+    "text": "自分の手札が5枚以下の場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-061",
+    "name": "ヴィンスモーク・イチジ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、相手のキャラ1枚までを、このターン中、パワー-2000し、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-061_p1",
+    "name": "ヴィンスモーク・イチジ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、相手のキャラ1枚までを、このターン中、パワー-2000し、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-072",
+    "name": "コゼット",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《ジェルマ66》でかつ、自分の場のドン !!の枚数が相手より2枚以上少ない場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP06-113",
+    "name": "ラキ",
+    "category": "CHARACTER",
+    "text": "「ラキ」以外の自分の特徴《シャンドラの戦士》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-024",
+    "name": "コアラ",
+    "category": "CHARACTER",
+    "text": "【相手のアタック時】このキャラをレストにできる：自分のコスト5以下の特徴《魚人族》を持つキャラ1枚までは、このターン中、【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-029",
+    "name": "バジル・ホーキンス",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-029_p1",
+    "name": "バジル・ホーキンス",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-029_r1",
+    "name": "バジル・ホーキンス",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-030",
+    "name": "パッパグ",
+    "category": "CHARACTER",
+    "text": "自分のキャラの「ケイミー」がいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-083",
+    "name": "ゲッコー・モリア",
+    "category": "CHARACTER",
+    "text": "【起動メイン】自分のトラッシュの特徴《スリラーバーク海賊団》を持つカード4枚を好きな順番でデッキの下に置くことができる：このキャラは、このターン中、【バニッシュ】を得て、パワー+1000。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-119",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のデッキの上から1枚までを、ライフの上に加える。その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-119_p1",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のデッキの上から1枚までを、ライフの上に加える。その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-119_p2",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のデッキの上から1枚までを、ライフの上に加える。その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP07-119_r1",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のデッキの上から1枚までを、ライフの上に加える。その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP08-008",
+    "name": "ドルトン",
+    "category": "CHARACTER",
+    "text": "【登場時】相手のキャラ1枚までを、このターン中、パワー-1000。【ドン‼×1】【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP09-065",
+    "name": "サンジ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP09-065_p1",
+    "name": "サンジ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP09-065_p2",
+    "name": "サンジ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP09-065_r1",
+    "name": "サンジ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP09-068",
+    "name": "トニートニー・チョッパー",
+    "category": "CHARACTER",
+    "text": "【自分のターン終了時】自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-053",
+    "name": "ビアン",
+    "category": "CHARACTER",
+    "text": "「ビアン」以外の自分の特徴《トンタッタ族》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-097",
+    "name": "ゴムゴムの犀榴弾砲",
+    "category": "EVENT",
+    "text": "【メイン】自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+2000。その後、自分のトラッシュが10枚以上ある場合、そのカードは、このターン中、【バニッシュ】を得る。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-099",
+    "name": "ユースタス・キッド",
+    "category": "LEADER",
+    "text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-099_p1",
+    "name": "ユースタス・キッド",
+    "category": "LEADER",
+    "text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-108",
+    "name": "スクラッチメン・アプー",
+    "category": "CHARACTER",
+    "text": "「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-108_p1",
+    "name": "スクラッチメン・アプー",
+    "category": "CHARACTER",
+    "text": "「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-108_p2",
+    "name": "スクラッチメン・アプー",
+    "category": "CHARACTER",
+    "text": "「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-108_r1",
+    "name": "スクラッチメン・アプー",
+    "category": "CHARACTER",
+    "text": "「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP10-113",
+    "name": "ロロノア・ゾロ",
+    "category": "CHARACTER",
+    "text": "自分のライフの枚数が相手より少ない場合、このキャラは【速攻】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP11-057",
+    "name": "ペドロ",
+    "category": "CHARACTER",
+    "text": "自分の手札が4枚以下の場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP11-065",
+    "name": "シャーロット・アナナ",
+    "category": "CHARACTER",
+    "text": "「シャーロット・アナナ」以外の自分の紫の特徴《ビッグ・マム海賊団》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP11-065_p1",
+    "name": "シャーロット・アナナ",
+    "category": "CHARACTER",
+    "text": "「シャーロット・アナナ」以外の自分の紫の特徴《ビッグ・マム海賊団》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP11-073",
+    "name": "シャーロット・リンリン",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このキャラは【速攻】を得る。【相手のアタック時】【ターン1回】ドン‼-5：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、自分のリーダー1枚までを、このターン中、パワー+2000。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP11-073_p1",
+    "name": "シャーロット・リンリン",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このキャラは【速攻】を得る。【相手のアタック時】【ターン1回】ドン‼-5：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、自分のリーダー1枚までを、このターン中、パワー+2000。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-065",
+    "name": "エンポリオ・イワンコフ",
+    "category": "CHARACTER",
+    "text": "自分のトラッシュにイベントが4枚以上ある場合、このキャラは【ブロッカー】を得る。【KO時】自分のトラッシュからイベント1枚までを、手札に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-066",
+    "name": "カルネ",
+    "category": "CHARACTER",
+    "text": "自分のトラッシュにイベントが4枚以上ある場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-072",
+    "name": "ゼフ",
+    "category": "CHARACTER",
+    "text": "自分の場のドン‼がドン‼デッキに戻された時、自分のリーダーが「サンジ」の場合、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-087",
+    "name": "ニコ・ロビン",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが「コアラ」か「モンキー・Ｄ・ルフィ」の場合、このキャラは【ブロッカー】を得て、コスト+3。【登場時】自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-087_p1",
+    "name": "ニコ・ロビン",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが「コアラ」か「モンキー・Ｄ・ルフィ」の場合、このキャラは【ブロッカー】を得て、コスト+3。【登場時】自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-089",
+    "name": "ハック",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【KO時】自分のリーダーが特徴《革命軍》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-089_p1",
+    "name": "ハック",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【KO時】自分のリーダーが特徴《革命軍》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-100",
+    "name": "サボ",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【ブロッカー】を得て、コスト+3。【登場時】自分のライフの上から1枚を手札に加えることができる：カード2枚を引き、自分の手札1枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP12-107",
+    "name": "ドンキホーテ・ドフラミンゴ",
+    "category": "CHARACTER",
+    "text": "自分のライフが2枚以下の場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)【相手のターン中】【KO時】自分のデッキの上から1枚までを、ライフの上に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-009",
+    "name": "カーリー・ダダン",
+    "category": "CHARACTER",
+    "text": "このカード以外の特徴《山賊》を持つキャラがいる場合、このキャラは【ダブルアタック】を得る。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-031_p1",
+    "name": "トラファルガー・ロー",
+    "category": "CHARACTER",
+    "text": "自分のライフが1枚以下の場合、このキャラは【ブロッカー】を得る。【登場時】自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-112",
+    "name": "ベガパンク",
+    "category": "CHARACTER",
+    "text": "自分の付与されているドン‼が合計2枚以上ある場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-119",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【速攻】を得る。【登場時】自分のリーダーにレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラカード1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-119_p1",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【速攻】を得る。【登場時】自分のリーダーにレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラカード1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-119_p2",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【速攻】を得る。【登場時】自分のリーダーにレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラカード1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-119_p3",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【速攻】を得る。【登場時】自分のリーダーにレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラカード1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-119_p4",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【速攻】を得る。【登場時】自分のリーダーにレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラカード1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP13-119_p5",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "CHARACTER",
+    "text": "自分のライフが3枚以下の場合、このキャラは【速攻】を得る。【登場時】自分のリーダーにレストのドン‼1枚までを、付与する。その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラカード1枚までを、登場させる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP14-004",
+    "name": "キャベンディッシュ",
+    "category": "CHARACTER",
+    "text": "このキャラのパワーが5000以上の場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP14-045",
+    "name": "クロオビ",
+    "category": "CHARACTER",
+    "text": "効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)【KO時】カード1枚を引く。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP14-049",
+    "name": "ジンベエ",
+    "category": "CHARACTER",
+    "text": "効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。【登場時】自分のドン‼2枚をレストにできる：カード2枚を引き、コスト7以下のキャラ1枚までを、持ち主の手札に戻す。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP14-049_p1",
+    "name": "ジンベエ",
+    "category": "CHARACTER",
+    "text": "効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。【登場時】自分のドン‼2枚をレストにできる：カード2枚を引き、コスト7以下のキャラ1枚までを、持ち主の手札に戻す。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-011",
+    "name": "パール",
+    "category": "CHARACTER",
+    "text": "【相手のターン中】自分のリーダーが特徴《東の海》を持つ場合、このキャラは【ブロッカー】を得て、パワー+2000。【KO時】自分のリーダーが特徴《東の海》を持つ場合、相手の元々のパワー6000以下のキャラ1枚までを、KOする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-024",
+    "name": "ウソップ",
+    "category": "CHARACTER",
+    "text": "【相手のターン中】このキャラは相手のリーダーとキャラの効果でレストにされず、【ブロッカー】を得る。【KO時】相手のリーダーかコスト7以下のキャラ1枚までを、レストにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-041",
+    "name": "オオロンブス",
+    "category": "CHARACTER",
+    "text": "【KO時】カード1枚を引く。【起動メイン】【ターン1回】自分のキャラ1枚を持ち主のデッキの下に置くことができる：このキャラは、このターン中、【速攻】を得る。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-055",
+    "name": "使ってけれ‼ルフィ先輩ィ!!!",
+    "category": "EVENT",
+    "text": "【メイン】以下から1つを選ぶ。・カード2枚を引く。・自分の特徴《ドレスローザ》を持つキャラ1枚までは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-060",
+    "name": "エネル",
+    "category": "CHARACTER",
+    "text": "自分の場のドン‼が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン‼-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-060_p1",
+    "name": "エネル",
+    "category": "CHARACTER",
+    "text": "自分の場のドン‼が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン‼-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-060_p2",
+    "name": "エネル",
+    "category": "CHARACTER",
+    "text": "自分の場のドン‼が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン‼-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-068",
+    "name": "神兵",
+    "category": "CHARACTER",
+    "text": "自分の場のドン‼が6枚以下の場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-070",
+    "name": "フザ",
+    "category": "CHARACTER",
+    "text": "自分の「シュラ」すべてとこのキャラは【ブロック不可】を得る。(このカードはブロックされない)【相手のターン中】自分の「シュラ」すべてとこのキャラを、元々のパワー6000にする。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロック不可_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロック不可】を得 あるが overlay に give_keyword(ブロック不可) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-086",
+    "name": "ナミ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のトラッシュからコスト7以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。この効果で登場させたキャラは、このターン中、【速攻】を得る。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-086_p1",
+    "name": "ナミ",
+    "category": "CHARACTER",
+    "text": "【登場時】自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のトラッシュからコスト7以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。この効果で登場させたキャラは、このターン中、【速攻】を得る。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP15-087",
+    "name": "ニコ・ロビン",
+    "category": "CHARACTER",
+    "text": "自分のトラッシュが10枚以上ある場合、このキャラは【ブロッカー】を得る。【登場時】カード2枚を引き、自分の手札2枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "P-105",
+    "name": "サボ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【登場時】自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "P-105_p1",
+    "name": "サボ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【登場時】自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "P-105_p2",
+    "name": "サボ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【登場時】自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "P-113",
+    "name": "ジュエリー・ボニー",
+    "category": "CHARACTER",
+    "text": "【ドン‼×2】【相手のターン中】このキャラは【ブロッカー】を得て、パワー+2000。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "PRB02-015",
+    "name": "シリュウ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【KO時】自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "PRB02-015_p1",
+    "name": "シリュウ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。【KO時】自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST07-004",
+    "name": "シャーロット・スナック",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】【アタック時】自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる)",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_バニッシュ_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【バニッシュ】を得 あるが overlay に give_keyword(バニッシュ) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST09-005",
+    "name": "光月おでん",
+    "category": "CHARACTER",
+    "text": "【ドン!!×1】このキャラは【ダブルアタック】を得る。(このカードが与えるダメージは2になる)【KO時】自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ダブルアタック_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ダブルアタック】を得 あるが overlay に give_keyword(ダブルアタック) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST14-012",
+    "name": "モンキー・D・ルフィ",
+    "category": "CHARACTER",
+    "text": "自分のコスト10以上のキャラがいる場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST15-005",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりにこのキャラを、このターン中、パワー-2000できる。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST21-015",
+    "name": "ロロノア・ゾロ",
+    "category": "CHARACTER",
+    "text": "【ドン‼×2】このキャラは【速攻】を得る。【KO時】自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST21-015_p1",
+    "name": "ロロノア・ゾロ",
+    "category": "CHARACTER",
+    "text": "【ドン‼×2】このキャラは【速攻】を得る。【KO時】自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST25-002",
+    "name": "カバジ",
+    "category": "CHARACTER",
+    "text": "自分の元々のコスト5以上のキャラが2枚以上いる場合、このキャラは【ブロッカー】を得て、コスト+1。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【相手のターン中】このキャラのパワー+5000。",
+    "overlay_count": 0,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST25-005",
+    "name": "モージ",
+    "category": "CHARACTER",
+    "text": "自分の元々のコスト5以上のキャラが2枚以上いる場合、このキャラは【ブロッカー】を得て、コスト+1。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【KO時】自分のリーダーが「バギー」で、自分の手札が3枚以下の場合、カード1枚を引く。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST27-004",
+    "name": "サンファン・ウルフ",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは【ブロッカー】を得て、自分のトラッシュ4枚につき、コスト+1。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【登場時】自分の手札1枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST28-002",
+    "name": "イゾウ",
+    "category": "CHARACTER",
+    "text": "【ドン‼×2】このキャラは【ブロッカー】を得る。【登場時】自分の特徴《ワノ国》を持つリーダーは、このターン中、【バニッシュ】を得る。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_conditional_ブロッカー_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【ブロッカー】を得 あるが overlay に give_keyword(ブロッカー) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "ST28-004",
+    "name": "光月モモの助",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】自分のライフが2枚以下の場合、自分のリーダーのパワー+1000。【起動メイン】【ターン1回】自分の付与されているドン‼合計2枚をコストエリアにレストで戻すことができる：このキャラは、このターン中、【速攻】を得て、パワー+1000。(このカードは登場したターンにアタックできる)",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_conditional_速攻_grant",
+        "severity": 4,
+        "detail": "text に 条件付き 【速攻】を得 あるが overlay に give_keyword(速攻) 実装 無し"
+      }
+    ],
+    "max_severity": 4
+  },
+  {
+    "card_id": "OP05-109",
+    "name": "パガヤ",
+    "category": "CHARACTER",
+    "text": "【ターン1回】【トリガー】が発動した時、カード2枚を引き、自分の手札2枚を捨てる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP07-019",
+    "name": "ジュエリー・ボニー",
+    "category": "LEADER",
+    "text": "【相手のアタック時】【ターン1回】➀(コストエリアのドン‼を指定の数レストにできる)：相手の、リーダーかキャラ1枚までを、レストにする。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP11-041",
+    "name": "ナミ",
+    "category": "LEADER",
+    "text": "【自分のターン中】【ターン1回】ライフが離れた時、発動できる。自分の手札が7枚以下の場合、カード1枚を引く。【ドン‼×1】【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：このリーダーは、このターン中、パワー+2000。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP13-002",
+    "name": "ポートガス・Ｄ・エース",
+    "category": "LEADER",
+    "text": "【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このバトル中、パワー-2000。【ドン‼×1】【ターン1回】自分がダメージを受けた時か自分の元々のパワー6000以上のキャラがKOされた時、カード1枚を引く。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP13-100",
+    "name": "ジュエリー・ボニー",
+    "category": "LEADER",
+    "text": "【自分のターン中】【ターン1回】自分の【トリガー】を持つキャラが登場した時、発動できる。自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP13-100_p1",
+    "name": "ジュエリー・ボニー",
+    "category": "LEADER",
+    "text": "【自分のターン中】【ターン1回】自分の【トリガー】を持つキャラが登場した時、発動できる。自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP14-060",
+    "name": "ドンキホーテ・ドフラミンゴ",
+    "category": "LEADER",
+    "text": "【相手のアタック時】【ターン1回】ドン‼-1：自分のリーダーか特徴《ドンキホーテ海賊団》を持つキャラ1枚を選ぶ。選んだカードにアタックの対象を変更する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  }
+]
