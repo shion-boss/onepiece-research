@@ -16,7 +16,7 @@ from typing import Optional
 from .ai import GreedyAI, PlanningAI, legal_actions
 from .core import GameState
 from .game import EndPhase
-from .nn_eval import nn_disabled
+from .nn_flags import nn_disabled  # torch 非依存 path (= 2026-05-20、 Vercel OOM 対策)
 
 
 # ------------------------------------------------------------------ #

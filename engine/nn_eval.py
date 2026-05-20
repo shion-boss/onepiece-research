@@ -189,9 +189,9 @@ class _LargerSimpleEvaluator(SimpleEvaluator):
 _MODEL_CACHE: Optional[nn.Module] = None
 _MODEL_LOADED_PATH: Optional[Path] = None
 _FEATURE_KEYS_CACHE: Optional[list[str]] = None
-# nn_disabled() context manager 用の force-disable flag。
-# True の間は get_model() が None を返し、 compute_score_nn も None 返却 → 線形 fallback。
-_NN_FORCE_DISABLED: bool = False
+# nn_disabled() context manager は engine.nn_flags へ 切り出し (= 2026-05-20、 torch 非依存化)。
+# get_model() 内で is_nn_forced_disabled() を参照。
+from .nn_flags import is_nn_forced_disabled, nn_disabled  # noqa: E402, F401
 
 
 def _default_model_path() -> Path:
@@ -223,10 +223,10 @@ def get_model() -> Optional[nn.Module]:
 
     state_dict の構造から SimpleEvaluator / StateEncoderEvaluator を auto-detect。
 
-    _NN_FORCE_DISABLED == True の時は path 存在に関係なく None を返す (= nn_disabled context 用)。
+    nn_flags.is_nn_forced_disabled() == True の時は path 存在に関係なく None を返す。
     """
     global _MODEL_CACHE, _MODEL_LOADED_PATH
-    if _NN_FORCE_DISABLED:
+    if is_nn_forced_disabled():
         return None
     if _MODEL_CACHE is not None:
         return _MODEL_CACHE
@@ -250,30 +250,7 @@ def get_model() -> Optional[nn.Module]:
         return None
 
 
-from contextlib import contextmanager
-
-
-@contextmanager
-def nn_disabled():
-    """NN を一時的に強制無効化する context manager。
-
-    AI の choose_action 内で囲うと、 その期間内の compute_score 呼び出しは
-    NN を経由せず線形 fallback に流れる。 単一 process 内で
-    「NN 有効 AI vs NN 無効 AI」 の直接対戦を実現する用途。
-
-    _NN_FORCE_DISABLED flag を True にすることで get_model() が None を返すよう強制。
-    cache 退避だけでは get_model() が path から再 load してしまい無効化されない。
-
-    注: thread-unsafe (= global state の差し替え)。 multiprocessing.Pool 等で
-    同一プロセス内に複数試合が並走する状況では使えない。
-    """
-    global _NN_FORCE_DISABLED
-    saved = _NN_FORCE_DISABLED
-    _NN_FORCE_DISABLED = True
-    try:
-        yield
-    finally:
-        _NN_FORCE_DISABLED = saved
+# nn_disabled は nn_flags へ 移動 (= 2026-05-20、 torch 非依存)。 上 で re-export 済。
 
 
 def reload_model(path: Optional[Path] = None) -> Optional[NNEvaluator]:
