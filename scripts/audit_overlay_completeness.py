@@ -88,14 +88,49 @@ def is_conditional_keyword(text: str, keyword: str) -> bool:
     return not innate_found
 
 
+def _find_give_keyword_recursive(node, keyword: str) -> bool:
+    """do/effect/choice 等 nested 構造 を 再帰 走査 して give_keyword(keyword) を 検出。"""
+    if isinstance(node, dict):
+        if "give_keyword" in node:
+            spec = node["give_keyword"]
+            if isinstance(spec, dict):
+                if spec.get("keyword") == keyword or keyword in (
+                    spec.get("keywords") or []
+                ):
+                    return True
+            elif isinstance(spec, str) and spec == keyword:
+                return True
+        if keyword == "速攻" and "give_rush" in node:
+            return True
+        # play_from_trash / play_from_hand 等 内 の gain_keyword_turn:
+        for k in ("play_from_trash", "play_from_hand", "summon_from_deck"):
+            if k in node:
+                spec = node[k]
+                if isinstance(spec, dict):
+                    gain = spec.get("gain_keyword_turn") or spec.get(
+                        "gain_keyword"
+                    )
+                    if gain == keyword:
+                        return True
+        # 再帰: nested values
+        for v in node.values():
+            if _find_give_keyword_recursive(v, keyword):
+                return True
+    elif isinstance(node, list):
+        for item in node:
+            if _find_give_keyword_recursive(item, keyword):
+                return True
+    return False
+
+
 def has_conditional_grant_with_overlay(
     text: str, keyword: str, overlay_entries: list[dict]
 ) -> bool:
-    """text に 条件付き 【kw】 grant あり、 かつ overlay で give_keyword(kw) 実装あり。"""
+    """text に 条件付き 【kw】 grant あり、 かつ overlay で give_keyword(kw) 実装あり。
+    Nested (= optional_cost_then.effect / play_from_trash.gain_keyword_turn 等) も 認識。"""
     bracket = f"【{keyword}】"
     if bracket not in text:
         return False
-    # 条件付き grant 文 を 検出
     has_grant_text = False
     sentences = text.replace("\n", "。").split("。")
     for s in sentences:
@@ -107,22 +142,9 @@ def has_conditional_grant_with_overlay(
             break
     if not has_grant_text:
         return False
-    # overlay で grant あるか
     for ent in overlay_entries:
-        for d in ent.get("do") or []:
-            if not isinstance(d, dict):
-                continue
-            if "give_keyword" in d:
-                spec = d["give_keyword"]
-                if isinstance(spec, dict):
-                    if spec.get("keyword") == keyword or keyword in (
-                        spec.get("keywords") or []
-                    ):
-                        return True
-                elif isinstance(spec, str) and spec == keyword:
-                    return True
-            if keyword == "速攻" and "give_rush" in d:
-                return True
+        if _find_give_keyword_recursive(ent, keyword):
+            return True
     return False
 
 
