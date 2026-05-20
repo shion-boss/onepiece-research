@@ -44,24 +44,28 @@ def _state(repo, leader_id, atk_card_id, life_count=4):
 
 def test_keyword_detection():
     repo = _repo()
-    # OP09-084_p1 = ダブルアタック + バニッシュ持ち (実カードチェック済み)
-    cd = repo.get("OP09-084_p1")
-    assert cd.is_double_attack, "OP09-084_p1 はダブルアタックを持つはず"
-    assert cd.is_banish, "OP09-084_p1 はバニッシュを持つはず"
+    # OP01-121 ヤマト = innate ダブルアタック + バニッシュ
+    cd = repo.get("OP01-121")
+    assert cd.is_double_attack, "OP01-121 は innate ダブルアタックを持つはず"
+    assert cd.is_banish, "OP01-121 は innate バニッシュを持つはず"
     # 普通のサンジは持たない
     sanji = repo.get("OP01-013")
     assert not sanji.is_double_attack
     assert not sanji.is_banish
     assert not sanji.has_no_block
+    # 条件付き 「【ダブルアタック】を得る」 は innate ではない
+    conditional = repo.get("OP09-084_p1")
+    assert not conditional.is_double_attack, "条件付き DA は innate=False"
+    assert not conditional.is_banish, "条件付き バニッシュ は innate=False"
 
 
 def test_double_attack_deals_2_damage():
     """ダブルアタック持ちが攻撃すると 2 ダメージ = ライフ 2 枚減る。"""
     repo = _repo()
-    state = _state(repo, leader_id="OP01-001", atk_card_id="OP09-084_p1", life_count=4)
-    # P0 のチャラを攻撃側にする (ドンを 5 枚付与してパワー底上げ)
+    # OP01-121 ヤマト = innate DA + banish (P5000)
+    state = _state(repo, leader_id="OP01-001", atk_card_id="OP01-121", life_count=4)
     atk = state.players[0].characters[0]
-    atk.attached_dons = 5  # P9000+5000=14000、リーダー (OP01-001 P5000) を確実に倒せる
+    atk.attached_dons = 5  # P5000+5000=10000、リーダー (P5000) を確実に倒せる
     life_before = len(state.players[1].life)
     apply_action(
         state,
@@ -74,9 +78,8 @@ def test_double_attack_deals_2_damage():
 def test_banish_sends_life_to_trash():
     """バニッシュ持ちが攻撃通過時、ライフはトラッシュ (手札に来ない)。"""
     repo = _repo()
-    # OP09-084_p1 はダブルアタック + バニッシュ。バニッシュのみ確認するため
-    # ライフを多めに置いて damage=2 でも全部トラッシュ行きを観察
-    state = _state(repo, leader_id="OP01-001", atk_card_id="OP09-084_p1", life_count=4)
+    # OP01-121 ヤマト = innate DA + banish
+    state = _state(repo, leader_id="OP01-001", atk_card_id="OP01-121", life_count=4)
     atk = state.players[0].characters[0]
     atk.attached_dons = 5
 

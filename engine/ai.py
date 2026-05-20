@@ -1636,8 +1636,11 @@ class GreedyAI:
             if me.leader.rested:
                 # リーダー既に攻撃済み → リーダー対象 pump は無価値、 キャラ pump のみ評価
                 for chara in me.characters:
-                    if (not chara.rested and not chara.summoning_sickness
-                            and chara.attached_dons < 2):
+                    if (
+                        not chara.rested
+                        and (not chara.summoning_sickness or chara.is_rush_now)
+                        and chara.attached_dons < 2
+                    ):
                         return True
                 return False
             # リーダー未 rest = 攻撃予定。

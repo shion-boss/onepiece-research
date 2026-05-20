@@ -1387,9 +1387,9 @@ def test_op06_118_zoro_on_attack_once_per_turn():
     assert me.don_active == don_before2, "ドン消費もない"
 
 
-def test_op11_096_ripper_blocker_loses_when_don_removed():
-    """OP11-096 リッパー: 海軍がいる時 + ドン付与で常在ブロッカー (近似)。
-    ドンが外れると ブロッカー扱いされなくなる事を確認。"""
+def test_op11_096_ripper_blocker_loses_when_allies_removed():
+    """OP11-096 リッパー: 「リッパー以外の自分の黒の特徴《海軍》がいる場合」
+    で 常在ブロッカー。 仲間 が 場 から 消えると ブロッカー扱いされなくなる。"""
     repo = _repo()
     overlay = _overlay()
     state = _make_state(repo, "OP01-001", overlay=overlay)
@@ -1398,22 +1398,24 @@ def test_op11_096_ripper_blocker_loses_when_don_removed():
 
     ripper = repo.get("OP11-096")
     ripper_ip = InPlay.of(ripper, sickness=False)
-    ripper_ip.attached_dons = 1  # 条件満たす
-    me.characters = [ripper_ip]
+    # ヒナ (ST06-008_p2) を 「リッパー以外の黒/海軍」 として 並置
+    hina = repo.get("ST06-008_p2")
+    hina_ip = InPlay.of(hina, sickness=False)
+    me.characters = [ripper_ip, hina_ip]
 
     from engine.effects import evaluate_static_effects
     evaluate_static_effects(state, overlay)
-    # ドン付き → ブロッカー獲得
-    assert ripper_ip.is_blocker_now, "ドン付き時はブロッカー扱い"
+    # 海軍仲間あり → ブロッカー獲得
+    assert ripper_ip.is_blocker_now, "海軍仲間ありで ブロッカー扱い"
 
-    # ドン外す
-    ripper_ip.attached_dons = 0
+    # 仲間 を 場 から 外す
+    me.characters = [ripper_ip]
     evaluate_static_effects(state, overlay)
     # 元カードがブロッカーでなければ、 静的付与は剥がれる
-    if not ripper.is_blocker:
-        assert not ripper_ip.is_blocker_now, (
-            "ドン無しで ブロッカー扱い → bug。 static_granted_keywords がリセットされていない"
-        )
+    assert not ripper.is_blocker, "innate is_blocker は False"
+    assert not ripper_ip.is_blocker_now, (
+        "仲間がいない時 ブロッカー扱い → bug。 static_granted_keywords がリセットされていない"
+    )
 
 
 # --------------------------------------------------------------------------- #

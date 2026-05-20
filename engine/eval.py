@@ -491,7 +491,7 @@ def _player_metrics(p: Player) -> dict:
     active_chara = sum(
         1
         for c in p.characters
-        if not c.rested and not c.summoning_sickness
+        if not c.rested and (not c.summoning_sickness or c.is_rush_now)
     )
     return {
         "life": len(p.life),
@@ -521,7 +521,7 @@ def lethal_estimate(state: GameState, me_idx: int) -> float:
     if not self_p.leader.rested:
         attackers.append(self_p.leader.power)
     for c in self_p.characters:
-        if not c.rested and not c.summoning_sickness:
+        if not c.rested and (not c.summoning_sickness or c.is_rush_now):
             attackers.append(c.power)
     if not attackers:
         return 0.0
@@ -898,7 +898,10 @@ def field_exposure(self_p: Player, opp_p: Player) -> int:
     self.characters のうち power < attacker_max + 1000 (= 1 ドン付与で届く) の数を返す。
     """
     attackers = [opp_p.leader.power] if not opp_p.leader.rested else []
-    attackers.extend(c.power for c in opp_p.characters if not c.rested and not c.summoning_sickness)
+    attackers.extend(
+        c.power for c in opp_p.characters
+        if not c.rested and (not c.summoning_sickness or c.is_rush_now)
+    )
     if not attackers:
         return 0
     threshold = max(attackers) + 1000  # 1 DON 付与で届く
