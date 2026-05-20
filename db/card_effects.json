@@ -10936,23 +10936,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "光月おでん ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "EB01-021_p2": [
@@ -11008,28 +10991,7 @@
       ]
     }
   ],
-  "OP05-001_p2": [
-    {
-      "_text": "サボ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "opp_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
+  "OP05-001_p2": [],
   "OP05-002_p2": [
     {
       "_text": "ベロ・ベティ 起動メイン (自動生成)",
@@ -11332,20 +11294,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "マルコ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP08-021_p2": [
@@ -11415,23 +11363,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "光月おでん ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "EB01-001_p1": [
@@ -11447,23 +11378,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "光月おでん ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "EB01-021": [
@@ -12341,20 +12255,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "シーザー・クラウン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP10-002_p1": [
@@ -12367,20 +12267,6 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "battle"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "シーザー・クラウン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
           }
         }
       ]
@@ -12466,20 +12352,6 @@
           "life_to_hand": 1
         }
       ]
-    },
-    {
-      "_text": "トラファルガー・ロー ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP10-022_p1": [
@@ -12492,20 +12364,6 @@
       "do": [
         {
           "life_to_hand": 1
-        }
-      ]
-    },
-    {
-      "_text": "トラファルガー・ロー ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
@@ -12656,50 +12514,8 @@
       ]
     }
   ],
-  "OP09-061": [
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
-  "OP09-061_p1": [
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
+  "OP09-061": [],
+  "OP09-061_p1": [],
   "OP09-062": [
     {
       "_text": "ニコ・ロビン アタック時 自リーダー +1000 (自動生成)",
@@ -12818,20 +12634,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "マルコ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP08-002_p1": [
@@ -12844,20 +12646,6 @@
       "do": [
         {
           "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "マルコ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
@@ -13252,50 +13040,8 @@
       }
     }
   ],
-  "OP05-001": [
-    {
-      "_text": "サボ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "opp_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
-  "OP05-001_p1": [
-    {
-      "_text": "サボ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "opp_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
+  "OP05-001": [],
+  "OP05-001_p1": [],
   "OP05-002": [
     {
       "_text": "ベロ・ベティ 起動メイン (自動生成)",
@@ -13549,23 +13295,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "イッショウ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "OP04-020_p1": [
@@ -13577,23 +13306,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "イッショウ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "OP04-039": [
@@ -13639,20 +13351,6 @@
       ]
     },
     {
-      "_text": "クイーン ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
-    {
       "_text": "【ドン!!×1】【アタック時】自分のライフと手札の合計枚数が4枚以下の場合、カード1枚を引く",
       "when": "on_attack",
       "if": {
@@ -13676,20 +13374,6 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "battle"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "クイーン ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
           }
         }
       ]
@@ -13760,20 +13444,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "アーロン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP03-022_p1": [
@@ -13798,20 +13468,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "アーロン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP03-040": [
@@ -13826,22 +13482,7 @@
       ]
     }
   ],
-  "OP03-040_p1": [
-    {
-      "_text": "ナミ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    }
-  ],
+  "OP03-040_p1": [],
   "OP03-058": [
     {
       "_text": "アイスバーグ 起動メイン (自動生成)",
@@ -13888,20 +13529,6 @@
       "cost": {
         "discard_hand": 1
       }
-    },
-    {
-      "_text": "シャーロット・リンリン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP03-077_p1": [
@@ -13920,20 +13547,6 @@
       "cost": {
         "discard_hand": 1
       }
-    },
-    {
-      "_text": "シャーロット・リンリン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP03-099": [
@@ -13949,20 +13562,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "シャーロット・カタクリ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP03-099_p1": [
@@ -13975,20 +13574,6 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "battle"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "シャーロット・カタクリ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
           }
         }
       ]
@@ -14137,20 +13722,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "スモーカー ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP02-093_p1": [
@@ -14163,20 +13734,6 @@
       "do": [
         {
           "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "スモーカー ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
@@ -14358,26 +13915,6 @@
   ],
   "OP01-061": [
     {
-      "_text": "カイドウ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
       "_text": "【ドン!!×1】【自分のターン中】【ターン1回】相手のキャラがKOされた時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
       "when": "on_opp_chara_ko",
       "if": {
@@ -14395,26 +13932,6 @@
     }
   ],
   "OP01-061_p1": [
-    {
-      "_text": "カイドウ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    },
     {
       "_text": "【ドン!!×1】【自分のターン中】【ターン1回】相手のキャラがKOされた時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
       "when": "on_opp_chara_ko",
@@ -14434,20 +13951,6 @@
   ],
   "OP01-062": [
     {
-      "_text": "クロコダイル ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
-    {
       "_text": "【ドン!!×1】自分がイベントを発動した時、自分の手札が4枚以下の場合、カード1枚を引く",
       "when": "on_self_event_played",
       "if": {
@@ -14462,20 +13965,6 @@
     }
   ],
   "OP01-062_p1": [
-    {
-      "_text": "クロコダイル ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
     {
       "_text": "【ドン!!×1】自分がイベントを発動した時、自分の手札が4枚以下の場合、カード1枚を引く",
       "when": "on_self_event_played",
@@ -14590,28 +14079,7 @@
       ]
     }
   ],
-  "OP09-061_p2": [
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
+  "OP09-061_p2": [],
   "OP09-042_p2": [
     {
       "_text": "バギー 起動メイン (自動生成)",
@@ -14683,20 +14151,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "ST21-001_p1": [
@@ -14709,20 +14163,6 @@
       "do": [
         {
           "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
@@ -14740,20 +14180,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "シャーロット・カタクリ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP02-093_p2": [
@@ -14766,20 +14192,6 @@
       "do": [
         {
           "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "スモーカー ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
@@ -14885,20 +14297,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "ウタ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP02-001_p4": [
@@ -14960,23 +14358,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "サボ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "ST13-001_p1": [
@@ -14991,23 +14372,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "サボ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "ST13-002": [
@@ -15031,23 +14395,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "ポートガス・D・エース ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "ST13-002_p1": [
@@ -15071,23 +14418,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "ポートガス・D・エース ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      }
     }
   ],
   "ST13-003": [
@@ -15103,20 +14433,6 @@
           "life_to_hand": 1
         }
       ]
-    },
-    {
-      "_text": "モンキー・D・ルフィ ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "ST13-003_p1": [
@@ -15130,20 +14446,6 @@
       "do": [
         {
           "life_to_hand": 1
-        }
-      ]
-    },
-    {
-      "_text": "モンキー・D・ルフィ ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
@@ -15241,20 +14543,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "ウタ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "ST10-001": [
@@ -15306,25 +14594,7 @@
       ]
     }
   ],
-  "ST09-001": [
-    {
-      "_text": "ヤマト ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "opp_turn": true
-      }
-    }
-  ],
+  "ST09-001": [],
   "ST07-001": [
     {
       "_text": "シャーロット・リンリン アタック時 自リーダー +1000 (自動生成)",
@@ -15335,20 +14605,6 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "battle"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "シャーロット・リンリン ドン×2 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 2,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
           }
         }
       ]
@@ -15590,20 +14846,6 @@
       ]
     },
     {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
-    {
       "_text": "【ドン!!×1】【アタック時】自分の手札が3枚以下の場合、カード1枚を引く",
       "when": "on_attack",
       "if": {
@@ -15645,22 +14887,7 @@
       ]
     }
   ],
-  "P-117": [
-    {
-      "_text": "ナミ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    }
-  ],
+  "P-117": [],
   "ST01-001_p3": [
     {
       "_text": "モンキー・D・ルフィ 起動メイン (自動生成)",
@@ -15904,20 +15131,6 @@
           "draw": 1
         }
       ]
-    },
-    {
-      "_text": "マルコ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
     }
   ],
   "OP09-042_p3": [
@@ -15936,28 +15149,7 @@
       ]
     }
   ],
-  "OP09-061_p3": [
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
-    }
-  ],
+  "OP09-061_p3": [],
   "OP09-081_p3": [
     {
       "_text": "マーシャル・Ｄ・ティーチ 起動メイン (自動生成)",
@@ -16078,20 +15270,6 @@
       ]
     },
     {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
-    {
       "_text": "【ドン!!×1】【アタック時】自分の手札が3枚以下の場合、カード1枚を引く",
       "when": "on_attack",
       "if": {
@@ -16129,20 +15307,6 @@
       "do": [
         {
           "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "モンキー・D・ルフィ ドン×1 常在 +1000 リーダー (自動生成)",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "static"
-          }
         }
       ]
     }
