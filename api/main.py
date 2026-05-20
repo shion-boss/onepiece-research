@@ -262,11 +262,11 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
     /api/match/{job_id}/games/{i}/replay と同じ形式 (= MatchReplay コンポーネントで再生可)。
 
-    走行中 matrix とは別プロセス、 GoalDirectedAI v1 軽量モード (adaptive=False + beam=2 depth=4) で
-    1 試合 ~3-8 秒目標。 観戦目的 = ユーザーが現 default AI を観戦 + コメント残し で 改善 feedback
-    サイクル を 回す ため、 真の現 default AI を 表示。 過去 GreedyAI は 弱すぎ で 評価 困難 だった。
-    軽量 settings (adaptive=False) で Vercel memory 制限 + cold start 対策。"""
-    from engine.goal_directed_ai import GoalDirectedAI
+    走行中 matrix とは別プロセス、 GreedyAI (= 軽量) で 1 試合 ~1-3 秒目標。
+    GoalDirectedAI 切替 試行 (= 2026-05-20) → Vercel function memory 制限 で 500 Internal Server Error
+    (= torch chain import で OOM) のため GreedyAI rollback。 観戦目的 (= 現 default AI 観戦 + コメント)
+    達成 には Vercel memory plan 拡張 もしくは 別 self-host が 必要。"""
+    from engine.ai import GreedyAI
     from engine.deck import CardRepository, DeckList
     from engine.effects import load_effect_overlay
     from engine.harness import run_matchup as _run
@@ -284,16 +284,12 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     da = DeckList.from_json(path_a, repo)
     db = DeckList.from_json(path_b, repo)
 
-    # spectate 用 GoalDirectedAI 軽量モード = adaptive=False + beam=2 depth=4 (Vercel memory 対策)
-    def _spectate_ai_factory(rng, deck_analysis=None):
-        return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=False, spec_version="v1", beam_width=2, max_depth=4)
-
     rep = _run(
         da, db,
         n_games=1, seed=req.seed,
         effects_overlay=overlay,
-        ai_factory_1=_spectate_ai_factory,
-        ai_factory_2=_spectate_ai_factory,
+        ai_factory_1=GreedyAI,
+        ai_factory_2=GreedyAI,
         keep_logs=True, enforce_rules=False,
         record_snapshots=True,
     )
