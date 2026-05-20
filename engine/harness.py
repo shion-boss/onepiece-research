@@ -21,7 +21,6 @@ from .deck import DeckList
 from .effects import load_effect_overlay
 from .game import GameState, setup_game, play_until_main, Phase
 from .ai import GreedyAI, PlanningAI, RandomAI, play_one_action
-from .goal_directed_ai import GoalDirectedAI
 
 
 def _default_ai_factory(rng, deck_analysis=None):
@@ -29,7 +28,10 @@ def _default_ai_factory(rng, deck_analysis=None):
 
     過去 default の PlanningAI と 比較 で +6pt 改善 確証済 (= wave 1+2+3+4_r1、 14 deck × 60g)。
     deck_slug は deck_analysis から auto-detect (= goal_directed_ai._resolve_target_spec)。
+
+    lazy import で module load 時 の torch import 回避 (= Vercel function memory 制限対策)。
     """
+    from .goal_directed_ai import GoalDirectedAI
     return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=True, spec_version="v1")
 
 
