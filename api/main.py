@@ -2930,6 +2930,10 @@ class HumanDefenseIn(BaseModel):
     counter_card_idxs: list[int] = []
 
 
+class HumanChoiceIn(BaseModel):
+    picks: list[int]
+
+
 def _load_deck_by_slug(slug: str):
     repo = get_repo()
     deck_path = ROOT / "decks" / f"{slug}.json"
@@ -2997,7 +3001,9 @@ def human_match_status(sid: str):
     session = _HUMAN_SESSIONS.get(sid)
     if session is None:
         raise HTTPException(404, "session not found")
-    return session.snapshot_payload()
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    return payload
 
 
 @app.post("/api/human_match/{sid}/action")
@@ -3009,7 +3015,9 @@ def human_match_action(sid: str, req: HumanActionIn):
         session.apply_human_action(req.action_idx)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return session.snapshot_payload()
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    return payload
 
 
 @app.post("/api/human_match/{sid}/defense")
@@ -3021,7 +3029,24 @@ def human_match_defense(sid: str, req: HumanDefenseIn):
         session.apply_human_defense(req.blocker_iid, req.counter_card_idxs)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return session.snapshot_payload()
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    return payload
+
+
+@app.post("/api/human_match/{sid}/choice")
+def human_match_choice(sid: str, req: HumanChoiceIn):
+    """人間 interactive 選択 (= search_top_n 等) を 適用。"""
+    session = _HUMAN_SESSIONS.get(sid)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    try:
+        session.apply_human_choice(req.picks)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    return payload
 
 
 @app.delete("/api/human_match/{sid}")

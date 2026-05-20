@@ -1,0 +1,96 @@
+{
+  "overlay_keys": {
+    "once_per_turn": 593,
+    "rest_self": 52,
+    "discard_hand": 303,
+    "return_self_to_hand": 11,
+    "trash_self": 101,
+    "pay_don": 302,
+    "ko_self_with_filter": 5,
+    "rest_self_don": 12,
+    "rest_self_target_name": 1,
+    "discard_hand_with_filter": 12,
+    "life_to_hand": 1,
+    "life_top_or_bottom_to_hand": 2
+  },
+  "engine_keys_all": [
+    "discard_hand",
+    "discard_hand_with_filter",
+    "ko_self_with_filter",
+    "life_to_hand",
+    "life_top_or_bottom_to_hand",
+    "mill_self_life_to_trash",
+    "once_per_turn",
+    "pay_don",
+    "power_pump",
+    "rest_self",
+    "rest_self_don",
+    "rest_self_target",
+    "rest_self_target_name",
+    "return_self_chara_to_deck_bottom",
+    "return_self_chara_to_hand",
+    "return_self_don_to_deck",
+    "return_self_to_hand",
+    "return_self_to_trash",
+    "reveal_hand_with_filter",
+    "stage_to_deck_bottom",
+    "trash_self",
+    "trash_self_hand_random",
+    "trash_to_deck"
+  ],
+  "engine_can_pay": [
+    "discard_hand",
+    "discard_hand_with_filter",
+    "ko_self_with_filter",
+    "once_per_turn",
+    "pay_don",
+    "rest_self",
+    "rest_self_don",
+    "rest_self_target",
+    "rest_self_target_name",
+    "return_self_to_hand",
+    "reveal_hand_with_filter",
+    "trash_self"
+  ],
+  "engine_fire": [],
+  "missing": [],
+  "only_can_pay": [
+    {
+      "key": "rest_self",
+      "n": 52
+    },
+    {
+      "key": "discard_hand",
+      "n": 303
+    },
+    {
+      "key": "return_self_to_hand",
+      "n": 11
+    },
+    {
+      "key": "trash_self",
+      "n": 101
+    },
+    {
+      "key": "pay_don",
+      "n": 302
+    },
+    {
+      "key": "ko_self_with_filter",
+      "n": 5
+    },
+    {
+      "key": "rest_self_don",
+      "n": 12
+    },
+    {
+      "key": "rest_self_target_name",
+      "n": 1
+    },
+    {
+      "key": "discard_hand_with_filter",
+      "n": 12
+    }
+  ],
+  "only_fire": []
+}

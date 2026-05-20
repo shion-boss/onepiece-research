@@ -1464,6 +1464,42 @@ def execute_effect(
             rest_remain = spec_val.get("rest_remain", "bottom")
             if not me.deck:
                 return False
+            # 人間 プレイヤー が 操作中 で、 該当 候補 が 複数 ある場合 は
+            # interactive 選択 を 要求 (= pending_choice 設定 して chain halt)
+            is_human_acting = (
+                state.human_player_idx is not None
+                and state.turn_player_idx == state.human_player_idx
+            )
+            seen_preview = me.deck[:depth]
+            matching = [
+                i for i, c in enumerate(seen_preview)
+                if _matches_filter(c, filt)
+            ]
+            if is_human_acting and len(matching) > limit:
+                # 候補 多数 → 人間 に 選ばせる
+                state.pending_choice = {
+                    "kind": "search_top_n",
+                    "cards": [
+                        {
+                            "idx": i,
+                            "card_id": c.card_id,
+                            "name": c.name,
+                            "matches_filter": i in matching,
+                        }
+                        for i, c in enumerate(seen_preview)
+                    ],
+                    "depth": depth,
+                    "limit": limit,
+                    "destination": destination,
+                    "rest_remain": rest_remain,
+                    "rested": rested_flag,
+                    "filter": filt,
+                }
+                state.push_log(
+                    f"  効果: search_top_n 上{depth}枚 公開 → 人間 選択 待ち"
+                    f" ({len(matching)}枚 候補 から {limit}枚)"
+                )
+                return True
             seen = me.deck[:depth]
             me.deck = me.deck[depth:]
             picked: list[CardDef] = []
@@ -3831,13 +3867,72 @@ def run_do_array(
         # _chain は execute_effect には渡さない (純粋なプリミティブ part のみ)
         clean_spec = {k: v for k, v in spec.items() if k != "_chain"}
         result = execute_effect(clean_spec, state, me, opp, self_inplay)
+        # 人間 interactive choice 待ち が 立った 場合 は 後続 を 止める
+        # (= 選択 解決 後 に 残り を 動かす 仕組み は 後段 で 別途 必要 だが、
+        #    まず は halt を 保証)
+        if state.pending_choice is not None:
+            return
         # execute_effect は基本 True 返却 (現状)。将来各プリミティブで失敗判定するなら更新
         prev_succeeded = result if result is not None else True
+
+
+def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
+    """人間 選択 を 反映 して pending_choice を 解消。 search_top_n 用。
+
+    picks: 公開された seen[] の中で 選んだ idx の list (= 0-based、 max=limit)。
+    """
+    choice = state.pending_choice
+    if choice is None:
+        return
+    if choice.get("kind") != "search_top_n":
+        # 他種 choice は 未実装。 とりあえず クリア
+        state.pending_choice = None
+        return
+    me = state.players[state.turn_player_idx]
+    depth = int(choice.get("depth", 5))
+    destination = choice.get("destination", "hand")
+    rest_remain = choice.get("rest_remain", "bottom")
+    rested_flag = bool(choice.get("rested", False))
+    limit = int(choice.get("limit", 1))
+    seen = me.deck[:depth]
+    me.deck = me.deck[depth:]
+    valid_picks = [i for i in picks if 0 <= i < len(seen)][:limit]
+    picked = [seen[i] for i in valid_picks]
+    remaining = [c for i, c in enumerate(seen) if i not in valid_picks]
+    for c in picked:
+        if destination == "play":
+            if c.category != Category.CHARACTER:
+                me.hand.append(c)
+                continue
+            if not me.can_play_character():
+                me.trash_weakest_chara_for_field_full(state)
+            ip = InPlay.of(c, rested=rested_flag, sickness=True)
+            me.characters.append(ip)
+            state.push_log(f"  効果: 人間選択 → 登場 {c.name}")
+            if state.effects_overlay:
+                trigger_on_play(state, me, state.opponent, ip, state.effects_overlay)
+        else:  # hand
+            me.hand.append(c)
+            state.push_log(f"  効果: 人間選択 → 手札 {c.name}")
+    if rest_remain == "trash":
+        me.trash.extend(remaining)
+        state.push_log(
+            f"  効果: search_top_n 残り{len(remaining)}枚 → トラッシュ"
+        )
+    else:
+        me.deck.extend(remaining)
+    state.pending_choice = None
 
 
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     if not filt:
         return True
+    # OR 結合: filt["or"] = [sub_filter_1, sub_filter_2, ...]
+    # いずれかに マッチ すれば 全体 True (= 短絡)
+    if "or" in filt:
+        subs = filt["or"]
+        if not any(_matches_filter(card, sub) for sub in subs):
+            return False
     if "category" in filt and card.category.value != filt["category"]:
         return False
     if "category_in" in filt:
@@ -5057,6 +5152,13 @@ def _can_pay_activate_cost(
     pay_don = int(cost.get("pay_don", 0))
     if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
         return False
+    rest_self_don = int(cost.get("rest_self_don", 0))
+    if rest_self_don > 0 and me.don_active < rest_self_don:
+        return False
+    if cost.get("return_self_to_hand"):
+        # self を 手札に 戻す cost: self が 場 (chara) に いる + 手札 余裕 (= 10 枚未満)
+        if inplay not in me.characters:
+            return False
     discard_n = int(cost.get("discard_hand", 0))
     if discard_n > 0 and len(me.hand) < discard_n:
         return False
@@ -5327,6 +5429,21 @@ def fire_activate_main(
         state.push_log(f"  起動メインコスト: ドン-{pay_don}")
         if (taken + rest_more) > 0 and state.effects_overlay:
             trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+    # rest_self_don N: アクティブドン N 枚を rested に
+    rest_self_don = int(cost.get("rest_self_don", 0))
+    if rest_self_don > 0:
+        actual = min(rest_self_don, me.don_active)
+        me.don_active -= actual
+        me.don_rested += actual
+        state.push_log(f"  起動メインコスト: アクティブドン {actual} レスト")
+    # return_self_to_hand: self を 場 から 手札 に 戻す
+    if cost.get("return_self_to_hand") and inplay in me.characters:
+        me.characters.remove(inplay)
+        me.hand.append(inplay.card)
+        if inplay.attached_dons > 0:
+            me.don_rested += inplay.attached_dons
+            inplay.attached_dons = 0
+        state.push_log(f"  起動メインコスト: 自 → 手札 {inplay.card.name}")
     # discard_hand N: 手札N枚ランダム捨て (簡略: 末尾から)
     discard_n = int(cost.get("discard_hand", 0))
     for _ in range(discard_n):

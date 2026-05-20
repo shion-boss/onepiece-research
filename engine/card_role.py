@@ -123,7 +123,7 @@ _RAMP_KEYS = frozenset({
 })
 
 _SEARCH_KEYS = frozenset({
-    "search", "summon_from_deck",
+    "search", "search_top_n", "summon_from_deck",
     "reveal_top_then", "reveal_top_play",
 })
 

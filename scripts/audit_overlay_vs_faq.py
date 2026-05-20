@@ -101,8 +101,13 @@ def overlay_has_once_per_turn(effects: list[dict]) -> bool:
         if not isinstance(e, dict):
             continue
         cost = e.get("cost") or {}
-        if cost.get("once_per_turn"):
+        # cost は dict (= 通常) または list (= replace_ko/leave 用) の 2 形式
+        if isinstance(cost, dict) and cost.get("once_per_turn"):
             return True
+        if isinstance(cost, list):
+            for sub in cost:
+                if isinstance(sub, dict) and sub.get("once_per_turn"):
+                    return True
         # top-level (= cost 不要の trigger ガード、 engine の _check_and_set_once_per_turn 経由)
         if e.get("once_per_turn"):
             return True

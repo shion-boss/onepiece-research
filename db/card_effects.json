@@ -9,13 +9,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -479,10 +481,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -542,7 +546,10 @@
         {
           "ko": "one_opponent_rested_character_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-007": [
@@ -797,7 +804,10 @@
         {
           "rest": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-043": [
@@ -1007,6 +1017,9 @@
       ],
       "if": {
         "leader_feature": "九蛇海賊団"
+      },
+      "cost": {
+        "return_self_to_hand": true
       }
     }
   ],
@@ -1139,12 +1152,14 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "革命軍"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -1188,11 +1203,14 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海王類"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -1204,10 +1222,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ],
@@ -1943,7 +1963,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       }
     },
     {
@@ -2210,7 +2231,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 3
+      }
     }
   ],
   "OP15-001": [
@@ -2335,14 +2359,20 @@
   ],
   "P-081": [
     {
-      "_text": "P-081 起動メイン: self を手札に戻すコスト + 青クロスギルド3+で 手札 cost5クロスギルドキャラ登場",
+      "_text": "P-081 起動メイン: self手札戻し+ターン1回 + 青クロスギルド3+で 手札 cost5クロスギルドキャラ登場",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "_unimplemented": "return_self_to_hand コスト"
+        "return_self_to_hand": true
       },
       "if": {
-        "_unimplemented": "自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる"
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "クロスギルド",
+            "color": "青"
+          },
+          "count": 3
+        }
       },
       "do": [
         {
@@ -2400,13 +2430,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "王下七武海",
               "exclude_name": "ジンベエ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -2569,7 +2601,10 @@
         {
           "ko": "one_opponent_rested_character_cost_le_1cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB01-022": [
@@ -2711,11 +2746,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -2755,6 +2793,10 @@
       ],
       "if": {
         "leader_name": "ドンキホーテ・ロシナンテ"
+      },
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -2856,7 +2898,10 @@
         {
           "rest": "one_opponent_character_cost_le_2cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB03-023": [
@@ -2919,14 +2964,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "source": "deck",
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "name": "鬼ヶ島"
             },
             "limit": 1,
             "destination": "hand",
-            "depth": 5
+            "rest_remain": "bottom"
           }
         },
         {
@@ -2989,11 +3034,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "エッグヘッド"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3163,11 +3211,14 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3343,13 +3394,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3359,13 +3412,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3388,12 +3443,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 2,
             "filter": {
               "feature": "王下七武海"
             },
             "limit": 1,
-            "depth": 2
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3405,13 +3462,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "インペルダウン",
               "exclude_name": "バギー"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3468,12 +3527,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3550,13 +3611,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "東の海",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3641,15 +3704,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "アラバスタ王国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP04-008": [
@@ -3718,7 +3786,10 @@
         {
           "rest": "one_opponent_character_cost_le_1cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP04-024": [
@@ -3795,12 +3866,14 @@
           "trash_self_hand_random": 2
         },
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "東の海"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -3839,7 +3912,11 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "discard_hand": 1
+      }
     }
   ],
   "OP04-051": [
@@ -3848,13 +3925,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "百獣海賊団",
               "exclude_name": "フーズ・フー"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3868,7 +3947,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "OP04-052 trigger: このカードを登場させる。",
@@ -3917,13 +3999,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "ベロ・ベティ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -3963,15 +4047,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-056": [
@@ -4061,12 +4150,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4112,13 +4203,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "魚人族",
               "exclude_name": "ケイミ―"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4273,12 +4366,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4301,12 +4397,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -4329,7 +4428,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "trash_self": true
+      }
     }
   ],
   "OP13-016": [
@@ -4345,12 +4447,14 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "cost_ge": 3
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4485,12 +4589,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "ロジャー海賊団"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4557,7 +4664,10 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     },
     {
       "_text": "【カウンター】自リーダー +3000",
@@ -4618,12 +4728,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "白ひげ海賊団"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -4649,7 +4762,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "trash_self": true
+      }
     }
   ],
   "EB03-055": [
@@ -4823,7 +4939,10 @@
         {
           "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP13-040 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -4845,17 +4964,19 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1,
-        "rest_self": true
+        "rest_self": true,
+        "rest_self_don": 1
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4914,12 +5035,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4931,12 +5054,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4994,7 +5119,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP14-096 counter: 自分のトラッシュが10枚以上ある場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
@@ -5098,7 +5226,7 @@
       "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn",
       "when": "main",
       "cost": {
-        "pay_don": 5
+        "rest_self_don": 5
       },
       "if": {
         "self_attached_don_ge": 1
@@ -5214,7 +5342,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       }
     }
   ],
@@ -5351,7 +5480,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP14-049 効果で自分の手札が捨てられた時 【速攻】 を得る (= 自動生成)",
@@ -5406,13 +5538,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_card_id": "PRB02-012"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5424,13 +5558,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "紫",
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5442,12 +5578,21 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
-              "_unimplemented": "name=サンジ OR category=EVENT"
+              "or": [
+                {
+                  "name": "サンジ"
+                },
+                {
+                  "category": "EVENT"
+                }
+              ]
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5638,9 +5783,12 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -5655,13 +5803,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島",
               "exclude_card_id": "OP05-106"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5748,7 +5898,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP11-080 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -5888,12 +6041,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドレスローザ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5918,12 +6073,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドレスローザ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -6070,6 +6227,10 @@
       ],
       "if": {
         "leader_name": "ロロノア・ゾロ"
+      },
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -6130,12 +6291,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "五老星"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -6147,14 +6310,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "天竜人",
               "exclude_card_id": "OP13-086"
             },
             "limit": 1,
-            "depth": 3,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -6232,14 +6396,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "天竜人",
               "exclude_card_id": "OP13-096"
             },
             "limit": 1,
-            "depth": 3,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -6250,7 +6415,7 @@
       "_text": "OP13-098 メイン: ドン-1, イムリーダーで 相手cost7ステージ1KO",
       "when": "main",
       "cost": {
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "if": {
         "leader_name": "イム"
@@ -6366,13 +6531,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海軍",
               "exclude_name": "孔雀"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         },
         {
@@ -6417,13 +6584,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ぼくは!!!海軍将校になる男です!!!!"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -6520,13 +6689,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "エッグヘッド",
               "exclude_name": "世界最大の頭脳を持つ男"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -6571,12 +6742,14 @@
           "add_rested_don": 1
         },
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -6588,15 +6761,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "革命軍"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP14-112": [
@@ -6641,12 +6819,14 @@
           "trash_self_hand_random": 1
         },
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "アマゾン・リリー"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -6681,12 +6861,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "アラバスタ王国"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -6698,12 +6880,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "東の海"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         },
         {
@@ -6749,13 +6933,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "東の海",
               "exclude_name": "強ェ弱ェは結果が決めるのさ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -6776,13 +6962,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "スリラーバーク海賊団",
               "exclude_name": "早くおれを海賊王にならせろ!!!"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -6805,12 +6993,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "スリラーバーク海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -6875,14 +7065,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "B・W",
               "exclude_card_id": "OP14-087"
             },
             "limit": 1,
-            "depth": 4,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -6905,14 +7096,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "B・W",
               "exclude_card_id": "OP14-099"
             },
             "limit": 1,
-            "depth": 3,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -6966,7 +7158,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 3
+      }
     },
     {
       "_text": "OP12-037 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -6988,13 +7183,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドレスローザ",
               "category": "CHARACTER"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7261,12 +7458,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7289,7 +7488,8 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "features_any": [
                 "麦わらの一味",
@@ -7298,7 +7498,8 @@
               ]
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7425,7 +7626,10 @@
         {
           "ko": "one_opponent_character_cost_le_6cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 5
+      }
     },
     {
       "_text": "OP13-097 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -7493,13 +7697,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドンキホーテ海賊団",
               "exclude_card_id": "OP10-078"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7509,13 +7715,15 @@
       "when": "counter",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドンキホーテ海賊団",
               "exclude_card_id": "OP10-078"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7559,7 +7767,10 @@
         {
           "return_to_deck_bottom": "one_opponent_character_any"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     },
     {
       "_text": "OP13-058 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -7581,10 +7792,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -7941,9 +8154,11 @@
     {
       "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
       "when": "replace_ko",
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "if": {
         "target": "other_self_chara",
         "target_feature": "ドンキホーテ海賊団",
@@ -8284,7 +8499,7 @@
       "when": "opp_attack",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -8640,7 +8855,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self_don": 1
       },
       "if": {
         "leader_name": "イム"
@@ -8732,9 +8948,11 @@
         "target": "self",
         "leader_feature": "海軍"
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "trash_self_hand_random": 1
@@ -9088,7 +9306,8 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -9862,7 +10081,8 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 3
       },
       "do": [
         {
@@ -10188,7 +10408,8 @@
       "_text": "【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -10279,8 +10500,7 @@
       "_text": "OP15-003 アルビダ 起動メイン: ターン1回 自リーダー/キャラ1にレストドン1付与",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "_unimplemented": "相手キャラに相手レストドン付与のコスト"
+        "once_per_turn": true
       },
       "do": [
         {
@@ -10493,7 +10713,7 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -10865,7 +11085,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP07-001_p2": [
@@ -11559,7 +11782,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 3
+      }
     }
   ],
   "OP13-001_p2": [
@@ -11851,7 +12077,7 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -11914,7 +12140,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP11-062_p1": [
@@ -11945,7 +12174,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP10-001": [
@@ -12257,7 +12489,9 @@
       "_text": "バギー 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 5,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -12271,7 +12505,9 @@
       "_text": "バギー 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 5,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -12377,7 +12613,8 @@
       "_text": "マーシャル・Ｄ・ティーチ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -12391,7 +12628,8 @@
       "_text": "マーシャル・Ｄ・ティーチ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -12850,7 +13088,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP06-080_p1": [
@@ -12865,7 +13106,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP05-001": [
@@ -12985,7 +13229,8 @@
       "_text": "サカズキ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -13012,7 +13257,8 @@
       "_text": "サカズキ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -13472,7 +13718,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     },
     {
       "_text": "シャーロット・リンリン ドン×2 常在 +1000 リーダー (自動生成)",
@@ -13501,7 +13750,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     },
     {
       "_text": "シャーロット・リンリン ドン×2 常在 +1000 リーダー (自動生成)",
@@ -14080,7 +14332,8 @@
       "_text": "マーシャル・Ｄ・ティーチ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -14116,7 +14369,9 @@
       "_text": "バギー 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 5,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -14135,7 +14390,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -14579,7 +14835,8 @@
       "_text": "モンキー・D・ルフィ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -14607,7 +14864,8 @@
       "_text": "モンキー・D・ルフィ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -14842,7 +15100,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3
+        "pay_don": 3,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -14899,7 +15158,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3
+        "pay_don": 3,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -14942,7 +15202,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3
+        "pay_don": 3,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -15391,7 +15652,9 @@
       "_text": "バギー 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 5,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -15427,7 +15690,8 @@
       "_text": "マーシャル・Ｄ・ティーチ 起動メイン (自動生成)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -16693,13 +16957,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "赤",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -16773,12 +17039,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "GERMA66"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -16864,12 +17132,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -16881,13 +17151,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団",
               "exclude_name": "来い…!!!おれ達が相手をしてやる!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -16908,13 +17180,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド",
               "exclude_name": "Mr.3(ギャルディーノ)"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -16968,7 +17242,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "P-074": [
@@ -16982,7 +17259,10 @@
             "to": "choice"
           }
         }
-      ]
+      ],
+      "cost": {
+        "return_self_to_hand": true
+      }
     }
   ],
   "P-083": [
@@ -17070,7 +17350,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "PRB02-016 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -17157,7 +17440,10 @@
         {
           "ko": "one_opponent_character_power_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST17-003": [
@@ -17344,13 +17630,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -17362,12 +17650,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -17452,12 +17742,14 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ハートの海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -17511,13 +17803,18 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP06-114": [
@@ -17526,12 +17823,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "シャンドラの戦士"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -17648,7 +17947,9 @@
             "cost": [
               {
                 "discard_hand_with_filter": {
-                  "feature": "百獣海賊団",
+                  "filter": {
+                    "feature": "百獣海賊団"
+                  },
                   "count": 1
                 }
               }
@@ -17669,7 +17970,8 @@
         "leader_feature": "百獣海賊団"
       },
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 2
       },
       "do": [
         {
@@ -17730,12 +18032,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "フォクシー海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -17823,12 +18127,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドレスローザ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -17937,14 +18243,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "source": "deck",
+          "search_top_n": {
+            "depth": 7,
             "filter": {
               "name": "ガレーラカンパニー"
             },
             "limit": 1,
             "destination": "hand",
-            "depth": 7
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -17959,12 +18265,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -18034,6 +18342,9 @@
       ],
       "if": {
         "leader_name": "モンキー・D・ガープ"
+      },
+      "cost": {
+        "rest_self": true
       }
     }
   ],
@@ -18237,7 +18548,8 @@
         }
       ],
       "cost": {
-        "pay_don": 2
+        "pay_don": 2,
+        "rest_self": true
       }
     }
   ],
@@ -18252,7 +18564,10 @@
         {
           "ko": "one_opponent_character_cost_le_6cost"
         }
-      ]
+      ],
+      "cost": {
+        "trash_self": true
+      }
     }
   ],
   "OP15-102": [
@@ -18397,8 +18712,8 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
-            "source": "deck",
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星",
@@ -18406,8 +18721,8 @@
               "exclude_name": "バジル・ホーキンス"
             },
             "limit": 1,
-            "destination": "play",
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -18419,13 +18734,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "モンキー・Ｄ・ルフィ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -18450,12 +18767,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "超新星"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -18718,12 +19037,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "王下七武海"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -18945,12 +19266,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "exclude_name": "リリス"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -19055,7 +19378,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP12-044": [
@@ -19075,7 +19401,8 @@
       "_text": "【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -19312,14 +19639,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 3,
-            "feature_or_name": {
-              "feature": "革命軍",
-              "name": "ニコ・ロビン"
-            },
-            "exclude_name": "コアラ"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ],
@@ -19345,8 +19670,8 @@
       "when": "main",
       "do": [
         {
-          "search": {
-            "source": "deck",
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature_or_name": {
@@ -19356,7 +19681,7 @@
             },
             "limit": 2,
             "destination": "hand",
-            "depth": 5
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19377,13 +19702,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海軍",
               "exclude_name": "たしぎ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19395,13 +19722,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ODYSSEY",
               "exclude_name": "リム"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19472,15 +19801,18 @@
       "cost": {
         "once_per_turn": true,
         "rest_self": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海王類"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19543,12 +19875,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "海王類"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19589,12 +19923,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "ファイアタンク海賊団"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19696,7 +20032,10 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP11-070": [
@@ -19705,12 +20044,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -19740,7 +20081,8 @@
         }
       ],
       "cost": {
-        "pay_don": 1
+        "pay_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -19829,6 +20171,9 @@
       ],
       "if": {
         "leader_name": "しらほし"
+      },
+      "cost": {
+        "rest_self": true
       }
     }
   ],
@@ -19838,12 +20183,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "魚人島"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -19907,13 +20254,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "パンクハザード",
               "exclude_name": "ヴェルゴ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -20013,17 +20362,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤鞘九人男"
             },
             "limit": 2,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "rest_self_don": 2
       }
     }
   ],
@@ -20044,12 +20396,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ODYSSEY"
             },
             "limit": 2,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -20192,10 +20546,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -20293,12 +20649,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "超新星"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -20333,13 +20691,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "モンキー・D・ルフィ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -20564,13 +20924,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "青",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -20659,6 +21021,9 @@
       ],
       "if": {
         "leader_feature": "黒ひげ海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     },
     {
@@ -20698,7 +21063,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       },
       "if": {
         "leader_feature": "黒ひげ海賊団"
@@ -20716,6 +21082,9 @@
       ],
       "if": {
         "leader_feature": "黒ひげ海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     },
     {
@@ -20734,15 +21103,21 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "黒ひげ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
     }
   ],
   "OP09-099": [
@@ -20751,15 +21126,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "黒ひげ海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP09-102": [
@@ -20768,10 +21148,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -20921,12 +21303,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "デレシ!!"
             },
             "limit": 2,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -21095,13 +21479,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ミンク族",
               "exclude_name": "ワンダ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -21167,8 +21553,8 @@
       "when": "main",
       "do": [
         {
-          "search": {
-            "source": "deck",
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature_or_name": {
                 "feature": "白ひげ海賊団",
@@ -21177,7 +21563,7 @@
             },
             "limit": 1,
             "destination": "hand",
-            "depth": 3
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -21217,13 +21603,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "百獣海賊団",
               "exclude_name": "クイーン"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -21253,7 +21641,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -21373,14 +21762,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 4,
-            "feature_or_name": {
-              "feature": "ビッグ・マム海賊団",
-              "name": "サンジ"
-            },
-            "exclude_name": "シャーロット・プリン"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -21436,13 +21823,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国",
               "exclude_name": "お玉"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -21508,13 +21897,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "ピザお～か～わ～り～!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -21535,13 +21926,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "アマゾン・リリー",
               "exclude_name": "グロリオーサ(ニョン婆)"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -21637,6 +22030,9 @@
       ],
       "if": {
         "leader_feature": "九蛇海賊団"
+      },
+      "cost": {
+        "discard_hand": 1
       }
     }
   ],
@@ -21680,12 +22076,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "フォクシー海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -22081,13 +22479,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "キッド海賊団",
               "exclude_name": "キラー"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -22233,10 +22633,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -22318,13 +22720,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドレスローザ",
               "exclude_name": "レベッカ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -22620,13 +23024,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "W7",
               "exclude_name": "ココロ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -22924,7 +23330,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 2
+      }
     }
   ],
   "OP02-066": [
@@ -22986,13 +23395,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "インペルダウン",
               "exclude_name": "ハンニャバル"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -23004,15 +23415,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "インペルダウン"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP02-115": [
@@ -23139,10 +23555,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -23209,12 +23627,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -23249,12 +23669,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -23607,7 +24029,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "ST12-002 trigger: このカードを登場させる。",
@@ -23676,7 +24101,10 @@
         {
           "ko": "one_opponent_character_cost_le_2cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST08-005": [
@@ -23732,7 +24160,10 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "ST07-009 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
@@ -23766,7 +24197,11 @@
         {
           "ko": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "discard_hand": 1
+      }
     }
   ],
   "ST05-006": [
@@ -23789,13 +24224,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ブエナ・フェスタ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -23930,7 +24367,10 @@
         {
           "rest": "one_opponent_character_cost_le_2cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "P-009": [
@@ -24202,13 +24642,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "赤",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -24234,15 +24676,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "革命軍"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP05-077_p1": [
@@ -24338,12 +24785,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "GERMA66"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -24427,7 +24876,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     }
   ],
   "OP07-040_p2": [
@@ -24449,7 +24901,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     }
   ],
   "OP07-076_p1": [
@@ -24479,13 +24934,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "エッグヘッド",
               "exclude_name": "世界最大の頭脳を持つ男"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -24517,13 +24974,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド",
               "exclude_name": "Mr.3(ギャルディーノ)"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -24567,7 +25026,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP10-114_p2": [
@@ -24578,7 +25040,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "P-063_p1": [
@@ -24631,7 +25096,10 @@
             "to": "choice"
           }
         }
-      ]
+      ],
+      "cost": {
+        "return_self_to_hand": true
+      }
     }
   ],
   "P-078_p2": [
@@ -24763,13 +25231,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "王下七武海",
               "exclude_name": "ジンベエ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -24815,13 +25285,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_card_id": "PRB02-012"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -24909,7 +25381,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "PRB02-016_p1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -24947,16 +25422,20 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -25028,7 +25507,10 @@
         {
           "ko": "one_opponent_character_power_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST17-002_p1": [
@@ -25227,13 +25709,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団",
               "exclude_name": "来い…!!!おれ達が相手をしてやる!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -25279,13 +25763,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -25392,15 +25878,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-041_p3": [
@@ -25409,15 +25900,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-041_p4": [
@@ -25426,15 +25922,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-047_p3": [
@@ -25643,12 +26144,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -25660,12 +26163,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -25677,12 +26182,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -25754,13 +26261,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -25772,13 +26281,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -25790,13 +26301,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -25808,12 +26321,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26095,13 +26610,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "ベロ・ベティ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26113,13 +26630,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "ベロ・ベティ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26131,13 +26650,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "ベロ・ベティ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26149,15 +26670,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-034_p3": [
@@ -26166,15 +26692,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-034_p4": [
@@ -26183,15 +26714,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-043_p2": [
@@ -26335,12 +26871,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26352,12 +26890,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26369,12 +26909,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26686,13 +27228,18 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP06-079_p2": [
@@ -26701,13 +27248,18 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP06-079_p3": [
@@ -26716,13 +27268,18 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP06-106_p2": [
@@ -26753,12 +27310,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "シャンドラの戦士"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26770,12 +27329,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "シャンドラの戦士"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -26891,13 +27452,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "エッグヘッド",
               "exclude_name": "ジュエリー・ボニー"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -27022,9 +27585,11 @@
         "target": "self",
         "leader_feature": "海軍"
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "trash_self_hand_random": 1
@@ -27052,9 +27617,11 @@
         "target": "self",
         "leader_feature": "海軍"
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "trash_self_hand_random": 1
@@ -27406,7 +27973,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       }
     }
   ],
@@ -27545,13 +28113,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -27596,12 +28166,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -27888,13 +28460,17 @@
     {
       "_text": "このキャラがKOされる場合、代わりに自分の手札からパワー6000以下のキャラカード1枚を捨てることができる。",
       "when": "replace_ko",
-      "cost": {
-        "discard_hand_with_filter": {
-          "category": "CHARACTER",
-          "power_le": 6000,
-          "count": 1
+      "cost": [
+        {
+          "discard_hand_with_filter": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000
+            },
+            "count": 1
+          }
         }
-      },
+      ],
       "do": []
     },
     {
@@ -28082,12 +28658,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドレスローザ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -28425,9 +29003,12 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -28465,9 +29046,12 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -28640,13 +29224,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "モンキー・Ｄ・ルフィ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -28798,7 +29384,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP14-049_p1 効果で自分の手札が捨てられた時 【速攻】 を得る (= 自動生成)",
@@ -28818,9 +29407,11 @@
     {
       "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
       "when": "replace_ko",
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "if": {
         "target": "other_self_chara",
         "target_feature": "ドンキホーテ海賊団",
@@ -28949,7 +29540,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP14-096_p1 counter: 自分のトラッシュが10枚以上ある場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
@@ -29115,12 +29709,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "王下七武海"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -29132,17 +29728,19 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1,
-        "rest_self": true
+        "rest_self": true,
+        "rest_self_don": 1
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -29212,12 +29810,14 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "cost_ge": 3
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -29309,12 +29909,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "ロジャー海賊団"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -29339,7 +29942,7 @@
       "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn",
       "when": "main",
       "cost": {
-        "pay_don": 5
+        "rest_self_don": 5
       },
       "if": {
         "self_attached_don_ge": 1
@@ -29455,7 +30058,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self_don": 1
       },
       "if": {
         "leader_name": "イム"
@@ -29481,12 +30085,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "五老星"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -29511,12 +30117,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "五老星"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -29714,12 +30322,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "exclude_name": "リリス"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -29860,10 +30470,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -30067,7 +30679,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 3
+      }
     },
     {
       "_text": "OP12-037_p1 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -30119,14 +30734,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 3,
-            "feature_or_name": {
-              "feature": "革命軍",
-              "name": "ニコ・ロビン"
-            },
-            "exclude_name": "コアラ"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ],
@@ -30244,13 +30857,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海軍",
               "exclude_name": "たしぎ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -30262,13 +30877,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ODYSSEY",
               "exclude_name": "リム"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -30303,13 +30920,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "紫",
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -30321,13 +30940,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海軍",
               "exclude_name": "孔雀"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         },
         {
@@ -30474,10 +31095,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ],
@@ -30528,12 +31151,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -30563,7 +31188,8 @@
         }
       ],
       "cost": {
-        "pay_don": 1
+        "pay_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -30575,7 +31201,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP11-080_p1 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -30779,7 +31408,7 @@
       "when": "opp_attack",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -30831,13 +31460,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "モンキー・D・ルフィ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -30897,7 +31528,10 @@
         {
           "ko": "one_opponent_character_power_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST18-001_p1": [
@@ -30920,12 +31554,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31035,13 +31671,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ODYSSEY",
               "exclude_name": "リム"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31062,13 +31700,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "青",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31080,12 +31720,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31314,13 +31956,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "百獣海賊団",
               "exclude_name": "クイーン"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31339,7 +31983,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -31436,14 +32081,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 4,
-            "feature_or_name": {
-              "feature": "ビッグ・マム海賊団",
-              "name": "サンジ"
-            },
-            "exclude_name": "シャーロット・プリン"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31459,12 +32102,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31490,13 +32136,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国",
               "exclude_name": "お玉"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31508,12 +32156,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "王下七武海"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31589,12 +32239,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "フォクシー海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -31720,12 +32372,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31771,12 +32425,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31799,13 +32455,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "魚人族",
               "exclude_name": "ケイミ―"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -31828,13 +32486,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "海軍",
               "exclude_name": "たしぎ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32003,13 +32663,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "赤",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32075,13 +32737,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "ベロ・ベティ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32093,15 +32757,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-043_p1": [
@@ -32159,12 +32828,14 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ハートの海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32176,12 +32847,14 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ハートの海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32232,13 +32905,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32354,13 +33029,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "百獣海賊団",
               "exclude_name": "フーズ・フー"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32646,14 +33323,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 4,
-            "feature_or_name": {
-              "feature": "ビッグ・マム海賊団",
-              "name": "サンジ"
-            },
-            "exclude_name": "シャーロット・プリン"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32665,12 +33340,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32899,13 +33576,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32915,13 +33594,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -32933,13 +33614,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "インペルダウン",
               "exclude_name": "バギー"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33022,7 +33705,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 2
+      }
     }
   ],
   "OP02-096_p1": [
@@ -33146,13 +33832,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33296,10 +33984,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33377,12 +34067,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33485,13 +34177,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団",
               "exclude_name": "来い…!!!おれ達が相手をしてやる!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33512,12 +34206,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "白ひげ海賊団"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -33582,7 +34279,8 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "features_any": [
                 "麦わらの一味",
@@ -33591,7 +34289,8 @@
               ]
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33707,13 +34406,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -33839,13 +34540,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34057,13 +34760,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34075,13 +34780,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34126,15 +34833,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-070_p2": [
@@ -34395,13 +35107,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "赤",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34497,13 +35211,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -34548,14 +35264,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 4,
-            "feature_or_name": {
-              "feature": "ビッグ・マム海賊団",
-              "name": "サンジ"
-            },
-            "exclude_name": "シャーロット・プリン"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34567,14 +35281,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 4,
-            "feature_or_name": {
-              "feature": "ビッグ・マム海賊団",
-              "name": "サンジ"
-            },
-            "exclude_name": "シャーロット・プリン"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34597,13 +35309,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドレスローザ",
               "exclude_name": "レベッカ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -34615,13 +35329,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ドレスローザ",
               "exclude_name": "レベッカ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -34743,13 +35459,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島",
               "exclude_card_id": "OP05-106"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -34761,13 +35479,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "魚人族",
               "exclude_name": "ケイミ―"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -35078,7 +35798,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -35115,12 +35836,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -35162,13 +35885,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "青",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -35180,13 +35905,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "青",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -35198,12 +35925,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -35219,7 +35948,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       },
       "if": {
         "leader_feature": "黒ひげ海賊団"
@@ -35325,6 +36055,10 @@
       ],
       "if": {
         "leader_name": "ロロノア・ゾロ"
+      },
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -35369,6 +36103,10 @@
       ],
       "if": {
         "leader_name": "ロロノア・ゾロ"
+      },
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -35403,12 +36141,21 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
-              "_unimplemented": "name=サンジ OR category=EVENT"
+              "or": [
+                {
+                  "name": "サンジ"
+                },
+                {
+                  "category": "EVENT"
+                }
+              ]
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -35478,7 +36225,10 @@
         {
           "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP13-040_p1 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -35668,14 +36418,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "B・W",
               "exclude_card_id": "OP14-087"
             },
             "limit": 1,
-            "depth": 4,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -35692,14 +36443,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "B・W",
               "exclude_card_id": "OP14-087"
             },
             "limit": 1,
-            "depth": 4,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -36000,12 +36752,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36017,16 +36772,20 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36266,13 +37025,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36394,13 +37155,15 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36410,13 +37173,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ナミ"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36737,13 +37502,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "ピザお～か～わ～り～!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -37010,15 +37777,21 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "黒ひげ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
     }
   ],
   "OP09-117_p1": [
@@ -37027,12 +37800,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "デレシ!!"
             },
             "limit": 2,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -37059,17 +37834,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤鞘九人男"
             },
             "limit": 2,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "rest_self_don": 2
       }
     }
   ],
@@ -37108,7 +37886,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP12-098_p1": [
@@ -37152,12 +37933,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "アラバスタ王国"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -37223,14 +38006,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "天竜人",
               "exclude_card_id": "OP13-086"
             },
             "limit": 1,
-            "depth": 3,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         },
         {
@@ -37266,14 +38050,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "B・W",
               "exclude_card_id": "OP14-099"
             },
             "limit": 1,
-            "depth": 3,
-            "rest_to": "trash"
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -37325,12 +38110,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -37417,7 +38204,10 @@
             "to": "choice"
           }
         }
-      ]
+      ],
+      "cost": {
+        "return_self_to_hand": true
+      }
     }
   ],
   "ST01-007_p5": [
@@ -37480,13 +38270,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ブエナ・フェスタ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -37711,7 +38503,10 @@
             "amount": 4
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB01-051_p1": [
@@ -38003,13 +38798,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "color": "赤",
               "category": "EVENT"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -38279,15 +39076,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "革命軍"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP05-036_p2": [
@@ -38580,12 +39382,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "GERMA66"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -38658,7 +39462,8 @@
       "_text": "【アタック時】【ターン1回】自分のドン‼1枚をレストにできる：このキャラをアクティブにする。",
       "when": "on_attack",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -38681,7 +39486,8 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：このキャラをアクティブにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 2
       },
       "do": [
         {
@@ -38886,7 +39692,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     }
   ],
   "OP07-056_p1": [
@@ -38993,13 +39802,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "エッグヘッド",
               "exclude_name": "世界最大の頭脳を持つ男"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -39154,12 +39965,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -39238,13 +40051,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "赤髪海賊団",
               "exclude_name": "来い…!!!おれ達が相手をしてやる!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -39382,13 +40197,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド",
               "exclude_name": "Mr.3(ギャルディーノ)"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -39400,12 +40217,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -39464,12 +40283,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -39722,13 +40543,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "黒ひげ海賊団",
               "exclude_name": "おれの時代だァ!!!!"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -40037,7 +40860,10 @@
         {
           "mill_opp_life_to_trash": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "OP10-112_r1 end_of_turn: 相手のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
@@ -40063,7 +40889,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP10-119_r1": [
@@ -40234,7 +41063,10 @@
             "to": "choice"
           }
         }
-      ]
+      ],
+      "cost": {
+        "return_self_to_hand": true
+      }
     }
   ],
   "P-075_p2": [
@@ -40631,15 +41463,21 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
     }
   ],
   "ST06-008_p2": [
@@ -41051,7 +41889,10 @@
         {
           "ko": "one_opponent_character_power_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST16-004_p2": [
@@ -41272,12 +42113,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -41300,13 +42143,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "黒ひげ海賊団",
               "exclude_name": "おれの時代だァ!!!!"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -41537,15 +42382,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ワノ国"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-047_r1": [
@@ -41834,7 +42684,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP02-015_p2": [
@@ -41849,7 +42702,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP02-015_r1": [
@@ -41864,7 +42720,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP02-018_p3": [
@@ -41880,8 +42739,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -41901,8 +42764,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -41922,8 +42789,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -41943,8 +42814,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -42186,12 +43061,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -42482,13 +43359,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -42779,12 +43658,14 @@
       "when": "on_ko",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -42958,12 +43839,14 @@
       "when": "counter",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -42986,12 +43869,14 @@
       "when": "counter",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -43014,12 +43899,14 @@
       "when": "counter",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -43259,13 +44146,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "ベロ・ベティ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -43277,15 +44166,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-043_r1": [
@@ -43342,12 +44236,14 @@
       "when": "on_attack",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ハートの海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -43513,6 +44409,10 @@
       ],
       "if": {
         "opp_hand_count_ge": 6
+      },
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -43530,6 +44430,10 @@
       ],
       "if": {
         "opp_hand_count_ge": 6
+      },
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -43547,6 +44451,10 @@
       ],
       "if": {
         "opp_hand_count_ge": 6
+      },
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -43564,6 +44472,10 @@
       ],
       "if": {
         "opp_hand_count_ge": 6
+      },
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -43786,12 +44698,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "空島"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -44574,13 +45488,18 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP06-086_p2": [
@@ -44787,12 +45706,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "シャンドラの戦士"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -45779,20 +46700,23 @@
   ],
   "EB04-029": [
     {
-      "_text": "女の…涙の落ちる音がした メイン: サンジリーダー → デッキ上3枚見てサンジ/イベを公開手札追加 (近似: search で代用)",
+      "_text": "女の…涙の落ちる音がした メイン: サンジリーダー → デッキ上3枚見てサンジ/イベを公開手札追加",
       "when": "main",
       "if": {
         "leader_name": "サンジ"
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "category_in": [
                 "EVENT"
               ]
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -45924,7 +46848,10 @@
         {
           "rest": "one_opponent_character_any"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 6
+      }
     },
     {
       "_text": "EB04-040 counter: ドン‼-1：自分のリーダーを、このバトル中、パワー+4000。",
@@ -46335,7 +47262,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB03-012": [
@@ -46366,7 +47296,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB03-013": [
@@ -46642,6 +47575,9 @@
       ],
       "if": {
         "leader_name": "ボア・ハンコック"
+      },
+      "cost": {
+        "rest_self_don": 4
       }
     },
     {
@@ -46865,7 +47801,10 @@
         {
           "add_rested_don": 2
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     },
     {
       "_text": "EB03-038 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -46988,6 +47927,9 @@
       ],
       "if": {
         "leader_name": "ペローナ"
+      },
+      "cost": {
+        "rest_self_don": 7
       }
     },
     {
@@ -47029,7 +47971,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "ko_self_with_filter": {}
+        "ko_self_with_filter": {},
+        "trash_self": true
       },
       "do": [
         {
@@ -47158,7 +48101,8 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -47206,7 +48150,8 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -47254,7 +48199,8 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -47558,10 +48504,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -47699,10 +48647,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -47770,10 +48720,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -47884,10 +48836,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -47990,7 +48944,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       }
     }
   ],
@@ -48064,10 +49019,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -48183,10 +49140,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -48279,7 +49238,8 @@
         ]
       },
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       },
       "do": [
         {
@@ -48864,7 +49824,10 @@
             "amount": 4
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB01-048_p1": [
@@ -48878,7 +49841,10 @@
             "amount": 4
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB01-050": [
@@ -49322,7 +50288,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP15-065": [
@@ -49350,7 +50319,8 @@
         }
       ],
       "cost": {
-        "pay_don": 2
+        "pay_don": 2,
+        "rest_self": true
       }
     }
   ],
@@ -49734,6 +50704,9 @@
       ],
       "if": {
         "self_trash_count_ge": 15
+      },
+      "cost": {
+        "rest_self_don": 1
       }
     },
     {
@@ -49764,6 +50737,9 @@
       ],
       "if": {
         "leader_feature": "麦わらの一味"
+      },
+      "cost": {
+        "rest_self_don": 1
       }
     },
     {
@@ -49824,8 +50800,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "超新星"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "超新星"
+          },
+          "count": 1
+        }
       }
     },
     {
@@ -50378,7 +51358,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 3
+      }
     },
     {
       "_text": "OP14-058 counter: カード1枚を引き、自分のリーダーを、このバトル中、パワー+3000。",
@@ -50448,6 +51431,9 @@
       ],
       "if": {
         "leader_feature": "ドンキホーテ海賊団"
+      },
+      "cost": {
+        "rest_self_don": 2
       }
     },
     {
@@ -50943,7 +51929,10 @@
         {
           "ko": "one_opponent_character_power_le_3000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 4
+      }
     },
     {
       "_text": "OP13-019 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -51141,7 +52130,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -51356,6 +52346,9 @@
       ],
       "if": {
         "self_life_le": 1
+      },
+      "cost": {
+        "rest_self_don": 1
       }
     },
     {
@@ -51482,7 +52475,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 3
+      }
     },
     {
       "_text": "OP13-077 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -51742,12 +52738,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -52108,7 +53106,10 @@
             "rested": true
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP12-015": [
@@ -52197,10 +53198,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {},
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -52280,7 +53283,10 @@
         {
           "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_5cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP12-030": [
@@ -52342,7 +53348,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     },
     {
       "_text": "OP12-038 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -52377,7 +53386,10 @@
         {
           "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "OP12-043_p1": [
@@ -52404,7 +53416,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -52591,10 +53604,12 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {},
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -52792,13 +53807,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "革命軍",
               "exclude_name": "軍隊長集結"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -52872,7 +53889,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "OP12-101 trigger: 自分のリーダーが特徴《超新星》を持つ場合、このカードを登場させる。",
@@ -53011,6 +54031,9 @@
       ],
       "if": {
         "leader_feature": "超新星"
+      },
+      "cost": {
+        "rest_self_don": 5
       }
     },
     {
@@ -53393,7 +54416,9 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -53416,7 +54441,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP11-038": [
@@ -53427,7 +54455,10 @@
         {
           "rest": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1
+      }
     },
     {
       "_text": "OP11-038 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -53456,8 +54487,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "ファイアタンク海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "ファイアタンク海賊団"
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -53507,7 +54542,9 @@
             "cost": [
               {
                 "discard_hand_with_filter": {
-                  "feature": "ファイアタンク海賊団",
+                  "filter": {
+                    "feature": "ファイアタンク海賊団"
+                  },
                   "count": 1
                 }
               }
@@ -53521,8 +54558,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "ファイアタンク海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "ファイアタンク海賊団"
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -53543,13 +54584,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "式をブッ壊そう!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -53632,7 +54675,8 @@
       ],
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "pay_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -53717,7 +54761,8 @@
       ],
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "pay_don": 1,
+        "rest_self": true
       }
     }
   ],
@@ -54033,7 +55078,10 @@
         {
           "ko": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 3
+      }
     },
     {
       "_text": "OP11-114 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -54057,7 +55105,10 @@
         {
           "ko": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 3
+      }
     },
     {
       "_text": "OP11-114_p1 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -54425,7 +55476,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP10-016_p1": [
@@ -54440,7 +55494,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP10-017": [
@@ -54505,7 +55562,10 @@
         {
           "ko": "one_opponent_character_power_le_8000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 5
+      }
     },
     {
       "_text": "OP10-019 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -54529,7 +55589,10 @@
         {
           "ko": "one_opponent_character_power_le_8000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 5
+      }
     },
     {
       "_text": "OP10-019_p1 counter: 自分のリーダー1枚までを、このバトル中、パワー+3000。",
@@ -54885,7 +55948,10 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     }
   ],
   "OP10-079": [
@@ -55317,7 +56383,10 @@
         {
           "mill_opp_life_to_trash": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "OP10-112 end_of_turn: 相手のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
@@ -55343,7 +56412,10 @@
         {
           "mill_opp_life_to_trash": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "OP10-112_p1 end_of_turn: 相手のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
@@ -55618,6 +56690,9 @@
       ],
       "if": {
         "leader_feature": "赤髪海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     }
   ],
@@ -56000,12 +57075,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -56319,7 +57396,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -56413,13 +57491,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "黒ひげ海賊団",
               "exclude_name": "おれの時代だァ!!!!"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -56707,7 +57787,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-119_p5": [
@@ -56735,7 +57818,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -57131,6 +58215,9 @@
       ],
       "if": {
         "leader_feature": "ミンク族"
+      },
+      "cost": {
+        "rest_self": true
       }
     }
   ],
@@ -57656,7 +58743,11 @@
             "amount": 2
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
     }
   ],
   "OP08-083": [
@@ -58252,7 +59343,10 @@
             "amount": 2
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP07-003": [
@@ -58974,12 +60068,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "百獣海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -59796,7 +60892,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       }
     }
   ],
@@ -59810,7 +60907,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       }
     }
   ],
@@ -60055,7 +61153,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 2
+      }
     },
     {
       "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
@@ -60111,7 +61212,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 2
+      }
     },
     {
       "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
@@ -61182,7 +62286,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-036": [
@@ -61215,7 +62322,11 @@
         {
           "return_to_deck_bottom": "one_opponent_character_any"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "discard_hand": 1
+      }
     }
   ],
   "OP05-046": [
@@ -61518,7 +62629,7 @@
       }
     },
     {
-      "_text": "【アタック時】【ターン1回】自分のトラッシュのカード20枚をデッキに戻しシャッフルできる：このキャラは、このバトル中、【ダブルアタック】を得て、パワー+10000。 ※battle→turn 近似 + cost は 簡略",
+      "_text": "【アタック時】【ターン1回】自分のトラッシュのカード20枚をデッキに戻しシャッフルできる：このキャラは、このバトル中、【ダブルアタック】を得て、パワー+10000。 ※battle→turn",
       "_approx_note": "battle→turn 近似、 cost: trash_to_deck 20 → 簡略 (engine 未対応)",
       "when": "on_attack",
       "cost": {
@@ -61573,6 +62684,10 @@
       ],
       "if": {
         "opp_hand_count_ge": 6
+      },
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -61616,7 +62731,11 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
+      }
     }
   ],
   "OP05-088_p1": [
@@ -61634,7 +62753,11 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "trash_self": true
+      }
     }
   ],
   "OP05-089": [
@@ -61786,7 +62909,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP05-103": [
@@ -62160,7 +63286,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP04-006": [
@@ -62419,12 +63548,14 @@
       "when": "counter",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "ドンキホーテ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -62819,7 +63950,7 @@
   ],
   "OP04-071": [
     {
-      "_text": "OP04-071 on_attached_don (パターン未一致): 【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【ブロッカー】を得て、パワー+10",
+      "_text": "OP04-071 on_attached_don : 【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【ブロッカー】を得て、パワー+10",
       "when": "on_attached_don",
       "n": 0,
       "do": [
@@ -62850,7 +63981,7 @@
       ]
     },
     {
-      "_text": "【相手のアタック時】ドン!!-1：このキャラは、このバトル中、【ブロッカー】を得て、パワー+1000。 ※battle→turn 近似",
+      "_text": "【相手のアタック時】ドン!!-1：このキャラは、このバトル中、【ブロッカー】を得て、パワー+1000。 ※battle→turn",
       "_approx_note": "battle duration を turn で 近似 + opp_attack trigger",
       "when": "opp_attack_on_chara",
       "cost": {
@@ -62885,7 +64016,8 @@
       ],
       "cost": {
         "once_per_turn": true,
-        "pay_don": 2
+        "pay_don": 2,
+        "rest_self": true
       }
     }
   ],
@@ -62900,7 +64032,8 @@
       ],
       "cost": {
         "once_per_turn": true,
-        "pay_don": 2
+        "pay_don": 2,
+        "rest_self": true
       }
     }
   ],
@@ -63360,7 +64493,9 @@
             "cost": [
               {
                 "discard_hand_with_filter": {
-                  "trigger": true,
+                  "filter": {
+                    "trigger": true
+                  },
                   "count": 1
                 }
               }
@@ -63476,7 +64611,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     },
     {
       "_text": "OP04-111 trigger: このカードを登場させる。",
@@ -63612,7 +64750,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP04-119_p1": [
@@ -63646,7 +64787,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-078_p2": [
@@ -64158,7 +65302,7 @@
       }
     },
     {
-      "_text": "【アタック時】ドン!!-1：このキャラは、このバトル中、【バニッシュ】を得る。 ※battle→turn 近似",
+      "_text": "【アタック時】ドン!!-1：このキャラは、このバトル中、【バニッシュ】を得る。 ※battle→turn",
       "_approx_note": "battle duration を turn duration で 近似",
       "when": "on_attack",
       "cost": {
@@ -65124,7 +66268,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP02-016": [
@@ -65155,8 +66302,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -65176,8 +66327,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -65239,10 +66394,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -66137,7 +67294,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP02-113": [
@@ -66413,7 +67573,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-021": [
@@ -66582,12 +67745,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -66956,8 +68121,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "ワノ国"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "ワノ国"
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -66983,6 +68152,9 @@
       ],
       "if": {
         "self_attached_don_ge": 1
+      },
+      "cost": {
+        "rest_self": true
       }
     },
     {
@@ -67003,7 +68175,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP01-067": [
@@ -67316,13 +68491,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "B・W",
               "exclude_name": "バロックワークス"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -68016,7 +69193,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST30-014_p1": [
@@ -68048,7 +69228,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST30-016": [
@@ -68093,10 +69276,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -68119,10 +69304,12 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {},
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -68281,7 +69468,9 @@
             "cost": [
               {
                 "discard_hand_with_filter": {
-                  "trigger": true,
+                  "filter": {
+                    "trigger": true
+                  },
                   "count": 1
                 }
               }
@@ -68328,7 +69517,9 @@
             "cost": [
               {
                 "discard_hand_with_filter": {
-                  "trigger": true,
+                  "filter": {
+                    "trigger": true
+                  },
                   "count": 1
                 }
               }
@@ -68701,6 +69892,9 @@
       ],
       "if": {
         "leader_feature": "黒ひげ海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     },
     {
@@ -68740,7 +69934,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       },
       "if": {
         "leader_feature": "黒ひげ海賊団"
@@ -68758,6 +69953,9 @@
       ],
       "if": {
         "leader_feature": "黒ひげ海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     },
     {
@@ -68776,15 +69974,21 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "黒ひげ海賊団"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
     }
   ],
   "OP09-099_r1": [
@@ -68793,15 +69997,20 @@
       "when": "activate_main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "黒ひげ海賊団"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
     }
   ],
   "ST27-003": [
@@ -69120,13 +70329,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド",
               "exclude_name": "Mr.3(ギャルディーノ)"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -69138,12 +70349,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 4,
             "filter": {
               "feature": "クロスギルド"
             },
             "limit": 1,
-            "depth": 4
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -69234,7 +70447,8 @@
         }
       ],
       "cost": {
-        "trash_self": true
+        "trash_self": true,
+        "discard_hand": 1
       },
       "if": {
         "leader_name": "バギー"
@@ -69306,13 +70520,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "超新星",
               "exclude_name": "ピザお～か～わ～り～!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -69402,6 +70618,9 @@
       ],
       "if": {
         "leader_feature": "赤髪海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     }
   ],
@@ -69488,7 +70707,11 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
     }
   ],
   "ST23-005": [
@@ -69519,7 +70742,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 3
       }
     }
   ],
@@ -69533,7 +70757,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 3
       }
     }
   ],
@@ -70046,14 +71271,12 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
-            "limit": 1,
+          "search_top_n": {
             "depth": 4,
-            "feature_or_name": {
-              "feature": "ビッグ・マム海賊団",
-              "name": "サンジ"
-            },
-            "exclude_name": "シャーロット・プリン"
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -70268,13 +71491,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 3,
             "filter": {
               "feature": "海軍",
               "exclude_name": "ブランニュー"
             },
             "limit": 1,
-            "depth": 3
+            "destination": "hand",
+            "rest_remain": "trash"
           }
         }
       ]
@@ -70569,12 +71794,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 2,
             "filter": {
               "feature": "王下七武海"
             },
             "limit": 1,
-            "depth": 2
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -70942,8 +72169,12 @@
         }
       ],
       "cost": {
-        "discard_hand": 1,
-        "discard_feature": "白ひげ海賊団"
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 1
+        }
       },
       "if": {
         "self_life_le": 2
@@ -71003,12 +72234,14 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "exclude_name": "イゾウ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -71129,7 +72362,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -71184,7 +72418,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST14-014": [
@@ -72363,7 +73600,10 @@
             "amount": 2
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST08-006": [
@@ -72517,7 +73757,7 @@
       ]
     },
     {
-      "_text": "【ドン!!×1】【アタック時】自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。 ※battle→turn 近似",
+      "_text": "【ドン!!×1】【アタック時】自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。 ※battle→turn",
       "_approx_note": "battle→turn 近似",
       "when": "on_attack",
       "if": {
@@ -72777,7 +74017,10 @@
             "amount": 2
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST06-008": [
@@ -72920,7 +74163,8 @@
       ],
       "cost": {
         "once_per_turn": true,
-        "rest_self": true
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -73998,12 +75242,15 @@
       },
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "category": "CHARACTER",
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -74211,7 +75458,8 @@
       ],
       "cost": {
         "once_per_turn": true,
-        "rest_self": true
+        "rest_self": true,
+        "trash_self": true
       }
     }
   ],
@@ -74272,13 +75520,15 @@
       "when": "on_play",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "FILM",
               "exclude_name": "ブエナ・フェスタ"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -75304,6 +76554,9 @@
       ],
       "if": {
         "leader_feature": "赤髪海賊団"
+      },
+      "cost": {
+        "rest_self": true
       }
     }
   ],
@@ -75593,7 +76846,10 @@
         {
           "ko": "one_opponent_character_power_le_3000"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 4
+      }
     },
     {
       "_text": "OP13-019_p1 counter: 自分のリーダーを、このバトル中、パワー+3000。",
@@ -75633,6 +76889,9 @@
       ],
       "if": {
         "self_life_le": 1
+      },
+      "cost": {
+        "rest_self_don": 1
       }
     },
     {
@@ -77721,7 +78980,10 @@
             "amount": 2
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST06-008_p3": [
@@ -78182,12 +79444,14 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -78249,7 +79513,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "OP02-106_p2": [
@@ -78354,7 +79621,9 @@
             "cost": [
               {
                 "discard_hand_with_filter": {
-                  "trigger": true,
+                  "filter": {
+                    "trigger": true
+                  },
                   "count": 1
                 }
               }
@@ -78698,13 +79967,15 @@
       "when": "main",
       "do": [
         {
-          "search": {
+          "search_top_n": {
+            "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
               "exclude_name": "式をブッ壊そう!!!"
             },
             "limit": 1,
-            "depth": 5
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -78731,7 +80002,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -79264,7 +80536,10 @@
             "amount": 2
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "ST10-013_p3": [
@@ -80203,9 +81478,11 @@
         "target": "self",
         "by_opp_effect": true
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "rest": "one_opponent_character_any"
@@ -80572,10 +81849,14 @@
     {
       "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることができる。",
       "when": "replace_leave",
-      "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        },
+        {
+          "discard_hand": 1
+        }
+      ],
       "do": []
     },
     {
@@ -80993,9 +82274,11 @@
         "target": "self",
         "by_opp_effect": true
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "rest": "one_opponent_character_any"
@@ -81027,9 +82310,11 @@
         "target": "self",
         "by_opp_effect": true
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "rest": "one_opponent_character_any"
@@ -81266,9 +82551,11 @@
     {
       "_text": "OP05-100 エネル: 場を離れる代替で自ライフ1をトラッシュ (1回)。 ルフィ不在条件は engine 拡張待ち。",
       "when": "replace_leave",
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "mill_self_life_to_trash": 1
@@ -81602,9 +82889,11 @@
         "target": "self",
         "by_opp_effect": true
       },
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "do": [
         {
           "power_pump": {
@@ -81719,9 +83008,11 @@
     {
       "_text": "P-111 ロビン 置換 (ターン1回): 自麦わらキャラが相手効果で場離れる時、 ドン1レスト",
       "when": "replace_ko",
-      "cost": {
-        "once_per_turn": true
-      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
       "if": {
         "target": "other_self_chara",
         "target_feature": "麦わらの一味",

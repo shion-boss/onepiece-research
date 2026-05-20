@@ -145,9 +145,16 @@ class HumanSession:
         self.state.record_snapshots = True
         if self.state.log:
             self.state.snapshots.append(self.state._build_snapshot(self.state.log[-1]))
+        # human_player_idx を state に set (= effects で interactive choice 判定用)
+        # human_idx は この 直後 init 末尾 で 計算 する ので 先 に play_until_main + 後 で 更新
         play_until_main(self.state)
+        # frame 再生 用: 前回 payload を 返した 時点 の snapshot 数。
+        # snapshot_payload で 新規 frames を 返却 → ベースライン 更新。
+        self._last_seen_snapshot_count = 0
         self.human_idx = 0 if human_first else 1
         self.ai_idx = 1 - self.human_idx
+        # human_player_idx を state に set → effects.search_top_n 等が interactive 判定
+        self.state.human_player_idx = self.human_idx
         self.effects_overlay = effects_overlay
         # AI を 構築 (= ai_idx 側)。 ai_factory は (rng, deck_analysis) を 受ける
         deck_for_ai_analysis = (
@@ -182,6 +189,11 @@ class HumanSession:
                 self.pending_kind = None
                 self.pending_payload = None
                 return
+            # 人間 選択 待ち (= search_top_n 等) も pause 条件
+            if self.state.pending_choice is not None:
+                self.pending_kind = "choice"
+                self.pending_payload = dict(self.state.pending_choice)
+                return
             tp = self.state.turn_player_idx
             try:
                 if tp == self.ai_idx:
@@ -204,6 +216,16 @@ class HumanSession:
         self.state.declare_winner(-1, "max_actions reached")
         self.pending_kind = None
         self.pending_payload = None
+
+    def apply_human_choice(self, picks: list[int]) -> None:
+        """人間 の interactive 選択 (= search_top_n 等) を 適用 → 進行 再開。"""
+        if self.pending_kind != "choice":
+            raise ValueError("not waiting for human choice")
+        from .effects import resolve_pending_choice
+        resolve_pending_choice(self.state, picks)
+        self.pending_kind = None
+        self.pending_payload = None
+        self.advance_until_pause()
 
     def legal_actions_for_human(self) -> list[dict]:
         """人間 ターン中 の legal actions を JSON-able dict 群 で 返す。"""
@@ -273,10 +295,21 @@ class HumanSession:
         except Exception:
             return None
 
+    def _consume_new_frames(self) -> list[dict]:
+        """前回 payload 返却 以降 に 追加 された snapshot を 返す + baseline 更新。
+
+        AI ターン中 の 中間 state を frontend 側 で 順次 アニメ 再生 する 用途。
+        """
+        all_snaps = self.state.snapshots
+        new_frames = all_snaps[self._last_seen_snapshot_count:]
+        self._last_seen_snapshot_count = len(all_snaps)
+        return [dict(s) for s in new_frames]
+
     def snapshot_payload(self) -> dict:
         """API レスポンス 用 の 全 state snapshot。"""
         # 最終 snapshot は state.snapshots 末尾 を 取る (= 既存 仕組み と整合)
         last_snap = self.state.snapshots[-1] if self.state.snapshots else None
+        frames = self._consume_new_frames()
         return {
             "game_over": self.state.game_over,
             "winner": self.state.winner,
@@ -293,6 +326,7 @@ class HumanSession:
             "pending_payload": self.pending_payload,
             "log": list(self.state.log[-30:]),  # 直近 30 行
             "snapshot": last_snap,
+            "frames": frames,
             "legal_actions": self.legal_actions_for_human(),
             "snapshots_count": len(self.state.snapshots),
             "deck_a_slug": self.deck_a_slug,
@@ -310,6 +344,8 @@ def _action_to_dict(action, idx: int) -> dict:
         "instance_id",
         "attacker_iid",
         "target_iid",
+        "source_iid",
+        "effect_index",
         "from_idx",
         "to_iid",
         "n",
@@ -335,13 +371,13 @@ def _action_label(action) -> str:
     if cls == "AttachDonToLeader":
         return f"DON → リーダー x{getattr(action, 'n', 1)}"
     if cls == "AttachDonToCharacter":
-        return f"DON → キャラ iid={action.iid} x{getattr(action, 'n', 1)}"
+        return f"DON → キャラ iid={action.target_iid} x{getattr(action, 'n', 1)}"
     if cls == "AttackLeader":
         return f"リーダー攻撃: attacker={action.attacker_iid}"
     if cls == "AttackCharacter":
         return f"キャラ攻撃: attacker={action.attacker_iid} → target={action.target_iid}"
     if cls == "ActivateMain":
-        return f"起動メイン: iid={action.iid}"
+        return f"起動メイン: iid={action.source_iid} effect[{action.effect_index}]"
     if cls == "EndPhase":
         return "ターン終了"
     if cls == "EventPlay":
