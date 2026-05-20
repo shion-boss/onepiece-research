@@ -808,17 +808,32 @@ def _resolve_target(
     me: Player,
     opp: Player,
     self_inplay: Optional[InPlay],
+    outer_kind: Optional[str] = None,
+    outer_value: Any = None,
 ) -> list[InPlay]:
     """target 指定文字列または辞書から対象 InPlay リストを返す。
 
     内部 hooks:
     - target_spec が dict で `_iid_picks` を 持つ 場合、 候補 から その iid のみ 残す
       (= 人間 選択 resolved 後 の 再実行 で 使用)
+    - outer_kind が 与えられて 候補が limit を 超える + 人間 操作中 なら
+      pending_choice を 立てて [] を 返す (= halt)。 outer_kind は resolver が
+      再実行 する 際 の 外側 primitive 名 (= "ko" / "power_pump" 等)。
+    - outer_value: pending_choice に 記録する 元 spec (= 再実行時に そのまま 使う)
     """
     # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
+    # ユーザ の 選択した iid から 該当 InPlay を 全 場 から 直接 解決 する。
+    # 元 の target_spec の filter は 既に user 選択 で 通過 済 と 見なす。
     iid_picks: Optional[list[int]] = None
     if isinstance(target_spec, dict) and "_iid_picks" in target_spec:
         iid_picks = target_spec["_iid_picks"]
+    if iid_picks is not None:
+        all_inplay = (
+            [me.leader, opp.leader]
+            + list(me.characters) + list(opp.characters)
+            + list(me.stages) + list(opp.stages)
+        )
+        return [ip for ip in all_inplay if ip.instance_id in iid_picks]
     # 辞書 spec で type-based dispatch
     if isinstance(target_spec, dict) and "type" in target_spec:
         t = target_spec["type"]
@@ -839,12 +854,6 @@ def _resolve_target(
                      if _matches_filter(ip.card, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
-            if _maybe_request_target_pick(
-                state, cands, 1, "one_self_chara_or_leader_filtered",
-                target_spec, self_inplay,
-                description="自リーダー or キャラ から 1 枚 選択",
-            ):
-                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "one_self_chara_filtered":
@@ -854,12 +863,6 @@ def _resolve_target(
                      if _matches_filter(ip.card, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
-            if _maybe_request_target_pick(
-                state, cands, 1, "one_self_chara_filtered",
-                target_spec, self_inplay,
-                description="自キャラ から 1 枚 選択",
-            ):
-                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "all_self_chara_filtered":
@@ -867,6 +870,8 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.characters if _matches_filter(ip.card, filt)]
             limit = target_spec.get("limit")
+            if iid_picks is not None and limit is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:int(limit)]
             if limit is not None:
                 # AI 簡易: power 高い順 (= 強いキャラ優先)
                 cands.sort(key=lambda ip: -ip.power)
@@ -895,9 +900,8 @@ def _resolve_target(
                 cands.append(ip)
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
-            if _maybe_request_target_pick(
-                state, cands, 1, "one_opponent_character_filtered",
-                target_spec, self_inplay,
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
                 description="相手キャラ から 1 枚 選択",
             ):
                 return []
@@ -910,9 +914,8 @@ def _resolve_target(
             cands = [ip for ip in cands if _matches_filter(ip.card, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
-            if _maybe_request_target_pick(
-                state, cands, 1, "one_opponent_inplay_filtered",
-                target_spec, self_inplay,
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
                 description="相手リーダー or キャラ から 1 枚 選択",
             ):
                 return []
@@ -1277,7 +1280,10 @@ def execute_effect(
                 opp.trash.append(opp.hand.pop(idx))
             state.push_log(f"  効果: 相手手札{n}枚捨て")
         elif k == "ko":
-            targets = _resolve_target(v, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                v, state, me, opp, self_inplay,
+                outer_kind="ko", outer_value=v,
+            )
             if not targets:
                 return False  # 公式 4-10 「対象 0 枚」= 解決不能
             _ko_any = False
@@ -1351,7 +1357,10 @@ def execute_effect(
                     src_val = opp.don_active + opp.don_rested + opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 amount += (src_val // divisor) * mult
 
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="power_pump", outer_value=v,
+            )
             if feature_filter:
                 targets = [
                     t for t in targets
@@ -1408,7 +1417,10 @@ def execute_effect(
                     state.push_log(f"  効果: レスト → 対象なし (不発)")
                     return False
                 return True
-            targets = _resolve_target(v, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                v, state, me, opp, self_inplay,
+                outer_kind="rest", outer_value=v,
+            )
             actually_rested = []
             already_rested_skipped: list[str] = []
             # 「相手のキャラの効果で」 判定: effect の source (self_inplay) が CHARACTER。
@@ -1461,7 +1473,10 @@ def execute_effect(
                 ip.rested = True
             state.push_log(f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in actives[:n]]}")
         elif k == "return_to_hand":
-            targets = _resolve_target(v, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                v, state, me, opp, self_inplay,
+                outer_kind="return_to_hand", outer_value=v,
+            )
             _ret_any = False
             for t in targets:
                 if t in opp.characters:
@@ -1856,7 +1871,10 @@ def execute_effect(
                 keyword = chosen
             else:
                 keyword = spec.get("keyword", "速攻")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="give_keyword", outer_value=v,
+            )
             me_idx = state.players.index(me)
             for t in targets:
                 if duration == "next_opp_turn_end":
@@ -4000,12 +4018,20 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
                 if ip.instance_id == self_inplay_iid:
                     self_inplay = ip
                     break
-        # 再実行: target_spec に _iid_picks を 追加
+        # 再実行: target_spec に _iid_picks を 追加 (= 任意 spec 形式 を カバー)
         if isinstance(primitive_value, dict):
             new_spec = dict(primitive_value)
             new_spec["_iid_picks"] = picked_iids
+            # nested "target" dict にも injection (= power_pump 等 spec.target を 持つ primitive)
+            if "target" in new_spec and isinstance(new_spec["target"], dict):
+                new_spec["target"] = {
+                    **new_spec["target"], "_iid_picks": picked_iids,
+                }
+            elif "target" in new_spec and isinstance(new_spec["target"], str):
+                new_spec["target"] = {"_iid_picks": picked_iids}
         else:
-            new_spec = primitive_value
+            # 文字列 spec (例: "one_opponent_character_any") → dict 化 して bypass
+            new_spec = {"_iid_picks": picked_iids}
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
