@@ -903,6 +903,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           <MulliganConfirmModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
             busy={busy}
           />
         ) : (
@@ -2638,10 +2639,12 @@ function TargetPickModal({
 function MulliganConfirmModal({
   payload,
   onSubmit,
+  onHover,
   busy,
 }: {
   payload: Record<string, unknown>;
   onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
   busy: boolean;
 }) {
   const cards =
@@ -2652,23 +2655,31 @@ function MulliganConfirmModal({
       className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
       style={{ right: "488px" }}
     >
-      <div className="flex max-h-[95vh] w-full max-w-5xl flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
+      <div className="flex max-h-[95vh] w-full max-w-6xl flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
         <h3 className="mb-1 text-xl font-bold text-amber-200">
           マリガン: 初期手札 を 確認
         </h3>
         <p className="mb-4 text-sm text-zinc-300">
-          手札 5 枚 を 確認し、 「キープ」 か 「引き直し (= デッキ戻し 再 5 枚 ドロー)」
-          を 1 度 だけ 選択 できます。
+          手札 5 枚 を 確認 (= 右パネル に hover 拡大表示)、 「キープ」 か
+          「引き直し」 を 1 度 だけ 選択 できます。
         </p>
-        <div className="flex flex-wrap justify-center gap-3 overflow-y-auto px-1 py-3">
+        <div className="flex flex-nowrap items-center justify-center gap-3 overflow-x-auto px-1 py-3">
           {cards.map((c, i) => (
-            <div key={i} className="rounded ring-2 ring-amber-400">
+            <button
+              key={i}
+              type="button"
+              onMouseEnter={() =>
+                onHover({ kind: "hand", cardId: c.card_id })
+              }
+              onMouseLeave={() => onHover(null)}
+              className="shrink-0 rounded ring-2 ring-amber-400 transition hover:-translate-y-2 hover:ring-amber-200"
+            >
               <CardImage
                 cardId={c.card_id}
                 alt={c.name}
-                className="h-72 w-auto rounded shadow-2xl"
+                className="h-64 w-auto rounded shadow-2xl"
               />
-            </div>
+            </button>
           ))}
         </div>
         <div className="mt-4 flex items-center gap-3">
