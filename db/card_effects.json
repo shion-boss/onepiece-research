@@ -70,7 +70,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -3000,
             "duration": "turn"
           }
@@ -417,7 +421,12 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     },
@@ -561,7 +570,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_rested_character_le_5000"
+          "ko": "one_opponent_character_power_le_8000"
         }
       ],
       "cost": {
@@ -1053,7 +1062,7 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_cost_le_4"
         },
         {
           "return_to_hand": {
@@ -1769,7 +1778,7 @@
       "when": "opp_attack",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_inplay_any"
         }
       ],
       "cost": {
@@ -2303,7 +2312,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "all_opponent_characters"
         },
         {
           "mill": {
@@ -4747,7 +4756,7 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_any"
         },
         {
           "power_pump": {
@@ -5146,7 +5155,13 @@
       "when": "trigger",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 7,
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -5468,7 +5483,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -8000,
             "duration": "turn"
           }
@@ -5561,7 +5576,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -5000,
             "duration": "turn"
           }
@@ -5900,7 +5915,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -7079,7 +7094,7 @@
           }
         },
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_any"
         }
       ]
     }
@@ -7949,7 +7964,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -8409,7 +8424,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -8550,7 +8565,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -8706,7 +8721,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -8719,7 +8734,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -12213,7 +12228,7 @@
           }
         },
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "all_opponent_characters"
         }
       ]
     }
@@ -14807,7 +14822,7 @@
       "when": "opp_attack",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_inplay_any"
         }
       ],
       "cost": {
@@ -17724,7 +17739,7 @@
       "when": "activate_main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -18670,7 +18685,7 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_power_le_6000"
         }
       ]
     }
@@ -18826,7 +18841,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "one_opponent_character_power_le_2000"
         }
       ]
     }
@@ -20116,7 +20131,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -21904,7 +21923,7 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
@@ -22762,7 +22781,7 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ]
     },
@@ -23368,7 +23387,7 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ]
     }
@@ -25271,7 +25290,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -5000,
             "duration": "turn"
           }
@@ -25492,7 +25511,7 @@
           }
         },
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_any"
         }
       ]
     }
@@ -26089,7 +26108,7 @@
       "when": "activate_main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -29475,7 +29494,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -30177,7 +30196,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -30752,7 +30771,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -8000,
             "duration": "turn"
           }
@@ -30805,7 +30824,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -30842,7 +30861,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -32375,7 +32394,7 @@
       "when": "activate_main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -32925,7 +32944,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -3000,
             "duration": "turn"
           }
@@ -34151,7 +34174,7 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ]
     }
@@ -34445,7 +34468,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -3000,
             "duration": "turn"
           }
@@ -34483,7 +34510,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -3000,
             "duration": "turn"
           }
@@ -38168,7 +38199,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -3000,
             "duration": "turn"
           }
@@ -38789,7 +38824,13 @@
       "when": "trigger",
       "do": [
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 7,
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -40220,7 +40261,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -5000,
             "duration": "turn"
           }
@@ -40734,7 +40775,12 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -40840,7 +40886,7 @@
           }
         },
         {
-          "rest": "one_opponent_character_le_5000"
+          "rest": "one_opponent_character_any"
         }
       ]
     }
@@ -42981,7 +43027,7 @@
       "when": "activate_main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -42995,7 +43041,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_rested_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -43006,7 +43057,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_rested_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -43743,7 +43799,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -3000,
             "duration": "turn"
           }
@@ -45241,7 +45301,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "any_opponent_character_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
@@ -45252,7 +45312,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "any_opponent_character_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
@@ -48325,7 +48385,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -50966,7 +51026,7 @@
           "pay_don": 1
         },
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "one_opponent_character_cost_le_8"
         }
       ]
     }
@@ -50978,7 +51038,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -54680,7 +54740,7 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": "one_opponent_character_any"
         }
       ],
       "cost": {
@@ -56689,7 +56749,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_rested_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -58110,7 +58175,7 @@
       "when": "main",
       "do": [
         {
-          "ko": "any_opponent_character_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
@@ -58595,7 +58660,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -60732,7 +60801,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -61068,7 +61141,12 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -61079,7 +61157,12 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -62190,7 +62273,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_rested_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -63484,7 +63572,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "any_opponent_character_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
@@ -63495,7 +63583,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "any_opponent_character_le_5000"
+          "ko": "one_opponent_character_any"
         }
       ]
     }
@@ -63915,7 +64003,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -64860,7 +64952,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -69068,7 +69164,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -69163,7 +69263,7 @@
           }
         },
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": "one_opponent_character_le_4000"
         }
       ]
     }
@@ -70596,7 +70696,12 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -70607,7 +70712,12 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_le_5000"
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -71705,7 +71815,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -73231,7 +73345,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }
@@ -73708,7 +73826,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_rested_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         }
       ]
     }
@@ -81188,7 +81311,11 @@
       "do": [
         {
           "power_pump": {
-            "target": "any_opponent_character_le_5000",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": -2000,
             "duration": "turn"
           }

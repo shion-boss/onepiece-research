@@ -940,6 +940,18 @@ def _resolve_target(
                 return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
+        if t == "all_opponent_chara_filtered":
+            # 相手キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
+            # 公式 「相手のキャラ N 枚まで」 で、 power 5000 制限がないケースに使う。
+            filt = target_spec.get("filter", {})
+            cands = [ip for ip in opp.characters if _matches_filter(ip.card, filt)]
+            limit = target_spec.get("limit")
+            if iid_picks is not None and limit is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:int(limit)]
+            if limit is not None:
+                cands.sort(key=lambda ip: -_opp_value(ip))
+                return cands[:int(limit)]
+            return cands
         if t == "one_opponent_inplay_filtered":
             # 相手リーダー or キャラ から filter にマッチする 1 枚
             filt = target_spec.get("filter", {})
