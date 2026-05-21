@@ -814,6 +814,27 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         />
       )}
 
+      {/* 防御 pending 中 の attacker→target 矢印 (= 持続表示、 カウンター 判断 用) */}
+      {isDefensePending && state.pending_payload && (
+        <AttackTargetArrowOverlay
+          attackerIid={
+            typeof state.pending_payload.attacker_iid === "number"
+              ? state.pending_payload.attacker_iid
+              : null
+          }
+          targetIid={
+            state.pending_payload.is_leader_attack
+              ? me.leader.instance_id
+              : typeof state.pending_payload.target_iid === "number"
+                ? state.pending_payload.target_iid
+                : null
+          }
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+          persistent={true}
+        />
+      )}
+
       {/* 効果 log toast (= 「効果:」 行 を 中央上部 で 1.6秒 表示) */}
       <EffectToastOverlay log={state.log} />
 

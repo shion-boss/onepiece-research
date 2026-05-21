@@ -704,11 +704,14 @@ export function AttackTargetArrowOverlay({
   targetIid,
   boardRef,
   tickId,
+  persistent = false,
 }: {
   attackerIid: number | null;
   targetIid: number | null;
   boardRef: React.RefObject<HTMLDivElement | null>;
   tickId: number;
+  /** true なら 自動 fade out しない (= defense pending 中 ずっと表示) */
+  persistent?: boolean;
 }) {
   const [coords, setCoords] = useState<{
     x1: number;
@@ -723,26 +726,35 @@ export function AttackTargetArrowOverlay({
       return;
     }
     const board = boardRef.current;
-    const r = board.getBoundingClientRect();
-    const findEl = (iid: number): HTMLElement | null =>
-      board.querySelector(`[data-iid="${iid}"]`);
-    const at = findEl(attackerIid);
-    const tg = findEl(targetIid);
-    if (!at || !tg) {
-      setCoords(null);
+    // DOM レイアウト が 確定するのを 待って 座標 取得 (= playFrames で 直後 だと 未配置)
+    function update() {
+      if (!board) return;
+      const r = board.getBoundingClientRect();
+      const findEl = (iid: number): HTMLElement | null =>
+        board.querySelector(`[data-iid="${iid}"]`);
+      const at = findEl(attackerIid!);
+      const tg = findEl(targetIid!);
+      if (!at || !tg) {
+        setCoords(null);
+        return;
+      }
+      const ar = at.getBoundingClientRect();
+      const tr = tg.getBoundingClientRect();
+      setCoords({
+        x1: ar.left + ar.width / 2 - r.left,
+        y1: ar.top + ar.height / 2 - r.top,
+        x2: tr.left + tr.width / 2 - r.left,
+        y2: tr.top + tr.height / 2 - r.top,
+      });
+    }
+    update();
+    if (persistent) {
+      // defense 中 は user が 手札 hover 等 で 場 が 動かない 想定、 1 回 算出 で十分
       return;
     }
-    const ar = at.getBoundingClientRect();
-    const tr = tg.getBoundingClientRect();
-    setCoords({
-      x1: ar.left + ar.width / 2 - r.left,
-      y1: ar.top + ar.height / 2 - r.top,
-      x2: tr.left + tr.width / 2 - r.left,
-      y2: tr.top + tr.height / 2 - r.top,
-    });
     const timer = setTimeout(() => setCoords(null), 1300);
     return () => clearTimeout(timer);
-  }, [attackerIid, targetIid, tickId, boardRef]);
+  }, [attackerIid, targetIid, tickId, boardRef, persistent]);
 
   if (!coords) return null;
   // arrow head 角度 計算
@@ -776,31 +788,37 @@ export function AttackTargetArrowOverlay({
         x2={coords.x2}
         y2={coords.y2}
         stroke="#fb7185"
-        strokeWidth={6}
+        strokeWidth={persistent ? 7 : 6}
         strokeLinecap="round"
-        strokeDasharray="14 8"
+        strokeDasharray={persistent ? "16 10" : "14 8"}
         filter="url(#arrowGlow)"
         initial={{ opacity: 0, pathLength: 0 }}
-        animate={{
-          opacity: [0, 1, 1, 1, 0],
-          pathLength: [0, 1, 1, 1, 1],
-        }}
-        transition={{ duration: 1.3, times: [0, 0.2, 0.5, 0.9, 1] }}
+        animate={
+          persistent
+            ? { opacity: [0.7, 1, 0.7], pathLength: 1 }
+            : { opacity: [0, 1, 1, 1, 0], pathLength: [0, 1, 1, 1, 1] }
+        }
+        transition={
+          persistent
+            ? { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
+            : { duration: 1.3, times: [0, 0.2, 0.5, 0.9, 1] }
+        }
       />
       <motion.polygon
         points={`${coords.x2},${coords.y2} ${leftX},${leftY} ${rightX},${rightY}`}
         fill="#fb7185"
         filter="url(#arrowGlow)"
         initial={{ opacity: 0, scale: 0 }}
-        animate={{
-          opacity: [0, 1, 1, 1, 0],
-          scale: [0, 1, 1.1, 1, 0.9],
-        }}
-        transition={{
-          duration: 1.3,
-          times: [0, 0.25, 0.5, 0.9, 1],
-          // SVG polygon の scale は transform-origin で動く、 framer 既定 で 重心
-        }}
+        animate={
+          persistent
+            ? { opacity: 1, scale: [1, 1.18, 1] }
+            : { opacity: [0, 1, 1, 1, 0], scale: [0, 1, 1.1, 1, 0.9] }
+        }
+        transition={
+          persistent
+            ? { duration: 0.9, repeat: Infinity, ease: "easeInOut" }
+            : { duration: 1.3, times: [0, 0.25, 0.5, 0.9, 1] }
+        }
         style={{ transformOrigin: `${coords.x2}px ${coords.y2}px` }}
       />
     </svg>
