@@ -3227,7 +3227,12 @@ def execute_effect(
             _kom_any = False
             for spec in v:
                 target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
-                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                targets = _resolve_target(
+                    target_spec, state, me, opp, self_inplay,
+                    outer_kind="ko", outer_value=target_spec,
+                )
+                if state.pending_choice is not None:
+                    return True
                 for t in targets:
                     if id(t) in already_kod:
                         continue
@@ -3264,7 +3269,12 @@ def execute_effect(
             _rhm_any = False
             for spec in v:
                 target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
-                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                targets = _resolve_target(
+                    target_spec, state, me, opp, self_inplay,
+                    outer_kind="return_to_hand", outer_value=target_spec,
+                )
+                if state.pending_choice is not None:
+                    return True
                 for t in targets:
                     if id(t) in already_returned:
                         continue
@@ -3296,7 +3306,12 @@ def execute_effect(
             _rdm_any = False
             for spec in v:
                 target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
-                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                targets = _resolve_target(
+                    target_spec, state, me, opp, self_inplay,
+                    outer_kind="return_to_deck_bottom", outer_value=target_spec,
+                )
+                if state.pending_choice is not None:
+                    return True
                 for t in targets:
                     if id(t) in already:
                         continue
