@@ -707,6 +707,14 @@ export function TurnBannerOverlay({
     prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
     const additions: BannerItem[] = [];
+    // 初回 (= prev=-1 → 試合 start) は 「先攻/後攻」 を 先 enqueue
+    if (prev === -1) {
+      additions.push({
+        id: idRef.current++,
+        label: isMe ? "あなたが先攻" : "あなたが後攻",
+        color: isMe ? "self" : "opp",
+      });
+    }
     // 「相手 → 自分」 切替 で 「相手ターン終了」 banner を 先 enqueue
     if (isMe && prev !== -1 && prev !== humanIdx) {
       additions.push({
