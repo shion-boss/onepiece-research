@@ -2482,7 +2482,7 @@ function RightPanel({
             <div className="mt-1 text-xs">対象 click / Esc キャンセル</div>
           </div>
         )}
-        {canAct &&
+        {isHumanTurn &&
           selection &&
           selection.kind !== "attack_pending" && (
             <ActionButtonGrid
@@ -2491,7 +2491,7 @@ function RightPanel({
               onActionClick={onActionClick}
             />
           )}
-        {canAct && selection && (
+        {isHumanTurn && selection && (
           <button
             type="button"
             onClick={(e) => {
