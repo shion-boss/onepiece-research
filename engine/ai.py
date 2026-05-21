@@ -2460,15 +2460,31 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
     action = ai_self.choose_action(state)
 
     # 攻撃時: ブロッカー / カウンターを差し込む
+    def _split_event_counters(
+        defender_hand: list, counter_idxs: tuple[int, ...]
+    ) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        """counter idx を card / event に 分離。 event カード (= category=EVENT)
+        は counter_event_idxs にも 追加して 【カウンター】 効果 を 発動 する。
+        """
+        events: list[int] = []
+        for idx in counter_idxs:
+            if 0 <= idx < len(defender_hand):
+                c = defender_hand[idx]
+                if str(getattr(c, "category", "")).endswith("EVENT"):
+                    events.append(idx)
+        return counter_idxs, tuple(events)
+
     if isinstance(action, AttackLeader):
         from .game import _find_attacker  # noqa
         attacker = _find_attacker(state.turn_player, action.attacker_iid)
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, state.opponent.leader, True, state.opponent
         )
+        card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
         action = AttackLeader(
             attacker_iid=action.attacker_iid,
-            counter_card_idxs=counters,
+            counter_card_idxs=card_idxs,
+            counter_event_idxs=event_idxs,
             blocker_iid=block_iid,
         )
 
@@ -2479,10 +2495,12 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, target, False, state.opponent
         )
+        card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
         action = AttackCharacter(
             attacker_iid=action.attacker_iid,
             target_iid=action.target_iid,
-            counter_card_idxs=counters,
+            counter_card_idxs=card_idxs,
+            counter_event_idxs=event_idxs,
             blocker_iid=block_iid,
         )
 
