@@ -751,42 +751,50 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         <div className="flex min-w-[280px] flex-1 min-h-0 flex-col gap-2">
           <OpponentInfoPanel opp={opp} />
           <LogSidebar log={state.log} aiIdx={state.ai_idx} />
-          <SelfInfoPanel me={me} />
-          <HandRow
-            hand={me.hand}
-            actionsByHand={actionsByHand}
-            canAct={canAct}
-            selectedIdx={selection?.kind === "hand" ? selection.handIdx : null}
-            draggingHandIdx={
-              drag?.kind === "hand" || drag?.kind === "counter"
-                ? drag.handIdx
-                : null
-            }
-            recentDrawnIdxs={recentDrawnIdxs}
-            counterIdxsAvail={
-              isDefensePending && state.pending_payload
-                ? (state.pending_payload.legal_counter_card_idxs as number[] | undefined)
-                : undefined
-            }
-            counterSelectedIdxs={isDefensePending ? counterIdxs : undefined}
-            onCounterDragStart={(handIdx) =>
-              setDrag({ kind: "counter", handIdx })
-            }
-            onClick={clickHandCard}
-            onHover={setHovered}
-            onDragStart={(handIdx) => {
-              // legal_actions の kind から hand card category を 推定
-              const acts = actionsByHand.get(handIdx) ?? [];
-              let handKind: "CHARACTER" | "EVENT" | "STAGE" = "CHARACTER";
-              for (const a of acts) {
-                if (a.kind === "PlayCharacter") handKind = "CHARACTER";
-                else if (a.kind === "PlayEvent") handKind = "EVENT";
-                else if (a.kind === "PlayStage") handKind = "STAGE";
-              }
-              setDrag({ kind: "hand", handIdx, handKind });
-            }}
-            onDragEnd={() => setDrag(null)}
-          />
+          {/* 自分側 (= 数字 + 手札) を 1 つの emerald エリア に まとめる */}
+          <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
+            <StatBadge player={me} label="YOU" color="bg-emerald-700 text-white" />
+            <div className="mt-2">
+              <HandRow
+                hand={me.hand}
+                actionsByHand={actionsByHand}
+                canAct={canAct}
+                selectedIdx={
+                  selection?.kind === "hand" ? selection.handIdx : null
+                }
+                draggingHandIdx={
+                  drag?.kind === "hand" || drag?.kind === "counter"
+                    ? drag.handIdx
+                    : null
+                }
+                recentDrawnIdxs={recentDrawnIdxs}
+                counterIdxsAvail={
+                  isDefensePending && state.pending_payload
+                    ? (state.pending_payload.legal_counter_card_idxs as
+                        | number[]
+                        | undefined)
+                    : undefined
+                }
+                counterSelectedIdxs={isDefensePending ? counterIdxs : undefined}
+                onCounterDragStart={(handIdx) =>
+                  setDrag({ kind: "counter", handIdx })
+                }
+                onClick={clickHandCard}
+                onHover={setHovered}
+                onDragStart={(handIdx) => {
+                  const acts = actionsByHand.get(handIdx) ?? [];
+                  let handKind: "CHARACTER" | "EVENT" | "STAGE" = "CHARACTER";
+                  for (const a of acts) {
+                    if (a.kind === "PlayCharacter") handKind = "CHARACTER";
+                    else if (a.kind === "PlayEvent") handKind = "EVENT";
+                    else if (a.kind === "PlayStage") handKind = "STAGE";
+                  }
+                  setDrag({ kind: "hand", handIdx, handKind });
+                }}
+                onDragEnd={() => setDrag(null)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* 中央: マット (= 5 横向き chara が 収まる固定幅) */}
@@ -2003,7 +2011,7 @@ function HandRow({
   // overlap 量 は 枚数 と 横幅 に 応じて 自動調整 (= card 幅 ~ 137px @ h-48)
   const overlap = hand.length <= 6 ? 76 : hand.length <= 9 ? 96 : 112;
   return (
-    <div className="relative flex h-24 shrink-0 items-start justify-center overflow-visible rounded border border-emerald-400/50 bg-emerald-950/40">
+    <div className="relative flex h-24 shrink-0 items-start justify-center overflow-visible">
       <div className="flex shrink-0 items-start">
         {hand.map((cardId, i) => {
           const playable = canAct && (actionsByHand.get(i)?.length ?? 0) > 0;
