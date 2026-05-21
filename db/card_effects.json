@@ -83596,8 +83596,38 @@
   "EB01-057_r1": [],
   "OP04-096_p1": [],
   "OP04-096_r1": [],
-  "OP05-030_p2": [],
-  "OP05-030_r1": [],
+  "OP05-030_p2": [
+    {
+      "_text": "[auto] 自レストキャラ KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_rested": true,
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
+  "OP05-030_r1": [
+    {
+      "_text": "[auto] 自レストキャラ KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_rested": true,
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
   "OP05-097_p1": [
     {
       "_text": "OP05-097_p1 on_attached_don (パターン未一致): 【自分のターン中】自分が手札から登場させるコスト2以上の特徴《天竜人》を持つキャラカードの支払うコストは1少なくなる。",
@@ -84696,8 +84726,46 @@
   "OP14-053": [],
   "OP14-070": [],
   "OP14-086": [],
-  "OP14-092": [],
-  "OP13-008": [],
+  "OP14-092": [
+    {
+      "_text": "[auto] this KO 代替 → 自トラッシュ3枚をデッキ下 (ターン1回)",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "opp_turn": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "trash_to_deck": {
+            "filter": {},
+            "limit": 3,
+            "to": "bottom"
+          }
+        }
+      ]
+    }
+  ],
+  "OP13-008": [
+    {
+      "_text": "[auto] 自《革命軍》キャラ 効果KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "革命軍",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
   "OP13-009": [
     {
       "_text": "OP13-009 このカード以外の特徴《山賊》を持つキャラがいる場合、このキャラは【ダブルアタック】を得る。",
@@ -84747,8 +84815,38 @@
       "do": []
     }
   ],
-  "OP13-047": [],
-  "OP13-060": [],
+  "OP13-047": [
+    {
+      "_text": "[auto] 自『白ひげ海賊団』含む特徴 キャラ 効果KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature_contains": "白ひげ海賊団",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
+  "OP13-060": [
+    {
+      "_text": "[auto] 自『ロジャー海賊団』含む特徴 キャラ 効果KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature_contains": "ロジャー海賊団",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
   "OP13-078": [
     {
       "_text": "[auto] activate_main: add_don 補完",
@@ -85092,7 +85190,26 @@
     }
   ],
   "EB01-057_p2": [],
-  "OP10-034": [],
+  "OP10-034": [
+    {
+      "_text": "[auto] this バトル KO 代替 → ライフ1手札 (ターン1回 任意)",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_battle": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ]
+    }
+  ],
   "OP10-036": [],
   "OP10-038": [
     {
@@ -85158,7 +85275,26 @@
       ]
     }
   ],
-  "OP10-074": [],
+  "OP10-074": [
+    {
+      "_text": "[auto] this 効果KO 代替 → アクティブドン2レスト (ターン1回)",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "rest_self_don": 2
+        }
+      ]
+    }
+  ],
   "OP10-108": [
     {
       "_text": "OP10-108 「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
@@ -85202,7 +85338,22 @@
       ]
     }
   ],
-  "OP09-012": [],
+  "OP09-012": [
+    {
+      "_text": "[auto] 自「ボンク・パンチ」 効果KO 代替 → holder トラッシュ (任意)",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_name": "ボンク・パンチ",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
   "OP09-025": [],
   "OP09-045": [],
   "OP09-052": [],
@@ -85707,7 +85858,22 @@
       ]
     }
   ],
-  "OP05-030": [],
+  "OP05-030": [
+    {
+      "_text": "[auto] 自レストキャラ KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_rested": true,
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
   "OP05-053": [],
   "OP05-062": [
     {
@@ -86403,8 +86569,38 @@
   ],
   "ST30-011": [],
   "ST30-011_p1": [],
-  "ST29-008": [],
-  "ST29-008_p1": [],
+  "ST29-008": [
+    {
+      "_text": "[auto] 自《エッグヘッド》 効果KO 代替 → ライフ表向き ( peek)",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "エッグヘッド",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "peek_self_life_top": 1
+        }
+      ]
+    }
+  ],
+  "ST29-008_p1": [
+    {
+      "_text": "[auto] 自《エッグヘッド》 効果KO 代替 → ライフ表向き ( peek)",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "エッグヘッド",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "peek_self_life_top": 1
+        }
+      ]
+    }
+  ],
   "OP09-086_r1": [
     {
       "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
@@ -86484,8 +86680,42 @@
   "OP07-023_r1": [],
   "OP07-031_r1": [],
   "OP07-033_r1": [],
-  "OP09-012_r1": [],
-  "ST20-002": [],
+  "OP09-012_r1": [
+    {
+      "_text": "[auto] 自「ボンク・パンチ」 効果KO 代替 → holder トラッシュ (任意)",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_name": "ボンク・パンチ",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
+  "ST20-002": [
+    {
+      "_text": "[auto] this 効果KO 代替 → ライフ1トラッシュ (ターン1回 任意)",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "mill_self_life_to_trash": 1
+        }
+      ]
+    }
+  ],
   "OP05-066_r1": [
     {
       "_text": "[auto] 【相手のターン中】 self パワー+1000",
@@ -86661,7 +86891,25 @@
   ],
   "ST10-011": [],
   "ST10-014": [],
-  "ST09-010": [],
+  "ST09-010": [
+    {
+      "_text": "[auto] this KO 代替 → ライフ上1トラッシュ (ターン1回、  上か下→上)",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "mill_self_life_to_trash": 1
+        }
+      ]
+    }
+  ],
   "ST05-008": [],
   "ST05-008_r1": [],
   "OP01-025_p4": [],
@@ -86991,7 +87239,22 @@
       ]
     }
   ],
-  "OP05-030_p1": [],
+  "OP05-030_p1": [
+    {
+      "_text": "[auto] 自レストキャラ KO 代替 → holder トラッシュ",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_rested": true,
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
   "OP10-049_p1": [
     {
       "_text": "[auto] サボ replace_leave: other 元々コスト7以下 (除サボ) → 自身を手札に戻す",

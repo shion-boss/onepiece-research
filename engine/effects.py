@@ -5252,18 +5252,21 @@ def try_replace_ko(
                 k: v for k, v in eff.get("if", {}).items()
                 if k not in ("target", "target_attribute", "target_cost_le",
                              "target_power_le", "target_power_ge",
-                             "target_feature", "target_color",
-                             "target_name_exclude", "by_opp_effect")
+                             "target_feature", "target_feature_contains",
+                             "target_color", "target_name_exclude",
+                             "target_name", "target_rested",
+                             "by_opp_effect", "by_battle")
             }
             if extra_cond and not eval_condition(extra_cond, state, owner, inplay):
                 continue
             # cost フィールド対応 (任意): cost が払えない場合は置換不可。
             # spec: {"cost": [<primitive>...]} を payability check で消費する。
             cost_specs = eff.get("cost", [])
+            holder_card_id = inplay.card.card_id
             if cost_specs:
-                if not _can_pay_replace_cost(state, owner, cost_specs):
+                if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id):
                     continue
-                _pay_replace_cost(state, owner, cost_specs)
+                _pay_replace_cost(state, owner, cost_specs, holder_card_id)
             state.push_log(
                 f"  離脱置換 ({when}): {victim.card.name} → {inplay.card.name} の効果で代替"
             )
@@ -5318,10 +5321,11 @@ def try_replace_rest(
         if extra_cond and not eval_condition(extra_cond, state, victim_owner, victim):
             continue
         cost_specs = eff.get("cost", [])
+        holder_card_id = victim.card.card_id
         if cost_specs:
-            if not _can_pay_replace_cost(state, victim_owner, cost_specs):
+            if not _can_pay_replace_cost(state, victim_owner, cost_specs, holder_card_id):
                 continue
-            _pay_replace_cost(state, victim_owner, cost_specs)
+            _pay_replace_cost(state, victim_owner, cost_specs, holder_card_id)
         state.push_log(f"  レスト置換: {victim.card.name} の効果で発動")
         for primitive in eff.get("do", []):
             execute_effect(primitive, state, victim_owner, actor, victim)
@@ -5330,9 +5334,13 @@ def try_replace_rest(
 
 
 def _can_pay_replace_cost(
-    state: GameState, me: Player, cost_specs: list[dict]
+    state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None
 ) -> bool:
-    """replace_ko / replace_leave の cost 配列が払えるかチェック。 R3 拡張。"""
+    """replace_ko / replace_leave の cost 配列が払えるかチェック。 R3 拡張。
+
+    holder_card_id を 渡すと once_per_turn の 使用 済み 判定 が 効く (= 既に 同一 ターン に
+    発動済 なら 払えない 扱い)。
+    """
     for cs in cost_specs:
         if "discard_hand_with_filter" in cs:
             df_spec = cs["discard_hand_with_filter"]
@@ -5353,6 +5361,15 @@ def _can_pay_replace_cost(
             n = int(cs["discard_hand"])
             if len(me.hand) < n:
                 return False
+        elif "once_per_turn" in cs:
+            # 【ターン1回】 — 同一ターン内 同一 holder の 同一 replace 発動 を 1 回 に 制限。
+            # holder_card_id があれば per-card per-turn フラグ で 管理。
+            if not bool(cs["once_per_turn"]):
+                continue
+            if holder_card_id is not None:
+                key = f"replace_opt::{holder_card_id}"
+                if key in me.once_per_turn_used:
+                    return False
         else:
             # 未対応 cost は支払不能扱い (= 公式 4-10 解釈不能→False)
             return False
@@ -5360,10 +5377,15 @@ def _can_pay_replace_cost(
 
 
 def _pay_replace_cost(
-    state: GameState, me: Player, cost_specs: list[dict]
+    state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None
 ) -> None:
     """replace_ko / replace_leave の cost 配列を実行 (消費)。"""
     for cs in cost_specs:
+        if "once_per_turn" in cs and bool(cs["once_per_turn"]):
+            # 【ターン1回】 使用済みフラグ
+            if holder_card_id is not None:
+                me.once_per_turn_used.add(f"replace_opt::{holder_card_id}")
+            continue
         if "discard_hand_with_filter" in cs:
             df_spec = cs["discard_hand_with_filter"]
             if "filter" in df_spec:
@@ -5410,6 +5432,10 @@ def _replace_ko_match(
     requires_opp_effect = bool(cond.get("by_opp_effect", False))
     if requires_opp_effect and not by_opp_effect:
         return False
+    # by_battle 条件 (cond で True を要求した時、 バトル由来でなければ不適用 = 効果KO除外)
+    requires_battle = bool(cond.get("by_battle", False))
+    if requires_battle and by_opp_effect:
+        return False
 
     if target == "self":
         # holder 自身が victim
@@ -5443,6 +5469,11 @@ def _replace_ko_match(
     if "target_feature" in cond:
         if cond["target_feature"] not in victim.card.features:
             return False
+    if "target_feature_contains" in cond:
+        # 部分一致 (= 公式「『X』を含む特徴」)
+        feat = cond["target_feature_contains"]
+        if not any(feat in f for f in victim.card.features):
+            return False
     if "target_color" in cond:
         if cond["target_color"] not in victim.card.color:
             return False
@@ -5451,6 +5482,19 @@ def _replace_ko_match(
         if isinstance(excl, str):
             excl = [excl]
         if victim.card.name in excl:
+            return False
+    if "target_name" in cond:
+        # 特定 カード名 限定 (= OP09-012 「自分のキャラの「ボンク・パンチ」 が KO される場合」 等)
+        name = cond["target_name"]
+        if isinstance(name, str):
+            if victim.card.name != name:
+                return False
+        elif isinstance(name, list):
+            if victim.card.name not in name:
+                return False
+    if "target_rested" in cond:
+        # victim が レスト 状態 か (= 公式 「自分のレストのキャラが KO される場合」)
+        if bool(cond["target_rested"]) != victim.rested:
             return False
     return True
 
