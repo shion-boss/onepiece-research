@@ -640,6 +640,82 @@ export function DrawCardOverlay({
   );
 }
 
+// --------------------------------------------------------------------------
+// TurnBannerOverlay: ターン 切替 時 「YOUR TURN」 / 「OPPONENT TURN」 大型 banner
+// --------------------------------------------------------------------------
+
+export function TurnBannerOverlay({
+  turnPlayerIdx,
+  humanIdx,
+}: {
+  turnPlayerIdx: number;
+  humanIdx: number;
+}) {
+  const [showItem, setShowItem] = useState<{
+    id: number;
+    label: string;
+    color: "self" | "opp";
+  } | null>(null);
+  const prevTurnRef = useRef<number>(turnPlayerIdx);
+  const idRef = useRef(0);
+
+  useEffect(() => {
+    if (prevTurnRef.current === turnPlayerIdx) return;
+    prevTurnRef.current = turnPlayerIdx;
+    const isMe = turnPlayerIdx === humanIdx;
+    const id = idRef.current++;
+    setShowItem({
+      id,
+      label: isMe ? "YOUR TURN" : "OPPONENT TURN",
+      color: isMe ? "self" : "opp",
+    });
+    const t = setTimeout(() => {
+      setShowItem((cur) => (cur?.id === id ? null : cur));
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [turnPlayerIdx, humanIdx]);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[58] flex items-center justify-center">
+      <AnimatePresence>
+        {showItem && (
+          <motion.div
+            key={showItem.id}
+            initial={{ opacity: 0, x: -300 }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              x: [-300, 0, 0, 300],
+            }}
+            transition={{
+              duration: 1.5,
+              times: [0, 0.18, 0.7, 1],
+              ease: "easeOut",
+            }}
+            exit={{ opacity: 0 }}
+            className={
+              "rounded-2xl border-4 px-20 py-8 text-center shadow-2xl backdrop-blur " +
+              (showItem.color === "self"
+                ? "border-emerald-300 bg-emerald-900/80"
+                : "border-rose-300 bg-rose-900/80")
+            }
+          >
+            <div
+              className={
+                "text-6xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " +
+                (showItem.color === "self"
+                  ? "text-emerald-200"
+                  : "text-rose-200")
+              }
+            >
+              {showItem.label}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 /** 自分側 hand で 直近 ドロー カード を ハイライト 表示 する 用 hook。
  *
  * 返値 = ハイライト 対象 の hand idx Set。 hand 末尾 N 枚 (= handDelta 分) を

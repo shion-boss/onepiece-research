@@ -27,6 +27,7 @@ import {
   DrawCardOverlay,
   CounterPlayOverlay,
   fireCounterPlay,
+  TurnBannerOverlay,
   useRecentDrawnIdxs,
 } from "./_matchAnimHelpers";
 
@@ -953,6 +954,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 
       {/* counter ドロップ 時 「+N」 popup + カード trash slide 演出 */}
       <CounterPlayOverlay />
+
+      {/* ターン 切替 banner (= YOUR TURN / OPPONENT TURN 大型) */}
+      <TurnBannerOverlay
+        turnPlayerIdx={state.turn_player_idx}
+        humanIdx={state.human_idx}
+      />
 
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
       {state.game_over && (
