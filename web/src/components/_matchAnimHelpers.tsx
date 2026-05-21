@@ -707,11 +707,13 @@ export function TurnBannerOverlay({
     prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
     const additions: BannerItem[] = [];
-    // 初回 (= prev=-1 → 試合 start) は 「先攻/後攻」 を 先 enqueue
+    // 初回 (= prev=-1 → 試合 start) は 「先攻 X vs 後攻 Y」 を 先 enqueue
     if (prev === -1) {
       additions.push({
         id: idRef.current++,
-        label: isMe ? "あなたが先攻" : "あなたが後攻",
+        label: isMe
+          ? "先攻 あなた vs 後攻 AI"
+          : "先攻 AI vs 後攻 あなた",
         color: isMe ? "self" : "opp",
       });
     }
