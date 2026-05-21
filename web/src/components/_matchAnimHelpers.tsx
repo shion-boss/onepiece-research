@@ -716,15 +716,16 @@ export function TurnBannerOverlay({
     void pendingKind;
   }, [turnPlayerIdx, humanIdx, hasMulliganPending, pendingKind]);
 
-  // queue を 順次 1.5 秒 ずつ 表示 (= 連続 fire を 上書き せず 全 表示)
+  // queue を 順次 1.5 秒 ずつ 表示 (= 連続 fire を 上書き せず 全 表示)。
+  // cleanup で clearTimeout しない (= queue 変化 で 旧 timeout cancel され dismiss
+  // 不能 になる 問題 解消)。 旧 timeout も そのまま fire で showItem null に。
   useEffect(() => {
     if (showItem !== null) return;
     if (queue.length === 0) return;
     const next = queue[0];
     setShowItem(next);
     setQueue((q) => q.slice(1));
-    const t = setTimeout(() => setShowItem(null), 1500);
-    return () => clearTimeout(t);
+    setTimeout(() => setShowItem(null), 1500);
   }, [showItem, queue]);
 
   return (
