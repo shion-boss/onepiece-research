@@ -2098,8 +2098,17 @@ function SearchChoiceModal({
     if (!allowed) return;
     if (picked.includes(idx)) {
       setPicked(picked.filter((x) => x !== idx));
-    } else if (picked.length < limit) {
+      return;
+    }
+    if (picked.length < limit) {
       setPicked([...picked, idx]);
+      return;
+    }
+    // 上限到達 + 未選択 idx をクリック: limit=1 なら 切り替え、 limit>1 なら 最古を退けて 追加
+    if (limit === 1) {
+      setPicked([idx]);
+    } else {
+      setPicked([...picked.slice(1), idx]);
     }
   }
 
@@ -2224,8 +2233,17 @@ function TargetPickModal({
   function togglePick(idx: number) {
     if (picked.includes(idx)) {
       setPicked(picked.filter((x) => x !== idx));
-    } else if (picked.length < limit) {
+      return;
+    }
+    if (picked.length < limit) {
       setPicked([...picked, idx]);
+      return;
+    }
+    // 上限到達 + 未選択 idx クリック: limit=1 → 切替、 limit>1 → 最古退けて追加
+    if (limit === 1) {
+      setPicked([idx]);
+    } else {
+      setPicked([...picked.slice(1), idx]);
     }
   }
 
