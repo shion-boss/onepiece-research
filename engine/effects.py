@@ -825,6 +825,26 @@ def _resolve_target(
       再実行 する 際 の 外側 primitive 名 (= "ko" / "power_pump" 等)。
     - outer_value: pending_choice に 記録する 元 spec (= 再実行時に そのまま 使う)
     """
+    # opp target 「実害 評価」 (= AI が pick する 際 の eval 良い順)。
+    # ohtsuki さん 要望 「AI も最善手 考えるよう target expansion」。
+    # 排除 価値 = cost + power + blocker bonus + finisher role bonus
+    def _opp_value(c) -> float:
+        val = float(c.card.cost) * 1000 + float(c.power)
+        if getattr(c, "is_blocker_now", False):
+            val += 3000
+        try:
+            from . import card_role as _cr
+            role = _cr.get_primary_role(c.card.card_id)
+            if role == "finisher":
+                val += 5000
+            elif role == "blocker":
+                val += 2500
+            elif role == "support":
+                val += 1500
+        except Exception:
+            pass
+        return val
+
     # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
     # ユーザ の 選択した iid から 該当 InPlay を 全 場 から 直接 解決 する。
     # 元 の target_spec の filter は 既に user 選択 で 通過 済 と 見なす。
@@ -941,27 +961,27 @@ def _resolve_target(
     if target_spec == "one_opponent_character_le_5000":
         cands = sorted(
             [c for c in opp.characters if c.power <= 5000],
-            key=lambda c: -c.power,
+            key=lambda c: -_opp_value(c),
         )
         return cands[:1]
     if target_spec == "one_opponent_character_le_4000":
         cands = sorted(
             [c for c in opp.characters if c.power <= 4000],
-            key=lambda c: -c.power,
+            key=lambda c: -_opp_value(c),
         )
         return cands[:1]
     if target_spec == "one_opponent_character_any":
-        cands = sorted(opp.characters, key=lambda c: -c.power)
+        cands = sorted(opp.characters, key=lambda c: -_opp_value(c))
         return cands[:1]
     if target_spec == "one_opp_chara_blocker":
-        # 相手の【ブロッカー】 を持つキャラ 1 枚 (power 高い順)。 ST30-012 ルフィ等。
+        # 相手の【ブロッカー】 を持つキャラ 1 枚 (= 実害評価高い順)
         cands = [c for c in opp.characters if c.is_blocker_now]
-        cands.sort(key=lambda ip: -ip.power)
+        cands.sort(key=lambda ip: -_opp_value(ip))
         return cands[:1]
     if target_spec == "one_opponent_inplay_any":
         # リーダー or キャラ 1 枚 (= 「相手のリーダーかキャラ 1 枚まで」)。
-        # 脅威優先: パワー高いキャラ → なければリーダー
-        cands = sorted(opp.characters, key=lambda c: -c.power)
+        # 脅威優先: 実害評価高いキャラ → なければリーダー
+        cands = sorted(opp.characters, key=lambda c: -_opp_value(c))
         if cands:
             return cands[:1]
         return [opp.leader]
@@ -973,7 +993,7 @@ def _resolve_target(
     if target_spec == "one_opponent_rested_character_le_5000":
         cands = sorted(
             [c for c in opp.characters if c.rested and c.power <= 5000],
-            key=lambda c: -c.power,
+            key=lambda c: -_opp_value(c),
         )
         return cands[:1]
     if target_spec == "all_self_characters":
@@ -988,13 +1008,13 @@ def _resolve_target(
 
     # --- パラメトリック target (regex マッチ) ---
     if isinstance(target_spec, str):
-        # one_opponent_character_cost_le_N (1 体、最高パワー)
+        # one_opponent_character_cost_le_N (1 体、 実害評価 高い順)
         m = re.match(r"one_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
             cands = sorted(
                 [c for c in opp.characters if c.card.cost <= n],
-                key=lambda c: -c.power,
+                key=lambda c: -_opp_value(c),
             )
             return cands[:1]
 
@@ -1010,7 +1030,7 @@ def _resolve_target(
             n = int(m.group(1))
             cands = sorted(
                 [c for c in opp.characters if c.rested and c.card.cost <= n],
-                key=lambda c: -c.power,
+                key=lambda c: -_opp_value(c),
             )
             return cands[:1]
 
