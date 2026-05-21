@@ -714,6 +714,11 @@ def legal_actions(state: GameState) -> list[Action]:
                 if "in_hand_cost_minus" in prim:
                     val = prim["in_hand_cost_minus"]
                     total += int(val) if isinstance(val, int) else int(val.get("amount", 0))
+                elif "in_hand_cost_plus" in prim:
+                    # 公式 「手札のこのカードは ... の場合、 コスト+N」 (= EB03-042 革命軍 等)。
+                    # play_cost に 加算 する 方向。 minus と 符号 逆 で 合算。
+                    val = prim["in_hand_cost_plus"]
+                    total -= int(val) if isinstance(val, int) else int(val.get("amount", 0))
         return total
 
     def _eff_cost(card: CardDef) -> int:
@@ -1075,6 +1080,9 @@ def _compute_in_hand_cost_minus(state: GameState, me: Player, card: CardDef) -> 
             if "in_hand_cost_minus" in prim:
                 val = prim["in_hand_cost_minus"]
                 total += int(val) if isinstance(val, int) else int(val.get("amount", 0))
+            elif "in_hand_cost_plus" in prim:
+                val = prim["in_hand_cost_plus"]
+                total -= int(val) if isinstance(val, int) else int(val.get("amount", 0))
     return total
 
 

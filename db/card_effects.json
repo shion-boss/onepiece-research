@@ -10176,6 +10176,18 @@
       "if": {
         "leader_feature": "革命軍"
       }
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+4",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 4
+        }
+      ]
     }
   ],
   "PRB02-006": [
@@ -37466,6 +37478,18 @@
       "if": {
         "leader_feature": "革命軍"
       }
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+4",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 4
+        }
+      ]
     }
   ],
   "OP12-112_p1": [
@@ -49290,6 +49314,18 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+4",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 4
+        }
+      ]
     }
   ],
   "EB03-042_p1": [
@@ -49319,6 +49355,18 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+4",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 4
         }
       ]
     }
@@ -49816,6 +49864,18 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+4",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 4
         }
       ]
     }
@@ -54072,6 +54132,18 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+3",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 3
+        }
+      ]
     }
   ],
   "OP13-087": [
@@ -55246,6 +55318,18 @@
       "if": {
         "opp_hand_count_ge": 5
       }
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+3",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 3
+        }
+      ]
     }
   ],
   "OP12-087": [
@@ -55384,6 +55468,18 @@
       "cost": {
         "discard_hand": 1
       }
+    },
+    {
+      "_text": "[auto] in_hand: リーダー特徴《革命軍》 時 コスト+4",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "in_hand_cost_plus": 4
+        }
+      ]
     }
   ],
   "OP12-096": [
