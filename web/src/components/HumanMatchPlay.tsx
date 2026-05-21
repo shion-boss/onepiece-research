@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { CardImage } from "./CardImage";
 import {
   applyHumanAction,
@@ -14,6 +15,12 @@ import {
   type HumanMatchState,
 } from "@/lib/api";
 import type { CharSnapshot, PlayerSnapshot, StateSnapshot } from "@/lib/types";
+import {
+  useFrameDiff,
+  LifeFlashOverlay,
+  LeftCharaGhostList,
+  AnimatedNumber,
+} from "./_matchAnimHelpers";
 
 /**
  * 人間 vs AI 対戦 component (= OPTCGSim 風 + 重ね 手札 + D&D 対応)。
@@ -230,6 +237,10 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // snapshot 差分 (= life delta / chara 退場 等) を hook で 追跡 し animation 用
+  const snapForDiff = (state?.snapshot ?? null) as StateSnapshot | null;
+  const frameDiff = useFrameDiff(snapForDiff);
 
   if (!state) {
     return (
@@ -630,7 +641,30 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         </div>
 
         {/* 中央: マット (= 5 横向き chara が 収まる固定幅) */}
-        <div className="flex min-h-0 w-[780px] shrink-0 flex-col gap-2">
+        <div className="relative flex min-h-0 w-[780px] shrink-0 flex-col gap-2">
+          {/* ライフ 変化 flash overlay (= 自/相手 別 side) */}
+          <LifeFlashOverlay
+            delta={frameDiff.lifeDelta[state.ai_idx]}
+            side="opp"
+            tickId={frameDiff.eventTickId * 2}
+          />
+          <LifeFlashOverlay
+            delta={frameDiff.lifeDelta[state.human_idx]}
+            side="me"
+            tickId={frameDiff.eventTickId * 2 + 1}
+          />
+          {/* 場を離れた chara の ghost 表示 */}
+          <LeftCharaGhostList
+            leftCharas={frameDiff.leftCharas[state.ai_idx]}
+            side="opp"
+            tickId={frameDiff.eventTickId * 2}
+          />
+          <LeftCharaGhostList
+            leftCharas={frameDiff.leftCharas[state.human_idx]}
+            side="me"
+            tickId={frameDiff.eventTickId * 2 + 1}
+          />
+
           {/* 相手 マット */}
           <PlayerMat
             player={opp}
@@ -1156,7 +1190,9 @@ function DonRow({
         )}
       </div>
       <span className="ml-auto text-xs font-semibold text-amber-200">
-        {donActive}A / {donRested}R
+        <AnimatedNumber value={donActive} flashColorClass="text-emerald-300" />A
+        {" / "}
+        <AnimatedNumber value={donRested} flashColorClass="text-zinc-400" />R
       </span>
     </div>
   );
@@ -1328,91 +1364,103 @@ function CharacterRow({
   while (slots.length < 5) slots.push(null);
   return (
     <div className="flex shrink-0 items-center justify-center gap-x-10 py-1">
-      {slots.map((c, i) => {
-        if (!c) {
+      <AnimatePresence mode="popLayout" initial={false}>
+        {slots.map((c, i) => {
+          if (!c) {
+            return (
+              <div
+                key={`slot-${i}`}
+                className={
+                  "h-32 w-24 rounded border border-dashed " +
+                  (isMe && drag?.kind === "hand"
+                    ? "border-yellow-400 bg-yellow-900/30"
+                    : "border-zinc-600/50")
+                }
+                data-iid="empty"
+                onDragOver={(e) => {
+                  if (isMe && drag?.kind === "hand") e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  if (!isMe || drag?.kind !== "hand") return;
+                  e.preventDefault();
+                  onDropTarget({ kind: "self_field" });
+                }}
+              />
+            );
+          }
+          const isAttacker = attackerIid === c.instance_id;
+          const isActable =
+            canAct && (actionsByIid.get(c.instance_id)?.length ?? 0) > 0;
+          const isSelected =
+            selection?.kind === "self_chara" && selection.iid === c.instance_id;
+
+          // Drop target:
+          //  自キャラ: DON drag (= AttachDonToCharacter)
+          //  相手キャラ: chara drag (= AttackCharacter)
+          const acceptOnThis = isMe
+            ? drag?.kind === "don"
+            : drag?.kind === "chara";
+
+          // Draggable:
+          //  自キャラ で attack action あれば draggable
+          const isAttackSrc =
+            isMe &&
+            canAct &&
+            (actionsByIid.get(c.instance_id) ?? []).some(
+              (a) =>
+                a.kind === "AttackLeader" || a.kind === "AttackCharacter",
+            );
+
           return (
-            <div
-              key={`slot-${i}`}
-              className={
-                "h-32 w-24 rounded border border-dashed " +
-                (isMe && drag?.kind === "hand"
-                  ? "border-yellow-400 bg-yellow-900/30"
-                  : "border-zinc-600/50")
-              }
-              data-iid="empty"
+            <motion.div
+              key={c.instance_id}
+              layoutId={`chara-${c.instance_id}`}
+              initial={{ opacity: 0, scale: 0.6, y: isMe ? 40 : -40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.4, y: isMe ? 60 : -60, rotate: 8 }}
+              transition={{
+                type: "spring",
+                stiffness: 320,
+                damping: 26,
+                opacity: { duration: 0.25 },
+              }}
               onDragOver={(e) => {
-                if (isMe && drag?.kind === "hand") e.preventDefault();
+                if (acceptOnThis) e.preventDefault();
               }}
               onDrop={(e) => {
-                if (!isMe || drag?.kind !== "hand") return;
+                if (!acceptOnThis) return;
                 e.preventDefault();
-                onDropTarget({ kind: "self_field" });
+                onDropTarget(
+                  isMe
+                    ? { kind: "self_chara", iid: c.instance_id }
+                    : { kind: "opp_chara", iid: c.instance_id },
+                );
               }}
-            />
+            >
+              <CharCard
+                ch={c}
+                isLeader={false}
+                isMine={isMe}
+                isAttacker={isAttacker}
+                isTarget={canSelectAsTarget}
+                isActable={isActable}
+                isSelected={isSelected}
+                onClick={() => onChara(c.instance_id)}
+                size="small"
+                onHover={onHover}
+                draggable={isAttackSrc}
+                onDragStart={
+                  isAttackSrc
+                    ? () => onDragStart?.({ kind: "chara", iid: c.instance_id })
+                    : undefined
+                }
+                onDragEnd={onDragEnd}
+                dropHint={acceptOnThis}
+              />
+            </motion.div>
           );
-        }
-        const isAttacker = attackerIid === c.instance_id;
-        const isActable =
-          canAct && (actionsByIid.get(c.instance_id)?.length ?? 0) > 0;
-        const isSelected =
-          selection?.kind === "self_chara" && selection.iid === c.instance_id;
-
-        // Drop target:
-        //  自キャラ: DON drag (= AttachDonToCharacter)
-        //  相手キャラ: chara drag (= AttackCharacter)
-        const acceptOnThis = isMe
-          ? drag?.kind === "don"
-          : drag?.kind === "chara";
-
-        // Draggable:
-        //  自キャラ で attack action あれば draggable
-        const isAttackSrc =
-          isMe &&
-          canAct &&
-          (actionsByIid.get(c.instance_id) ?? []).some(
-            (a) =>
-              a.kind === "AttackLeader" || a.kind === "AttackCharacter",
-          );
-
-        return (
-          <div
-            key={c.instance_id}
-            onDragOver={(e) => {
-              if (acceptOnThis) e.preventDefault();
-            }}
-            onDrop={(e) => {
-              if (!acceptOnThis) return;
-              e.preventDefault();
-              onDropTarget(
-                isMe
-                  ? { kind: "self_chara", iid: c.instance_id }
-                  : { kind: "opp_chara", iid: c.instance_id },
-              );
-            }}
-          >
-            <CharCard
-              ch={c}
-              isLeader={false}
-              isMine={isMe}
-              isAttacker={isAttacker}
-              isTarget={canSelectAsTarget}
-              isActable={isActable}
-              isSelected={isSelected}
-              onClick={() => onChara(c.instance_id)}
-              size="small"
-              onHover={onHover}
-              draggable={isAttackSrc}
-              onDragStart={
-                isAttackSrc
-                  ? () => onDragStart?.({ kind: "chara", iid: c.instance_id })
-                  : undefined
-              }
-              onDragEnd={onDragEnd}
-              dropHint={acceptOnThis}
-            />
-          </div>
-        );
-      })}
+        })}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1630,15 +1678,27 @@ function StatBadge({
       <span className={`rounded px-2 py-0.5 text-sm ${color}`}>{label}</span>
       <span className="rounded bg-black/40 px-2 py-0.5">
         Hand{" "}
-        <span className="text-base text-yellow-200">{player.hand_count}</span>
+        <AnimatedNumber
+          value={player.hand_count}
+          className="text-base text-yellow-200"
+          flashColorClass="text-yellow-100"
+        />
       </span>
       <span className="rounded bg-black/40 px-2 py-0.5">
         DON{" "}
-        <span className="text-base text-amber-200">{player.don_total}</span>
+        <AnimatedNumber
+          value={player.don_total}
+          className="text-base text-amber-200"
+          flashColorClass="text-amber-100"
+        />
       </span>
       <span className="rounded bg-black/40 px-2 py-0.5">
         Life{" "}
-        <span className="text-base text-orange-200">{player.life_count}</span>
+        <AnimatedNumber
+          value={player.life_count}
+          className="text-base text-orange-200"
+          flashColorClass="text-rose-300"
+        />
       </span>
       <span className="opacity-70">
         Deck {player.deck_count} · Trash {player.trash_count}
