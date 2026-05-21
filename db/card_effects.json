@@ -20055,14 +20055,22 @@
   ],
   "OP12-075": [
     {
-      "_text": "OP12-075 on_play: 相手のコスト3以下のキャラ1枚までを、KOする。その後、相手はドン‼デッキからドン‼1枚を、アクティブで追加してもよい。",
+      "_text": "OP12-075 on_play: 相手のコスト3以下のキャラ1枚KO",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
-        },
-        {
           "ko": "one_opponent_character_cost_le_3cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP12-075 on_play (optional): 相手はドン1枚アクティブ追加してもよい",
+      "when": "on_play",
+      "optional": true,
+      "actor": "opp",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     },
@@ -75584,7 +75592,8 @@
         {
           "optional_after_battle_mutual_ko": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "ST08-014": [
@@ -83763,8 +83772,56 @@
       ]
     }
   ],
-  "ST16-005_p1": [],
-  "ST16-005_r1": [],
+  "ST16-005_p1": [
+    {
+      "_text": "[auto] static: 自分の「ウタ」がレストの場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ウタ"
+          },
+          "count": 1,
+          "rested_required": true
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "ST16-005_r1": [
+    {
+      "_text": "[auto] static: 自分の「ウタ」がレストの場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ウタ"
+          },
+          "count": 1,
+          "rested_required": true
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP01-121_p3": [],
   "OP01-121_r1": [],
   "OP02-114_p4": [
@@ -83906,10 +83963,82 @@
       ]
     }
   ],
-  "OP06-067_p1": [],
-  "OP06-067_p2": [],
-  "OP06-067_p3": [],
-  "OP06-067_r1": [],
+  "OP06-067_p1": [
+    {
+      "_text": "[auto] static: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "OP06-067_p2": [
+    {
+      "_text": "[auto] static: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "OP06-067_p3": [
+    {
+      "_text": "[auto] static: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "OP06-067_r1": [
+    {
+      "_text": "[auto] static: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP06-110_p1": [],
   "OP06-110_p2": [],
   "OP06-110_r1": [],
@@ -84196,7 +84325,30 @@
       ]
     }
   ],
-  "OP15-050": [],
+  "OP15-050": [
+    {
+      "_text": "[auto] static: 自分の「ケリー・ファンク」がいる場合 → self power+3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ケリー・ファンク"
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP15-051": [
     {
       "_text": "[auto] 【相手のターン中】このキャラのパワー+3000",
@@ -85185,7 +85337,25 @@
       ]
     }
   ],
-  "OP06-067": [],
+  "OP06-067": [
+    {
+      "_text": "[auto] static: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP06-072": [
     {
       "_text": "OP06-072 自分のリーダーが特徴《ジェルマ66》でかつ、自分の場のドン !!の枚数が相手より2枚以上少ない場合、このキャラは【ブロッカー】を得る。",
@@ -85953,7 +86123,31 @@
       ]
     }
   ],
-  "ST16-005": [],
+  "ST16-005": [
+    {
+      "_text": "[auto] static: 自分の「ウタ」がレストの場合 → self power+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ウタ"
+          },
+          "count": 1,
+          "rested_required": true
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "ST15-003": [],
   "ST15-005": [
     {
