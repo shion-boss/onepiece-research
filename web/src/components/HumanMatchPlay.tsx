@@ -112,6 +112,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     // 各 frame で snapshot (= board) は 中間状態 を 表示 する が、
     // log は 累積 で 表示 する (= 「相手ターン中 log が 1 行 しか 出ない」 修正)。
     // frame.log は その時点 の 1 行 のみ なので、 final.log (= 全行) を 使う。
+    // ライフ→手札 / KO 等 重い演出 frame は wait 延長 (= 演出 完了 まで 次 行動 待ち)。
     for (let i = 0; i < frames.length - 1; i++) {
       const f = frames[i];
       setState({
@@ -121,7 +122,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         pending_kind: null,
         log: final.log,
       });
-      await new Promise((resolve) => setTimeout(resolve, perFrameMs));
+      const logLine = typeof f.log === "string" ? f.log : "";
+      // 重い演出 (= LifeFlashOverlay 0.8s + PlayedCardOverlay 1.7s 等) が 完了 する
+      // まで 待ちたい frame
+      const heavy =
+        /life->hand|hit:|ライフ|KO|登場/.test(logLine);
+      const wait = heavy ? Math.max(perFrameMs, 1800) : perFrameMs;
+      await new Promise((resolve) => setTimeout(resolve, wait));
     }
     setState(final);
   }
