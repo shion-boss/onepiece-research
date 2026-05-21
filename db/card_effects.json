@@ -84473,7 +84473,26 @@
   ],
   "EB01-057": [],
   "EB01-057_p1": [],
-  "OP15-009": [],
+  "OP15-009": [
+    {
+      "_text": "[auto] 自元P7000以下 効果離脱 → 自リーダー パワー-2000 (turn)",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_le": 7000,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP15-013": [
     {
       "_text": "[auto] 手札のこのカード コスト-2",
@@ -84652,8 +84671,38 @@
       ]
     }
   ],
-  "OP15-094": [],
-  "OP15-105": [],
+  "OP15-094": [
+    {
+      "_text": "[auto] 自他《麦わらの一味》 効果離脱 → holder トラッシュ",
+      "when": "replace_leave",
+      "if": {
+        "target": "other_self_chara",
+        "target_feature": "麦わらの一味",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ]
+    }
+  ],
+  "OP15-105": [
+    {
+      "_text": "[auto] 自元P7000以下 効果離脱 → 自ライフ1手札",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_le": 7000,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ]
+    }
+  ],
   "OP14-003": [],
   "OP14-004": [
     {
@@ -84790,7 +84839,31 @@
       ]
     }
   ],
-  "OP13-017": [],
+  "OP13-017": [
+    {
+      "_text": "[auto] 自《革命軍》 効果離脱 → holder パワー-2000 (turn、 1回)",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "革命軍",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP13-046": [
     {
       "_text": "[auto] replace_leave: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード → cost 解消",
@@ -84861,7 +84934,21 @@
       }
     }
   ],
-  "OP13-109": [],
+  "OP13-109": [
+    {
+      "_text": "[auto] this 効果離脱 → 自ライフ1表向き (peek)",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "peek_self_life_top": 1
+        }
+      ]
+    }
+  ],
   "OP13-112": [
     {
       "_text": "OP13-112 自分の付与されているドン‼が合計2枚以上ある場合、このキャラは【ブロッカー】を得る。",
@@ -84896,7 +84983,29 @@
   ],
   "OP12-021": [],
   "OP12-036": [],
-  "OP12-048": [],
+  "OP12-048": [
+    {
+      "_text": "[auto] 自青《海軍》 効果離脱 (相手ターン) → holder レスト + 手札1捨て",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "海軍",
+        "target_color": "青",
+        "by_opp_effect": true,
+        "opp_turn": true
+      },
+      "cost": [
+        {
+          "trash_self_hand_random": 1
+        }
+      ],
+      "do": [
+        {
+          "rest": "self"
+        }
+      ]
+    }
+  ],
   "OP12-053": [
     {
       "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることができる。",
@@ -85168,8 +85277,50 @@
   ],
   "OP11-077": [],
   "OP11-088": [],
-  "OP11-101": [],
-  "OP11-101_p1": [],
+  "OP11-101": [
+    {
+      "_text": "[auto] 自《超新星》他 効果離脱 → デッキ上1ライフ (裏向き、 ターン1回)",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "超新星",
+        "target_name_exclude": "カポネ・ベッジ",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    }
+  ],
+  "OP11-101_p1": [
+    {
+      "_text": "[auto] 自《超新星》他 効果離脱 → デッキ上1ライフ (裏向き、 ターン1回)",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "超新星",
+        "target_name_exclude": "カポネ・ベッジ",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    }
+  ],
   "OP11-112": [
     {
       "_text": "[auto] 【相手のターン中】このキャラのパワー+4000",
@@ -86567,8 +86718,40 @@
       ]
     }
   ],
-  "ST30-011": [],
-  "ST30-011_p1": [],
+  "ST30-011": [
+    {
+      "_text": "[auto] 自元P6000 効果離脱 → holder レスト",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_le": 6000,
+        "target_power_ge": 6000,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "rest": "self"
+        }
+      ]
+    }
+  ],
+  "ST30-011_p1": [
+    {
+      "_text": "[auto] 自元P6000 効果離脱 → holder レスト",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_le": 6000,
+        "target_power_ge": 6000,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "rest": "self"
+        }
+      ]
+    }
+  ],
   "ST29-008": [
     {
       "_text": "[auto] 自《エッグヘッド》 効果KO 代替 → ライフ表向き ( peek)",
