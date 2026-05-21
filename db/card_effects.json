@@ -84258,7 +84258,33 @@
       ]
     }
   ],
-  "EB01-008": [],
+  "EB01-008": [
+    {
+      "_text": "[auto] replace_ko: 自分の手札のイベントかステージカード → cost 解消",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        },
+        {
+          "discard_hand_with_filter": {
+            "filter": {
+              "category_in": [
+                "EVENT",
+                "STAGE"
+              ]
+            },
+            "count": 1
+          }
+        }
+      ],
+      "do": []
+    }
+  ],
   "EB01-024": [],
   "EB01-047": [
     {
@@ -84549,7 +84575,30 @@
     }
   ],
   "OP13-017": [],
-  "OP13-046": [],
+  "OP13-046": [
+    {
+      "_text": "[auto] replace_leave: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード → cost 解消",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        },
+        {
+          "discard_hand_with_filter": {
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "count": 1
+          }
+        }
+      ],
+      "do": []
+    }
+  ],
   "OP13-047": [],
   "OP13-060": [],
   "OP13-078": [
@@ -86392,7 +86441,30 @@
     }
   ],
   "OP12-036_p1": [],
-  "OP13-046_p1": [],
+  "OP13-046_p1": [
+    {
+      "_text": "[auto] replace_leave: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード → cost 解消",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        },
+        {
+          "discard_hand_with_filter": {
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "count": 1
+          }
+        }
+      ],
+      "do": []
+    }
+  ],
   "P-027": [],
   "P-028": [],
   "P-028_p1": [],

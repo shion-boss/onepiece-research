@@ -275,7 +275,13 @@ def check_empty_do(entries: list, text: str, cid: str) -> list[dict]:
             continue
         do = e.get("do") or []
         # when が non-effect (= e.g. leader_passive without do) は許容
-        if len(do) == 0 and not e.get("static") and e.get("when") not in ("leader_passive", "setup_modifier"):
+        # replace_ko / replace_leave も cost-only で do 空が 公式 「代わりに 〜 する」 の 解釈
+        if (
+            len(do) == 0
+            and not e.get("static")
+            and e.get("when")
+            not in ("leader_passive", "setup_modifier", "replace_ko", "replace_leave")
+        ):
             issues.append({"kind": "empty_do_array", "entry_index": i, "severity": 4})
     return issues
 
