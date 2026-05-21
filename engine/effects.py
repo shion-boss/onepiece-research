@@ -747,7 +747,16 @@ def eval_condition(
 # --------------------------------------------------------------------------- #
 # 対象選択ヘルパ
 # --------------------------------------------------------------------------- #
-def _should_human_pick(state: GameState) -> bool:
+def _should_human_pick(state: GameState) -> bool:  # noqa: F811
+    # forced_human_actor_idx (= counter event 等 自ターン外 で human actor) が
+    # human_player_idx と 一致 する 場合 は 強制 True (= 通常 turn_player_idx 判定 を bypass)
+    forced = getattr(state, "forced_human_actor_idx", None)
+    if (
+        forced is not None
+        and state.human_player_idx is not None
+        and forced == state.human_player_idx
+    ):
+        return True
     """人間 操作中 か (= state.human_player_idx == 現 turn_player_idx)。"""
     return (
         state.human_player_idx is not None
@@ -5540,8 +5549,8 @@ def trigger_counter_event(
     """【カウンター】イベントを enqueue (7-1-3-1-2)。 me=防御側。 コスト既払い。"""
     bundle = effects_overlay.get(card.card_id)
     has_counter = bundle is not None and any(e.get("when") == "counter" for e in bundle.effects)
+    me_idx = state.players.index(me)
     if has_counter:
-        me_idx = state.players.index(me)
         enqueue_event(
             state,
             when="counter",
@@ -5549,11 +5558,16 @@ def trigger_counter_event(
             source_card_id=card.card_id,
             source_iid=None,
         )
-    # カウンターイベントも 「イベント発動」 に該当 → 相手側の opp_event_or_trigger_fired 発火。
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
-    # カウンターイベント発動側でも on_self_event_played を発火 (公式 8-1-2: 発動者基準)。
     trigger_self_event_played(state, me, opp, effects_overlay)
-    _maybe_resolve(state)
+    # 防御中 (= AI ターン中) でも defender が human なら user pick を 有効化 する 為、
+    # forced_human_actor_idx を 一時的 に set。 _maybe_resolve 完了 で clear。
+    prev_forced = getattr(state, "forced_human_actor_idx", None)
+    state.forced_human_actor_idx = me_idx
+    try:
+        _maybe_resolve(state)
+    finally:
+        state.forced_human_actor_idx = prev_forced
 
 
 def trigger_on_attack(

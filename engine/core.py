@@ -618,6 +618,11 @@ class GameState:
     # frontend が /choice endpoint で 解消 する まで 進行 を 止める。
     # dict 形式: {"kind": "search_top_n", "cards": [...], "limit": N, ...}
     pending_choice: Optional[dict] = None
+    # 「自ターン外 で actor が human の effect 発動中」 override。
+    # 例: counter event を 防御中 (= AI ターン中) に 発動 する 際、 turn_player_idx は
+    # AI だが、 effect の actor は defender=human。 この時 human pick を 有効化 する。
+    # int = human_idx で set、 None = 通常。
+    forced_human_actor_idx: Optional[int] = None
     # 直近の「自分の手札からカードが捨てられた」 イベントの context (OP12-040 クザン等)。
     # trigger_on_self_hand_discarded で一時的に保存され、 eval_condition で参照される。
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
