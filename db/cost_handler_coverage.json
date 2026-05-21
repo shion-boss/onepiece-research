@@ -1,10 +1,10 @@
 {
   "overlay_keys": {
-    "once_per_turn": 583,
+    "once_per_turn": 595,
     "rest_self": 172,
-    "discard_hand": 358,
+    "discard_hand": 357,
     "return_self_to_hand": 16,
-    "trash_self": 114,
+    "trash_self": 116,
     "pay_don": 302,
     "ko_self_with_filter": 5,
     "rest_self_don": 80,
@@ -61,7 +61,7 @@
     },
     {
       "key": "discard_hand",
-      "n": 358
+      "n": 357
     },
     {
       "key": "return_self_to_hand",
@@ -69,7 +69,7 @@
     },
     {
       "key": "trash_self",
-      "n": 114
+      "n": 116
     },
     {
       "key": "pay_don",
