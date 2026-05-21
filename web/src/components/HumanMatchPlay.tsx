@@ -772,7 +772,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           />
         </div>
 
-        {/* 右 サイド: hover preview + action panel */}
+        {/* 右 サイド: hover preview + action panel (+ 防御 mode) */}
         <RightPanel
           previewCardId={previewCardId}
           previewMeta={previewMeta}
@@ -784,30 +784,26 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           endPhaseAction={endPhaseAction}
           onEndPhase={() => endPhaseAction && applyAction(endPhaseAction)}
           isHumanTurn={isHumanTurn}
-          isDefensePending={isDefensePending}
+          isDefensePending={isDefensePending && !defenseClosing}
           gameOver={state.game_over}
           winner={state.winner}
           humanIdx={state.human_idx}
           aiIdx={state.ai_idx}
           turn={state.turn}
           phase={state.phase}
+          defensePayload={state.pending_payload}
+          defenseMe={me}
+          defenseBlockerIid={blockerIid}
+          defenseSetBlockerIid={setBlockerIid}
+          defenseCounterIdxs={counterIdxs}
+          defenseSetCounterIdxs={setCounterIdxs}
+          defenseOnSubmit={handleDefenseSubmit}
+          defenseOnHover={setHovered}
+          defenseBusy={busy}
         />
       </div>
 
-      {/* 防御 panel overlay (= 確定 押下中 は 一旦 close、 次 pending=defense なら 再 open) */}
-      {isDefensePending && !defenseClosing && (
-        <DefenseOverlay
-          payload={state.pending_payload}
-          me={me}
-          blockerIid={blockerIid}
-          setBlockerIid={setBlockerIid}
-          counterIdxs={counterIdxs}
-          setCounterIdxs={setCounterIdxs}
-          onSubmit={handleDefenseSubmit}
-          busy={busy}
-          onHover={setHovered}
-        />
-      )}
+      {/* 防御 panel は 右 サイド に embed したので overlay は 廃止 */}
 
       {/* 攻撃 矢印 SVG (= ユーザ操作 中) */}
       {attackerIid !== null && mousePos && (
@@ -2043,6 +2039,15 @@ function RightPanel({
   aiIdx,
   turn,
   phase,
+  defensePayload,
+  defenseMe,
+  defenseBlockerIid,
+  defenseSetBlockerIid,
+  defenseCounterIdxs,
+  defenseSetCounterIdxs,
+  defenseOnSubmit,
+  defenseOnHover,
+  defenseBusy,
 }: {
   previewCardId: string | null;
   previewMeta:
@@ -2080,6 +2085,15 @@ function RightPanel({
   aiIdx: number;
   turn: number;
   phase: string;
+  defensePayload: Record<string, unknown> | null;
+  defenseMe: PlayerSnapshot;
+  defenseBlockerIid: number | null;
+  defenseSetBlockerIid: (v: number | null) => void;
+  defenseCounterIdxs: number[];
+  defenseSetCounterIdxs: (v: number[]) => void;
+  defenseOnSubmit: () => void;
+  defenseOnHover: (h: HoverInfo) => void;
+  defenseBusy: boolean;
 }) {
   const turnLabel = gameOver
     ? winner === humanIdx
@@ -2141,12 +2155,18 @@ function RightPanel({
             AI 思考中...
           </div>
         )}
-        {!gameOver && isDefensePending && (
-          <div className="rounded bg-amber-700 p-3 text-center text-sm text-white">
-            ⚠ 防御中
-            <br />
-            下のパネルで選択
-          </div>
+        {!gameOver && isDefensePending && defensePayload && (
+          <DefensePanel
+            payload={defensePayload}
+            me={defenseMe}
+            blockerIid={defenseBlockerIid}
+            setBlockerIid={defenseSetBlockerIid}
+            counterIdxs={defenseCounterIdxs}
+            setCounterIdxs={defenseSetCounterIdxs}
+            onSubmit={defenseOnSubmit}
+            busy={defenseBusy}
+            onHover={defenseOnHover}
+          />
         )}
         {canAct && !selection && (
           <div className="rounded bg-emerald-900/60 p-3 text-center text-sm text-emerald-100">
@@ -3041,6 +3061,156 @@ function TrashViewer({
 // ========================================================================== //
 // 防御 overlay
 // ========================================================================== //
+
+function DefensePanel({
+  payload,
+  me,
+  blockerIid,
+  setBlockerIid,
+  counterIdxs,
+  setCounterIdxs,
+  onSubmit,
+  busy,
+  onHover,
+}: {
+  payload: Record<string, unknown>;
+  me: PlayerSnapshot;
+  blockerIid: number | null;
+  setBlockerIid: (v: number | null) => void;
+  counterIdxs: number[];
+  setCounterIdxs: (v: number[]) => void;
+  onSubmit: () => void;
+  busy: boolean;
+  onHover: (h: HoverInfo) => void;
+}) {
+  const blockerIids =
+    (payload.legal_blocker_iids as number[] | undefined) ?? [];
+  const counterIdxsAvail =
+    (payload.legal_counter_card_idxs as number[] | undefined) ?? [];
+  const isLeaderAttack = !!payload.is_leader_attack;
+  const blockerOptions = me.characters.filter((c) =>
+    blockerIids.includes(c.instance_id),
+  );
+  function toggleCounter(idx: number) {
+    if (counterIdxs.includes(idx)) {
+      setCounterIdxs(counterIdxs.filter((x) => x !== idx));
+    } else {
+      setCounterIdxs([...counterIdxs, idx]);
+    }
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded border-2 border-amber-400 bg-amber-950/70 p-2">
+      <div className="text-sm font-bold text-amber-200">
+        ⚠ {isLeaderAttack ? "リーダー" : "キャラ"} を 防御
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-amber-200 mb-1">
+          Blocker
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setBlockerIid(null);
+            }}
+            className={
+              "rounded px-2 py-1 text-xs " +
+              (blockerIid === null
+                ? "bg-amber-500 text-white"
+                : "border border-amber-400 bg-amber-900/40 text-amber-100")
+            }
+          >
+            なし
+          </button>
+          {blockerOptions.map((c) => (
+            <button
+              key={c.instance_id}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlockerIid(c.instance_id);
+              }}
+              onMouseEnter={() =>
+                onHover({
+                  kind: "chara",
+                  cardId: c.card_id,
+                  name: c.name,
+                  power: c.power,
+                  attached_dons: c.attached_dons,
+                  rested: c.rested,
+                  keywords: c.keywords,
+                  isLeader: false,
+                })
+              }
+              onMouseLeave={() => onHover(null)}
+              className={
+                "rounded transition " +
+                (blockerIid === c.instance_id
+                  ? "ring-4 ring-amber-400"
+                  : "ring-1 ring-amber-600 hover:ring-amber-400")
+              }
+              title={c.name}
+            >
+              <CardImage
+                cardId={c.card_id}
+                alt={c.name}
+                className="h-20 w-auto rounded"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-amber-200 mb-1">
+          Counter ({counterIdxs.length})
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {counterIdxsAvail.length === 0 && (
+            <span className="text-xs text-amber-300">手札 counter 無し</span>
+          )}
+          {counterIdxsAvail.map((idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCounter(idx);
+              }}
+              onMouseEnter={() =>
+                onHover({ kind: "hand", cardId: me.hand[idx] })
+              }
+              onMouseLeave={() => onHover(null)}
+              className={
+                "rounded transition " +
+                (counterIdxs.includes(idx)
+                  ? "ring-4 ring-amber-400"
+                  : "ring-1 ring-amber-600 hover:ring-amber-400")
+              }
+            >
+              <CardImage
+                cardId={me.hand[idx]}
+                alt={me.hand[idx]}
+                className="h-20 w-auto rounded"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSubmit();
+        }}
+        disabled={busy}
+        className="rounded bg-amber-500 px-3 py-2 text-sm font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+      >
+        防御 確定
+      </button>
+    </div>
+  );
+}
 
 function DefenseOverlay({
   payload,
