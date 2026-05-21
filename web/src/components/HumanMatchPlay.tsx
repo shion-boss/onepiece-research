@@ -132,11 +132,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const isDraw = /draw:|ドロー/.test(logLine);
       const isMediumHeavy = /KO|登場|refresh:/.test(logLine);
       let wait = perFrameMs;
-      if (isLifeHit) wait = Math.max(wait, 2500);
-      if (isDraw) wait = Math.max(wait, 1700);
+      // ライフ受け取り は DrawCardOverlay 0.85s + LifeFlash 0.8s + NEW 1.1s +
+      // 余裕 1.0s = 3500ms 確保 (= 「次自ターン ドロー と 重なる」 防止)
+      if (isLifeHit) wait = Math.max(wait, 3500);
+      if (isDraw) wait = Math.max(wait, 2000);
       if (isMediumHeavy) wait = Math.max(wait, 1800);
-      // turn 切替 frame (= 相手ターン終了 → 自ターン開始) は さらに 余分 wait
-      if (turnChanged) wait = Math.max(wait, 1800);
+      // turn 切替 frame (= 相手ターン終了 → 自ターン開始) は ライフ受け取り 完全 完了 を
+      // 待つ ため 余分 wait を 大きく
+      if (turnChanged) wait = Math.max(wait, 2800);
       prevTurn = curTurn;
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
