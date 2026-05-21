@@ -1,20 +1,20 @@
 # DSL → 日本語 vs 公式テキスト 比較 audit
 
-全 340 件の mismatch を検出。
+全 321 件の mismatch を検出。
 
 ## 重要度サマリ
 
-- **sev 5**: 214 件
+- **sev 5**: 207 件
 - **sev 4**: 63 件
-- **sev 3**: 18 件
-- **sev 2**: 45 件
+- **sev 3**: 17 件
+- **sev 2**: 34 件
 
 ## 種類別件数
 
-- `empty_overlay_with_text`: 166
+- `empty_overlay_with_text`: 159
 - `fake_power_5000_limit`: 59
-- `missing_if_opp_turn`: 32
-- `missing_if_leader_feature`: 18
+- `missing_if_opp_turn`: 21
+- `missing_if_leader_feature`: 17
 - `missing_optional_flag`: 13
 - `marker_簡略`: 10
 - `missing_add_don_concept`: 8

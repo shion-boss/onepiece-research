@@ -6944,6 +6944,24 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "海軍"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB02-056": [
@@ -15323,6 +15341,24 @@
         {
           "power_pump": {
             "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 self_leader パワー+1000",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "opp_turn": true,
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
             "amount": 1000,
             "duration": "static"
           }
@@ -79620,6 +79656,23 @@
       "if": {
         "leader_feature": "海軍"
       }
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー-3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -3000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "P-093": [
@@ -83546,7 +83599,27 @@
   ],
   "EB04-005": [],
   "EB04-035": [],
-  "EB04-046": [],
+  "EB04-046": [
+    {
+      "_text": "[auto] 【相手のターン中】 {'type': 'all_self_chara_filtered', 'filter': {'feature': '海軍'}} コスト+2",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {
+              "feature": "海軍"
+            },
+            "delta": 2,
+            "scope": "self"
+          }
+        }
+      ]
+    }
+  ],
   "EB04-051": [],
   "EB04-056": [
     {
@@ -84455,7 +84528,30 @@
     }
   ],
   "OP08-006": [],
-  "OP08-020": [],
+  "OP08-020": [
+    {
+      "_text": "[auto] 【相手のターン中】 {'type': 'all_self_chara_filtered', 'filter': {'feature': 'ドラム王国'}} パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ドラム王国"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP08-029": [],
   "OP08-045": [
     {
@@ -84796,7 +84892,26 @@
       ]
     }
   ],
-  "OP05-066": [],
+  "OP05-066": [
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_don_ge": 10
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-074": [
     {
       "when": "leader_passive",
@@ -85063,7 +85178,26 @@
   "OP03-015": [],
   "OP03-032": [],
   "OP03-043": [],
-  "OP03-045": [],
+  "OP03-045": [
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_deck_count_le": 20
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP03-088": [
     {
       "_text": "フクロウ 静的 KO 耐性 (常在)",
@@ -85313,7 +85447,26 @@
       }
     }
   ],
-  "OP05-066_r2": [],
+  "OP05-066_r2": [
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_don_ge": 10
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP09-045_r1": [],
   "ST25-002": [
     {
@@ -85336,6 +85489,23 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+5000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 5000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "OP07-023_r1": [],
@@ -85343,7 +85513,26 @@
   "OP07-033_r1": [],
   "OP09-012_r1": [],
   "ST20-002": [],
-  "OP05-066_r1": [],
+  "OP05-066_r1": [
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_don_ge": 10
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "ST16-003": [
     {
       "_text": "[auto] 自分レスト6以上で 自身パワー+2000",
@@ -85544,7 +85733,30 @@
   ],
   "OP06-110_p3": [],
   "OP07-033_p2": [],
-  "OP08-020_p1": [],
+  "OP08-020_p1": [
+    {
+      "_text": "[auto] 【相手のターン中】 {'type': 'all_self_chara_filtered', 'filter': {'feature': 'ドラム王国'}} パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ドラム王国"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP08-067_p2": [],
   "OP10-049_p2": [],
   "OP11-012_p1": [],
