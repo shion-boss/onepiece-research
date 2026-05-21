@@ -1111,6 +1111,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "mulligan_redrawn" ? (
+          <MulliganRedrawnModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "life_taken_choice" ? (
           <LifeTakenChoiceModal
             payload={state.pending_payload}
@@ -3011,6 +3018,73 @@ function TargetPickModal({
             className="ml-auto rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
           >
             確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// MulliganRedrawnModal: マリガン 引き直し 後 の 新手札 確認
+// ========================================================================== //
+
+function MulliganRedrawnModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const cards =
+    (payload.cards as { card_id: string; name: string }[] | undefined) ?? [];
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-6xl flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-1 text-xl font-bold text-cyan-200">
+          マリガン 後 の 新手札
+        </h3>
+        <p className="mb-4 text-sm text-zinc-300">
+          引き直し 完了。 OK で 試合 開始。
+        </p>
+        <div className="flex flex-nowrap items-center justify-center gap-3 overflow-x-auto px-1 py-3">
+          {cards.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              onMouseEnter={() =>
+                onHover({ kind: "hand", cardId: c.card_id })
+              }
+              onMouseLeave={() => onHover(null)}
+              className="shrink-0 rounded ring-2 ring-cyan-400 transition hover:-translate-y-2 hover:ring-cyan-200"
+            >
+              <CardImage
+                cardId={c.card_id}
+                alt={c.name}
+                className="h-64 w-auto rounded shadow-2xl"
+              />
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="rounded bg-cyan-500 px-8 py-2.5 text-base font-bold text-white shadow hover:bg-cyan-400 disabled:opacity-50"
+          >
+            OK (= 試合開始)
           </button>
         </div>
       </div>

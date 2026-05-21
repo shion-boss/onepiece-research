@@ -233,19 +233,64 @@ class HumanSession:
         """人間 の interactive 選択 (= search_top_n 等) を 適用 → 進行 再開。"""
         if self.pending_kind != "choice":
             raise ValueError("not waiting for human choice")
-        # マリガン pending の 場合 は 特別処理 (= setup 後段 完了 + play_until_main)
+        # マリガン pending 系 は 特別処理
         choice = self.state.pending_choice or {}
         if choice.get("kind") == "mulligan_confirm":
             do_mulligan = bool(picks and picks[0] == 1)
             self.state.pending_choice = None
+            if do_mulligan:
+                # 「引き直し」 → 手札 戻し + 新 5 枚 ドロー のみ。 user に 新手札 確認 modal
+                # を 立てる (= finalize は OK 後)。
+                me = self.state.players[self.human_idx]
+                me.deck.extend(me.hand)
+                me.hand = []
+                me.shuffle_deck(self.rng)
+                me.draw(5)
+                self.state.push_log(
+                    f"  マリガン: {me.name} (人間) 手札 引き直し"
+                )
+                self.state.pending_choice = {
+                    "kind": "mulligan_redrawn",
+                    "cards": [
+                        {"card_id": c.card_id, "name": c.name} for c in me.hand
+                    ],
+                }
+                if self.state.log:
+                    self.state.snapshots.append(
+                        self.state._build_snapshot(self.state.log[-1])
+                    )
+                self.pending_kind = "choice"
+                self.pending_payload = dict(self.state.pending_choice)
+                return
+            # keep: finalize 直接
             finalize_setup_after_mulligan(
                 self.state,
                 rng=self.rng,
                 effects_overlay=self.effects_overlay,
-                human_mulligan=do_mulligan,
+                human_mulligan=False,
                 human_player_idx=self.human_idx,
             )
-            # snapshot 更新
+            if self.state.log:
+                self.state.snapshots.append(
+                    self.state._build_snapshot(self.state.log[-1])
+                )
+            play_until_main(self.state)
+            self.pending_kind = None
+            self.pending_payload = None
+            self.advance_until_pause()
+            return
+        if choice.get("kind") == "mulligan_redrawn":
+            # 新手札 OK → finalize (= ライフ配布 既済 + AI 側 mulligan + game_start)
+            self.state.pending_choice = None
+            # 既 マリガン適用 済 なので human_mulligan=False で finalize 呼び (= もう 2 回目
+            # 引き直し しない、 AI 側 のみ _should_mulligan で 判定)
+            finalize_setup_after_mulligan(
+                self.state,
+                rng=self.rng,
+                effects_overlay=self.effects_overlay,
+                human_mulligan=False,
+                human_player_idx=self.human_idx,
+            )
             if self.state.log:
                 self.state.snapshots.append(
                     self.state._build_snapshot(self.state.log[-1])
