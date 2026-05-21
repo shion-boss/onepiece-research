@@ -3042,7 +3042,15 @@ def execute_effect(
             # 公式: 「相手のキャラ1枚までを、 相手のライフの上か下に表向きで置く」 EB01-053 等。
             # 場のキャラを取り除き、 持ち主 (= opp) のライフへ。
             target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_character_any")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            # resolve_pending_choice 再実行時 の _iid_picks を target_spec へ 伝播
+            if isinstance(v, dict) and "_iid_picks" in v and not (
+                isinstance(target_spec, dict) and "_iid_picks" in target_spec
+            ):
+                target_spec = {"_iid_picks": v["_iid_picks"]}
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="chara_to_opp_life", outer_value=v,
+            )
             if not targets:
                 return False
             for t in targets:
@@ -3581,7 +3589,15 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {"target": v}
             target_spec = spec_val.get("target", "one_self_character_any")
             place = spec_val.get("place", "choice")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            # resolve_pending_choice 再実行時 の _iid_picks を target_spec へ 伝播
+            if "_iid_picks" in spec_val and not (
+                isinstance(target_spec, dict) and "_iid_picks" in target_spec
+            ):
+                target_spec = {"_iid_picks": spec_val["_iid_picks"]}
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="chara_to_self_life", outer_value=v,
+            )
             if not targets:
                 return False
             _ctl_any = False
