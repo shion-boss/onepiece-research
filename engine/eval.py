@@ -506,10 +506,18 @@ def _player_metrics(p: Player) -> dict:
 
 
 def lethal_estimate(state: GameState, me_idx: int) -> float:
-    """リーサル可能性を 0.0〜1.0 で返す。 boardEval.ts と同公式。
+    """me の「次自ターン総打点」リーサル可能性を 0.0〜1.0 で返す。 boardEval.ts と同公式。
 
     me の「次ターン総打点」(active leader + active chars) と opp の防御力
     (life × 5000 + 期待カウンター総量) を比較し、 sigmoid でスケール。
+
+    rest/sickness は **次の自ターン開始時 の refresh で 解除** される ので、
+    現状態 の rest/sickness は 「次ターン リーサル」 評価には 含めない。
+    cannot_attack_static など 永続的攻撃不能 のみ 除外 する (= project_opp_next_turn_lethal と対称)。
+
+    この仕様 で 重要な バグ修正: 旧版 では 自リーダー attack 後 rested → lethal_estimate ≈ 0
+    → plan_search で 「leader attack は lethal 期待値 を 0 に する」 と 過大ペナルティ →
+    AI が leader attack を 避ける 現象 が 起きていた。
 
     期待カウンター総量は `hand_estimator.expected_counter_total` で算出:
     opp.deck + opp.hand プール上の平均カウンター値 × 手札枚数。
@@ -518,11 +526,14 @@ def lethal_estimate(state: GameState, me_idx: int) -> float:
     self_p = state.players[me_idx]
     opp_p = state.players[1 - me_idx]
     attackers: list[int] = []
-    if not self_p.leader.rested:
+    # 自リーダー: cannot_attack_static でなければ 含める (= 次ターン rest 解除 想定)
+    if not self_p.leader.cannot_attack_static:
         attackers.append(self_p.leader.power)
     for c in self_p.characters:
-        if not c.rested and (not c.summoning_sickness or c.is_rush_now):
-            attackers.append(c.power)
+        # 永続的攻撃不能のみ 除外、 rest/sickness は 次ターン refresh で 解除
+        if c.cannot_attack_static:
+            continue
+        attackers.append(c.power)
     if not attackers:
         return 0.0
     opp_leader_p = opp_p.leader.power
