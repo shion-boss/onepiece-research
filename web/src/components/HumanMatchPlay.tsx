@@ -123,11 +123,16 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         log: final.log,
       });
       const logLine = typeof f.log === "string" ? f.log : "";
-      // 重い演出 (= LifeFlashOverlay 0.8s + PlayedCardOverlay 1.7s 等) が 完了 する
-      // まで 待ちたい frame
-      const heavy =
-        /life->hand|hit:|ライフ|KO|登場/.test(logLine);
-      const wait = heavy ? Math.max(perFrameMs, 1800) : perFrameMs;
+      // ライフ削り 系 (= life→hand / hit / ライフ) は LifeFlash 0.8s + LifeStack shake 0.45s
+      // + life trigger ドロー 0.85s が 順次 発火 する ので 長め に 待つ (= 2500ms)。
+      // KO / 登場 等 は 1800ms で 十分。
+      const isLifeHit = /life->hand|hit:|ライフ/.test(logLine);
+      const isMediumHeavy = /KO|登場/.test(logLine);
+      const wait = isLifeHit
+        ? Math.max(perFrameMs, 2500)
+        : isMediumHeavy
+          ? Math.max(perFrameMs, 1800)
+          : perFrameMs;
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
     setState(final);
