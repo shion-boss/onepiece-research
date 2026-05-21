@@ -2011,7 +2011,10 @@ function HandRow({
   // overlap 量 は 枚数 と 横幅 に 応じて 自動調整 (= card 幅 ~ 137px @ h-48)
   const overlap = hand.length <= 6 ? 76 : hand.length <= 9 ? 96 : 112;
   return (
-    <div className="relative flex h-24 shrink-0 items-start justify-center overflow-visible">
+    <div
+      data-hand-side="me"
+      className="relative flex h-24 shrink-0 items-start justify-center overflow-visible"
+    >
       <div className="flex shrink-0 items-start">
         {hand.map((cardId, i) => {
           const playable = canAct && (actionsByHand.get(i)?.length ?? 0) > 0;
@@ -2164,7 +2167,7 @@ function OpponentInfoPanel({ opp }: { opp: PlayerSnapshot }) {
       <div className="mb-2">
         <StatBadge player={opp} label="AI" color="bg-rose-700 text-white" />
       </div>
-      <div className="flex flex-wrap gap-0.5">
+      <div data-hand-side="opp" className="flex flex-wrap gap-0.5">
         {Array.from({ length: opp.hand_count }).map((_, i) => (
           <img
             key={i}

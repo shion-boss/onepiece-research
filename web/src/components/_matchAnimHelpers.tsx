@@ -561,31 +561,18 @@ export function DrawCardOverlay({
               startX = er.left + er.width / 2 - br.left - br.width / 2;
               startY = er.top + er.height / 2 - br.top - br.height / 2;
             }
-            // 手札 (= HandRow) DOM 位置 取得 (= self 用 のみ、 AI 側 は 既知 位置)
-            if (isMe) {
-              const hand = document.querySelector(
-                ".border-emerald-400\\/50.bg-emerald-950\\/40",
-              ) as HTMLElement | null;
-              if (hand) {
-                const hr = hand.getBoundingClientRect();
-                endX = hr.left + hr.width / 2 - br.left - br.width / 2;
-                endY = hr.top + hr.height / 2 - br.top - br.height / 2;
-              } else {
-                endX = 0;
-                endY = br.height / 2 - 60;
-              }
+            // 手札 DOM 位置 取得 (= data-hand-side で 識別)
+            const handSel = isMe
+              ? '[data-hand-side="me"]'
+              : '[data-hand-side="opp"]';
+            const hand = document.querySelector(handSel) as HTMLElement | null;
+            if (hand) {
+              const hr = hand.getBoundingClientRect();
+              endX = hr.left + hr.width / 2 - br.left - br.width / 2;
+              endY = hr.top + hr.height / 2 - br.top - br.height / 2;
             } else {
-              const opp = document.querySelector(
-                ".border-rose-400\\/50.bg-rose-950\\/40",
-              ) as HTMLElement | null;
-              if (opp) {
-                const or = opp.getBoundingClientRect();
-                endX = or.left + or.width / 2 - br.left - br.width / 2;
-                endY = or.top + or.height / 2 - br.top - br.height / 2;
-              } else {
-                endX = 0;
-                endY = -(br.height / 2 - 60);
-              }
+              endX = 0;
+              endY = isMe ? br.height / 2 - 60 : -(br.height / 2 - 60);
             }
           }
           const ringColor = isLife
