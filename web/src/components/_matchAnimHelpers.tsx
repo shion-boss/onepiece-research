@@ -536,7 +536,7 @@ export function useRecentDrawnIdxs(
     const idxs = new Set<number>();
     for (let i = startIdx; i < len; i++) idxs.add(i);
     setRecent(idxs);
-    const t = setTimeout(() => setRecent(new Set()), 2000);
+    const t = setTimeout(() => setRecent(new Set()), 1100);
     return () => clearTimeout(t);
   }, [tickId]);
 

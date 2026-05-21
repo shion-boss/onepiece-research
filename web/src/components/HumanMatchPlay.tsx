@@ -1803,7 +1803,7 @@ function HandRow({
               }
               transition={
                 isRecentDrawn
-                  ? { duration: 0.6, repeat: 2, ease: "easeOut" }
+                  ? { duration: 0.5, ease: "easeOut" }
                   : undefined
               }
               className={`relative inline-block rounded transition duration-150 ease-out ${ring} ${
