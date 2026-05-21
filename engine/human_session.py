@@ -24,6 +24,7 @@ from .game import (
     apply_action,
     legal_actions,
     setup_game,
+    finalize_setup_after_mulligan,
     play_until_main,
     AttackLeader,
     AttackCharacter,
@@ -78,29 +79,29 @@ class HumanAI:
             self.session._pending_defense = None
             return block_iid, counters
         # 未設定 → pause
-        from .game import _legal_blockers_for_attack
-        # legal candidates を 集めて payload に
-        try:
-            blockers = _legal_blockers_for_attack(state, attacker, target, is_leader_attack)
-            blocker_iids = [b.instance_id for b in blockers]
-        except Exception:
-            blocker_iids = [
-                b.instance_id for b in defender.characters
-                if b.is_blocker_now and not b.rested and not b.summoning_sickness
-            ]
-        # counter 候補: hand の counter 持ち
-        counter_idxs = [
-            i for i, c in enumerate(defender.hand)
-            if c.counter and c.counter > 0
+        # blocker 候補 = defender.characters の中 で is_blocker_now かつ active な もの
+        # (= 公式: ブロッカー キーワード 持ち + アクティブ + 召喚酔いなし)
+        blocker_iids = [
+            b.instance_id for b in defender.characters
+            if b.is_blocker_now and not b.rested and not b.summoning_sickness
         ]
+        # counter 候補: hand の counter 持ち + 各 idx の counter 値
+        counter_idxs = []
+        counter_values: dict[int, int] = {}
+        for i, c in enumerate(defender.hand):
+            if c.counter and c.counter > 0:
+                counter_idxs.append(i)
+                counter_values[i] = int(c.counter)
         raise PauseSignal(
             "defense",
             {
                 "attacker_iid": attacker.instance_id,
+                "attacker_power": int(getattr(attacker, "power", 0) or 0),
                 "target_iid": None if is_leader_attack else target.instance_id,
                 "is_leader_attack": is_leader_attack,
                 "legal_blocker_iids": blocker_iids,
                 "legal_counter_card_idxs": counter_idxs,
+                "counter_values": counter_values,
             },
         )
 
@@ -133,6 +134,7 @@ class HumanSession:
         if human_first is None:
             human_first = self.rng.random() < 0.5
         first_player = 0 if human_first else 1
+        # マリガン skip path で 5 枚 draw 段階 で 一旦 停止 (= user に keep/引き直し 委ね)
         self.state = setup_game(
             deck_a if human_first else deck_b,
             deck_b if human_first else deck_a,
@@ -141,14 +143,34 @@ class HumanSession:
             effects_overlay=effects_overlay,
             deck1_analysis=deck_a_analysis if human_first else deck_b_analysis,
             deck2_analysis=deck_b_analysis if human_first else deck_a_analysis,
+            do_mulligan_and_finalize=False,
         )
         self.state.record_snapshots = True
-        if self.state.log:
-            self.state.snapshots.append(self.state._build_snapshot(self.state.log[-1]))
-        play_until_main(self.state)
+        # human_idx は human_first から 直接 算出 (= setup_game で first_player=0 強制)
         self.human_idx = 0 if human_first else 1
         self.ai_idx = 1 - self.human_idx
+        # マリガン pending を 設定 (= user 確認 を 待つ)
+        self.state.human_player_idx = self.human_idx
+        me_hand = self.state.players[self.human_idx].hand
+        self.state.pending_choice = {
+            "kind": "mulligan_confirm",
+            "cards": [
+                {"card_id": c.card_id, "name": c.name} for c in me_hand
+            ],
+        }
+        self.state.push_log(
+            f"マリガン: {self.state.players[self.human_idx].name} 手札確認 (keep/引き直し)"
+        )
+        if self.state.log:
+            self.state.snapshots.append(self.state._build_snapshot(self.state.log[-1]))
+        # frame 再生 用: 前回 payload を 返した 時点 の snapshot 数。
+        # snapshot_payload で 新規 frames を 返却 → ベースライン 更新。
+        self._last_seen_snapshot_count = 0
+        # human_idx / ai_idx / human_player_idx は 上 で 設定済
         self.effects_overlay = effects_overlay
+        # マリガン pending を 設定済 → pending_kind 設定
+        self.pending_kind: Optional[str] = "choice"
+        self.pending_payload: Optional[dict] = dict(self.state.pending_choice or {})
         # AI を 構築 (= ai_idx 側)。 ai_factory は (rng, deck_analysis) を 受ける
         deck_for_ai_analysis = (
             deck_b_analysis if human_first else deck_a_analysis
@@ -167,9 +189,6 @@ class HumanSession:
         # pending input 受け取り 用 buffer
         self._pending_action = None
         self._pending_defense: Optional[tuple] = None
-        # 「人間 input 待ち」 状態 の 詳細
-        self.pending_kind: Optional[str] = None  # "action" | "defense"
-        self.pending_payload: Optional[dict] = None
         self.deck_a_slug = getattr(deck_a, "slug", None) or deck_a.name
         self.deck_b_slug = getattr(deck_b, "slug", None) or deck_b.name
 
@@ -181,6 +200,11 @@ class HumanSession:
             if self.state.game_over:
                 self.pending_kind = None
                 self.pending_payload = None
+                return
+            # 人間 選択 待ち (= search_top_n 等) も pause 条件
+            if self.state.pending_choice is not None:
+                self.pending_kind = "choice"
+                self.pending_payload = dict(self.state.pending_choice)
                 return
             tp = self.state.turn_player_idx
             try:
@@ -204,6 +228,83 @@ class HumanSession:
         self.state.declare_winner(-1, "max_actions reached")
         self.pending_kind = None
         self.pending_payload = None
+
+    def apply_human_choice(self, picks: list[int]) -> None:
+        """人間 の interactive 選択 (= search_top_n 等) を 適用 → 進行 再開。"""
+        if self.pending_kind != "choice":
+            raise ValueError("not waiting for human choice")
+        # マリガン pending 系 は 特別処理
+        choice = self.state.pending_choice or {}
+        if choice.get("kind") == "mulligan_confirm":
+            do_mulligan = bool(picks and picks[0] == 1)
+            self.state.pending_choice = None
+            if do_mulligan:
+                # 「引き直し」 → 手札 戻し + 新 5 枚 ドロー のみ。 user に 新手札 確認 modal
+                # を 立てる (= finalize は OK 後)。
+                me = self.state.players[self.human_idx]
+                me.deck.extend(me.hand)
+                me.hand = []
+                me.shuffle_deck(self.rng)
+                me.draw(5)
+                self.state.push_log(
+                    f"  マリガン: {me.name} (人間) 手札 引き直し"
+                )
+                self.state.pending_choice = {
+                    "kind": "mulligan_redrawn",
+                    "cards": [
+                        {"card_id": c.card_id, "name": c.name} for c in me.hand
+                    ],
+                }
+                if self.state.log:
+                    self.state.snapshots.append(
+                        self.state._build_snapshot(self.state.log[-1])
+                    )
+                self.pending_kind = "choice"
+                self.pending_payload = dict(self.state.pending_choice)
+                return
+            # keep: finalize 直接
+            finalize_setup_after_mulligan(
+                self.state,
+                rng=self.rng,
+                effects_overlay=self.effects_overlay,
+                human_mulligan=False,
+                human_player_idx=self.human_idx,
+            )
+            if self.state.log:
+                self.state.snapshots.append(
+                    self.state._build_snapshot(self.state.log[-1])
+                )
+            play_until_main(self.state)
+            self.pending_kind = None
+            self.pending_payload = None
+            self.advance_until_pause()
+            return
+        if choice.get("kind") == "mulligan_redrawn":
+            # 新手札 OK → finalize (= ライフ配布 既済 + AI 側 mulligan + game_start)
+            self.state.pending_choice = None
+            # 既 マリガン適用 済 なので human_mulligan=False で finalize 呼び (= もう 2 回目
+            # 引き直し しない、 AI 側 のみ _should_mulligan で 判定)
+            finalize_setup_after_mulligan(
+                self.state,
+                rng=self.rng,
+                effects_overlay=self.effects_overlay,
+                human_mulligan=False,
+                human_player_idx=self.human_idx,
+            )
+            if self.state.log:
+                self.state.snapshots.append(
+                    self.state._build_snapshot(self.state.log[-1])
+                )
+            play_until_main(self.state)
+            self.pending_kind = None
+            self.pending_payload = None
+            self.advance_until_pause()
+            return
+        from .effects import resolve_pending_choice
+        resolve_pending_choice(self.state, picks)
+        self.pending_kind = None
+        self.pending_payload = None
+        self.advance_until_pause()
 
     def legal_actions_for_human(self) -> list[dict]:
         """人間 ターン中 の legal actions を JSON-able dict 群 で 返す。"""
@@ -273,10 +374,21 @@ class HumanSession:
         except Exception:
             return None
 
+    def _consume_new_frames(self) -> list[dict]:
+        """前回 payload 返却 以降 に 追加 された snapshot を 返す + baseline 更新。
+
+        AI ターン中 の 中間 state を frontend 側 で 順次 アニメ 再生 する 用途。
+        """
+        all_snaps = self.state.snapshots
+        new_frames = all_snaps[self._last_seen_snapshot_count:]
+        self._last_seen_snapshot_count = len(all_snaps)
+        return [dict(s) for s in new_frames]
+
     def snapshot_payload(self) -> dict:
         """API レスポンス 用 の 全 state snapshot。"""
         # 最終 snapshot は state.snapshots 末尾 を 取る (= 既存 仕組み と整合)
         last_snap = self.state.snapshots[-1] if self.state.snapshots else None
+        frames = self._consume_new_frames()
         return {
             "game_over": self.state.game_over,
             "winner": self.state.winner,
@@ -293,6 +405,7 @@ class HumanSession:
             "pending_payload": self.pending_payload,
             "log": list(self.state.log[-30:]),  # 直近 30 行
             "snapshot": last_snap,
+            "frames": frames,
             "legal_actions": self.legal_actions_for_human(),
             "snapshots_count": len(self.state.snapshots),
             "deck_a_slug": self.deck_a_slug,
@@ -310,6 +423,8 @@ def _action_to_dict(action, idx: int) -> dict:
         "instance_id",
         "attacker_iid",
         "target_iid",
+        "source_iid",
+        "effect_index",
         "from_idx",
         "to_iid",
         "n",
@@ -335,13 +450,13 @@ def _action_label(action) -> str:
     if cls == "AttachDonToLeader":
         return f"DON → リーダー x{getattr(action, 'n', 1)}"
     if cls == "AttachDonToCharacter":
-        return f"DON → キャラ iid={action.iid} x{getattr(action, 'n', 1)}"
+        return f"DON → キャラ iid={action.target_iid} x{getattr(action, 'n', 1)}"
     if cls == "AttackLeader":
         return f"リーダー攻撃: attacker={action.attacker_iid}"
     if cls == "AttackCharacter":
         return f"キャラ攻撃: attacker={action.attacker_iid} → target={action.target_iid}"
     if cls == "ActivateMain":
-        return f"起動メイン: iid={action.iid}"
+        return f"起動メイン: iid={action.source_iid} effect[{action.effect_index}]"
     if cls == "EndPhase":
         return "ターン終了"
     if cls == "EventPlay":

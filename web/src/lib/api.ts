@@ -554,6 +554,8 @@ export type HumanLegalAction = {
   iid?: number;
   attacker_iid?: number;
   target_iid?: number;
+  source_iid?: number;
+  effect_index?: number;
   n?: number;
 };
 
@@ -566,10 +568,12 @@ export type HumanMatchState = {
   phase: string;
   human_idx: number;
   ai_idx: number;
-  pending_kind: "action" | "defense" | null;
+  pending_kind: "action" | "defense" | "choice" | null;
   pending_payload: Record<string, unknown> | null;
   log: string[];
   snapshot: Record<string, unknown> | null;
+  // 前回 payload 以降 に 追加 された 中間 snapshot 群 (= AI 動作 を 順次 再生 する 用)
+  frames?: Record<string, unknown>[];
   legal_actions: HumanLegalAction[];
   snapshots_count: number;
   deck_a_slug: string;
@@ -639,6 +643,23 @@ export async function applyHumanDefense(
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`applyHumanDefense failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function applyHumanChoice(
+  sid: string,
+  picks: number[],
+): Promise<HumanMatchState> {
+  const res = await fetch(`${API}/api/human_match/${sid}/choice`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ picks }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`applyHumanChoice failed: ${res.status} ${text}`);
   }
   return res.json();
 }

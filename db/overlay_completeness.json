@@ -1,1 +1,587 @@
-[]
+[
+  {
+    "card_id": "EB01-008",
+    "name": "リトルオーズJr.",
+    "category": "CHARACTER",
+    "text": "【ターン1回】このキャラが効果によってKOされる場合、代わりに自分の手札のイベントかステージカード1枚を捨てることができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "EB02-023",
+    "name": "クロコダイル",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】【ターン1回】相手のキャラが自分の効果で持ち主の手札に戻った時、自分のデッキの上から3枚を見て、好きな順番に並び替え、デッキの上か下に置く。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "EB04-044",
+    "name": "コビー",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分のリーダーが『海軍』を含む特徴を持ち、このキャラが場を離れる場合、代わりに自分の手札1枚を捨てることができる。【自分のターン中】【ターン1回】相手のキャラがKOされた時、カード1枚を引く。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "EB04-044_p1",
+    "name": "コビー",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分のリーダーが『海軍』を含む特徴を持ち、このキャラが場を離れる場合、代わりに自分の手札1枚を捨てることができる。【自分のターン中】【ターン1回】相手のキャラがKOされた時、カード1枚を引く。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "EB04-044_p2",
+    "name": "コビー",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分のリーダーが『海軍』を含む特徴を持ち、このキャラが場を離れる場合、代わりに自分の手札1枚を捨てることができる。【自分のターン中】【ターン1回】相手のキャラがKOされた時、カード1枚を引く。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP05-001",
+    "name": "サボ",
+    "category": "LEADER",
+    "text": "【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP05-001_p1",
+    "name": "サボ",
+    "category": "LEADER",
+    "text": "【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP05-001_p2",
+    "name": "サボ",
+    "category": "LEADER",
+    "text": "【ドン‼×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP05-100",
+    "name": "エネル",
+    "category": "CHARACTER",
+    "text": "【速攻】【ターン1回】このキャラが場を離れる場合、代わりに自分のライフの上から1枚をトラッシュに置いてもよい。キャラの「モンキー・D・ルフィ」がいる場合、この効果は無効になる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP05-100_p1",
+    "name": "エネル",
+    "category": "CHARACTER",
+    "text": "【速攻】【ターン1回】このキャラが場を離れる場合、代わりに自分のライフの上から1枚をトラッシュに置いてもよい。キャラの「モンキー・D・ルフィ」がいる場合、この効果は無効になる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP05-100_p2",
+    "name": "エネル",
+    "category": "CHARACTER",
+    "text": "【速攻】【ターン1回】このキャラが場を離れる場合、代わりに自分のライフの上から1枚をトラッシュに置いてもよい。キャラの「モンキー・D・ルフィ」がいる場合、この効果は無効になる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP07-029",
+    "name": "バジル・ホーキンス",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP07-029_p1",
+    "name": "バジル・ホーキンス",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP07-029_r1",
+    "name": "バジル・ホーキンス",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。(相手のアタックの後、このカードをレストにし、アタックの対象をこのカードにできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP07-042",
+    "name": "ゲッコー・モリア",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分のリーダーが特徴《王下七武海》を持ち、このキャラが相手の効果で場を離れる場合、代わりに自分の、「ゲッコー・モリア」以外のキャラ1枚を持ち主のデッキの下に置いてもよい。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP08-067",
+    "name": "シャーロット・プリン",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP08-067_p1",
+    "name": "シャーロット・プリン",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP08-067_p2",
+    "name": "シャーロット・プリン",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP08-067_r1",
+    "name": "シャーロット・プリン",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP09-061",
+    "name": "モンキー・D・ルフィ",
+    "category": "LEADER",
+    "text": "【ドン‼×1】自分のキャラすべてを、コスト+1。【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!デッキから、ドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP09-061_p1",
+    "name": "モンキー・D・ルフィ",
+    "category": "LEADER",
+    "text": "【ドン‼×1】自分のキャラすべてを、コスト+1。【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!デッキから、ドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP09-061_p2",
+    "name": "モンキー・Ｄ・ルフィ",
+    "category": "LEADER",
+    "text": "【ドン‼×1】自分のキャラすべてを、コスト+1。【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!デッキから、ドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP09-061_p3",
+    "name": "モンキー・D・ルフィ",
+    "category": "LEADER",
+    "text": "【ドン‼×1】自分のキャラすべてを、コスト+1。【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!デッキから、ドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加する。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP10-034",
+    "name": "フランキー",
+    "category": "CHARACTER",
+    "text": "【ターン1回】このキャラがバトルでKOされる場合、代わりに自分のライフの上から1枚を手札に加えてもよい。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP10-074",
+    "name": "ピーカ",
+    "category": "CHARACTER",
+    "text": "【ターン1回】このキャラが相手の効果でKOされる場合、代わりに自分のアクティブのドン‼2枚をレストにできる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP11-101",
+    "name": "カポネ・ベッジ",
+    "category": "CHARACTER",
+    "text": "【ブロッカー】【ターン1回】「カポネ・ベッジ」以外の自分の特徴《超新星》を持つキャラが相手の効果で場を離れる場合、代わりに自分のライフの上に裏向きで加えることができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP11-101_p1",
+    "name": "カポネ・ベッジ",
+    "category": "CHARACTER",
+    "text": "【ブロッカー】【ターン1回】「カポネ・ベッジ」以外の自分の特徴《超新星》を持つキャラが相手の効果で場を離れる場合、代わりに自分のライフの上に裏向きで加えることができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP12-053",
+    "name": "ボルサリーノ",
+    "category": "CHARACTER",
+    "text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることができる。【相手のターン中】自分のリーダーが特徴《海軍》を持つ場合、このキャラは【ブロッカー】を得て、パワー+1000。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP13-017",
+    "name": "モンキー・Ｄ・ドラゴン",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分の特徴《革命軍》を持つキャラが相手の効果で場を離れる場合、代わりにこのキャラを、このターン中、パワー-2000できる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP13-046",
+    "name": "ビスタ",
+    "category": "CHARACTER",
+    "text": "【ダブルアタック】【ターン1回】このキャラがKOされるか相手の効果で場を離れる場合、代わりに自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP13-046_p1",
+    "name": "ビスタ",
+    "category": "CHARACTER",
+    "text": "【ダブルアタック】【ターン1回】このキャラがKOされるか相手の効果で場を離れる場合、代わりに自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP14-034",
+    "name": "モンキー・Ｄ・ルフィ",
+    "category": "CHARACTER",
+    "text": "【自分のターン中】自分の元々のコスト4以上の緑の特徴《麦わらの一味》を持つキャラすべてを、パワー+1000。【ターン1回】自分の特徴《麦わらの一味》を持つキャラが相手の効果でKOされる場合、代わりに自分のキャラ1枚をレストにできる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP14-061",
+    "name": "ヴェルゴ",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分の特徴《ドンキホーテ海賊団》を持つキャラが相手の効果で場を離れる場合、代わりに自分の場のドン‼1枚をドン‼デッキに戻すことができる。【アタック時】ドン‼-1：相手のキャラ1枚までを、このターン中、パワー-2000。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP14-061_p1",
+    "name": "ヴェルゴ",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分の特徴《ドンキホーテ海賊団》を持つキャラが相手の効果で場を離れる場合、代わりに自分の場のドン‼1枚をドン‼デッキに戻すことができる。【アタック時】ドン‼-1：相手のキャラ1枚までを、このターン中、パワー-2000。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "OP14-092",
+    "name": "Mr.3(ギャルディーノ)",
+    "category": "CHARACTER",
+    "text": "【相手のターン中】【ターン1回】このキャラがKOされる場合、代わりに自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "P-111",
+    "name": "ニコ・ロビン",
+    "category": "CHARACTER",
+    "text": "【ターン1回】自分の特徴《麦わらの一味》を持つキャラが相手の効果で場を離れる場合、代わりに自分のドン‼1枚をレストにできる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "ST09-010",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "【ターン1回】このキャラがKOされる場合、代わりに自分のライフの上か下から1枚をトラッシュに置くことができる。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "ST15-005",
+    "name": "ポートガス・D・エース",
+    "category": "CHARACTER",
+    "text": "自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは【速攻】を得る。(このカードは登場したターンにアタックできる)【ターン1回】このキャラが相手の効果で場を離れる場合、代わりにこのキャラを、このターン中、パワー-2000できる。",
+    "overlay_count": 2,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  },
+  {
+    "card_id": "ST20-002",
+    "name": "シャーロット・クラッカー",
+    "category": "CHARACTER",
+    "text": "【ターン1回】このキャラが効果でKOされる場合、代わりに自分のライフの上から1枚をトラッシュに置いてもよい。",
+    "overlay_count": 1,
+    "issues": [
+      {
+        "kind": "missing_once_per_turn",
+        "severity": 3,
+        "detail": "text に 【ターン1回】 あるが overlay に once_per_turn 制約 無し"
+      }
+    ],
+    "max_severity": 3
+  }
+]

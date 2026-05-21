@@ -2288,6 +2288,74 @@ class DeepPlanningAI(GreedyAI):
         if self._is_desperate_losing_position(state, state.turn_player_idx):
             return super().choose_action(state)
 
+        # === 攻撃 早期 return (= 2026-05-21、 plan_search bypass) ===
+        # plan_search の eval は「不利交換 attack (= ブロックされる)」 を マイナス評価 する
+        # 傾向 で、 結果 attack action を 全部 skip して end_phase に流れる ケース あり。
+        # ohtsuki さん の指摘: 「リーダーで とりあえず 攻撃 = ライフ削る or 手札削る で お得な
+        # 場面 多い」 「リーダー どころか キャラ も 攻撃 してこない」。
+        # → 自リーダー active なら 必ず AttackLeader を 1 回 返す (= ノーコスト)。
+        # 「対象 完全 block」 でも 相手 counter 1 枚消費 = 相手 手札 -1 で 価値あり。
+        me = state.players[state.turn_player_idx]
+        opp = state.players[1 - state.turn_player_idx]
+        if not me.leader.rested and not me.leader.summoning_sickness:
+            est_opp_buff = 0
+            if state.effects_overlay:
+                try:
+                    from .effects import estimate_opp_attack_buff_to_leader
+                    est_opp_buff = estimate_opp_attack_buff_to_leader(
+                        state, opp, state.effects_overlay
+                    )
+                except Exception:
+                    est_opp_buff = 0
+            est_def = opp.leader.power + est_opp_buff
+            leader_attacks = [
+                a for a in actions
+                if isinstance(a, AttackLeader)
+                and a.attacker_iid == me.leader.instance_id
+            ]
+            if leader_attacks:
+                # 単独で届くなら 即 attack
+                if me.leader.power >= est_def:
+                    return leader_attacks[0]
+                # 1-2 DON で 届く gap なら DON 付与で 攻撃 成立 を 狙う
+                gap = est_def - me.leader.power
+                don_needed = (gap + 999) // 1000
+                if (
+                    0 < gap <= 2000
+                    and me.don_active >= don_needed
+                    and me.leader.attached_dons + don_needed <= 4
+                ):
+                    return AttachDonToLeader(n=1)
+                # 上記 全部 該当 しない (= gap > 2000 等) でも、 counter 消費 期待値 で attack。
+                # 公式 ルール上 リーダー は KO されない → attack は ノーコスト で 相手手札 -1 期待。
+                return leader_attacks[0]
+
+        # キャラ で リーダー 攻撃 を 強制 する条件:
+        #   attacker.power >= opp.leader.power - 1000 (= 1 DON で 届く 圏内)
+        # これ未満 (= 例 1000 chara で 5000 リーダー) は 明らかに 損 (= counter 不要 で
+        # 完全防御、 自キャラ rest 損 のみ)、 強制 attack しない → plan_search に 委ねる。
+        char_attackers: list[InPlay] = [
+            c for c in me.characters
+            if not c.rested
+            and (not c.summoning_sickness or c.is_rush_now)
+            and not c.cannot_attack_until_turn_end
+            and not c.cannot_attack_static
+            and not c.cannot_attack_through_opp_turn
+            and c.power >= opp.leader.power - 1000
+        ]
+        if char_attackers:
+            # ブロッカー 持ち は ブロッカー 役 を 失いたくない ので 後回し
+            non_blocker_attackers = [c for c in char_attackers if not c.is_blocker_now]
+            preferred = non_blocker_attackers or char_attackers
+            preferred.sort(key=lambda c: -c.power)
+            for atk in preferred:
+                chara_atk_actions = [
+                    a for a in actions
+                    if isinstance(a, AttackLeader) and a.attacker_iid == atk.instance_id
+                ]
+                if chara_atk_actions:
+                    return chara_atk_actions[0]
+
         # adaptive params の決定 (= R72+)
         if self.adaptive:
             beam_width, max_turns, per_turn_depth = self._compute_adaptive_params(state)
@@ -2392,15 +2460,31 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
     action = ai_self.choose_action(state)
 
     # 攻撃時: ブロッカー / カウンターを差し込む
+    def _split_event_counters(
+        defender_hand: list, counter_idxs: tuple[int, ...]
+    ) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        """counter idx を card / event に 分離。 event カード (= category=EVENT)
+        は counter_event_idxs にも 追加して 【カウンター】 効果 を 発動 する。
+        """
+        events: list[int] = []
+        for idx in counter_idxs:
+            if 0 <= idx < len(defender_hand):
+                c = defender_hand[idx]
+                if str(getattr(c, "category", "")).endswith("EVENT"):
+                    events.append(idx)
+        return counter_idxs, tuple(events)
+
     if isinstance(action, AttackLeader):
         from .game import _find_attacker  # noqa
         attacker = _find_attacker(state.turn_player, action.attacker_iid)
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, state.opponent.leader, True, state.opponent
         )
+        card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
         action = AttackLeader(
             attacker_iid=action.attacker_iid,
-            counter_card_idxs=counters,
+            counter_card_idxs=card_idxs,
+            counter_event_idxs=event_idxs,
             blocker_iid=block_iid,
         )
 
@@ -2411,10 +2495,12 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, target, False, state.opponent
         )
+        card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
         action = AttackCharacter(
             attacker_iid=action.attacker_iid,
             target_iid=action.target_iid,
-            counter_card_idxs=counters,
+            counter_card_idxs=card_idxs,
+            counter_event_idxs=event_idxs,
             blocker_iid=block_iid,
         )
 

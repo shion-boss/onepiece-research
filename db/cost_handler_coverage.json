@@ -1,0 +1,105 @@
+{
+  "overlay_keys": {
+    "once_per_turn": 628,
+    "rest_self": 173,
+    "discard_hand": 358,
+    "return_self_to_hand": 16,
+    "trash_self": 116,
+    "pay_don": 305,
+    "ko_self_with_filter": 5,
+    "rest_self_don": 82,
+    "trash_to_deck": 2,
+    "return_self_chara_to_hand": 3,
+    "rest_self_target_name": 1,
+    "discard_hand_with_filter": 11,
+    "life_to_hand": 2,
+    "return_self_don_to_deck": 2,
+    "life_top_or_bottom_to_hand": 2,
+    "self_ko": 1
+  },
+  "engine_keys_all": [
+    "discard_hand",
+    "discard_hand_with_filter",
+    "ko_self_with_filter",
+    "life_to_hand",
+    "life_top_or_bottom_to_hand",
+    "mill_self_life_to_trash",
+    "once_per_turn",
+    "pay_don",
+    "power_pump",
+    "rest_self",
+    "rest_self_don",
+    "rest_self_target",
+    "rest_self_target_name",
+    "return_self_chara_to_deck_bottom",
+    "return_self_chara_to_hand",
+    "return_self_don_to_deck",
+    "return_self_to_hand",
+    "return_self_to_trash",
+    "reveal_hand_with_filter",
+    "stage_to_deck_bottom",
+    "trash_self",
+    "trash_self_hand_random",
+    "trash_to_deck"
+  ],
+  "engine_can_pay": [
+    "discard_hand",
+    "discard_hand_with_filter",
+    "ko_self_with_filter",
+    "once_per_turn",
+    "pay_don",
+    "rest_self",
+    "rest_self_don",
+    "rest_self_target",
+    "rest_self_target_name",
+    "return_self_to_hand",
+    "reveal_hand_with_filter",
+    "trash_self"
+  ],
+  "engine_fire": [],
+  "missing": [
+    {
+      "key": "self_ko",
+      "n": 1
+    }
+  ],
+  "only_can_pay": [
+    {
+      "key": "rest_self",
+      "n": 173
+    },
+    {
+      "key": "discard_hand",
+      "n": 358
+    },
+    {
+      "key": "return_self_to_hand",
+      "n": 16
+    },
+    {
+      "key": "trash_self",
+      "n": 116
+    },
+    {
+      "key": "pay_don",
+      "n": 305
+    },
+    {
+      "key": "ko_self_with_filter",
+      "n": 5
+    },
+    {
+      "key": "rest_self_don",
+      "n": 82
+    },
+    {
+      "key": "rest_self_target_name",
+      "n": 1
+    },
+    {
+      "key": "discard_hand_with_filter",
+      "n": 11
+    }
+  ],
+  "only_fire": []
+}

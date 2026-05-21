@@ -69,6 +69,9 @@ def _collect_primitives(
 
     overlay = dict[card_id, CardEffectBundle] (load_effect_overlay の戻り値)。
     overlay が None や該当 entry なし の場合は空リスト。
+
+    choice_effect.options[*].do[] も recursively 取り込む (= OP14-069 等 のように
+    KO/removal が 選択肢 の 1 つ に 入っている カード を 正しく 分類)。
     """
     out: list[dict[str, Any]] = []
     if not overlay:
@@ -77,12 +80,29 @@ def _collect_primitives(
     if bundle is None:
         return out
     effects = bundle.effects if isinstance(bundle, CardEffectBundle) else bundle
+
+    def _flatten(prims: list) -> None:
+        for prim in prims:
+            if not isinstance(prim, dict):
+                continue
+            out.append(prim)
+            # choice_effect の options.do[] も再帰 (= sub-primitives 拾う)
+            if "choice_effect" in prim:
+                spec = prim["choice_effect"]
+                if isinstance(spec, dict):
+                    for opt in spec.get("options", []) or []:
+                        if isinstance(opt, dict):
+                            _flatten(opt.get("do", []) or [])
+            # optional_cost_then の do も再帰
+            if "optional_cost_then" in prim:
+                spec = prim["optional_cost_then"]
+                if isinstance(spec, dict):
+                    _flatten(spec.get("do", []) or [])
+
     for eff in effects:
         if not isinstance(eff, dict):
             continue
-        for prim in eff.get("do", []):
-            if isinstance(prim, dict):
-                out.append(prim)
+        _flatten(eff.get("do", []) or [])
     return out
 
 
@@ -123,7 +143,7 @@ _RAMP_KEYS = frozenset({
 })
 
 _SEARCH_KEYS = frozenset({
-    "search", "summon_from_deck",
+    "search", "search_top_n", "summon_from_deck",
     "reveal_top_then", "reveal_top_play",
 })
 

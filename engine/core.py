@@ -610,6 +610,23 @@ class GameState:
     # 「このターンの後に自分のターンを追加で得る」 フラグ。 END phase で消費され、
     # turn_player_idx を切り替えずに REFRESH に戻ることで「もう 1 回ターン」 を実現。
     extra_turn_pending: bool = False
+    # 人間プレイヤー対戦時、 human の player_idx を set (= HumanSession が セット)。
+    # search_top_n 等の 効果 が interactive 選択 を 求める 時 に 参照。
+    # None なら 全 自動 (= AI 同士、 旧挙動)。
+    human_player_idx: Optional[int] = None
+    # 人間プレイヤー の 選択 待ち。 search_top_n 等 で 設定 され、
+    # frontend が /choice endpoint で 解消 する まで 進行 を 止める。
+    # dict 形式: {"kind": "search_top_n", "cards": [...], "limit": N, ...}
+    pending_choice: Optional[dict] = None
+    # 「自ターン外 で actor が human の effect 発動中」 override。
+    # 例: counter event を 防御中 (= AI ターン中) に 発動 する 際、 turn_player_idx は
+    # AI だが、 effect の actor は defender=human。 この時 human pick を 有効化 する。
+    # int = human_idx で set、 None = 通常。
+    forced_human_actor_idx: Optional[int] = None
+    # ライフ受け取り 確認 中断 状態 (= attack hit 中 で user 確認 待ち)。
+    # {"attacker_iid", "target_kind", "target_iid", "remaining_damage",
+    #  "is_banish", "defender_idx", "taken_card": CardDef, "post_hit_triggers": bool}
+    pending_attack_hits: Optional[dict] = None
     # 直近の「自分の手札からカードが捨てられた」 イベントの context (OP12-040 クザン等)。
     # trigger_on_self_hand_discarded で一時的に保存され、 eval_condition で参照される。
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。

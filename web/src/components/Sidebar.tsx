@@ -15,6 +15,8 @@ const NAV = [
 
 export function Sidebar() {
   const path = usePathname();
+  // /play ルートでは sidebar を 非表示 (= 対戦画面 を フルスクリーン に)
+  if (path?.startsWith("/play")) return null;
   return (
     <aside className="sticky top-0 flex h-screen w-48 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
       <Link

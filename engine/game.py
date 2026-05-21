@@ -98,7 +98,14 @@ def setup_game(
     effects_overlay: Optional[dict] = None,
     deck1_analysis: Optional[dict] = None,
     deck2_analysis: Optional[dict] = None,
+    do_mulligan_and_finalize: bool = True,
 ) -> GameState:
+    """試合 初期化。
+
+    do_mulligan_and_finalize=False で 「5 枚 draw 段階」 で 一旦 停止、 マリガン適用 +
+    ライフ配布 + game_start 効果 は 行わない。 呼び出し側 が finalize_setup_after_mulligan
+    で 後段 を 実行 する 用 (= human session で user マリガン 選択 modal を 挿入)。
+    """
     if rng is None:
         rng = random.Random()
     if first_player is None:
@@ -144,21 +151,31 @@ def setup_game(
     else:
         analyses = [deck2_analysis, deck1_analysis]
 
-    for p in state.players:
-        p.draw(5)
-    # マリガン (公式 5-2-1-2): 各プレイヤーは1度だけ手札全戻し+引き直し可能。
-    # deck_analysis があれば mulligan_keep_card_ids を見てキープ判定、 無ければフォールバック。
-    for p, a in zip(state.players, analyses):
-        if _should_mulligan(p, a):
-            p.deck.extend(p.hand)
-            p.hand = []
-            p.shuffle_deck(rng)
-            p.draw(5)
-            state.push_log(f"  マリガン: {p.name} 手札を引き直し")
+    # 公式 5-2 セットアップ 順序: ライフ配置 → 手札 5 枚 → マリガン。
+    # 旧 implementation は 「手札 → マリガン → ライフ」 で 逆順 だった。
     for p in state.players:
         for _ in range(p.leader.card.life):
             if p.deck:
                 p.life.append(p.deck.pop(0))
+    for p in state.players:
+        p.draw(5)
+    state._mulligan_analyses = analyses  # type: ignore[attr-defined]
+    if do_mulligan_and_finalize:
+        # AI vs AI 試合 用 (= 全 player AI 自動判定)、 結果 を log に 明示
+        for p, a in zip(state.players, analyses):
+            if _should_mulligan(p, a):
+                p.deck.extend(p.hand)
+                p.hand = []
+                p.shuffle_deck(rng)
+                p.draw(5)
+                state.push_log(f"  マリガン: {p.name} (AI) 手札 引き直し")
+            else:
+                state.push_log(f"  マリガン: {p.name} (AI) 引き直さない (keep)")
+    else:
+        # マリガン skip path: state を 「pre-mulligan」 で 返す。
+        # 呼び出し側 が finalize_setup_after_mulligan を 呼んで 完了 する 想定。
+        state._pre_mulligan_pending = True  # type: ignore[attr-defined]
+        return state
 
     state.push_log(
         f"start: P0={p1.leader.card.name}({p1.leader.card.life}L) "
@@ -205,6 +222,77 @@ def setup_game(
 
     _recompute_static(state)
     return state
+
+
+def finalize_setup_after_mulligan(
+    state: GameState,
+    rng: random.Random,
+    effects_overlay: Optional[dict] = None,
+    human_mulligan: Optional[bool] = None,
+    human_player_idx: Optional[int] = None,
+) -> None:
+    """setup_game(do_mulligan_and_finalize=False) で 留めた state に マリガン適用 +
+    ライフ配布 + game_start 効果 を 後段適用 して 試合 を 開始可能 状態 にする。
+
+    human_mulligan: 人間 player の マリガン 選択 (= True 引き直し / False keep / None なら
+       _should_mulligan で auto)。 None なら AI 側 と 同じ logic。
+    human_player_idx: 人間 player の index (= state.players 内)。
+    """
+    analyses = getattr(state, "_mulligan_analyses", [None, None])
+    # マリガン適用 (= ライフ は setup_game で 既配布、 keep)
+    # マリガン した か どうか を 各 player 別 で log に 明示 (= ユーザ要望)
+    for idx, (p, a) in enumerate(zip(state.players, analyses)):
+        actor = "人間" if idx == human_player_idx else "AI"
+        if idx == human_player_idx and human_mulligan is not None:
+            do_mull = human_mulligan
+        else:
+            do_mull = _should_mulligan(p, a)
+        if do_mull:
+            p.deck.extend(p.hand)
+            p.hand = []
+            p.shuffle_deck(rng)
+            p.draw(5)
+            state.push_log(f"  マリガン: {p.name} ({actor}) 手札 引き直し")
+        else:
+            state.push_log(f"  マリガン: {p.name} ({actor}) 引き直さない (keep)")
+    p0, p1 = state.players[0], state.players[1]
+    state.push_log(
+        f"start: P0={p0.leader.card.name}({p0.leader.card.life}L) "
+        f"vs P1={p1.leader.card.name}({p1.leader.card.life}L)"
+    )
+    # リーダー game_start 効果
+    if effects_overlay:
+        for p in state.players:
+            bundle = effects_overlay.get(p.leader.card.card_id)
+            if bundle is None:
+                continue
+            for eff in bundle.effects:
+                if eff.get("when") != "game_start":
+                    continue
+                for prim in eff.get("do", []):
+                    if not isinstance(prim, dict):
+                        continue
+                    feat = prim.get("summon_stage_from_deck_with_feature")
+                    if not feat:
+                        continue
+                    target_idx = None
+                    for i, c in enumerate(p.deck):
+                        if c.category != Category.STAGE:
+                            continue
+                        if feat in (c.features or ""):
+                            target_idx = i
+                            break
+                    if target_idx is not None:
+                        card = p.deck.pop(target_idx)
+                        ip = InPlay.of(card, rested=False, sickness=False)
+                        p.stages.append(ip)
+                        p.shuffle_deck(rng)
+                        state.push_log(
+                            f"  game_start: {p.name} ({p.leader.card.name}) "
+                            f"→ ステージ登場: {card.name}"
+                        )
+    _recompute_static(state)
+    state._pre_mulligan_pending = False  # type: ignore[attr-defined]
 
 
 def _should_mulligan(
@@ -626,6 +714,11 @@ def legal_actions(state: GameState) -> list[Action]:
                 if "in_hand_cost_minus" in prim:
                     val = prim["in_hand_cost_minus"]
                     total += int(val) if isinstance(val, int) else int(val.get("amount", 0))
+                elif "in_hand_cost_plus" in prim:
+                    # 公式 「手札のこのカードは ... の場合、 コスト+N」 (= EB03-042 革命軍 等)。
+                    # play_cost に 加算 する 方向。 minus と 符号 逆 で 合算。
+                    val = prim["in_hand_cost_plus"]
+                    total -= int(val) if isinstance(val, int) else int(val.get("amount", 0))
         return total
 
     def _eff_cost(card: CardDef) -> int:
@@ -987,6 +1080,9 @@ def _compute_in_hand_cost_minus(state: GameState, me: Player, card: CardDef) -> 
             if "in_hand_cost_minus" in prim:
                 val = prim["in_hand_cost_minus"]
                 total += int(val) if isinstance(val, int) else int(val.get("amount", 0))
+            elif "in_hand_cost_plus" in prim:
+                val = prim["in_hand_cost_plus"]
+                total -= int(val) if isinstance(val, int) else int(val.get("amount", 0))
     return total
 
 
@@ -1211,9 +1307,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                                 trigger_on_opp_chara_ko,
                                 trigger_on_self_chara_ko,
                             )
+                            # battle KO → by_opp_effect=False (= バトル由来)
                             trigger_on_ko(
                                 state, opp, me, redirect_target.card,
-                                state.effects_overlay,
+                                state.effects_overlay, by_opp_effect=False,
                             )
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
@@ -1319,9 +1416,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             trigger_on_opp_chara_ko,
                             trigger_on_self_chara_ko,
                         )
+                        # battle KO (blocker) → by_opp_effect=False
                         trigger_on_ko(
                             state, opp, me, actual_target.card,
-                            state.effects_overlay,
+                            state.effects_overlay, by_opp_effect=False,
                         )
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
@@ -1349,50 +1447,58 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 state.push_log(f"  ダブルアタック: 2 ダメージ")
             for _ in range(damage):
                 if not opp.life:
-                    # 攻撃中にライフが尽きた → 残りダメージは空打ち (Q36)。敗北は宣言しない
                     state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
                     break
                 taken = opp.life.pop(0)
                 if is_banish:
-                    # 【バニッシュ】: トリガー発動せずトラッシュへ (10-1-3-1)
                     opp.trash.append(taken)
                     state.push_log(
                         f"  hit: {opp.name} BANISH life->trash ({taken.name})"
                     )
                     continue
-                fired = False
-                kept_in_hand = False
-                if state.effects_overlay:
-                    from .effects import trigger_lifecard_trigger, should_fire_trigger
-                    # 公式 10-1-5: 防御側プレイヤーが発動するか選択
-                    auto_fire = should_fire_trigger(state, opp, taken, state.effects_overlay)
-                    state.last_trigger_kept_in_hand = False  # reset before
-                    fired = trigger_lifecard_trigger(
-                        state, opp, me, taken, state.effects_overlay,
-                        auto_fire=auto_fire,
+                # 防御側 が 人間 + trigger 有無 を 確認 する 場合 は user 選択 待ち で 中断
+                opp_idx = state.players.index(opp)
+                is_human_defender = (
+                    state.human_player_idx is not None
+                    and opp_idx == state.human_player_idx
+                )
+                has_trigger = bool(
+                    state.effects_overlay
+                    and state.effects_overlay.get(taken.card_id)
+                    and any(
+                        e.get("when") == "trigger"
+                        for e in state.effects_overlay[taken.card_id].effects
                     )
-                    kept_in_hand = state.last_trigger_kept_in_hand
-                    state.last_trigger_kept_in_hand = False  # reset after
-                if fired and not kept_in_hand:
-                    opp.trash.append(taken)
-                    state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
-                    went_to_hand = False
-                elif fired and kept_in_hand:
-                    # ST09-002 雨月天ぷら等: トリガー効果で「このカードを手札に加える」
-                    opp.hand.append(taken)
-                    state.push_log(f"  hit: {opp.name} trigger->hand ({taken.name})")
-                    went_to_hand = True
-                else:
-                    opp.hand.append(taken)
-                    state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
-                    went_to_hand = True
-                # 公式 10-1-5 直後: 「相手のライフが離れた時」 / 「自分のライフが (手札に加わった | トラッシュに置かれた) 時」
-                # OP08-105 ジュエリー・ボニー / OP05-107 スペーシー中尉 等
-                if state.effects_overlay:
-                    from .effects import trigger_on_opp_life_taken
-                    trigger_on_opp_life_taken(
-                        state, me, opp, went_to_hand, state.effects_overlay,
+                )
+                if is_human_defender:
+                    # 残 damage 計算 (= 既 消化 + 残)
+                    consumed = (damage - len(opp.life) + (
+                        0 if opp.life else 0
+                    ))
+                    state.pending_attack_hits = {
+                        "attacker_iid": attacker.instance_id,
+                        "target_kind": "leader",
+                        "defender_idx": opp_idx,
+                        "remaining_damage": 0,  # 後段 残 hit は loop で 処理
+                        "is_banish": is_banish,
+                        "taken_card_id": taken.card_id,
+                    }
+                    # taken を 一旦 life の 0 番目 に 戻す (= resolve で 再 pop)
+                    opp.life.insert(0, taken)
+                    state.pending_choice = {
+                        "kind": "life_taken_choice",
+                        "card_id": taken.card_id,
+                        "name": taken.name,
+                        "has_trigger": has_trigger,
+                    }
+                    state.push_log(
+                        f"  hit: {opp.name} ライフ受け取り 確認 待ち ({taken.name})"
                     )
+                    # consumed 未使用 (= 構造 簡略)
+                    _ = consumed
+                    return
+                # AI defender: 旧挙動
+                _resolve_life_taken(state, me, opp, taken)
         else:
             state.push_log("  blocked")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
@@ -1532,7 +1638,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             trigger_on_opp_chara_ko,
                             trigger_on_self_chara_ko,
                         )
-                        trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay)
+                        # battle KO → by_opp_effect=False
+                        trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay, by_opp_effect=False)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         else:
@@ -1577,6 +1684,74 @@ def _spend_counters(p: Player, idxs: tuple[int, ...]) -> int:
             p.trash.append(card)
             total += card.counter
     return total
+
+
+def _resolve_life_taken(
+    state: GameState,
+    me: "Player",
+    opp: "Player",
+    taken: "CardDef",
+    use_trigger: Optional[bool] = None,
+) -> None:
+    """1 hit 分 の life→hand / trigger 処理。
+
+    use_trigger:
+        None: 旧挙動 (= should_fire_trigger で AI 判定)
+        True: user 「使う」 → fire
+        False: user 「使わない」 → 手札 add のみ
+    """
+    fired = False
+    kept_in_hand = False
+    if state.effects_overlay:
+        from .effects import trigger_lifecard_trigger, should_fire_trigger
+        if use_trigger is None:
+            auto_fire = should_fire_trigger(state, opp, taken, state.effects_overlay)
+        else:
+            auto_fire = use_trigger
+        state.last_trigger_kept_in_hand = False
+        fired = trigger_lifecard_trigger(
+            state, opp, me, taken, state.effects_overlay,
+            auto_fire=auto_fire,
+        )
+        kept_in_hand = state.last_trigger_kept_in_hand
+        state.last_trigger_kept_in_hand = False
+    went_to_hand: bool
+    if fired and not kept_in_hand:
+        opp.trash.append(taken)
+        state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
+        went_to_hand = False
+    elif fired and kept_in_hand:
+        opp.hand.append(taken)
+        state.push_log(f"  hit: {opp.name} trigger->hand ({taken.name})")
+        went_to_hand = True
+    else:
+        opp.hand.append(taken)
+        state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
+        went_to_hand = True
+    if state.effects_overlay:
+        from .effects import trigger_on_opp_life_taken
+        trigger_on_opp_life_taken(
+            state, me, opp, went_to_hand, state.effects_overlay,
+        )
+
+
+def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
+    """pending_attack_hits 状態 から user 選択 を 反映 して 1 hit 解決。
+
+    use_trigger: True = trigger 使う、 False = 使わない (= 手札 add のみ)。
+    """
+    pa = state.pending_attack_hits
+    if pa is None:
+        return
+    defender_idx = pa["defender_idx"]
+    opp = state.players[defender_idx]
+    me = state.players[1 - defender_idx]
+    if not opp.life:
+        state.pending_attack_hits = None
+        return
+    taken = opp.life.pop(0)
+    state.pending_attack_hits = None
+    _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger)
 
 
 def _fire_counter_events(
