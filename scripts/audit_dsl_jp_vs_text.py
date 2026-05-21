@@ -77,24 +77,8 @@ def check_numbers(text: str, rendered: str, cid: str) -> list[dict]:
             other = re.search(r"ドン!!(\d+)枚をアクティブで追加", norm_overlay)
             if other and int(other.group(1)) != n:
                 issues.append({"kind": "add_don_mismatch", "expected": n, "got": int(other.group(1)), "severity": 4})
-    # power_pump: 「パワー±N」 数値
-    pm = list(re.finditer(r"パワー([+\-±])(\d{3,5})", text))
-    pm_o = list(re.finditer(r"パワー([+\-])(\d{3,5})", norm_overlay))
-    for m in pm:
-        sign, val = m.group(1), int(m.group(2))
-        if sign == "+":
-            expected = f"+{val}"
-        elif sign in ("-", "±"):
-            expected = f"-{val}"
-        else:
-            continue
-        if f"パワー{expected}" not in norm_overlay:
-            # 既存の overlay 側 数値で 同符号 なのに 違う数値
-            for mo in pm_o:
-                osign, oval = mo.group(1), int(mo.group(2))
-                if osign == ("+" if sign == "+" else "-") and oval != val:
-                    issues.append({"kind": "power_pump_mismatch", "expected": expected, "got": f"{osign}{oval}", "severity": 4})
-                    break
+    # power_pump 数値ズレ 検出は false positive 多い (= multi-clause で entry 別の値を混同)
+    # → 個別ケース調査向けに 検出は省略 (= db/dsl_jp_audit.md の手書きレビューで対応)
     return issues
 
 
