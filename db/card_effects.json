@@ -1003,11 +1003,31 @@
   ],
   "OP08-030": [
     {
-      "_text": "OP08-030 on_ko: 以下から1つを選ぶ。・相手のドン‼1枚までを、レストにする。・相手のレストのコスト6以下のキャラ1枚までを、KOする。",
+      "_text": "OP08-030 【ブロッカー】【KO時】以下から1つを選ぶ。・相手のドン‼1枚までを、レストにする。・相手のレストのコスト6以下のキャラ1枚までを、KOする。",
       "when": "on_ko",
       "do": [
         {
-          "ko": "one_opponent_rested_character_cost_le_6cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "相手ドン 1 枚 レスト",
+                "do": [
+                  {
+                    "rest_opp_don": 1
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト6以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_6cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -2901,19 +2921,39 @@
   ],
   "EB02-045": [
     {
-      "_text": "EB02-045 on_play: 自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：以下から1つを選ぶ。・カード1枚を引く。・相手の手札が5枚以上ある場合、相手は自身の手",
+      "_text": "EB02-045 【ブロッカー】【登場時】自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：以下から1つを選ぶ。・カード1枚を引く。・相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。",
       "when": "on_play",
+      "cost": {
+        "trash_to_deck": 2
+      },
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "trash_opp_hand_random": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "1 ドロー",
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手手札5以上 なら 1 枚 捨て",
+                "if": {
+                  "opp_hand_ge": 5
+                },
+                "do": [
+                  {
+                    "trash_opp_hand_random": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "EB03-003": [
@@ -3669,11 +3709,40 @@
   ],
   "OP03-028": [
     {
-      "_text": "OP03-028 on_play: 以下から1つを選ぶ。・自分の特徴《東の海》を持つ、リーダーかコスト6以下のキャラ1枚までを、アクティブにする。・このキャラと相手のキャラ1枚までを、レストにする",
+      "_text": "OP03-028 【登場時】以下から1つを選ぶ。・自分の特徴《東の海》を持つ、リーダーかコスト6以下のキャラ1枚までを、アクティブにする。・このキャラと相手のキャラ1枚までを、レストにする。",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "自東の海 リーダーかコスト6以下 1 枚 untap",
+                "do": [
+                  {
+                    "untap_chara": {
+                      "type": "one_self_chara_or_leader_filtered",
+                      "filter": {
+                        "feature": "東の海",
+                        "cost_le": 6
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "label": "このキャラ + 相手キャラ レスト",
+                "do": [
+                  {
+                    "rest": "self"
+                  },
+                  {
+                    "rest": "one_opponent_character_any"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -6232,28 +6301,50 @@
   ],
   "OP15-054": [
     {
-      "_text": "OP15-054 main: 自分のリーダーが「ルーシー」の場合、以下から1つを選ぶ。・カード2枚を引き、自分の手札1枚を捨てる。その後、自分の手札からコスト4以下の特徴《ドレスローザ》を持",
+      "_text": "OP15-054 【メイン】自分のリーダーが「ルーシー」の場合、以下から1つを選ぶ。・カード2枚を引き、自分の手札1枚を捨てる。その後、自分の手札からコスト4以下の特徴《ドレスローザ》を持つキャラカード1枚までを、登場させる。・ステージ1枚までを、持ち主の手札に戻す。",
       "when": "main",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 4,
-              "feature": "ドレスローザ"
-            },
-            "limit": 1
-          }
-        }
-      ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_name": "ルーシー"
-      }
+      },
+      "do": [
+        {
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "2 ドロー + 1 捨て + 特徴ドレスローザ コスト4以下 登場",
+                "do": [
+                  {
+                    "draw": 2
+                  },
+                  {
+                    "trash_self_hand_random": 1
+                  },
+                  {
+                    "play_from_hand": {
+                      "filter": {
+                        "feature": "ドレスローザ",
+                        "cost_le": 4,
+                        "category": "CHARACTER"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "label": "ステージ 1 枚 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": {
+                      "type": "any_stage_n_1"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP14-039": [
@@ -9827,16 +9918,40 @@
   ],
   "OP06-093": [
     {
-      "_text": "OP06-093 on_play: 相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
+      "_text": "OP06-093 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
+      "if": {
+        "opp_hand_ge": 5
+      },
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "相手手札 1 枚 捨て",
+                "do": [
+                  {
+                    "trash_opp_hand_random": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-3",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -3,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "OP14-056": [
@@ -11203,7 +11318,31 @@
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト4以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-1",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -1,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -11424,14 +11563,42 @@
   ],
   "OP08-057_p2": [
     {
-      "_text": "OP08-057_p2 【起動メイン】【ターン1回】ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：以下から1つを選ぶ。・自分の手札が5枚以下の場合、カード1枚を引く。・相手のキャラ1枚までを、このターン中、コスト-2。",
+      "_text": "OP08-057_p2 【起動メイン】【ターン1回】ドン‼-2：以下から1つを選ぶ。・自分の手札が5枚以下の場合、カード1枚を引く。・相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 2
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "手札5以下 なら 1 ドロー",
+                "if": {
+                  "self_hand_le": 5
+                },
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-2",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -2,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -12858,28 +13025,84 @@
   ],
   "OP08-057": [
     {
-      "_text": "OP08-057 【起動メイン】【ターン1回】ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：以下から1つを選ぶ。・自分の手札が5枚以下の場合、カード1枚を引く。・相手のキャラ1枚までを、このターン中、コスト-2。",
+      "_text": "OP08-057 【起動メイン】【ターン1回】ドン‼-2：以下から1つを選ぶ。・自分の手札が5枚以下の場合、カード1枚を引く。・相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 2
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "手札5以下 なら 1 ドロー",
+                "if": {
+                  "self_hand_le": 5
+                },
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-2",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -2,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP08-057_p1": [
     {
-      "_text": "OP08-057_p1 【起動メイン】【ターン1回】ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：以下から1つを選ぶ。・自分の手札が5枚以下の場合、カード1枚を引く。・相手のキャラ1枚までを、このターン中、コスト-2。",
+      "_text": "OP08-057_p1 【起動メイン】【ターン1回】ドン‼-2：以下から1つを選ぶ。・自分の手札が5枚以下の場合、カード1枚を引く。・相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 2
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "手札5以下 なら 1 ドロー",
+                "if": {
+                  "self_hand_le": 5
+                },
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-2",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -2,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -13156,7 +13379,31 @@
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト4以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-1",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -1,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -13170,7 +13417,31 @@
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト4以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-1",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -1,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -15226,7 +15497,31 @@
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト4以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-1",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -1,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -17468,14 +17763,34 @@
   ],
   "OP06-065": [
     {
-      "_text": "OP06-065 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1",
+      "_text": "OP06-065 【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
       "when": "on_play",
+      "if": {
+        "don_diff_le": 0
+      },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト2以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト4以下 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -22101,23 +22416,37 @@
   ],
   "OP06-116": [
     {
-      "_text": "OP06-116 main: 以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、KOする。・相手のライフが1枚の場合、相手に1ダメージを与える。その後、自分のライフの上から1枚を手",
+      "_text": "OP06-116 【メイン】以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、KOする。・相手のライフが1枚の場合、相手に1ダメージを与える。その後、自分のライフの上から1枚を手札に加える。",
       "when": "main",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
-        }
-      ]
-    },
-    {
-      "_text": "OP06-116 trigger: カード1枚を引く。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト5以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_5cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手ライフ1 なら ダメージ + 自ライフ→手札",
+                "if": {
+                  "opp_life_le": 1
+                },
+                "do": [
+                  {
+                    "mill_opp_life_to_trash": 1
+                  },
+                  {
+                    "life_to_hand": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -23809,18 +24138,31 @@
   ],
   "ST12-006": [
     {
-      "_text": "ST12-006 on_attack: 以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、レストにする。・相手のレストのコスト2以下のキャラ1枚までを、KOする。",
+      "_text": "ST12-006 【ドン!!×1】【アタック時】以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、レストにする。・相手のレストのコスト2以下のキャラ1枚までを、KOする。",
       "when": "on_attack",
+      "n": 1,
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_2cost"
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 2
-            }
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "コスト2以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト2以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_2cost"
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -26986,42 +27328,102 @@
   ],
   "OP06-065_p1": [
     {
-      "_text": "OP06-065_p1 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1",
+      "_text": "OP06-065_p1 【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
       "when": "on_play",
+      "if": {
+        "don_diff_le": 0
+      },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト2以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト4以下 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP06-065_p2": [
     {
-      "_text": "OP06-065_p2 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1",
+      "_text": "OP06-065_p2 【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
       "when": "on_play",
+      "if": {
+        "don_diff_le": 0
+      },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト2以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト4以下 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP06-065_p3": [
     {
-      "_text": "OP06-065_p3 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1",
+      "_text": "OP06-065_p3 【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
       "when": "on_play",
+      "if": {
+        "don_diff_le": 0
+      },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト2以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト4以下 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -28024,19 +28426,39 @@
   ],
   "EB02-045_p1": [
     {
-      "_text": "EB02-045_p1 on_play: 自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：以下から1つを選ぶ。・カード1枚を引く。・相手の手札が5枚以上ある場合、相手は自身の手",
+      "_text": "EB02-045_p1 【ブロッカー】【登場時】自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：以下から1つを選ぶ。・カード1枚を引く。・相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。",
       "when": "on_play",
+      "cost": {
+        "trash_to_deck": 2
+      },
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "trash_opp_hand_random": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "1 ドロー",
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手手札5以上 なら 1 枚 捨て",
+                "if": {
+                  "opp_hand_ge": 5
+                },
+                "do": [
+                  {
+                    "trash_opp_hand_random": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "EB02-052_p1": [
@@ -29569,16 +29991,40 @@
   ],
   "OP06-093_p3": [
     {
-      "_text": "OP06-093_p3 on_play: 相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
+      "_text": "OP06-093_p3 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
+      "if": {
+        "opp_hand_ge": 5
+      },
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "相手手札 1 枚 捨て",
+                "do": [
+                  {
+                    "trash_opp_hand_random": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-3",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -3,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "OP07-046_p2": [
@@ -31843,11 +32289,31 @@
   ],
   "OP08-030_p1": [
     {
-      "_text": "OP08-030_p1 on_ko: 以下から1つを選ぶ。・相手のドン‼1枚までを、レストにする。・相手のレストのコスト6以下のキャラ1枚までを、KOする。",
+      "_text": "OP08-030_p1 【ブロッカー】【KO時】以下から1つを選ぶ。・相手のドン‼1枚までを、レストにする。・相手のレストのコスト6以下のキャラ1枚までを、KOする。",
       "when": "on_ko",
       "do": [
         {
-          "ko": "one_opponent_rested_character_cost_le_6cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "相手ドン 1 枚 レスト",
+                "do": [
+                  {
+                    "rest_opp_don": 1
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト6以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_6cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -32437,16 +32903,40 @@
   ],
   "OP06-093_p1": [
     {
-      "_text": "OP06-093_p1 on_play: 相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
+      "_text": "OP06-093_p1 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
+      "if": {
+        "opp_hand_ge": 5
+      },
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "相手手札 1 枚 捨て",
+                "do": [
+                  {
+                    "trash_opp_hand_random": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-3",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -3,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "OP06-101_p1": [
@@ -35562,16 +36052,40 @@
   ],
   "OP06-093_p2": [
     {
-      "_text": "OP06-093_p2 on_play: 相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
+      "_text": "OP06-093_p2 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
+      "if": {
+        "opp_hand_ge": 5
+      },
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "相手手札 1 枚 捨て",
+                "do": [
+                  {
+                    "trash_opp_hand_random": 1
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-3",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -3,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "OP06-101_p3": [
@@ -45288,14 +45802,34 @@
   ],
   "OP06-065_r1": [
     {
-      "_text": "OP06-065_r1 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1",
+      "_text": "OP06-065_r1 【登場時】自分の場のドン !!が相手の場のドン !!の枚数以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
       "when": "on_play",
+      "if": {
+        "don_diff_le": 0
+      },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト2以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト4以下 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -49109,11 +49643,35 @@
   ],
   "EB02-051": [
     {
-      "_text": "EB02-051 main: 以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のキャラ1枚までを、このターン中、コスト-4。",
+      "_text": "EB02-051 【メイン】以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手のキャラ1枚までを、このターン中、コスト-4。",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト2以下のキャラ KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_2cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手キャラ コスト-4 (このターン中)",
+                "do": [
+                  {
+                    "set_base_cost_timed": {
+                      "target": "one_opponent_character_any",
+                      "amount": -4,
+                      "duration": "turn"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -49960,21 +50518,27 @@
   ],
   "EB01-052": [
     {
-      "_text": "EB01-052 on_play: 以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。",
+      "_text": "EB01-052 【ブロッカー】【登場時】以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。",
       "when": "on_play",
       "do": [
         {
-          "choice": {
+          "choice_effect": {
+            "optional": false,
             "options": [
-              [
-                {
-                  "scry_life": {
-                    "owner": "opp",
-                    "depth": 99
+              {
+                "label": "相手ライフ 並び替え (peek)",
+                "do": [
+                  {
+                    "scry_all_life_reorder": {
+                      "owner": "opp"
+                    }
                   }
-                }
-              ],
-              []
+                ]
+              },
+              {
+                "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 簡略)",
+                "do": []
+              }
             ]
           }
         }
@@ -49983,21 +50547,27 @@
   ],
   "EB01-052_p1": [
     {
-      "_text": "EB01-052_p1 on_play: 以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。",
+      "_text": "EB01-052_p1 【ブロッカー】【登場時】以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。",
       "when": "on_play",
       "do": [
         {
-          "choice": {
+          "choice_effect": {
+            "optional": false,
             "options": [
-              [
-                {
-                  "scry_life": {
-                    "owner": "opp",
-                    "depth": 99
+              {
+                "label": "相手ライフ 並び替え (peek)",
+                "do": [
+                  {
+                    "scry_all_life_reorder": {
+                      "owner": "opp"
+                    }
                   }
-                }
-              ],
-              []
+                ]
+              },
+              {
+                "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 簡略)",
+                "do": []
+              }
             ]
           }
         }
@@ -50323,26 +50893,39 @@
   ],
   "OP15-055": [
     {
-      "_text": "OP15-055 main: 以下から1つを選ぶ。・カード2枚を引く。・自分の特徴《ドレスローザ》を持つキャラ1枚までは、次の相手のエンドフェイズ終了時まで、",
+      "_text": "OP15-055 【メイン】以下から1つを選ぶ。・カード2枚を引く。・自分の特徴《ドレスローザ》を持つキャラ1枚までは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。",
       "when": "main",
       "do": [
         {
-          "draw": 2
-        }
-      ]
-    },
-    {
-      "_text": "【メイン】以下から1つを選ぶ。 ・カード2枚を引く。 ・自分の特徴《ドレスローザ》を持つキャラ1枚までは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。 ※第2選択肢: ブロッカー grant",
-      "when": "main",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "ドレスローザ"
-            },
-            "keyword": "ブロッカー",
-            "duration": "next_opp_turn_end"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "カード 2 枚 引く",
+                "do": [
+                  {
+                    "draw": 2
+                  }
+                ]
+              },
+              {
+                "label": "自ドレスローザ キャラ にブロッカー (= 次相手 end まで)",
+                "do": [
+                  {
+                    "give_keyword": {
+                      "target": {
+                        "type": "one_self_chara_or_leader_filtered",
+                        "filter": {
+                          "feature": "ドレスローザ"
+                        }
+                      },
+                      "keyword": "ブロッカー",
+                      "duration": "next_opp_turn_end"
+                    }
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -53558,46 +54141,76 @@
   ],
   "OP12-060": [
     {
-      "_text": "牛肉バースト メイン: 多色リーダー → 相手キャラ手札戻し",
+      "_text": "OP12-060 【メイン】自分のリーダーが多色の場合、以下から1つを選ぶ。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。・自分の手札が6枚以下の場合、カード2枚を引く。",
       "when": "main",
       "if": {
-        "leader_color": "多色"
+        "leader_color_multi": true
       },
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
-        }
-      ]
-    },
-    {
-      "_text": "【メイン】多色リーダー + 手札6以下で カード2枚引く (二択の片方)",
-      "when": "main",
-      "if": {
-        "leader_color": "多色",
-        "self_hand_le": 6
-      },
-      "do": [
-        {
-          "draw": 2
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト4以下 1 枚 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "手札6以下 なら 2 ドロー",
+                "if": {
+                  "self_hand_le": 6
+                },
+                "do": [
+                  {
+                    "draw": 2
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP12-060_p1": [
     {
-      "_text": "OP12-060_p1 main: 自分のリーダーが多色の場合、以下から1つを選ぶ。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。・自分の手札が6枚以下の場合、カード2枚を引く。",
+      "_text": "OP12-060_p1 【メイン】自分のリーダーが多色の場合、以下から1つを選ぶ。・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。・自分の手札が6枚以下の場合、カード2枚を引く。",
       "when": "main",
+      "if": {
+        "leader_color_multi": true
+      },
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト4以下 1 枚 手札戻し",
+                "do": [
+                  {
+                    "return_to_hand": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "手札6以下 なら 2 ドロー",
+                "if": {
+                  "self_hand_le": 6
+                },
+                "do": [
+                  {
+                    "draw": 2
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_hand_count_le": 6
-      }
+      ]
     }
   ],
   "OP12-065": [
@@ -60943,24 +61556,30 @@
   ],
   "OP06-039": [
     {
-      "_text": "OP06-039 main: 以下から1つを選ぶ。・相手のコスト6以下のキャラ1枚までを、レストにする。・相手のレストのコスト6以下のキャラ1枚までを、KOする。",
+      "_text": "OP06-039 【メイン】以下から1つを選ぶ。・相手のコスト6以下のキャラ1枚までを、レストにする。・相手のレストのコスト6以下のキャラ1枚までを、KOする。",
       "when": "main",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6cost"
-        },
-        {
-          "ko": "one_opponent_rested_character_cost_le_6cost"
-        }
-      ]
-    },
-    {
-      "_text": "OP06-039 trigger: このカードの【メイン】効果を発動する。",
-      "when": "trigger",
-      "do": [
-        {
-          "fire_self_effect": {
-            "when_kind": "main"
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト6以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_6cost"
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト6以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_6cost"
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -61762,18 +62381,29 @@
   ],
   "OP06-092": [
     {
-      "_text": "OP06-092 on_play: 以下から1つを選ぶ。相手のコスト4以下のキャラ1枚までを、トラッシュに置く。相手は自身のトラッシュのカード3枚を好きな順番でデッキの下に置く。",
+      "_text": "OP06-092 【登場時】以下から1つを選ぶ。・相手のコスト4以下のキャラ1枚までを、トラッシュに置く。・相手は自身のトラッシュのカード3枚を好きな順番でデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
-          "choice": {
+          "choice_effect": {
+            "optional": false,
             "options": [
-              [
-                {
-                  "ko": "one_opponent_character_cost_le_4cost"
-                }
-              ],
-              []
+              {
+                "label": "コスト4以下 KO (= トラッシュへ)",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手 トラッシュ 3 枚 デッキ下",
+                "do": [
+                  {
+                    "opp_trash_to_deck_bottom": 3
+                  }
+                ]
+              }
             ]
           }
         }
@@ -71533,19 +72163,37 @@
   ],
   "ST20-005": [
     {
-      "_text": "ST20-005 on_play: 自分の手札1枚を捨てることができる：相手は以下から1つを選ぶ。・相手は自身の手札2枚を捨てる。・相手のライフの上から1枚をトラッシュに置く。",
+      "_text": "ST20-005 【登場時】自分の手札1枚を捨てることができる：相手は以下から1つを選ぶ。・相手は自身の手札2枚を捨てる。・相手のライフの上から1枚をトラッシュに置く。",
       "when": "on_play",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 2
-        }
-      ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "do": [
+        {
+          "choice_effect": {
+            "optional": false,
+            "actor": "opp",
+            "options": [
+              {
+                "label": "相手手札 2 枚 捨て",
+                "do": [
+                  {
+                    "trash_opp_hand_random": 2
+                  }
+                ]
+              },
+              {
+                "label": "相手ライフ→トラッシュ 1 枚",
+                "do": [
+                  {
+                    "mill_opp_life_to_trash": 1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP02-098_r1": [
@@ -72198,24 +72846,36 @@
   ],
   "ST11-003_p2": [
     {
-      "_text": "ST11-003_p2 main: 自分のリーダーが「ウタ」の場合、以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、レストにする。・相手のレストのコスト5以下のキャラ1枚までを、KOす",
+      "_text": "ST11-003_p2 【メイン】自分のリーダーが「ウタ」の場合、以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、レストにする。・相手のレストのコスト5以下のキャラ1枚までを、KOする。",
       "when": "main",
-      "do": [
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト5以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_5cost"
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト5以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_5cost"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "ST11-004_p2": [
@@ -73350,24 +74010,36 @@
   ],
   "ST11-003": [
     {
-      "_text": "ST11-003 main: 自分のリーダーが「ウタ」の場合、以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、レストにする。・相手のレストのコスト5以下のキャラ1枚までを、KOす",
+      "_text": "ST11-003 【メイン】自分のリーダーが「ウタ」の場合、以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、レストにする。・相手のレストのコスト5以下のキャラ1枚までを、KOする。",
       "when": "main",
-      "do": [
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト5以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_5cost"
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト5以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_5cost"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "ST11-004": [
@@ -73986,11 +74658,32 @@
   ],
   "ST07-010": [
     {
-      "_text": "ST07-010 on_play: 相手は以下から1つを選ぶ。・相手のライフの上から1枚をトラッシュに置く。・自分のデッキの上から1枚をライフの上に加える。",
+      "_text": "ST07-010 【登場時】相手は以下から1つを選ぶ。・相手のライフの上から1枚をトラッシュに置く。・自分のデッキの上から1枚をライフの上に加える。",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
+          "choice_effect": {
+            "optional": false,
+            "actor": "opp",
+            "options": [
+              {
+                "label": "相手ライフ→トラッシュ 1 枚",
+                "do": [
+                  {
+                    "mill_opp_life_to_trash": 1
+                  }
+                ]
+              },
+              {
+                "label": "自デッキトップ→ライフ",
+                "do": [
+                  {
+                    "put_top_to_life": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -74057,24 +74750,31 @@
   ],
   "ST07-015": [
     {
-      "_text": "ST07-015 main: 相手は以下から1つを選ぶ。・相手のライフの上から1枚をトラッシュに置く。・自分のデッキの上から1枚をライフの上に加える。",
+      "_text": "ST07-015 【メイン】相手は以下から1つを選ぶ。・相手のライフの上から1枚をトラッシュに置く。・自分のデッキの上から1枚をライフの上に加える。",
       "when": "main",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "mill_opp_life_to_trash": 1
-        }
-      ]
-    },
-    {
-      "_text": "ST07-015 trigger: このカードの【メイン】効果を発動する。",
-      "when": "trigger",
-      "do": [
-        {
-          "fire_self_effect": {
-            "when_kind": "main"
+          "choice_effect": {
+            "optional": false,
+            "actor": "opp",
+            "options": [
+              {
+                "label": "相手ライフ→トラッシュ 1 枚",
+                "do": [
+                  {
+                    "mill_opp_life_to_trash": 1
+                  }
+                ]
+              },
+              {
+                "label": "自デッキトップ→ライフ",
+                "do": [
+                  {
+                    "put_top_to_life": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -76434,18 +77134,29 @@
   ],
   "OP06-092_p1": [
     {
-      "_text": "OP06-092_p1 on_play: 以下から1つを選ぶ。相手のコスト4以下のキャラ1枚までを、トラッシュに置く。相手は自身のトラッシュのカード3枚を好きな順番でデッキの下に置く。",
+      "_text": "OP06-092_p1 【登場時】以下から1つを選ぶ。・相手のコスト4以下のキャラ1枚までを、トラッシュに置く。・相手は自身のトラッシュのカード3枚を好きな順番でデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
-          "choice": {
+          "choice_effect": {
+            "optional": false,
             "options": [
-              [
-                {
-                  "ko": "one_opponent_character_cost_le_4cost"
-                }
-              ],
-              []
+              {
+                "label": "コスト4以下 KO (= トラッシュへ)",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_4cost"
+                  }
+                ]
+              },
+              {
+                "label": "相手 トラッシュ 3 枚 デッキ下",
+                "do": [
+                  {
+                    "opp_trash_to_deck_bottom": 3
+                  }
+                ]
+              }
             ]
           }
         }
@@ -79211,11 +79922,32 @@
   ],
   "ST07-010_p2": [
     {
-      "_text": "ST07-010_p2 on_play: 相手は以下から1つを選ぶ。・相手のライフの上から1枚をトラッシュに置く。・自分のデッキの上から1枚をライフの上に加える。",
+      "_text": "ST07-010_p2 【登場時】相手は以下から1つを選ぶ。・相手のライフの上から1枚をトラッシュに置く。・自分のデッキの上から1枚をライフの上に加える。",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
+          "choice_effect": {
+            "optional": false,
+            "actor": "opp",
+            "options": [
+              {
+                "label": "相手ライフ→トラッシュ 1 枚",
+                "do": [
+                  {
+                    "mill_opp_life_to_trash": 1
+                  }
+                ]
+              },
+              {
+                "label": "自デッキトップ→ライフ",
+                "do": [
+                  {
+                    "put_top_to_life": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -79347,24 +80079,36 @@
   ],
   "ST11-003_p1": [
     {
-      "_text": "ST11-003_p1 main: 自分のリーダーが「ウタ」の場合、以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、レストにする。・相手のレストのコスト5以下のキャラ1枚までを、KOす",
+      "_text": "ST11-003_p1 【メイン】自分のリーダーが「ウタ」の場合、以下から1つを選ぶ。・相手のコスト5以下のキャラ1枚までを、レストにする。・相手のレストのコスト5以下のキャラ1枚までを、KOする。",
       "when": "main",
-      "do": [
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "コスト5以下 レスト",
+                "do": [
+                  {
+                    "rest": "one_opponent_character_cost_le_5cost"
+                  }
+                ]
+              },
+              {
+                "label": "レスト コスト5以下 KO",
+                "do": [
+                  {
+                    "ko": "one_opponent_rested_character_cost_le_5cost"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "ST11-004_p1": [

@@ -1239,12 +1239,14 @@ def execute_effect(
     for k, v in spec.items():
         if k == "choice_effect":
             # 公式: 「以下から 1 つを選ぶ: ・効果A ・効果B」 等 の 分岐 効果。
-            # spec: {"optional": bool, "options": [{"label": str, "if": {...}, "do": [...]}, ...]}
-            # AI: optional=true なら 1 つ目 valid option を 発動 (= GreedyAI 簡略)、
-            #     optional=false でも 1 つ目 valid option を 発動。
-            # 人間: pending_choice "option_pick" を 立て、 user に 選択 を 委ねる。
+            # spec: {"optional": bool, "actor": "self"|"opp", "options": [...]}
+            #   actor: 「相手は以下から1つを選ぶ」 系 では "opp"。 既定 "self"。
+            # AI: 1 つ目 valid option を 発動 (= 簡略、 actor=opp なら opp 視点 で 1 つ目)。
+            # 人間 (= actor=self の とき): pending_choice "option_pick" → user 選択。
+            # 人間 (= actor=opp): opp が AI なので AI が 1 つ目 valid を pick。
             spec_val = v if isinstance(v, dict) else {}
             optional = bool(spec_val.get("optional", False))
+            actor = spec_val.get("actor", "self")
             options = spec_val.get("options", []) or []
             if not options:
                 continue
@@ -1252,13 +1254,13 @@ def execute_effect(
             valid_options: list[tuple[int, dict]] = []
             for i, opt in enumerate(options):
                 cond = opt.get("if") if isinstance(opt, dict) else None
-                if cond and not eval_condition(state, me, opp, cond, self_inplay):
+                if cond and not eval_condition(cond, state, me, self_inplay):
                     continue
                 valid_options.append((i, opt))
             if not valid_options:
                 continue
-            # 人間 操作中 なら user に 選ばせる
-            if _should_human_pick(state):
+            # actor=self + 人間 操作中 なら user に 選ばせる
+            if actor == "self" and _should_human_pick(state):
                 state.pending_choice = {
                     "kind": "option_pick",
                     "optional": optional,
@@ -1276,11 +1278,11 @@ def execute_effect(
                     f"  効果: choice_effect 選択 待ち ({len(valid_options)}個 候補, optional={optional})"
                 )
                 return True
-            # AI: optional でも 1 つ目 を 発動 (= 簡略、 将来 plan_search で 評価分岐 化)
+            # AI (= actor=opp 含む): 1 つ目 valid を 発動 (= 簡略)
             chosen_idx, chosen_opt = valid_options[0]
             chosen_do = chosen_opt.get("do", []) if isinstance(chosen_opt, dict) else []
             state.push_log(
-                f"  効果: choice_effect → option {chosen_idx} ({chosen_opt.get('label','?')})"
+                f"  効果: choice_effect [{actor}] → option {chosen_idx} ({chosen_opt.get('label','?')})"
             )
             for sub in chosen_do:
                 if isinstance(sub, dict):
