@@ -1,17 +1,21 @@
 {
   "overlay_keys": {
-    "once_per_turn": 595,
-    "rest_self": 172,
-    "discard_hand": 357,
+    "once_per_turn": 628,
+    "rest_self": 173,
+    "discard_hand": 358,
     "return_self_to_hand": 16,
     "trash_self": 116,
-    "pay_don": 302,
+    "pay_don": 305,
     "ko_self_with_filter": 5,
-    "rest_self_don": 80,
+    "rest_self_don": 82,
+    "trash_to_deck": 2,
+    "return_self_chara_to_hand": 3,
     "rest_self_target_name": 1,
     "discard_hand_with_filter": 11,
-    "life_to_hand": 1,
-    "life_top_or_bottom_to_hand": 2
+    "life_to_hand": 2,
+    "return_self_don_to_deck": 2,
+    "life_top_or_bottom_to_hand": 2,
+    "self_ko": 1
   },
   "engine_keys_all": [
     "discard_hand",
@@ -53,15 +57,20 @@
     "trash_self"
   ],
   "engine_fire": [],
-  "missing": [],
+  "missing": [
+    {
+      "key": "self_ko",
+      "n": 1
+    }
+  ],
   "only_can_pay": [
     {
       "key": "rest_self",
-      "n": 172
+      "n": 173
     },
     {
       "key": "discard_hand",
-      "n": 357
+      "n": 358
     },
     {
       "key": "return_self_to_hand",
@@ -73,7 +82,7 @@
     },
     {
       "key": "pay_don",
-      "n": 302
+      "n": 305
     },
     {
       "key": "ko_self_with_filter",
@@ -81,7 +90,7 @@
     },
     {
       "key": "rest_self_don",
-      "n": 80
+      "n": 82
     },
     {
       "key": "rest_self_target_name",

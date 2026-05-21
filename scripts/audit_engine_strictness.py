@@ -175,8 +175,12 @@ def check_no_silent_no_op() -> tuple[bool, str]:
     # game.py の phase modifier (Phase.DON 内 don_phase_modifier 等) で扱われる primitive
     for m in re.finditer(r'prim\.get\("([^"]+)"', game_src):
         handled.add(m.group(1))
+    for m in re.finditer(r'"([^"]+)" in prim\b', game_src):
+        handled.add(m.group(1))
     # in_hand effect 由来 (effects.py 内の in_hand 系で扱われる primitive)
     for m in re.finditer(r'prim\.get\("([^"]+)"', src):
+        handled.add(m.group(1))
+    for m in re.finditer(r'"([^"]+)" in prim\b', src):
         handled.add(m.group(1))
     no_op = used - handled
     if no_op:

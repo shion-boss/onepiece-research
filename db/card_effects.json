@@ -11475,7 +11475,34 @@
       ]
     }
   ],
-  "OP05-001_p2": [],
+  "OP05-001_p2": [
+    {
+      "_text": "OP05-001_p2 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
+      "_doc": "「パワー5000以上」 は engine では truly_original_power_ge で 近似 (= 現在 power ではなく カード原本)。 公式 4-9 の例 と 同じ 解釈。",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_ge": 5000,
+        "by_opp_effect": true,
+        "opp_turn": true,
+        "self_attached_don_ge": 1
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "victim",
+            "amount": -1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-002_p2": [
     {
       "_text": "OP05-002_p2 【起動メイン】【ターン1回】自分の手札から特徴《革命軍》を持つカード1枚を捨てることができる：自分の特徴《革命軍》か",
@@ -13936,8 +13963,62 @@
       }
     }
   ],
-  "OP05-001": [],
-  "OP05-001_p1": [],
+  "OP05-001": [
+    {
+      "_text": "OP05-001 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
+      "_doc": "「パワー5000以上」 は engine では truly_original_power_ge で 近似 (= 現在 power ではなく カード原本)。 公式 4-9 の例 と 同じ 解釈。",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_ge": 5000,
+        "by_opp_effect": true,
+        "opp_turn": true,
+        "self_attached_don_ge": 1
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "victim",
+            "amount": -1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP05-001_p1": [
+    {
+      "_text": "OP05-001_p1 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
+      "_doc": "「パワー5000以上」 は engine では truly_original_power_ge で 近似 (= 現在 power ではなく カード原本)。 公式 4-9 の例 と 同じ 解釈。",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_power_ge": 5000,
+        "by_opp_effect": true,
+        "opp_turn": true,
+        "self_attached_don_ge": 1
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "victim",
+            "amount": -1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-002": [
     {
       "_text": "OP05-002 【起動メイン】【ターン1回】自分の手札から特徴《革命軍》を持つカード1枚を捨てることができる：自分の特徴《革命軍》か",
@@ -15964,7 +16045,21 @@
       ]
     }
   ],
-  "P-117": [],
+  "P-117": [
+    {
+      "_text": "P-117 ルール上、自分は特徴《東の海》を持つカードしかデッキに入れることができず、自分のデッキが0枚になった場合、自分は敗北する代わりに勝利する。【ドン‼×1】このリーダーのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から1枚を手札に加える。",
+      "_doc": "デッキ構築制約 (= 東の海 のみ) + 特殊勝利 (= デッキ0で勝利) + on_opp_life_taken で 1 draw。 デッキ構築 ガード は engine 外、 特殊勝利 ガード は game 終了判定 拡張要、 1 draw のみ 実装。",
+      "when": "on_opp_life_taken",
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    }
+  ],
   "ST01-001_p3": [
     {
       "_text": "ST01-001_p3 【起動メイン】【ターン1回】このリーダーか自分のキャラ1枚にレストのドン!!1枚までを付与する。",
@@ -20576,6 +20671,31 @@
     }
   ],
   "OP11-035": [
+    {
+      "_text": "OP11-035 on_ko (by_opp_effect): このキャラが相手の効果でKOされた時、自分のドン‼1枚をレストにしてもよい。そうした場合、自分の手札からコスト4以下の、特徴《魚人族》か《人魚族》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_ko",
+      "if": {
+        "by_opp_effect": true
+      },
+      "optional": true,
+      "cost": {
+        "rest_self_don": 1
+      },
+      "do": [
+        {
+          "play_from_hand_choice": {
+            "filter": {
+              "feature_in": [
+                "魚人族",
+                "人魚族"
+              ],
+              "cost_le": 4
+            },
+            "limit": 1
+          }
+        }
+      ]
+    },
     {
       "_text": "OP11-035 on_play: 相手のキャラ1枚までを、レストにする。",
       "when": "on_play",
@@ -52140,8 +52260,10 @@
   ],
   "OP15-059": [
     {
-      "_text": "OP15-059 opp_attack: このキャラをレストにできる：相手は自身のアクティブのドン‼1枚をドン‼デッキに戻してもよい。そうしなかった場合、相手のリーダーかキャラ1枚までを、このターン中、",
+      "_text": "OP15-059 opp_attack: このキャラをレストにできる：相手は自身のアクティブのドン‼1枚をドン‼デッキに戻してもよい。そうしなかった場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
+      "_doc": "相手の don 戻し選択は engine 未実装 → 簡略: AI は常に -2000 適用 (= 相手は払わない 前提)。 optional: true は『-2000 適用 する/しない』 の選択。",
       "when": "opp_attack",
+      "optional": true,
       "do": [
         {
           "power_pump": {
@@ -54701,6 +54823,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP13-119 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
+      "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
+      "when": "on_play",
+      "optional": true,
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
+        }
+      ]
     }
   ],
   "OP13-119_p1": [
@@ -54730,6 +54863,17 @@
             "target": "self",
             "keyword": "速攻"
           }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-119_p1 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
+      "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
+      "when": "on_play",
+      "optional": true,
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -54763,6 +54907,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP13-119_p2 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
+      "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
+      "when": "on_play",
+      "optional": true,
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
+        }
+      ]
     }
   ],
   "OP13-119_p3": [
@@ -54794,6 +54949,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP13-119_p3 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
+      "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
+      "when": "on_play",
+      "optional": true,
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
+        }
+      ]
     }
   ],
   "OP13-119_p4": [
@@ -54823,6 +54989,17 @@
             "target": "self",
             "keyword": "速攻"
           }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-119_p4 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
+      "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
+      "when": "on_play",
+      "optional": true,
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -63813,8 +63990,9 @@
   ],
   "OP06-095": [
     {
-      "_text": "OP06-095 counter: 自分のリーダーは、このターン中、パワー+1000。その後、自分のコスト2以下の特徴《スリラーバーク海賊団》を持つキャラを任意の枚数KOしてもよい。KOしたキャラ",
+      "_text": "OP06-095 counter: 自分のリーダーは、このターン中、パワー+1000。その後、自分のコスト2以下の特徴《スリラーバーク海賊団》を持つキャラを任意の枚数KOしてもよい。KOしたキャラ1枚につき、自分のリーダーは、このターン中、パワー+1000。",
       "when": "counter",
+      "optional": true,
       "do": [
         {
           "power_pump": {
@@ -79410,6 +79588,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP13-119_p5 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
+      "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
+      "when": "on_play",
+      "optional": true,
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
+        }
+      ]
     }
   ],
   "OP14-023_p1": [
@@ -84088,8 +84277,40 @@
       ]
     }
   ],
-  "OP06-044_p1": [],
-  "OP06-044_r1": [],
+  "OP06-044_p1": [
+    {
+      "_text": "OP06-044_p1 【自分のターン中】【ターン1回】相手がイベントを発動した時、相手は自身の手札1枚をデッキの下に置く。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "opp_hand_to_deck_bottom": 1
+        }
+      ]
+    }
+  ],
+  "OP06-044_r1": [
+    {
+      "_text": "OP06-044_r1 【自分のターン中】【ターン1回】相手がイベントを発動した時、相手は自身の手札1枚をデッキの下に置く。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "opp_hand_to_deck_bottom": 1
+        }
+      ]
+    }
+  ],
   "OP06-076_r1": [
     {
       "_text": "【自分のターン中】【ターン1回】自ドン デッキ戻った時 相手 cost 2 以下 1枚 KO",
@@ -84148,8 +84369,46 @@
       ]
     }
   ],
-  "OP07-031_p1": [],
-  "OP07-031_r2": [],
+  "OP07-031_p1": [
+    {
+      "_text": "OP07-031_p1 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "on_self_chara_rested_by_self_effect",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
+  "OP07-031_r2": [
+    {
+      "_text": "OP07-031_r2 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "on_self_chara_rested_by_self_effect",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
   "OP08-067_r1": [
     {
       "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
@@ -84693,7 +84952,15 @@
       ]
     }
   ],
-  "EB04-051": [],
+  "EB04-051": [
+    {
+      "_text": "EB04-051 元々のパワー12000以上のキャラがいない場合、このキャラはアタックできない。",
+      "_doc": "「元々のパワー12000以上のキャラがいない場合」 条件 (= self_chara_max_power_lt 等) は engine 未対応。 簡略: 常に attack 可能 (= 効果無視)。 game balance 上 多くの 場面で 条件 false なので 機会 損失 程度。",
+      "when": "leader_passive",
+      "do": [],
+      "static": true
+    }
+  ],
   "EB04-056": [
     {
       "_text": "EB04-056 パシフィスタ 常在: 自分の「ジュエリー・ボニー」がいて、自分のライフが0枚の場合、このキャラは【ブロッカー】を得る",
@@ -85205,7 +85472,16 @@
       ]
     }
   ],
-  "OP14-003": [],
+  "OP14-003": [
+    {
+      "_text": "OP14-003 このキャラは相手の元々のパワー5000以下のキャラの効果でKOされない。",
+      "_doc": "「効果source の元々のパワー5000以下」 を effect source 起点 で 判別する 機構 は engine 未対応。 簡略: 通常 KO 耐性 なし。 game 内 OP9-091 等 5000P↓ chara effect KO は 通る。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [],
+      "static": true
+    }
+  ],
   "OP14-004": [
     {
       "_text": "OP14-004 このキャラのパワーが5000以上の場合、このキャラは【速攻】を得る。",
@@ -85225,7 +85501,28 @@
       ]
     }
   ],
-  "OP14-021": [],
+  "OP14-021": [
+    {
+      "_text": "OP14-021 【自分のターン中】このキャラがレストになった時、自分のライフの上から1枚を手札に加えてもよい。そうした場合、相手のレストの、キャラかステージ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+      "_doc": "「相手のレストのキャラかステージ」 ターゲット は 既存 keep_opp_rested_chara_with_don_ge_next_refresh で 近似 (= ステージ も 含めると 引数 拡張 必要)。",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
+      "optional": true,
+      "cost": {
+        "life_to_hand": 1
+      },
+      "do": [
+        {
+          "keep_opp_rested_chara_with_don_ge_next_refresh": {
+            "amount": 0,
+            "count": 1
+          }
+        }
+      ]
+    }
+  ],
   "OP14-028": [
     {
       "_text": "【自分のターン中】このキャラレストになった時 相手レストcost2-キャラ 1枚 KO",
@@ -85291,7 +85588,25 @@
       ]
     }
   ],
-  "OP14-035": [],
+  "OP14-035": [
+    {
+      "_text": "OP14-035 【自分のターン中】このキャラがレストになった時、相手のレストのコスト4以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+      "_doc": "コスト4以下 + レスト 条件 は 既存 keep_opp_rested_chara_with_don_ge_next_refresh の 引数 で 簡略 表現 (= cost_le filter は 追加 検証 必要)。",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "keep_opp_rested_chara_with_don_ge_next_refresh": {
+            "amount": 0,
+            "count": 1,
+            "cost_le": 4
+          }
+        }
+      ]
+    }
+  ],
   "OP14-053": [
     {
       "_text": "[auto] 【相手のターン中】 + 自手札7以下、 self.base_power = leader.base_power (static)",
@@ -85312,8 +85627,51 @@
       ]
     }
   ],
-  "OP14-070": [],
-  "OP14-086": [],
+  "OP14-070": [
+    {
+      "_text": "OP14-070 on_self_rested: このキャラが相手のキャラの効果でレストになった時、自分の場のドン‼1枚をドン‼デッキに戻してもよい。そうした場合、このキャラをアクティブにする。",
+      "_doc": "「相手のキャラの効果で」 判定は on_self_rested trigger 自体が 自分のキャラ rest 効果からは fire しないので、 大体 適切。 詳細 by_opp_chara_effect は engine 拡張 候補。",
+      "when": "on_self_rested",
+      "optional": true,
+      "cost": {
+        "return_self_don_to_deck": 1
+      },
+      "do": [
+        {
+          "untap_chara": {
+            "target": "self"
+          }
+        }
+      ]
+    }
+  ],
+  "OP14-086": [
+    {
+      "_text": "OP14-086 自分のトラッシュが7枚以上ある場合、このキャラのパワー+1000し、自分の『B・W』を含む特徴を持つキャラすべてを、コスト+2。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_trash_count_ge": 7
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
+        },
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {
+              "feature_contains": "B・W"
+            },
+            "delta": 2,
+            "scope": "self"
+          }
+        }
+      ]
+    }
+  ],
   "OP14-092": [
     {
       "_text": "[auto] this KO 代替 → 自トラッシュ3枚をデッキ下 (ターン1回)",
@@ -85520,8 +85878,50 @@
       ]
     }
   ],
-  "OP12-021": [],
-  "OP12-036": [],
+  "OP12-021": [
+    {
+      "_text": "OP12-021 自分のリーダーが属性(斬)を持ち、自分のレストのドン‼が6枚以上ある場合、このキャラは相手の効果でレストにされない。",
+      "_doc": "「効果でレストにされない」 は set_cannot_be_rested_static (= protect_from_opp_effect で 代用) を 使用。 厳密 には rest 限定 ではなく 全般 opp 効果 ブロック の 近似。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_attribute": "斬",
+        "self_don_rested_ge": 6
+      },
+      "do": [
+        {
+          "set_cannot_be_rested_static": true
+        }
+      ]
+    }
+  ],
+  "OP12-036": [
+    {
+      "_text": "OP12-036 自分のリーダーが属性(斬)を持つ場合、このキャラは属性(斬)を持つカードとのバトルでKOされず、パワー+1000。",
+      "_doc": "「効果で登場できない」 = play_via_effect ガード は engine 未配線 (= 簡略 で 通常通り 登場可能)。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_attribute": "斬"
+      },
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
+        }
+      ]
+    }
+  ],
   "OP12-048": [
     {
       "_text": "[auto] 自青《海軍》 効果離脱 (相手ターン) → holder レスト + 手札1捨て",
@@ -85766,10 +86166,90 @@
       ]
     }
   ],
-  "OP11-012": [],
-  "OP11-024": [],
-  "OP11-027": [],
-  "OP11-046": [],
+  "OP11-012": [
+    {
+      "_text": "OP11-012 【自分のターン中】【ターン1回】相手がイベントを発動した時、自分のキャラすべてを、このターン中、パワー+2000。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_characters",
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-024": [
+    {
+      "_text": "OP11-024 on_ko (by_opp_effect): このキャラが相手の効果でKOされた時、自分の手札1枚を捨て、自分のドン‼1枚をレストにしてもよい。そうした場合、自分の手札からコスト6以下の、特徴《魚人族》か《人魚族》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_ko",
+      "if": {
+        "by_opp_effect": true
+      },
+      "optional": true,
+      "cost": {
+        "discard_hand": 1,
+        "rest_self_don": 1
+      },
+      "do": [
+        {
+          "play_from_hand_choice": {
+            "filter": {
+              "feature_in": [
+                "魚人族",
+                "人魚族"
+              ],
+              "cost_le": 6
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-027": [
+    {
+      "_text": "OP11-027 自分のリーダーが「しらほし」の場合、このキャラは登場したターンにキャラへアタックできる。",
+      "_doc": "「登場したターンにキャラへアタックできる」 = 速攻 (= rush) の キャラ 限定 版。 厳密 には 速攻 は リーダー+キャラ 両方 攻撃 可。 簡略: 速攻 を 付与 (= 過剰 包含、 リーダー アタック も 可)。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_name": "しらほし"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-046": [
+    {
+      "_text": "OP11-046 自分のキャラが『ジェルマ』を含む特徴を持つキャラのみの場合、このキャラは相手の効果で、KOされずレストにされない。",
+      "_doc": "「自分のキャラが特徴X のみ」 条件 (= self_all_charas_feature_contains) は engine 未対応 で 簡略: 条件 を leader_feature_contains で 近似。 ジェルマ デッキ の リーダーは ジェルマ 特徴 持ち が 多い。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature_contains": "ジェルマ"
+      },
+      "do": [
+        {
+          "set_protect_from_opp_effect_static": true
+        }
+      ]
+    }
+  ],
   "OP11-057": [
     {
       "_text": "OP11-057 自分の手札が4枚以下の場合、このキャラは【ブロッカー】を得る。",
@@ -85828,8 +86308,56 @@
       ]
     }
   ],
-  "OP11-077": [],
-  "OP11-088": [],
+  "OP11-077": [
+    {
+      "_text": "OP11-077 【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、自分の特徴《ビッグ・マム海賊団》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。",
+      "_doc": "「次の相手のターン終了時まで」 cost+2 は 既存 cost_pump primitive (= turn duration) で 簡略 (= 次相手ターン 終了 まで の delta は engine 未対応)。",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_timed": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ビッグ・マム海賊団"
+              }
+            },
+            "delta": 2,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-088": [
+    {
+      "_text": "OP11-088 【ターン1回】相手のキャラがアタックした時、発動できる。そのキャラが属性(斬)を持つ場合、このキャラは、このバトル中、パワー+5000。",
+      "_doc": "「相手キャラのみアタック時」 + 「攻撃者属性=斬」 + 「このバトル中」 (= turn duration 簡略)。 attacker_attribute 条件 は engine 未対応 → 簡略: 全 opp_attack 時 +5000 (= 過剰)。",
+      "when": "opp_attack_on_chara",
+      "if": {
+        "opp_attacker_attribute": "斬"
+      },
+      "optional": true,
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 5000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP11-101": [
     {
       "_text": "[auto] 自《超新星》他 効果離脱 → デッキ上1ライフ (裏向き、 ターン1回)",
@@ -85927,7 +86455,23 @@
       ]
     }
   ],
-  "OP10-036": [],
+  "OP10-036": [
+    {
+      "_text": "OP10-036 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、自分のドン!!1枚までを、アクティブにする。",
+      "when": "on_self_chara_rested_by_self_effect",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "untap_don": 1
+        }
+      ]
+    }
+  ],
   "OP10-038": [
     {
       "_text": "[auto] 【相手のターン中】このキャラのパワー+2000",
@@ -86071,7 +86615,21 @@
       ]
     }
   ],
-  "OP09-025": [],
+  "OP09-025": [
+    {
+      "_text": "OP09-025 leader_passive (条件: leader_feature=ODYSSEY): このキャラはリーダーとのバトルでKOされない。",
+      "_doc": "「リーダーとのバトル」 限定 (= 相手キャラとのバトルでは KO される) は engine 未配線。 簡略: battle_ko_immune (= 全バトルで KO されない) で 近似。 leader_feature 条件 で 発動 ガード。",
+      "when": "leader_passive",
+      "if": {
+        "leader_feature": "ODYSSEY"
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
   "OP09-045": [
     {
       "_text": "[auto] 自「バギー」or「モージ」あり → このキャラ バトルKO免疫 (static)",
@@ -86095,20 +86653,73 @@
       ]
     }
   ],
-  "OP09-052": [],
-  "OP09-074": [],
+  "OP09-052": [
+    {
+      "_text": "OP09-052 【相手のターン中】自分の手札1枚を捨てることができる：このキャラが相手の効果でKOされた時、このキャラカードをトラッシュからレストで登場させる。",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true,
+        "by_opp_effect": true
+      },
+      "optional": true,
+      "cost": {
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "play_from_trash": {
+            "filter": {
+              "name": "マルコ",
+              "card_id": "OP09-052"
+            },
+            "limit": 1,
+            "rested": true
+          }
+        }
+      ]
+    }
+  ],
+  "OP09-074": [
+    {
+      "_text": "OP09-074 【自分のターン中】【ターン1回】自分の場のドン!!がドン!!デッキに戻された時、自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_self_team_any",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP09-080": [
     {
-      "_text": "[auto] activate_main: add_don 補完",
-      "when": "activate_main",
+      "_text": "OP09-080 【相手のターン中】このステージをレストにできる：自分の特徴《麦わらの一味》を持つキャラが相手の効果で場を離れた時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_doc": "「場を離れた時」 は KO 経路 のみ 簡略 実装 (= on_self_chara_ko)。 return_to_hand / return_to_deck_bottom 等 他の 離脱 経路 は 未対応。",
+      "when": "on_self_chara_ko",
+      "if": {
+        "opp_turn": true,
+        "by_opp_effect": true,
+        "victim_feature_in": [
+          "麦わらの一味"
+        ]
+      },
+      "cost": {
+        "rest_self": true
+      },
       "do": [
         {
           "add_rested_don": 1
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP09-086": [
@@ -86215,7 +86826,29 @@
       ]
     }
   ],
-  "OP08-029": [],
+  "OP08-029": [
+    {
+      "_text": "OP08-029 このキャラがアクティブの場合、「ペコムズ」以外の自分のコスト3以下の特徴《ミンク族》を持つキャラは、効果でKOされない。",
+      "_doc": "「アクティブの場合」 = self が rested でない 条件 (= self_active)。 set_ko_immune を all_self_chara_filtered (= cost_le 3 + feature ミンク族 + name exclude ペコムズ) に 付与。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_not_rested": true
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "feature": "ミンク族",
+              "cost_le": 3,
+              "exclude_name": "ペコムズ"
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP08-045": [
     {
       "_text": "KO される か 相手効果で 場離脱する 時 代わりに トラッシュ + draw 1",
@@ -86235,7 +86868,27 @@
       ]
     }
   ],
-  "OP08-046": [],
+  "OP08-046": [
+    {
+      "_text": "OP08-046 【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時、相手の手札が5枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。その後、このキャラをレストにする。",
+      "when": "on_self_chara_leave_by_self_effect",
+      "if": {
+        "self_turn": true,
+        "opp_hand_count_ge": 5
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "opp_hand_to_deck_bottom": 1
+        },
+        {
+          "rest": "self"
+        }
+      ]
+    }
+  ],
   "OP08-056": [
     {
       "_text": "【自分のターン中】【ターン1回】自分の『白ひげ海賊団』キャラが効果で場離脱時、 draw 1 + 手札1デッキへ",
@@ -86396,10 +87049,95 @@
       ]
     }
   ],
-  "OP07-031": [],
-  "OP07-033": [],
-  "OP07-042": [],
-  "OP07-069": [],
+  "OP07-031": [
+    {
+      "_text": "OP07-031 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "on_self_chara_rested_by_self_effect",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
+  "OP07-033": [
+    {
+      "_text": "OP07-033 自分のキャラが3枚以上いる場合、自分の、「モンキー・D・ルフィ」以外のコスト3以下のキャラは相手の効果でKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_count_ge": 3
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "cost_le": 3,
+              "exclude_name": "モンキー・D・ルフィ"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "OP07-042": [
+    {
+      "_text": "OP07-042 【ターン1回】自分のリーダーが特徴《王下七武海》を持ち、このキャラが相手の効果で場を離れる場合、代わりに自分の、「ゲッコー・モリア」以外のキャラ1枚を持ち主のデッキの下に置いてもよい。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "leader_feature": "王下七武海",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "return_to_deck_bottom": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "exclude_name": "ゲッコー・モリア"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "OP07-069": [
+    {
+      "_text": "OP07-069 自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分の、「ピクルス」以外の特徴《フォクシー海賊団》を持つキャラは相手の効果でKOされない。",
+      "_doc": "「自分のドン≤相手のドン」 条件 (= don_diff_le 0) で 近似 (= 正確)。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "don_diff_le": 0
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "feature": "フォクシー海賊団",
+              "exclude_name": "ピクルス"
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP07-087": [
     {
       "_text": "[auto] 自ターン中 + 相手コスト0キャラあり、 このキャラ パワー+3000",
@@ -86487,9 +87225,70 @@
       ]
     }
   ],
-  "OP06-012": [],
-  "OP06-044": [],
-  "OP06-048": [],
+  "OP06-012": [
+    {
+      "_text": "OP06-012 相手の元々のパワー6000以上の、リーダーかキャラがいる場合、このキャラはバトルでKOされない。",
+      "_doc": "「相手リーダーかキャラの 元々のパワー6000以上 が居る」 条件 (= opp_inplay_truly_original_power_ge_count_ge) で 近似 (= 厳密対応 不要)。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_inplay_truly_original_power_ge_6000_count_ge": 1
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
+  "OP06-044": [
+    {
+      "_text": "OP06-044 【自分のターン中】【ターン1回】相手がイベントを発動した時、相手は自身の手札1枚をデッキの下に置く。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "opp_hand_to_deck_bottom": 1
+        }
+      ]
+    }
+  ],
+  "OP06-048": [
+    {
+      "_text": "OP06-048 【自分のターン中】相手が【ブロッカー】かイベントを発動した時、自分のリーダーが特徴《東の海》を持つ場合、自分のデッキの上から4枚をトラッシュに置いてもよい。",
+      "_doc": "「相手が【ブロッカー】を発動した時」 部分は on_opp_blocker_use trigger、 「イベント発動」 は opp_event_or_trigger_fired trigger。 簡略: opp_event_or_trigger_fired のみ 使用 (= ブロッカー反応 は 含まない)。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true,
+        "leader_feature": "東の海"
+      },
+      "optional": true,
+      "do": [
+        {
+          "mill_self_top": 4
+        }
+      ]
+    },
+    {
+      "_text": "OP06-048 on_opp_blocker_use 版 (同効果): 相手の【ブロッカー】発動時。",
+      "when": "on_opp_blocker_use",
+      "if": {
+        "self_turn": true,
+        "leader_feature": "東の海"
+      },
+      "optional": true,
+      "do": [
+        {
+          "mill_self_top": 4
+        }
+      ]
+    }
+  ],
   "OP06-052": [
     {
       "_text": "[auto] ドン×1 + 自手札4以下 → このキャラ バトルKO免疫 (static)",
@@ -86579,8 +87378,40 @@
       ]
     }
   ],
-  "OP06-088": [],
-  "OP06-109": [],
+  "OP06-088": [
+    {
+      "_text": "OP06-088 自分のリーダーが特徴《ドレスローザ》を持ち、自分のリーダーがアクティブの場合、このキャラのパワー+2000。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "ドレスローザ",
+        "self_leader_active": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000
+          }
+        }
+      ]
+    }
+  ],
+  "OP06-109": [
+    {
+      "_text": "OP06-109 【ドン!!×2】相手のライフが3枚以下の場合、このキャラは効果でKOされない。",
+      "when": "on_attached_don",
+      "n": 2,
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "OP06-110": [
     {
       "_text": "[auto] ドン×2 → このキャラ アクティブキャラ アタック可 (static)",
@@ -86656,7 +87487,28 @@
       ]
     }
   ],
-  "OP05-053": [],
+  "OP05-053": [
+    {
+      "_text": "OP05-053 【自分のターン中】【ターン1回】自分がドローフェイズ以外でカードを引いた時、このキャラは、このターン中、パワー+2000。",
+      "_doc": "「ドローフェイズ以外で引いた時」 trigger (= on_self_draw_non_draw_phase) は engine 未配線。 簡略: 任意 タイミング draw 後 trigger を on_self_draw で 模倣 (= 厳密 でなくとも 概念 を 保存)。",
+      "when": "on_self_draw_non_draw_phase",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-062": [
     {
       "_text": "OP05-062 自分の場にドン!!が10枚ある場合、このキャラは【ブロッカー】を得る。",
@@ -86972,7 +87824,21 @@
     }
   ],
   "OP04-014": [],
-  "OP04-047": [],
+  "OP04-047": [
+    {
+      "_text": "OP04-047 【自分のターン中】このキャラが相手のコスト5以下のキャラとバトルしたバトル終了時、バトルした相手のキャラを持ち主のデッキの下に置く。",
+      "_doc": "「バトル終了時」 trigger (= on_battle_end / post_battle) + 「バトルしたコスト5以下キャラ」 (= last_battle_opponent) は engine 未配線。 概念 保存 のみ。",
+      "when": "on_attack",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "return_to_deck_bottom": "one_opponent_character_cost_le_5"
+        }
+      ]
+    }
+  ],
   "OP04-096": [
     {
       "_text": "[auto] leader_feature ドレスローザ → 自《ドレスローザ》 キャラ 速攻 (static)",
@@ -87076,7 +87942,22 @@
       ]
     }
   ],
-  "OP03-043": [],
+  "OP03-043": [
+    {
+      "_text": "OP03-043 相手のライフにダメージを与えた時、自分のデッキの上から3枚をトラッシュに置いてもよい。そうした場合、このキャラをトラッシュに置く。",
+      "_doc": "self に attached cost (= self KO 代償) を 引き換え に mill 3。 cost 払いで mill、 do で self KO の 一連 動作。",
+      "when": "on_opp_life_taken",
+      "optional": true,
+      "cost": {
+        "self_ko": true
+      },
+      "do": [
+        {
+          "mill_self_top": 3
+        }
+      ]
+    }
+  ],
   "OP03-045": [
     {
       "_text": "[auto] 【相手のターン中】 self パワー+3000",
@@ -87141,7 +88022,22 @@
       ]
     }
   ],
-  "OP02-027": [],
+  "OP02-027": [
+    {
+      "_text": "OP02-027 自分のドン‼すべてがレストの場合、このキャラは相手の効果で場を離れない。",
+      "_doc": "「自分のドン!!すべてがレスト」 = self_don_active=0 で 近似。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_don_active_eq": 0
+      },
+      "do": [
+        {
+          "set_protect_from_opp_effect_static": true
+        }
+      ]
+    }
+  ],
   "OP02-031": [
     {
       "_text": "OP02-031 自分のキャラの「光月おでん」がいる場合、このキャラは【ブロッカー】を得る。",
@@ -87643,8 +88539,47 @@
       ]
     }
   ],
-  "OP07-031_r1": [],
-  "OP07-033_r1": [],
+  "OP07-031_r1": [
+    {
+      "_text": "OP07-031_r1 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "on_self_chara_rested_by_self_effect",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
+  "OP07-033_r1": [
+    {
+      "_text": "OP07-033_r1 自分のキャラが3枚以上いる場合、自分の、「モンキー・Ｄ・ルフィ」以外のコスト3以下のキャラは相手の効果でKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_count_ge": 3
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "cost_le": 3,
+              "exclude_name": "モンキー・Ｄ・ルフィ"
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP09-012_r1": [
     {
       "_text": "[auto] 自「ボンク・パンチ」 効果KO 代替 → holder トラッシュ (任意)",
@@ -87871,7 +88806,27 @@
       ]
     }
   ],
-  "ST10-011": [],
+  "ST10-011": [
+    {
+      "_text": "ST10-011 【自分のターン中】【ターン1回】自分の場のドン!!がドン!!デッキに戻された時、このキャラは、次の自分のターン開始時まで、パワー+2000。",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
+        }
+      ]
+    }
+  ],
   "ST10-014": [
     {
       "_text": "[auto] on_self_don_returned_to_deck → draw 1 + 手札ランダム1捨て (1回)",
@@ -88036,7 +88991,27 @@
       ]
     }
   ],
-  "OP07-033_p2": [],
+  "OP07-033_p2": [
+    {
+      "_text": "OP07-033_p2 自分のキャラが3枚以上いる場合、自分の、「モンキー・D・ルフィ」以外のコスト3以下のキャラは相手の効果でKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_count_ge": 3
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "cost_le": 3,
+              "exclude_name": "モンキー・D・ルフィ"
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP08-020_p1": [
     {
       "_text": "[auto] 【相手のターン中】 {'type': 'all_self_chara_filtered', 'filter': {'feature': 'ドラム王国'}} パワー+1000",
@@ -88094,7 +89069,27 @@
       ]
     }
   ],
-  "OP11-012_p1": [],
+  "OP11-012_p1": [
+    {
+      "_text": "OP11-012_p1 【自分のターン中】【ターン1回】相手がイベントを発動した時、自分のキャラすべてを、このターン中、パワー+2000。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_characters",
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP11-058_p1": [
     {
       "_text": "[auto] static conditional buff/restriction",
@@ -88135,7 +89130,33 @@
       ]
     }
   ],
-  "OP12-036_p1": [],
+  "OP12-036_p1": [
+    {
+      "_text": "OP12-036_p1 自分のリーダーが属性(斬)を持つ場合、このキャラは属性(斬)を持つカードとのバトルでKOされず、パワー+1000。",
+      "_doc": "「効果で登場できない」 = play_via_effect ガード は engine 未配線 (= 簡略 で 通常通り 登場可能)。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_attribute": "斬"
+      },
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000
+          }
+        }
+      ]
+    }
+  ],
   "OP13-046_p1": [
     {
       "_text": "[auto] replace_leave: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード → cost 解消",
@@ -88253,23 +89274,83 @@
       ]
     }
   ],
-  "P-067": [],
+  "P-067": [
+    {
+      "_text": "P-067 このキャラがレストの場合、相手はキャラの「ユースタス・キッド」以外にアタックできない。",
+      "_doc": "「このキャラがレストの場合」 = self_rested 条件。 cannot_attack_target_except (= 「ユースタス・キッド」 以外 attack 不可) を セット。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_rested": true
+      },
+      "do": [
+        {
+          "cannot_attack_target_except": {
+            "name": "ユースタス・キッド"
+          }
+        }
+      ]
+    }
+  ],
   "P-077": [
     {
-      "_text": "[auto] activate_main: add_don 補完",
-      "when": "activate_main",
+      "_text": "P-077 【ターン1回】自分の場のドン‼が2枚以上ドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。その後、自分の紫のステージ1枚までをアクティブにする。",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "returned_don_count_ge": 2
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "add_rested_don": 1
+        },
+        {
+          "untap_chara": {
+            "target": {
+              "type": "one_self_stage_filtered",
+              "filter": {
+                "color": "紫"
+              }
+            }
+          }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
-  "P-104": [],
-  "P-104_p1": [],
+  "P-104": [
+    {
+      "_text": "P-104 自分か相手の場のドン‼が10枚ある場合、このキャラは相手の効果で場を離れない。",
+      "_doc": "「自分か相手 の場のドン10枚」 = either_player_don_total_eq 10 (= 新条件、 簡略で self_don_total_eq:10 or opp_don_total_eq:10 の OR 等)。 engine では single check (= don_total_eq) のみ 想定。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "either_player_don_total_eq_10": true
+      },
+      "do": [
+        {
+          "set_protect_from_opp_effect_static": true
+        }
+      ]
+    }
+  ],
+  "P-104_p1": [
+    {
+      "_text": "P-104_p1 自分か相手の場のドン‼が10枚ある場合、このキャラは相手の効果で場を離れない。",
+      "_doc": "「自分か相手 の場のドン10枚」 = either_player_don_total_eq 10 (= 新条件、 簡略で self_don_total_eq:10 or opp_don_total_eq:10 の OR 等)。 engine では single check (= don_total_eq) のみ 想定。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "either_player_don_total_eq_10": true
+      },
+      "do": [
+        {
+          "set_protect_from_opp_effect_static": true
+        }
+      ]
+    }
+  ],
   "P-111": [
     {
       "_text": "P-111 ロビン 置換 (ターン1回): 自麦わらキャラが相手効果で場離れる時、 ドン1レスト",
@@ -88291,7 +89372,18 @@
       ]
     }
   ],
-  "P-120": [],
+  "P-120": [
+    {
+      "_text": "P-120 手札のこのカードは、相手のライフが離れているターン中、コスト－2。",
+      "_doc": "「相手のライフが離れているターン中」 = opp_life_lost_this_turn 条件 (= engine 未配線、 簡略で常時 -2 cost を 適用)。",
+      "when": "in_hand",
+      "do": [
+        {
+          "in_hand_cost_minus": 2
+        }
+      ]
+    }
+  ],
   "ST10-006_p2": [
     {
       "_text": "【ターン1回】相手ブロッカー発動時 相手 power 8000- キャラ KO",

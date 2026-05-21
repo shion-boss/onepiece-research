@@ -44,6 +44,7 @@ WHEN_LABEL = {
     "on_self_event_played": "【自分イベント使用時】",
     "on_turn_end": "【ターン終了時】",
     "on_self_rested": "【自分レスト時】",
+    "on_self_chara_rested_by_self_effect": "【自キャラ自効果レスト時】",
     "on_self_hand_discarded": "【手札捨札時】",
     "on_opp_chara_played": "【相手キャラ登場時】",
     "on_life_zero": "【ライフ0時】",

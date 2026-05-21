@@ -257,6 +257,11 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
     prev_src_cid = getattr(state, "current_source_card_id", None)
     state.current_source_card_id = evt.source_card_id
 
+    # on_ko の by_opp_effect コンテキストを 一時的に state に設定 (= 条件評価用)
+    prev_ko_by_opp = getattr(state, "last_ko_by_opp_effect", None)
+    if when == "on_ko" and "by_opp_effect" in evt.payload:
+        state.last_ko_by_opp_effect = bool(evt.payload["by_opp_effect"])
+
     try:
         # payload.effect_indexes が指定されていれば、 その index の効果のみ発火 (cost 既払い)。
         # activate_main / on_attack (cost 持ち) で使う。
@@ -293,6 +298,8 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 execute_effect(primitive, state, me, opp, self_inplay)
     finally:
         state.current_source_card_id = prev_src_cid
+        if when == "on_ko":
+            state.last_ko_by_opp_effect = prev_ko_by_opp
 
 
 def _check_and_set_once_per_turn(
@@ -474,6 +481,21 @@ def eval_condition(
                 return False
             feats = v if isinstance(v, list) else [v]
             if not any(f in vic.features for f in feats):
+                return False
+        elif k == "by_opp_effect":
+            # on_ko / on_self_chara_ko 等で直近 KO が「相手の効果由来」だったか。
+            # trigger_on_ko の by_opp_effect=True 引数が state.last_ko_by_opp_effect に伝搬する。
+            # 公式 「相手の効果でKOされた時」 系 (OP11-035 / OP11-024 等)。
+            actual = bool(getattr(state, "last_ko_by_opp_effect", False))
+            if bool(v) != actual:
+                return False
+        elif k == "by_battle":
+            # on_ko 等で直近 KO がバトル由来 (= 効果由来でない) だったか。
+            # 公式 「バトルでKOされた時」 系 (= 効果KO 除外)。
+            actual_by_opp_eff = bool(getattr(state, "last_ko_by_opp_effect", False))
+            # by_battle: True = バトル由来 (= 効果由来ではない)
+            actual_by_battle = not actual_by_opp_eff
+            if bool(v) != actual_by_battle:
                 return False
         elif k == "played_chara_truly_original_cost_ge":
             # 直近の opp_chara_played カードの 「元々のコスト」 が N 以上 (OP12-081 コアラ)
@@ -994,6 +1016,21 @@ def _resolve_target(
                 return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
+        if t == "one_self_stage_filtered":
+            # 自分のステージから filter にマッチする 1 枚 (= レスト中優先)。
+            # 公式 「自分の紫のステージ1枚までを、 アクティブにする」 (P-077 等)。
+            filt = target_spec.get("filter", {})
+            cands = [ip for ip in me.stages if _matches_filter(ip.card, filt)]
+            if iid_picks is not None:
+                return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            # untap 用途なら rested を優先、 そうでなければ任意 1 枚
+            cands.sort(key=lambda ip: (0 if ip.rested else 1))
+            return cands[:1]
+    if target_spec == "victim":
+        # replace_ko / replace_leave / replace_rest 内 で 「KO/離脱対象 自身」 を 対象 とする 際 に 使う。
+        # state.last_replace_victim を 参照 (= try_replace_ko 等 が セット)。
+        vic = getattr(state, "last_replace_victim", None)
+        return [vic] if vic is not None else []
     if target_spec in (None, "self") and self_inplay is not None:
         return [self_inplay]
     if target_spec == "opponent_leader":
@@ -1437,7 +1474,8 @@ def execute_effect(
                     _ko_any = True
                     if state.effects_overlay:
                         # 効果による KO も【KO時】を発動 (10-2-1-3)
-                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+                        # KO 側 から 見ると 「相手 (= me) の効果」 由来 なので by_opp_effect=True
+                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
                         # 「相手のキャラが KO された時」 (= 自分の効果で KO した側)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         # 「自分のキャラが KO された時」 (= KO された側の場効果)
@@ -1581,6 +1619,15 @@ def execute_effect(
                 # 「このキャラがレストになった時」 trigger (OP14-027 シャンクス等)
                 if state.effects_overlay and v_owner is not None:
                     trigger_on_self_rested(state, v_owner, v_actor, t, state.effects_overlay)
+                    # 「キャラが自分の効果でレストになった時」 (field-wide、 OP10-036 ペローナ 等)。
+                    # actor (= me) 視点で「自分の効果」 由来。
+                    # 効果発動者 (= me) と victim_owner が 同陣営の 場合 のみ 発火 (= 「自分の効果で 自陣 キャラを レスト」)。
+                    if v_owner is me:
+                        _enqueue_field_when(
+                            state, me, "on_self_chara_rested_by_self_effect",
+                            state.effects_overlay,
+                        )
+                        _maybe_resolve(state)
             if actually_rested:
                 state.push_log(f"  効果: レスト → {[t.card.name for t in actually_rested]}")
             elif already_rested_skipped:
@@ -3315,7 +3362,8 @@ def execute_effect(
                         state.push_log(f"  効果: KO {t.card.name} (自陣)")
                         _kao_any = True
                         if state.effects_overlay:
-                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay)
+                            # me 側 victim、 me 側 effect → by_opp_effect=False (= 自爆)
+                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False)
                             trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 else:
                     # 相手キャラ KO 経路
@@ -3337,7 +3385,8 @@ def execute_effect(
                         state.push_log(f"  効果: KO {t.card.name} (相手)")
                         _kao_any = True
                         if state.effects_overlay:
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+                            # opp 側 victim、 me 側 effect → victim から 見れば by_opp_effect=True
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kao_any and state.effects_overlay:
@@ -3382,7 +3431,8 @@ def execute_effect(
                         already_kod.add(id(t))
                         _kom_any = True
                         if state.effects_overlay:
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay)
+                            # opp 側 victim、 me 側 effect → by_opp_effect=True
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -3512,7 +3562,8 @@ def execute_effect(
                 state.push_log(f"  効果: {ip.card.name} を trash へ")
                 _ost_any = True
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay)
+                    # me 側 victim、 me 側 effect → by_opp_effect=False (= 自分の効果による自陣KO)
+                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False)
                     # 自KO なので on_self_chara_ko (= me 側) を発火
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ost_any and state.effects_overlay:
@@ -4776,6 +4827,30 @@ def evaluate_static_effects(
                         for t in opp.characters:
                             t.protect_from_opp_effect = True
                         continue
+                    # 「自身は相手の効果で場を離れない」常在 (OP02-027 / P-104 等)
+                    # spec: True | {"target": "self" | "all_self_..."}
+                    if "set_protect_from_opp_effect_static" in primitive:
+                        spec = primitive["set_protect_from_opp_effect_static"]
+                        if isinstance(spec, dict):
+                            target_spec = spec.get("target", "self")
+                        else:
+                            target_spec = "self"
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            t.protect_from_opp_effect = True
+                        continue
+                    # 「対象は相手の効果でレストにされない」常在 (OP12-021 等)
+                    # 簡略: protect_from_opp_effect で 代用 (= rest 含む opp 効果 全般 ブロック)
+                    if "set_cannot_be_rested_static" in primitive:
+                        spec = primitive["set_cannot_be_rested_static"]
+                        if isinstance(spec, dict):
+                            target_spec = spec.get("target", "self")
+                        else:
+                            target_spec = "self"
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            t.protect_from_opp_effect = True
+                        continue
                     # 「属性 X を持つカードとのバトルで KO されない」 (P-052 ミホーク等)
                     # spec: {"target": "self", "attributes": ["斬"], "negate": false}
                     #   negate=True なら 「属性 X を持たない」 限定 (P-025 スモーカー)
@@ -5282,8 +5357,15 @@ def try_replace_ko(
             state.push_log(
                 f"  離脱置換 ({when}): {victim.card.name} → {inplay.card.name} の効果で代替"
             )
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, owner, opp, inplay)
+            # victim target spec ("victim") のため state に 一時保存。
+            # OP05-001 等 「代わりに victim 自身に power -1000」 系で利用。
+            prev_replace_victim = getattr(state, "last_replace_victim", None)
+            state.last_replace_victim = victim
+            try:
+                for primitive in eff.get("do", []):
+                    execute_effect(primitive, state, owner, opp, inplay)
+            finally:
+                state.last_replace_victim = prev_replace_victim
             return True
     return False
 
@@ -5517,12 +5599,16 @@ def trigger_on_ko(
     opp: Player,
     ko_card: CardDef,
     effects_overlay: dict[str, CardEffectBundle],
+    by_opp_effect: bool = False,
 ) -> None:
     """【KO時】を enqueue。 ko_card は既にトラッシュへ (10-2-17-2)。
     source_iid=None: 場から既に消えているので、 _execute_event 内では self_inplay=None で実行。
 
     副作用: state.last_chara_ko_victim_card = ko_card を一時設定 (= 後続の
     trigger_on_self_chara_ko / trigger_on_opp_chara_ko で payload-aware 条件用に使われる)。
+
+    by_opp_effect: True = 相手の効果由来 KO、 False = バトル / 自分の効果 / cost KO。
+        eval_condition で `by_opp_effect` / `by_battle` 条件と突合される。
     """
     # payload-aware 条件用 context を先に設定 (= trigger_on_self_chara_ko より先に呼ばれる場合に備える)
     state.last_chara_ko_victim_card = ko_card
@@ -5538,6 +5624,7 @@ def trigger_on_ko(
         owner_idx=owner_idx,
         source_card_id=ko_card.card_id,
         source_iid=None,
+        payload={"by_opp_effect": bool(by_opp_effect)},
     )
     _maybe_resolve(state)
 
@@ -6171,7 +6258,8 @@ def fire_activate_main(
                 me.don_rested += target.attached_dons
             state.push_log(f"  起動メインコスト: 自KO {target.card.name}")
             if state.effects_overlay:
-                trigger_on_ko(state, me, opp, target.card, state.effects_overlay)
+                # me 側 victim、 me 側 cost (= 自爆 cost) → by_opp_effect=False
+                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False)
                 # 自KO なので on_self_chara_ko (= me 側) を発火
                 trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
     # rest_self_target_name: 自場の name 一致キャラ/ステージを 1 枚 rest
