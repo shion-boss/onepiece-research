@@ -1122,30 +1122,30 @@ function PlayerMat({
 }
 
 function LifeStack({ count }: { count: number }) {
-  if (count === 0) {
-    return (
-      <div className="rounded border border-red-500 px-3 py-1 text-xs text-red-300">
-        0
-      </div>
-    );
-  }
   // 横向き レイアウト 中で 縦横比 5:7 を 保持 する ため、
-  // 縦長 image を rotate-90 で 横倒し に する (= wrapper は landscape、 中身 は portrait)
+  // 縦長 image を rotate-90 で 横倒し に する (= wrapper は landscape、 中身 は portrait)。
+  // 高さ 固定 (= h-40) で count 変動 で 全体 layout が 動かない。
   return (
-    <div className="flex flex-col items-center">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          style={{ marginTop: i === 0 ? 0 : -28 }}
-          className="relative h-14 w-20"
-        >
-          <img
-            src="/assets/ura.png"
-            alt="life"
-            className="absolute left-1/2 top-1/2 h-20 w-14 -translate-x-1/2 -translate-y-1/2 rotate-90 rounded shadow ring-1 ring-amber-100/20"
-          />
+    <div className="relative flex h-40 w-20 flex-col items-center justify-end">
+      {count === 0 ? (
+        <div className="my-auto rounded border border-red-500 px-3 py-1 text-xs text-red-300">
+          0
         </div>
-      ))}
+      ) : (
+        Array.from({ length: count }).map((_, i) => (
+          <div
+            key={i}
+            style={{ marginTop: i === 0 ? 0 : -28 }}
+            className="relative h-14 w-20"
+          >
+            <img
+              src="/assets/ura.png"
+              alt="life"
+              className="absolute left-1/2 top-1/2 h-20 w-14 -translate-x-1/2 -translate-y-1/2 rotate-90 rounded shadow ring-1 ring-amber-100/20"
+            />
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -1167,9 +1167,9 @@ function DonRow({
 }) {
   const totalShown = Math.min(donTotal, 12);
   return (
-    <div className="flex shrink-0 items-center gap-1 rounded bg-black/30 px-3 py-1.5">
+    <div className="flex h-16 shrink-0 items-center gap-1 rounded bg-black/30 px-3">
       <span className="text-xs font-bold text-zinc-200">DON</span>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex items-center gap-1 overflow-hidden">
         {Array.from({ length: donActive }).map((_, i) => (
           <button
             key={`a-${i}`}
