@@ -1,0 +1,17 @@
+# untap_concept 補完ログ
+
+  OP05-022_p2 [end_of_turn]: replaced placeholder draw with ['untap']
+  OP15-022 [activate_main]: replaced placeholder draw with ['untap_chara']
+  OP15-022_p1 [activate_main]: replaced placeholder draw with ['untap_chara']
+  OP10-003 [end_of_turn]: replaced placeholder draw with ['untap_don']
+  OP10-003_p1 [end_of_turn]: replaced placeholder draw with ['untap_don']
+  OP05-022 [end_of_turn]: replaced placeholder draw with ['untap']
+  OP05-022_p1 [end_of_turn]: replaced placeholder draw with ['untap']
+  OP04-019 [end_of_turn]: replaced placeholder draw with ['untap_don']
+  OP04-019_p1 [end_of_turn]: replaced placeholder draw with ['untap_don']
+  OP04-020 [end_of_turn]: replaced placeholder draw with ['untap_chara']
+  OP04-020_p1 [end_of_turn]: replaced placeholder draw with ['untap_chara']
+  OP10-003_p2 [end_of_turn]: replaced placeholder draw with ['untap_don']
+  OP10-117: new on_play entry with ['untap_chara']
+  OP09-041: new on_play entry with ['untap_chara']
+  OP04-035: new on_play entry with ['untap_chara']

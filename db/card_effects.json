@@ -10368,6 +10368,16 @@
       "do": [
         {
           "add_rested_don": 1
+        },
+        {
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "feature": "ビッグ・マム海賊団",
+              "cost_ge": 3
+            },
+            "count": 2
+          }
         }
       ]
     }
@@ -11349,7 +11359,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap": "self_leader"
         }
       ]
     }
@@ -11914,7 +11924,9 @@
       },
       "do": [
         {
-          "draw": 1
+          "untap_chara": {
+            "count": 1
+          }
         }
       ]
     }
@@ -11928,7 +11940,9 @@
       },
       "do": [
         {
-          "draw": 1
+          "untap_chara": {
+            "count": 1
+          }
         }
       ]
     }
@@ -12723,7 +12737,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 1
         }
       ],
       "cost": {
@@ -12760,7 +12774,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 1
         }
       ],
       "cost": {
@@ -13666,7 +13680,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap": "self_leader"
         }
       ]
     }
@@ -13677,7 +13691,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap": "self_leader"
         }
       ]
     }
@@ -13842,7 +13856,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 2
         }
       ]
     }
@@ -13853,7 +13867,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 2
         }
       ]
     }
@@ -13864,7 +13878,13 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            },
+            "count": 1
+          }
         }
       ]
     }
@@ -13875,7 +13895,13 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            },
+            "count": 1
+          }
         }
       ]
     }
@@ -15889,7 +15915,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_don": 1
         }
       ],
       "cost": {
@@ -21050,6 +21076,21 @@
           "draw": 1
         }
       ]
+    },
+    {
+      "_text": "[auto] on_play: untap 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            },
+            "count": 1
+          }
+        }
+      ]
     }
   ],
   "ST12-012": [
@@ -21246,6 +21287,17 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ]
+    },
+    {
+      "_text": "[auto] on_play: untap 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "untap_chara": {
+            "count": 2
+          }
         }
       ]
     }
@@ -24317,6 +24369,16 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "feature": "ビッグ・マム海賊団",
+              "cost_le": 3
+            },
+            "count": 1
+          }
         }
       ]
     },
@@ -31815,6 +31877,16 @@
       "do": [
         {
           "add_rested_don": 1
+        },
+        {
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "feature": "ビッグ・マム海賊団",
+              "cost_ge": 3
+            },
+            "count": 2
+          }
         }
       ]
     }
@@ -48388,6 +48460,9 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap": "self"
         }
       ],
       "cost": {
@@ -48423,6 +48498,9 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap": "self"
         }
       ],
       "cost": {
@@ -49261,6 +49339,9 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap": "self"
         }
       ],
       "cost": {
@@ -64806,6 +64887,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] on_play: untap 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "untap_chara": {
+            "count": 1
+          }
+        }
+      ]
     }
   ],
   "OP04-036": [
@@ -68156,6 +68248,9 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "untap": "self"
         }
       ],
       "cost": {
