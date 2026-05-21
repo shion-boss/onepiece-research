@@ -11356,7 +11356,16 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "return_self_chara_to_hand": {
+          "count": 1,
+          "filter": {
+            "feature": "インペルダウン",
+            "cost_ge": 2
+          }
+        }
+      }
     }
   ],
   "EB01-040_p2": [
@@ -11882,7 +11891,16 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "return_self_chara_to_hand": {
+          "count": 1,
+          "filter": {
+            "feature": "インペルダウン",
+            "cost_ge": 2
+          }
+        }
+      }
     }
   ],
   "EB01-021_p1": [
@@ -11903,7 +11921,16 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "cost": {
+        "return_self_chara_to_hand": {
+          "count": 1,
+          "filter": {
+            "feature": "インペルダウン",
+            "cost_ge": 2
+          }
+        }
+      }
     }
   ],
   "EB01-040": [
@@ -85061,7 +85088,28 @@
       ]
     }
   ],
-  "OP10-049": [],
+  "OP10-049": [
+    {
+      "_text": "[auto] サボ replace_leave: other 元々コスト7以下 (除サボ) → 自身を手札に戻す",
+      "when": "replace_leave",
+      "if": {
+        "target": "other_self_chara",
+        "target_name_exclude": "サボ",
+        "by_opp_effect": true,
+        "target_cost_le": 7
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "return_self_to_hand": true
+        }
+      ]
+    }
+  ],
   "OP10-053": [
     {
       "_text": "OP10-053 「ビアン」以外の自分の特徴《トンタッタ族》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
@@ -86508,7 +86556,28 @@
       ]
     }
   ],
-  "OP10-049_p2": [],
+  "OP10-049_p2": [
+    {
+      "_text": "[auto] サボ replace_leave: other 元々コスト7以下 (除サボ) → 自身を手札に戻す",
+      "when": "replace_leave",
+      "if": {
+        "target": "other_self_chara",
+        "target_name_exclude": "サボ",
+        "by_opp_effect": true,
+        "target_cost_le": 7
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "return_self_to_hand": true
+        }
+      ]
+    }
+  ],
   "OP11-012_p1": [],
   "OP11-058_p1": [],
   "OP11-065_p1": [
@@ -86666,7 +86735,28 @@
     }
   ],
   "OP05-030_p1": [],
-  "OP10-049_p1": [],
+  "OP10-049_p1": [
+    {
+      "_text": "[auto] サボ replace_leave: other 元々コスト7以下 (除サボ) → 自身を手札に戻す",
+      "when": "replace_leave",
+      "if": {
+        "target": "other_self_chara",
+        "target_name_exclude": "サボ",
+        "by_opp_effect": true,
+        "target_cost_le": 7
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "return_self_to_hand": true
+        }
+      ]
+    }
+  ],
   "OP10-108_p2": [
     {
       "_text": "OP10-108_p2 「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",

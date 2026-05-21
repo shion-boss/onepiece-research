@@ -96,9 +96,14 @@ def check_concept_missing(text: str, rendered: str, entries: list, cid: str) -> 
             issues.append({"kind": "missing_ko_concept", "severity": 5})
     # 「手札に戻す」
     if "持ち主の手札に戻す" in norm_text or "手札に戻す" in norm_text:
-        if "return_to_hand" not in flat_entries and "return_self_to_hand" not in flat_entries:
+        return_keys = ("return_to_hand", "return_self_to_hand", "return_self_chara_to_hand")
+        if not any(k in flat_entries for k in return_keys):
             # 例外: 「自分の手札X枚を捨てる」 のような 別概念 を除外
-            if not re.search(r"手札\d+枚を.{0,3}捨てる", text) and "を手札に加える" not in text:
+            if (
+                not re.search(r"手札\d+枚を.{0,3}捨てる", text)
+                and "を手札に加える" not in text
+                and "1枚を捨てる" not in text
+            ):
                 issues.append({"kind": "missing_return_to_hand_concept", "severity": 5})
     # 「カードN枚を引く」
     if re.search(r"カード\d+枚を引く", text):
