@@ -2288,12 +2288,13 @@ class DeepPlanningAI(GreedyAI):
         if self._is_desperate_losing_position(state, state.turn_player_idx):
             return super().choose_action(state)
 
-        # === リーダー攻撃 早期 return (= 2026-05-21) ===
-        # plan_search は max_turns=2-3 で「attack の即時利得」 を後続ターンと混ぜて評価し、
-        # 1 ターン eval では「相手 life -1 + 相手手札 -1」 が +5000 でも、 plan 全体 で 希釈。
-        # ohtsuki さん の指摘: 「リーダーで とりあえず 攻撃 = ライフ削る or 手札削る で お得」。
-        # 確定打点 (= attacker.power >= opp.leader.power) があれば 早期 return。
-        # rest 状態 / 召喚酔い 等 で attack 不可 なら scope 外 (= legal_actions 段階 で 除外済)。
+        # === 攻撃 早期 return (= 2026-05-21、 plan_search bypass) ===
+        # plan_search の eval は「不利交換 attack (= ブロックされる)」 を マイナス評価 する
+        # 傾向 で、 結果 attack action を 全部 skip して end_phase に流れる ケース あり。
+        # ohtsuki さん の指摘: 「リーダーで とりあえず 攻撃 = ライフ削る or 手札削る で お得な
+        # 場面 多い」 「リーダー どころか キャラ も 攻撃 してこない」。
+        # → 自リーダー active なら 必ず AttackLeader を 1 回 返す (= ノーコスト)。
+        # 「対象 完全 block」 でも 相手 counter 1 枚消費 = 相手 手札 -1 で 価値あり。
         me = state.players[state.turn_player_idx]
         opp = state.players[1 - state.turn_player_idx]
         if not me.leader.rested and not me.leader.summoning_sickness:
@@ -2307,20 +2308,51 @@ class DeepPlanningAI(GreedyAI):
                 except Exception:
                     est_opp_buff = 0
             est_def = opp.leader.power + est_opp_buff
-            early_leader_attacks = [
+            leader_attacks = [
                 a for a in actions
                 if isinstance(a, AttackLeader)
                 and a.attacker_iid == me.leader.instance_id
             ]
-            if early_leader_attacks:
-                la = early_leader_attacks[0]
-                # 単独で届く (= 即攻撃)
+            if leader_attacks:
+                # 単独で届くなら 即 attack
                 if me.leader.power >= est_def:
-                    return la
-                # 1 DON で届く (= DON 付与で攻撃成立)
+                    return leader_attacks[0]
+                # 1-2 DON で 届く gap なら DON 付与で 攻撃 成立 を 狙う
                 gap = est_def - me.leader.power
-                if 0 < gap <= 1000 and me.don_active >= 1 and me.leader.attached_dons < 4:
+                don_needed = (gap + 999) // 1000
+                if (
+                    0 < gap <= 2000
+                    and me.don_active >= don_needed
+                    and me.leader.attached_dons + don_needed <= 4
+                ):
                     return AttachDonToLeader(n=1)
+                # 上記 全部 該当 しない (= gap > 2000 等) でも、 counter 消費 期待値 で attack。
+                # 公式 ルール上 リーダー は KO されない → attack は ノーコスト で 相手手札 -1 期待。
+                return leader_attacks[0]
+
+        # キャラ で 攻撃 (= ノーコスト で 相手 ライフ or 手札 削る) を 1 回 強制。
+        # キャラ attack で 自キャラ rest → ブロック 失う が、 そもそも 「ブロッカー」 持ち でないと
+        # ブロック 不可 なので 大半 の キャラ で attack 損 ない。
+        char_attackers: list[InPlay] = [
+            c for c in me.characters
+            if not c.rested
+            and (not c.summoning_sickness or c.is_rush_now)
+            and not c.cannot_attack_until_turn_end
+            and not c.cannot_attack_static
+            and not c.cannot_attack_through_opp_turn
+        ]
+        if char_attackers:
+            # ブロッカー 持ち かつ ブロッカー 役 を 失いたく ない キャラ は 後回し
+            non_blocker_attackers = [c for c in char_attackers if not c.is_blocker_now]
+            preferred = non_blocker_attackers or char_attackers
+            preferred.sort(key=lambda c: -c.power)
+            for atk in preferred:
+                chara_atk_actions = [
+                    a for a in actions
+                    if isinstance(a, AttackLeader) and a.attacker_iid == atk.instance_id
+                ]
+                if chara_atk_actions:
+                    return chara_atk_actions[0]
 
         # adaptive params の決定 (= R72+)
         if self.adaptive:
