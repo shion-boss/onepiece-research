@@ -724,6 +724,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "scry_life_reorder" ? (
+          <ScryLifeReorderModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "reveal_top_play_confirm" ? (
+          <RevealTopPlayConfirmModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : (
           <SearchChoiceModal
             payload={state.pending_payload}
@@ -2208,6 +2222,227 @@ function TargetPickModal({
             className="ml-auto rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
           >
             確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// scry_life: 自分のライフ上 N 枚 を 並び替え modal
+// ========================================================================== //
+
+function ScryLifeReorderModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const cards =
+    (payload.cards as
+      | {
+          card_id: string;
+          name: string;
+          trigger: boolean;
+          counter: number;
+          power: number;
+        }[]
+      | undefined) ?? [];
+  const depth = Number(payload.depth ?? cards.length);
+  const description = String(payload.description ?? "ライフ 並び替え");
+  const [order, setOrder] = useState<number[]>([]);
+
+  function appendPick(idx: number) {
+    if (order.includes(idx)) return;
+    if (order.length >= depth) return;
+    setOrder([...order, idx]);
+  }
+
+  function reset() {
+    setOrder([]);
+  }
+
+  const orderRank: Record<number, number> = {};
+  order.forEach((idx, rank) => {
+    orderRank[idx] = rank + 1;
+  });
+  const ready = order.length === cards.length;
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-cyan-200">{description}</h3>
+          <span className="text-sm text-zinc-300">
+            上 → 下 の 順 で クリック (= 1 番目 が ライフ 1 番上)
+          </span>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {order.length} / {cards.length}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-3 overflow-y-auto pr-2">
+          {cards.map((c, idx) => {
+            const rank = orderRank[idx];
+            const isPicked = rank !== undefined;
+            return (
+              <button
+                key={`${c.card_id}-${idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  appendPick(idx);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                disabled={isPicked}
+                className={
+                  "relative rounded transition " +
+                  (isPicked
+                    ? "ring-4 ring-cyan-400 -translate-y-2 opacity-90"
+                    : "ring-2 ring-emerald-400 hover:ring-emerald-300")
+                }
+                title={`${c.name} (P=${c.power}, C=${c.counter}${c.trigger ? ", trigger" : ""})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-72 w-auto rounded shadow-xl"
+                />
+                {isPicked && (
+                  <span className="absolute top-0 left-0 rounded-br bg-cyan-500 px-2 text-base font-bold text-white">
+                    #{rank}
+                  </span>
+                )}
+                {c.trigger && (
+                  <span className="absolute top-0 right-0 rounded-bl bg-rose-600 px-1 text-[10px] font-bold text-white">
+                    TRG
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1.5 text-xs font-bold text-white">
+                  P{c.power}/C{c.counter}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            #1 = 一番 上 (= 次 受ける ダメージ で 引く) / 下 ほど 後 で 引く
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              reset();
+            }}
+            className="rounded bg-zinc-700 px-3 py-2 text-sm text-white hover:bg-zinc-600"
+          >
+            やり直し
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(order);
+            }}
+            disabled={busy || !ready}
+            className="ml-auto rounded bg-cyan-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-cyan-400 disabled:opacity-50"
+          >
+            確定 (順 {order.map((i) => i + 1).join("→")})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// reveal_top_play: デッキ上 1 枚 公開 → 登場 / skip confirm modal
+// ========================================================================== //
+
+function RevealTopPlayConfirmModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const card =
+    (payload.card as
+      | { card_id: string; name: string; cost: number; power: number }
+      | undefined) ?? { card_id: "", name: "?", cost: 0, power: 0 };
+  const restRemain = String(payload.rest_remain ?? "bottom");
+  const description = String(payload.description ?? `${card.name} を 登場?`);
+  const restLabel = restRemain === "top" ? "デッキの上" : "デッキの下";
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-fuchsia-400 bg-zinc-900 p-4 shadow-2xl">
+        <h3 className="mb-3 text-lg font-bold text-fuchsia-200">
+          {description}
+        </h3>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onMouseEnter={() => onHover({ kind: "hand", cardId: card.card_id })}
+            onMouseLeave={() => onHover(null)}
+            className="relative cursor-default"
+          >
+            <CardImage
+              cardId={card.card_id}
+              alt={card.name}
+              className="h-96 w-auto rounded shadow-xl ring-2 ring-fuchsia-400"
+            />
+            <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-2 text-sm font-bold text-white">
+              C{card.cost} / P{card.power}
+            </span>
+          </button>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            skip 時 → {restLabel} へ 戻る
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="ml-auto rounded bg-zinc-700 px-4 py-2 text-sm text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            skip
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([1]);
+            }}
+            disabled={busy}
+            className="rounded bg-fuchsia-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-fuchsia-400 disabled:opacity-50"
+          >
+            登場 させる
           </button>
         </div>
       </div>

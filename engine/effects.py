@@ -1703,6 +1703,29 @@ def execute_effect(
             state.push_log(
                 f"  効果: デッキ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"
             )
+            # 人間 操作中 + マッチ なら user に「登場 / skip」 を 委ねる
+            if matched and _should_human_pick(state):
+                state.pending_choice = {
+                    "kind": "reveal_top_play_confirm",
+                    "card": {
+                        "card_id": revealed.card_id,
+                        "name": revealed.name,
+                        "cost": int(getattr(revealed, "cost", 0) or 0),
+                        "power": int(getattr(revealed, "power", 0) or 0),
+                    },
+                    "rested": rested_flag,
+                    "rest_remain": rest_remain,
+                    "description": f"{revealed.name} を 登場 させますか?",
+                }
+                state.push_log(
+                    f"  効果: reveal_top_play 登場 選択 待ち ({revealed.name})"
+                )
+                # revealed は pending_choice 解決 まで 仮預かり (= state.pending_choice に 残し)
+                state.pending_choice["_revealed_card_id"] = revealed.card_id
+                # revealed を deck から 既に pop しているので restoration 用に保存
+                state.pending_choice["_revealed_index"] = 0
+                state.pending_choice["_revealed_card"] = revealed
+                return True
             if matched:
                 # AI 簡易: マッチなら必ず登場 (公式テキストでは任意だが期待値プラス)
                 if not me.can_play_character():
@@ -3485,7 +3508,35 @@ def execute_effect(
             target_pl = me if owner in ("self", "self_or_opp") else opp
             if not target_pl.life:
                 return False
+            depth = min(depth, len(target_pl.life))
             seen = target_pl.life[:depth]
+            # 人間 操作中 + 対象 が 自ライフ なら user に 並び替え を 委ねる
+            # (= 相手 ライフ の scry は AI 演算 のまま、 公開時点で 露呈 する 情報 ではない)
+            if (
+                target_pl is me
+                and _should_human_pick(state)
+                and depth >= 2
+            ):
+                state.pending_choice = {
+                    "kind": "scry_life_reorder",
+                    "owner": "self",
+                    "depth": depth,
+                    "cards": [
+                        {
+                            "card_id": c.card_id,
+                            "name": c.name,
+                            "trigger": bool(getattr(c, "trigger", None)),
+                            "counter": int(getattr(c, "counter", 0) or 0),
+                            "power": int(getattr(c, "power", 0) or 0),
+                        }
+                        for c in seen
+                    ],
+                    "description": f"自分のライフ上{depth}枚を 並び替え",
+                }
+                state.push_log(
+                    f"  効果: scry_life {depth} 枚 並び替え 選択 待ち"
+                )
+                return True
             rest = target_pl.life[depth:]
             # 自ライフ: 価値の高いカード(トリガー有/カウンター大/パワー大) を上に
             # 相手ライフ: 逆 (= 弱いカードを上にして引かせる)
@@ -4133,6 +4184,65 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "scry_life_reorder":
+        # picks: 元 idx の 並び 替え 順 (例: [2,0,1,3,4])
+        depth = int(choice.get("depth", 1))
+        owner = choice.get("owner", "self")
+        target_pl = me if owner == "self" else opp
+        if not target_pl.life:
+            state.pending_choice = None
+            return
+        actual_depth = min(depth, len(target_pl.life))
+        seen = target_pl.life[:actual_depth]
+        rest = target_pl.life[actual_depth:]
+        # picks 妥当性: 0..actual_depth-1 を 順序 列挙
+        valid = [i for i in picks if 0 <= i < actual_depth]
+        # 重複 除去 (= 最初 のみ 保持)
+        seen_set = set()
+        ordered = []
+        for i in valid:
+            if i not in seen_set:
+                ordered.append(i)
+                seen_set.add(i)
+        # 不足 は 元 順序 で 補完
+        for i in range(actual_depth):
+            if i not in seen_set:
+                ordered.append(i)
+        new_seen = [seen[i] for i in ordered]
+        target_pl.life = new_seen + rest
+        state.push_log(
+            f"  効果: 人間選択 → 自ライフ上{actual_depth}枚 並び替え {ordered}"
+        )
+        state.pending_choice = None
+        return
+
+    if kind == "reveal_top_play_confirm":
+        # picks[0] が 1 なら 登場、 0 なら skip (= デッキ底/トップへ)
+        revealed = choice.get("_revealed_card")
+        rested_flag = bool(choice.get("rested", False))
+        rest_remain = choice.get("rest_remain", "bottom")
+        do_play = bool(picks and picks[0] == 1)
+        state.pending_choice = None
+        if revealed is None:
+            return
+        if do_play:
+            if not me.can_play_character():
+                me.trash_weakest_chara_for_field_full(state)
+            ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
+            me.characters.append(ip)
+            state.push_log(f"  効果: 人間選択 → 登場 {revealed.name}")
+            if state.effects_overlay:
+                trigger_on_play(state, me, opp, ip, state.effects_overlay)
+        else:
+            if rest_remain == "top":
+                me.deck.insert(0, revealed)
+            else:
+                me.deck.append(revealed)
+            state.push_log(
+                f"  効果: 人間選択 → {revealed.name} を デッキ{('上' if rest_remain == 'top' else '底')}へ"
+            )
         return
 
     if kind != "search_top_n":
