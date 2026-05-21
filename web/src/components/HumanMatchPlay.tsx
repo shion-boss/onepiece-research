@@ -20,6 +20,8 @@ import {
   LifeFlashOverlay,
   LeftCharaGhostList,
   AnimatedNumber,
+  EffectToastOverlay,
+  AttackBeamOverlay,
 } from "./_matchAnimHelpers";
 
 /**
@@ -744,10 +746,23 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         />
       )}
 
-      {/* 攻撃 矢印 SVG */}
+      {/* 攻撃 矢印 SVG (= ユーザ操作 中) */}
       {attackerIid !== null && mousePos && (
         <AttackArrow attackerIid={attackerIid} mousePos={mousePos} />
       )}
+
+      {/* 攻撃 ビーム (= snapshot.event 拾って 一瞬 流す、 AI/自分 共通) */}
+      {snap.event && (
+        <AttackBeamOverlay
+          attackerIid={snap.event.attacker_iid}
+          targetIid={snap.event.target_iid}
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+        />
+      )}
+
+      {/* 効果 log toast (= 「効果:」 行 を 中央上部 で 1.6秒 表示) */}
+      <EffectToastOverlay log={state.log} />
 
       {/* interactive 選択 modal (= kind 別に dispatch) */}
       {isChoicePending && state.pending_payload && (
@@ -1240,7 +1255,11 @@ function CenterRow({
   }
   return (
     <div className="flex shrink-0 items-center justify-center gap-3 py-1">
-      <div onDragOver={leaderDragOver} onDrop={leaderDrop}>
+      <div
+        data-iid={player.leader.instance_id}
+        onDragOver={leaderDragOver}
+        onDrop={leaderDrop}
+      >
         <CharCard
           ch={player.leader}
           isLeader={true}
@@ -1414,6 +1433,7 @@ function CharacterRow({
           return (
             <motion.div
               key={c.instance_id}
+              data-iid={c.instance_id}
               layoutId={`chara-${c.instance_id}`}
               initial={{ opacity: 0, scale: 0.6, y: isMe ? 40 : -40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
