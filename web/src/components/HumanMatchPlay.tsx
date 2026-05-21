@@ -1010,6 +1010,8 @@ function PlayerMat({
       onDrop={matDrop}
       className={
         "relative flex min-h-0 flex-1 rounded-lg border-2 p-2 transition " +
+        // 公式 鏡像 レイアウト: 自分 mat は Life/DON 左、 相手 mat は Life/DON 右
+        (isMe ? "" : "flex-row-reverse ") +
         (isMe
           ? "border-emerald-400/60 bg-emerald-950/40"
           : "border-rose-400/60 bg-rose-950/40") +
@@ -1018,11 +1020,12 @@ function PlayerMat({
           : "")
       }
     >
-      {/* 左端: ライフ + DON デッキ。 相手 mat は 縦反転 (= DON Deck が opp の 奥側) */}
+      {/* ライフ + DON デッキ: 自分=左、 相手=右 (= flex-row-reverse 効果)。
+          縦並び は 相手 mat で flex-col-reverse (= DON Deck が opp の 奥側) */}
       <div
         className={
-          "flex shrink-0 items-center justify-between gap-2 pr-3 " +
-          (isMe ? "flex-col" : "flex-col-reverse")
+          "flex shrink-0 items-center justify-between gap-2 " +
+          (isMe ? "flex-col pr-3" : "flex-col-reverse pl-3")
         }
       >
         <div className="text-xs font-bold text-zinc-100">
