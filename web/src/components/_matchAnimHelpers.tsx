@@ -692,33 +692,40 @@ export function TurnBannerOverlay({
   /** "action" (= 自分 操作可能) で fire 確定。 中間 frame で 早期 fire 防止。 */
   pendingKind?: string | null;
 }) {
-  const [showItem, setShowItem] = useState<{
-    id: number;
-    label: string;
-    color: "self" | "opp";
-  } | null>(null);
-  // 初回 mount 時 は -1 (= invalid)、 自ターン確定 (= pending=action) で 初回 fire
+  type BannerItem = { id: number; label: string; color: "self" | "opp" };
+  const [queue, setQueue] = useState<BannerItem[]>([]);
+  const [showItem, setShowItem] = useState<BannerItem | null>(null);
   const prevTurnRef = useRef<number>(-1);
   const idRef = useRef(0);
 
+  // turn 変化 で queue に enqueue
   useEffect(() => {
     if (hasMulliganPending) return;
     if (prevTurnRef.current === turnPlayerIdx) return;
     prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
     const id = idRef.current++;
-    setShowItem({
-      id,
-      label: isMe ? "YOUR TURN" : "OPPONENT TURN",
-      color: isMe ? "self" : "opp",
-    });
-    const t = setTimeout(() => {
-      setShowItem((cur) => (cur?.id === id ? null : cur));
-    }, 1500);
-    return () => clearTimeout(t);
-    // pendingKind は 廃止 (= banner → draw → MAIN 順序 を 保つ)
+    setQueue((q) => [
+      ...q,
+      {
+        id,
+        label: isMe ? "YOUR TURN" : "OPPONENT TURN",
+        color: isMe ? "self" : "opp",
+      },
+    ]);
     void pendingKind;
   }, [turnPlayerIdx, humanIdx, hasMulliganPending, pendingKind]);
+
+  // queue を 順次 1.5 秒 ずつ 表示 (= 連続 fire を 上書き せず 全 表示)
+  useEffect(() => {
+    if (showItem !== null) return;
+    if (queue.length === 0) return;
+    const next = queue[0];
+    setShowItem(next);
+    setQueue((q) => q.slice(1));
+    const t = setTimeout(() => setShowItem(null), 1500);
+    return () => clearTimeout(t);
+  }, [showItem, queue]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[58] flex items-center justify-center">
