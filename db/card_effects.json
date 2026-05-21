@@ -108,7 +108,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -124,12 +124,15 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -1000,
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_power_ge": 7000
+      }
     }
   ],
   "EB03-046": [
@@ -434,7 +437,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -787,7 +790,10 @@
         {
           "ko": "one_opponent_character_power_le_3000"
         }
-      ]
+      ],
+      "if": {
+        "self_power_ge": 7000
+      }
     },
     {
       "_text": "OP05-017 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。",
@@ -923,7 +929,13 @@
         {
           "rest": "one_opponent_character_cost_le_6cost"
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "人魚族"
+        ]
+      }
     }
   ],
   "OP07-039": [
@@ -1228,7 +1240,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_0",
             "amount": -1000,
             "duration": "turn"
           }
@@ -1404,7 +1416,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "東の海"
+      }
     },
     {
       "_text": "OP15-011 【相手のターン中】自分のリーダーが特徴《東の海》を持つ場合、このキャラは【ブロッカー】を得て、パワー+2000。",
@@ -1550,7 +1565,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     },
     {
       "_text": "OP15-048 on_ko: 相手は自身の手札1枚をデッキの下に置く。",
@@ -1633,7 +1651,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -1729,7 +1747,8 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -2765,7 +2784,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         },
@@ -2783,7 +2802,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -2811,7 +2830,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 1
+        "opp_life_le": 1,
+        "self_life_le": 1
       }
     }
   ],
@@ -3141,7 +3161,10 @@
         {
           "self_turn": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     },
     {
       "_text": "EB03-058 trigger: 自分のリーダーが「ベガパンク」の場合、このカードを登場させる。",
@@ -3892,7 +3915,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_0",
             "amount": -3000,
             "duration": "turn"
           }
@@ -4952,7 +4975,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "麦わらの一味"
+      }
     },
     {
       "_text": "EB03-055 on_ko: 相手に1ダメージを与えてもよい。",
@@ -4994,7 +5020,8 @@
       ],
       "if": {
         "opp_life_le": 3,
-        "leader_multicolor": true
+        "leader_multicolor": true,
+        "self_life_le": 3
       }
     },
     {
@@ -5591,7 +5618,10 @@
             ]
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "ドンキホーテ海賊団"
+      }
     }
   ],
   "OP07-057": [
@@ -5920,7 +5950,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -6401,7 +6431,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -7080,7 +7110,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      }
     }
   ],
   "EB04-023": [
@@ -7535,7 +7568,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_6000",
             "amount": -4000,
             "duration": "turn"
           }
@@ -7683,7 +7716,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -8171,7 +8204,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_0",
             "amount": -4000,
             "duration": "turn"
           }
@@ -8203,7 +8236,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -8312,7 +8345,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -6000,
             "duration": "turn"
           }
@@ -8522,7 +8555,8 @@
         "discard_hand": 2
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     },
     {
@@ -8532,7 +8566,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      }
     }
   ],
   "OP14-114": [
@@ -8829,7 +8866,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 4
+          "untap_don": 4
         }
       ]
     }
@@ -9066,7 +9103,13 @@
         {
           "untap_don": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "FILM",
+          "麦わらの一味"
+        ]
+      }
     },
     {
       "_text": "OP13-037 end_of_turn: このキャラをアクティブにする。",
@@ -9132,7 +9175,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 2
+          "untap_don": 2
         }
       ]
     },
@@ -9141,7 +9184,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -9152,7 +9195,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 2
+          "untap_don": 2
         }
       ]
     }
@@ -9258,7 +9301,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -10112,7 +10155,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -11094,7 +11137,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -11110,7 +11153,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_ge": 2
+      }
     }
   ],
   "EB03-001_p1": [
@@ -11120,7 +11166,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -11364,7 +11410,8 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -12631,7 +12678,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     },
     {
       "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -12665,7 +12715,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     },
     {
       "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -13463,7 +13516,8 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -13991,6 +14045,9 @@
       ],
       "cost": {
         "discard_hand": 1
+      },
+      "if": {
+        "self_life_le": 1
       }
     }
   ],
@@ -14009,6 +14066,9 @@
       ],
       "cost": {
         "discard_hand": 1
+      },
+      "if": {
+        "self_life_le": 1
       }
     }
   ],
@@ -14470,7 +14530,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     },
     {
       "_text": "ST29-001 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
@@ -14502,7 +14565,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     },
     {
       "_text": "ST29-001_p1 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
@@ -14539,7 +14605,8 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -15094,7 +15161,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "ST06-001": [
@@ -15543,7 +15613,8 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -15700,7 +15771,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     },
     {
       "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -17053,7 +17127,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 1
+      }
     }
   ],
   "OP07-109": [
@@ -17267,7 +17344,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -17523,7 +17600,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -17554,7 +17631,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -17757,7 +17834,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -18601,7 +18679,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "OP15-106": [
@@ -18655,7 +18736,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "空島"
+      }
     }
   ],
   "OP12-014": [
@@ -18765,7 +18849,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -19336,7 +19420,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -20359,7 +20444,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -20738,7 +20823,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "OP10-111": [
@@ -20820,7 +20908,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -21070,7 +21158,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -21501,7 +21589,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -21746,7 +21834,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -21809,7 +21897,10 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "OP03-112": [
@@ -22228,7 +22319,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "エッグヘッド"
+      }
     }
   ],
   "OP07-106": [
@@ -22296,7 +22390,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -23751,7 +23846,8 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3
+        "opp_life_ge": 3,
+        "self_life_ge": 3
       }
     }
   ],
@@ -23817,7 +23913,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -25309,7 +25405,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -26206,7 +26302,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -26237,7 +26333,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -26260,7 +26356,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -26560,7 +26656,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -26571,7 +26667,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -27092,7 +27188,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -28011,7 +28108,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -28177,7 +28274,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "麦わらの一味"
+      }
     },
     {
       "_text": "EB03-055_p1 on_ko: 相手に1ダメージを与えてもよい。",
@@ -28321,7 +28421,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "麦わらの一味"
+      }
     },
     {
       "_text": "EB03-055_p2 on_ko: 相手に1ダメージを与えてもよい。",
@@ -28653,7 +28756,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         },
@@ -28671,7 +28774,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -29519,7 +29622,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -29754,7 +29857,10 @@
             ]
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "ドンキホーテ海賊団"
+      }
     }
   ],
   "OP14-084_p1": [
@@ -30110,7 +30216,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -30153,7 +30259,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 2
+          "untap_don": 2
         }
       ]
     },
@@ -30162,7 +30268,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -30682,7 +30788,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 4
+          "untap_don": 4
         }
       ]
     }
@@ -30693,7 +30799,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 4
+          "untap_don": 4
         }
       ]
     }
@@ -30704,7 +30810,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 4
+          "untap_don": 4
         }
       ]
     }
@@ -30715,7 +30821,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 4
+          "untap_don": 4
         }
       ]
     }
@@ -31329,7 +31435,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -6000,
             "duration": "turn"
           }
@@ -31350,7 +31456,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_6000",
             "amount": -4000,
             "duration": "turn"
           }
@@ -32642,7 +32748,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 1
+      }
     }
   ],
   "OP07-109_p1": [
@@ -33295,7 +33404,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -34165,7 +34275,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -34555,7 +34665,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -34938,7 +35049,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         },
@@ -34956,7 +35067,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -34970,7 +35081,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         },
@@ -34988,7 +35099,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -35520,7 +35631,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -36201,7 +36312,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 1
+      }
     }
   ],
   "OP07-109_p3": [
@@ -36808,7 +36922,7 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 4
+          "untap_don": 4
         }
       ]
     }
@@ -37018,7 +37132,8 @@
         "discard_hand": 2
       },
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     },
     {
@@ -37028,7 +37143,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      }
     }
   ],
   "OP15-060_p2": [
@@ -37707,7 +37825,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -37839,7 +37957,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -37855,12 +37973,15 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -1000,
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_power_ge": 7000
+      }
     }
   ],
   "OP05-011_p1": [
@@ -37890,7 +38011,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_0",
             "amount": -4000,
             "duration": "turn"
           }
@@ -38220,7 +38341,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -38467,7 +38589,13 @@
         {
           "untap_don": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "FILM",
+          "麦わらの一味"
+        ]
+      }
     },
     {
       "_text": "OP13-037_p1 end_of_turn: このキャラをアクティブにする。",
@@ -38986,7 +39114,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         },
@@ -39004,7 +39132,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -39018,7 +39146,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -39478,7 +39606,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -39512,7 +39640,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -40467,7 +40595,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -40484,7 +40612,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -41234,7 +41362,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -41269,7 +41397,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -41423,7 +41551,8 @@
         "discard_hand": 1
       },
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -41771,7 +41900,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -41808,7 +41937,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -41826,7 +41955,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -42033,7 +42162,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -42047,7 +42176,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -42061,7 +42190,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -42076,7 +42205,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -42335,7 +42464,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -42347,7 +42476,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -42361,7 +42490,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -42373,7 +42502,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -42738,7 +42867,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -42753,7 +42882,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -42768,7 +42897,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -42783,7 +42912,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -42798,7 +42927,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -43504,7 +43633,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -43535,7 +43664,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -43549,7 +43678,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -43563,7 +43692,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -43577,7 +43706,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -44377,7 +44506,7 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -44658,7 +44787,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -44676,7 +44805,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -44914,7 +45043,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -44931,7 +45060,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -44948,7 +45077,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -44965,7 +45094,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -45073,7 +45202,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -45100,7 +45230,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -45127,7 +45258,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -45301,7 +45433,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -46223,7 +46356,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-100_p2": [
@@ -46249,7 +46385,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-100_r1": [
@@ -46275,7 +46414,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-106_r1": [
@@ -46729,7 +46871,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -46743,7 +46885,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -46757,7 +46899,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -46795,7 +46937,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -46825,7 +46967,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -46855,7 +46997,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -46948,7 +47090,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -47110,7 +47252,13 @@
             ]
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "人魚族"
+        ]
+      }
     }
   ],
   "EB04-017": [
@@ -47135,7 +47283,10 @@
         {
           "self_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "ミンク族"
+      }
     }
   ],
   "EB04-019": [
@@ -47145,7 +47296,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -47198,7 +47349,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -47234,7 +47385,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -47496,7 +47647,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -49038,7 +49189,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "麦わらの一味"
+      }
     }
   ],
   "EB02-003_p1": [
@@ -49061,7 +49215,10 @@
         {
           "opp_turn": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "麦わらの一味"
+      }
     }
   ],
   "EB02-006": [
@@ -49165,7 +49322,13 @@
         {
           "set_cannot_rest": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "東の海"
+        ]
+      }
     }
   ],
   "EB02-011_p1": [
@@ -49183,7 +49346,13 @@
         {
           "set_cannot_rest": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "東の海"
+        ]
+      }
     }
   ],
   "EB02-014": [
@@ -49505,7 +49674,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -49901,7 +50070,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -49919,7 +50089,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -49930,7 +50101,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -49945,7 +50116,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -49960,7 +50131,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -49975,7 +50146,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -50450,7 +50621,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -50467,7 +50638,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -50673,7 +50844,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -50772,7 +50943,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -50938,7 +51109,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -50967,7 +51138,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -51663,12 +51834,15 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_power_ge": 5000
+      }
     }
   ],
   "OP14-009": [
@@ -51728,7 +51902,10 @@
             "rested": true
           }
         }
-      ]
+      ],
+      "if": {
+        "self_power_ge": 5000
+      }
     }
   ],
   "OP14-014": [
@@ -51759,7 +51936,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -51774,7 +51951,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -51789,7 +51966,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -52075,7 +52252,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -52290,7 +52467,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      }
     }
   ],
   "OP14-117": [
@@ -52484,7 +52664,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -52584,7 +52765,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_3000",
             "amount": -3000,
             "duration": "turn"
           }
@@ -52618,7 +52799,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -5000,
             "duration": "turn"
           }
@@ -52644,7 +52825,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -52657,7 +52838,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -52870,7 +53051,13 @@
         {
           "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "FILM",
+          "麦わらの一味"
+        ]
+      }
     }
   ],
   "OP13-035": [
@@ -53328,7 +53515,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -53350,7 +53537,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -53365,7 +53552,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -53387,7 +53574,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -53688,7 +53875,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -53710,7 +53897,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -54293,7 +54480,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -54428,7 +54615,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -54776,7 +54963,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -54952,7 +55139,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -54967,7 +55154,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -54995,7 +55182,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -55150,6 +55337,12 @@
       ],
       "cost": {
         "rest_self": true
+      },
+      "if": {
+        "leader_features_any": [
+          "魚人族",
+          "人魚族"
+        ]
       }
     }
   ],
@@ -55713,7 +55906,8 @@
       "when": "opp_event_or_trigger_fired",
       "if": {
         "self_turn": true,
-        "opp_life_ge": 2
+        "opp_life_ge": 2,
+        "self_life_ge": 2
       },
       "cost": {
         "once_per_turn": true
@@ -56129,7 +56323,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -56162,7 +56356,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -56177,7 +56371,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -56195,7 +56389,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -56239,7 +56433,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -56712,7 +56906,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -57029,7 +57223,10 @@
         {
           "set_ko_immune_battle_only": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_ge": 3
+      }
     }
   ],
   "OP10-107": [
@@ -57106,7 +57303,8 @@
         "discard_hand": 1
       },
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -57135,7 +57333,8 @@
         "discard_hand": 1
       },
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -57283,7 +57482,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -57327,7 +57526,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -57388,7 +57587,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -57422,7 +57621,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -57477,7 +57676,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -58308,7 +58507,8 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3
+        "opp_life_ge": 3,
+        "self_life_ge": 3
       }
     },
     {
@@ -58338,7 +58538,8 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3
+        "opp_life_ge": 3,
+        "self_life_ge": 3
       }
     },
     {
@@ -58603,7 +58804,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -58618,7 +58819,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -58733,7 +58934,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -58780,7 +58981,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -58808,7 +59009,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -58821,7 +59022,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -59401,6 +59602,12 @@
       ],
       "cost": {
         "pay_don": 2
+      },
+      "if": {
+        "leader_features_any": [
+          "百獣海賊団",
+          "ビッグ・マム海賊団"
+        ]
       }
     }
   ],
@@ -59453,7 +59660,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -59503,7 +59710,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -59942,7 +60149,10 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "OP08-116": [
@@ -60059,7 +60269,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -60094,7 +60304,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -60109,7 +60319,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -60180,7 +60390,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -60218,7 +60428,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -60804,7 +61014,13 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "百獣海賊団",
+          "ビッグ・マム海賊団"
+        ]
+      }
     },
     {
       "_text": "OP07-077 trigger: このカードの【メイン】効果を発動する。",
@@ -60841,7 +61057,7 @@
       "when": "trigger",
       "do": [
         {
-          "add_don": 1
+          "untap_don": 1
         }
       ]
     }
@@ -60853,7 +61069,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -60885,7 +61101,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -60961,7 +61177,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -61395,7 +61611,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -61802,7 +62018,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -61818,7 +62034,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -61840,7 +62056,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -61856,7 +62072,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -62557,7 +62773,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-102": [
@@ -62608,7 +62827,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-107": [
@@ -62699,7 +62921,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP03-114_p2": [
@@ -62778,7 +63003,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -62796,7 +63021,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -62854,7 +63079,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -62873,7 +63098,10 @@
             "keyword": "ブロック不可"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_power_ge": 7000
+      }
     },
     {
       "_text": "OP05-016 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。",
@@ -63226,7 +63454,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -63419,7 +63647,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -63468,7 +63696,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -63663,7 +63891,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -63772,7 +64000,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -64121,7 +64350,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -64155,7 +64384,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -64170,7 +64399,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -64695,7 +64924,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -64910,7 +65139,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         },
@@ -65011,7 +65240,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -65026,7 +65255,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -65058,7 +65287,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -65701,7 +65930,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -65734,7 +65963,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -65778,7 +66007,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -10000,
             "duration": "turn"
           }
@@ -66526,7 +66755,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -66849,7 +67078,8 @@
         }
       ],
       "if": {
-        "opp_life_ge": 4
+        "opp_life_ge": 4,
+        "self_life_ge": 4
       }
     },
     {
@@ -66962,7 +67192,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -66985,7 +67215,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -67157,7 +67387,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -67890,7 +68120,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -67984,7 +68214,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -67998,7 +68228,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -68012,7 +68242,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -68091,7 +68321,7 @@
         },
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -68482,7 +68712,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -10000,
             "duration": "turn"
           }
@@ -68497,7 +68727,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -69176,7 +69406,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "B・W"
+      }
     }
   ],
   "OP01-085": [
@@ -69349,7 +69582,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -69383,7 +69616,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -69810,7 +70043,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -69837,7 +70070,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -70400,7 +70633,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-103_r1": [
@@ -70423,7 +70659,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-104_r1": [
@@ -70446,7 +70685,8 @@
       "when": "on_attached_don",
       "n": 2,
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       },
       "do": [
         {
@@ -70463,7 +70703,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 3
+        "opp_life_le": 3,
+        "self_life_le": 3
       }
     }
   ],
@@ -70485,7 +70726,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP06-112_r1": [
@@ -70508,7 +70752,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 3
+      }
     }
   ],
   "OP09-035_r1": [
@@ -70662,7 +70909,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -71387,7 +71634,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -71421,7 +71668,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -71479,7 +71726,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -72008,7 +72255,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_2000",
             "amount": -5000,
             "duration": "turn"
           }
@@ -72220,7 +72467,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -72241,7 +72488,7 @@
         },
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -72264,7 +72511,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -72353,7 +72600,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -72405,7 +72652,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -73116,7 +73363,7 @@
         },
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -73160,7 +73407,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -73172,7 +73419,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 5
           }
         }
@@ -73213,7 +73460,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     }
   ],
   "ST14-011": [
@@ -73803,7 +74053,8 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3
+        "opp_life_ge": 3,
+        "self_life_ge": 3
       }
     }
   ],
@@ -74101,7 +74352,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -74413,7 +74664,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -74443,7 +74694,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -74460,7 +74711,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -74474,7 +74725,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -74503,7 +74754,7 @@
         },
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 7
           }
         }
@@ -74874,7 +75125,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -74888,7 +75139,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -74905,7 +75156,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -74919,7 +75170,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -74986,7 +75237,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -74998,7 +75249,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 1
           }
         }
@@ -76491,7 +76742,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     }
   ],
@@ -76502,7 +76754,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -76517,7 +76769,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -76905,7 +77157,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -77043,7 +77295,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_inplay_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -77077,7 +77329,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -77274,7 +77526,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -77438,7 +77690,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -77644,7 +77896,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -77730,7 +77982,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_3000",
             "amount": -3000,
             "duration": "turn"
           }
@@ -78065,7 +78317,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -78080,7 +78332,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -78095,7 +78347,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -78110,7 +78362,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -78191,7 +78443,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 3
           }
         }
@@ -79868,7 +80120,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -79885,7 +80137,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -80299,7 +80551,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -2000,
             "duration": "turn"
           }
@@ -80459,7 +80711,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -80610,7 +80862,8 @@
         }
       ],
       "if": {
-        "opp_life_le": 2
+        "opp_life_le": 2,
+        "self_life_le": 2
       }
     },
     {
@@ -80659,7 +80912,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -80791,7 +81044,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -81451,7 +81704,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 4
           }
         }
@@ -81465,7 +81718,7 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_any",
             "amount": 2
           }
         }
@@ -81640,7 +81893,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_le_5000",
+            "target": "one_opponent_character_power_le_2000",
             "amount": -5000,
             "duration": "turn"
           }
@@ -81684,7 +81937,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_life_le": 1
+      }
     }
   ],
   "OP09-004_r1": [
@@ -82707,7 +82963,10 @@
             "keyword": "ブロック不可"
           }
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true
+      }
     },
     {
       "_text": "【相手のターン中】自分の「シュラ」すべてとこのキャラを、元々のパワー6000にする。",
@@ -82744,7 +83003,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_inplay_power_ge": 5000
+        "self_inplay_power_ge": 5000,
+        "self_power_ge": 5000
       },
       "do": [
         {
@@ -83426,7 +83686,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_inplay_power_ge": 7000
+        "self_inplay_power_ge": 7000,
+        "self_power_ge": 7000
       },
       "do": [
         {
