@@ -1163,6 +1163,17 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "ワノ国"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -2519,6 +2530,11 @@
             "count": 1,
             "rested": true
           }
+        },
+        {
+          "look_top_reorder": {
+            "depth": 3
+          }
         }
       ]
     }
@@ -2913,6 +2929,18 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "cost_le": 2,
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -6783,6 +6811,18 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "シャンドラの戦士",
+              "name": "モンブラン・ノーランド"
+            },
+            "limit": 2,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -6904,6 +6944,21 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "科学者",
+              "name": "ベガパンク",
+              "exclude_name": "ベガパンク",
+              "cost_le": 5,
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -13835,6 +13890,17 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 2,
+            "filter": {
+              "feature": "ドレスローザ"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -13849,6 +13915,17 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 2,
+            "filter": {
+              "feature": "ドレスローザ"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -14941,6 +15018,17 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ]
     },
@@ -14964,6 +15052,17 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ]
     },
@@ -19573,6 +19672,19 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "海軍",
+              "name": "センゴク",
+              "exclude_name": "センゴク"
+            },
+            "limit": 2,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -19756,6 +19868,15 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -20113,6 +20234,19 @@
       "do": [
         {
           "return_to_hand": "one_opponent_character_power_le_5000"
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "麦わらの一味",
+              "cost_le": 5,
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -20666,6 +20800,19 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "ドレスローザ",
+              "name": "レオ",
+              "exclude_name": "レオ"
+            },
+            "limit": 2,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -21016,6 +21163,18 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "name": "ジュラキュール・ミホーク"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -21956,6 +22115,17 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -23107,6 +23277,15 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -28640,6 +28819,21 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "科学者",
+              "name": "ベガパンク",
+              "exclude_name": "ベガパンク",
+              "cost_le": 5,
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -31583,6 +31777,19 @@
       "do": [
         {
           "return_to_hand": "one_opponent_character_power_le_5000"
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "麦わらの一味",
+              "cost_le": 5,
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "play",
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
@@ -32141,6 +32348,18 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "name": "ジュラキュール・ミホーク"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -36528,6 +36747,18 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "name": "ジュラキュール・ミホーク"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
         }
       ],
       "cost": {
@@ -50232,6 +50463,24 @@
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "[auto] on_play: search_top_n 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "feature": "ドンキホーテ海賊団",
+              "category": "character"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -69508,6 +69757,21 @@
           "trash_self_hand_random": 1
         }
       ]
+    },
+    {
+      "_text": "[auto] on_play: search_top_n 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {},
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "top"
+          }
+        }
+      ]
     }
   ],
   "OP01-089": [
@@ -73166,6 +73430,25 @@
       "if": {
         "leader_name": "ウタ"
       }
+    },
+    {
+      "_text": "[auto] on_play: search_top_n 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "feature": "FILM",
+              "name": "新時代",
+              "exclude_name": "新時代"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
     }
   ],
   "ST11-005_p2": [
@@ -74334,6 +74617,25 @@
       "if": {
         "leader_name": "ウタ"
       }
+    },
+    {
+      "_text": "[auto] on_play: search_top_n 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "feature": "FILM",
+              "name": "新時代",
+              "exclude_name": "新時代"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
     }
   ],
   "ST11-005": [
@@ -80404,6 +80706,25 @@
       "if": {
         "leader_name": "ウタ"
       }
+    },
+    {
+      "_text": "[auto] on_play: search_top_n 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "feature": "FILM",
+              "name": "新時代",
+              "exclude_name": "新時代"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
     }
   ],
   "ST11-005_p1": [
@@ -83028,7 +83349,25 @@
   "OP06-110_p1": [],
   "OP06-110_p2": [],
   "OP06-110_r1": [],
-  "EB04-003": [],
+  "EB04-003": [
+    {
+      "_text": "[auto] 【相手のターン中】 リーダー(海軍) 元々のパワー7000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "海軍"
+      },
+      "do": [
+        {
+          "set_base_power": {
+            "target": "self_leader",
+            "amount": 7000
+          }
+        }
+      ]
+    }
+  ],
   "EB04-005": [],
   "EB04-035": [],
   "EB04-046": [],
@@ -83057,7 +83396,25 @@
       ]
     }
   ],
-  "EB04-003_p1": [],
+  "EB04-003_p1": [
+    {
+      "_text": "[auto] 【相手のターン中】 リーダー(海軍) 元々のパワー7000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "海軍"
+      },
+      "do": [
+        {
+          "set_base_power": {
+            "target": "self_leader",
+            "amount": 7000
+          }
+        }
+      ]
+    }
+  ],
   "EB03-004": [
     {
       "_text": "[auto] 【相手のターン中】このキャラのパワー+4000",
@@ -83137,7 +83494,19 @@
       ]
     }
   ],
-  "EB02-023": [],
+  "EB02-023": [
+    {
+      "_text": "[auto] on_play: search_top_n 補完",
+      "when": "on_play",
+      "do": [
+        {
+          "look_top_reorder": {
+            "depth": 3
+          }
+        }
+      ]
+    }
+  ],
   "EB02-033": [
     {
       "_text": "EB02-033 自分の場に「ゴーイング・メリー号」がある場合、このキャラは【ブロッカー】を得る。",
@@ -83158,11 +83527,55 @@
   ],
   "EB01-008": [],
   "EB01-024": [],
-  "EB01-047": [],
+  "EB01-047": [
+    {
+      "_text": "[auto] キャラKO時 draw1 discard1",
+      "when": "on_opp_chara_ko",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    },
+    {
+      "_text": "[auto] 自キャラKO時 draw1 discard1",
+      "when": "on_self_chara_ko",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
   "EB01-057": [],
   "EB01-057_p1": [],
   "OP15-009": [],
-  "OP15-013": [],
+  "OP15-013": [
+    {
+      "_text": "[auto] 手札のこのカード コスト-2",
+      "when": "in_hand",
+      "do": [
+        {
+          "in_hand_cost_minus": 2
+        }
+      ],
+      "if": {
+        "self_leader_power_le": 0
+      }
+    }
+  ],
   "OP15-035": [
     {
       "_text": "OP15-035 replace_ko: 自分の元々のパワー7000以下のキャラが相手の効果で場を離れる場合、代わりに自分のカード2枚をレストにできる。",
