@@ -151,12 +151,17 @@ def setup_game(
     else:
         analyses = [deck2_analysis, deck1_analysis]
 
+    # 公式 5-2 セットアップ 順序: ライフ配置 → 手札 5 枚 → マリガン。
+    # 旧 implementation は 「手札 → マリガン → ライフ」 で 逆順 だった。
+    for p in state.players:
+        for _ in range(p.leader.card.life):
+            if p.deck:
+                p.life.append(p.deck.pop(0))
     for p in state.players:
         p.draw(5)
-    # マリガン (公式 5-2-1-2): 各プレイヤーは1度だけ手札全戻し+引き直し可能。
-    # human session で 自分側 マリガン を user に 選ばせる 用 に skip 可能。
     state._mulligan_analyses = analyses  # type: ignore[attr-defined]
     if do_mulligan_and_finalize:
+        # マリガン (= 手札 戻し + デッキ シャッフル + 再 5 枚 ドロー、 ライフ は keep)
         for p, a in zip(state.players, analyses):
             if _should_mulligan(p, a):
                 p.deck.extend(p.hand)
@@ -164,10 +169,6 @@ def setup_game(
                 p.shuffle_deck(rng)
                 p.draw(5)
                 state.push_log(f"  マリガン: {p.name} 手札を引き直し")
-        for p in state.players:
-            for _ in range(p.leader.card.life):
-                if p.deck:
-                    p.life.append(p.deck.pop(0))
     else:
         # マリガン skip path: state を 「pre-mulligan」 で 返す。
         # 呼び出し側 が finalize_setup_after_mulligan を 呼んで 完了 する 想定。
@@ -236,7 +237,7 @@ def finalize_setup_after_mulligan(
     human_player_idx: 人間 player の index (= state.players 内)。
     """
     analyses = getattr(state, "_mulligan_analyses", [None, None])
-    # マリガン適用
+    # マリガン適用 (= ライフ は setup_game で 既配布、 keep)
     for idx, (p, a) in enumerate(zip(state.players, analyses)):
         if idx == human_player_idx and human_mulligan is not None:
             do_mull = human_mulligan
@@ -248,11 +249,6 @@ def finalize_setup_after_mulligan(
             p.shuffle_deck(rng)
             p.draw(5)
             state.push_log(f"  マリガン: {p.name} 手札を引き直し")
-    # ライフ配布
-    for p in state.players:
-        for _ in range(p.leader.card.life):
-            if p.deck:
-                p.life.append(p.deck.pop(0))
     p0, p1 = state.players[0], state.players[1]
     state.push_log(
         f"start: P0={p0.leader.card.name}({p0.leader.card.life}L) "
