@@ -64,7 +64,7 @@ type DragPayload =
       handKind: "CHARACTER" | "EVENT" | "STAGE";
     }
   | { kind: "chara"; iid: number }
-  | { kind: "don" }
+  | { kind: "don"; count: number }
   | { kind: "counter"; handIdx: number };
 
 type DropTarget =
@@ -454,6 +454,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         );
       }
     } else if (drag.kind === "don") {
+      const count = Math.max(1, drag.count);
       if (target.kind === "self_leader") {
         action = state!.legal_actions.find(
           (a) => a.kind === "AttachDonToLeader",
@@ -463,6 +464,30 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           (a) =>
             a.kind === "AttachDonToCharacter" && a.target_iid === target.iid,
         );
+      }
+      if (action && count > 1) {
+        // N 回 連続 apply (= 複数 DON 同時 attach)
+        setDrag(null);
+        (async () => {
+          for (let k = 0; k < count; k++) {
+            // 各回 で legal_actions が 変わる が、 同 kind の action を 都度 探す
+            const cur = state;
+            if (!cur) break;
+            const a = cur.legal_actions.find((x) => {
+              if (target.kind === "self_leader")
+                return x.kind === "AttachDonToLeader";
+              if (target.kind === "self_chara")
+                return (
+                  x.kind === "AttachDonToCharacter" &&
+                  x.target_iid === target.iid
+                );
+              return false;
+            });
+            if (!a) break;
+            await applyAction(a);
+          }
+        })();
+        return;
       }
     } else if (drag.kind === "counter") {
       // 防御 中: 手札 counter idx を toggle で counterIdxs に追加 + 視覚 演出
@@ -1318,7 +1343,9 @@ function PlayerMat({
             donRested={player.don_rested}
             donTotal={player.don_total}
             isMe={true}
-            onDragStart={() => onDragStart?.({ kind: "don" })}
+            onDragStart={(count) =>
+              onDragStart?.({ kind: "don", count })
+            }
             onDragEnd={onDragEnd}
           />
         )}
@@ -1388,35 +1415,82 @@ function DonRow({
   donRested: number;
   donTotal: number;
   isMe: boolean;
-  onDragStart?: () => void;
+  onDragStart?: (count: number) => void;
   onDragEnd?: () => void;
 }) {
   const totalShown = Math.min(donTotal, 12);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const lastClickedRef = useRef<number | null>(null);
+
+  function handleDonClick(i: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!isMe) return;
+    if (e.shiftKey && lastClickedRef.current !== null) {
+      // 範囲選択
+      const a = lastClickedRef.current;
+      const b = i;
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      const next = new Set<number>();
+      for (let k = lo; k <= hi; k++) next.add(k);
+      setSelected(next);
+    } else if (e.ctrlKey || e.metaKey) {
+      // 個別 toggle
+      const next = new Set(selected);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      setSelected(next);
+      lastClickedRef.current = i;
+    } else {
+      // 通常 click: 単一 選択
+      setSelected(new Set([i]));
+      lastClickedRef.current = i;
+    }
+  }
   return (
     <div className="flex h-16 shrink-0 items-center gap-1 rounded bg-black/30 px-3">
       <span className="text-xs font-bold text-zinc-200">DON</span>
       <div className="flex items-center gap-1 overflow-hidden">
-        {Array.from({ length: donActive }).map((_, i) => (
-          <button
-            key={`a-${i}`}
-            type="button"
-            draggable={isMe && donActive > 0}
-            onDragStart={() => onDragStart?.()}
-            onDragEnd={() => onDragEnd?.()}
-            className={
-              "h-10 w-7 rounded ring-1 ring-amber-400 " +
-              (isMe ? "cursor-grab active:cursor-grabbing" : "cursor-default")
-            }
-            title={isMe ? "ドラッグで Leader/Character に attach" : "DON"}
-          >
-            <img
-              src="/assets/don.png"
-              alt="DON"
-              className="h-full w-full rounded shadow"
-              draggable={false}
-            />
-          </button>
-        ))}
+        {Array.from({ length: donActive }).map((_, i) => {
+          const isSel = selected.has(i);
+          return (
+            <button
+              key={`a-${i}`}
+              type="button"
+              draggable={isMe && donActive > 0}
+              onClick={(e) => handleDonClick(i, e)}
+              onDragStart={() => {
+                // 選択中 なら 選択数、 そうでなければ 1 枚 で drag
+                const count = isSel && selected.size > 0 ? selected.size : 1;
+                onDragStart?.(count);
+              }}
+              onDragEnd={() => {
+                onDragEnd?.();
+                setSelected(new Set());
+                lastClickedRef.current = null;
+              }}
+              className={
+                "h-10 w-7 rounded transition " +
+                (isSel
+                  ? "ring-4 ring-cyan-300 -translate-y-1 drop-shadow-[0_0_10px_rgba(103,232,249,0.85)]"
+                  : "ring-1 ring-amber-400 ") +
+                (isMe ? "cursor-grab active:cursor-grabbing" : "cursor-default")
+              }
+              title={
+                isMe
+                  ? "クリック=選択 / Shift+クリック=範囲選択 / Ctrl+クリック=個別 追加。 ドラッグで attach"
+                  : "DON"
+              }
+            >
+              <img
+                src="/assets/don.png"
+                alt="DON"
+                className="h-full w-full rounded shadow"
+                draggable={false}
+              />
+            </button>
+          );
+        })}
         {donRested > 0 && (
           <div className="flex">
             {Array.from({ length: donRested }).map((_, i) => (
@@ -1441,6 +1515,11 @@ function DonRow({
         )}
       </div>
       <span className="ml-auto text-xs font-semibold text-amber-200">
+        {selected.size > 1 && (
+          <span className="mr-2 rounded bg-cyan-600 px-1.5 py-0.5 text-[11px] text-white">
+            {selected.size}枚 選択
+          </span>
+        )}
         <AnimatedNumber value={donActive} flashColorClass="text-emerald-300" />A
         {" / "}
         <AnimatedNumber value={donRested} flashColorClass="text-zinc-400" />R
