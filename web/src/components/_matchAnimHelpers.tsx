@@ -715,14 +715,6 @@ export function TurnBannerOverlay({
         color: isMe ? "self" : "opp",
       });
     }
-    // 「相手 → 自分」 切替 で 「相手ターン終了」 banner を 先 enqueue
-    if (isMe && prev !== -1 && prev !== humanIdx) {
-      additions.push({
-        id: idRef.current++,
-        label: "相手ターン終了",
-        color: "opp",
-      });
-    }
     additions.push({
       id: idRef.current++,
       label: isMe ? "あなたのターン" : "相手のターン",
