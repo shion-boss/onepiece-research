@@ -301,35 +301,30 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const snapForDiff = (state?.snapshot ?? null) as StateSnapshot | null;
   const frameDiff = useFrameDiff(snapForDiff);
 
-  // AI counter (= 相手 が hand→trash で counter 切る) を log で 検出 → fireCounterPlay(opp)
-  const lastCounterLogIdxRef = useRef(0);
+  // AI counter (= 相手 が hand→trash で counter 切る) を 各 frame snapshot.log で
+  // 検出 → fireCounterPlay(opp)。 state.log は ref 不変 (= playFrames 中 final.log)
+  // のため snapshot 単位 で 検出 + lastSnapTickRef で 重複 fire 防止。
+  const lastCounterTickRef = useRef(-1);
   useEffect(() => {
-    const allLogs = state?.log ?? [];
-    if (allLogs.length <= lastCounterLogIdxRef.current) {
-      lastCounterLogIdxRef.current = allLogs.length;
-      return;
-    }
-    const newLines = allLogs.slice(lastCounterLogIdxRef.current);
-    lastCounterLogIdxRef.current = allLogs.length;
+    const snap = state?.snapshot as StateSnapshot | null;
+    if (!snap) return;
+    const tick = frameDiff.eventTickId;
+    if (tick === lastCounterTickRef.current) return;
+    lastCounterTickRef.current = tick;
     const aiIdx = state?.ai_idx ?? -1;
     const humanIdx = state?.human_idx ?? -1;
     if (aiIdx < 0 || humanIdx < 0) return;
-    for (const ln of newLines) {
-      // 「P{human_idx}: ... counter +N → ...」 = 自分 が attacker、 AI が counter 切る
-      //   → AI 演出 fire。 「P{ai_idx}:」 行 (= AI 攻撃中) の counter は 自分が 切る
-      //   → handleDrop の fireCounterPlay(me) で 既 fire 済 (= ここ では skip)
-      if (!new RegExp(`\\bP${humanIdx}\\b`).test(ln)) continue;
-      const m = ln.match(/counter\s*\+(\d+)\s*→/);
-      if (m) {
-        const snap = state?.snapshot as StateSnapshot | null;
-        const aiPlayer = snap?.players?.[aiIdx];
-        const trash = aiPlayer?.trash ?? [];
-        const cardId = trash[trash.length - 1] ?? "";
-        const value = Number(m[1]);
-        if (cardId) fireCounterPlay(cardId, value, "opp");
-      }
-    }
-  }, [state?.log, state?.ai_idx, state?.snapshot]);
+    const ln = typeof snap.log === "string" ? snap.log : "";
+    // 「P{human_idx}: ... counter +N → ...」 = 自分 が attacker、 AI が counter 切る
+    if (!new RegExp(`\\bP${humanIdx}\\b`).test(ln)) return;
+    const m = ln.match(/counter\s*\+(\d+)\s*→/);
+    if (!m) return;
+    const aiPlayer = snap.players?.[aiIdx];
+    const trash = aiPlayer?.trash ?? [];
+    const cardId = trash[trash.length - 1] ?? "";
+    const value = Number(m[1]);
+    if (cardId) fireCounterPlay(cardId, value, "opp");
+  }, [frameDiff.eventTickId, state?.ai_idx, state?.human_idx, state?.snapshot]);
   // 自分側 hand で 直近 ドロー idx を ハイライト
   const meHandLen =
     (snapForDiff?.players?.[state?.human_idx ?? 0]?.hand?.length) ?? 0;
