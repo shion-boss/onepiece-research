@@ -78,16 +78,12 @@ class HumanAI:
             self.session._pending_defense = None
             return block_iid, counters
         # 未設定 → pause
-        from .game import _legal_blockers_for_attack
-        # legal candidates を 集めて payload に
-        try:
-            blockers = _legal_blockers_for_attack(state, attacker, target, is_leader_attack)
-            blocker_iids = [b.instance_id for b in blockers]
-        except Exception:
-            blocker_iids = [
-                b.instance_id for b in defender.characters
-                if b.is_blocker_now and not b.rested and not b.summoning_sickness
-            ]
+        # blocker 候補 = defender.characters の中 で is_blocker_now かつ active な もの
+        # (= 公式: ブロッカー キーワード 持ち + アクティブ + 召喚酔いなし)
+        blocker_iids = [
+            b.instance_id for b in defender.characters
+            if b.is_blocker_now and not b.rested and not b.summoning_sickness
+        ]
         # counter 候補: hand の counter 持ち
         counter_idxs = [
             i for i, c in enumerate(defender.hand)
