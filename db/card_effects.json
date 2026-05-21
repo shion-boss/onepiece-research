@@ -9209,6 +9209,20 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 効果 場離れ 代替 → 自カード1レスト",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true,
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "rest_self_cards": 1
+        }
+      ]
     }
   ],
   "OP13-037": [
