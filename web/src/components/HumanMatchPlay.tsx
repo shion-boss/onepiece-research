@@ -1017,7 +1017,10 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 
       {/* ターン 切替 banner (= YOUR TURN / OPPONENT TURN 大型) */}
       <TurnBannerOverlay
-        turnPlayerIdx={state.turn_player_idx}
+        turnPlayerIdx={
+          (state.snapshot as StateSnapshot | null)?.turn_player_idx ??
+          state.turn_player_idx
+        }
         humanIdx={state.human_idx}
         hasMulliganPending={
           isChoicePending &&
