@@ -900,6 +900,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "mulligan_confirm" ? (
+          <MulliganConfirmModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : (
           <SearchChoiceModal
             payload={state.pending_payload}
@@ -2595,6 +2601,75 @@ function TargetPickModal({
             className="ml-auto rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
           >
             確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// MulliganConfirmModal: 試合開始時 初期手札 5 枚 を keep / 引き直し
+// ========================================================================== //
+
+function MulliganConfirmModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const cards =
+    (payload.cards as { card_id: string; name: string }[] | undefined) ?? [];
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-5xl flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-1 text-xl font-bold text-amber-200">
+          マリガン: 初期手札 を 確認
+        </h3>
+        <p className="mb-4 text-sm text-zinc-300">
+          手札 5 枚 を 確認し、 「キープ」 か 「引き直し (= デッキ戻し 再 5 枚 ドロー)」
+          を 1 度 だけ 選択 できます。
+        </p>
+        <div className="flex flex-wrap justify-center gap-3 overflow-y-auto px-1 py-3">
+          {cards.map((c, i) => (
+            <div key={i} className="rounded ring-2 ring-amber-400">
+              <CardImage
+                cardId={c.card_id}
+                alt={c.name}
+                className="h-72 w-auto rounded shadow-2xl"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="rounded bg-emerald-600 px-6 py-2.5 text-base font-bold text-white shadow hover:bg-emerald-500 disabled:opacity-50"
+          >
+            キープ (= この 手札 で 始める)
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([1]);
+            }}
+            disabled={busy}
+            className="ml-auto rounded bg-rose-600 px-6 py-2.5 text-base font-bold text-white shadow hover:bg-rose-500 disabled:opacity-50"
+          >
+            引き直し (= デッキ戻し + 新 5 枚)
           </button>
         </div>
       </div>

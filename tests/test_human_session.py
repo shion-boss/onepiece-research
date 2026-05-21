@@ -62,6 +62,9 @@ def test_human_session_smoke_complete_game(repo, overlay):
         elif session.pending_kind == "defense":
             # 防御 不使用 で 即 進める
             session.apply_human_defense(None, [])
+        elif session.pending_kind == "choice":
+            # mulligan / search / option 等 全 choice は keep / 0 idx で 自動 進行
+            session.apply_human_choice([0])
         else:
             break
         step += 1
@@ -97,6 +100,8 @@ def test_human_session_save_replay(repo, overlay, tmp_path, monkeypatch):
             session.apply_human_action(chosen)
         elif session.pending_kind == "defense":
             session.apply_human_defense(None, [])
+        elif session.pending_kind == "choice":
+            session.apply_human_choice([0])
         else:
             break
 

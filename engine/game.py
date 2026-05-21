@@ -98,7 +98,14 @@ def setup_game(
     effects_overlay: Optional[dict] = None,
     deck1_analysis: Optional[dict] = None,
     deck2_analysis: Optional[dict] = None,
+    do_mulligan_and_finalize: bool = True,
 ) -> GameState:
+    """試合 初期化。
+
+    do_mulligan_and_finalize=False で 「5 枚 draw 段階」 で 一旦 停止、 マリガン適用 +
+    ライフ配布 + game_start 効果 は 行わない。 呼び出し側 が finalize_setup_after_mulligan
+    で 後段 を 実行 する 用 (= human session で user マリガン 選択 modal を 挿入)。
+    """
     if rng is None:
         rng = random.Random()
     if first_player is None:
@@ -147,18 +154,25 @@ def setup_game(
     for p in state.players:
         p.draw(5)
     # マリガン (公式 5-2-1-2): 各プレイヤーは1度だけ手札全戻し+引き直し可能。
-    # deck_analysis があれば mulligan_keep_card_ids を見てキープ判定、 無ければフォールバック。
-    for p, a in zip(state.players, analyses):
-        if _should_mulligan(p, a):
-            p.deck.extend(p.hand)
-            p.hand = []
-            p.shuffle_deck(rng)
-            p.draw(5)
-            state.push_log(f"  マリガン: {p.name} 手札を引き直し")
-    for p in state.players:
-        for _ in range(p.leader.card.life):
-            if p.deck:
-                p.life.append(p.deck.pop(0))
+    # human session で 自分側 マリガン を user に 選ばせる 用 に skip 可能。
+    state._mulligan_analyses = analyses  # type: ignore[attr-defined]
+    if do_mulligan_and_finalize:
+        for p, a in zip(state.players, analyses):
+            if _should_mulligan(p, a):
+                p.deck.extend(p.hand)
+                p.hand = []
+                p.shuffle_deck(rng)
+                p.draw(5)
+                state.push_log(f"  マリガン: {p.name} 手札を引き直し")
+        for p in state.players:
+            for _ in range(p.leader.card.life):
+                if p.deck:
+                    p.life.append(p.deck.pop(0))
+    else:
+        # マリガン skip path: state を 「pre-mulligan」 で 返す。
+        # 呼び出し側 が finalize_setup_after_mulligan を 呼んで 完了 する 想定。
+        state._pre_mulligan_pending = True  # type: ignore[attr-defined]
+        return state
 
     state.push_log(
         f"start: P0={p1.leader.card.name}({p1.leader.card.life}L) "
@@ -205,6 +219,78 @@ def setup_game(
 
     _recompute_static(state)
     return state
+
+
+def finalize_setup_after_mulligan(
+    state: GameState,
+    rng: random.Random,
+    effects_overlay: Optional[dict] = None,
+    human_mulligan: Optional[bool] = None,
+    human_player_idx: Optional[int] = None,
+) -> None:
+    """setup_game(do_mulligan_and_finalize=False) で 留めた state に マリガン適用 +
+    ライフ配布 + game_start 効果 を 後段適用 して 試合 を 開始可能 状態 にする。
+
+    human_mulligan: 人間 player の マリガン 選択 (= True 引き直し / False keep / None なら
+       _should_mulligan で auto)。 None なら AI 側 と 同じ logic。
+    human_player_idx: 人間 player の index (= state.players 内)。
+    """
+    analyses = getattr(state, "_mulligan_analyses", [None, None])
+    # マリガン適用
+    for idx, (p, a) in enumerate(zip(state.players, analyses)):
+        if idx == human_player_idx and human_mulligan is not None:
+            do_mull = human_mulligan
+        else:
+            do_mull = _should_mulligan(p, a)
+        if do_mull:
+            p.deck.extend(p.hand)
+            p.hand = []
+            p.shuffle_deck(rng)
+            p.draw(5)
+            state.push_log(f"  マリガン: {p.name} 手札を引き直し")
+    # ライフ配布
+    for p in state.players:
+        for _ in range(p.leader.card.life):
+            if p.deck:
+                p.life.append(p.deck.pop(0))
+    p0, p1 = state.players[0], state.players[1]
+    state.push_log(
+        f"start: P0={p0.leader.card.name}({p0.leader.card.life}L) "
+        f"vs P1={p1.leader.card.name}({p1.leader.card.life}L)"
+    )
+    # リーダー game_start 効果
+    if effects_overlay:
+        for p in state.players:
+            bundle = effects_overlay.get(p.leader.card.card_id)
+            if bundle is None:
+                continue
+            for eff in bundle.effects:
+                if eff.get("when") != "game_start":
+                    continue
+                for prim in eff.get("do", []):
+                    if not isinstance(prim, dict):
+                        continue
+                    feat = prim.get("summon_stage_from_deck_with_feature")
+                    if not feat:
+                        continue
+                    target_idx = None
+                    for i, c in enumerate(p.deck):
+                        if c.category != Category.STAGE:
+                            continue
+                        if feat in (c.features or ""):
+                            target_idx = i
+                            break
+                    if target_idx is not None:
+                        card = p.deck.pop(target_idx)
+                        ip = InPlay.of(card, rested=False, sickness=False)
+                        p.stages.append(ip)
+                        p.shuffle_deck(rng)
+                        state.push_log(
+                            f"  game_start: {p.name} ({p.leader.card.name}) "
+                            f"→ ステージ登場: {card.name}"
+                        )
+    _recompute_static(state)
+    state._pre_mulligan_pending = False  # type: ignore[attr-defined]
 
 
 def _should_mulligan(

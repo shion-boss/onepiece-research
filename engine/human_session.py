@@ -24,6 +24,7 @@ from .game import (
     apply_action,
     legal_actions,
     setup_game,
+    finalize_setup_after_mulligan,
     play_until_main,
     AttackLeader,
     AttackCharacter,
@@ -129,6 +130,7 @@ class HumanSession:
         if human_first is None:
             human_first = self.rng.random() < 0.5
         first_player = 0 if human_first else 1
+        # マリガン skip path で 5 枚 draw 段階 で 一旦 停止 (= user に keep/引き直し 委ね)
         self.state = setup_game(
             deck_a if human_first else deck_b,
             deck_b if human_first else deck_a,
@@ -137,21 +139,34 @@ class HumanSession:
             effects_overlay=effects_overlay,
             deck1_analysis=deck_a_analysis if human_first else deck_b_analysis,
             deck2_analysis=deck_b_analysis if human_first else deck_a_analysis,
+            do_mulligan_and_finalize=False,
         )
         self.state.record_snapshots = True
+        # human_idx は human_first から 直接 算出 (= setup_game で first_player=0 強制)
+        self.human_idx = 0 if human_first else 1
+        self.ai_idx = 1 - self.human_idx
+        # マリガン pending を 設定 (= user 確認 を 待つ)
+        self.state.human_player_idx = self.human_idx
+        me_hand = self.state.players[self.human_idx].hand
+        self.state.pending_choice = {
+            "kind": "mulligan_confirm",
+            "cards": [
+                {"card_id": c.card_id, "name": c.name} for c in me_hand
+            ],
+        }
+        self.state.push_log(
+            f"マリガン: {self.state.players[self.human_idx].name} 手札確認 (keep/引き直し)"
+        )
         if self.state.log:
             self.state.snapshots.append(self.state._build_snapshot(self.state.log[-1]))
-        # human_player_idx を state に set (= effects で interactive choice 判定用)
-        # human_idx は この 直後 init 末尾 で 計算 する ので 先 に play_until_main + 後 で 更新
-        play_until_main(self.state)
         # frame 再生 用: 前回 payload を 返した 時点 の snapshot 数。
         # snapshot_payload で 新規 frames を 返却 → ベースライン 更新。
         self._last_seen_snapshot_count = 0
-        self.human_idx = 0 if human_first else 1
-        self.ai_idx = 1 - self.human_idx
-        # human_player_idx を state に set → effects.search_top_n 等が interactive 判定
-        self.state.human_player_idx = self.human_idx
+        # human_idx / ai_idx / human_player_idx は 上 で 設定済
         self.effects_overlay = effects_overlay
+        # マリガン pending を 設定済 → pending_kind 設定
+        self.pending_kind: Optional[str] = "choice"
+        self.pending_payload: Optional[dict] = dict(self.state.pending_choice or {})
         # AI を 構築 (= ai_idx 側)。 ai_factory は (rng, deck_analysis) を 受ける
         deck_for_ai_analysis = (
             deck_b_analysis if human_first else deck_a_analysis
@@ -170,9 +185,6 @@ class HumanSession:
         # pending input 受け取り 用 buffer
         self._pending_action = None
         self._pending_defense: Optional[tuple] = None
-        # 「人間 input 待ち」 状態 の 詳細
-        self.pending_kind: Optional[str] = None  # "action" | "defense"
-        self.pending_payload: Optional[dict] = None
         self.deck_a_slug = getattr(deck_a, "slug", None) or deck_a.name
         self.deck_b_slug = getattr(deck_b, "slug", None) or deck_b.name
 
@@ -217,6 +229,28 @@ class HumanSession:
         """人間 の interactive 選択 (= search_top_n 等) を 適用 → 進行 再開。"""
         if self.pending_kind != "choice":
             raise ValueError("not waiting for human choice")
+        # マリガン pending の 場合 は 特別処理 (= setup 後段 完了 + play_until_main)
+        choice = self.state.pending_choice or {}
+        if choice.get("kind") == "mulligan_confirm":
+            do_mulligan = bool(picks and picks[0] == 1)
+            self.state.pending_choice = None
+            finalize_setup_after_mulligan(
+                self.state,
+                rng=self.rng,
+                effects_overlay=self.effects_overlay,
+                human_mulligan=do_mulligan,
+                human_player_idx=self.human_idx,
+            )
+            # snapshot 更新
+            if self.state.log:
+                self.state.snapshots.append(
+                    self.state._build_snapshot(self.state.log[-1])
+                )
+            play_until_main(self.state)
+            self.pending_kind = None
+            self.pending_payload = None
+            self.advance_until_pause()
+            return
         from .effects import resolve_pending_choice
         resolve_pending_choice(self.state, picks)
         self.pending_kind = None
