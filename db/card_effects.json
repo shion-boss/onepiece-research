@@ -83593,7 +83593,20 @@
   "ST02-004_p2": [],
   "ST03-012_p2": [],
   "ST03-013_p1": [],
-  "EB01-057_r1": [],
+  "EB01-057_r1": [
+    {
+      "_text": "[auto] on_ko (相手ターン中) → デッキ上1ライフ",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    }
+  ],
   "OP04-096_p1": [],
   "OP04-096_r1": [],
   "OP05-030_p2": [
@@ -84471,8 +84484,34 @@
       ]
     }
   ],
-  "EB01-057": [],
-  "EB01-057_p1": [],
+  "EB01-057": [
+    {
+      "_text": "[auto] on_ko (相手ターン中) → デッキ上1ライフ",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    }
+  ],
+  "EB01-057_p1": [
+    {
+      "_text": "[auto] on_ko (相手ターン中) → デッキ上1ライフ",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    }
+  ],
   "OP15-009": [
     {
       "_text": "[auto] 自元P7000以下 効果離脱 → 自リーダー パワー-2000 (turn)",
@@ -85249,7 +85288,21 @@
       ]
     }
   ],
-  "OP11-058": [],
+  "OP11-058": [
+    {
+      "_text": "[auto] static conditional buff/restriction",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_ge": 5
+      },
+      "do": [
+        {
+          "set_cannot_attack_static": "self"
+        }
+      ]
+    }
+  ],
   "OP11-065": [
     {
       "_text": "OP11-065 「シャーロット・アナナ」以外の自分の紫の特徴《ビッグ・マム海賊団》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
@@ -85340,7 +85393,20 @@
       ]
     }
   ],
-  "EB01-057_p2": [],
+  "EB01-057_p2": [
+    {
+      "_text": "[auto] on_ko (相手ターン中) → デッキ上1ライフ",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    }
+  ],
   "OP10-034": [
     {
       "_text": "[auto] this バトル KO 代替 → ライフ1手札 (ターン1回 任意)",
@@ -85694,7 +85760,25 @@
     }
   ],
   "OP08-072": [],
-  "OP07-023": [],
+  "OP07-023": [
+    {
+      "_text": "[auto] static conditional buff/restriction",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_rested_cards_count_ge": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP07-029": [
     {
       "_text": "OP07-029 自分のリーダーが特徴《超新星》を持つ場合、このキャラは【ブロッカー】を得る。",
@@ -86388,7 +86472,24 @@
       ]
     }
   ],
-  "OP03-015": [],
+  "OP03-015": [
+    {
+      "_text": "[auto] on_ko (相手ターン中) → 相手 1 枚 パワー-2000 (turn)",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_inplay_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP03-032": [],
   "OP03-043": [],
   "OP03-045": [
@@ -86502,7 +86603,25 @@
       ]
     }
   ],
-  "OP02-050": [],
+  "OP02-050": [
+    {
+      "_text": "[auto] static conditional buff/restriction",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_le": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP02-074": [
     {
       "_text": "自分の「ブルゴリ」は【ブロッカー】を得る。",
@@ -86860,7 +86979,25 @@
       ]
     }
   ],
-  "OP07-023_r1": [],
+  "OP07-023_r1": [
+    {
+      "_text": "[auto] static conditional buff/restriction",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_rested_cards_count_ge": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP07-031_r1": [],
   "OP07-033_r1": [],
   "OP09-012_r1": [
@@ -86963,7 +87100,24 @@
       ]
     }
   ],
-  "ST15-003": [],
+  "ST15-003": [
+    {
+      "_text": "[auto] on_ko (相手ターン中) → 自リーダー パワー+2000 (turn)",
+      "when": "on_ko",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "ST15-005": [
     {
       "_text": "ST15-005 自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは【速攻】を得る。",
@@ -87073,7 +87227,23 @@
     }
   ],
   "ST10-011": [],
-  "ST10-014": [],
+  "ST10-014": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck → draw 1 + 手札ランダム1捨て (1回)",
+      "when": "on_self_don_returned_to_deck",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
   "ST09-010": [
     {
       "_text": "[auto] this KO 代替 → ライフ上1トラッシュ (ターン1回、  上か下→上)",
@@ -87219,7 +87389,21 @@
     }
   ],
   "OP11-012_p1": [],
-  "OP11-058_p1": [],
+  "OP11-058_p1": [
+    {
+      "_text": "[auto] static conditional buff/restriction",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_ge": 5
+      },
+      "do": [
+        {
+          "set_cannot_attack_static": "self"
+        }
+      ]
+    }
+  ],
   "OP11-065_p1": [
     {
       "_text": "OP11-065_p1 「シャーロット・アナナ」以外の自分の紫の特徴《ビッグ・マム海賊団》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",

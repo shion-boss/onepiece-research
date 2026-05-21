@@ -542,6 +542,9 @@ def eval_condition(
         elif k == "self_hand_count_le":
             if len(me.hand) > int(v):
                 return False
+        elif k == "self_hand_count_ge":
+            if len(me.hand) < int(v):
+                return False
         elif k == "opp_hand_count_ge" and opp is not None:
             if len(opp.hand) < int(v):
                 return False

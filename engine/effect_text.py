@@ -326,6 +326,7 @@ def _single_cond_jp(k: str, v: Any) -> str:
     if k == "self_chara_unique_name": return "自分の場のキャラ名が全て異なる場合"
     # hand / trash
     if k == "self_hand_count_le": return f"自分の手札{v}枚以下の場合"
+    if k == "self_hand_count_ge": return f"自分の手札{v}枚以上の場合"
     if k == "opp_hand_count_ge": return f"相手の手札{v}枚以上の場合"
     if k == "self_trash_count_ge": return f"自分のトラッシュ{v}枚以上の場合"
     if k == "self_trash_event_count_ge": return f"自分のトラッシュにイベント{v}枚以上の場合"

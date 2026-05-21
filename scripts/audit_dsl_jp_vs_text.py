@@ -257,12 +257,19 @@ def is_vanilla_or_innate_only(text: str) -> bool:
     t = text.strip().replace("（", "(").replace("）", ")")
     if t in ("-", ""):
         return True
-    # 名前 alias 句 を 除去 してから 判定
+    # ルール文 (= 名前 alias / 何枚デッキに入れられる / 含む扱い 等) を 除去 してから 判定
+    t_stripped = t
     # 「ルール上、 このカードはカード名を「X」 としても扱う。」
     t_stripped = re.sub(
         r"ルール上、\s*このカードはカード名を「[^」]+」\s*としても扱う。?\s*",
         "",
-        t,
+        t_stripped,
+    )
+    # 「ルール上、 このカードはデッキに何枚でも入れる(こと|事)ができる。」 (= P-114 / OP08-072 等)
+    t_stripped = re.sub(
+        r"ルール上、\s*このカードはデッキに何枚でも入れ(?:る|られる)(?:こと|事)?ができる。?\s*",
+        "",
+        t_stripped,
     )
     if t_stripped == "":
         return True
