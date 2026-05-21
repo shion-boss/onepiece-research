@@ -2500,8 +2500,8 @@ function RightPanel({
         )}
       </div>
 
-      {/* action */}
-      <div className="flex shrink-0 flex-col gap-2 rounded bg-black/40 p-2">
+      {/* action (= min-h 固定 で busy 中 layout shift なし) */}
+      <div className="flex min-h-[200px] shrink-0 flex-col gap-2 rounded bg-black/40 p-2">
         <div className="text-xs font-bold text-zinc-200">ACTION</div>
         {gameOver && (
           <div
@@ -2536,7 +2536,7 @@ function RightPanel({
             busy={defenseBusy}
           />
         )}
-        {canAct && !selection && (
+        {isHumanTurn && !selection && (
           <div className="rounded bg-emerald-900/60 p-3 text-center text-sm text-emerald-100">
             操作: ドラッグ&ドロップ
             <div className="mt-1 text-xs text-emerald-200">
@@ -2571,7 +2571,7 @@ function RightPanel({
             Cancel (Esc)
           </button>
         )}
-        {canAct && endPhaseAction && (
+        {isHumanTurn && endPhaseAction && (
           <button
             type="button"
             onClick={(e) => {
