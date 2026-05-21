@@ -915,6 +915,45 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       {/* counter ドロップ 時 「+N」 popup + カード trash slide 演出 */}
       <CounterPlayOverlay />
 
+      {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
+      {state.game_over && (
+        <div className="pointer-events-none absolute inset-0 z-[55] flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.3, y: -50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className={
+              "rounded-2xl border-4 px-16 py-10 text-center shadow-2xl backdrop-blur " +
+              (state.winner === state.human_idx
+                ? "border-emerald-300 bg-emerald-900/80"
+                : state.winner === state.ai_idx
+                  ? "border-rose-300 bg-rose-900/80"
+                  : "border-amber-300 bg-amber-900/80")
+            }
+          >
+            <div
+              className={
+                "text-7xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " +
+                (state.winner === state.human_idx
+                  ? "text-emerald-200"
+                  : state.winner === state.ai_idx
+                    ? "text-rose-200"
+                    : "text-amber-200")
+              }
+            >
+              {state.winner === state.human_idx
+                ? "🎉 YOU WIN"
+                : state.winner === state.ai_idx
+                  ? "YOU LOSE"
+                  : "DRAW"}
+            </div>
+            <div className="mt-3 text-base text-zinc-200">
+              T{state.turn} で 試合 終了
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* interactive 選択 modal (= kind 別に dispatch) */}
       {isChoicePending && state.pending_payload && (
         state.pending_payload.kind === "target_pick" ? (
@@ -2222,8 +2261,21 @@ function RightPanel({
       <div className="flex shrink-0 flex-col gap-2 rounded bg-black/40 p-2">
         <div className="text-xs font-bold text-zinc-200">ACTION</div>
         {gameOver && (
-          <div className="rounded bg-amber-700 p-3 text-center text-base font-bold text-white">
-            GAME OVER
+          <div
+            className={
+              "rounded p-3 text-center text-base font-bold text-white " +
+              (winner === humanIdx
+                ? "bg-emerald-600"
+                : winner === aiIdx
+                  ? "bg-rose-600"
+                  : "bg-amber-700")
+            }
+          >
+            {winner === humanIdx
+              ? "🎉 WIN"
+              : winner === aiIdx
+                ? "LOSE"
+                : "DRAW"}
           </div>
         )}
         {!gameOver && !isHumanTurn && (
