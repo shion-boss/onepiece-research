@@ -133,7 +133,22 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const curTurn =
         typeof f.turn === "number" ? f.turn : prevTurn;
       const turnChanged = prevTurn >= 0 && curTurn !== prevTurn;
-      // 優先順 で wait 決定 (= 高い ほう を 採用)
+      const turnPlayerIdx =
+        typeof f.turn_player_idx === "number" ? f.turn_player_idx : -1;
+      const isHumanFrame = turnPlayerIdx === final.human_idx;
+      // 人間 ターン frame は wait 不要 (= user 操作 で 既に 1 つ ずつ 進行)。
+      // 但し ライフ被弾 / KO 等 重要 visual は 確認時間 のため 短時間 wait は 残す。
+      if (isHumanFrame) {
+        const isLifeHit = /life->hand|hit:|ライフ/.test(logLine);
+        const isMediumHeavy = /KO|登場/.test(logLine);
+        let wait = 150;
+        if (isLifeHit) wait = 1500;
+        if (isMediumHeavy) wait = 800;
+        prevTurn = curTurn;
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        continue;
+      }
+      // 優先順 で wait 決定 (= 高い ほう を 採用、 AI ターン frame)
       const isLifeHit = /life->hand|hit:|ライフ/.test(logLine);
       const isDraw = /draw:|ドロー/.test(logLine);
       const isMediumHeavy = /KO|登場|refresh:/.test(logLine);
@@ -142,7 +157,6 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       if (isLifeHit) wait = Math.max(wait, 3500);
       if (isDraw) wait = Math.max(wait, 2000);
       if (isMediumHeavy) wait = Math.max(wait, 1800);
-      // 「相手ターン終了 早い」 報告 対応: end_phase / turn 切替 frame で 余分 wait
       if (isEndPhase) wait = Math.max(wait, 3000);
       if (turnChanged) wait = Math.max(wait, 4000);
       prevTurn = curTurn;
