@@ -414,6 +414,110 @@ export function PlayedCardOverlay({
 }
 
 // --------------------------------------------------------------------------
+// DrawCardOverlay: ドロー 演出 (= デッキ位置 → 手札方向 へ 裏面 カード slide)
+// --------------------------------------------------------------------------
+
+type DrawItem = { id: number; side: "me" | "opp"; delayIdx: number };
+
+export function DrawCardOverlay({
+  handDeltaMe,
+  handDeltaOpp,
+  tickId,
+}: {
+  handDeltaMe: number;
+  handDeltaOpp: number;
+  tickId: number;
+}) {
+  const [items, setItems] = useState<DrawItem[]>([]);
+  const lastTickRef = useRef(-1);
+  const nextIdRef = useRef(0);
+  const meDeltaRef = useRef(handDeltaMe);
+  const oppDeltaRef = useRef(handDeltaOpp);
+  meDeltaRef.current = handDeltaMe;
+  oppDeltaRef.current = handDeltaOpp;
+
+  useEffect(() => {
+    if (tickId === lastTickRef.current) return;
+    lastTickRef.current = tickId;
+    const meN = Math.max(0, Math.min(meDeltaRef.current, 6));
+    const oppN = Math.max(0, Math.min(oppDeltaRef.current, 6));
+    if (meN === 0 && oppN === 0) return;
+    const additions: DrawItem[] = [];
+    for (let i = 0; i < meN; i++) {
+      additions.push({
+        id: nextIdRef.current++,
+        side: "me",
+        delayIdx: i,
+      });
+    }
+    for (let i = 0; i < oppN; i++) {
+      additions.push({
+        id: nextIdRef.current++,
+        side: "opp",
+        delayIdx: i,
+      });
+    }
+    setItems((prev) => [...prev, ...additions].slice(-12));
+    additions.forEach((it) => {
+      setTimeout(
+        () => {
+          setItems((cur) => cur.filter((x) => x.id !== it.id));
+        },
+        900 + it.delayIdx * 100,
+      );
+    });
+  }, [tickId]);
+
+  if (items.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-30">
+      <AnimatePresence>
+        {items.map((it) => {
+          // デッキ位置 (= 中央マット内 DECK 概略位置) から 手札方向 へ
+          const isMe = it.side === "me";
+          // 開始位置: 中央 上下 (= デッキ表示 の おおまかな所)
+          const startY = isMe ? "0%" : "0%";
+          // 終了位置: 手札 (= 自分=下 / AI=上、 画面端)
+          const endY = isMe ? "55vh" : "-55vh";
+          const delay = it.delayIdx * 0.08;
+          return (
+            <motion.div
+              key={it.id}
+              initial={{
+                opacity: 0,
+                scale: 0.5,
+                x: "0%",
+                y: startY,
+                rotate: 0,
+              }}
+              animate={{
+                opacity: [0, 1, 1, 0.9, 0],
+                scale: [0.5, 0.85, 0.95, 0.85, 0.7],
+                x: ["0%", "10%", "30%", "55%", "80%"],
+                y: [startY, isMe ? "15vh" : "-15vh", isMe ? "30vh" : "-30vh", isMe ? "45vh" : "-45vh", endY],
+                rotate: [0, isMe ? 8 : -8, isMe ? 14 : -14, isMe ? 18 : -18, isMe ? 22 : -22],
+              }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, delay, ease: "easeOut" }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            >
+              <img
+                src="/assets/ura.png"
+                alt="draw"
+                className={
+                  "h-32 w-24 rounded shadow-2xl ring-2 " +
+                  (isMe ? "ring-emerald-300" : "ring-rose-300")
+                }
+              />
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // AnimatedNumber: 数値 が 変わる 時 に 軽く scale + flash
 // --------------------------------------------------------------------------
 

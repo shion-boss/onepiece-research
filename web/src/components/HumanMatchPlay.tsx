@@ -23,6 +23,7 @@ import {
   EffectToastOverlay,
   AttackBeamOverlay,
   PlayedCardOverlay,
+  DrawCardOverlay,
 } from "./_matchAnimHelpers";
 
 /**
@@ -798,6 +799,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         trashAddedOpp={frameDiff.trashAdded[state.ai_idx]}
         leftCharasMe={frameDiff.leftCharas[state.human_idx]}
         leftCharasOpp={frameDiff.leftCharas[state.ai_idx]}
+        tickId={frameDiff.eventTickId}
+      />
+
+      {/* ドロー 演出 (= デッキ位置 → 手札方向 へ 裏面カード slide) */}
+      <DrawCardOverlay
+        handDeltaMe={frameDiff.handDelta[state.human_idx]}
+        handDeltaOpp={frameDiff.handDelta[state.ai_idx]}
         tickId={frameDiff.eventTickId}
       />
 
