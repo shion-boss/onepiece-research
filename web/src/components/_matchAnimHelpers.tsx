@@ -726,6 +726,7 @@ export function useRecentDrawnIdxs(
   const lastTickRef = useRef(-1);
   const handDeltaRef = useRef(handDelta);
   const handLengthRef = useRef(handLength);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   handDeltaRef.current = handDelta;
   handLengthRef.current = handLength;
 
@@ -739,9 +740,19 @@ export function useRecentDrawnIdxs(
     const idxs = new Set<number>();
     for (let i = startIdx; i < len; i++) idxs.add(i);
     setRecent(idxs);
-    const t = setTimeout(() => setRecent(new Set()), 1100);
-    return () => clearTimeout(t);
+    // setTimeout を ref で 保持。 cleanup で clear しない (= 旧 timer も
+    // そのまま fire で recent 自動 clear)。 「いつまで も NEW 残る」 防止。
+    const t = setTimeout(() => setRecent(new Set()), 1500);
+    timersRef.current.push(t);
   }, [tickId]);
+
+  useEffect(() => {
+    // unmount 時 のみ 全 timer cleanup (= memory leak 防止)
+    return () => {
+      timersRef.current.forEach((t) => clearTimeout(t));
+      timersRef.current = [];
+    };
+  }, []);
 
   return recent;
 }
