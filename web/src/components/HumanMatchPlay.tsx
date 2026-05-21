@@ -92,6 +92,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [counterIdxs, setCounterIdxs] = useState<number[]>([]);
   const [blockerIid, setBlockerIid] = useState<number | null>(null);
   const [defenseClosing, setDefenseClosing] = useState(false);
+  // counter で 使った card_id を 記録 (= PlayedCardOverlay で 「再演出」 除外 用)
+  const [usedCounterCardIds, setUsedCounterCardIds] = useState<string[]>([]);
   const [hovered, setHovered] = useState<HoverInfo>(null);
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [trashViewer, setTrashViewer] = useState<"me" | "opp" | null>(null);
@@ -241,6 +243,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     } finally {
       setBusy(false);
       setDefenseClosing(false); // 次 pending=defense なら modal 再 open される
+      // 防御確定 完了 後、 used counter は 1 秒後 に 記録 clear (= 以降 通常 動作)
+      setTimeout(() => setUsedCounterCardIds([]), 1500);
     }
   }
 
@@ -469,7 +473,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           | undefined) ?? null;
         const value = counterValues?.[String(drag.handIdx)] ?? 1000;
         setCounterIdxs([...counterIdxs, drag.handIdx]);
-        if (cardId) fireCounterPlay(cardId, value);
+        if (cardId) {
+          fireCounterPlay(cardId, value);
+          // 防御確定 後 engine が trash に追加するが、 PlayedCardOverlay で
+          // 「再演出」 されないよう に 使用 card_id を 記録
+          setUsedCounterCardIds((prev) => [...prev, cardId]);
+        }
       }
       setDrag(null);
       return;
@@ -887,6 +896,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         trashAddedOpp={frameDiff.trashAdded[state.ai_idx]}
         leftCharasMe={frameDiff.leftCharas[state.human_idx]}
         leftCharasOpp={frameDiff.leftCharas[state.ai_idx]}
+        excludeMeCardIds={usedCounterCardIds}
         tickId={frameDiff.eventTickId}
       />
 
@@ -1880,7 +1890,9 @@ function HandRow({
               style={{
                 marginLeft: i === 0 ? 0 : -overlap,
                 zIndex: selected ? 50 : isRecentDrawn ? 40 : i,
-                opacity: dragging ? 0 : undefined,
+                // counter として使用済 (= 視覚的 トラッシュ移動完了) は 即時 非表示
+                opacity: dragging || isCounterSelected ? 0 : undefined,
+                pointerEvents: isCounterSelected ? "none" : undefined,
               }}
               animate={
                 isRecentDrawn

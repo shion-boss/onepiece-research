@@ -262,12 +262,15 @@ export function PlayedCardOverlay({
   trashAddedOpp,
   leftCharasMe,
   leftCharasOpp,
+  excludeMeCardIds,
   tickId,
 }: {
   trashAddedMe: string[];
   trashAddedOpp: string[];
   leftCharasMe: CharSnapshot[];
   leftCharasOpp: CharSnapshot[];
+  /** 自分側 trash 移動 で 別 演出 (= CounterPlayOverlay 等) 済 の card_id list を 除外 */
+  excludeMeCardIds?: string[];
   tickId: number;
 }) {
   const [items, setItems] = useState<PlayedCardItem[]>([]);
@@ -278,10 +281,12 @@ export function PlayedCardOverlay({
   const trashAddedOppRef = useRef(trashAddedOpp);
   const leftCharasMeRef = useRef(leftCharasMe);
   const leftCharasOppRef = useRef(leftCharasOpp);
+  const excludeMeRef = useRef(excludeMeCardIds ?? []);
   trashAddedMeRef.current = trashAddedMe;
   trashAddedOppRef.current = trashAddedOpp;
   leftCharasMeRef.current = leftCharasMe;
   leftCharasOppRef.current = leftCharasOpp;
+  excludeMeRef.current = excludeMeCardIds ?? [];
 
   useEffect(() => {
     if (tickId === lastTickRef.current) return; // 重複 fire 防止
@@ -303,11 +308,25 @@ export function PlayedCardOverlay({
       }
       return result;
     }
-    const meHandPlays = diff(trashAddedMeRef.current, leftCharasMeRef.current);
+    let meHandPlays = diff(trashAddedMeRef.current, leftCharasMeRef.current);
     const oppHandPlays = diff(
       trashAddedOppRef.current,
       leftCharasOppRef.current,
     );
+    // CounterPlayOverlay 等 別 演出 済 card は 除外
+    if (excludeMeRef.current.length > 0) {
+      const excludeCounts: Record<string, number> = {};
+      for (const cid of excludeMeRef.current) {
+        excludeCounts[cid] = (excludeCounts[cid] ?? 0) + 1;
+      }
+      meHandPlays = meHandPlays.filter((cid) => {
+        if ((excludeCounts[cid] ?? 0) > 0) {
+          excludeCounts[cid] -= 1;
+          return false;
+        }
+        return true;
+      });
+    }
     if (meHandPlays.length === 0 && oppHandPlays.length === 0) return;
     const additions: PlayedCardItem[] = [
       ...meHandPlays.map((cid) => ({
