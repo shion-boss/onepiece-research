@@ -1123,6 +1123,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "on_attack_optional" ? (
+          <OnAttackOptionalModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : (
           <SearchChoiceModal
             payload={state.pending_payload}
@@ -3084,6 +3090,77 @@ function MulliganRedrawnModal({
             className="rounded bg-cyan-500 px-8 py-2.5 text-base font-bold text-white shadow hover:bg-cyan-400 disabled:opacity-50"
           >
             OK (= 試合開始)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// OnAttackOptionalModal: アタック時 cost 持ち 効果 (= DON-N) を 使うか 確認
+// ========================================================================== //
+
+function OnAttackOptionalModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const cardId = String(payload.card_id ?? "");
+  const cardName = String(payload.card_name ?? cardId);
+  const payDon = Number(payload.pay_don ?? 0);
+  const effectText = String(payload.effect_text ?? "");
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-fuchsia-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-2 text-lg font-bold text-fuchsia-200">
+          {cardName} アタック時 効果
+        </h3>
+        <p className="mb-3 text-xs text-zinc-300">
+          DON-{payDon} を 払って 効果を 発動 しますか?
+        </p>
+        <div className="flex justify-center">
+          <CardImage
+            cardId={cardId}
+            alt={cardName}
+            className="h-72 w-auto rounded shadow-2xl ring-4 ring-fuchsia-300"
+          />
+        </div>
+        {effectText && (
+          <p className="mt-3 max-h-32 overflow-y-auto rounded bg-zinc-800/60 p-2 text-xs text-zinc-200">
+            {effectText}
+          </p>
+        )}
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-zinc-700 px-4 py-3 text-sm font-bold text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            使わない (= DON 温存)
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([1]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-fuchsia-500 px-4 py-3 text-base font-bold text-white shadow hover:bg-fuchsia-400 disabled:opacity-50"
+          >
+            効果 を 発動 (DON-{payDon})
           </button>
         </div>
       </div>

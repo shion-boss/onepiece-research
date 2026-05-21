@@ -4301,6 +4301,55 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         resume_pending_attack_hit(state, use_trigger)
         return
 
+    if kind == "on_attack_optional":
+        # picks[0] = 1 → 使う、 0 → skip
+        use_eff = bool(picks and picks[0] == 1)
+        eff_idx = int(choice.get("effect_idx", -1))
+        attacker_iid = choice.get("_attacker_iid")
+        pay_don = int(choice.get("pay_don", 0))
+        state.pending_choice = None
+        if not use_eff or eff_idx < 0:
+            state.push_log(f"  on_attack 効果 不使用 (skip)")
+            return
+        attacker = None
+        for ip in [*me.characters, me.leader, *me.stages]:
+            if ip.instance_id == attacker_iid:
+                attacker = ip
+                break
+        if attacker is None:
+            return
+        # 支払い + enqueue
+        if pay_don > 0:
+            from_active = min(me.don_active, pay_don)
+            me.don_active -= from_active
+            me.don_rested += from_active
+        bundle = state.effects_overlay.get(attacker.card.card_id) if state.effects_overlay else None
+        if bundle is None:
+            return
+        eff = bundle.effects[eff_idx] if 0 <= eff_idx < len(bundle.effects) else None
+        if eff is None:
+            return
+        cost = eff.get("cost") or {}
+        if cost.get("once_per_turn"):
+            setattr(attacker, f"_on_attack_used_{eff_idx}", True)
+        me_idx = state.players.index(me)
+        enqueue_event(
+            state,
+            when="on_attack",
+            owner_idx=me_idx,
+            source_card_id=attacker.card.card_id,
+            source_iid=attacker.instance_id,
+            payload={"effect_indexes": [eff_idx]},
+        )
+        # forced_human_actor で user pick 維持
+        prev_forced = getattr(state, "forced_human_actor_idx", None)
+        state.forced_human_actor_idx = me_idx
+        try:
+            _maybe_resolve(state)
+        finally:
+            state.forced_human_actor_idx = prev_forced
+        return
+
     if kind == "option_pick":
         # picks[0] が -1 なら skip (= optional 効果 不発)、 それ以外は options の idx
         full_options = choice.get("_full_options", []) or []
@@ -5589,12 +5638,21 @@ def trigger_on_attack(
 
     cost を支払って enqueue した index のみ _execute_event で発火。
     cost 無しの effect は通常通り when="on_attack" の全件発火 (effect_indexes 未指定)。
+
+    人間 actor の cost 持ち effect は pending_choice "on_attack_optional" で user 確認、
+    「使わない」 で skip (= DON 消費なし)。
     """
     bundle = effects_overlay.get(attacker.card.card_id)
     if bundle is None:
         return
+    me_idx = state.players.index(me)
+    is_human_actor = (
+        state.human_player_idx is not None
+        and me_idx == state.human_player_idx
+    )
     paid_indexes: list[int] = []
     has_costless = False
+    pending_cost_effects: list[tuple[int, dict]] = []
     for idx, eff in enumerate(bundle.effects):
         if eff.get("when") != "on_attack":
             continue
@@ -5604,14 +5662,17 @@ def trigger_on_attack(
             continue
         if not eval_all_conditions(eff, state, me, attacker):
             continue
-        # once_per_turn 判定
         per_turn_key = f"_on_attack_used_{idx}"
         if cost.get("once_per_turn") and getattr(attacker, per_turn_key, False):
             continue
         pay_don = int(cost.get("pay_don", 0))
         if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
             continue
-        # 支払い (active 優先で rested へ)
+        # 人間 actor: user 確認 が必要 → 一旦 pending に
+        if is_human_actor:
+            pending_cost_effects.append((idx, eff))
+            continue
+        # AI: 即時 支払 + 発動
         if pay_don > 0:
             from_active = min(me.don_active, pay_don)
             me.don_active -= from_active
@@ -5619,7 +5680,23 @@ def trigger_on_attack(
         if cost.get("once_per_turn"):
             setattr(attacker, per_turn_key, True)
         paid_indexes.append(idx)
-    me_idx = state.players.index(me)
+    # 人間 actor + cost 持ち effect → user 確認 modal を 立てる (= 1 effect ずつ)
+    if is_human_actor and pending_cost_effects:
+        idx0, eff0 = pending_cost_effects[0]
+        cost0 = eff0.get("cost") or {}
+        state.pending_choice = {
+            "kind": "on_attack_optional",
+            "card_id": attacker.card.card_id,
+            "card_name": attacker.card.name,
+            "effect_idx": idx0,
+            "effect_text": eff0.get("_text", ""),
+            "pay_don": int(cost0.get("pay_don", 0)),
+            "_attacker_iid": attacker.instance_id,
+        }
+        state.push_log(
+            f"  on_attack 効果 確認 待ち: {attacker.card.name} (eff #{idx0})"
+        )
+        return
     if has_costless:
         # cost 無し効果 → 通常 enqueue (effect_indexes 未指定 = when 一致全件)
         # cost 持ちの effect_indexes 経路と分けるため、 別イベントとして 2 件積むのが安全
