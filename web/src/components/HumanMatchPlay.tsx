@@ -1671,11 +1671,13 @@ function CenterRow({
   function leaderDrop(e: React.DragEvent) {
     if (isMe && drag?.kind === "counter") {
       e.preventDefault();
+      e.stopPropagation();
       onDropTarget({ kind: "self_counter", handIdx: drag.handIdx });
       return;
     }
     if (!acceptOnLeader) return;
     e.preventDefault();
+    e.stopPropagation();
     onDropTarget(isMe ? { kind: "self_leader" } : { kind: "opp_leader" });
   }
   return (
@@ -1896,13 +1898,14 @@ function CharacterRow({
               }}
               onDrop={(e) => {
                 if (isMe && drag?.kind === "counter") {
-                  // counter は self_counter として 自分側 mat 全体 で 受ける (= parent)
                   e.preventDefault();
+                  e.stopPropagation();
                   onDropTarget({ kind: "self_counter", handIdx: drag.handIdx });
                   return;
                 }
                 if (!acceptOnThis) return;
                 e.preventDefault();
+                e.stopPropagation();
                 onDropTarget(
                   isMe
                     ? { kind: "self_chara", iid: c.instance_id }
