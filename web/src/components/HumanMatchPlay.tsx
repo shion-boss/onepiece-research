@@ -103,7 +103,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   async function playFrames(
     final: HumanMatchState,
     frames: Record<string, unknown>[],
-    perFrameMs: number = 700,
+    perFrameMs: number = 1200,
   ) {
     if (frames.length === 0) {
       setState(final);
@@ -142,7 +142,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const frames = next.frames ?? [];
       if (frames.length > 1) {
         setState(next); // 初期 board state を 一旦 表示
-        await playFrames(next, frames, 700);
+        await playFrames(next, frames, 1200);
       } else {
         setState(next);
       }
@@ -169,7 +169,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       // AI ターン 等 で frame が 複数 あれば 順次 再生
       const frames = next.frames ?? [];
       if (frames.length > 1) {
-        await playFrames(next, frames, 700);
+        await playFrames(next, frames, 1200);
       } else {
         setState(next);
       }
@@ -191,7 +191,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const next = await applyHumanChoice(sessionId, picks);
       const frames = next.frames ?? [];
       if (frames.length > 1) {
-        await playFrames(next, frames, 700);
+        await playFrames(next, frames, 1200);
       } else {
         setState(next);
       }
