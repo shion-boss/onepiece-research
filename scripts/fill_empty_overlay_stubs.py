@@ -161,10 +161,65 @@ def generate_entries(text: str) -> list[dict]:
     # P11: 「(このキャラは)アタックできない (条件)」 のうち シンプル 条件付
     m = re.search(r"相手の元々のパワー\s*(\d+)\s*以上のキャラが\s*(\d+)\s*枚以上いない場合、.{0,10}このキャラはアタックできない", t)
     if m:
-        # 「条件成立 = 相手にパワー閾値以上キャラ十分なら このキャラ攻撃可、 そうでないなら 不可」
-        # → 「相手の高パワーキャラ < N 枚 で アタック禁止」
         # 現状の primitives で 直接対応する条件 なし → スキップ
         pass
+
+    # P12: 「【相手のターン中】 自分の特徴《X》を持つリーダーを、元々のパワーN にする」
+    m = re.search(r"【相手のターン中】.{0,15}自分の特徴《(.+?)》を持つリーダーを、.{0,10}元々のパワー\s*(\d+)\s*にする", t)
+    if m:
+        feat, p = m.group(1), int(m.group(2))
+        entries.append({
+            "_text": f"[auto] 【相手のターン中】 リーダー({feat}) 元々のパワー{p}",
+            "when": "on_attached_don",
+            "n": 0,
+            "if": {"opp_turn": True, "leader_feature": feat},
+            "do": [{"set_base_power": {"target": "self_leader", "amount": p}}],
+        })
+
+    # P13: 「【ターン1回】このキャラが相手の効果で場を離れる場合、 代わりに〜できる」
+    # シンプル変形のみ: 「相手のキャラ1枚をレストにできる」
+    m = re.search(r"【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手の.{0,8}キャラ.{0,3}枚.{0,5}レストにできる", t)
+    if m:
+        entries.append({
+            "_text": "[auto] このキャラ離脱の代わりに 相手キャラ1枚レスト (= replace_leave)",
+            "when": "replace_leave",
+            "if": {"target": "self", "by_opp_effect": True},
+            "cost": [{"once_per_turn": True}],
+            "do": [{"rest": "one_opponent_character_any"}],
+        })
+
+    # P14: 「【ターン1回】 キャラがKOされた時、 カードN枚を引き、 自分の手札N枚を捨てる」
+    m = re.search(r"【ターン1回】キャラがKOされた時、.{0,15}カード\s*(\d+)\s*枚を引き、.{0,15}自分の手札\s*(\d+)\s*枚を捨てる", t)
+    if m:
+        d, h = int(m.group(1)), int(m.group(2))
+        entries.append({
+            "_text": f"[auto] キャラKO時 draw{d} discard{h}",
+            "when": "on_opp_chara_ko",
+            "cost": {"once_per_turn": True},
+            "do": [{"draw": d}, {"trash_self_hand_random": h}],
+        })
+        entries.append({
+            "_text": f"[auto] 自キャラKO時 draw{d} discard{h}",
+            "when": "on_self_chara_ko",
+            "cost": {"once_per_turn": True},
+            "do": [{"draw": d}, {"trash_self_hand_random": h}],
+        })
+
+    # P15: 「手札のこのカードは、 ... 場合、 コスト-N」
+    m = re.search(r"手札のこのカードは、.{0,30}場合、.{0,5}コスト-(\d+)", t)
+    if m:
+        # 一律 静的 in_hand コスト減 (= 条件は audit 別 detect)
+        n = int(m.group(1))
+        # 「自分のリーダーがパワー N 以下の場合」 等 を 抽出
+        leader_cond_m = re.search(r"自分のリーダーがパワー\s*(\d+)\s*以下の場合、.{0,5}コスト-(\d+)", t)
+        entry = {
+            "_text": f"[auto] 手札のこのカード コスト-{n}",
+            "when": "in_hand",
+            "do": [{"in_hand_cost_minus": n}],
+        }
+        if leader_cond_m:
+            entry["if"] = {"self_leader_power_le": int(leader_cond_m.group(1))}
+        entries.append(entry)
 
     return entries
 
