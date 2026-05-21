@@ -1879,7 +1879,7 @@ def execute_effect(
         elif k == "untap":
             # 対象を rested=False に。target = self / self_leader / all_self_characters
             target_spec = v if isinstance(v, str) else "self"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="untap", outer_value=target_spec)
             for t in targets:
                 t.rested = False
             state.push_log(f"  効果: アクティブ化 → {[t.card.name for t in targets]}")
@@ -1899,7 +1899,7 @@ def execute_effect(
                 target_spec = v
             else:
                 target_spec = "self"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="give_rush", outer_value=target_spec)
             for t in targets:
                 t.summoning_sickness = False
             state.push_log(f"  効果: 速攻 → {[t.card.name for t in targets]}")
@@ -1979,7 +1979,7 @@ def execute_effect(
             target_spec = spec.get("target", "self")
             amount = int(spec.get("amount", 0))
             duration = spec.get("duration", "turn")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_power_timed", outer_value=target_spec)
             me_idx = state.players.index(me)
             for t in targets:
                 if duration == "turn":
@@ -2005,12 +2005,12 @@ def execute_effect(
             from_target = spec.get("from_target", "one_opponent_character_any")
             to_target = spec.get("to_target", "self")
             duration = spec.get("duration", "turn")
-            from_cands = _resolve_target(from_target, state, me, opp, self_inplay)
+            from_cands = _resolve_target(from_target, state, me, opp, self_inplay, outer_kind="set_base_power_copy", outer_value=from_target)
             if not from_cands:
                 state.push_log("  効果: power-copy 対象なし (不発)")
                 return False
             source_ip = from_cands[0]
-            to_cands = _resolve_target(to_target, state, me, opp, self_inplay)
+            to_cands = _resolve_target(to_target, state, me, opp, self_inplay, outer_kind="set_base_power_copy", outer_value=to_target)
             if not to_cands:
                 state.push_log("  効果: power-copy 適用先なし (不発)")
                 return False
@@ -2304,7 +2304,7 @@ def execute_effect(
             spec = v if isinstance(v, dict) else {"target": "one_self_character_any", "limit": 1}
             target_spec = spec.get("target", "one_self_character_any")
             limit = int(spec.get("limit", 1))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="untap_chara", outer_value=target_spec)
             for t in targets[:limit]:
                 t.rested = False
             state.push_log(f"  効果: 自キャラ untap → {[t.card.name for t in targets[:limit]]}")
@@ -2432,14 +2432,14 @@ def execute_effect(
         elif k == "prevent_ko":
             # ターン終了時まで KO 耐性付与。target = self / all_self_characters 等
             target_spec = v if isinstance(v, str) else "self"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="prevent_ko", outer_value=target_spec)
             for t in targets:
                 t.ko_immune_until_turn_end = True
             state.push_log(f"  効果: KO 耐性 → {[t.card.name for t in targets]}")
         elif k == "set_cannot_attack":
             # ターン終了時までアタック不可。target = "one_opponent_character_*" 等
             target_spec = v if isinstance(v, str) else "one_opponent_character_any"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_attack", outer_value=target_spec)
             for t in targets:
                 t.cannot_attack_until_turn_end = True
             state.push_log(f"  効果: アタック不可 → {[t.card.name for t in targets]}")
@@ -2447,7 +2447,7 @@ def execute_effect(
             # 「次の (相手の) リフレッシュフェイズでアクティブにならない」
             # target = "one_opponent_character_*" など。多くは rest 効果と組み合わせる
             target_spec = v if isinstance(v, str) else "one_opponent_character_any"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="stay_rested_next_refresh", outer_value=target_spec)
             for t in targets:
                 t.stay_rested_next_refresh = True
             state.push_log(f"  効果: 次リフレッシュ非アクティブ → {[t.card.name for t in targets]}")
@@ -2457,7 +2457,7 @@ def execute_effect(
             spec = v if isinstance(v, dict) else {"target": "one_opponent_character_any", "amount": int(v)}
             target_spec = spec.get("target", "one_opponent_character_any")
             amount = int(spec.get("amount", 1))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="cost_minus", outer_value=target_spec)
             for t in targets:
                 t.cost_minus_until_turn_end += amount
             state.push_log(f"  効果: コスト-{amount} → {[t.card.name for t in targets]}")
@@ -2466,7 +2466,7 @@ def execute_effect(
             # opp_attack トリガー内でセット → AttackLeader/Char 処理が対象を変更。
             # spec: "self_leader" または特定キャラ iid (簡略: self_leader 固定)
             target_spec = v if isinstance(v, str) else "self_leader"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="redirect_attack", outer_value=target_spec)
             if targets:
                 state.pending_attack_redirect = targets[0].instance_id
                 state.push_log(f"  アタック対象変更: → {targets[0].card.name}")
@@ -2559,7 +2559,7 @@ def execute_effect(
             target_spec = spec_val.get("target", "all_opponent_characters")
             amount_per = int(spec_val.get("amount_per_don", -1000))
             duration = spec_val.get("duration", "turn")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="power_pump_per_target_attached_don", outer_value=target_spec)
             for t in targets:
                 buff = amount_per * t.attached_dons
                 if buff == 0:
@@ -2582,7 +2582,7 @@ def execute_effect(
             target_spec = spec_val.get("target", "all_opponent_characters")
             n = int(spec_val.get("n", 2))
             duration = spec_val.get("duration", "next_opp_turn_end")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_attack_cost_discard_hand", outer_value=target_spec)
             me_idx = state.players.index(me)
             for t in targets:
                 t.attack_cost_discard_hand_n = max(t.attack_cost_discard_hand_n, n)
@@ -2612,7 +2612,7 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {}
             target_spec = spec_val.get("target", "self")
             duration = spec_val.get("duration", "next_opp_turn_end")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_cost_timed", outer_value=target_spec)
             me_idx = state.players.index(me)
             for t in targets:
                 if "amount" in spec_val:
@@ -2649,7 +2649,7 @@ def execute_effect(
                 return False
             me.don_active -= rest_n
             me.don_rested += rest_n
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="rest_self_don_for_battle_buff_per_don", outer_value=target_spec)
             buff = amount_per * rest_n
             for t in targets:
                 t.battle_buff += buff
@@ -2668,7 +2668,7 @@ def execute_effect(
             # rest プリミティブで cannot_be_rested_buff のあるキャラはスキップされる。
             # 適用時 applier_idx と applied_turn を記録し、 _reset_turn_buff でクリア。
             target_spec = v if isinstance(v, str) else (v or {}).get("target", "all_self_characters")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_rest", outer_value=target_spec)
             me_idx = state.players.index(me)
             for t in targets:
                 t.cannot_be_rested_buff = True
@@ -2901,7 +2901,7 @@ def execute_effect(
             spec = v if isinstance(v, dict) else {}
             target_spec = spec.get("target", "self_leader")
             count = int(spec.get("count", 1))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="attach_active_don", outer_value=target_spec)
             if not targets:
                 return False
             n = min(count, me.don_active)
@@ -2989,7 +2989,7 @@ def execute_effect(
             # アクティブにならない」 (OP15-038 等)。 該当キャラに stay_rested_next_refresh フラグ。
             spec_val = v if isinstance(v, dict) else {}
             target_spec = spec_val.get("target", "one_opponent_character_any")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="keep_opp_rested_chara_next_refresh", outer_value=target_spec)
             for t in targets:
                 if t.rested:
                     t.stay_rested_next_refresh = True
@@ -3097,7 +3097,7 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {}
             target_spec = spec_val.get("target", "self")
             duration = spec_val.get("duration", "next_opp_turn_end")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_ko_immune_timed", outer_value=target_spec)
             for t in targets:
                 if duration == "next_opp_turn_end":
                     t.ko_immune_through_opp_turn = True
@@ -3191,7 +3191,7 @@ def execute_effect(
             # 「相手のアクティブのキャラにもアタックできる」 = "アクティブアタック可" キーワード付与。
             # spec: target ("self" / "self_leader" / "self_inplay" など)、 duration
             target_spec = v if isinstance(v, str) else (v or {}).get("target", "self")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="give_attack_active_chara", outer_value=target_spec)
             for t in targets:
                 t.granted_keywords.add("アクティブアタック可")
             state.push_log(
@@ -3202,7 +3202,7 @@ def execute_effect(
             # 対象キャラを場から取り除き (KO ではない)、 持ち主 (= opp) のライフに加える。
             # spec: target_spec ("one_opponent_character_cost_le_N" など) 文字列
             target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_character_any")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="to_opp_life", outer_value=target_spec)
             for t in targets:
                 if t in opp.characters:
                     if t.protect_from_opp_effect:
@@ -3413,7 +3413,7 @@ def execute_effect(
             # 簡略では 「fire 直前に negate キーワードを check」 する形にする。
             # 現状: 統計用ラベルとして付与のみ (= 機能制限あり、 将来拡張)。
             target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_inplay_any")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="negate_effect", outer_value=target_spec)
             for t in targets:
                 t.granted_keywords.add("効果無効")
             state.push_log(f"  効果: 効果無効付与 → {[t.card.name for t in targets]} (近似)")
@@ -3479,7 +3479,7 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {"cost_le": int(v)}
             target_spec = spec_val.get("target", "self_leader")
             cost_le = int(spec_val.get("cost_le", 0))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_attack_target_cost_le", outer_value=target_spec)
             for t in targets:
                 t.cannot_attack_target_cost_le_until_turn_end = cost_le
             state.push_log(
@@ -3652,7 +3652,7 @@ def execute_effect(
                 me.hand.remove(c)
                 me.trash.append(c)
                 discarded.append(c)
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="optional_discard_hand_for_battle_buff", outer_value=target_spec)
             buff = amount_per * len(discarded)
             for t in targets:
                 t.battle_buff += buff
@@ -3765,7 +3765,7 @@ def execute_effect(
                 cands.sort(key=lambda ip: -ip.power)
                 targets = cands[:1]
             else:
-                targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+                targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="prevent_blocker_for_attacker", outer_value=target_spec)
             for t in targets:
                 t.attacker_prevents_blocker_until_turn_end = True
             state.push_log(
@@ -3779,7 +3779,7 @@ def execute_effect(
             target_spec = spec_val.get("target", "one_opponent_inplay_any")
             duration = spec_val.get("duration", "turn")
             also_cannot_attack = bool(spec_val.get("also_cannot_attack", False))
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="disable_effect", outer_value=target_spec)
             if not targets:
                 return False
             for t in targets:
