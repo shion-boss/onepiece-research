@@ -5486,19 +5486,43 @@
   ],
   "OP14-069": [
     {
-      "_text": "OP14-069 on_play: ドン‼-3：以下から1つを選ぶ。・自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のコスト8以下のキャラ1枚までを、KOする。・相手のコスト7以下のキ",
+      "_text": "OP14-069 【登場時】ドン‼-3：以下から1つを選ぶ。・自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のコスト8以下のキャラ1枚までを、KOする。・相手のコスト7以下のキャラ3枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
       "when": "on_play",
-      "do": [
-        {
-          "ko": "one_opponent_character_cost_le_8cost"
-        }
-      ],
       "cost": {
         "pay_don": 3
       },
-      "if": {
-        "leader_feature": "ドンキホーテ海賊団"
-      }
+      "do": [
+        {
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "コスト8以下のキャラ 1 枚 KO",
+                "if": {
+                  "leader_feature": "ドンキホーテ海賊団"
+                },
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_8cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト7以下キャラ 3 枚 まで 次相手 end まで レスト不可",
+                "do": [
+                  {
+                    "set_cannot_rest": {
+                      "target": "any_opponent_character_le_7cost",
+                      "count": 3,
+                      "duration": "next_opp_turn_end"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP07-057": [
@@ -29272,19 +29296,43 @@
   ],
   "OP14-069_p1": [
     {
-      "_text": "OP14-069_p1 on_play: ドン‼-3：以下から1つを選ぶ。・自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のコスト8以下のキャラ1枚までを、KOする。・相手のコスト7以下のキ",
+      "_text": "OP14-069_p1 【登場時】ドン‼-3：以下から1つを選ぶ。・自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のコスト8以下のキャラ1枚までを、KOする。・相手のコスト7以下のキャラ3枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
       "when": "on_play",
-      "do": [
-        {
-          "ko": "one_opponent_character_cost_le_8cost"
-        }
-      ],
       "cost": {
         "pay_don": 3
       },
-      "if": {
-        "leader_feature": "ドンキホーテ海賊団"
-      }
+      "do": [
+        {
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "コスト8以下のキャラ 1 枚 KO",
+                "if": {
+                  "leader_feature": "ドンキホーテ海賊団"
+                },
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_8cost"
+                  }
+                ]
+              },
+              {
+                "label": "コスト7以下キャラ 3 枚 まで 次相手 end まで レスト不可",
+                "do": [
+                  {
+                    "set_cannot_rest": {
+                      "target": "any_opponent_character_le_7cost",
+                      "count": 3,
+                      "duration": "next_opp_turn_end"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP14-084_p1": [

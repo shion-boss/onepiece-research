@@ -1237,6 +1237,57 @@ def execute_effect(
     現実装ではすべて True 返却 (= 単純実装)。要拡張時に各プリミティブで判定可。
     """
     for k, v in spec.items():
+        if k == "choice_effect":
+            # 公式: 「以下から 1 つを選ぶ: ・効果A ・効果B」 等 の 分岐 効果。
+            # spec: {"optional": bool, "options": [{"label": str, "if": {...}, "do": [...]}, ...]}
+            # AI: optional=true なら 1 つ目 valid option を 発動 (= GreedyAI 簡略)、
+            #     optional=false でも 1 つ目 valid option を 発動。
+            # 人間: pending_choice "option_pick" を 立て、 user に 選択 を 委ねる。
+            spec_val = v if isinstance(v, dict) else {}
+            optional = bool(spec_val.get("optional", False))
+            options = spec_val.get("options", []) or []
+            if not options:
+                continue
+            # if 条件 が 満たされる option を filter
+            valid_options: list[tuple[int, dict]] = []
+            for i, opt in enumerate(options):
+                cond = opt.get("if") if isinstance(opt, dict) else None
+                if cond and not eval_condition(state, me, opp, cond, self_inplay):
+                    continue
+                valid_options.append((i, opt))
+            if not valid_options:
+                continue
+            # 人間 操作中 なら user に 選ばせる
+            if _should_human_pick(state):
+                state.pending_choice = {
+                    "kind": "option_pick",
+                    "optional": optional,
+                    "options": [
+                        {
+                            "idx": i,
+                            "label": opt.get("label", f"効果 {i+1}"),
+                        }
+                        for i, opt in valid_options
+                    ],
+                    "_full_options": options,
+                    "_self_inplay_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: choice_effect 選択 待ち ({len(valid_options)}個 候補, optional={optional})"
+                )
+                return True
+            # AI: optional でも 1 つ目 を 発動 (= 簡略、 将来 plan_search で 評価分岐 化)
+            chosen_idx, chosen_opt = valid_options[0]
+            chosen_do = chosen_opt.get("do", []) if isinstance(chosen_opt, dict) else []
+            state.push_log(
+                f"  効果: choice_effect → option {chosen_idx} ({chosen_opt.get('label','?')})"
+            )
+            for sub in chosen_do:
+                if isinstance(sub, dict):
+                    execute_effect(sub, state, me, opp, self_inplay)
+                    if state.pending_choice is not None:
+                        return True
+            continue
         if k == "draw":
             n = int(v)
             if getattr(me, "block_self_draw_until_turn_end", False):
@@ -4206,6 +4257,37 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "option_pick":
+        # picks[0] が -1 なら skip (= optional 効果 不発)、 それ以外は options の idx
+        full_options = choice.get("_full_options", []) or []
+        self_inplay_iid = choice.get("_self_inplay_iid")
+        self_inplay = None
+        if self_inplay_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == self_inplay_iid:
+                    self_inplay = ip
+                    break
+        state.pending_choice = None
+        if not picks:
+            return
+        chosen_idx = picks[0]
+        if chosen_idx < 0 or chosen_idx >= len(full_options):
+            # skip (= optional 効果 を 発動 しない)
+            state.push_log(f"  効果: choice_effect 不発 (= user skip)")
+            return
+        chosen_opt = full_options[chosen_idx]
+        chosen_do = chosen_opt.get("do", []) if isinstance(chosen_opt, dict) else []
+        state.push_log(
+            f"  効果: 人間選択 → choice_effect option {chosen_idx} ({chosen_opt.get('label','?')})"
+        )
+        for sub in chosen_do:
+            if isinstance(sub, dict):
+                execute_effect(sub, state, me, opp, self_inplay)
+                if state.pending_choice is not None:
+                    return
         return
 
     if kind == "scry_life_reorder":

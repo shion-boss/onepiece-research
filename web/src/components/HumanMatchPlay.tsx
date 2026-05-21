@@ -884,6 +884,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "option_pick" ? (
+          <OptionPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : (
           <SearchChoiceModal
             payload={state.pending_payload}
@@ -2581,6 +2587,72 @@ function TargetPickModal({
             確定 ({picked.length}枚)
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// OptionPickModal: 「効果 発動 する? / どの 効果?」 段階選択 (= choice_effect)
+// ========================================================================== //
+
+function OptionPickModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const options =
+    (payload.options as { idx: number; label: string }[] | undefined) ?? [];
+  const optional = !!payload.optional;
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-2xl flex-col rounded-lg border-2 border-fuchsia-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-1 text-lg font-bold text-fuchsia-200">
+          効果 を 選んで ください
+        </h3>
+        <p className="mb-4 text-xs text-zinc-400">
+          {optional
+            ? "発動するか、 どの 効果 を 選ぶか を 指定。 スキップ も 可。"
+            : "以下から 1 つ を 選んで ください。"}
+        </p>
+        <div className="flex flex-col gap-3">
+          {options.map((o) => (
+            <button
+              key={o.idx}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmit([o.idx]);
+              }}
+              disabled={busy}
+              className="rounded-lg border-2 border-fuchsia-500 bg-fuchsia-900/40 px-4 py-3 text-left text-sm font-bold text-fuchsia-100 shadow hover:border-fuchsia-300 hover:bg-fuchsia-800/60 disabled:opacity-50"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {optional && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([-1]);
+            }}
+            disabled={busy}
+            className="mt-4 rounded bg-zinc-700 px-4 py-2 text-sm text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            効果 を 発動 しない (skip)
+          </button>
+        )}
       </div>
     </div>
   );
