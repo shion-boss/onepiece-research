@@ -788,12 +788,12 @@ export function AttackTargetArrowOverlay({
         initial={{ opacity: 0, pathLength: 0 }}
         animate={
           persistent
-            ? { opacity: [0.7, 1, 0.7], pathLength: 1 }
+            ? { opacity: 1, pathLength: 1 }
             : { opacity: [0, 1, 1, 1, 0], pathLength: [0, 1, 1, 1, 1] }
         }
         transition={
           persistent
-            ? { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
+            ? { duration: 0.5, ease: "easeOut" }
             : { duration: 1.3, times: [0, 0.2, 0.5, 0.9, 1] }
         }
       />
@@ -804,12 +804,12 @@ export function AttackTargetArrowOverlay({
         initial={{ opacity: 0, scale: 0 }}
         animate={
           persistent
-            ? { opacity: 1, scale: [1, 1.18, 1] }
+            ? { opacity: 1, scale: 1 }
             : { opacity: [0, 1, 1, 1, 0], scale: [0, 1, 1.1, 1, 0.9] }
         }
         transition={
           persistent
-            ? { duration: 0.9, repeat: Infinity, ease: "easeInOut" }
+            ? { duration: 0.4, ease: "easeOut" }
             : { duration: 1.3, times: [0, 0.25, 0.5, 0.9, 1] }
         }
         style={{ transformOrigin: `${coords.x2}px ${coords.y2}px` }}
