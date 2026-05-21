@@ -626,7 +626,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         {/* 左 サイド: opp info → log → self stats → 自手札 */}
         <div className="flex min-w-[280px] flex-1 min-h-0 flex-col gap-2">
           <OpponentInfoPanel opp={opp} />
-          <LogSidebar log={state.log} />
+          <LogSidebar log={state.log} aiIdx={state.ai_idx} />
           <SelfInfoPanel me={me} />
           <HandRow
             hand={me.hand}
@@ -1772,20 +1772,74 @@ function OpponentInfoPanel({ opp }: { opp: PlayerSnapshot }) {
 // 左 サイド 下部: log
 // ========================================================================== //
 
-function LogSidebar({ log }: { log: string[] }) {
+/** AI 側 (= ai_idx) の log 行 で 非公開カード名 を 「???」 に 置換。
+ *
+ * 隠す情報:
+ *  - 「効果: ドロー N → ['カード名', ...]」  → ドロー カード 中身
+ *  - 「効果: search_top_n → 手札 カード名」  → サーチ で 手札 に 加えた カード
+ *  - 「効果: 手札に加える カード名」        → 同上 (= 別表記)
+ *  - 「マリガン: 手札 [...]」             → 引き直し 後 の 手札 (= 通常 P0 ライン)
+ * 公開情報 (= 隠さない):
+ *  - play / event / atk / counter (= 場 に 出した カード は 公開)
+ *  - hit: life→hand (= 自分視点 で 引いた カード = 自分の場合 公開、 AI 側の場合は 公開
+ *    トリガー の 性質上 ライフ から 表 で 開く 演出 が 公式 で 公開なので 公開扱い)
+ */
+function sanitizeLogLine(line: string, aiIdx: number): string {
+  const aiPrefix = `P${aiIdx}`;
+  // 「T# P{aiIdx}: ...」 形式 を 拾う
+  if (!new RegExp(`\\bP${aiIdx}\\b`).test(line)) return line;
+
+  // 「ドロー N → ['カード1', 'カード2', ...]」
+  let out = line.replace(
+    /(ドロー\s+\d+\s*→\s*)\[[^\]]*\]/,
+    "$1[???]",
+  );
+  // 「search_top_n → 手札 カード名」 (= 末尾 → 改行 or 行末 まで を 隠す)
+  out = out.replace(
+    /(search_top_n\s*→\s*手札\s+)([^\s].*)$/,
+    "$1???",
+  );
+  // 「手札に加える カード名」 (= P{aiIdx} 行 限定)
+  out = out.replace(
+    /(手札に加える\s+)([^\s].+)$/,
+    "$1???",
+  );
+  // 「公開 カード名 → 手札」
+  out = out.replace(
+    /(公開\s+)([^\s→]+)(\s*→)/,
+    "$1???$3",
+  );
+  // マリガン後の手札開示 (= 通常 出ない が 念のため)
+  out = out.replace(
+    /(マリガン.*手札\s*)\[[^\]]*\]/,
+    "$1[???]",
+  );
+  // prefix 比較 (= 不要 だが 名前比較 用に keep)
+  void aiPrefix;
+  return out;
+}
+
+function LogSidebar({ log, aiIdx }: { log: string[]; aiIdx: number }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded bg-black/50 p-2 text-xs text-zinc-200">
       <div className="mb-1 shrink-0 text-sm font-bold">LOG</div>
       <div className="flex-1 overflow-y-auto font-mono">
-        {log.map((line, i) => (
-          <div
-            key={i}
-            className="border-b border-zinc-700/50 py-0.5"
-            title={line}
-          >
-            {line}
-          </div>
-        ))}
+        {log.map((line, i) => {
+          const shown = sanitizeLogLine(line, aiIdx);
+          const isMasked = shown !== line;
+          return (
+            <div
+              key={i}
+              className={
+                "border-b border-zinc-700/50 py-0.5 " +
+                (isMasked ? "text-zinc-400 italic" : "")
+              }
+              title={shown}
+            >
+              {shown}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
