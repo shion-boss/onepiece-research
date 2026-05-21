@@ -2288,6 +2288,40 @@ class DeepPlanningAI(GreedyAI):
         if self._is_desperate_losing_position(state, state.turn_player_idx):
             return super().choose_action(state)
 
+        # === リーダー攻撃 早期 return (= 2026-05-21) ===
+        # plan_search は max_turns=2-3 で「attack の即時利得」 を後続ターンと混ぜて評価し、
+        # 1 ターン eval では「相手 life -1 + 相手手札 -1」 が +5000 でも、 plan 全体 で 希釈。
+        # ohtsuki さん の指摘: 「リーダーで とりあえず 攻撃 = ライフ削る or 手札削る で お得」。
+        # 確定打点 (= attacker.power >= opp.leader.power) があれば 早期 return。
+        # rest 状態 / 召喚酔い 等 で attack 不可 なら scope 外 (= legal_actions 段階 で 除外済)。
+        me = state.players[state.turn_player_idx]
+        opp = state.players[1 - state.turn_player_idx]
+        if not me.leader.rested and not me.leader.summoning_sickness:
+            est_opp_buff = 0
+            if state.effects_overlay:
+                try:
+                    from .effects import estimate_opp_attack_buff_to_leader
+                    est_opp_buff = estimate_opp_attack_buff_to_leader(
+                        state, opp, state.effects_overlay
+                    )
+                except Exception:
+                    est_opp_buff = 0
+            est_def = opp.leader.power + est_opp_buff
+            early_leader_attacks = [
+                a for a in actions
+                if isinstance(a, AttackLeader)
+                and a.attacker_iid == me.leader.instance_id
+            ]
+            if early_leader_attacks:
+                la = early_leader_attacks[0]
+                # 単独で届く (= 即攻撃)
+                if me.leader.power >= est_def:
+                    return la
+                # 1 DON で届く (= DON 付与で攻撃成立)
+                gap = est_def - me.leader.power
+                if 0 < gap <= 1000 and me.don_active >= 1 and me.leader.attached_dons < 4:
+                    return AttachDonToLeader(n=1)
+
         # adaptive params の決定 (= R72+)
         if self.adaptive:
             beam_width, max_turns, per_turn_depth = self._compute_adaptive_params(state)
