@@ -4835,6 +4835,9 @@
       "do": [
         {
           "draw": 2
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -11457,6 +11460,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP06-020_p2": [
@@ -11782,6 +11797,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP08-098_p2": [
@@ -12534,9 +12561,28 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "or_clauses": [
+                {
+                  "feature": "魚人族"
+                },
+                {
+                  "feature": "人魚族"
+                }
+              ]
+            },
+            "count": 1
+          }
+        },
+        {
+          "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP11-021_p1": [
@@ -12545,9 +12591,28 @@
       "when": "end_of_turn",
       "do": [
         {
-          "draw": 1
+          "untap_chara": {
+            "target": "self_chara_filtered",
+            "filter": {
+              "or_clauses": [
+                {
+                  "feature": "魚人族"
+                },
+                {
+                  "feature": "人魚族"
+                }
+              ]
+            },
+            "count": 1
+          }
+        },
+        {
+          "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP11-022_p1": [
@@ -12999,6 +13064,9 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -13013,6 +13081,9 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -13049,8 +13120,28 @@
       ]
     }
   ],
-  "OP09-061": [],
-  "OP09-061_p1": [],
+  "OP09-061": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
+  "OP09-061_p1": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
   "OP09-062": [
     {
       "_text": "OP09-062 【アタック時】自分の手札から",
@@ -13073,6 +13164,18 @@
           "draw": 1
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP09-062_p1": [
@@ -13097,6 +13200,18 @@
           "draw": 1
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP09-081": [
@@ -13296,6 +13411,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP08-058_p1": [
@@ -13311,6 +13438,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP08-098_p1": [
@@ -13816,6 +13955,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "add_don": 1
         }
       ]
     }
@@ -13830,6 +13972,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "add_don": 1
         }
       ]
     }
@@ -14799,7 +14944,17 @@
       ]
     }
   ],
-  "OP09-061_p2": [],
+  "OP09-061_p2": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
   "OP09-042_p2": [
     {
       "_text": "OP09-042_p2 【起動メイン】自分のドン‼5枚をレストにし、自分の手札1枚を捨てることができる：自分の手札から特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。",
@@ -15319,7 +15474,7 @@
       },
       "do": [
         {
-          "untap_don": 1
+          "add_don": 1
         }
       ]
     }
@@ -15549,6 +15704,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "add_don": 1
         }
       ]
     }
@@ -15971,7 +16129,17 @@
       ]
     }
   ],
-  "OP09-061_p3": [],
+  "OP09-061_p3": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
   "OP09-081_p3": [
     {
       "_text": "OP09-081_p3 【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の",
@@ -24684,6 +24852,15 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "ko_multi": {
+            "target": "all_chara_filtered",
+            "scope": "both",
+            "filter": {
+              "cost_le": 1
+            }
+          }
         }
       ],
       "cost": {
@@ -37328,6 +37505,9 @@
       "do": [
         {
           "draw": 2
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -51487,9 +51667,15 @@
       "when": "on_play",
       "do": [
         {
+          "untap": "self_leader"
+        },
+        {
           "life_to_hand": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "魚人族"
+      }
     }
   ],
   "OP15-034": [
@@ -52809,6 +52995,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP14-078": [
@@ -71332,7 +71530,7 @@
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "rest_opp_don": 1
         }
       ],
       "cost": {
@@ -83402,7 +83600,17 @@
   ],
   "OP07-031_p1": [],
   "OP07-031_r2": [],
-  "OP08-067_r1": [],
+  "OP08-067_r1": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    }
+  ],
   "OP09-086_p1": [
     {
       "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
@@ -83725,7 +83933,17 @@
     }
   ],
   "EB04-005": [],
-  "EB04-035": [],
+  "EB04-035": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    }
+  ],
   "EB04-046": [
     {
       "_text": "[auto] 【相手のターン中】 {'type': 'all_self_chara_filtered', 'filter': {'feature': '海軍'}} コスト+2",
@@ -83810,7 +84028,17 @@
       ]
     }
   ],
-  "EB03-033": [],
+  "EB03-033": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    }
+  ],
   "EB02-005": [
     {
       "_text": "[auto] 【自分のターン中】このキャラのパワー+2000",
@@ -84172,7 +84400,20 @@
   "OP13-046": [],
   "OP13-047": [],
   "OP13-060": [],
-  "OP13-078": [],
+  "OP13-078": [
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
+    }
+  ],
   "OP13-109": [],
   "OP13-112": [
     {
@@ -84596,7 +84837,20 @@
   "OP09-045": [],
   "OP09-052": [],
   "OP09-074": [],
-  "OP09-080": [],
+  "OP09-080": [
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
+    }
+  ],
   "OP09-086": [
     {
       "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
@@ -84723,8 +84977,28 @@
       ]
     }
   ],
-  "OP08-067": [],
-  "OP08-067_p1": [],
+  "OP08-067": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    }
+  ],
+  "OP08-067_p1": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    }
+  ],
   "OP08-072": [],
   "OP07-023": [],
   "OP07-029": [
@@ -85884,7 +86158,17 @@
       ]
     }
   ],
-  "OP08-067_p2": [],
+  "OP08-067_p2": [
+    {
+      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "when": "on_self_don_returned_to_deck",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ]
+    }
+  ],
   "OP10-049_p2": [],
   "OP11-012_p1": [],
   "OP11-058_p1": [],
@@ -85924,7 +86208,20 @@
   "P-066": [],
   "P-066_p1": [],
   "P-067": [],
-  "P-077": [],
+  "P-077": [
+    {
+      "_text": "[auto] activate_main: add_don 補完",
+      "when": "activate_main",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
+    }
+  ],
   "P-104": [],
   "P-104_p1": [],
   "P-111": [
