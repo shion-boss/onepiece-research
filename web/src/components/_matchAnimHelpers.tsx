@@ -416,6 +416,7 @@ export function DrawCardOverlay({
   const [items, setItems] = useState<DrawItem[]>([]);
   const lastTickRef = useRef(-1);
   const nextIdRef = useRef(0);
+  const lastFireAtRef = useRef(0);
   const meDeltaRef = useRef(handDeltaMe);
   const oppDeltaRef = useRef(handDeltaOpp);
   meDeltaRef.current = handDeltaMe;
@@ -427,6 +428,13 @@ export function DrawCardOverlay({
     const meN = Math.max(0, Math.min(meDeltaRef.current, 6));
     const oppN = Math.max(0, Math.min(oppDeltaRef.current, 6));
     if (meN === 0 && oppN === 0) return;
+    // 連続 fire (= 「ライフ→hand と turn start draw が 同時発火」 ユーザ報告) を 阻止。
+    // 直前 fire から 1500ms 以内 の 再 fire は skip (= visual overlap 防止)。
+    const now = Date.now();
+    if (now - lastFireAtRef.current < 1500) {
+      return;
+    }
+    lastFireAtRef.current = now;
     const additions: DrawItem[] = [];
     for (let i = 0; i < meN; i++) {
       additions.push({
@@ -448,7 +456,7 @@ export function DrawCardOverlay({
         () => {
           setItems((cur) => cur.filter((x) => x.id !== it.id));
         },
-        900 + it.delayIdx * 100,
+        650 + it.delayIdx * 80,
       );
     });
   }, [tickId]);
@@ -487,7 +495,7 @@ export function DrawCardOverlay({
               }}
               exit={{ opacity: 0 }}
               transition={{
-                duration: 0.85,
+                duration: 0.55,
                 delay,
                 times: [0, 0.25, 0.55, 0.8, 1],
                 ease: "easeIn",
