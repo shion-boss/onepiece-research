@@ -13999,7 +13999,18 @@
       ]
     }
   ],
-  "OP03-040_p1": [],
+  "OP03-040_p1": [
+    {
+      "_text": "on_attached_don n=1: このリーダーのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から1枚をトラッシュに置いてもよい",
+      "when": "on_attached_don",
+      "n": 1,
+      "do": [
+        {
+          "mill_self_top": 1
+        }
+      ]
+    }
+  ],
   "OP03-058": [
     {
       "_text": "OP03-058 【起動メイン】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)，このリーダーをレストにできる：自分の手札からコスト5以下の特徴《GC》を持つキャラカード1枚までを、登場させる。",
@@ -15148,7 +15159,25 @@
       ]
     }
   ],
-  "ST09-001": [],
+  "ST09-001": [
+    {
+      "_text": "[auto] ライフ2以下の場合 自身パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "ST07-001": [
     {
       "_text": "ST07-001 【アタック時】自分のライフの上か下から1枚を手札に加えることができる：自分のライフが2枚以下の場合、自分の手札1枚までを、ライフの上に加える。",
@@ -82703,8 +82732,30 @@
   "OP07-031_p1": [],
   "OP07-031_r2": [],
   "OP08-067_r1": [],
-  "OP09-086_p1": [],
-  "OP09-086_r2": [],
+  "OP09-086_p1": [
+    {
+      "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
+  "OP09-086_r2": [
+    {
+      "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "OP10-108_p1": [
     {
       "_text": "OP10-108_p1 「スクラッチメン・アプー」以外の自分の黄の特徴《超新星》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
@@ -82789,17 +82840,187 @@
       ]
     }
   ],
-  "ST16-003_p1": [],
-  "ST16-003_r1": [],
+  "ST16-003_p1": [
+    {
+      "_text": "[auto] 自分レスト6以上で 自身パワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_rested_cards_count_ge": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "ST16-003_r1": [
+    {
+      "_text": "[auto] 自分レスト6以上で 自身パワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_rested_cards_count_ge": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "ST16-005_p1": [],
   "ST16-005_r1": [],
   "OP01-121_p3": [],
   "OP01-121_r1": [],
-  "OP02-114_p4": [],
-  "OP02-114_r1": [],
-  "OP05-074_p4": [],
-  "OP05-074_r1": [],
-  "OP05-074_r2": [],
+  "OP02-114_p4": [
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 KO 耐性",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "OP02-114_r1": [
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 KO 耐性",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "OP05-074_p4": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
+  "OP05-074_r1": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
+  "OP05-074_r2": [
+    {
+      "when": "leader_passive",
+      "do": [
+        {
+          "_text": "【ブロッカー】 内蔵"
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
+      "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
   "OP06-067_p1": [],
   "OP06-067_p2": [],
   "OP06-067_p3": [],
@@ -82837,9 +83058,62 @@
     }
   ],
   "EB04-003_p1": [],
-  "EB03-004": [],
+  "EB03-004": [
+    {
+      "_text": "[auto] 【相手のターン中】このキャラのパワー+4000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 4000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "EB03-033": [],
-  "EB02-005": [],
+  "EB02-005": [
+    {
+      "_text": "[auto] 【自分のターン中】このキャラのパワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】このキャラのパワー-2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "EB02-012": [
     {
       "_text": "EB02-012 自分の「サーファンクル」がいる場合、このキャラは【ブロッカー】を得る。",
@@ -82906,7 +83180,42 @@
     }
   ],
   "OP15-050": [],
-  "OP15-051": [],
+  "OP15-051": [
+    {
+      "_text": "[auto] 【相手のターン中】このキャラのパワー+3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "[auto] リーダー特徴 ドレスローザ で このキャラ パワー+3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP15-068": [
     {
       "_text": "OP15-068 自分の場のドン‼が6枚以下の場合、このキャラは【ブロッカー】を得る。",
@@ -83383,11 +83692,47 @@
   "OP11-088": [],
   "OP11-101": [],
   "OP11-101_p1": [],
-  "OP11-112": [],
+  "OP11-112": [
+    {
+      "_text": "[auto] 【相手のターン中】このキャラのパワー+4000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 4000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "EB01-057_p2": [],
   "OP10-034": [],
   "OP10-036": [],
-  "OP10-038": [],
+  "OP10-038": [
+    {
+      "_text": "[auto] 【相手のターン中】このキャラのパワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP10-049": [],
   "OP10-053": [
     {
@@ -83462,7 +83807,18 @@
   "OP09-052": [],
   "OP09-074": [],
   "OP09-080": [],
-  "OP09-086": [],
+  "OP09-086": [
+    {
+      "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "OP09-118": [
     {
       "_text": "OP09-118 on_opp_blocker_use: ライフ0 (either) で勝利",
@@ -83758,7 +84114,25 @@
       ]
     }
   ],
-  "OP06-085": [],
+  "OP06-085": [
+    {
+      "_text": "[auto] 【自分のターン中】このキャラのパワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP06-088": [],
   "OP06-109": [],
   "OP06-110": [],
@@ -83965,7 +84339,22 @@
       ]
     }
   ],
-  "OP05-100_p1": [],
+  "OP05-100_p1": [
+    {
+      "_text": "OP05-100 エネル: 場を離れる代替で自ライフ1をトラッシュ (1回)。 ルフィ不在条件は engine 拡張待ち。",
+      "when": "replace_leave",
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "mill_self_life_to_trash": 1
+        }
+      ]
+    }
+  ],
   "OP05-107": [
     {
       "_text": "OP05-107 スペーシー中尉: 自ターン中自ライフ手札時 → 自+2000 (1回)",
@@ -83990,7 +84379,22 @@
     }
   ],
   "OP01-121_p2": [],
-  "OP05-100_p2": [],
+  "OP05-100_p2": [
+    {
+      "_text": "OP05-100 エネル: 場を離れる代替で自ライフ1をトラッシュ (1回)。 ルフィ不在条件は engine 拡張待ち。",
+      "when": "replace_leave",
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "mill_self_life_to_trash": 1
+        }
+      ]
+    }
+  ],
   "OP04-005": [
     {
       "_text": "OP04-005 このキャラ以外の自分の「クンフージュゴン」がいる場合、このキャラは【ブロッカー】を得る。",
@@ -84197,7 +84601,38 @@
       ]
     }
   ],
-  "OP02-114_p1": [],
+  "OP02-114_p1": [
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 KO 耐性",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP01-025": [],
   "OP01-025_p1": [],
   "OP01-068": [
@@ -84270,7 +84705,18 @@
   "ST30-011_p1": [],
   "ST29-008": [],
   "ST29-008_p1": [],
-  "OP09-086_r1": [],
+  "OP09-086_r1": [
+    {
+      "_text": "[auto] このキャラは相手の効果でKOされない (= passive immunity)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "OP05-066_r2": [],
   "OP09-045_r1": [],
   "ST25-002": [
@@ -84302,7 +84748,25 @@
   "OP09-012_r1": [],
   "ST20-002": [],
   "OP05-066_r1": [],
-  "ST16-003": [],
+  "ST16-003": [
+    {
+      "_text": "[auto] 自分レスト6以上で 自身パワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_rested_cards_count_ge": 6
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "ST16-005": [],
   "ST15-003": [],
   "ST15-005": [
@@ -84419,8 +84883,50 @@
   "ST05-008": [],
   "ST05-008_r1": [],
   "OP01-025_p4": [],
-  "OP02-114_p3": [],
-  "OP03-088_p1": [],
+  "OP02-114_p3": [
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 KO 耐性",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    },
+    {
+      "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "OP03-088_p1": [
+    {
+      "_text": "フクロウ 静的 KO 耐性 (常在)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "OP04-096_p2": [],
   "OP05-086_p1": [
     {

@@ -126,13 +126,16 @@ def check_concept_missing(text: str, rendered: str, entries: list, cid: str) -> 
     if re.search(r"ドン!!デッキから.{0,30}アクティブで追加", text):
         if "add_don" not in flat_entries and "add_don_active" not in flat_entries:
             issues.append({"kind": "missing_add_don_concept", "severity": 5})
-    # 「レストにする」
+    # 「レストにする」 — rest 系 primitive 認識
     if re.search(r"相手の.{0,20}レストにする", text):
-        if '"rest"' not in flat_entries:
+        rest_keys = ('"rest"', "rest_opp_don", "rest_self_cards", "keep_opp_rested",
+                     "set_cannot_rest", "stay_rested_next_refresh", "rest_opp_chara")
+        if not any(k in flat_entries for k in rest_keys):
             issues.append({"kind": "missing_rest_concept", "severity": 5})
-    # 「アクティブにする」
+    # 「アクティブにする」 — untap 系 primitive 認識
     if re.search(r"アクティブにする", text):
-        if '"untap"' not in flat_entries and "untap_chara" not in flat_entries and "untap_don" not in flat_entries:
+        untap_keys = ('"untap"', "untap_chara", "untap_don")
+        if not any(k in flat_entries for k in untap_keys):
             issues.append({"kind": "missing_untap_concept", "severity": 5})
     # 「速攻」 / 「ブロッカー」 / 「ダブルアタック」 等 のキーワード付与
     for kw in ["速攻", "二回攻撃", "二回アタック"]:
