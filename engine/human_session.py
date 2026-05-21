@@ -85,19 +85,23 @@ class HumanAI:
             b.instance_id for b in defender.characters
             if b.is_blocker_now and not b.rested and not b.summoning_sickness
         ]
-        # counter 候補: hand の counter 持ち
-        counter_idxs = [
-            i for i, c in enumerate(defender.hand)
-            if c.counter and c.counter > 0
-        ]
+        # counter 候補: hand の counter 持ち + 各 idx の counter 値
+        counter_idxs = []
+        counter_values: dict[int, int] = {}
+        for i, c in enumerate(defender.hand):
+            if c.counter and c.counter > 0:
+                counter_idxs.append(i)
+                counter_values[i] = int(c.counter)
         raise PauseSignal(
             "defense",
             {
                 "attacker_iid": attacker.instance_id,
+                "attacker_power": int(getattr(attacker, "power", 0) or 0),
                 "target_iid": None if is_leader_attack else target.instance_id,
                 "is_leader_attack": is_leader_attack,
                 "legal_blocker_iids": blocker_iids,
                 "legal_counter_card_idxs": counter_idxs,
+                "counter_values": counter_values,
             },
         )
 
