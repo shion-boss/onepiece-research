@@ -300,6 +300,32 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   // snapshot 差分 (= life delta / chara 退場 等) を hook で 追跡 し animation 用
   const snapForDiff = (state?.snapshot ?? null) as StateSnapshot | null;
   const frameDiff = useFrameDiff(snapForDiff);
+
+  // AI counter (= 相手 が hand→trash で counter 切る) を log で 検出 → fireCounterPlay(opp)
+  const lastCounterLogIdxRef = useRef(0);
+  useEffect(() => {
+    const allLogs = state?.log ?? [];
+    if (allLogs.length <= lastCounterLogIdxRef.current) {
+      lastCounterLogIdxRef.current = allLogs.length;
+      return;
+    }
+    const newLines = allLogs.slice(lastCounterLogIdxRef.current);
+    lastCounterLogIdxRef.current = allLogs.length;
+    const aiIdx = state?.ai_idx ?? -1;
+    if (aiIdx < 0) return;
+    for (const ln of newLines) {
+      // 「P{ai_idx}: ... counter +N → ...」 (= AI ターン以外 AI が counter)
+      const m = ln.match(/counter\s*\+(\d+)\s*→/);
+      if (m) {
+        const snap = state?.snapshot as StateSnapshot | null;
+        const aiPlayer = snap?.players?.[aiIdx];
+        const trash = aiPlayer?.trash ?? [];
+        const cardId = trash[trash.length - 1] ?? "";
+        const value = Number(m[1]);
+        if (cardId) fireCounterPlay(cardId, value, "opp");
+      }
+    }
+  }, [state?.log, state?.ai_idx, state?.snapshot]);
   // 自分側 hand で 直近 ドロー idx を ハイライト
   const meHandLen =
     (snapForDiff?.players?.[state?.human_idx ?? 0]?.hand?.length) ?? 0;

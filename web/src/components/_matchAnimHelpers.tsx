@@ -955,24 +955,31 @@ type CounterFireItem = {
   id: number;
   cardId: string;
   value: number;
+  side: "me" | "opp";
 };
 
-let _counterFireExternal: ((cardId: string, value: number) => void) | null = null;
+let _counterFireExternal:
+  | ((cardId: string, value: number, side: "me" | "opp") => void)
+  | null = null;
 
-export function fireCounterPlay(cardId: string, value: number): void {
-  if (_counterFireExternal) _counterFireExternal(cardId, value);
+export function fireCounterPlay(
+  cardId: string,
+  value: number,
+  side: "me" | "opp" = "me",
+): void {
+  if (_counterFireExternal) _counterFireExternal(cardId, value, side);
 }
 
 export function CounterPlayOverlay(): React.JSX.Element | null {
   const [items, setItems] = useState<CounterFireItem[]>([]);
   const idRef = useRef(0);
   useEffect(() => {
-    _counterFireExternal = (cardId: string, value: number) => {
+    _counterFireExternal = (cardId, value, side) => {
       const id = idRef.current++;
-      setItems((prev) => [...prev, { id, cardId, value }].slice(-4));
+      setItems((prev) => [...prev, { id, cardId, value, side }].slice(-4));
       setTimeout(() => {
         setItems((cur) => cur.filter((x) => x.id !== id));
-      }, 1500);
+      }, 1800);
     };
     return () => {
       _counterFireExternal = null;
@@ -984,15 +991,19 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
       <AnimatePresence>
         {items.map((it, idx) => {
           const xOffset = (idx - items.length / 2) * 160;
+          const isMe = it.side === "me";
+          const startY = isMe ? "60vh" : "-60vh";
+          const endY = isMe ? "30vh" : "-30vh";
+          const midY = isMe ? "10vh" : "-10vh";
           return (
             <motion.div
               key={it.id}
-              initial={{ opacity: 0, scale: 0.4, x: xOffset, y: "60vh" }}
+              initial={{ opacity: 0, scale: 0.4, x: xOffset, y: startY }}
               animate={{
                 opacity: [0, 1, 1, 0.85, 0],
                 scale: [0.4, 1.15, 1.05, 0.95, 0.8],
                 x: [xOffset, xOffset, xOffset, xOffset + 160, xOffset + 380],
-                y: ["60vh", "0vh", "0vh", "10vh", "30vh"],
+                y: [startY, "0vh", "0vh", midY, endY],
               }}
               transition={{
                 duration: 1.8,
@@ -1006,13 +1017,25 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
                 <img
                   src={`/cards/${it.cardId}.png`}
                   alt={it.cardId}
-                  className="h-72 w-auto rounded shadow-2xl ring-4 ring-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.85)]"
+                  className={
+                    "h-72 w-auto rounded shadow-2xl ring-4 " +
+                    (isMe
+                      ? "ring-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.85)]"
+                      : "ring-rose-300 drop-shadow-[0_0_30px_rgba(244,114,182,0.85)]")
+                  }
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       "/assets/ura.png";
                   }}
                 />
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-6 py-2 text-4xl font-extrabold text-white shadow-2xl drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]">
+                <div
+                  className={
+                    "absolute -top-8 left-1/2 -translate-x-1/2 rounded-full px-6 py-2 text-4xl font-extrabold text-white shadow-2xl " +
+                    (isMe
+                      ? "bg-amber-500 drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]"
+                      : "bg-rose-500 drop-shadow-[0_0_18px_rgba(244,114,182,0.95)]")
+                  }
+                >
                   +{it.value}
                 </div>
               </div>
