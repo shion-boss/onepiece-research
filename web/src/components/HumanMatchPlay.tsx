@@ -62,14 +62,16 @@ type DragPayload =
       handKind: "CHARACTER" | "EVENT" | "STAGE";
     }
   | { kind: "chara"; iid: number }
-  | { kind: "don" };
+  | { kind: "don" }
+  | { kind: "counter"; handIdx: number };
 
 type DropTarget =
   | { kind: "self_field" }
   | { kind: "self_leader" }
   | { kind: "self_chara"; iid: number }
   | { kind: "opp_leader" }
-  | { kind: "opp_chara"; iid: number };
+  | { kind: "opp_chara"; iid: number }
+  | { kind: "self_counter"; handIdx: number };
 
 export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [deckA, setDeckA] = useState<string>(decks[0]?.slug ?? "");
@@ -457,6 +459,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             a.kind === "AttachDonToCharacter" && a.target_iid === target.iid,
         );
       }
+    } else if (drag.kind === "counter") {
+      // 防御 中: 手札 counter idx を toggle で counterIdxs に追加
+      if (!counterIdxs.includes(drag.handIdx)) {
+        setCounterIdxs([...counterIdxs, drag.handIdx]);
+      }
+      setDrag(null);
+      return;
     }
     setDrag(null);
     if (action) applyAction(action);
@@ -675,9 +684,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             canAct={canAct}
             selectedIdx={selection?.kind === "hand" ? selection.handIdx : null}
             draggingHandIdx={
-              drag?.kind === "hand" ? drag.handIdx : null
+              drag?.kind === "hand" || drag?.kind === "counter"
+                ? drag.handIdx
+                : null
             }
             recentDrawnIdxs={recentDrawnIdxs}
+            counterIdxsAvail={
+              isDefensePending && state.pending_payload
+                ? (state.pending_payload.legal_counter_card_idxs as number[] | undefined)
+                : undefined
+            }
+            counterSelectedIdxs={isDefensePending ? counterIdxs : undefined}
+            onCounterDragStart={(handIdx) =>
+              setDrag({ kind: "counter", handIdx })
+            }
             onClick={clickHandCard}
             onHover={setHovered}
             onDragStart={(handIdx) => {
@@ -1104,14 +1124,18 @@ function PlayerMat({
   const acceptHandDrop = isMe && drag?.kind === "hand";
   const acceptDonDrop = isMe && drag?.kind === "don";
   const acceptAttackDrop = !isMe && drag?.kind === "chara";
+  const acceptCounterDrop = isMe && drag?.kind === "counter";
 
   function matDragOver(e: React.DragEvent) {
-    if (acceptHandDrop) e.preventDefault();
+    if (acceptHandDrop || acceptCounterDrop) e.preventDefault();
   }
   function matDrop(e: React.DragEvent) {
     if (acceptHandDrop) {
       e.preventDefault();
       onDropTarget({ kind: "self_field" });
+    } else if (acceptCounterDrop && drag?.kind === "counter") {
+      e.preventDefault();
+      onDropTarget({ kind: "self_counter", handIdx: drag.handIdx });
     }
   }
 
@@ -1126,7 +1150,7 @@ function PlayerMat({
         (isMe
           ? "border-emerald-400/60 bg-emerald-950/40"
           : "border-rose-400/60 bg-rose-950/40") +
-        (acceptHandDrop || acceptDonDrop || acceptAttackDrop
+        (acceptHandDrop || acceptDonDrop || acceptAttackDrop || acceptCounterDrop
           ? " ring-4 ring-yellow-400/60"
           : "")
       }
@@ -1770,6 +1794,9 @@ function HandRow({
   selectedIdx,
   draggingHandIdx,
   recentDrawnIdxs,
+  counterIdxsAvail,
+  counterSelectedIdxs,
+  onCounterDragStart,
   onClick,
   onHover,
   onDragStart,
@@ -1781,6 +1808,9 @@ function HandRow({
   selectedIdx: number | null;
   draggingHandIdx: number | null;
   recentDrawnIdxs?: Set<number>;
+  counterIdxsAvail?: number[];
+  counterSelectedIdxs?: number[];
+  onCounterDragStart?: (handIdx: number) => void;
   onClick: (idx: number) => void;
   onHover: (h: HoverInfo) => void;
   onDragStart: (handIdx: number) => void;
@@ -1793,30 +1823,46 @@ function HandRow({
       <div className="flex shrink-0 items-start">
         {hand.map((cardId, i) => {
           const playable = canAct && (actionsByHand.get(i)?.length ?? 0) > 0;
+          const isCounterAvail = !!counterIdxsAvail?.includes(i);
+          const isCounterSelected = !!counterSelectedIdxs?.includes(i);
           const selected = selectedIdx === i;
           const dragging = draggingHandIdx === i;
           const isRecentDrawn = !!recentDrawnIdxs?.has(i);
-          const ring = isRecentDrawn
-            ? "ring-4 ring-cyan-300 drop-shadow-[0_0_18px_rgba(103,232,249,0.85)]"
-            : selected
-              ? "ring-4 ring-yellow-400"
-              : playable
-                ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
-                : "ring-1 ring-zinc-700 opacity-90";
+          const ring = isCounterSelected
+            ? "ring-4 ring-amber-400 drop-shadow-[0_0_14px_rgba(251,191,36,0.85)]"
+            : isCounterAvail
+              ? "ring-2 ring-amber-500 hover:ring-amber-300"
+              : isRecentDrawn
+                ? "ring-4 ring-cyan-300 drop-shadow-[0_0_18px_rgba(103,232,249,0.85)]"
+                : selected
+                  ? "ring-4 ring-yellow-400"
+                  : playable
+                    ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
+                    : "ring-1 ring-zinc-700 opacity-90";
+          const dragMode = isCounterAvail
+            ? "counter"
+            : playable
+              ? "play"
+              : null;
           return (
             <motion.button
               key={i}
               type="button"
-              draggable={playable}
-              onDragStart={() => onDragStart(i)}
+              draggable={dragMode !== null}
+              onDragStart={() => {
+                if (dragMode === "counter" && onCounterDragStart) {
+                  onCounterDragStart(i);
+                } else if (dragMode === "play") {
+                  onDragStart(i);
+                }
+              }}
               onDragEnd={onDragEnd}
               onClick={(e) => {
                 e.stopPropagation();
-                onClick(i);
+                if (playable) onClick(i);
               }}
               onMouseEnter={() => onHover({ kind: "hand", cardId })}
               onMouseLeave={() => onHover(null)}
-              disabled={!playable && !canAct}
               style={{
                 marginLeft: i === 0 ? 0 : -overlap,
                 zIndex: selected ? 50 : isRecentDrawn ? 40 : i,
@@ -2160,13 +2206,10 @@ function RightPanel({
           <DefensePanel
             payload={defensePayload}
             me={defenseMe}
-            blockerIid={defenseBlockerIid}
-            setBlockerIid={defenseSetBlockerIid}
             counterIdxs={defenseCounterIdxs}
             setCounterIdxs={defenseSetCounterIdxs}
             onSubmit={defenseOnSubmit}
             busy={defenseBusy}
-            onHover={defenseOnHover}
           />
         )}
         {canAct && !selection && (
@@ -3076,138 +3119,78 @@ function TrashViewer({
 function DefensePanel({
   payload,
   me,
-  blockerIid,
-  setBlockerIid,
   counterIdxs,
   setCounterIdxs,
   onSubmit,
   busy,
-  onHover,
 }: {
   payload: Record<string, unknown>;
   me: PlayerSnapshot;
-  blockerIid: number | null;
-  setBlockerIid: (v: number | null) => void;
   counterIdxs: number[];
   setCounterIdxs: (v: number[]) => void;
   onSubmit: () => void;
   busy: boolean;
-  onHover: (h: HoverInfo) => void;
 }) {
-  const blockerIids =
-    (payload.legal_blocker_iids as number[] | undefined) ?? [];
-  const counterIdxsAvail =
-    (payload.legal_counter_card_idxs as number[] | undefined) ?? [];
   const isLeaderAttack = !!payload.is_leader_attack;
-  const blockerOptions = me.characters.filter((c) =>
-    blockerIids.includes(c.instance_id),
-  );
-  function toggleCounter(idx: number) {
-    if (counterIdxs.includes(idx)) {
-      setCounterIdxs(counterIdxs.filter((x) => x !== idx));
-    } else {
-      setCounterIdxs([...counterIdxs, idx]);
-    }
+  const atkPower = Number(payload.attacker_power ?? 0);
+  // defender base power: leader or 該当 chara
+  let defBase = 0;
+  if (isLeaderAttack) {
+    defBase = me.leader.power;
+  } else {
+    const targetIid = payload.target_iid as number | undefined;
+    const ch = me.characters.find((c) => c.instance_id === targetIid);
+    defBase = ch?.power ?? me.leader.power;
   }
+  // counter 加算 = 各 counter idx の card.counter (= hand string id だけなので 推定不可、
+  //   payload に counter_values 含む場合 そこから、 無ければ 1000/枚 を 仮定)
+  const counterValues =
+    (payload.counter_values as Record<number, number> | undefined) ?? null;
+  let counterTotal = 0;
+  for (const idx of counterIdxs) {
+    counterTotal += counterValues?.[idx] ?? 1000;
+  }
+  const defTotal = defBase + counterTotal;
+  const blocked = defTotal >= atkPower;
   return (
-    <div className="flex flex-col gap-2 rounded border-2 border-amber-400 bg-amber-950/70 p-2">
+    <div className="flex flex-col gap-2 rounded border-2 border-amber-400 bg-amber-950/70 p-3">
       <div className="text-sm font-bold text-amber-200">
-        ⚠ {isLeaderAttack ? "リーダー" : "キャラ"} を 防御
+        ⚠ {isLeaderAttack ? "リーダー" : "キャラ"} 防御
       </div>
-      <div>
-        <div className="text-xs font-semibold text-amber-200 mb-1">
-          Blocker
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setBlockerIid(null);
-            }}
-            className={
-              "rounded px-2 py-1 text-xs " +
-              (blockerIid === null
-                ? "bg-amber-500 text-white"
-                : "border border-amber-400 bg-amber-900/40 text-amber-100")
-            }
-          >
-            なし
-          </button>
-          {blockerOptions.map((c) => (
-            <button
-              key={c.instance_id}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setBlockerIid(c.instance_id);
-              }}
-              onMouseEnter={() =>
-                onHover({
-                  kind: "chara",
-                  cardId: c.card_id,
-                  name: c.name,
-                  power: c.power,
-                  attached_dons: c.attached_dons,
-                  rested: c.rested,
-                  keywords: c.keywords,
-                  isLeader: false,
-                })
-              }
-              onMouseLeave={() => onHover(null)}
-              className={
-                "rounded transition " +
-                (blockerIid === c.instance_id
-                  ? "ring-4 ring-amber-400"
-                  : "ring-1 ring-amber-600 hover:ring-amber-400")
-              }
-              title={c.name}
-            >
-              <CardImage
-                cardId={c.card_id}
-                alt={c.name}
-                className="h-20 w-auto rounded"
-              />
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center justify-between text-sm text-amber-100">
+        <span>相手 攻撃 P</span>
+        <span className="text-2xl font-bold text-rose-300">
+          {atkPower || "?"}
+        </span>
       </div>
-      <div>
-        <div className="text-xs font-semibold text-amber-200 mb-1">
-          Counter ({counterIdxs.length})
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {counterIdxsAvail.length === 0 && (
-            <span className="text-xs text-amber-300">手札 counter 無し</span>
-          )}
-          {counterIdxsAvail.map((idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleCounter(idx);
-              }}
-              onMouseEnter={() =>
-                onHover({ kind: "hand", cardId: me.hand[idx] })
-              }
-              onMouseLeave={() => onHover(null)}
-              className={
-                "rounded transition " +
-                (counterIdxs.includes(idx)
-                  ? "ring-4 ring-amber-400"
-                  : "ring-1 ring-amber-600 hover:ring-amber-400")
-              }
-            >
-              <CardImage
-                cardId={me.hand[idx]}
-                alt={me.hand[idx]}
-                className="h-20 w-auto rounded"
-              />
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center justify-between text-sm text-amber-100">
+        <span>
+          自防御 P{counterTotal > 0 ? ` (+${counterTotal})` : ""}
+        </span>
+        <span
+          className={
+            "text-2xl font-bold " +
+            (blocked ? "text-emerald-300" : "text-rose-300")
+          }
+        >
+          {defTotal}
+        </span>
       </div>
+      <div className="text-center text-xs text-zinc-300">
+        手札 の カウンター を マット へ ドラッグ で 加算
+      </div>
+      {counterIdxs.length > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCounterIdxs([]);
+          }}
+          className="rounded bg-zinc-700 px-2 py-1 text-xs text-white hover:bg-zinc-600"
+        >
+          counter リセット ({counterIdxs.length})
+        </button>
+      )}
       <button
         type="button"
         onClick={(e) => {
@@ -3215,7 +3198,7 @@ function DefensePanel({
           onSubmit();
         }}
         disabled={busy}
-        className="rounded bg-amber-500 px-3 py-2 text-sm font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+        className="rounded bg-amber-500 px-3 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
       >
         防御 確定
       </button>
