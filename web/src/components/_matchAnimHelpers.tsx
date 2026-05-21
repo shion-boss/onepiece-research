@@ -346,29 +346,37 @@ export function PlayedCardOverlay({
               initial={{
                 opacity: 0,
                 scale: 0.4,
-                x: 0,
+                x: xOffset,
                 y: startY,
                 rotate: it.side === "me" ? 20 : -20,
               }}
               animate={{
-                // 経路: 手札位置 → 中央上昇 (= スピード感) → 中央停止 → trash 方向 slide
-                opacity: [0, 1, 1, 1, 0.7, 0],
-                scale: [0.4, 0.9, 1.1, 1.0, 0.95, 0.7],
-                x: [0, 0, 0, 0, xOffset + 120, xOffset + 320],
+                // 経路: 手札位置 → 中央 到達 → 中央 停止 → 右 へ fade-out
+                // y は 一旦 中央 (= 0%) に来たら 戻らない (= 「出たり戻ったり」 防止)
+                opacity: [0, 1, 1, 1, 0.5, 0],
+                scale: [0.4, 0.95, 1.05, 1.0, 0.85, 0.6],
+                x: [
+                  xOffset,
+                  xOffset,
+                  xOffset,
+                  xOffset,
+                  xOffset + 160,
+                  xOffset + 360,
+                ],
                 y: [
                   startY,
-                  it.side === "me" ? "30%" : "-30%",
+                  it.side === "me" ? "20%" : "-20%",
                   "0%",
                   "0%",
-                  "15%",
-                  "35%",
+                  "0%",
+                  "0%",
                 ],
-                rotate: [it.side === "me" ? 20 : -20, 5, 0, 0, 4, 12],
+                rotate: [it.side === "me" ? 20 : -20, 5, 0, 0, 6, 14],
               }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{
                 duration: 1.6,
-                times: [0, 0.18, 0.35, 0.65, 0.85, 1],
+                times: [0, 0.18, 0.35, 0.7, 0.88, 1],
                 ease: "easeOut",
               }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"

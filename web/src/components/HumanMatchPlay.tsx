@@ -53,7 +53,11 @@ type HoverInfo =
   | null;
 
 type DragPayload =
-  | { kind: "hand"; handIdx: number }
+  | {
+      kind: "hand";
+      handIdx: number;
+      handKind: "CHARACTER" | "EVENT" | "STAGE";
+    }
   | { kind: "chara"; iid: number }
   | { kind: "don" };
 
@@ -641,7 +645,17 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             }
             onClick={clickHandCard}
             onHover={setHovered}
-            onDragStart={(handIdx) => setDrag({ kind: "hand", handIdx })}
+            onDragStart={(handIdx) => {
+              // legal_actions の kind から hand card category を 推定
+              const acts = actionsByHand.get(handIdx) ?? [];
+              let handKind: "CHARACTER" | "EVENT" | "STAGE" = "CHARACTER";
+              for (const a of acts) {
+                if (a.kind === "PlayCharacter") handKind = "CHARACTER";
+                else if (a.kind === "PlayEvent") handKind = "EVENT";
+                else if (a.kind === "PlayStage") handKind = "STAGE";
+              }
+              setDrag({ kind: "hand", handIdx, handKind });
+            }}
             onDragEnd={() => setDrag(null)}
           />
         </div>
@@ -1441,16 +1455,30 @@ function CharacterRow({
                 key={`slot-${i}`}
                 className={
                   "h-32 w-24 rounded border border-dashed " +
-                  (isMe && drag?.kind === "hand"
+                  // キャラ slot の 黄色 hint は CHARACTER drag の時のみ。
+                  // EVENT / STAGE は 場 ではなく leader へ drop なので 通常表示。
+                  (isMe &&
+                  drag?.kind === "hand" &&
+                  drag.handKind === "CHARACTER"
                     ? "border-yellow-400 bg-yellow-900/30"
                     : "border-zinc-600/50")
                 }
                 data-iid="empty"
                 onDragOver={(e) => {
-                  if (isMe && drag?.kind === "hand") e.preventDefault();
+                  if (
+                    isMe &&
+                    drag?.kind === "hand" &&
+                    drag.handKind === "CHARACTER"
+                  )
+                    e.preventDefault();
                 }}
                 onDrop={(e) => {
-                  if (!isMe || drag?.kind !== "hand") return;
+                  if (
+                    !isMe ||
+                    drag?.kind !== "hand" ||
+                    drag.handKind !== "CHARACTER"
+                  )
+                    return;
                   e.preventDefault();
                   onDropTarget({ kind: "self_field" });
                 }}
