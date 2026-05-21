@@ -18,6 +18,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { StateSnapshot, CharSnapshot } from "@/lib/types";
+import { CardImage } from "./CardImage";
 
 // --------------------------------------------------------------------------
 // snapshot diff hook
@@ -35,6 +36,9 @@ export type FrameDiff = {
   enteredIids: [Set<number>, Set<number>];
   // 場から消えた chara の iid + 該当 snapshot (= player 別)
   leftCharas: [CharSnapshot[], CharSnapshot[]];
+  // trash 末尾 に 新規追加された card_id (= event / counter / 効果 で 捨てられた)
+  // 場のキャラが KO で trash に行った場合は leftCharas で扱う想定なので 重複もあり得る
+  trashAdded: [string[], string[]];
   // event (= AttackEvent) の identity 更新 (= 同 event の 再 trigger 検知)
   eventTickId: number;
   // フィールド全体 を flash させる ヒント (= life 減 or 重大 event)
@@ -47,6 +51,7 @@ const EMPTY_DIFF: FrameDiff = {
   donDelta: [0, 0],
   enteredIids: [new Set(), new Set()],
   leftCharas: [[], []],
+  trashAdded: [[], []],
   eventTickId: 0,
   shouldFieldFlash: false,
 };
@@ -88,6 +93,7 @@ export function useFrameDiff(snap: StateSnapshot | null): FrameDiff {
 
     const enteredIids: [Set<number>, Set<number>] = [new Set(), new Set()];
     const leftCharas: [CharSnapshot[], CharSnapshot[]] = [[], []];
+    const trashAdded: [string[], string[]] = [[], []];
     for (let p = 0; p < 2; p++) {
       const prevChars = prev.players[p]?.characters ?? [];
       const curChars = snap.players[p]?.characters ?? [];
@@ -98,6 +104,13 @@ export function useFrameDiff(snap: StateSnapshot | null): FrameDiff {
       }
       for (const c of prevChars) {
         if (!curIids.has(c.instance_id)) leftCharas[p].push(c);
+      }
+      // trash 末尾 に 追加された card_id (= count 差分 を 末尾 から 取得)
+      const prevTrash = prev.players[p]?.trash ?? [];
+      const curTrash = snap.players[p]?.trash ?? [];
+      const addedN = curTrash.length - prevTrash.length;
+      if (addedN > 0) {
+        trashAdded[p] = curTrash.slice(prevTrash.length);
       }
     }
 
@@ -115,6 +128,7 @@ export function useFrameDiff(snap: StateSnapshot | null): FrameDiff {
       donDelta,
       enteredIids,
       leftCharas,
+      trashAdded,
       eventTickId: tickRef.current,
       shouldFieldFlash,
     });
@@ -219,6 +233,152 @@ export function LeftCharaGhostList({
             退場: {c.name}
           </motion.div>
         ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// PlayedCardOverlay: 手札 から 使用 された カード (= event / counter / 効果 discard) を
+// 中央 で 大型表示 → trash 方向 に slide-fade
+// --------------------------------------------------------------------------
+
+type PlayedCardItem = {
+  id: number;
+  cardId: string;
+  side: "me" | "opp";
+};
+
+/** trashAdded を 拾い、 leftCharas (= 場 KO 経由) を 除外、 残りを 中央 で 演出。
+ *
+ * side="me" は 下半分 中央 (= 自分側)、 side="opp" は 上半分 中央 (= 相手側)。
+ * 1.2 秒 で fade-out + 右端 (= trash 方向) へ slide。
+ */
+export function PlayedCardOverlay({
+  trashAddedMe,
+  trashAddedOpp,
+  leftCharasMe,
+  leftCharasOpp,
+  tickId,
+}: {
+  trashAddedMe: string[];
+  trashAddedOpp: string[];
+  leftCharasMe: CharSnapshot[];
+  leftCharasOpp: CharSnapshot[];
+  tickId: number;
+}) {
+  const [items, setItems] = useState<PlayedCardItem[]>([]);
+  const nextIdRef = useRef(0);
+
+  useEffect(() => {
+    // 場 から KO で trash に行った card_id を 除外 → 残り が 「手札からの使用」
+    function diff(added: string[], chars: CharSnapshot[]): string[] {
+      const charPool = chars.map((c) => c.card_id);
+      const result: string[] = [];
+      const used: number[] = [];
+      for (const cid of added) {
+        const idx = charPool.findIndex(
+          (x, i) => x === cid && !used.includes(i),
+        );
+        if (idx >= 0) {
+          used.push(idx);
+          continue;
+        }
+        result.push(cid);
+      }
+      return result;
+    }
+    const meHandPlays = diff(trashAddedMe, leftCharasMe);
+    const oppHandPlays = diff(trashAddedOpp, leftCharasOpp);
+    if (meHandPlays.length === 0 && oppHandPlays.length === 0) return;
+    const additions: PlayedCardItem[] = [
+      ...meHandPlays.map((cid) => ({
+        id: nextIdRef.current++,
+        cardId: cid,
+        side: "me" as const,
+      })),
+      ...oppHandPlays.map((cid) => ({
+        id: nextIdRef.current++,
+        cardId: cid,
+        side: "opp" as const,
+      })),
+    ];
+    setItems((prev) => [...prev, ...additions].slice(-6));
+    additions.forEach((it) => {
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== it.id));
+      }, 1400);
+    });
+    // tickId は useEffect 再発火用 (= 同 trashAdded[] 内容 でも tick が違えば 別 event)
+    void tickId;
+  }, [trashAddedMe, trashAddedOpp, leftCharasMe, leftCharasOpp, tickId]);
+
+  if (items.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40">
+      <AnimatePresence>
+        {items.map((it, idx) => {
+          // side 別 開始位置 (= 中央 上 or 下)
+          const startY = it.side === "me" ? "20%" : "-20%";
+          // 横並び 配置 (= 複数 同時 でも 重ならない)
+          const xOffset = (idx - items.length / 2) * 130;
+          return (
+            <motion.div
+              key={it.id}
+              initial={{
+                opacity: 0,
+                scale: 0.6,
+                x: 0,
+                y: startY,
+                rotate: 0,
+              }}
+              animate={{
+                opacity: [0, 1, 1, 0.85, 0],
+                scale: [0.6, 1.1, 1.0, 0.95, 0.75],
+                x: [0, xOffset, xOffset + 60, xOffset + 220, xOffset + 320],
+                y: [
+                  startY,
+                  "0%",
+                  "0%",
+                  "10%",
+                  "30%",
+                ],
+                rotate: [0, -3, 0, 4, 10],
+              }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{
+                duration: 1.4,
+                times: [0, 0.15, 0.55, 0.85, 1],
+              }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            >
+              <div
+                className={
+                  "rounded-lg shadow-2xl ring-4 " +
+                  (it.side === "me"
+                    ? "ring-emerald-400"
+                    : "ring-rose-400")
+                }
+              >
+                <CardImage
+                  cardId={it.cardId}
+                  alt={it.cardId}
+                  className="h-72 w-auto rounded-lg"
+                />
+              </div>
+              <div
+                className={
+                  "absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-bold text-white shadow " +
+                  (it.side === "me"
+                    ? "bg-emerald-600"
+                    : "bg-rose-600")
+                }
+              >
+                {it.side === "me" ? "YOU 使用" : "AI 使用"}
+              </div>
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );
