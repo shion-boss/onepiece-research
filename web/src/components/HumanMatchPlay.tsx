@@ -1664,9 +1664,16 @@ function CenterRow({
     : drag?.kind === "chara";
 
   function leaderDragOver(e: React.DragEvent) {
-    if (acceptOnLeader) e.preventDefault();
+    // counter drag は 自分側 leader 上 でも 受ける (= 自分側 mat 全体 で counter accept)
+    if (acceptOnLeader || (isMe && drag?.kind === "counter"))
+      e.preventDefault();
   }
   function leaderDrop(e: React.DragEvent) {
+    if (isMe && drag?.kind === "counter") {
+      e.preventDefault();
+      onDropTarget({ kind: "self_counter", handIdx: drag.handIdx });
+      return;
+    }
     if (!acceptOnLeader) return;
     e.preventDefault();
     onDropTarget(isMe ? { kind: "self_leader" } : { kind: "opp_leader" });
@@ -1883,9 +1890,17 @@ function CharacterRow({
                 opacity: { duration: 0.25 },
               }}
               onDragOver={(e) => {
-                if (acceptOnThis) e.preventDefault();
+                // counter drag は 自分側 mat 全体 で 受けたい → child でも preventDefault
+                if (acceptOnThis || (isMe && drag?.kind === "counter"))
+                  e.preventDefault();
               }}
               onDrop={(e) => {
+                if (isMe && drag?.kind === "counter") {
+                  // counter は self_counter として 自分側 mat 全体 で 受ける (= parent)
+                  e.preventDefault();
+                  onDropTarget({ kind: "self_counter", handIdx: drag.handIdx });
+                  return;
+                }
                 if (!acceptOnThis) return;
                 e.preventDefault();
                 onDropTarget(
