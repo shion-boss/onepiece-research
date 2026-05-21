@@ -325,7 +325,7 @@ export function PlayedCardOverlay({
     additions.forEach((it) => {
       setTimeout(() => {
         setItems((cur) => cur.filter((x) => x.id !== it.id));
-      }, 1600);
+      }, 1700);
     });
   }, [tickId]);
 
@@ -334,10 +334,10 @@ export function PlayedCardOverlay({
     <div className="pointer-events-none absolute inset-0 z-40">
       <AnimatePresence>
         {items.map((it, idx) => {
-          // 開始位置: 手札 方向 から 出現 (= 完全 画面外 から 飛び込む)
-          //   me (自分): 下 (= 画面 下端 から 上 へ)
-          //   opp (AI): 上 (= 画面 上端 から 下 へ)
-          const startY = it.side === "me" ? "120vh" : "-120vh";
+          // 開始位置: 手札 方向 から 出現
+          //   me (自分): 画面 下 から 上 へ
+          //   opp (AI): 画面 上 から 下 へ
+          const startY = it.side === "me" ? "85vh" : "-85vh";
           // 横並び 配置 (= 複数 同時 でも 重ならない)
           const xOffset = (idx - items.length / 2) * 130;
           return (
@@ -345,38 +345,23 @@ export function PlayedCardOverlay({
               key={it.id}
               initial={{
                 opacity: 0,
-                scale: 0.4,
+                scale: 0.55,
                 x: xOffset,
                 y: startY,
-                rotate: it.side === "me" ? 20 : -20,
+                rotate: 0,
               }}
               animate={{
-                // 経路: 手札位置 → 中央 到達 → 中央 停止 → 右 へ fade-out
-                // y は 一旦 中央 (= 0%) に来たら 戻らない (= 「出たり戻ったり」 防止)
-                opacity: [0, 1, 1, 1, 0.5, 0],
-                scale: [0.4, 0.95, 1.05, 1.0, 0.85, 0.6],
-                x: [
-                  xOffset,
-                  xOffset,
-                  xOffset,
-                  xOffset,
-                  xOffset + 160,
-                  xOffset + 360,
-                ],
-                y: [
-                  startY,
-                  it.side === "me" ? "20%" : "-20%",
-                  "0%",
-                  "0%",
-                  "0%",
-                  "0%",
-                ],
-                rotate: [it.side === "me" ? 20 : -20, 5, 0, 0, 6, 14],
+                // 単純 path: 手札位置 → 中央 (= 0.4s で 到達) → 中央 hold (= 0.9s) → fade out
+                opacity: [0, 1, 1, 0],
+                scale: [0.55, 1.0, 1.0, 0.92],
+                x: [xOffset, xOffset, xOffset, xOffset],
+                y: [startY, "0%", "0%", "0%"],
+                rotate: 0,
               }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{
-                duration: 1.6,
-                times: [0, 0.18, 0.35, 0.7, 0.88, 1],
+                duration: 1.7,
+                times: [0, 0.3, 0.85, 1],
                 ease: "easeOut",
               }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
