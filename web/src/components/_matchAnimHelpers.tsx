@@ -407,10 +407,15 @@ type DrawItem = { id: number; side: "me" | "opp"; delayIdx: number };
 export function DrawCardOverlay({
   handDeltaMe,
   handDeltaOpp,
+  lifeDeltaMe,
+  lifeDeltaOpp,
   tickId,
 }: {
   handDeltaMe: number;
   handDeltaOpp: number;
+  /** 同 frame で life-1 起きた → handDelta は 「ライフ→手札」 由来 で DrawOverlay 不適切。 */
+  lifeDeltaMe: number;
+  lifeDeltaOpp: number;
   tickId: number;
 }) {
   const [items, setItems] = useState<DrawItem[]>([]);
@@ -419,17 +424,24 @@ export function DrawCardOverlay({
   const lastFireAtRef = useRef(0);
   const meDeltaRef = useRef(handDeltaMe);
   const oppDeltaRef = useRef(handDeltaOpp);
+  const lifeMeRef = useRef(lifeDeltaMe);
+  const lifeOppRef = useRef(lifeDeltaOpp);
   meDeltaRef.current = handDeltaMe;
   oppDeltaRef.current = handDeltaOpp;
+  lifeMeRef.current = lifeDeltaMe;
+  lifeOppRef.current = lifeDeltaOpp;
 
   useEffect(() => {
     if (tickId === lastTickRef.current) return;
     lastTickRef.current = tickId;
-    const meN = Math.max(0, Math.min(meDeltaRef.current, 6));
-    const oppN = Math.max(0, Math.min(oppDeltaRef.current, 6));
+    // ライフ削り frame では handDelta は 「ライフ→手札」 由来 → DrawCardOverlay 不発
+    // (= デッキ → 手札 演出 は 公式 「ライフ trigger」 と 別物、 LifeFlash で 代替)。
+    const meLifeHit = lifeMeRef.current > 0;
+    const oppLifeHit = lifeOppRef.current > 0;
+    const meN = meLifeHit ? 0 : Math.max(0, Math.min(meDeltaRef.current, 6));
+    const oppN = oppLifeHit ? 0 : Math.max(0, Math.min(oppDeltaRef.current, 6));
     if (meN === 0 && oppN === 0) return;
-    // 連続 fire (= 「ライフ→hand と turn start draw が 同時発火」 ユーザ報告) を 阻止。
-    // 直前 fire から 1500ms 以内 の 再 fire は skip (= visual overlap 防止)。
+    // 連続 fire 阻止 cooldown (= visual overlap 防止)。
     const now = Date.now();
     if (now - lastFireAtRef.current < 1500) {
       return;

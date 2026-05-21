@@ -133,15 +133,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const isLifeHit = /life->hand|hit:|ライフ/.test(logLine);
       const isDraw = /draw:|ドロー/.test(logLine);
       const isMediumHeavy = /KO|登場|refresh:/.test(logLine);
+      const isEndPhase = /end_phase|ターン終了|GAME OVER/.test(logLine);
       let wait = perFrameMs;
-      // ライフ受け取り は DrawCardOverlay 0.85s + LifeFlash 0.8s + NEW 1.1s +
-      // 余裕 1.0s = 3500ms 確保 (= 「次自ターン ドロー と 重なる」 防止)
       if (isLifeHit) wait = Math.max(wait, 3500);
       if (isDraw) wait = Math.max(wait, 2000);
       if (isMediumHeavy) wait = Math.max(wait, 1800);
-      // turn 切替 frame (= 相手ターン終了 → 自ターン開始) は ライフ受け取り 完全 完了 を
-      // 待つ ため 余分 wait を 大きく
-      if (turnChanged) wait = Math.max(wait, 2800);
+      // 「相手ターン終了 早い」 報告 対応: end_phase / turn 切替 frame で 余分 wait
+      if (isEndPhase) wait = Math.max(wait, 3000);
+      if (turnChanged) wait = Math.max(wait, 4000);
       prevTurn = curTurn;
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
@@ -883,10 +882,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         tickId={frameDiff.eventTickId}
       />
 
-      {/* ドロー 演出 (= デッキ位置 → 手札方向 へ 裏面カード slide) */}
+      {/* ドロー 演出 (= デッキ位置 → 手札方向 へ 裏面カード slide)。
+          ライフ削り frame では DrawCardOverlay 抑制 (= ライフ→手札 と デッキ→手札 が
+          別 意味、 LifeFlash で 代替) */}
       <DrawCardOverlay
         handDeltaMe={frameDiff.handDelta[state.human_idx]}
         handDeltaOpp={frameDiff.handDelta[state.ai_idx]}
+        lifeDeltaMe={frameDiff.lifeDelta[state.human_idx]}
+        lifeDeltaOpp={frameDiff.lifeDelta[state.ai_idx]}
         tickId={frameDiff.eventTickId}
       />
 
