@@ -1431,50 +1431,58 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 state.push_log(f"  ダブルアタック: 2 ダメージ")
             for _ in range(damage):
                 if not opp.life:
-                    # 攻撃中にライフが尽きた → 残りダメージは空打ち (Q36)。敗北は宣言しない
                     state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
                     break
                 taken = opp.life.pop(0)
                 if is_banish:
-                    # 【バニッシュ】: トリガー発動せずトラッシュへ (10-1-3-1)
                     opp.trash.append(taken)
                     state.push_log(
                         f"  hit: {opp.name} BANISH life->trash ({taken.name})"
                     )
                     continue
-                fired = False
-                kept_in_hand = False
-                if state.effects_overlay:
-                    from .effects import trigger_lifecard_trigger, should_fire_trigger
-                    # 公式 10-1-5: 防御側プレイヤーが発動するか選択
-                    auto_fire = should_fire_trigger(state, opp, taken, state.effects_overlay)
-                    state.last_trigger_kept_in_hand = False  # reset before
-                    fired = trigger_lifecard_trigger(
-                        state, opp, me, taken, state.effects_overlay,
-                        auto_fire=auto_fire,
+                # 防御側 が 人間 + trigger 有無 を 確認 する 場合 は user 選択 待ち で 中断
+                opp_idx = state.players.index(opp)
+                is_human_defender = (
+                    state.human_player_idx is not None
+                    and opp_idx == state.human_player_idx
+                )
+                has_trigger = bool(
+                    state.effects_overlay
+                    and state.effects_overlay.get(taken.card_id)
+                    and any(
+                        e.get("when") == "trigger"
+                        for e in state.effects_overlay[taken.card_id].effects
                     )
-                    kept_in_hand = state.last_trigger_kept_in_hand
-                    state.last_trigger_kept_in_hand = False  # reset after
-                if fired and not kept_in_hand:
-                    opp.trash.append(taken)
-                    state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
-                    went_to_hand = False
-                elif fired and kept_in_hand:
-                    # ST09-002 雨月天ぷら等: トリガー効果で「このカードを手札に加える」
-                    opp.hand.append(taken)
-                    state.push_log(f"  hit: {opp.name} trigger->hand ({taken.name})")
-                    went_to_hand = True
-                else:
-                    opp.hand.append(taken)
-                    state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
-                    went_to_hand = True
-                # 公式 10-1-5 直後: 「相手のライフが離れた時」 / 「自分のライフが (手札に加わった | トラッシュに置かれた) 時」
-                # OP08-105 ジュエリー・ボニー / OP05-107 スペーシー中尉 等
-                if state.effects_overlay:
-                    from .effects import trigger_on_opp_life_taken
-                    trigger_on_opp_life_taken(
-                        state, me, opp, went_to_hand, state.effects_overlay,
+                )
+                if is_human_defender:
+                    # 残 damage 計算 (= 既 消化 + 残)
+                    consumed = (damage - len(opp.life) + (
+                        0 if opp.life else 0
+                    ))
+                    state.pending_attack_hits = {
+                        "attacker_iid": attacker.instance_id,
+                        "target_kind": "leader",
+                        "defender_idx": opp_idx,
+                        "remaining_damage": 0,  # 後段 残 hit は loop で 処理
+                        "is_banish": is_banish,
+                        "taken_card_id": taken.card_id,
+                    }
+                    # taken を 一旦 life の 0 番目 に 戻す (= resolve で 再 pop)
+                    opp.life.insert(0, taken)
+                    state.pending_choice = {
+                        "kind": "life_taken_choice",
+                        "card_id": taken.card_id,
+                        "name": taken.name,
+                        "has_trigger": has_trigger,
+                    }
+                    state.push_log(
+                        f"  hit: {opp.name} ライフ受け取り 確認 待ち ({taken.name})"
                     )
+                    # consumed 未使用 (= 構造 簡略)
+                    _ = consumed
+                    return
+                # AI defender: 旧挙動
+                _resolve_life_taken(state, me, opp, taken)
         else:
             state.push_log("  blocked")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
@@ -1659,6 +1667,74 @@ def _spend_counters(p: Player, idxs: tuple[int, ...]) -> int:
             p.trash.append(card)
             total += card.counter
     return total
+
+
+def _resolve_life_taken(
+    state: GameState,
+    me: "Player",
+    opp: "Player",
+    taken: "CardDef",
+    use_trigger: Optional[bool] = None,
+) -> None:
+    """1 hit 分 の life→hand / trigger 処理。
+
+    use_trigger:
+        None: 旧挙動 (= should_fire_trigger で AI 判定)
+        True: user 「使う」 → fire
+        False: user 「使わない」 → 手札 add のみ
+    """
+    fired = False
+    kept_in_hand = False
+    if state.effects_overlay:
+        from .effects import trigger_lifecard_trigger, should_fire_trigger
+        if use_trigger is None:
+            auto_fire = should_fire_trigger(state, opp, taken, state.effects_overlay)
+        else:
+            auto_fire = use_trigger
+        state.last_trigger_kept_in_hand = False
+        fired = trigger_lifecard_trigger(
+            state, opp, me, taken, state.effects_overlay,
+            auto_fire=auto_fire,
+        )
+        kept_in_hand = state.last_trigger_kept_in_hand
+        state.last_trigger_kept_in_hand = False
+    went_to_hand: bool
+    if fired and not kept_in_hand:
+        opp.trash.append(taken)
+        state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
+        went_to_hand = False
+    elif fired and kept_in_hand:
+        opp.hand.append(taken)
+        state.push_log(f"  hit: {opp.name} trigger->hand ({taken.name})")
+        went_to_hand = True
+    else:
+        opp.hand.append(taken)
+        state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
+        went_to_hand = True
+    if state.effects_overlay:
+        from .effects import trigger_on_opp_life_taken
+        trigger_on_opp_life_taken(
+            state, me, opp, went_to_hand, state.effects_overlay,
+        )
+
+
+def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
+    """pending_attack_hits 状態 から user 選択 を 反映 して 1 hit 解決。
+
+    use_trigger: True = trigger 使う、 False = 使わない (= 手札 add のみ)。
+    """
+    pa = state.pending_attack_hits
+    if pa is None:
+        return
+    defender_idx = pa["defender_idx"]
+    opp = state.players[defender_idx]
+    me = state.players[1 - defender_idx]
+    if not opp.life:
+        state.pending_attack_hits = None
+        return
+    taken = opp.life.pop(0)
+    state.pending_attack_hits = None
+    _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger)
 
 
 def _fire_counter_events(

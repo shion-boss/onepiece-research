@@ -623,6 +623,10 @@ class GameState:
     # AI だが、 effect の actor は defender=human。 この時 human pick を 有効化 する。
     # int = human_idx で set、 None = 通常。
     forced_human_actor_idx: Optional[int] = None
+    # ライフ受け取り 確認 中断 状態 (= attack hit 中 で user 確認 待ち)。
+    # {"attacker_iid", "target_kind", "target_iid", "remaining_damage",
+    #  "is_banish", "defender_idx", "taken_card": CardDef, "post_hit_triggers": bool}
+    pending_attack_hits: Optional[dict] = None
     # 直近の「自分の手札からカードが捨てられた」 イベントの context (OP12-040 クザン等)。
     # trigger_on_self_hand_discarded で一時的に保存され、 eval_condition で参照される。
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。

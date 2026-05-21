@@ -4294,6 +4294,13 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
         return
 
+    if kind == "life_taken_choice":
+        from .game import resume_pending_attack_hit
+        use_trigger = bool(picks and picks[0] == 1)
+        state.pending_choice = None
+        resume_pending_attack_hit(state, use_trigger)
+        return
+
     if kind == "option_pick":
         # picks[0] が -1 なら skip (= optional 効果 不発)、 それ以外は options の idx
         full_options = choice.get("_full_options", []) or []

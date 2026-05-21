@@ -1070,6 +1070,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "life_taken_choice" ? (
+          <LifeTakenChoiceModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : (
           <SearchChoiceModal
             payload={state.pending_payload}
@@ -2914,6 +2920,84 @@ function TargetPickModal({
           >
             確定 ({picked.length}枚)
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// LifeTakenChoiceModal: ライフ受け取り 確認 (= trigger 使う/使わない or OK)
+// ========================================================================== //
+
+function LifeTakenChoiceModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const cardId = String(payload.card_id ?? "");
+  const name = String(payload.name ?? cardId);
+  const hasTrigger = !!payload.has_trigger;
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-orange-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-3 text-lg font-bold text-orange-200">
+          ライフ 受け取り: {name}
+        </h3>
+        <div className="flex justify-center">
+          <CardImage
+            cardId={cardId}
+            alt={name}
+            className="h-96 w-auto rounded shadow-2xl ring-4 ring-orange-300"
+          />
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          {hasTrigger ? (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSubmit([0]);
+                }}
+                disabled={busy}
+                className="flex-1 rounded bg-zinc-700 px-4 py-3 text-sm font-bold text-white hover:bg-zinc-600 disabled:opacity-50"
+              >
+                使わない (= 手札 へ)
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSubmit([1]);
+                }}
+                disabled={busy}
+                className="flex-1 rounded bg-orange-500 px-4 py-3 text-base font-bold text-white shadow hover:bg-orange-400 disabled:opacity-50"
+              >
+                トリガー 使う
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmit([0]);
+              }}
+              disabled={busy}
+              className="ml-auto rounded bg-orange-500 px-6 py-3 text-base font-bold text-white shadow hover:bg-orange-400 disabled:opacity-50"
+            >
+              OK (= 手札 に 加える)
+            </button>
+          )}
         </div>
       </div>
     </div>
