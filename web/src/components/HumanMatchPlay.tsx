@@ -507,7 +507,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         return "ドン付与";
       case "AttackLeader":
       case "AttackCharacter":
-        return "⚔ Attack";
+        return "Attack";
       case "ActivateMain":
         return "起動メイン";
       default:
@@ -532,7 +532,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       (a) => a.kind === "AttackLeader" || a.kind === "AttackCharacter",
     );
     if (attack) {
-      result.push({ action: attack, label: "⚔ Attack", mode: "attack" });
+      result.push({ action: attack, label: "Attack", mode: "attack" });
       seenKinds.add("Attack");
     }
     for (const a of acts) {
@@ -679,7 +679,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         }}
         className="absolute top-2 right-2 z-40 rounded-lg border border-rose-400 bg-rose-700/90 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur hover:bg-rose-600"
       >
-        ✕ 対戦終了
+        対戦終了
       </button>
 
       {error && (
@@ -942,7 +942,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
               }
             >
               {state.winner === state.human_idx
-                ? "🎉 YOU WIN"
+                ? "YOU WIN"
                 : state.winner === state.ai_idx
                   ? "YOU LOSE"
                   : "DRAW"}
@@ -1128,7 +1128,7 @@ function StartPanel({
             disabled={busy || !deckA || !deckB}
             className="self-end rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {busy ? "開始中..." : "▶ 対戦開始"}
+            {busy ? "開始中..." : "対戦開始"}
           </button>
         </div>
         {error && (
@@ -2212,7 +2212,7 @@ function RightPanel({
 }) {
   const turnLabel = gameOver
     ? winner === humanIdx
-      ? "🎉 WIN"
+      ? "WIN"
       : winner === aiIdx
         ? "LOSE"
         : "DRAW"
@@ -2272,7 +2272,7 @@ function RightPanel({
             }
           >
             {winner === humanIdx
-              ? "🎉 WIN"
+              ? "WIN"
               : winner === aiIdx
                 ? "LOSE"
                 : "DRAW"}
@@ -2303,7 +2303,7 @@ function RightPanel({
         )}
         {canAct && selection?.kind === "attack_pending" && (
           <div className="rounded bg-orange-700 p-3 text-center text-sm text-white">
-            ⚔ 攻撃中
+            攻撃中
             <div className="mt-1 text-xs">対象 click / Esc キャンセル</div>
           </div>
         )}
@@ -2377,12 +2377,12 @@ function ActionButtonGrid({
   } else if (selection.kind === "self_leader") {
     groups = [
       { kinds: ["AttachDonToLeader"], label: "ドン付与" },
-      { kinds: ["AttackLeader", "AttackCharacter"], label: "⚔ Attack" },
+      { kinds: ["AttackLeader", "AttackCharacter"], label: "Attack" },
     ];
   } else if (selection.kind === "self_chara") {
     groups = [
       { kinds: ["AttachDonToCharacter"], label: "ドン付与" },
-      { kinds: ["AttackLeader", "AttackCharacter"], label: "⚔ Attack" },
+      { kinds: ["AttackLeader", "AttackCharacter"], label: "Attack" },
       { kinds: ["ActivateMain"], label: "起動メイン" },
     ];
   } else {
@@ -3161,7 +3161,7 @@ function TrashViewer({
             onClick={onClose}
             className="ml-auto rounded border border-zinc-500 px-3 py-1 text-sm text-white hover:bg-zinc-700"
           >
-            ✕ 閉じる
+            閉じる
           </button>
         </div>
         {cards.length === 0 ? (
@@ -3236,7 +3236,7 @@ function DefensePanel({
   return (
     <div className="flex flex-col gap-2 rounded border-2 border-amber-400 bg-amber-950/70 p-3">
       <div className="text-sm font-bold text-amber-200">
-        ⚠ {isLeaderAttack ? "リーダー" : "キャラ"} 防御
+        {isLeaderAttack ? "リーダー" : "キャラ"} 防御
       </div>
       <div className="flex items-center justify-between text-sm text-amber-100">
         <span>相手 攻撃 P</span>
@@ -3332,7 +3332,7 @@ function DefenseOverlay({
       className="absolute inset-x-4 bottom-4 z-50 rounded-lg border-2 border-amber-400 bg-amber-950/95 p-3 shadow-xl backdrop-blur"
     >
       <div className="mb-2 text-base font-bold text-amber-200">
-        ⚠ 相手が {isLeaderAttack ? "リーダー" : "キャラ"} を攻撃中 — 防御
+        相手が {isLeaderAttack ? "リーダー" : "キャラ"} を攻撃中 — 防御
       </div>
       <div className="flex gap-4">
         <div>
