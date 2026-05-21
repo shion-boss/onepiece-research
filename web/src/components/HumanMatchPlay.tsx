@@ -1672,8 +1672,8 @@ function CenterRow({
     onDropTarget(isMe ? { kind: "self_leader" } : { kind: "opp_leader" });
   }
   return (
-    <div className="flex shrink-0 items-center justify-between px-2 py-1">
-      {/* リーダー + ステージ を 左寄せ で 横 ゆとり 大きく */}
+    <div className="relative flex shrink-0 items-center justify-center px-2 py-1">
+      {/* リーダー + ステージ を 中央 配置、 横 ゆとり 大きく */}
       <div className="flex items-center gap-8">
         <div
           data-iid={player.leader.instance_id}
@@ -1718,8 +1718,8 @@ function CenterRow({
           )}
         </div>
       </div>
-      {/* DECK + TRASH を 右端 寄せ */}
-      <div className="flex items-center gap-2">
+      {/* DECK + TRASH を 右端 absolute 寄せ (= Leader/Stage 中央 配置 を 妨げない) */}
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-2">
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xs font-semibold text-zinc-300">DECK</div>
         <div className="relative" data-deck-side={isMe ? "me" : "opp"}>
