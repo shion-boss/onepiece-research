@@ -523,6 +523,22 @@ def eval_condition(
             count = sum(1 for c in me.characters if _ip_matches(c))
             if count < need:
                 return False
+        elif k == "opp_chara_filtered_count_ge" and opp is not None:
+            # 相手場の キャラ で filter にマッチ する 数 N 以上 (= 「相手のコスト0のキャラがいる場合」 等)。
+            # spec: {"filter": {...}, "count": N}
+            spec = v if isinstance(v, dict) else {}
+            filt = spec.get("filter", {})
+            need = int(spec.get("count", 1))
+            count = sum(1 for c in opp.characters if _matches_filter(c.card, filt))
+            if count < need:
+                return False
+        elif k == "self_trash_has_named_all":
+            # 自分のトラッシュに 指定 名 すべて が ある (= AND)
+            # OP08-006 「自分のトラッシュに「クロマーリモ」と「チェス」がある場合」 等
+            names = v if isinstance(v, list) else [v]
+            for name in names:
+                if not any(c.name == name for c in me.trash):
+                    return False
         elif k == "self_hand_count_le":
             if len(me.hand) > int(v):
                 return False
@@ -4517,6 +4533,8 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     if "power_le" in filt and card.power > int(filt["power_le"]):
         return False
     if "power_ge" in filt and card.power < int(filt["power_ge"]):
+        return False
+    if "power_eq" in filt and card.power != int(filt["power_eq"]):
         return False
     if "feature" in filt and filt["feature"] not in card.features:
         return False

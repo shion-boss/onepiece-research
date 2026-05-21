@@ -84666,7 +84666,32 @@
     }
   ],
   "OP14-032": [],
-  "OP14-034": [],
+  "OP14-034": [
+    {
+      "_text": "[auto] 自ターン中、 自緑特徴《麦わらの一味》コスト4以上 キャラすべて パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "cost_ge": 4,
+                "color": "緑",
+                "feature": "麦わらの一味"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP14-035": [],
   "OP14-053": [],
   "OP14-070": [],
@@ -85253,7 +85278,29 @@
       ]
     }
   ],
-  "OP08-006": [],
+  "OP08-006": [
+    {
+      "_text": "[auto] 自ターン中 + 自トラッシュに「クロマーリモ」「チェス」、 このキャラ パワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_trash_has_named_all": [
+          "クロマーリモ",
+          "チェス"
+        ]
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP08-020": [
     {
       "_text": "[auto] 【相手のターン中】 {'type': 'all_self_chara_filtered', 'filter': {'feature': 'ドラム王国'}} パワー+1000",
@@ -85445,7 +85492,31 @@
   "OP07-033": [],
   "OP07-042": [],
   "OP07-069": [],
-  "OP07-087": [],
+  "OP07-087": [
+    {
+      "_text": "[auto] 自ターン中 + 相手コスト0キャラあり、 このキャラ パワー+3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "opp_chara_filtered_count_ge": {
+          "filter": {
+            "cost_eq": 0
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-074_p3": [
     {
       "when": "leader_passive",
@@ -85751,7 +85822,26 @@
       ]
     }
   ],
-  "OP05-084": [],
+  "OP05-084": [
+    {
+      "_text": "[auto] 自ターン中 + 自場《天竜人》のみ、 相手キャラすべてをコスト-4",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_chara_only_feature": "天竜人"
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -4,
+            "scope": "opp"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-086": [
     {
       "_text": "OP05-086 自分のトラッシュが10枚以上ある場合、このキャラは【ブロッカー】を得る。",
@@ -85770,7 +85860,26 @@
       ]
     }
   ],
-  "OP05-092": [],
+  "OP05-092": [
+    {
+      "_text": "[auto] 自ターン中 + 自場《天竜人》のみ、 相手キャラすべてをコスト-6",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_chara_only_feature": "天竜人"
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -6,
+            "scope": "opp"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-097": [
     {
       "_text": "OP05-097 on_attached_don (パターン未一致): 【自分のターン中】自分が手札から登場させるコスト2以上の特徴《天竜人》を持つキャラカードの支払うコストは1少なくなる。",
@@ -85890,7 +85999,30 @@
       ]
     }
   ],
-  "OP04-012": [],
+  "OP04-012": [
+    {
+      "_text": "[auto] 自ターン中、 自特徴《アラバスタ王国》キャラすべて パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "アラバスタ王国"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP04-014": [],
   "OP04-047": [],
   "OP04-096": [],
@@ -85974,7 +86106,38 @@
       ]
     }
   ],
-  "OP02-024": [],
+  "OP02-024": [
+    {
+      "_text": "[auto] 自ターン中 + 自ライフ1以下、 名「エドワード・ニューゲート」or特徴『白ひげ海賊団』含むキャラ パワー+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "or": [
+                  {
+                    "name": "エドワード・ニューゲート"
+                  },
+                  {
+                    "feature_contains": "白ひげ海賊団"
+                  }
+                ]
+              }
+            },
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP02-027": [],
   "OP02-031": [
     {
@@ -86148,8 +86311,54 @@
   "OP01-099": [],
   "OP01-121": [],
   "OP01-121_p1": [],
-  "ST30-003": [],
-  "ST30-003_p1": [],
+  "ST30-003": [
+    {
+      "_text": "[auto] 自ターン中、 自元パワー6000キャラすべて パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "power_eq": 6000
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "ST30-003_p1": [
+    {
+      "_text": "[auto] 自ターン中、 自元パワー6000キャラすべて パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "power_eq": 6000
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "ST30-009": [
     {
       "_text": "元々パワー6000の自キャラが相手効果で場離脱時、 代わりにトラッシュ + draw 1",
@@ -86636,8 +86845,56 @@
   "P-028_p2": [],
   "P-040": [],
   "P-045": [],
-  "P-066": [],
-  "P-066_p1": [],
+  "P-066": [
+    {
+      "_text": "[auto] 自ターン中 + 自手札5以下、 自特徴《九蛇海賊団》キャラすべて パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_hand_count_le": 5
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "九蛇海賊団"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
+  "P-066_p1": [
+    {
+      "_text": "[auto] 自ターン中 + 自手札5以下、 自特徴《九蛇海賊団》キャラすべて パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_hand_count_le": 5
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "九蛇海賊団"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "P-067": [],
   "P-077": [
     {
