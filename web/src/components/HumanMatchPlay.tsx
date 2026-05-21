@@ -2148,7 +2148,7 @@ function SearchChoiceModal({
             選択 {picked.length} / {limit}
           </span>
         </div>
-        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto pr-2">
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
           {cards.map((c) => {
             const allowed = c.matches_filter;
             const isSelected = picked.includes(c.idx);
@@ -2271,7 +2271,7 @@ function TargetPickModal({
             選択 {picked.length} / {limit}
           </span>
         </div>
-        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto pr-2">
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
           {candidates.map((c, idx) => {
             const isSelected = picked.includes(idx);
             const ownerColor = c.owner === "opp" ? "rose" : "emerald";
@@ -2398,7 +2398,7 @@ function ScryLifeReorderModal({
             選択 {order.length} / {cards.length}
           </span>
         </div>
-        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto pr-2">
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
           {cards.map((c, idx) => {
             const rank = orderRank[idx];
             const isPicked = rank !== undefined;
@@ -2605,7 +2605,7 @@ function TrashViewer({
             トラッシュは空です
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto pr-2">
+          <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
             {/* 新しい順 (= 最新が先頭) */}
             {[...cards].reverse().map((cardId, i) => (
               <div
