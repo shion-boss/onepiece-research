@@ -9250,7 +9250,13 @@
         {
           "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "FILM",
+          "麦わらの一味"
+        ]
+      }
     }
   ],
   "OP14-022": [
@@ -9261,7 +9267,13 @@
         {
           "untap_don": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "FILM",
+          "麦わらの一味"
+        ]
+      }
     }
   ],
   "OP12-099": [
@@ -30588,7 +30600,13 @@
         {
           "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_features_any": [
+          "FILM",
+          "麦わらの一味"
+        ]
+      }
     }
   ],
   "OP13-042_p1": [
@@ -65099,7 +65117,10 @@
             "keyword": "ブロッカー"
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "W7"
+      }
     }
   ],
   "OP04-060": [
@@ -69974,7 +69995,10 @@
         {
           "ko_all_others": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "百獣海賊団"
+      }
     }
   ],
   "OP01-094_p1": [
@@ -69993,7 +70017,10 @@
         {
           "ko_all_others": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "百獣海賊団"
+      }
     }
   ],
   "OP01-097": [
@@ -77508,7 +77535,10 @@
         {
           "ko_all_others": true
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "百獣海賊団"
+      }
     }
   ],
   "OP01-114_p1": [
@@ -83202,7 +83232,10 @@
         {
           "set_ko_immune": "self"
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      }
     }
   ],
   "OP09-086_r2": [
@@ -83214,7 +83247,10 @@
         {
           "set_ko_immune": "self"
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      }
     }
   ],
   "OP10-108_p1": [
@@ -83739,7 +83775,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "leader_feature": "ドレスローザ"
       },
       "do": [
         {
@@ -84369,7 +84406,10 @@
         {
           "set_ko_immune": "self"
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      }
     }
   ],
   "OP09-118": [
@@ -85267,7 +85307,10 @@
         {
           "set_ko_immune": "self"
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      }
     }
   ],
   "OP05-066_r2": [],

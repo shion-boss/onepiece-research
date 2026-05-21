@@ -150,22 +150,6 @@
     "rendered": "【起動メイン】[ターン1回]任意で支払い、  (任意)"
   },
   {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "FILM/麦わらの一味",
-    "severity": 3,
-    "card_id": "OP13-027",
-    "text": "【登場時】自分のドン‼2枚までを、アクティブにする。【自分のターン終了時】自分のリーダーが特徴《FILM》か《麦わらの一味》を持つ場合、自分のドン‼1枚までを、アクティブにする。",
-    "rendered": "【登場時】自分のドン!!2枚をアクティブに\n【ターン終了時】自分のドン!!1枚をアクティブに"
-  },
-  {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "FILM/麦わらの一味",
-    "severity": 3,
-    "card_id": "OP14-022",
-    "text": "【自分のターン終了時】自分のリーダーが特徴《FILM》か《麦わらの一味》を持つ場合、自分のドン‼2枚までを、アクティブにする。",
-    "rendered": "【ターン終了時】自分のドン!!2枚をアクティブに"
-  },
-  {
     "kind": "missing_if_opp_turn",
     "severity": 2,
     "card_id": "OP15-071",
@@ -547,14 +531,6 @@
     "card_id": "OP14-061_p1",
     "text": "【ターン1回】自分の特徴《ドンキホーテ海賊団》を持つキャラが相手の効果で場を離れる場合、代わりに自分の場のドン‼1枚をドン‼デッキに戻すことができる。【アタック時】ドン‼-1：相手のキャラ1枚までを、このターン中、パワー-2000。",
     "rendered": "【KO置換】[target=other_self_chara]かつ[target_feature=ドンキホーテ海賊団]かつ[by_opp_effect=True]、 自分のドン!!1枚をドン!!デッキに戻す\n【アタック時】[ドン-1]相手のパワー5000以下のキャラ1枚をこのターン中、 パワー-2000"
-  },
-  {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "FILM/麦わらの一味",
-    "severity": 3,
-    "card_id": "OP13-027_p1",
-    "text": "【登場時】自分のドン‼2枚までを、アクティブにする。【自分のターン終了時】自分のリーダーが特徴《FILM》か《麦わらの一味》を持つ場合、自分のドン‼1枚までを、アクティブにする。",
-    "rendered": "【登場時】自分のドン!!2枚をアクティブに\n【ターン終了時】自分のドン!!1枚をアクティブに"
   },
   {
     "kind": "fake_power_5000_limit",
@@ -1194,22 +1170,6 @@
     "rendered": ""
   },
   {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "黒ひげ海賊団",
-    "severity": 3,
-    "card_id": "OP09-086_p1",
-    "text": "このキャラは相手の効果でKOされない。自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、自分のトラッシュ4枚につき、パワー+1000。",
-    "rendered": "【ドン!!0枚以上付与時】[set_ko_immune: self]"
-  },
-  {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "黒ひげ海賊団",
-    "severity": 3,
-    "card_id": "OP09-086_r2",
-    "text": "このキャラは相手の効果でKOされない。自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、自分のトラッシュ4枚につき、パワー+1000。",
-    "rendered": "【ドン!!0枚以上付与時】[set_ko_immune: self]"
-  },
-  {
     "kind": "empty_overlay_with_text",
     "severity": 5,
     "card_id": "ST16-005_p1",
@@ -1790,14 +1750,6 @@
     "rendered": ""
   },
   {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "黒ひげ海賊団",
-    "severity": 3,
-    "card_id": "OP09-086",
-    "text": "このキャラは相手の効果でKOされない。自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、自分のトラッシュ4枚につき、パワー+1000。",
-    "rendered": "【ドン!!0枚以上付与時】[set_ko_immune: self]"
-  },
-  {
     "kind": "empty_overlay_with_text",
     "severity": 5,
     "card_id": "OP08-006",
@@ -2190,14 +2142,6 @@
     "card_id": "ST29-008_p1",
     "text": "自分の特徴《エッグヘッド》を持つキャラが相手の効果でKOされる場合、代わりに自分のライフの上から1枚を表向きにできる。",
     "rendered": ""
-  },
-  {
-    "kind": "missing_if_leader_feature",
-    "expected_feature": "黒ひげ海賊団",
-    "severity": 3,
-    "card_id": "OP09-086_r1",
-    "text": "このキャラは相手の効果でKOされない。自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、自分のトラッシュ4枚につき、パワー+1000。",
-    "rendered": "【ドン!!0枚以上付与時】[set_ko_immune: self]"
   },
   {
     "kind": "empty_overlay_with_text",
