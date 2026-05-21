@@ -1573,8 +1573,9 @@ def execute_effect(
             rest_remain = spec_val.get("rest_remain", "bottom")
             if not me.deck:
                 return False
-            # 人間 プレイヤー が 操作中 で、 該当 候補 が 複数 ある場合 は
-            # interactive 選択 を 要求 (= pending_choice 設定 して chain halt)
+            # 人間 プレイヤー が 操作中 なら、 該当 候補 が 1 枚以上 ある or depth>=2 で 確認余地
+            # ある場合 は interactive 選択 を 要求 (= pending_choice 設定 して chain halt)。
+            # 公式 「上から N 枚 見る」 を 人間 視認 で 行う UX。
             is_human_acting = (
                 state.human_player_idx is not None
                 and state.turn_player_idx == state.human_player_idx
@@ -1584,7 +1585,13 @@ def execute_effect(
                 i for i, c in enumerate(seen_preview)
                 if _matches_filter(c, filt)
             ]
-            if is_human_acting and len(matching) > limit:
+            # interactive 条件:
+            # - 人間 ターン中
+            # - 該当 候補 ≥ 1 (= 「選ばない (= skip)」 含めて 人間 が 判断 する 余地 あり)
+            # - 「全該当 を 必ず 取らされる」 ケース (= matching == limit && depth==matching)
+            #   は 自動 で 良い が、 「seen に matching 以外 が 混じる (= 公開情報 知れる)」
+            #   なら 人間 確認価値 あり → 条件 緩和
+            if is_human_acting and len(matching) >= 1:
                 # 候補 多数 → 人間 に 選ばせる
                 state.pending_choice = {
                     "kind": "search_top_n",
