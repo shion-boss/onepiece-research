@@ -635,27 +635,33 @@ export function TurnBannerOverlay({
   turnPlayerIdx,
   humanIdx,
   hasMulliganPending,
+  pendingKind,
 }: {
   turnPlayerIdx: number;
   humanIdx: number;
   /** マリガン modal 中 は banner fire しない (= ターン 概念前) */
   hasMulliganPending?: boolean;
+  /** "action" (= 自分 操作可能) で fire 確定。 中間 frame で 早期 fire 防止。 */
+  pendingKind?: string | null;
 }) {
   const [showItem, setShowItem] = useState<{
     id: number;
     label: string;
     color: "self" | "opp";
   } | null>(null);
-  // 初回 mount 時 は -1 (= invalid)、 マリガン 完了 後 の 初回 turn 検出 で fire
+  // 初回 mount 時 は -1 (= invalid)、 自ターン確定 (= pending=action) で 初回 fire
   const prevTurnRef = useRef<number>(-1);
   const idRef = useRef(0);
 
   useEffect(() => {
-    // マリガン pending 中 は ターン 概念前 → banner 出さない
     if (hasMulliganPending) return;
+    // 自分 ターン banner: pending=action (= 自分 操作可能) 確定 後 でないと fire しない
+    //   AI 中間 frame で turn 切替 が visible でも、 まだ AI action 続行中 の 場合 あり。
+    //   pending=action で 真の 自ターン MAIN 開始 を 確認 してから 表示。
+    const isMe = turnPlayerIdx === humanIdx;
+    if (isMe && pendingKind !== "action") return;
     if (prevTurnRef.current === turnPlayerIdx) return;
     prevTurnRef.current = turnPlayerIdx;
-    const isMe = turnPlayerIdx === humanIdx;
     const id = idRef.current++;
     setShowItem({
       id,
@@ -666,7 +672,7 @@ export function TurnBannerOverlay({
       setShowItem((cur) => (cur?.id === id ? null : cur));
     }, 1500);
     return () => clearTimeout(t);
-  }, [turnPlayerIdx, humanIdx, hasMulliganPending]);
+  }, [turnPlayerIdx, humanIdx, hasMulliganPending, pendingKind]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[58] flex items-center justify-center">

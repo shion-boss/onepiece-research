@@ -993,6 +993,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           isChoicePending &&
           state.pending_payload?.kind === "mulligan_confirm"
         }
+        pendingKind={state.pending_kind}
       />
 
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
