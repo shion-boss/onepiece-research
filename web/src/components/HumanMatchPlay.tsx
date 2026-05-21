@@ -101,6 +101,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       setState(final);
       return;
     }
+    // 各 frame で snapshot (= board) は 中間状態 を 表示 する が、
+    // log は 累積 で 表示 する (= 「相手ターン中 log が 1 行 しか 出ない」 修正)。
+    // frame.log は その時点 の 1 行 のみ なので、 final.log (= 全行) を 使う。
     for (let i = 0; i < frames.length - 1; i++) {
       const f = frames[i];
       setState({
@@ -108,7 +111,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         snapshot: f,
         legal_actions: [],
         pending_kind: null,
-        log: typeof f.log === "string" ? [String(f.log)] : final.log,
+        log: final.log,
       });
       await new Promise((resolve) => setTimeout(resolve, perFrameMs));
     }
