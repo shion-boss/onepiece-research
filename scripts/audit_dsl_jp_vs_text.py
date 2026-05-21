@@ -91,7 +91,8 @@ def check_concept_missing(text: str, rendered: str, entries: list, cid: str) -> 
     # KO: 公式 "KOする" が in text, overlay に ko primitive なし
     if ("KOする" in norm_text or "ＫＯする" in norm_text):
         ko_keys = ('"ko"', "ko_multi", "ko_all_others", "ko_opp_stage", "chara_to_opp_life",
-                   "chara_to_self_life", "replace_ko")
+                   "chara_to_self_life", "replace_ko",
+                   "optional_after_battle_mutual_ko", "optional_battle_ko_with_self_ko")
         if "KOする" not in norm_over and not any(k in flat_entries for k in ko_keys):
             issues.append({"kind": "missing_ko_concept", "severity": 5})
     # 「手札に戻す」
@@ -234,9 +235,21 @@ def check_optional_marker(text: str, entries: list, cid: str) -> list[dict]:
 
 
 def check_simplified_marker(text: str, entries: list, cid: str) -> list[dict]:
-    """overlay 内に _unimplemented / 「簡略」 / 「近似」 / 「省略」 マーカーが残っているか。"""
+    """overlay 内に _unimplemented / 「簡略」 / 「近似」 / 「省略」 マーカーが残っているか。
+
+    metadata field (= `_approx_note` / `_note` 等) は 検査対象外 (= 既知の 制約を
+    明示するための 文書 フィールドであり、 効果本体の 簡略マーカー では ない)。
+    """
     issues = []
-    flat = json.dumps(entries, ensure_ascii=False)
+    # metadata field を 除外 した entries で 検査
+    filtered_entries = []
+    for e in entries:
+        if not isinstance(e, dict):
+            filtered_entries.append(e)
+            continue
+        e_clean = {k: v for k, v in e.items() if k not in ("_approx_note", "_note", "_doc")}
+        filtered_entries.append(e_clean)
+    flat = json.dumps(filtered_entries, ensure_ascii=False)
     for marker in ["_unimplemented", "_simplified", "簡略", "近似", "省略", "fallback", "自動抽出"]:
         if marker in flat:
             issues.append({"kind": f"marker_{marker}", "severity": 5, "note": "simplification marker remains"})

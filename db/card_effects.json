@@ -8349,20 +8349,36 @@
   ],
   "OP04-056": [
     {
-      "_text": "ゴムゴムの業火拳銃 (赤 イベ cost6) メイン: キャラ1枚デッキ下",
+      "_text": "OP04-056 main: キャラ1枚 デッキ下",
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_inplay_filtered",
+              "filter": {
+                "category_in": [
+                  "CHARACTER"
+                ]
+              }
+            }
+          }
         }
       ]
     },
     {
-      "_text": "トリガー: コスト4以下キャラ デッキ下",
+      "_text": "OP04-056 trigger: コスト4以下キャラ1枚 デッキ下",
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            }
+          }
         }
       ]
     }
@@ -9520,6 +9536,33 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 self + 「オーム」 set_base_power 6000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "set_base_power_timed": {
+            "target": "self",
+            "amount": 6000,
+            "duration": "static"
+          }
+        },
+        {
+          "set_base_power_timed": {
+            "target": {
+              "type": "all_self_chara_named",
+              "name": "オーム"
+            },
+            "amount": 6000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB04-047": [
@@ -10297,9 +10340,15 @@
   ],
   "OP06-035": [
     {
-      "_text": "OP06-035 on_play: 相手の、キャラかドン !!合計2枚までを、レストにする。その後、自分のライフの上から1枚を手札に加える。",
+      "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
       "when": "on_play",
       "do": [
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
         {
           "life_to_hand": 1
         }
@@ -11377,7 +11426,12 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_eq": 0
+            }
+          }
         }
       ]
     }
@@ -11942,7 +11996,12 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_eq": 0
+            }
+          }
         }
       ]
     }
@@ -11956,7 +12015,12 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_eq": 0
+            }
+          }
         }
       ]
     }
@@ -15604,7 +15668,12 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_eq": 0
+            }
+          }
         }
       ]
     }
@@ -17174,6 +17243,31 @@
           }
         }
       ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 「ポートガス・Ｄ・エース」+「モンキー・Ｄ・ルフィ」 +3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "name_in": [
+                  "ポートガス・Ｄ・エース",
+                  "モンキー・Ｄ・ルフィ"
+                ]
+              }
+            },
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "ST30-001_p1": [
@@ -17191,6 +17285,31 @@
           "power_pump": {
             "target": "self_leader",
             "amount": -2000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 「ポートガス・Ｄ・エース」+「モンキー・Ｄ・ルフィ」 +3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "name_in": [
+                  "ポートガス・Ｄ・エース",
+                  "モンキー・Ｄ・ルフィ"
+                ]
+              }
+            },
+            "amount": 3000,
             "duration": "static"
           }
         }
@@ -26023,6 +26142,24 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "海軍"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "PRB02-003_p1": [
@@ -27312,60 +27449,108 @@
   ],
   "OP04-056_p1": [
     {
-      "_text": "ゴムゴムの業火拳銃 (赤 イベ cost6) メイン: キャラ1枚デッキ下",
+      "_text": "OP04-056 main: キャラ1枚 デッキ下",
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_inplay_filtered",
+              "filter": {
+                "category_in": [
+                  "CHARACTER"
+                ]
+              }
+            }
+          }
         }
       ]
     },
     {
-      "_text": "トリガー: コスト4以下キャラ デッキ下",
+      "_text": "OP04-056 trigger: コスト4以下キャラ1枚 デッキ下",
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            }
+          }
         }
       ]
     }
   ],
   "OP04-056_p2": [
     {
-      "_text": "ゴムゴムの業火拳銃 (赤 イベ cost6) メイン: キャラ1枚デッキ下",
+      "_text": "OP04-056 main: キャラ1枚 デッキ下",
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_inplay_filtered",
+              "filter": {
+                "category_in": [
+                  "CHARACTER"
+                ]
+              }
+            }
+          }
         }
       ]
     },
     {
-      "_text": "トリガー: コスト4以下キャラ デッキ下",
+      "_text": "OP04-056 trigger: コスト4以下キャラ1枚 デッキ下",
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            }
+          }
         }
       ]
     }
   ],
   "OP04-056_p3": [
     {
-      "_text": "ゴムゴムの業火拳銃 (赤 イベ cost6) メイン: キャラ1枚デッキ下",
+      "_text": "OP04-056 main: キャラ1枚 デッキ下",
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_inplay_filtered",
+              "filter": {
+                "category_in": [
+                  "CHARACTER"
+                ]
+              }
+            }
+          }
         }
       ]
     },
     {
-      "_text": "トリガー: コスト4以下キャラ デッキ下",
+      "_text": "OP04-056 trigger: コスト4以下キャラ1枚 デッキ下",
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            }
+          }
         }
       ]
     }
@@ -27891,9 +28076,15 @@
   ],
   "OP06-035_p2": [
     {
-      "_text": "OP06-035_p2 on_play: 相手の、キャラかドン !!合計2枚までを、レストにする。その後、自分のライフの上から1枚を手札に加える。",
+      "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
       "when": "on_play",
       "do": [
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
         {
           "life_to_hand": 1
         }
@@ -33610,9 +33801,15 @@
   ],
   "OP06-035_p1": [
     {
-      "_text": "OP06-035_p1 on_play: 相手の、キャラかドン !!合計2枚までを、レストにする。その後、自分のライフの上から1枚を手札に加える。",
+      "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
       "when": "on_play",
       "do": [
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
         {
           "life_to_hand": 1
         }
@@ -42008,19 +42205,27 @@
   ],
   "OP09-098_p1": [
     {
-      "_text": "OP09-098_p1 main: 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、効果を無効にする。その後、そのキャラのコストが4以下の場合、KOする。",
+      "_text": "OP09-098 main: 黒ひげ海賊団 → 相手1枚 効果無効 + (コスト4以下なら) KO",
       "when": "main",
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      },
       "do": [
         {
           "negate_effect": "one_opponent_character_any"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "黒ひげ海賊団"
-      }
+      ]
     },
     {
-      "_text": "OP09-098_p1 trigger: 相手のリーダーかキャラ1枚までを、このターン中、効果を無効にする。",
+      "_text": "OP09-098 trigger: 相手リーダーかキャラ1枚 効果無効",
       "when": "trigger",
       "do": [
         {
@@ -42031,19 +42236,27 @@
   ],
   "OP09-098_r1": [
     {
-      "_text": "OP09-098_r1 main: 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、効果を無効にする。その後、そのキャラのコストが4以下の場合、KOする。",
+      "_text": "OP09-098 main: 黒ひげ海賊団 → 相手1枚 効果無効 + (コスト4以下なら) KO",
       "when": "main",
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      },
       "do": [
         {
           "negate_effect": "one_opponent_character_any"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "黒ひげ海賊団"
-      }
+      ]
     },
     {
-      "_text": "OP09-098_r1 trigger: 相手のリーダーかキャラ1枚までを、このターン中、効果を無効にする。",
+      "_text": "OP09-098 trigger: 相手リーダーかキャラ1枚 効果無効",
       "when": "trigger",
       "do": [
         {
@@ -45360,20 +45573,36 @@
   ],
   "OP04-056_r1": [
     {
-      "_text": "ゴムゴムの業火拳銃 (赤 イベ cost6) メイン: キャラ1枚デッキ下",
+      "_text": "OP04-056 main: キャラ1枚 デッキ下",
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_le_5000"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_inplay_filtered",
+              "filter": {
+                "category_in": [
+                  "CHARACTER"
+                ]
+              }
+            }
+          }
         }
       ]
     },
     {
-      "_text": "トリガー: コスト4以下キャラ デッキ下",
+      "_text": "OP04-056 trigger: コスト4以下キャラ1枚 デッキ下",
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4"
+          "return_to_deck_bottom": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            }
+          }
         }
       ]
     }
@@ -46289,9 +46518,15 @@
   ],
   "OP06-035_r1": [
     {
-      "_text": "OP06-035_r1 on_play: 相手の、キャラかドン !!合計2枚までを、レストにする。その後、自分のライフの上から1枚を手札に加える。",
+      "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
       "when": "on_play",
       "do": [
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
         {
           "life_to_hand": 1
         }
@@ -51488,7 +51723,7 @@
                 ]
               },
               {
-                "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 簡略)",
+                "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 未対応)",
                 "do": []
               }
             ]
@@ -51517,7 +51752,7 @@
                 ]
               },
               {
-                "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 簡略)",
+                "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 未対応)",
                 "do": []
               }
             ]
@@ -59282,19 +59517,27 @@
   ],
   "OP09-098": [
     {
-      "_text": "OP09-098 main: 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、効果を無効にする。その後、そのキャラのコストが4以下の場合、KOする。",
+      "_text": "OP09-098 main: 黒ひげ海賊団 → 相手1枚 効果無効 + (コスト4以下なら) KO",
       "when": "main",
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      },
       "do": [
         {
           "negate_effect": "one_opponent_character_any"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "黒ひげ海賊団"
-      }
+      ]
     },
     {
-      "_text": "OP09-098 trigger: 相手のリーダーかキャラ1枚までを、このターン中、効果を無効にする。",
+      "_text": "OP09-098 trigger: 相手リーダーかキャラ1枚 効果無効",
       "when": "trigger",
       "do": [
         {
@@ -61039,30 +61282,42 @@
   ],
   "OP08-119": [
     {
-      "_text": "OP08-119 on_attack: ドン‼-10：このキャラ以外のキャラすべてを、KOする。その後、自分のデッキの上から1枚までを、ライフの上に加え、相手のライフの上から1枚までを、トラッシュに置",
+      "_text": "OP08-119 on_attack: ドン-10 → 他キャラ全KO + 自デッキ上1ライフ + 相手ライフ1トラッシュ",
       "when": "on_attack",
+      "cost": {
+        "pay_don": 10
+      },
       "do": [
+        {
+          "ko_all_others": true
+        },
+        {
+          "put_top_to_life": 1
+        },
         {
           "mill_opp_life_to_trash": 1
         }
-      ],
-      "cost": {
-        "pay_don": 10
-      }
+      ]
     }
   ],
   "OP08-119_p1": [
     {
-      "_text": "OP08-119_p1 on_attack: ドン‼-10：このキャラ以外のキャラすべてを、KOする。その後、自分のデッキの上から1枚までを、ライフの上に加え、相手のライフの上から1枚までを、トラッシュに置",
+      "_text": "OP08-119 on_attack: ドン-10 → 他キャラ全KO + 自デッキ上1ライフ + 相手ライフ1トラッシュ",
       "when": "on_attack",
+      "cost": {
+        "pay_don": 10
+      },
       "do": [
+        {
+          "ko_all_others": true
+        },
+        {
+          "put_top_to_life": 1
+        },
         {
           "mill_opp_life_to_trash": 1
         }
-      ],
-      "cost": {
-        "pay_don": 10
-      }
+      ]
     }
   ],
   "ST03-004_p2": [
@@ -61778,6 +62033,27 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 leader フォクシー海賊団 → 相手キャラ全 -1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "フォクシー海賊団"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {}
+            },
+            "amount": -1000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "OP07-071_p1": [
@@ -61795,6 +62071,27 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "[auto] 【相手のターン中】 leader フォクシー海賊団 → 相手キャラ全 -1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "フォクシー海賊団"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {}
+            },
+            "amount": -1000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -63248,11 +63545,22 @@
   ],
   "OP06-074": [
     {
-      "_text": "OP06-074 on_play: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる)：相手のキャラ1枚までを、このターン中、効果を無効にする。その後、そのキャラの",
+      "_text": "OP06-074 on_play: ドン-1 → 相手1枚 効果無効 + (パワー5000以下なら) KO",
       "when": "on_play",
+      "cost": {
+        "return_self_don_to_deck": 1
+      },
       "do": [
         {
           "negate_effect": "one_opponent_character_any"
+        },
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "power_le": 5000
+            }
+          }
         }
       ]
     }
@@ -63766,19 +64074,22 @@
   ],
   "OP06-112": [
     {
-      "_text": "OP06-112 on_attack: 自分の手札1枚を捨てることができる：相手のドン !!1枚までを、レストにする。",
+      "_text": "OP06-112 on_attack: 手札1捨て → 相手ドン1レスト",
       "when": "on_attack",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "rest_opp_don": 1
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
-      "_text": "OP06-112 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
+      "_text": "OP06-112 trigger: 自ライフ3以下、 このカードを場に出す",
       "when": "trigger",
       "do": [
         {
@@ -71657,19 +71968,22 @@
   ],
   "OP06-112_r1": [
     {
-      "_text": "OP06-112_r1 on_attack: 自分の手札1枚を捨てることができる：相手のドン‼1枚までを、レストにする。",
+      "_text": "OP06-112 on_attack: 手札1捨て → 相手ドン1レスト",
       "when": "on_attack",
+      "cost": {
+        "discard_hand": 1
+      },
       "do": [
+        {
+          "trash_self_hand_random": 1
+        },
         {
           "rest_opp_don": 1
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
-      "_text": "OP06-112_r1 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
+      "_text": "OP06-112 trigger: 自ライフ3以下、 このカードを場に出す",
       "when": "trigger",
       "do": [
         {
@@ -80045,6 +80359,9 @@
       ],
       "cost": {
         "pay_don": 1
+      },
+      "if": {
+        "opp_turn": true
       }
     }
   ],
@@ -83607,8 +83924,52 @@
       ]
     }
   ],
-  "OP04-096_p1": [],
-  "OP04-096_r1": [],
+  "OP04-096_p1": [
+    {
+      "_text": "[auto] leader_feature ドレスローザ → 自《ドレスローザ》 キャラ 速攻 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "keyword": "速攻"
+          }
+        }
+      ]
+    }
+  ],
+  "OP04-096_r1": [
+    {
+      "_text": "[auto] leader_feature ドレスローザ → 自《ドレスローザ》 キャラ 速攻 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "keyword": "速攻"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-030_p2": [
     {
       "_text": "[auto] 自レストキャラ KO 代替 → holder トラッシュ",
@@ -84236,7 +84597,13 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "キッド海賊団"
+      },
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB04-046": [
@@ -84331,7 +84698,14 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "opp_turn": true,
+        "leader_feature": "ビッグ・マム海賊団"
+      },
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB02-005": [
@@ -84783,7 +85157,25 @@
       ]
     }
   ],
-  "OP14-032": [],
+  "OP14-032": [
+    {
+      "_text": "[auto] on_self_rested (自ターン中) → 相手 コスト4以下 1枚 レスト",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP14-034": [
     {
       "_text": "[auto] 自ターン中、 自緑特徴《麦わらの一味》コスト4以上 キャラすべて パワー+1000",
@@ -84811,7 +85203,26 @@
     }
   ],
   "OP14-035": [],
-  "OP14-053": [],
+  "OP14-053": [
+    {
+      "_text": "[auto] 【相手のターン中】 + 自手札7以下、 self.base_power = leader.base_power (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_hand_count_le": 7
+      },
+      "do": [
+        {
+          "set_base_power_copy": {
+            "from_target": "self_leader",
+            "to_target": "self",
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "OP14-070": [],
   "OP14-086": [],
   "OP14-092": [
@@ -86426,7 +86837,29 @@
   ],
   "OP04-014": [],
   "OP04-047": [],
-  "OP04-096": [],
+  "OP04-096": [
+    {
+      "_text": "[auto] leader_feature ドレスローザ → 自《ドレスローザ》 キャラ 速攻 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "keyword": "速攻"
+          }
+        }
+      ]
+    }
+  ],
   "OP04-099": [],
   "OP04-118": [
     {
@@ -87310,7 +87743,29 @@
       ]
     }
   ],
-  "OP04-096_p2": [],
+  "OP04-096_p2": [
+    {
+      "_text": "[auto] leader_feature ドレスローザ → 自《ドレスローザ》 キャラ 速攻 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "ドレスローザ"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
+            "keyword": "速攻"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-086_p1": [
     {
       "_text": "OP05-086_p1 自分のトラッシュが10枚以上ある場合、このキャラは【ブロッカー】を得る。",
@@ -87454,7 +87909,30 @@
       "do": []
     }
   ],
-  "P-027": [],
+  "P-027": [
+    {
+      "_text": "[auto] 【相手のターン中】 自元P3000以下キャラすべて +1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "power_le": 3000
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "P-028": [],
   "P-028_p1": [],
   "P-028_p2": [],
