@@ -532,6 +532,15 @@ def eval_condition(
             count = sum(1 for c in opp.characters if _matches_filter(c.card, filt))
             if count < need:
                 return False
+        elif k == "opp_chara_filtered_count_le" and opp is not None:
+            # 相手場 キャラ で filter にマッチ する 数 N 以下 (= 「相手のパワー5000+のキャラが2以上いない (= ≤1)」 等)。
+            # spec: {"filter": {...}, "count": N}
+            spec = v if isinstance(v, dict) else {}
+            filt = spec.get("filter", {})
+            limit = int(spec.get("count", 0))
+            count = sum(1 for c in opp.characters if _matches_filter(c.card, filt))
+            if count > limit:
+                return False
         elif k == "self_trash_has_named_all":
             # 自分のトラッシュに 指定 名 すべて が ある (= AND)
             # OP08-006 「自分のトラッシュに「クロマーリモ」と「チェス」がある場合」 等

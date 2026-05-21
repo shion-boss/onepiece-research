@@ -312,6 +312,11 @@ def _single_cond_jp(k: str, v: Any) -> str:
             f = _filter_jp(v.get("filter", {}))
             return f"相手の{f}キャラ{v.get('count', v.get('n', '?'))}枚以上の場合"
         return f"条件の相手キャラ{v}枚以上の場合"
+    if k == "opp_chara_filtered_count_le":
+        if isinstance(v, dict):
+            f = _filter_jp(v.get("filter", {}))
+            return f"相手の{f}キャラ{v.get('count', v.get('n', '?'))}枚以下の場合"
+        return f"条件の相手キャラ{v}枚以下の場合"
     if k == "self_trash_has_named_all":
         if isinstance(v, list):
             return f"自分のトラッシュに「{'」と「'.join(v)}」がある場合"

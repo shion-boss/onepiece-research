@@ -84566,9 +84566,42 @@
       ]
     }
   ],
-  "OP06-110_p1": [],
-  "OP06-110_p2": [],
-  "OP06-110_r1": [],
+  "OP06-110_p1": [
+    {
+      "_text": "[auto] ドン×2 → このキャラ アクティブキャラ アタック可 (static)",
+      "when": "on_attached_don",
+      "n": 2,
+      "do": [
+        {
+          "give_attack_active_chara": "self"
+        }
+      ]
+    }
+  ],
+  "OP06-110_p2": [
+    {
+      "_text": "[auto] ドン×2 → このキャラ アクティブキャラ アタック可 (static)",
+      "when": "on_attached_don",
+      "n": 2,
+      "do": [
+        {
+          "give_attack_active_chara": "self"
+        }
+      ]
+    }
+  ],
+  "OP06-110_r1": [
+    {
+      "_text": "[auto] ドン×2 → このキャラ アクティブキャラ アタック可 (static)",
+      "when": "on_attached_don",
+      "n": 2,
+      "do": [
+        {
+          "give_attack_active_chara": "self"
+        }
+      ]
+    }
+  ],
   "EB04-003": [
     {
       "_text": "[auto] 【相手のターン中】 リーダー(海軍) 元々のパワー7000",
@@ -84588,7 +84621,26 @@
       ]
     }
   ],
-  "EB04-005": [],
+  "EB04-005": [
+    {
+      "_text": "[auto] 相手元P5000+ キャラ 2 未満 → このキャラ アタック不可 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_chara_filtered_count_le": {
+          "filter": {
+            "power_ge": 5000
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "set_cannot_attack_static": "self"
+        }
+      ]
+    }
+  ],
   "EB04-035": [
     {
       "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
@@ -84825,7 +84877,30 @@
       "do": []
     }
   ],
-  "EB01-024": [],
+  "EB01-024": [
+    {
+      "_text": "[auto] 自手札4以下 → 自《SMILE》 キャラ全 +1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_le": 4
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "SMILE"
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    }
+  ],
   "EB01-047": [
     {
       "_text": "[auto] キャラKO時 draw1 discard1",
@@ -85983,7 +86058,29 @@
     }
   ],
   "OP09-025": [],
-  "OP09-045": [],
+  "OP09-045": [
+    {
+      "_text": "[auto] 自「バギー」or「モージ」あり → このキャラ バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name_in": [
+              "バギー",
+              "モージ"
+            ]
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
   "OP09-052": [],
   "OP09-074": [],
   "OP09-080": [
@@ -86379,7 +86476,21 @@
   "OP06-012": [],
   "OP06-044": [],
   "OP06-048": [],
-  "OP06-052": [],
+  "OP06-052": [
+    {
+      "_text": "[auto] ドン×1 + 自手札4以下 → このキャラ バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "self_hand_count_le": 4
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
   "OP06-054": [
     {
       "_text": "OP06-054 自分の手札が5枚以下の場合、このキャラは【ブロッカー】を得る。",
@@ -86456,7 +86567,18 @@
   ],
   "OP06-088": [],
   "OP06-109": [],
-  "OP06-110": [],
+  "OP06-110": [
+    {
+      "_text": "[auto] ドン×2 → このキャラ アクティブキャラ アタック可 (static)",
+      "when": "on_attached_don",
+      "n": 2,
+      "do": [
+        {
+          "give_attack_active_chara": "self"
+        }
+      ]
+    }
+  ],
   "OP06-113": [
     {
       "_text": "OP06-113 「ラキ」以外の自分の特徴《シャンドラの戦士》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
@@ -86923,7 +87045,23 @@
       ]
     }
   ],
-  "OP03-032": [],
+  "OP03-032": [
+    {
+      "_text": "[auto] 属性《斬》 とのバトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "OP03-043": [],
   "OP03-045": [
     {
@@ -87091,7 +87229,26 @@
       ]
     }
   ],
-  "OP02-100": [],
+  "OP02-100": [
+    {
+      "_text": "[auto] 自「フルボディ」あり → このキャラ バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "フルボディ"
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
   "OP02-114": [
     {
       "_text": "OP02-114 ボルサリーノ 常在: 相手ターン中 KO 耐性",
@@ -87177,7 +87334,26 @@
     }
   ],
   "OP01-075": [],
-  "OP01-099": [],
+  "OP01-099": [
+    {
+      "_text": "[auto] 自「黒炭せみ丸」 以外 《黒炭家》 → バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_ko_immune_battle_only": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "黒炭家",
+                "exclude_name": "黒炭せみ丸"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
   "OP01-121": [],
   "OP01-121_p1": [],
   "ST30-003": [
@@ -87371,7 +87547,29 @@
       ]
     }
   ],
-  "OP09-045_r1": [],
+  "OP09-045_r1": [
+    {
+      "_text": "[auto] 自「バギー」or「モージ」あり → このキャラ バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name_in": [
+              "バギー",
+              "モージ"
+            ]
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
   "ST25-002": [
     {
       "_text": "ST25-002 自分の元々のコスト5以上のキャラが2枚以上いる場合、このキャラは【ブロッカー】を得て、コスト+1。",
@@ -87696,8 +87894,36 @@
       ]
     }
   ],
-  "ST05-008": [],
-  "ST05-008_r1": [],
+  "ST05-008": [
+    {
+      "_text": "[auto] 自ドン8以上 → このキャラ バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_don_ge": 8
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
+  "ST05-008_r1": [
+    {
+      "_text": "[auto] 自ドン8以上 → このキャラ バトルKO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_don_ge": 8
+      },
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    }
+  ],
   "OP01-025_p4": [],
   "OP02-114_p3": [
     {
@@ -87784,7 +88010,18 @@
       ]
     }
   ],
-  "OP06-110_p3": [],
+  "OP06-110_p3": [
+    {
+      "_text": "[auto] ドン×2 → このキャラ アクティブキャラ アタック可 (static)",
+      "when": "on_attached_don",
+      "n": 2,
+      "do": [
+        {
+          "give_attack_active_chara": "self"
+        }
+      ]
+    }
+  ],
   "OP07-033_p2": [],
   "OP08-020_p1": [
     {
@@ -87936,7 +88173,21 @@
   "P-028": [],
   "P-028_p1": [],
   "P-028_p2": [],
-  "P-040": [],
+  "P-040": [
+    {
+      "_text": "[auto] 相手場ドン10 → このキャラ KO免疫 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_don_count_ge": 10
+      },
+      "do": [
+        {
+          "set_ko_immune": "self"
+        }
+      ]
+    }
+  ],
   "P-045": [],
   "P-066": [
     {

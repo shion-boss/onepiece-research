@@ -149,43 +149,8 @@
   {
     "kind": "empty_overlay_with_text",
     "severity": 5,
-    "card_id": "OP06-110_p1",
-    "text": "【ドン !!×2】このキャラは相手のアクティブのキャラにもアタックできる。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP06-110_p2",
-    "text": "【ドン !!×2】このキャラは相手のアクティブのキャラにもアタックできる。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP06-110_r1",
-    "text": "【ドン !!×2】このキャラは相手のアクティブのキャラにもアタックできる。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "EB04-005",
-    "text": "相手の元々のパワー5000以上のキャラが2枚以上いない場合、このキャラはアタックできない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
     "card_id": "EB04-051",
     "text": "元々のパワー12000以上のキャラがいない場合、このキャラはアタックできない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "EB01-024",
-    "text": "自分の手札が4枚以下の場合、自分の特徴《SMILE》を持つキャラすべては、パワー+1000。",
     "rendered": ""
   },
   {
@@ -332,13 +297,6 @@
   {
     "kind": "empty_overlay_with_text",
     "severity": 5,
-    "card_id": "OP09-045",
-    "text": "自分のキャラの、「バギー」か「モージ」がいる場合、このキャラはバトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
     "card_id": "OP09-052",
     "text": "【相手のターン中】自分の手札1枚を捨てることができる：このキャラが相手の効果でKOされた時、このキャラカードをトラッシュからレストで登場させる。",
     "rendered": ""
@@ -438,13 +396,6 @@
   {
     "kind": "empty_overlay_with_text",
     "severity": 5,
-    "card_id": "OP06-052",
-    "text": "【ドン !!×1】自分の手札が4枚以下の場合、このキャラはバトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
     "card_id": "OP06-088",
     "text": "自分のリーダーが特徴《ドレスローザ》を持ち、自分のリーダーがアクティブの場合、このキャラのパワー+2000。",
     "rendered": ""
@@ -454,13 +405,6 @@
     "severity": 5,
     "card_id": "OP06-109",
     "text": "【ドン !!×2】相手のライフが3枚以下の場合、このキャラは効果でKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP06-110",
-    "text": "【ドン !!×2】このキャラは相手のアクティブのキャラにもアタックできる。",
     "rendered": ""
   },
   {
@@ -480,13 +424,6 @@
   {
     "kind": "empty_overlay_with_text",
     "severity": 5,
-    "card_id": "OP03-032",
-    "text": "このキャラは、属性(斬)を持つカードとのバトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
     "card_id": "OP03-043",
     "text": "相手のライフにダメージを与えた時、自分のデッキの上から3枚をトラッシュに置いてもよい。そうした場合、このキャラをトラッシュに置く。",
     "rendered": ""
@@ -496,27 +433,6 @@
     "severity": 5,
     "card_id": "OP02-027",
     "text": "自分のドン‼すべてがレストの場合、このキャラは相手の効果で場を離れない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP02-100",
-    "text": "自分の「フルボディ」がいる場合、このキャラはバトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP01-099",
-    "text": "自分の「黒炭せみ丸」以外の特徴《黒炭家》を持つキャラは、バトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP09-045_r1",
-    "text": "自分のキャラの、「バギー」か「モージ」がいる場合、このキャラはバトルでKOされない。",
     "rendered": ""
   },
   {
@@ -543,27 +459,6 @@
   {
     "kind": "empty_overlay_with_text",
     "severity": 5,
-    "card_id": "ST05-008",
-    "text": "自分の場にドン‼が8枚以上ある場合、このキャラはバトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "ST05-008_r1",
-    "text": "自分の場にドン‼が8枚以上ある場合、このキャラはバトルでKOされない。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "OP06-110_p3",
-    "text": "【ドン !!×2】このキャラは相手のアクティブのキャラにもアタックできる。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
     "card_id": "OP07-033_p2",
     "text": "自分のキャラが3枚以上いる場合、自分の、「モンキー・D・ルフィ」以外のコスト3以下のキャラは相手の効果でKOされない。",
     "rendered": ""
@@ -580,13 +475,6 @@
     "severity": 5,
     "card_id": "OP12-036_p1",
     "text": "手札のこのカードは、効果で登場できない。自分のリーダーが属性(斬)を持つ場合、このキャラは属性(斬)を持つカードとのバトルでKOされず、パワー+1000。",
-    "rendered": ""
-  },
-  {
-    "kind": "empty_overlay_with_text",
-    "severity": 5,
-    "card_id": "P-040",
-    "text": "相手の場にドン!!が10枚ある場合、このキャラはKOされない。",
     "rendered": ""
   },
   {
