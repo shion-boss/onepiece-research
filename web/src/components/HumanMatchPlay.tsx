@@ -1978,42 +1978,13 @@ function RightPanel({
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded bg-black/40 p-2">
         <div className="text-xs font-bold text-zinc-200">PREVIEW</div>
         {previewCardId ? (
-          <>
-            <div className="flex justify-center">
-              <CardImage
-                cardId={previewCardId}
-                alt={previewCardId}
-                className="max-h-[calc(100vh-260px)] w-full max-w-[440px] rounded object-contain shadow-2xl"
-              />
-            </div>
-            {previewMeta && (
-              <div className="rounded bg-zinc-900/60 p-2 text-xs text-zinc-100">
-                <div className="font-bold">{previewMeta.name}</div>
-                <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px] text-zinc-300">
-                  <span>Power</span>
-                  <span className="text-right font-mono text-zinc-100">
-                    {previewMeta.power}
-                  </span>
-                  <span>DON</span>
-                  <span className="text-right font-mono text-amber-300">
-                    +{previewMeta.attached_dons}
-                  </span>
-                  <span>状態</span>
-                  <span className="text-right font-mono">
-                    {previewMeta.rested ? "rested" : "active"}
-                  </span>
-                  {previewMeta.keywords.length > 0 && (
-                    <>
-                      <span>Keywords</span>
-                      <span className="text-right font-mono text-emerald-300">
-                        {previewMeta.keywords.join(", ")}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </>
+          <div className="flex justify-center">
+            <CardImage
+              cardId={previewCardId}
+              alt={previewCardId}
+              className="max-h-[calc(100vh-260px)] w-full max-w-[440px] rounded object-contain shadow-2xl"
+            />
+          </div>
         ) : (
           <div className="flex flex-1 items-center justify-center text-xs text-zinc-400">
             カードに hover で 拡大表示
@@ -2057,28 +2028,12 @@ function RightPanel({
         )}
         {canAct &&
           selection &&
-          selection.kind !== "attack_pending" &&
-          availableActions.length > 0 && (
-            <div
-              className={
-                "grid gap-2 " +
-                (availableActions.length > 1 ? "grid-cols-2" : "grid-cols-1")
-              }
-            >
-              {availableActions.map((sa, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onActionClick(sa);
-                  }}
-                  className="rounded bg-emerald-600 p-3 text-sm font-bold text-white shadow hover:bg-emerald-500"
-                >
-                  {sa.label}
-                </button>
-              ))}
-            </div>
+          selection.kind !== "attack_pending" && (
+            <ActionButtonGrid
+              selection={selection}
+              availableActions={availableActions}
+              onActionClick={onActionClick}
+            />
           )}
         {canAct && selection && (
           <button
@@ -2105,6 +2060,95 @@ function RightPanel({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// ActionButtonGrid: selection 種別 別 に 期待ボタン を 全表示 (= 不可なら disabled)
+// ========================================================================== //
+
+type ActionButtonGroup = { kinds: string[]; label: string };
+
+type ActionButtonItem = {
+  action: HumanLegalAction;
+  label: string;
+  mode: "attack" | "apply";
+};
+
+function ActionButtonGrid({
+  selection,
+  availableActions,
+  onActionClick,
+}: {
+  selection: Exclude<Selection, null | { kind: "attack_pending"; attackerIid: number }>;
+  availableActions: ActionButtonItem[];
+  onActionClick: (sa: ActionButtonItem) => void;
+}) {
+  // selection 種別 別 「期待 ボタン グループ」 (= 該当 kind あれば active、 なければ disabled)
+  let groups: ActionButtonGroup[];
+  if (selection.kind === "hand") {
+    groups = [
+      { kinds: ["PlayCharacter"], label: "登場" },
+      { kinds: ["PlayEvent"], label: "イベント" },
+      { kinds: ["PlayStage"], label: "ステージ" },
+    ];
+  } else if (selection.kind === "self_leader") {
+    groups = [
+      { kinds: ["AttachDonToLeader"], label: "ドン付与" },
+      { kinds: ["AttackLeader", "AttackCharacter"], label: "⚔ Attack" },
+    ];
+  } else if (selection.kind === "self_chara") {
+    groups = [
+      { kinds: ["AttachDonToCharacter"], label: "ドン付与" },
+      { kinds: ["AttackLeader", "AttackCharacter"], label: "⚔ Attack" },
+      { kinds: ["ActivateMain"], label: "起動メイン" },
+    ];
+  } else {
+    groups = [];
+  }
+
+  // hand 選択 時 は 該当 group しか 候補 が 通常 ない (= 1 種 のカード = 1 種 の play)。
+  // 利用可能 group のみ filter (= 「ステージ なのに 登場」 は disable 表示 する 意味薄い)。
+  if (selection.kind === "hand") {
+    groups = groups.filter((g) =>
+      availableActions.some((sa) => g.kinds.includes(sa.action.kind)),
+    );
+  }
+
+  return (
+    <div
+      className={
+        "grid gap-2 " + (groups.length >= 2 ? "grid-cols-2" : "grid-cols-1")
+      }
+    >
+      {groups.map((g, i) => {
+        const sa = availableActions.find((x) =>
+          g.kinds.includes(x.action.kind),
+        );
+        const active = !!sa;
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={(e) => {
+              if (!active || !sa) return;
+              e.stopPropagation();
+              onActionClick(sa);
+            }}
+            disabled={!active}
+            className={
+              "rounded p-3 text-sm font-bold shadow transition " +
+              (active
+                ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                : "cursor-not-allowed bg-zinc-700/50 text-zinc-500 line-through")
+            }
+            title={active ? g.label : `${g.label} (= 現状 不可)`}
+          >
+            {g.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
