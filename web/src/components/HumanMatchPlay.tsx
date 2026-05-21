@@ -28,6 +28,7 @@ import {
   CounterPlayOverlay,
   fireCounterPlay,
   TurnBannerOverlay,
+  OppActionBanner,
   useRecentDrawnIdxs,
 } from "./_matchAnimHelpers";
 
@@ -997,6 +998,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           state.pending_payload?.kind === "mulligan_confirm"
         }
         pendingKind={state.pending_kind}
+      />
+
+      {/* 自ターン中 AI 効果 play (= 「相手ターン開始時」 trigger 等) 通知 */}
+      <OppActionBanner
+        isHumanTurn={isHumanTurn}
+        oppEnteredCount={frameDiff.enteredIids[state.ai_idx]?.size ?? 0}
+        tickId={frameDiff.eventTickId}
       />
 
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}

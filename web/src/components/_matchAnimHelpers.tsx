@@ -628,6 +628,54 @@ export function DrawCardOverlay({
 }
 
 // --------------------------------------------------------------------------
+// OppActionBanner: 自ターン中 に AI 効果 (= 「相手ターン開始時」 trigger 等) で
+// AI が play / 効果発動 した時 に 「[AI 効果] play」 banner を 表示
+// --------------------------------------------------------------------------
+
+export function OppActionBanner({
+  isHumanTurn,
+  oppEnteredCount,
+  tickId,
+}: {
+  isHumanTurn: boolean;
+  oppEnteredCount: number;
+  tickId: number;
+}) {
+  const [showItem, setShowItem] = useState<{ id: number; n: number } | null>(
+    null,
+  );
+  const idRef = useRef(0);
+  const lastTickRef = useRef(-1);
+  useEffect(() => {
+    if (tickId === lastTickRef.current) return;
+    lastTickRef.current = tickId;
+    if (!isHumanTurn || oppEnteredCount <= 0) return;
+    const id = idRef.current++;
+    setShowItem({ id, n: oppEnteredCount });
+    const t = setTimeout(() => {
+      setShowItem((cur) => (cur?.id === id ? null : cur));
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [tickId, isHumanTurn, oppEnteredCount]);
+
+  if (!showItem) return null;
+  return (
+    <div className="pointer-events-none absolute top-24 left-1/2 z-[57] -translate-x-1/2">
+      <motion.div
+        key={showItem.id}
+        initial={{ opacity: 0, y: -20, scale: 0.7 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.4 }}
+        className="rounded-lg border-2 border-rose-300 bg-rose-900/85 px-5 py-2 text-base font-bold text-rose-100 shadow-lg backdrop-blur"
+      >
+        [AI 効果] キャラ {showItem.n} 枚 を 場 に 出した
+      </motion.div>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // TurnBannerOverlay: ターン 切替 時 「YOUR TURN」 / 「OPPONENT TURN」 大型 banner
 // --------------------------------------------------------------------------
 
