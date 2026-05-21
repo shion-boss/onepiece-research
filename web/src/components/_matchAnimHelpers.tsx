@@ -318,8 +318,10 @@ export function PlayedCardOverlay({
     <div className="pointer-events-none absolute inset-0 z-40">
       <AnimatePresence>
         {items.map((it, idx) => {
-          // side 別 開始位置 (= 中央 上 or 下)
-          const startY = it.side === "me" ? "20%" : "-20%";
+          // 開始位置: 手札 方向 から 出現 (= 完全 画面外 から 飛び込む)
+          //   me (自分): 下 (= 画面 下端 から 上 へ)
+          //   opp (AI): 上 (= 画面 上端 から 下 へ)
+          const startY = it.side === "me" ? "120vh" : "-120vh";
           // 横並び 配置 (= 複数 同時 でも 重ならない)
           const xOffset = (idx - items.length / 2) * 130;
           return (
@@ -327,28 +329,31 @@ export function PlayedCardOverlay({
               key={it.id}
               initial={{
                 opacity: 0,
-                scale: 0.6,
+                scale: 0.4,
                 x: 0,
                 y: startY,
-                rotate: 0,
+                rotate: it.side === "me" ? 20 : -20,
               }}
               animate={{
-                opacity: [0, 1, 1, 0.85, 0],
-                scale: [0.6, 1.1, 1.0, 0.95, 0.75],
-                x: [0, xOffset, xOffset + 60, xOffset + 220, xOffset + 320],
+                // 経路: 手札位置 → 中央上昇 (= スピード感) → 中央停止 → trash 方向 slide
+                opacity: [0, 1, 1, 1, 0.7, 0],
+                scale: [0.4, 0.9, 1.1, 1.0, 0.95, 0.7],
+                x: [0, 0, 0, 0, xOffset + 120, xOffset + 320],
                 y: [
                   startY,
+                  it.side === "me" ? "30%" : "-30%",
                   "0%",
                   "0%",
-                  "10%",
-                  "30%",
+                  "15%",
+                  "35%",
                 ],
-                rotate: [0, -3, 0, 4, 10],
+                rotate: [it.side === "me" ? 20 : -20, 5, 0, 0, 4, 12],
               }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{
-                duration: 1.4,
-                times: [0, 0.15, 0.55, 0.85, 1],
+                duration: 1.6,
+                times: [0, 0.18, 0.35, 0.65, 0.85, 1],
+                ease: "easeOut",
               }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             >
