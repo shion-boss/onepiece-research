@@ -698,21 +698,29 @@ export function TurnBannerOverlay({
   const prevTurnRef = useRef<number>(-1);
   const idRef = useRef(0);
 
-  // turn 変化 で queue に enqueue
+  // turn 変化 で queue に enqueue (= 自分 ターン start なら 「OPP END」 → 「YOUR TURN」
+  // 2 banner 連続、 相手 ターン start なら 「OPPONENT TURN」 1 banner)
   useEffect(() => {
     if (hasMulliganPending) return;
-    if (prevTurnRef.current === turnPlayerIdx) return;
+    const prev = prevTurnRef.current;
+    if (prev === turnPlayerIdx) return;
     prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
-    const id = idRef.current++;
-    setQueue((q) => [
-      ...q,
-      {
-        id,
-        label: isMe ? "YOUR TURN" : "OPPONENT TURN",
-        color: isMe ? "self" : "opp",
-      },
-    ]);
+    const additions: BannerItem[] = [];
+    // 「相手 → 自分」 切替 で 「相手 ターン終了」 banner を 先 enqueue
+    if (isMe && prev !== -1 && prev !== humanIdx) {
+      additions.push({
+        id: idRef.current++,
+        label: "OPPONENT TURN END",
+        color: "opp",
+      });
+    }
+    additions.push({
+      id: idRef.current++,
+      label: isMe ? "YOUR TURN" : "OPPONENT TURN",
+      color: isMe ? "self" : "opp",
+    });
+    setQueue((q) => [...q, ...additions]);
     void pendingKind;
   }, [turnPlayerIdx, humanIdx, hasMulliganPending, pendingKind]);
 
