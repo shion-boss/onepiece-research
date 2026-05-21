@@ -764,13 +764,17 @@ def _maybe_request_target_pick(
     self_inplay: Optional[InPlay],
     description: str = "",
 ) -> bool:
-    """候補 が limit を 超え 人間 操作中 なら pending_choice を 立てて True を 返す。
+    """候補 が 1 枚以上 + 人間 操作中 なら pending_choice を 立てて True を 返す。
+
+    旧挙動 (= candidates <= limit で 自動 pick) は 「相手キャラ 1 枚 のみ → 勝手に KO」
+    現象 を 起こす。 ohtsuki さん 要望 「決定権 を 人間 に」 に従い、 候補 ≥ 1 で
+    必ず modal で 確認。 0 picks (= skip) も 公式 「N 枚 まで」 で 許容。
 
     True 返却 時 は 呼び出し側 で 該当 primitive を 中断する (= 空 list を 返す等)。
     """
     if not _should_human_pick(state):
         return False
-    if len(candidates) <= limit:
+    if len(candidates) < 1:
         return False
     me = state.players[state.turn_player_idx]
     opp = state.opponent
