@@ -694,6 +694,120 @@ export function EffectToastOverlay({ log }: { log: string[] }) {
 }
 
 // --------------------------------------------------------------------------
+// AttackTargetArrowOverlay: 相手 攻撃 中 に attacker → target の 矢印 (三角ヘッド) を
+// 一定時間 表示 する。 AttackBeam とは別、 「何 を 狙ってるか」 を 明示的 に 示す ための
+// 静的 な 矢印 (= 1.2 秒)。
+// --------------------------------------------------------------------------
+
+export function AttackTargetArrowOverlay({
+  attackerIid,
+  targetIid,
+  boardRef,
+  tickId,
+}: {
+  attackerIid: number | null;
+  targetIid: number | null;
+  boardRef: React.RefObject<HTMLDivElement | null>;
+  tickId: number;
+}) {
+  const [coords, setCoords] = useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (attackerIid === null || targetIid === null || !boardRef.current) {
+      setCoords(null);
+      return;
+    }
+    const board = boardRef.current;
+    const r = board.getBoundingClientRect();
+    const findEl = (iid: number): HTMLElement | null =>
+      board.querySelector(`[data-iid="${iid}"]`);
+    const at = findEl(attackerIid);
+    const tg = findEl(targetIid);
+    if (!at || !tg) {
+      setCoords(null);
+      return;
+    }
+    const ar = at.getBoundingClientRect();
+    const tr = tg.getBoundingClientRect();
+    setCoords({
+      x1: ar.left + ar.width / 2 - r.left,
+      y1: ar.top + ar.height / 2 - r.top,
+      x2: tr.left + tr.width / 2 - r.left,
+      y2: tr.top + tr.height / 2 - r.top,
+    });
+    const timer = setTimeout(() => setCoords(null), 1300);
+    return () => clearTimeout(timer);
+  }, [attackerIid, targetIid, tickId, boardRef]);
+
+  if (!coords) return null;
+  // arrow head 角度 計算
+  const angle = Math.atan2(
+    coords.y2 - coords.y1,
+    coords.x2 - coords.x1,
+  );
+  // 三角ヘッド を target 手前 で 描画 (= 中心 を target 寄り に 配置)
+  const headLen = 26;
+  const baseX = coords.x2 - Math.cos(angle) * headLen;
+  const baseY = coords.y2 - Math.sin(angle) * headLen;
+  const leftX = baseX - Math.sin(angle) * 14;
+  const leftY = baseY + Math.cos(angle) * 14;
+  const rightX = baseX + Math.sin(angle) * 14;
+  const rightY = baseY - Math.cos(angle) * 14;
+
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full">
+      <defs>
+        <filter id="arrowGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <motion.line
+        x1={coords.x1}
+        y1={coords.y1}
+        x2={coords.x2}
+        y2={coords.y2}
+        stroke="#fb7185"
+        strokeWidth={6}
+        strokeLinecap="round"
+        strokeDasharray="14 8"
+        filter="url(#arrowGlow)"
+        initial={{ opacity: 0, pathLength: 0 }}
+        animate={{
+          opacity: [0, 1, 1, 1, 0],
+          pathLength: [0, 1, 1, 1, 1],
+        }}
+        transition={{ duration: 1.3, times: [0, 0.2, 0.5, 0.9, 1] }}
+      />
+      <motion.polygon
+        points={`${coords.x2},${coords.y2} ${leftX},${leftY} ${rightX},${rightY}`}
+        fill="#fb7185"
+        filter="url(#arrowGlow)"
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{
+          opacity: [0, 1, 1, 1, 0],
+          scale: [0, 1, 1.1, 1, 0.9],
+        }}
+        transition={{
+          duration: 1.3,
+          times: [0, 0.25, 0.5, 0.9, 1],
+          // SVG polygon の scale は transform-origin で動く、 framer 既定 で 重心
+        }}
+        style={{ transformOrigin: `${coords.x2}px ${coords.y2}px` }}
+      />
+    </svg>
+  );
+}
+
+// --------------------------------------------------------------------------
 // AttackBeamOverlay: snapshot.event (= AttackEvent) を 拾って 攻撃ビーム を 流す
 // --------------------------------------------------------------------------
 

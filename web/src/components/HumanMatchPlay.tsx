@@ -22,6 +22,7 @@ import {
   AnimatedNumber,
   EffectToastOverlay,
   AttackBeamOverlay,
+  AttackTargetArrowOverlay,
   PlayedCardOverlay,
   DrawCardOverlay,
   useRecentDrawnIdxs,
@@ -86,6 +87,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   );
   const [counterIdxs, setCounterIdxs] = useState<number[]>([]);
   const [blockerIid, setBlockerIid] = useState<number | null>(null);
+  const [defenseClosing, setDefenseClosing] = useState(false);
   const [hovered, setHovered] = useState<HoverInfo>(null);
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [trashViewer, setTrashViewer] = useState<"me" | "opp" | null>(null);
@@ -205,6 +207,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     if (!sessionId) return;
     setError(null);
     setBusy(true);
+    setDefenseClosing(true); // 確定 押下 で 即時 modal 視覚的 close
     try {
       const next = await applyHumanDefense(sessionId, blockerIid, counterIdxs);
       setState(next);
@@ -214,6 +217,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       setError(String(e));
     } finally {
       setBusy(false);
+      setDefenseClosing(false); // 次 pending=defense なら modal 再 open される
     }
   }
 
@@ -770,8 +774,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         />
       </div>
 
-      {/* 防御 panel overlay */}
-      {isDefensePending && (
+      {/* 防御 panel overlay (= 確定 押下中 は 一旦 close、 次 pending=defense なら 再 open) */}
+      {isDefensePending && !defenseClosing && (
         <DefenseOverlay
           payload={state.pending_payload}
           me={me}
@@ -793,6 +797,16 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       {/* 攻撃 ビーム (= snapshot.event 拾って 一瞬 流す、 AI/自分 共通) */}
       {snap.event && (
         <AttackBeamOverlay
+          attackerIid={snap.event.attacker_iid}
+          targetIid={snap.event.target_iid}
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+        />
+      )}
+
+      {/* 攻撃 矢印 (= 1.3 秒、 「何を狙ってるか」 を 明示) */}
+      {snap.event && (
+        <AttackTargetArrowOverlay
           attackerIid={snap.event.attacker_iid}
           targetIid={snap.event.target_iid}
           boardRef={boardRef}
