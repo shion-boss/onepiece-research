@@ -1672,49 +1672,54 @@ function CenterRow({
     onDropTarget(isMe ? { kind: "self_leader" } : { kind: "opp_leader" });
   }
   return (
-    <div className="flex shrink-0 items-center justify-center gap-3 py-1">
-      <div
-        data-iid={player.leader.instance_id}
-        onDragOver={leaderDragOver}
-        onDrop={leaderDrop}
-      >
-        <CharCard
-          ch={player.leader}
-          isLeader={true}
-          isMine={isMe}
-          isAttacker={isLeaderAttacker}
-          isTarget={isLeaderTarget}
-          isActable={isLeaderActable}
-          isSelected={isLeaderSelected}
-          onClick={onLeaderClick}
-          size="leader"
-          onHover={onHover}
-          draggable={false}
-          dropHint={acceptOnLeader}
-        />
-      </div>
-      <div className="flex flex-col items-center gap-0.5">
-        <div className="text-[10px] font-semibold text-zinc-300">STAGE</div>
-        {player.stages[0] ? (
+    <div className="flex shrink-0 items-center justify-between px-2 py-1">
+      {/* リーダー + ステージ を 左寄せ で 横 ゆとり 大きく */}
+      <div className="flex items-center gap-8">
+        <div
+          data-iid={player.leader.instance_id}
+          onDragOver={leaderDragOver}
+          onDrop={leaderDrop}
+        >
           <CharCard
-            ch={player.stages[0]}
-            isLeader={false}
+            ch={player.leader}
+            isLeader={true}
             isMine={isMe}
-            isAttacker={false}
-            isTarget={false}
-            isActable={false}
-            isSelected={false}
-            onClick={() => {}}
-            size="small"
+            isAttacker={isLeaderAttacker}
+            isTarget={isLeaderTarget}
+            isActable={isLeaderActable}
+            isSelected={isLeaderSelected}
+            onClick={onLeaderClick}
+            size="leader"
             onHover={onHover}
             draggable={false}
+            dropHint={acceptOnLeader}
           />
-        ) : (
-          <div className="flex h-32 w-24 items-center justify-center rounded border border-dashed border-zinc-600 text-xs text-zinc-500">
-            empty
-          </div>
-        )}
+        </div>
+        <div className="flex flex-col items-center gap-0.5">
+          <div className="text-[10px] font-semibold text-zinc-300">STAGE</div>
+          {player.stages[0] ? (
+            <CharCard
+              ch={player.stages[0]}
+              isLeader={false}
+              isMine={isMe}
+              isAttacker={false}
+              isTarget={false}
+              isActable={false}
+              isSelected={false}
+              onClick={() => {}}
+              size="small"
+              onHover={onHover}
+              draggable={false}
+            />
+          ) : (
+            <div className="flex h-32 w-24 items-center justify-center rounded border border-dashed border-zinc-600 text-xs text-zinc-500">
+              empty
+            </div>
+          )}
+        </div>
       </div>
+      {/* DECK + TRASH を 右端 寄せ */}
+      <div className="flex items-center gap-2">
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xs font-semibold text-zinc-300">DECK</div>
         <div className="relative" data-deck-side={isMe ? "me" : "opp"}>
@@ -1763,6 +1768,7 @@ function CenterRow({
             {player.trash_count}
           </span>
         </button>
+      </div>
       </div>
     </div>
   );
