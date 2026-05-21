@@ -749,7 +749,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       <div className="flex min-h-0 flex-1 gap-2 overflow-hidden">
         {/* 左 サイド: opp info → log → self stats → 自手札 */}
         <div className="flex min-w-[280px] flex-1 min-h-0 flex-col gap-2">
-          <OpponentInfoPanel opp={opp} />
+          <OpponentInfoPanel
+            opp={opp}
+            reveal={state.game_over}
+            onHover={setHovered}
+          />
           <LogSidebar log={state.log} aiIdx={state.ai_idx} />
           {/* 自分側 (= 数字 + 手札) を 1 つの emerald エリア に まとめる */}
           <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
@@ -2165,21 +2169,48 @@ function SelfInfoPanel({ me }: { me: PlayerSnapshot }) {
   );
 }
 
-function OpponentInfoPanel({ opp }: { opp: PlayerSnapshot }) {
+function OpponentInfoPanel({
+  opp,
+  reveal,
+  onHover,
+}: {
+  opp: PlayerSnapshot;
+  reveal?: boolean;
+  onHover?: (h: HoverInfo) => void;
+}) {
   return (
     <div className="shrink-0 rounded border border-rose-400/50 bg-rose-950/40 p-3">
       <div className="mb-2">
         <StatBadge player={opp} label="AI" color="bg-rose-700 text-white" />
       </div>
       <div data-hand-side="opp" className="flex flex-wrap gap-0.5">
-        {Array.from({ length: opp.hand_count }).map((_, i) => (
-          <img
-            key={i}
-            src="/assets/ura.png"
-            alt="opp hand"
-            className="h-12 w-9 rounded shadow ring-1 ring-rose-300/30"
-          />
-        ))}
+        {reveal
+          ? opp.hand.map((cardId, i) => (
+              <button
+                key={i}
+                type="button"
+                onMouseEnter={() =>
+                  onHover?.({ kind: "hand", cardId })
+                }
+                onMouseLeave={() => onHover?.(null)}
+                className="rounded ring-1 ring-rose-300/50 transition hover:-translate-y-1 hover:ring-rose-200"
+                title={cardId}
+              >
+                <CardImage
+                  cardId={cardId}
+                  alt={cardId}
+                  className="h-16 w-auto rounded shadow"
+                />
+              </button>
+            ))
+          : Array.from({ length: opp.hand_count }).map((_, i) => (
+              <img
+                key={i}
+                src="/assets/ura.png"
+                alt="opp hand"
+                className="h-12 w-9 rounded shadow ring-1 ring-rose-300/30"
+              />
+            ))}
         {opp.hand_count === 0 && (
           <span className="text-xs text-rose-300">手札なし</span>
         )}
