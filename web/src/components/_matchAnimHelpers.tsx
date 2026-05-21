@@ -634,19 +634,25 @@ export function DrawCardOverlay({
 export function TurnBannerOverlay({
   turnPlayerIdx,
   humanIdx,
+  hasMulliganPending,
 }: {
   turnPlayerIdx: number;
   humanIdx: number;
+  /** マリガン modal 中 は banner fire しない (= ターン 概念前) */
+  hasMulliganPending?: boolean;
 }) {
   const [showItem, setShowItem] = useState<{
     id: number;
     label: string;
     color: "self" | "opp";
   } | null>(null);
-  const prevTurnRef = useRef<number>(turnPlayerIdx);
+  // 初回 mount 時 は -1 (= invalid)、 マリガン 完了 後 の 初回 turn 検出 で fire
+  const prevTurnRef = useRef<number>(-1);
   const idRef = useRef(0);
 
   useEffect(() => {
+    // マリガン pending 中 は ターン 概念前 → banner 出さない
+    if (hasMulliganPending) return;
     if (prevTurnRef.current === turnPlayerIdx) return;
     prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
@@ -660,7 +666,7 @@ export function TurnBannerOverlay({
       setShowItem((cur) => (cur?.id === id ? null : cur));
     }, 1500);
     return () => clearTimeout(t);
-  }, [turnPlayerIdx, humanIdx]);
+  }, [turnPlayerIdx, humanIdx, hasMulliganPending]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[58] flex items-center justify-center">

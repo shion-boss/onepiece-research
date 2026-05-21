@@ -985,6 +985,10 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       <TurnBannerOverlay
         turnPlayerIdx={state.turn_player_idx}
         humanIdx={state.human_idx}
+        hasMulliganPending={
+          isChoicePending &&
+          state.pending_payload?.kind === "mulligan_confirm"
+        }
       />
 
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
