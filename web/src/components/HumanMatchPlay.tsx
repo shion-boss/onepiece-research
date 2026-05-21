@@ -470,6 +470,48 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       }
     } else if (drag.kind === "don") {
       const count = Math.max(1, drag.count);
+      if (count > 1 && sessionId) {
+        // 複数 DON: applyHumanAction を 直接 sequential 呼び、 各回 next の
+        // legal_actions から 再 find (= 旧 state.legal_actions idx は 別 action
+        // を 指す リスクある ため、 都度 最新 を 取得)。
+        setDrag(null);
+        if (applyInFlightRef.current) return;
+        applyInFlightRef.current = true;
+        setBusy(true);
+        (async () => {
+          try {
+            let curLegal = state!.legal_actions;
+            for (let k = 0; k < count; k++) {
+              const a = curLegal.find((x) => {
+                if (target.kind === "self_leader")
+                  return x.kind === "AttachDonToLeader";
+                if (target.kind === "self_chara")
+                  return (
+                    x.kind === "AttachDonToCharacter" &&
+                    x.target_iid === target.iid
+                  );
+                return false;
+              });
+              if (!a) break;
+              const next = await applyHumanAction(sessionId, a.idx);
+              const fr = next.frames ?? [];
+              if (fr.length > 1) {
+                await playFrames(next, fr, 2200);
+              } else {
+                setState(next);
+              }
+              curLegal = next.legal_actions;
+            }
+          } catch (e) {
+            setError(String(e));
+          } finally {
+            applyInFlightRef.current = false;
+            setBusy(false);
+          }
+        })();
+        return;
+      }
+      // 単発 (= count=1) 既存挙動
       if (target.kind === "self_leader") {
         action = state!.legal_actions.find(
           (a) => a.kind === "AttachDonToLeader",
@@ -479,30 +521,6 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           (a) =>
             a.kind === "AttachDonToCharacter" && a.target_iid === target.iid,
         );
-      }
-      if (action && count > 1) {
-        // N 回 連続 apply (= 複数 DON 同時 attach)
-        setDrag(null);
-        (async () => {
-          for (let k = 0; k < count; k++) {
-            // 各回 で legal_actions が 変わる が、 同 kind の action を 都度 探す
-            const cur = state;
-            if (!cur) break;
-            const a = cur.legal_actions.find((x) => {
-              if (target.kind === "self_leader")
-                return x.kind === "AttachDonToLeader";
-              if (target.kind === "self_chara")
-                return (
-                  x.kind === "AttachDonToCharacter" &&
-                  x.target_iid === target.iid
-                );
-              return false;
-            });
-            if (!a) break;
-            await applyAction(a);
-          }
-        })();
-        return;
       }
     } else if (drag.kind === "counter") {
       // 防御 中: 手札 counter idx を toggle で counterIdxs に追加 + 視覚 演出
