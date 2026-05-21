@@ -312,9 +312,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     const newLines = allLogs.slice(lastCounterLogIdxRef.current);
     lastCounterLogIdxRef.current = allLogs.length;
     const aiIdx = state?.ai_idx ?? -1;
-    if (aiIdx < 0) return;
+    const humanIdx = state?.human_idx ?? -1;
+    if (aiIdx < 0 || humanIdx < 0) return;
     for (const ln of newLines) {
-      // 「P{ai_idx}: ... counter +N → ...」 (= AI ターン以外 AI が counter)
+      // 「P{human_idx}: ... counter +N → ...」 = 自分 が attacker、 AI が counter 切る
+      //   → AI 演出 fire。 「P{ai_idx}:」 行 (= AI 攻撃中) の counter は 自分が 切る
+      //   → handleDrop の fireCounterPlay(me) で 既 fire 済 (= ここ では skip)
+      if (!new RegExp(`\\bP${humanIdx}\\b`).test(ln)) continue;
       const m = ln.match(/counter\s*\+(\d+)\s*→/);
       if (m) {
         const snap = state?.snapshot as StateSnapshot | null;
