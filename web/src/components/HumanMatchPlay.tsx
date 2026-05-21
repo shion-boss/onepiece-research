@@ -802,7 +802,10 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         </div>
 
         {/* 中央: マット (= 5 横向き chara が 収まる固定幅) */}
-        <div className="relative flex min-h-0 w-[780px] shrink-0 flex-col gap-2">
+        <div
+          data-board-area="center"
+          className="relative flex min-h-0 w-[780px] shrink-0 flex-col gap-2"
+        >
           {/* ライフ 変化 flash overlay (= 自/相手 別 side) */}
           <LifeFlashOverlay
             delta={frameDiff.lifeDelta[state.ai_idx]}
@@ -2618,6 +2621,12 @@ function AttackArrow({
   mousePos: { x: number; y: number };
 }) {
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [clampBox, setClampBox] = useState<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  } | null>(null);
 
   useEffect(() => {
     const elem = document.querySelector(
@@ -2638,9 +2647,29 @@ function AttackArrow({
       x: r.left + r.width / 2 - br.left,
       y: r.top + r.height / 2 - br.top,
     });
+    // 中央 マット の 範囲 を boardRef 相対 座標 で 取得 (= 矢印 clamp 用)
+    const center = board.querySelector(
+      '[data-board-area="center"]',
+    ) as HTMLElement | null;
+    if (center) {
+      const cr = center.getBoundingClientRect();
+      setClampBox({
+        left: cr.left - br.left,
+        top: cr.top - br.top,
+        right: cr.right - br.left,
+        bottom: cr.bottom - br.top,
+      });
+    }
   }, [attackerIid, mousePos]);
 
   if (!origin) return null;
+  // mousePos を 中央パネル 範囲 で clamp (= 飛び出さない)
+  let tx = mousePos.x;
+  let ty = mousePos.y;
+  if (clampBox) {
+    tx = Math.min(Math.max(tx, clampBox.left), clampBox.right);
+    ty = Math.min(Math.max(ty, clampBox.top), clampBox.bottom);
+  }
   return (
     <svg className="pointer-events-none absolute inset-0 z-50 h-full w-full">
       <defs>
@@ -2658,8 +2687,8 @@ function AttackArrow({
       <line
         x1={origin.x}
         y1={origin.y}
-        x2={mousePos.x}
-        y2={mousePos.y}
+        x2={tx}
+        y2={ty}
         stroke="#ef4444"
         strokeWidth="5"
         strokeLinecap="round"
