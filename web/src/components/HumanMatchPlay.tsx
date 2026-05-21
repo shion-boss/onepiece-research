@@ -436,14 +436,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       case "PlayStage":
         return "Place Stage";
       case "AttachDonToLeader":
-        return "DON → Leader";
+        return "ドン付与";
       case "AttachDonToCharacter":
-        return "DON 付与";
+        return "ドン付与";
       case "AttackLeader":
       case "AttackCharacter":
         return "⚔ Attack";
       case "ActivateMain":
-        return "Activate Main";
+        return "起動メイン";
       default:
         return kind;
     }
