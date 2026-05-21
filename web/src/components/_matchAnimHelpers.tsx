@@ -655,13 +655,9 @@ export function TurnBannerOverlay({
 
   useEffect(() => {
     if (hasMulliganPending) return;
-    // 自分 ターン banner: pending=action (= 自分 操作可能) 確定 後 でないと fire しない
-    //   AI 中間 frame で turn 切替 が visible でも、 まだ AI action 続行中 の 場合 あり。
-    //   pending=action で 真の 自ターン MAIN 開始 を 確認 してから 表示。
-    const isMe = turnPlayerIdx === humanIdx;
-    if (isMe && pendingKind !== "action") return;
     if (prevTurnRef.current === turnPlayerIdx) return;
     prevTurnRef.current = turnPlayerIdx;
+    const isMe = turnPlayerIdx === humanIdx;
     const id = idRef.current++;
     setShowItem({
       id,
@@ -672,6 +668,8 @@ export function TurnBannerOverlay({
       setShowItem((cur) => (cur?.id === id ? null : cur));
     }, 1500);
     return () => clearTimeout(t);
+    // pendingKind は 廃止 (= banner → draw → MAIN 順序 を 保つ)
+    void pendingKind;
   }, [turnPlayerIdx, humanIdx, hasMulliganPending, pendingKind]);
 
   return (
