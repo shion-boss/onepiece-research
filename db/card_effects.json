@@ -5245,6 +5245,12 @@
       "do": [
         {
           "untap_don": 5
+        },
+        {
+          "rest": {
+            "target": "one_opponent_character_cost_le_8",
+            "count": 2
+          }
         }
       ]
     }
@@ -5493,6 +5499,9 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "rest": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -14023,6 +14032,9 @@
       "do": [
         {
           "untap_don": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -14038,6 +14050,9 @@
       "do": [
         {
           "untap_don": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -23030,6 +23045,15 @@
           "untap_don": 5
         }
       ]
+    },
+    {
+      "_text": "[auto] main: rest 補完",
+      "when": "main",
+      "do": [
+        {
+          "rest": "one_opponent_inplay_any"
+        }
+      ]
     }
   ],
   "OP04-057": [
@@ -29435,6 +29459,9 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "rest": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -29959,6 +29986,12 @@
       "do": [
         {
           "untap_don": 5
+        },
+        {
+          "rest": {
+            "target": "one_opponent_character_cost_le_8",
+            "count": 2
+          }
         }
       ]
     }
@@ -75755,6 +75788,12 @@
             "target": "self",
             "keyword": "ダブルアタック"
           }
+        },
+        {
+          "rest": {
+            "target": "one_opponent_character_cost_le_6",
+            "count": 2
+          }
         }
       ],
       "cost": {
@@ -77063,6 +77102,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ダブルアタック"
+          }
+        },
+        {
+          "rest": {
+            "target": "one_opponent_character_cost_le_6",
+            "count": 2
           }
         }
       ],

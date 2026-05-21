@@ -106,7 +106,9 @@ def check_concept_missing(text: str, rendered: str, entries: list, cid: str) -> 
     flat_entries = json.dumps(entries, ensure_ascii=False)
     # KO: 公式 "KOする" が in text, overlay に ko primitive なし
     if ("KOする" in norm_text or "ＫＯする" in norm_text):
-        if "KOする" not in norm_over and "\"ko\"" not in flat_entries and "ko_multi" not in flat_entries and "ko_all_others" not in flat_entries:
+        ko_keys = ('"ko"', "ko_multi", "ko_all_others", "ko_opp_stage", "chara_to_opp_life",
+                   "chara_to_self_life", "replace_ko")
+        if "KOする" not in norm_over and not any(k in flat_entries for k in ko_keys):
             issues.append({"kind": "missing_ko_concept", "severity": 5})
     # 「手札に戻す」
     if "持ち主の手札に戻す" in norm_text or "手札に戻す" in norm_text:
