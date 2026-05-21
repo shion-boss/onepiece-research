@@ -1512,7 +1512,7 @@ function DonRow({
   return (
     <div className="flex h-16 shrink-0 items-center gap-1 rounded bg-black/30 px-3">
       <span className="text-xs font-bold text-zinc-200">DON</span>
-      <div className="flex items-center gap-1 overflow-hidden">
+      <div className="flex items-center gap-1.5 overflow-visible py-1">
         {Array.from({ length: donActive }).map((_, i) => {
           const isSel = selected.has(i);
           return (
@@ -1532,10 +1532,11 @@ function DonRow({
                 lastClickedRef.current = null;
               }}
               className={
-                "h-10 w-7 rounded transition " +
+                "h-10 w-7 rounded ring-1 transition " +
                 (isSel
-                  ? "ring-4 ring-cyan-300 -translate-y-1 drop-shadow-[0_0_10px_rgba(103,232,249,0.85)]"
-                  : "ring-1 ring-amber-400 ") +
+                  ? "ring-cyan-300 ring-offset-1 ring-offset-zinc-900 -translate-y-1"
+                  : "ring-amber-400") +
+                " " +
                 (isMe ? "cursor-grab active:cursor-grabbing" : "cursor-default")
               }
               title={
