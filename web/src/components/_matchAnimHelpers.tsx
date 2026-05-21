@@ -804,24 +804,23 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
   }, []);
   if (items.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute inset-0 z-40">
+    <div className="pointer-events-none fixed inset-0 z-[60]">
       <AnimatePresence>
         {items.map((it, idx) => {
-          const xOffset = (idx - items.length / 2) * 140;
+          const xOffset = (idx - items.length / 2) * 160;
           return (
             <motion.div
               key={it.id}
-              initial={{ opacity: 0, scale: 0.5, x: xOffset, y: "80vh" }}
+              initial={{ opacity: 0, scale: 0.4, x: xOffset, y: "60vh" }}
               animate={{
-                opacity: [0, 1, 1, 0.7, 0],
-                scale: [0.5, 1.0, 1.0, 0.9, 0.7],
-                x: [xOffset, xOffset, xOffset, xOffset + 120, xOffset + 280],
-                y: ["80vh", "20%", "20%", "30%", "45%"],
-                rotate: [10, 0, 0, 5, 10],
+                opacity: [0, 1, 1, 0.85, 0],
+                scale: [0.4, 1.15, 1.05, 0.95, 0.8],
+                x: [xOffset, xOffset, xOffset, xOffset + 160, xOffset + 380],
+                y: ["60vh", "0vh", "0vh", "10vh", "30vh"],
               }}
               transition={{
-                duration: 1.5,
-                times: [0, 0.25, 0.55, 0.85, 1],
+                duration: 1.8,
+                times: [0, 0.22, 0.55, 0.85, 1],
                 ease: "easeOut",
               }}
               exit={{ opacity: 0 }}
@@ -831,13 +830,13 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
                 <img
                   src={`/cards/${it.cardId}.png`}
                   alt={it.cardId}
-                  className="h-56 w-auto rounded shadow-2xl ring-4 ring-amber-300"
+                  className="h-72 w-auto rounded shadow-2xl ring-4 ring-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.85)]"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       "/assets/ura.png";
                   }}
                 />
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1 text-2xl font-extrabold text-white shadow-lg drop-shadow-[0_0_10px_rgba(251,191,36,0.85)]">
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-6 py-2 text-4xl font-extrabold text-white shadow-2xl drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]">
                   +{it.value}
                 </div>
               </div>
