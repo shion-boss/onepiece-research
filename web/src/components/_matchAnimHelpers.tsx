@@ -707,17 +707,17 @@ export function TurnBannerOverlay({
     prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
     const additions: BannerItem[] = [];
-    // 「相手 → 自分」 切替 で 「相手 ターン終了」 banner を 先 enqueue
+    // 「相手 → 自分」 切替 で 「相手ターン終了」 banner を 先 enqueue
     if (isMe && prev !== -1 && prev !== humanIdx) {
       additions.push({
         id: idRef.current++,
-        label: "OPPONENT TURN END",
+        label: "相手ターン終了",
         color: "opp",
       });
     }
     additions.push({
       id: idRef.current++,
-      label: isMe ? "YOUR TURN" : "OPPONENT TURN",
+      label: isMe ? "あなたのターン" : "相手のターン",
       color: isMe ? "self" : "opp",
     });
     setQueue((q) => [...q, ...additions]);
