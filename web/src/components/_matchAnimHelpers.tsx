@@ -473,32 +473,40 @@ export function DrawCardOverlay({
     <div className="pointer-events-none absolute inset-0 z-30">
       <AnimatePresence>
         {items.map((it) => {
-          // デッキ位置 (= 中央マット内 DECK 概略位置) から 手札方向 へ
+          // デッキ位置 → 手札方向 へ 縦方向 直線 で 飛ばす (= 横にズレない)。
+          // 自分 mat の deck は 中央付近、 自分 手札 は 画面 下端 HandRow。
+          // AI mat の deck は 中央付近、 AI 手札 は 画面 上端 OpponentInfoPanel 内。
           const isMe = it.side === "me";
-          // 開始位置: 中央 上下 (= デッキ表示 の おおまかな所)
-          const startY = isMe ? "0%" : "0%";
-          // 終了位置: 手札 (= 自分=下 / AI=上、 画面端)
-          const endY = isMe ? "55vh" : "-55vh";
-          const delay = it.delayIdx * 0.08;
+          const startY = isMe ? "-10vh" : "10vh"; // mat 内 deck 概略位置
+          const endY = isMe ? "55vh" : "-55vh"; // 手札位置 (= 画面端)
+          const midY1 = isMe ? "15vh" : "-15vh";
+          const midY2 = isMe ? "35vh" : "-35vh";
+          const delay = it.delayIdx * 0.1;
           return (
             <motion.div
               key={it.id}
               initial={{
                 opacity: 0,
-                scale: 0.5,
-                x: "0%",
+                scale: 0.7,
+                x: 0,
                 y: startY,
                 rotate: 0,
               }}
               animate={{
-                opacity: [0, 1, 1, 0.9, 0],
-                scale: [0.5, 0.85, 0.95, 0.85, 0.7],
-                x: ["0%", "10%", "30%", "55%", "80%"],
-                y: [startY, isMe ? "15vh" : "-15vh", isMe ? "30vh" : "-30vh", isMe ? "45vh" : "-45vh", endY],
-                rotate: [0, isMe ? 8 : -8, isMe ? 14 : -14, isMe ? 18 : -18, isMe ? 22 : -22],
+                // x は 中央維持 (= デッキ→手札 直線)、 終端 で fade-out
+                opacity: [0, 1, 1, 1, 0],
+                scale: [0.7, 0.95, 1.0, 0.95, 0.85],
+                x: [0, 0, 0, 0, 0],
+                y: [startY, "0%", midY1, midY2, endY],
+                rotate: [0, isMe ? 3 : -3, isMe ? 5 : -5, isMe ? 7 : -7, 0],
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, delay, ease: "easeOut" }}
+              transition={{
+                duration: 0.85,
+                delay,
+                times: [0, 0.25, 0.55, 0.8, 1],
+                ease: "easeIn",
+              }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             >
               <img
@@ -515,6 +523,39 @@ export function DrawCardOverlay({
       </AnimatePresence>
     </div>
   );
+}
+
+/** 自分側 hand で 直近 ドロー カード を ハイライト 表示 する 用 hook。
+ *
+ * 返値 = ハイライト 対象 の hand idx Set。 hand 末尾 N 枚 (= handDelta 分) を
+ * 一定 時間 (= 2 秒) ハイライト、 経過後 自動 clear。 別 ドロー で 更新。 */
+export function useRecentDrawnIdxs(
+  handDelta: number,
+  handLength: number,
+  tickId: number,
+): Set<number> {
+  const [recent, setRecent] = useState<Set<number>>(new Set());
+  const lastTickRef = useRef(-1);
+  const handDeltaRef = useRef(handDelta);
+  const handLengthRef = useRef(handLength);
+  handDeltaRef.current = handDelta;
+  handLengthRef.current = handLength;
+
+  useEffect(() => {
+    if (tickId === lastTickRef.current) return;
+    lastTickRef.current = tickId;
+    const delta = handDeltaRef.current;
+    const len = handLengthRef.current;
+    if (delta <= 0) return;
+    const startIdx = Math.max(0, len - delta);
+    const idxs = new Set<number>();
+    for (let i = startIdx; i < len; i++) idxs.add(i);
+    setRecent(idxs);
+    const t = setTimeout(() => setRecent(new Set()), 2000);
+    return () => clearTimeout(t);
+  }, [tickId]);
+
+  return recent;
 }
 
 // --------------------------------------------------------------------------

@@ -24,6 +24,7 @@ import {
   AttackBeamOverlay,
   PlayedCardOverlay,
   DrawCardOverlay,
+  useRecentDrawnIdxs,
 } from "./_matchAnimHelpers";
 
 /**
@@ -252,6 +253,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   // snapshot 差分 (= life delta / chara 退場 等) を hook で 追跡 し animation 用
   const snapForDiff = (state?.snapshot ?? null) as StateSnapshot | null;
   const frameDiff = useFrameDiff(snapForDiff);
+  // 自分側 hand で 直近 ドロー idx を ハイライト
+  const meHandLen =
+    (snapForDiff?.players?.[state?.human_idx ?? 0]?.hand?.length) ?? 0;
+  const recentDrawnIdxs = useRecentDrawnIdxs(
+    frameDiff.handDelta[state?.human_idx ?? 0] ?? 0,
+    meHandLen,
+    frameDiff.eventTickId,
+  );
 
   if (!state) {
     return (
@@ -644,6 +653,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             draggingHandIdx={
               drag?.kind === "hand" ? drag.handIdx : null
             }
+            recentDrawnIdxs={recentDrawnIdxs}
             onClick={clickHandCard}
             onHover={setHovered}
             onDragStart={(handIdx) => {
@@ -1695,6 +1705,7 @@ function HandRow({
   canAct,
   selectedIdx,
   draggingHandIdx,
+  recentDrawnIdxs,
   onClick,
   onHover,
   onDragStart,
@@ -1705,6 +1716,7 @@ function HandRow({
   canAct: boolean;
   selectedIdx: number | null;
   draggingHandIdx: number | null;
+  recentDrawnIdxs?: Set<number>;
   onClick: (idx: number) => void;
   onHover: (h: HoverInfo) => void;
   onDragStart: (handIdx: number) => void;
@@ -1719,13 +1731,16 @@ function HandRow({
           const playable = canAct && (actionsByHand.get(i)?.length ?? 0) > 0;
           const selected = selectedIdx === i;
           const dragging = draggingHandIdx === i;
-          const ring = selected
-            ? "ring-4 ring-yellow-400"
-            : playable
-              ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
-              : "ring-1 ring-zinc-700 opacity-90";
+          const isRecentDrawn = !!recentDrawnIdxs?.has(i);
+          const ring = isRecentDrawn
+            ? "ring-4 ring-cyan-300 drop-shadow-[0_0_18px_rgba(103,232,249,0.85)]"
+            : selected
+              ? "ring-4 ring-yellow-400"
+              : playable
+                ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
+                : "ring-1 ring-zinc-700 opacity-90";
           return (
-            <button
+            <motion.button
               key={i}
               type="button"
               draggable={playable}
@@ -1740,9 +1755,22 @@ function HandRow({
               disabled={!playable && !canAct}
               style={{
                 marginLeft: i === 0 ? 0 : -overlap,
-                zIndex: selected ? 50 : i,
+                zIndex: selected ? 50 : isRecentDrawn ? 40 : i,
                 opacity: dragging ? 0 : undefined,
               }}
+              animate={
+                isRecentDrawn
+                  ? {
+                      y: [0, -10, 0],
+                      scale: [1, 1.06, 1],
+                    }
+                  : undefined
+              }
+              transition={
+                isRecentDrawn
+                  ? { duration: 0.6, repeat: 2, ease: "easeOut" }
+                  : undefined
+              }
               className={`relative inline-block rounded transition duration-150 ease-out ${ring} ${
                 playable
                   ? "cursor-grab active:cursor-grabbing hover:-translate-y-4 hover:z-50"
@@ -1755,7 +1783,12 @@ function HandRow({
                 alt={cardId}
                 className="h-48 w-auto rounded object-cover shadow-lg"
               />
-            </button>
+              {isRecentDrawn && (
+                <span className="pointer-events-none absolute top-1 right-1 rounded-full bg-cyan-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                  NEW
+                </span>
+              )}
+            </motion.button>
           );
         })}
         {hand.length === 0 && (
