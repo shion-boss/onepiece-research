@@ -2602,7 +2602,7 @@ function ActionButtonGrid({
             }}
             disabled={!active}
             className={
-              "rounded p-3 text-sm font-bold shadow transition " +
+              "rounded p-3 text-sm font-bold shadow " +
               (active
                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
                 : "cursor-not-allowed bg-zinc-700/50 text-zinc-500 line-through")
