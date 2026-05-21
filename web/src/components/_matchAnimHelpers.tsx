@@ -461,44 +461,79 @@ export function DrawCardOverlay({
   useEffect(() => {
     if (tickId === lastTickRef.current) return;
     lastTickRef.current = tickId;
-    // ライフ削り frame で hand_count +1 → ライフ位置 から 「life trigger draw」 演出。
-    // ライフ削り なし frame で hand_count +1 → デッキ位置 から 「deck draw」 演出。
+    // 同 frame で lifeDelta>0 と handDelta>0 が 同時 (= life trigger draw):
+    //   1 枚 は source=life (= ライフ位置 から)
+    //   余剰 hand+N は source=deck (= デッキ位置 から、 別 経路)
+    // life trigger ない frame の handDelta は 全 source=deck。
     const meLifeHit = lifeMeRef.current > 0;
     const oppLifeHit = lifeOppRef.current > 0;
     const meN = Math.max(0, Math.min(meDeltaRef.current, 6));
     const oppN = Math.max(0, Math.min(oppDeltaRef.current, 6));
     if (meN === 0 && oppN === 0) return;
-    // 連続 fire 阻止 cooldown (= visual overlap 防止)。
-    const now = Date.now();
-    if (now - lastFireAtRef.current < 1500) {
-      return;
-    }
-    lastFireAtRef.current = now;
+    // cooldown 撤回 (= 同 frame 内 で 複数 item OK、 必要 なら delayIdx で 順次)
+    lastFireAtRef.current = Date.now();
     const additions: DrawItem[] = [];
-    for (let i = 0; i < meN; i++) {
+    if (meLifeHit && meN > 0) {
       additions.push({
         id: nextIdRef.current++,
         side: "me",
-        source: meLifeHit ? "life" : "deck",
-        delayIdx: i,
+        source: "life",
+        delayIdx: 0,
       });
+      for (let i = 1; i < meN; i++) {
+        additions.push({
+          id: nextIdRef.current++,
+          side: "me",
+          source: "deck",
+          delayIdx: i + 2, // 大幅 遅延 (= life trigger 完了後)
+        });
+      }
+    } else {
+      for (let i = 0; i < meN; i++) {
+        additions.push({
+          id: nextIdRef.current++,
+          side: "me",
+          source: "deck",
+          delayIdx: i,
+        });
+      }
     }
-    for (let i = 0; i < oppN; i++) {
+    if (oppLifeHit && oppN > 0) {
       additions.push({
         id: nextIdRef.current++,
         side: "opp",
-        source: oppLifeHit ? "life" : "deck",
-        delayIdx: i,
+        source: "life",
+        delayIdx: 0,
       });
+      for (let i = 1; i < oppN; i++) {
+        additions.push({
+          id: nextIdRef.current++,
+          side: "opp",
+          source: "deck",
+          delayIdx: i + 2,
+        });
+      }
+    } else {
+      for (let i = 0; i < oppN; i++) {
+        additions.push({
+          id: nextIdRef.current++,
+          side: "opp",
+          source: "deck",
+          delayIdx: i,
+        });
+      }
     }
     setItems((prev) => [...prev, ...additions].slice(-12));
     additions.forEach((it) => {
-      setTimeout(
-        () => {
-          setItems((cur) => cur.filter((x) => x.id !== it.id));
-        },
-        650 + it.delayIdx * 80,
-      );
+      // life trigger 後 の deck draw は 1.2 秒 遅延 + 850ms 表示
+      // 通常 は 650 + idx * 80ms
+      const isLifeChained = it.source === "deck" && it.delayIdx >= 2;
+      const dismiss = isLifeChained
+        ? 1200 + 850
+        : 650 + it.delayIdx * 80;
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== it.id));
+      }, dismiss);
     });
   }, [tickId]);
 
@@ -558,7 +593,9 @@ export function DrawCardOverlay({
             : isMe
               ? "ring-emerald-300"
               : "ring-rose-300";
-          const delay = it.delayIdx * 0.08;
+          // life trigger 後 の deck draw (= 同 frame 内 で 連鎖) は 大幅 遅延
+          const isLifeChained = !isLife && it.delayIdx >= 2;
+          const delay = isLifeChained ? 1.2 : it.delayIdx * 0.08;
           return (
             <motion.div
               key={it.id}
