@@ -2330,9 +2330,10 @@ class DeepPlanningAI(GreedyAI):
                 # 公式 ルール上 リーダー は KO されない → attack は ノーコスト で 相手手札 -1 期待。
                 return leader_attacks[0]
 
-        # キャラ で 攻撃 (= ノーコスト で 相手 ライフ or 手札 削る) を 1 回 強制。
-        # キャラ attack で 自キャラ rest → ブロック 失う が、 そもそも 「ブロッカー」 持ち でないと
-        # ブロック 不可 なので 大半 の キャラ で attack 損 ない。
+        # キャラ で リーダー 攻撃 を 強制 する条件:
+        #   attacker.power >= opp.leader.power - 1000 (= 1 DON で 届く 圏内)
+        # これ未満 (= 例 1000 chara で 5000 リーダー) は 明らかに 損 (= counter 不要 で
+        # 完全防御、 自キャラ rest 損 のみ)、 強制 attack しない → plan_search に 委ねる。
         char_attackers: list[InPlay] = [
             c for c in me.characters
             if not c.rested
@@ -2340,9 +2341,10 @@ class DeepPlanningAI(GreedyAI):
             and not c.cannot_attack_until_turn_end
             and not c.cannot_attack_static
             and not c.cannot_attack_through_opp_turn
+            and c.power >= opp.leader.power - 1000
         ]
         if char_attackers:
-            # ブロッカー 持ち かつ ブロッカー 役 を 失いたく ない キャラ は 後回し
+            # ブロッカー 持ち は ブロッカー 役 を 失いたくない ので 後回し
             non_blocker_attackers = [c for c in char_attackers if not c.is_blocker_now]
             preferred = non_blocker_attackers or char_attackers
             preferred.sort(key=lambda c: -c.power)
