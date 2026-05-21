@@ -161,14 +161,16 @@ def setup_game(
         p.draw(5)
     state._mulligan_analyses = analyses  # type: ignore[attr-defined]
     if do_mulligan_and_finalize:
-        # マリガン (= 手札 戻し + デッキ シャッフル + 再 5 枚 ドロー、 ライフ は keep)
+        # AI vs AI 試合 用 (= 全 player AI 自動判定)、 結果 を log に 明示
         for p, a in zip(state.players, analyses):
             if _should_mulligan(p, a):
                 p.deck.extend(p.hand)
                 p.hand = []
                 p.shuffle_deck(rng)
                 p.draw(5)
-                state.push_log(f"  マリガン: {p.name} 手札を引き直し")
+                state.push_log(f"  マリガン: {p.name} (AI) 手札 引き直し")
+            else:
+                state.push_log(f"  マリガン: {p.name} (AI) 引き直さない (keep)")
     else:
         # マリガン skip path: state を 「pre-mulligan」 で 返す。
         # 呼び出し側 が finalize_setup_after_mulligan を 呼んで 完了 する 想定。
@@ -238,7 +240,9 @@ def finalize_setup_after_mulligan(
     """
     analyses = getattr(state, "_mulligan_analyses", [None, None])
     # マリガン適用 (= ライフ は setup_game で 既配布、 keep)
+    # マリガン した か どうか を 各 player 別 で log に 明示 (= ユーザ要望)
     for idx, (p, a) in enumerate(zip(state.players, analyses)):
+        actor = "人間" if idx == human_player_idx else "AI"
         if idx == human_player_idx and human_mulligan is not None:
             do_mull = human_mulligan
         else:
@@ -248,7 +252,9 @@ def finalize_setup_after_mulligan(
             p.hand = []
             p.shuffle_deck(rng)
             p.draw(5)
-            state.push_log(f"  マリガン: {p.name} 手札を引き直し")
+            state.push_log(f"  マリガン: {p.name} ({actor}) 手札 引き直し")
+        else:
+            state.push_log(f"  マリガン: {p.name} ({actor}) 引き直さない (keep)")
     p0, p1 = state.players[0], state.players[1]
     state.push_log(
         f"start: P0={p0.leader.card.name}({p0.leader.card.life}L) "
