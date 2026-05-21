@@ -421,7 +421,12 @@ export function PlayedCardOverlay({
 // DrawCardOverlay: ドロー 演出 (= デッキ位置 → 手札方向 へ 裏面 カード slide)
 // --------------------------------------------------------------------------
 
-type DrawItem = { id: number; side: "me" | "opp"; delayIdx: number };
+type DrawItem = {
+  id: number;
+  side: "me" | "opp";
+  source: "deck" | "life";
+  delayIdx: number;
+};
 
 export function DrawCardOverlay({
   handDeltaMe,
@@ -453,12 +458,12 @@ export function DrawCardOverlay({
   useEffect(() => {
     if (tickId === lastTickRef.current) return;
     lastTickRef.current = tickId;
-    // ライフ削り frame では handDelta は 「ライフ→手札」 由来 → DrawCardOverlay 不発
-    // (= デッキ → 手札 演出 は 公式 「ライフ trigger」 と 別物、 LifeFlash で 代替)。
+    // ライフ削り frame で hand_count +1 → ライフ位置 から 「life trigger draw」 演出。
+    // ライフ削り なし frame で hand_count +1 → デッキ位置 から 「deck draw」 演出。
     const meLifeHit = lifeMeRef.current > 0;
     const oppLifeHit = lifeOppRef.current > 0;
-    const meN = meLifeHit ? 0 : Math.max(0, Math.min(meDeltaRef.current, 6));
-    const oppN = oppLifeHit ? 0 : Math.max(0, Math.min(oppDeltaRef.current, 6));
+    const meN = Math.max(0, Math.min(meDeltaRef.current, 6));
+    const oppN = Math.max(0, Math.min(oppDeltaRef.current, 6));
     if (meN === 0 && oppN === 0) return;
     // 連続 fire 阻止 cooldown (= visual overlap 防止)。
     const now = Date.now();
@@ -471,6 +476,7 @@ export function DrawCardOverlay({
       additions.push({
         id: nextIdRef.current++,
         side: "me",
+        source: meLifeHit ? "life" : "deck",
         delayIdx: i,
       });
     }
@@ -478,6 +484,7 @@ export function DrawCardOverlay({
       additions.push({
         id: nextIdRef.current++,
         side: "opp",
+        source: oppLifeHit ? "life" : "deck",
         delayIdx: i,
       });
     }
@@ -497,14 +504,25 @@ export function DrawCardOverlay({
     <div className="pointer-events-none absolute inset-0 z-30">
       <AnimatePresence>
         {items.map((it) => {
-          // デッキ位置 → 手札方向 へ 縦方向 直線 で 飛ばす (= 横にズレない)。
-          // 自分 mat の deck は 中央付近、 自分 手札 は 画面 下端 HandRow。
-          // AI mat の deck は 中央付近、 AI 手札 は 画面 上端 OpponentInfoPanel 内。
           const isMe = it.side === "me";
-          const startY = isMe ? "-10vh" : "10vh"; // mat 内 deck 概略位置
-          const endY = isMe ? "55vh" : "-55vh"; // 手札位置 (= 画面端)
-          const midY1 = isMe ? "15vh" : "-15vh";
-          const midY2 = isMe ? "35vh" : "-35vh";
+          const isLife = it.source === "life";
+          // 出現位置:
+          //   deck source: 中央 (= 中央マット内 deck 概略 -10vh/+10vh)
+          //   life source: ライフ位置 (= mirror layout: 自=左下 / 相手=右上)
+          // 手札位置 (= 画面端 ±55vh) へ slide
+          const startX = isLife ? (isMe ? "-30vw" : "30vw") : 0;
+          const startY = isLife
+            ? isMe ? "20vh" : "-20vh"
+            : isMe ? "-10vh" : "10vh";
+          const endX = 0;
+          const endY = isMe ? "55vh" : "-55vh";
+          const ringColor = isLife
+            ? isMe
+              ? "ring-orange-300 shadow-orange-500/50"
+              : "ring-orange-300 shadow-orange-500/50"
+            : isMe
+              ? "ring-emerald-300"
+              : "ring-rose-300";
           const delay = it.delayIdx * 0.1;
           return (
             <motion.div
@@ -512,35 +530,50 @@ export function DrawCardOverlay({
               initial={{
                 opacity: 0,
                 scale: 0.7,
-                x: 0,
+                x: startX,
                 y: startY,
-                rotate: 0,
+                rotate: isLife ? (isMe ? -10 : 10) : 0,
               }}
               animate={{
-                // x は 中央維持 (= デッキ→手札 直線)、 終端 で fade-out
                 opacity: [0, 1, 1, 1, 0],
                 scale: [0.7, 0.95, 1.0, 0.95, 0.85],
-                x: [0, 0, 0, 0, 0],
-                y: [startY, "0%", midY1, midY2, endY],
-                rotate: [0, isMe ? 3 : -3, isMe ? 5 : -5, isMe ? 7 : -7, 0],
+                x: [
+                  startX,
+                  isLife ? (isMe ? "-15vw" : "15vw") : 0,
+                  isLife ? "-5vw" : 0,
+                  endX,
+                  endX,
+                ],
+                y: [startY, isMe ? "10vh" : "-10vh", "0%", isMe ? "35vh" : "-35vh", endY],
+                rotate: [
+                  isLife ? (isMe ? -10 : 10) : 0,
+                  isMe ? 3 : -3,
+                  0,
+                  isMe ? 5 : -5,
+                  0,
+                ],
               }}
               exit={{ opacity: 0 }}
               transition={{
-                duration: 0.55,
+                duration: isLife ? 0.85 : 0.55,
                 delay,
                 times: [0, 0.25, 0.55, 0.8, 1],
-                ease: "easeIn",
+                ease: "easeOut",
               }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             >
               <img
                 src="/assets/ura.png"
-                alt="draw"
+                alt={isLife ? "life trigger draw" : "draw"}
                 className={
-                  "h-32 w-24 rounded shadow-2xl ring-2 " +
-                  (isMe ? "ring-emerald-300" : "ring-rose-300")
+                  "h-32 w-24 rounded shadow-2xl ring-2 " + ringColor
                 }
               />
+              {isLife && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                  LIFE!
+                </div>
+              )}
             </motion.div>
           );
         })}
