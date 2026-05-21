@@ -699,6 +699,84 @@ export function EffectToastOverlay({ log }: { log: string[] }) {
 }
 
 // --------------------------------------------------------------------------
+// CounterPlayOverlay: 手札 counter ドロップ 時 「+N」 popup + カード trash slide
+// --------------------------------------------------------------------------
+
+type CounterFireItem = {
+  id: number;
+  cardId: string;
+  value: number;
+};
+
+let _counterFireExternal: ((cardId: string, value: number) => void) | null = null;
+
+export function fireCounterPlay(cardId: string, value: number): void {
+  if (_counterFireExternal) _counterFireExternal(cardId, value);
+}
+
+export function CounterPlayOverlay(): React.JSX.Element | null {
+  const [items, setItems] = useState<CounterFireItem[]>([]);
+  const idRef = useRef(0);
+  useEffect(() => {
+    _counterFireExternal = (cardId: string, value: number) => {
+      const id = idRef.current++;
+      setItems((prev) => [...prev, { id, cardId, value }].slice(-4));
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== id));
+      }, 1500);
+    };
+    return () => {
+      _counterFireExternal = null;
+    };
+  }, []);
+  if (items.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40">
+      <AnimatePresence>
+        {items.map((it, idx) => {
+          const xOffset = (idx - items.length / 2) * 140;
+          return (
+            <motion.div
+              key={it.id}
+              initial={{ opacity: 0, scale: 0.5, x: xOffset, y: "80vh" }}
+              animate={{
+                opacity: [0, 1, 1, 0.7, 0],
+                scale: [0.5, 1.0, 1.0, 0.9, 0.7],
+                x: [xOffset, xOffset, xOffset, xOffset + 120, xOffset + 280],
+                y: ["80vh", "20%", "20%", "30%", "45%"],
+                rotate: [10, 0, 0, 5, 10],
+              }}
+              transition={{
+                duration: 1.5,
+                times: [0, 0.25, 0.55, 0.85, 1],
+                ease: "easeOut",
+              }}
+              exit={{ opacity: 0 }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            >
+              <div className="relative">
+                <img
+                  src={`/cards/${it.cardId}.png`}
+                  alt={it.cardId}
+                  className="h-56 w-auto rounded shadow-2xl ring-4 ring-amber-300"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "/assets/ura.png";
+                  }}
+                />
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1 text-2xl font-extrabold text-white shadow-lg drop-shadow-[0_0_10px_rgba(251,191,36,0.85)]">
+                  +{it.value}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // AttackTargetArrowOverlay: 相手 攻撃 中 に attacker → target の 矢印 (三角ヘッド) を
 // 一定時間 表示 する。 AttackBeam とは別、 「何 を 狙ってるか」 を 明示的 に 示す ための
 // 静的 な 矢印 (= 1.2 秒)。

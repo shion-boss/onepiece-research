@@ -25,6 +25,8 @@ import {
   AttackTargetArrowOverlay,
   PlayedCardOverlay,
   DrawCardOverlay,
+  CounterPlayOverlay,
+  fireCounterPlay,
   useRecentDrawnIdxs,
 } from "./_matchAnimHelpers";
 
@@ -459,9 +461,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         );
       }
     } else if (drag.kind === "counter") {
-      // 防御 中: 手札 counter idx を toggle で counterIdxs に追加
+      // 防御 中: 手札 counter idx を toggle で counterIdxs に追加 + 視覚 演出
       if (!counterIdxs.includes(drag.handIdx)) {
+        const cardId = me.hand[drag.handIdx];
+        const counterValues = (state?.pending_payload?.counter_values as
+          | Record<string, number>
+          | undefined) ?? null;
+        const value = counterValues?.[String(drag.handIdx)] ?? 1000;
         setCounterIdxs([...counterIdxs, drag.handIdx]);
+        if (cardId) fireCounterPlay(cardId, value);
       }
       setDrag(null);
       return;
@@ -892,6 +900,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         lifeDeltaOpp={frameDiff.lifeDelta[state.ai_idx]}
         tickId={frameDiff.eventTickId}
       />
+
+      {/* counter ドロップ 時 「+N」 popup + カード trash slide 演出 */}
+      <CounterPlayOverlay />
 
       {/* interactive 選択 modal (= kind 別に dispatch) */}
       {isChoicePending && state.pending_payload && (
