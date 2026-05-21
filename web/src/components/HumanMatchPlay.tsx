@@ -112,7 +112,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     // 各 frame で snapshot (= board) は 中間状態 を 表示 する が、
     // log は 累積 で 表示 する (= 「相手ターン中 log が 1 行 しか 出ない」 修正)。
     // frame.log は その時点 の 1 行 のみ なので、 final.log (= 全行) を 使う。
-    // ライフ→手札 / KO 等 重い演出 frame は wait 延長 (= 演出 完了 まで 次 行動 待ち)。
+    // ライフ→手札 / KO / draw / turn切替 等 重い演出 frame は wait 延長。
+    let prevTurn = -1;
     for (let i = 0; i < frames.length - 1; i++) {
       const f = frames[i];
       setState({
@@ -123,16 +124,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         log: final.log,
       });
       const logLine = typeof f.log === "string" ? f.log : "";
-      // ライフ削り 系 (= life→hand / hit / ライフ) は LifeFlash 0.8s + LifeStack shake 0.45s
-      // + life trigger ドロー 0.85s が 順次 発火 する ので 長め に 待つ (= 2500ms)。
-      // KO / 登場 等 は 1800ms で 十分。
+      const curTurn =
+        typeof f.turn === "number" ? f.turn : prevTurn;
+      const turnChanged = prevTurn >= 0 && curTurn !== prevTurn;
+      // 優先順 で wait 決定 (= 高い ほう を 採用)
       const isLifeHit = /life->hand|hit:|ライフ/.test(logLine);
-      const isMediumHeavy = /KO|登場/.test(logLine);
-      const wait = isLifeHit
-        ? Math.max(perFrameMs, 2500)
-        : isMediumHeavy
-          ? Math.max(perFrameMs, 1800)
-          : perFrameMs;
+      const isDraw = /draw:|ドロー/.test(logLine);
+      const isMediumHeavy = /KO|登場|refresh:/.test(logLine);
+      let wait = perFrameMs;
+      if (isLifeHit) wait = Math.max(wait, 2500);
+      if (isDraw) wait = Math.max(wait, 1700);
+      if (isMediumHeavy) wait = Math.max(wait, 1800);
+      // turn 切替 frame (= 相手ターン終了 → 自ターン開始) は さらに 余分 wait
+      if (turnChanged) wait = Math.max(wait, 1800);
+      prevTurn = curTurn;
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
     setState(final);
