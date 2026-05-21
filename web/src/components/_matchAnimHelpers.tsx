@@ -153,9 +153,12 @@ export function LifeFlashOverlay({
   tickId: number;
 }) {
   if (delta === 0) return null;
-  const color = delta > 0 ? "bg-rose-500/30" : "bg-emerald-500/25";
+  const color = delta > 0 ? "bg-rose-600/40" : "bg-emerald-500/25";
   const label = delta > 0 ? `−${delta}` : `+${-delta}`;
-  const labelColor = delta > 0 ? "text-rose-200" : "text-emerald-200";
+  const labelColor =
+    delta > 0
+      ? "text-red-400 drop-shadow-[0_0_18px_rgba(239,68,68,0.95)]"
+      : "text-emerald-200";
   // side で 上 or 下 を 占有 (= field 全体 ではなく 該当 player 側)
   const sideClass =
     side === "me"
@@ -269,8 +272,20 @@ export function PlayedCardOverlay({
 }) {
   const [items, setItems] = useState<PlayedCardItem[]>([]);
   const nextIdRef = useRef(0);
+  const lastTickRef = useRef(-1);
+  // 最新 props を ref に 持って useEffect dep から 外す (= tickId 単独 で 1 回 fire 保証)
+  const trashAddedMeRef = useRef(trashAddedMe);
+  const trashAddedOppRef = useRef(trashAddedOpp);
+  const leftCharasMeRef = useRef(leftCharasMe);
+  const leftCharasOppRef = useRef(leftCharasOpp);
+  trashAddedMeRef.current = trashAddedMe;
+  trashAddedOppRef.current = trashAddedOpp;
+  leftCharasMeRef.current = leftCharasMe;
+  leftCharasOppRef.current = leftCharasOpp;
 
   useEffect(() => {
+    if (tickId === lastTickRef.current) return; // 重複 fire 防止
+    lastTickRef.current = tickId;
     // 場 から KO で trash に行った card_id を 除外 → 残り が 「手札からの使用」
     function diff(added: string[], chars: CharSnapshot[]): string[] {
       const charPool = chars.map((c) => c.card_id);
@@ -288,8 +303,11 @@ export function PlayedCardOverlay({
       }
       return result;
     }
-    const meHandPlays = diff(trashAddedMe, leftCharasMe);
-    const oppHandPlays = diff(trashAddedOpp, leftCharasOpp);
+    const meHandPlays = diff(trashAddedMeRef.current, leftCharasMeRef.current);
+    const oppHandPlays = diff(
+      trashAddedOppRef.current,
+      leftCharasOppRef.current,
+    );
     if (meHandPlays.length === 0 && oppHandPlays.length === 0) return;
     const additions: PlayedCardItem[] = [
       ...meHandPlays.map((cid) => ({
@@ -307,11 +325,9 @@ export function PlayedCardOverlay({
     additions.forEach((it) => {
       setTimeout(() => {
         setItems((cur) => cur.filter((x) => x.id !== it.id));
-      }, 1400);
+      }, 1600);
     });
-    // tickId は useEffect 再発火用 (= 同 trashAdded[] 内容 でも tick が違えば 別 event)
-    void tickId;
-  }, [trashAddedMe, trashAddedOpp, leftCharasMe, leftCharasOpp, tickId]);
+  }, [tickId]);
 
   if (items.length === 0) return null;
   return (

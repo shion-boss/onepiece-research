@@ -687,6 +687,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onDropTarget={handleDrop}
             onHover={setHovered}
             onTrashClick={() => setTrashViewer("opp")}
+            lifeDamageTickId={
+              frameDiff.lifeDelta[state.ai_idx] > 0
+                ? frameDiff.eventTickId
+                : undefined
+            }
           />
 
           <div className="h-px shrink-0 bg-amber-100/30" />
@@ -710,6 +715,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onDragStart={(p) => setDrag(p)}
             onDragEnd={() => setDrag(null)}
             onTrashClick={() => setTrashViewer("me")}
+            lifeDamageTickId={
+              frameDiff.lifeDelta[state.human_idx] > 0
+                ? frameDiff.eventTickId
+                : undefined
+            }
           />
         </div>
 
@@ -973,6 +983,7 @@ function PlayerMat({
   onDragStart,
   onDragEnd,
   onTrashClick,
+  lifeDamageTickId,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -991,6 +1002,7 @@ function PlayerMat({
   onDragStart?: (p: DragPayload) => void;
   onDragEnd?: () => void;
   onTrashClick: () => void;
+  lifeDamageTickId?: number;
 }) {
   // どの drag を 受け入れる か
   const acceptHandDrop = isMe && drag?.kind === "hand";
@@ -1034,7 +1046,10 @@ function PlayerMat({
         <div className="text-xs font-bold text-zinc-100">
           LIFE × {player.life_count}
         </div>
-        <LifeStack count={player.life_count} />
+        <LifeStack
+          count={player.life_count}
+          damageTickId={lifeDamageTickId}
+        />
         <div className="flex flex-col items-center gap-0.5">
           <div className="text-xs text-zinc-300">DON Deck</div>
           <div className="relative">
@@ -1127,12 +1142,31 @@ function PlayerMat({
   );
 }
 
-function LifeStack({ count }: { count: number }) {
+function LifeStack({
+  count,
+  damageTickId,
+}: {
+  count: number;
+  damageTickId?: number;
+}) {
   // 横向き レイアウト 中で 縦横比 5:7 を 保持 する ため、
   // 縦長 image を rotate-90 で 横倒し に する (= wrapper は landscape、 中身 は portrait)。
   // 高さ 固定 (= h-40) で count 変動 で 全体 layout が 動かない。
+  // damageTickId が 変わる たび に shake animation を 発火 (= ダメージ食らった 演出)。
   return (
-    <div className="relative flex h-40 w-20 flex-col items-center justify-end">
+    <motion.div
+      key={damageTickId ?? 0}
+      animate={
+        damageTickId !== undefined && damageTickId > 0
+          ? {
+              x: [0, -10, 8, -6, 4, -2, 0],
+              rotate: [0, -2, 2, -1, 1, 0],
+            }
+          : { x: 0, rotate: 0 }
+      }
+      transition={{ duration: 0.45 }}
+      className="relative flex h-40 w-20 flex-col items-center justify-end"
+    >
       {count === 0 ? (
         <div className="my-auto rounded border border-red-500 px-3 py-1 text-xs text-red-300">
           0
@@ -1152,7 +1186,7 @@ function LifeStack({ count }: { count: number }) {
           </div>
         ))
       )}
-    </div>
+    </motion.div>
   );
 }
 
