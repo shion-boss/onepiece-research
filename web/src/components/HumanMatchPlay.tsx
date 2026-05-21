@@ -909,6 +909,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         lifeDeltaMe={frameDiff.lifeDelta[state.human_idx]}
         lifeDeltaOpp={frameDiff.lifeDelta[state.ai_idx]}
         tickId={frameDiff.eventTickId}
+        boardRef={boardRef}
       />
 
       {/* counter ドロップ 時 「+N」 popup + カード trash slide 演出 */}
@@ -1190,10 +1191,12 @@ function PlayerMat({
         <div className="text-xs font-bold text-zinc-100">
           LIFE × {player.life_count}
         </div>
-        <LifeStack
-          count={player.life_count}
-          damageTickId={lifeDamageTickId}
-        />
+        <div data-life-side={isMe ? "me" : "opp"}>
+          <LifeStack
+            count={player.life_count}
+            damageTickId={lifeDamageTickId}
+          />
+        </div>
         <div className="flex flex-col items-center gap-0.5">
           <div className="text-xs text-zinc-300">DON Deck</div>
           <div className="relative">
@@ -1493,7 +1496,7 @@ function CenterRow({
       </div>
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xs font-semibold text-zinc-300">DECK</div>
-        <div className="relative">
+        <div className="relative" data-deck-side={isMe ? "me" : "opp"}>
           <img
             src="/assets/ura.png"
             alt="deck"

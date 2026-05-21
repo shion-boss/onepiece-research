@@ -434,6 +434,7 @@ export function DrawCardOverlay({
   lifeDeltaMe,
   lifeDeltaOpp,
   tickId,
+  boardRef,
 }: {
   handDeltaMe: number;
   handDeltaOpp: number;
@@ -441,6 +442,8 @@ export function DrawCardOverlay({
   lifeDeltaMe: number;
   lifeDeltaOpp: number;
   tickId: number;
+  /** DOM 位置 取得 用 (= deck/life DOM の data-* 属性 を 検索) */
+  boardRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [items, setItems] = useState<DrawItem[]>([]);
   const lastTickRef = useRef(-1);
@@ -506,24 +509,56 @@ export function DrawCardOverlay({
         {items.map((it) => {
           const isMe = it.side === "me";
           const isLife = it.source === "life";
-          // 出現位置:
-          //   deck source: 中央 (= 中央マット内 deck 概略 -10vh/+10vh)
-          //   life source: ライフ位置 (= mirror layout: 自=左下 / 相手=右上)
-          // 手札位置 (= 画面端 ±55vh) へ slide
-          const startX = isLife ? (isMe ? "-30vw" : "30vw") : 0;
-          const startY = isLife
-            ? isMe ? "20vh" : "-20vh"
-            : isMe ? "-10vh" : "10vh";
-          const endX = 0;
-          const endY = isMe ? "55vh" : "-55vh";
+          // DOM 位置 を 取得 (= boardRef 内 で data-deck-side / data-life-side 検索)
+          const board = boardRef.current;
+          let startX = 0;
+          let startY = 0;
+          let endX = 0;
+          let endY = 0;
+          if (board) {
+            const br = board.getBoundingClientRect();
+            const sel = isLife
+              ? `[data-life-side="${it.side}"]`
+              : `[data-deck-side="${it.side}"]`;
+            const el = board.querySelector(sel) as HTMLElement | null;
+            if (el) {
+              const er = el.getBoundingClientRect();
+              startX = er.left + er.width / 2 - br.left - br.width / 2;
+              startY = er.top + er.height / 2 - br.top - br.height / 2;
+            }
+            // 手札 (= HandRow) DOM 位置 取得 (= self 用 のみ、 AI 側 は 既知 位置)
+            if (isMe) {
+              const hand = document.querySelector(
+                ".border-emerald-400\\/50.bg-emerald-950\\/40",
+              ) as HTMLElement | null;
+              if (hand) {
+                const hr = hand.getBoundingClientRect();
+                endX = hr.left + hr.width / 2 - br.left - br.width / 2;
+                endY = hr.top + hr.height / 2 - br.top - br.height / 2;
+              } else {
+                endX = 0;
+                endY = br.height / 2 - 60;
+              }
+            } else {
+              const opp = document.querySelector(
+                ".border-rose-400\\/50.bg-rose-950\\/40",
+              ) as HTMLElement | null;
+              if (opp) {
+                const or = opp.getBoundingClientRect();
+                endX = or.left + or.width / 2 - br.left - br.width / 2;
+                endY = or.top + or.height / 2 - br.top - br.height / 2;
+              } else {
+                endX = 0;
+                endY = -(br.height / 2 - 60);
+              }
+            }
+          }
           const ringColor = isLife
-            ? isMe
-              ? "ring-orange-300 shadow-orange-500/50"
-              : "ring-orange-300 shadow-orange-500/50"
+            ? "ring-orange-300"
             : isMe
               ? "ring-emerald-300"
               : "ring-rose-300";
-          const delay = it.delayIdx * 0.1;
+          const delay = it.delayIdx * 0.08;
           return (
             <motion.div
               key={it.id}
@@ -532,33 +567,19 @@ export function DrawCardOverlay({
                 scale: 0.7,
                 x: startX,
                 y: startY,
-                rotate: isLife ? (isMe ? -10 : 10) : 0,
               }}
               animate={{
-                opacity: [0, 1, 1, 1, 0],
-                scale: [0.7, 0.95, 1.0, 0.95, 0.85],
-                x: [
-                  startX,
-                  isLife ? (isMe ? "-15vw" : "15vw") : 0,
-                  isLife ? "-5vw" : 0,
-                  endX,
-                  endX,
-                ],
-                y: [startY, isMe ? "10vh" : "-10vh", "0%", isMe ? "35vh" : "-35vh", endY],
-                rotate: [
-                  isLife ? (isMe ? -10 : 10) : 0,
-                  isMe ? 3 : -3,
-                  0,
-                  isMe ? 5 : -5,
-                  0,
-                ],
+                opacity: [0, 1, 1, 0],
+                scale: [0.7, 1.0, 1.0, 0.9],
+                x: [startX, startX, endX, endX],
+                y: [startY, startY, endY, endY],
               }}
               exit={{ opacity: 0 }}
               transition={{
-                duration: isLife ? 0.85 : 0.55,
+                duration: isLife ? 0.8 : 0.6,
                 delay,
-                times: [0, 0.25, 0.55, 0.8, 1],
-                ease: "easeOut",
+                times: [0, 0.15, 0.85, 1],
+                ease: "easeInOut",
               }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             >
