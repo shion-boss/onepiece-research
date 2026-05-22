@@ -2934,6 +2934,11 @@ class HumanChoiceIn(BaseModel):
     picks: list[int]
 
 
+class HumanUseOppAttackEffectIn(BaseModel):
+    source_iid: int
+    effect_idx: int
+
+
 def _load_deck_by_slug(slug: str):
     repo = get_repo()
     deck_path = ROOT / "decks" / f"{slug}.json"
@@ -3042,6 +3047,21 @@ def human_match_choice(sid: str, req: HumanChoiceIn):
         raise HTTPException(404, "session not found")
     try:
         session.apply_human_choice(req.picks)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    return payload
+
+
+@app.post("/api/human_match/{sid}/use_opp_attack_effect")
+def human_match_use_opp_attack_effect(sid: str, req: HumanUseOppAttackEffectIn):
+    """防御 pending 中、 自場 の カード の 【相手のアタック時】 効果 を click で 発動。"""
+    session = _HUMAN_SESSIONS.get(sid)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    try:
+        session.apply_human_use_opp_attack_effect(req.source_iid, req.effect_idx)
     except ValueError as e:
         raise HTTPException(400, str(e))
     payload = session.snapshot_payload()

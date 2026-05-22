@@ -9,6 +9,7 @@ import {
   applyHumanAction,
   applyHumanChoice,
   applyHumanDefense,
+  applyHumanUseOppAttackEffect,
   endHumanMatch,
   startHumanMatch,
   type HumanLegalAction,
@@ -27,6 +28,14 @@ import {
   DrawCardOverlay,
   CounterPlayOverlay,
   fireCounterPlay,
+  DefenseSuccessOverlay,
+  fireDefenseSuccess,
+  ArrowBreakOverlay,
+  fireArrowBreak,
+  ArrowStrikeOverlay,
+  fireArrowStrike,
+  ManualLifeFlashOverlay,
+  fireLifeFlash,
   TurnBannerOverlay,
   OppActionBanner,
   useRecentDrawnIdxs,
@@ -96,9 +105,34 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [defenseClosing, setDefenseClosing] = useState(false);
   // counter で 使った card_id を 記録 (= PlayedCardOverlay で 「再演出」 除外 用)
   const [usedCounterCardIds, setUsedCounterCardIds] = useState<string[]>([]);
+  // AI が counter で 使った card_id (= 同じ目的、 opp 側 の 重複 演出 除外)
+  const [usedCounterCardIdsOpp, setUsedCounterCardIdsOpp] = useState<string[]>([]);
+  // 自分 の 攻撃 中 (= applyHumanAction → playFrames 開始 まで) AI が 防御 を 決める 間
+  // 攻撃 矢印 を 持続表示。 HUMAN-defends 時 の 持続矢印 と 対称。
+  const [pendingHumanAttack, setPendingHumanAttack] = useState<{
+    attackerIid: number;
+    targetIid: number;
+  } | null>(null);
+  // 矢印 へし折り 演出 後 に snap.event の 攻撃 矢印 を 抑制 する deadline (= Date.now())。
+  // 折った 直後 に 同じ 攻撃 の atk:/counter:/blocked frame が 再生 されて 矢印 が
+  // 何度 も 復活する のを 防止。 0 で 抑制 なし。
+  const [suppressEventArrowUntil, setSuppressEventArrowUntil] = useState(0);
   const [hovered, setHovered] = useState<HoverInfo>(null);
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [trashViewer, setTrashViewer] = useState<"me" | "opp" | null>(null);
+  // 試合開始 後 「先攻/後攻」 banner (= ~1.5 秒) が 完了する まで mulligan modal を 抑制。
+  // 順序: 先攻/後攻 banner → mulligan modal → 解消後 ○○のターン banner
+  const [initialBannerDone, setInitialBannerDone] = useState(false);
+  // 防御 中、 場 の カード を クリック で 「相手のアタック時」 効果 発動 確認 modal を 出す。
+  // 該当 iid を 保持。 null = modal 閉。
+  const [oppAttackEffectModalIid, setOppAttackEffectModalIid] = useState<number | null>(null);
+  // life_taken_choice modal を 表示 する まで の delay (= life flash anim を 先 に 見せる)。
+  // pending_payload が life_taken_choice に なった 瞬間 から ~1 秒 待ってから modal 表示。
+  const [lifeTakenModalReady, setLifeTakenModalReady] = useState(false);
+  // 手動 fireLifeFlash 発火後 に 自然 LifeFlashOverlay の 二重 表示 を 抑制 (= human/opp 別)
+  // null = 抑制なし、 Date.now() ms = 抑制 deadline
+  const manualLifeFlashSuppressMeRef = useRef(0);
+  const manualLifeFlashSuppressOppRef = useRef(0);
 
   const sessionId = state?.session_id;
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -138,14 +172,18 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const turnPlayerIdx =
         typeof f.turn_player_idx === "number" ? f.turn_player_idx : -1;
       const isHumanFrame = turnPlayerIdx === final.human_idx;
+      // counter frame は AI の 判断 + カード アニメ を 見せる ため 長めに wait。
+      // 自分 ターン 中 (= AI defense) でも AI ターン 中 (= AI 自身 の counter 表示) でも 同じ。
+      const isCounter = /counter\s*\+/.test(logLine);
       // 人間 ターン frame は wait 不要 (= user 操作 で 既に 1 つ ずつ 進行)。
-      // 但し ライフ被弾 / KO 等 重要 visual は 確認時間 のため 短時間 wait は 残す。
+      // 但し ライフ被弾 / KO / AI counter 等 重要 visual は 確認時間 のため wait を 入れる。
       if (isHumanFrame) {
         const isLifeHit = /life->hand|hit:|ライフ/.test(logLine);
         const isMediumHeavy = /KO|登場/.test(logLine);
         let wait = 150;
         if (isLifeHit) wait = 1500;
         if (isMediumHeavy) wait = 800;
+        if (isCounter) wait = 2800; // AI の counter は ちゃんと 見せる
         prevTurn = curTurn;
         await new Promise((resolve) => setTimeout(resolve, wait));
         continue;
@@ -160,6 +198,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       if (isDraw) wait = Math.max(wait, 2000);
       if (isMediumHeavy) wait = Math.max(wait, 1800);
       if (isEndPhase) wait = Math.max(wait, 3000);
+      if (isCounter) wait = Math.max(wait, 2800);
       if (turnChanged) wait = Math.max(wait, 4000);
       prevTurn = curTurn;
       await new Promise((resolve) => setTimeout(resolve, wait));
@@ -173,6 +212,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     setSelection(null);
     setCounterIdxs([]);
     setBlockerIid(null);
+    setInitialBannerDone(false);
     try {
       const hf = humanFirst === "random" ? null : humanFirst === "first";
       const next = await startHumanMatch(deckA, deckB, {
@@ -187,6 +227,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       } else {
         setState(next);
       }
+      // 先攻/後攻 banner (= ~1.5 秒) 完了後に mulligan modal を 出す
+      setTimeout(() => setInitialBannerDone(true), 1600);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -205,10 +247,95 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     setBusy(true);
     if (!opts?.keepSelection) setSelection(null);
     setDrag(null);
+    // 攻撃 の 場合 持続 矢印 を 立てて AI 防御 決定 待ち を 視覚化
+    const isAttack =
+      action.kind === "AttackLeader" || action.kind === "AttackCharacter";
+    // local capture: setPendingHumanAttack は async で closure に 反映 されない ため
+    let localAttackInfo: { attackerIid: number; targetIid: number } | null = null;
+    if (isAttack && typeof action.attacker_iid === "number" && state) {
+      const snap = state.snapshot as StateSnapshot | null;
+      const oppLeaderIid =
+        snap?.players?.[state.ai_idx]?.leader?.instance_id;
+      const tgt =
+        action.kind === "AttackLeader"
+          ? (oppLeaderIid ?? null)
+          : (action.target_iid ?? null);
+      if (typeof tgt === "number") {
+        localAttackInfo = {
+          attackerIid: action.attacker_iid,
+          targetIid: tgt,
+        };
+        setPendingHumanAttack(localAttackInfo);
+      }
+    }
     try {
       const next = await applyHumanAction(sessionId, action.idx);
-      // AI ターン 等 で frame が 複数 あれば 順次 再生
+      // 攻撃 で AI 思考 時間 を 演出: 持続 矢印 を 出した まま 1.2 秒 待ってから frame 再生
+      if (isAttack) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
       const frames = next.frames ?? [];
+
+      // 攻撃 結果 を 検出 → ArrowBreak (= 防御 成功 = blocked/survived) or
+      // ArrowStrike (= 攻撃 成立 = hit:/KO 等) を 即時 fire。 持続 矢印 と 視覚的 同期。
+      // 座標 は localAttackInfo (= setState の async で closure 古値 になる 問題 回避) + DOM querySelector で 取得。
+      if (isAttack && localAttackInfo && boardRef.current) {
+        const board = boardRef.current;
+        const at = board.querySelector(
+          `[data-iid="${localAttackInfo.attackerIid}"]`,
+        ) as HTMLElement | null;
+        const tg = board.querySelector(
+          `[data-iid="${localAttackInfo.targetIid}"]`,
+        ) as HTMLElement | null;
+        let coords: { x1: number; y1: number; x2: number; y2: number } | null = null;
+        if (at && tg) {
+          const r = board.getBoundingClientRect();
+          const ar = at.getBoundingClientRect();
+          const tr = tg.getBoundingClientRect();
+          coords = {
+            x1: ar.left + ar.width / 2 - r.left,
+            y1: ar.top + ar.height / 2 - r.top,
+            x2: tr.left + tr.width / 2 - r.left,
+            y2: tr.top + tr.height / 2 - r.top,
+          };
+        }
+        const successFrame = frames.find((f) => {
+          const log = typeof f.log === "string" ? f.log : "";
+          return /\s+(blocker\s+survived|blocked|survived)\s*$/.test(log);
+        });
+        const hitFrame = frames.find((f) => {
+          const log = typeof f.log === "string" ? f.log : "";
+          return /\bhit:|^\s*KO\s|^\s*KO:\s|life->hand|ライフ受け取り/.test(log);
+        });
+        if (coords && successFrame) {
+          fireArrowBreak(coords);
+          fireDefenseSuccess("opp", false);
+          // 持続矢印 を 即時 消す (= ArrowBreak の 「折れた」 直後 に 残り 矢印 が 残らない)
+          setPendingHumanAttack(null);
+          const suppressMs = Math.max(3000, frames.length * 2500);
+          setSuppressEventArrowUntil(Date.now() + suppressMs);
+          breakSuppressUntilRef.current = Date.now() + suppressMs;
+        } else if (coords && hitFrame) {
+          fireArrowStrike(coords);
+          const suppressMs = Math.max(3000, frames.length * 2500);
+          setSuppressEventArrowUntil(Date.now() + suppressMs);
+          // 攻撃 成立 → 相手 (= AI) リーダー 攻撃 で ライフ削れる ケース で LIFE -1 演出 を
+          // 1.2 秒後 (= ArrowStrike アニメ ~1s 完了後) に fire。 frame で 自然 lifeDelta が
+          // 検出 される 前 に 手動 で 出して 二重 防止 で suppress flag も set。
+          const isLeaderHit = frames.some((f) => {
+            const log = typeof f.log === "string" ? f.log : "";
+            return /life->hand|ライフ受け取り/.test(log);
+          });
+          if (isLeaderHit) {
+            setTimeout(() => {
+              fireLifeFlash("opp", 1);
+              manualLifeFlashSuppressOppRef.current = Date.now() + 6000;
+            }, 1100);
+          }
+        }
+      }
+
+      // AI ターン 等 で frame が 複数 あれば 順次 再生
       if (frames.length > 1) {
         await playFrames(next, frames, 2200);
       } else {
@@ -217,6 +344,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     } catch (e) {
       setError(String(e));
     } finally {
+      // 持続 矢印 解除 (= 攻撃 解決 後)
+      if (isAttack) setPendingHumanAttack(null);
       applyInFlightRef.current = false;
       setBusy(false);
     }
@@ -244,14 +373,112 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     }
   }
 
+  async function handleUseOppAttackEffect(
+    source_iid: number,
+    effect_idx: number,
+  ) {
+    if (!sessionId) return;
+    if (applyInFlightRef.current) return;
+    applyInFlightRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const next = await applyHumanUseOppAttackEffect(
+        sessionId,
+        source_iid,
+        effect_idx,
+      );
+      setState(next);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      applyInFlightRef.current = false;
+      setBusy(false);
+    }
+  }
+
   async function handleDefenseSubmit() {
     if (!sessionId) return;
     setError(null);
     setBusy(true);
+    // 矢印 演出 座標 を defenseClosing 適用 (= 再 render) 前 に 取得
+    // (= modal 閉 で layout shift が 起きる ケース で 座標 ずれ 防止)
+    let preCapturedCoords: {
+      x1: number; y1: number; x2: number; y2: number;
+    } | null = null;
+    if (boardRef.current && lastAttackRef.current) {
+      const board = boardRef.current;
+      const last = lastAttackRef.current;
+      const r = board.getBoundingClientRect();
+      const at = board.querySelector(
+        `[data-iid="${last.attackerIid}"]`,
+      ) as HTMLElement | null;
+      const tg = board.querySelector(
+        `[data-iid="${last.targetIid}"]`,
+      ) as HTMLElement | null;
+      if (at && tg) {
+        const ar = at.getBoundingClientRect();
+        const tr = tg.getBoundingClientRect();
+        preCapturedCoords = {
+          x1: ar.left + ar.width / 2 - r.left,
+          y1: ar.top + ar.height / 2 - r.top,
+          x2: tr.left + tr.width / 2 - r.left,
+          y2: tr.top + tr.height / 2 - r.top,
+        };
+      }
+    }
     setDefenseClosing(true); // 確定 押下 で 即時 modal 視覚的 close
     try {
       const next = await applyHumanDefense(sessionId, blockerIid, counterIdxs);
-      setState(next);
+      // 防御 成功 検出 (= response frames に 「blocked / survived / blocker survived」)
+      // → 持続矢印 が 消える 瞬間 に 矢印 へし折り 演出 を 即時 発火 (= 視覚的 同期)。
+      const frames = next.frames ?? [];
+      const successFrame = frames.find((f) => {
+        const log = typeof f.log === "string" ? f.log : "";
+        return /\s+(blocker\s+survived|blocked|survived)\s*$/.test(log);
+      });
+      if (successFrame) {
+        const successLog = typeof successFrame.log === "string" ? successFrame.log : "";
+        const successMatch = successLog.match(
+          /\bP(\d+):\s+(blocker\s+survived|blocked|survived)\s*$/,
+        );
+        const blocked = successMatch?.[2] === "blocker survived";
+        // 防御 成功 banner (= attacker tpi が AI なら 自分 防御 成功)
+        const humanIdx = state?.human_idx ?? -1;
+        if (successMatch && humanIdx >= 0) {
+          const tpi = Number(successMatch[1]);
+          const defenderIsHuman = tpi !== humanIdx;
+          fireDefenseSuccess(defenderIsHuman ? "me" : "opp", blocked);
+        }
+        // 矢印 へし折り (= 持続矢印 が 消える 瞬間 に 視覚的 同期)
+        if (preCapturedCoords) {
+          fireArrowBreak(preCapturedCoords);
+        }
+        // playFrames で 再生 される atk:/counter:/blocked frame の snap.event 矢印 +
+        // per-frame 防御 成功 検出 (= banner + arrow break) を deadline まで 抑制。
+        const suppressMs = Math.max(3000, frames.length * 2500);
+        const deadline = Date.now() + suppressMs;
+        setSuppressEventArrowUntil(deadline);
+        breakSuppressUntilRef.current = deadline;
+      } else {
+        // 防御 失敗 (= 攻撃 成立 = "hit:" / "KO" / "ライフ" / "trash:" frame) → 矢印 突き刺さり 演出
+        const hitFrame = frames.find((f) => {
+          const log = typeof f.log === "string" ? f.log : "";
+          return /\bhit:|^\s*KO\s|^\s*KO:\s|life->hand|ライフ受け取り/.test(log);
+        });
+        if (hitFrame && preCapturedCoords) {
+          fireArrowStrike(preCapturedCoords);
+          // playFrames 中 の snap.event 矢印 再表示 を 抑制
+          const suppressMs = Math.max(3000, frames.length * 2500);
+          setSuppressEventArrowUntil(Date.now() + suppressMs);
+        }
+      }
+      // 防御 確定 → 攻撃 解決 → 次 AI action / 次 defense までの 中間 frame を 再生
+      if (frames.length > 1) {
+        await playFrames(next, frames, 2200);
+      } else {
+        setState(next);
+      }
       setCounterIdxs([]);
       setBlockerIid(null);
     } catch (e) {
@@ -284,6 +511,41 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // 対戦 開始 / 終了 を Sidebar に 通知 (= 開始済 なら sidebar 非表示 = fullscreen)
+  useEffect(() => {
+    const active = !!state;
+    window.dispatchEvent(
+      new CustomEvent("match-state-change", { detail: active }),
+    );
+    return () => {
+      // unmount 時 リセット (= 別 ページ 移動 した時 等)
+      window.dispatchEvent(
+        new CustomEvent("match-state-change", { detail: false }),
+      );
+    };
+  }, [state]);
+
+  // life_taken_choice modal 表示 順序:
+  //   1. ArrowStrike (= playFrames 開始時 fire 済、 ~1.0s)
+  //   2. LIFE -1 演出 (= ここで fireLifeFlash、 ~0.9s)
+  //   3. modal 表示 (= 上記 完了後)
+  // pending が 切り替わった 瞬間 に life flash → 1.0s 後 modal
+  const lifeTakenPending =
+    state?.pending_kind === "choice" &&
+    state.pending_payload?.kind === "life_taken_choice";
+  useEffect(() => {
+    if (!lifeTakenPending) {
+      setLifeTakenModalReady(false);
+      return;
+    }
+    setLifeTakenModalReady(false);
+    // defender = human → life flash side="me" (= 自分側 上半分 で 表示)
+    fireLifeFlash("me", 1);
+    manualLifeFlashSuppressMeRef.current = Date.now() + 6000;
+    const t = setTimeout(() => setLifeTakenModalReady(true), 1000);
+    return () => clearTimeout(t);
+  }, [lifeTakenPending]);
 
   // ESC で 選択 / drag をキャンセル
   useEffect(() => {
@@ -323,8 +585,118 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     const trash = aiPlayer?.trash ?? [];
     const cardId = trash[trash.length - 1] ?? "";
     const value = Number(m[1]);
-    if (cardId) fireCounterPlay(cardId, value, "opp");
+    if (cardId) {
+      fireCounterPlay(cardId, value, "opp");
+      // PlayedCardOverlay で 同じ card が 別演出 (= 上から下 スライド) で 二重 表示
+      // される のを 防止。 ~3 秒 後 に 自動 clear (= CounterPlayOverlay 完了 後)。
+      setUsedCounterCardIdsOpp((prev) => [...prev, cardId]);
+      setTimeout(() => {
+        setUsedCounterCardIdsOpp((prev) => {
+          const idx = prev.indexOf(cardId);
+          if (idx < 0) return prev;
+          const out = prev.slice();
+          out.splice(idx, 1);
+          return out;
+        });
+      }, 3000);
+    }
   }, [frameDiff.eventTickId, state?.ai_idx, state?.human_idx, state?.snapshot]);
+
+  // 最近 の 攻撃 攻撃者/対象 iid を 記録 (= snap.event / defense pending から 抽出)。
+  // 防御 成功 検出 時 に DOM 座標 を 解決 して 矢印 へし折り 演出 を 発火 する 用。
+  const lastAttackRef = useRef<{ attackerIid: number; targetIid: number } | null>(
+    null,
+  );
+  // 矢印 へし折り 抑制 deadline (= handleDefenseSubmit で 即時 fire 済 なら、
+  // playFrames の 全 frame が 再生 終わる まで per-frame fire を 抑制)。
+  // Date.now() < この値 の 間 は 二重 fire を skip。
+  const breakSuppressUntilRef = useRef(0);
+  useEffect(() => {
+    const snap = state?.snapshot as StateSnapshot | null;
+    const humanIdx = state?.human_idx ?? -1;
+    const humanLeaderIid =
+      humanIdx >= 0
+        ? snap?.players?.[humanIdx]?.leader?.instance_id
+        : undefined;
+    // 1) defense pending 中 は pending_payload から 取得
+    if (
+      state?.pending_kind === "defense" &&
+      state.pending_payload &&
+      typeof state.pending_payload.attacker_iid === "number"
+    ) {
+      const atk = state.pending_payload.attacker_iid;
+      const tgt = state.pending_payload.is_leader_attack
+        ? humanLeaderIid
+        : typeof state.pending_payload.target_iid === "number"
+          ? state.pending_payload.target_iid
+          : null;
+      if (typeof tgt === "number") {
+        lastAttackRef.current = { attackerIid: atk, targetIid: tgt };
+      }
+    }
+    // 2) snap.event (= attacker/target を engine が pending_event に セット) からも更新
+    const ev = snap?.event as
+      | { attacker_iid?: number; target_iid?: number }
+      | undefined;
+    if (
+      ev &&
+      typeof ev.attacker_iid === "number" &&
+      typeof ev.target_iid === "number"
+    ) {
+      lastAttackRef.current = {
+        attackerIid: ev.attacker_iid,
+        targetIid: ev.target_iid,
+      };
+    }
+  }, [state?.pending_kind, state?.pending_payload, state?.snapshot, state?.human_idx]);
+
+  // 防御 成功 検出: log 3 パターン を 検出 → fireDefenseSuccess + fireArrowBreak。
+  //   "  survived"          (= AttackCharacter 攻撃 失敗)
+  //   "  blocked"           (= AttackLeader 攻撃 失敗)
+  //   "  blocker survived"  (= blocker で 受けて 生存)
+  // attacker (= turn player) が 相手 なら 自分 の 防御 成功、
+  // attacker が 自分 なら AI の 防御 成功。
+  const lastDefenseTickRef = useRef(-1);
+  useEffect(() => {
+    const snap = state?.snapshot as StateSnapshot | null;
+    if (!snap) return;
+    const tick = frameDiff.eventTickId;
+    if (tick === lastDefenseTickRef.current) return;
+    lastDefenseTickRef.current = tick;
+    const humanIdx = state?.human_idx ?? -1;
+    if (humanIdx < 0) return;
+    const ln = typeof snap.log === "string" ? snap.log : "";
+    const m = ln.match(/\bP(\d+):\s+(blocker\s+survived|blocked|survived)\s*$/);
+    if (!m) return;
+    // handleDefenseSubmit で 即時 fire 済 (= deadline 未到達) なら 二重 fire 防止 で skip。
+    if (Date.now() < breakSuppressUntilRef.current) return;
+    const tpi = Number(m[1]);
+    const kind = m[2];
+    const blocked = kind === "blocker survived";
+    const defenderIsHuman = tpi !== humanIdx;
+    fireDefenseSuccess(defenderIsHuman ? "me" : "opp", blocked);
+
+    // 矢印 へし折り 演出: lastAttackRef + boardRef から DOM 座標 を 解決
+    const board = boardRef.current;
+    const last = lastAttackRef.current;
+    if (board && last) {
+      const r = board.getBoundingClientRect();
+      const findEl = (iid: number): HTMLElement | null =>
+        board.querySelector(`[data-iid="${iid}"]`);
+      const at = findEl(last.attackerIid);
+      const tg = findEl(last.targetIid);
+      if (at && tg) {
+        const ar = at.getBoundingClientRect();
+        const tr = tg.getBoundingClientRect();
+        fireArrowBreak({
+          x1: ar.left + ar.width / 2 - r.left,
+          y1: ar.top + ar.height / 2 - r.top,
+          x2: tr.left + tr.width / 2 - r.left,
+          y2: tr.top + tr.height / 2 - r.top,
+        });
+      }
+    }
+  }, [frameDiff.eventTickId, state?.human_idx, state?.snapshot]);
   // 自分側 hand で 直近 ドロー idx を ハイライト
   const meHandLen =
     (snapForDiff?.players?.[state?.human_idx ?? 0]?.hand?.length) ?? 0;
@@ -333,6 +705,29 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     meHandLen,
     frameDiff.eventTickId,
   );
+
+  // PlayedCardOverlay に 渡す trashAdded を 「counter frame」 の 場合 限定で 空配列 に。
+  // CounterPlayOverlay 側 で カード 演出 を 出す ので、 PlayedCardOverlay slide animation
+  // と 二重 表示 を 避ける。 useState ベース の usedCounterCardIds(Opp) は state 更新 が
+  // PlayedCardOverlay の useEffect より 後 になり 効果 が 遅れる ため、 ここで 同期的 に filter。
+  const humanIdxSafe = state?.human_idx ?? 0;
+  const aiIdxSafe = state?.ai_idx ?? 1;
+  const counterAttackerTpi = (() => {
+    const ln = typeof snapForDiff?.log === "string" ? snapForDiff.log : "";
+    const m = ln.match(/\bP(\d+):\s+counter\s*\+/);
+    return m ? Number(m[1]) : -1;
+  })();
+  // counter は attacker = P{counterAttackerTpi}、 defender (= counter cut 側) = 1 - tpi
+  const counterDefenderIdx =
+    counterAttackerTpi >= 0 ? 1 - counterAttackerTpi : -1;
+  const trashAddedMeFiltered =
+    counterDefenderIdx === humanIdxSafe
+      ? []
+      : frameDiff.trashAdded[humanIdxSafe];
+  const trashAddedOppFiltered =
+    counterDefenderIdx === aiIdxSafe
+      ? []
+      : frameDiff.trashAdded[aiIdxSafe];
 
   if (!state) {
     return (
@@ -369,6 +764,31 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const me = snap.players[state.human_idx];
   const opp = snap.players[state.ai_idx];
   const canAct = isHumanTurn && isActionPending && !busy;
+
+  // 防御 pending 中 の 「相手のアタック時」 効果 を iid → effects[] map に
+  type OppAttackEff = {
+    source_iid: number;
+    card_id: string;
+    card_name: string;
+    effect_idx: number;
+    effect_text: string;
+    when_key: string;
+    pay_don: number;
+    rest_self_don: number;
+    discard_hand: number;
+  };
+  const oppAttackEffectsByIid = new Map<number, OppAttackEff[]>();
+  if (isDefensePending && state.pending_payload) {
+    const list =
+      (state.pending_payload.available_opp_attack_effects as
+        | OppAttackEff[]
+        | undefined) ?? [];
+    for (const e of list) {
+      const arr = oppAttackEffectsByIid.get(e.source_iid) ?? [];
+      arr.push(e);
+      oppAttackEffectsByIid.set(e.source_iid, arr);
+    }
+  }
 
   // legal actions index
   const actionsByHand = new Map<number, HumanLegalAction[]>();
@@ -421,6 +841,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   }
 
   function clickSelfLeader() {
+    // 防御 pending 中: 自リーダー に opp_attack 効果 (= 紫ドフラ 等) あれば modal
+    if (isDefensePending) {
+      const leaderIid = me.leader.instance_id;
+      const effs = oppAttackEffectsByIid.get(leaderIid);
+      if (effs && effs.length > 0) {
+        setOppAttackEffectModalIid(leaderIid);
+      }
+      return;
+    }
     if (!canAct) return;
     const leaderIid = me.leader.instance_id;
     const actions = actionsByIid.get(leaderIid) ?? [];
@@ -429,6 +858,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   }
 
   function clickSelfChara(iid: number) {
+    // 防御 pending 中: 該当 キャラ に opp_attack 効果 あれば modal
+    if (isDefensePending) {
+      const effs = oppAttackEffectsByIid.get(iid);
+      if (effs && effs.length > 0) {
+        setOppAttackEffectModalIid(iid);
+      }
+      return;
+    }
     if (!canAct) return;
     const actions = actionsByIid.get(iid) ?? [];
     if (actions.length === 0) return;
@@ -832,14 +1269,23 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           data-board-area="center"
           className="relative flex min-h-0 w-[780px] shrink-0 flex-col gap-2"
         >
-          {/* ライフ 変化 flash overlay (= 自/相手 別 side) */}
+          {/* ライフ 変化 flash overlay (= 自/相手 別 side)。
+              手動 fireLifeFlash 直後 (= 6 秒以内) は 二重 表示 防止 で delta=0 に。 */}
           <LifeFlashOverlay
-            delta={frameDiff.lifeDelta[state.ai_idx]}
+            delta={
+              Date.now() < manualLifeFlashSuppressOppRef.current
+                ? 0
+                : frameDiff.lifeDelta[state.ai_idx]
+            }
             side="opp"
             tickId={frameDiff.eventTickId * 2}
           />
           <LifeFlashOverlay
-            delta={frameDiff.lifeDelta[state.human_idx]}
+            delta={
+              Date.now() < manualLifeFlashSuppressMeRef.current
+                ? 0
+                : frameDiff.lifeDelta[state.human_idx]
+            }
             side="me"
             tickId={frameDiff.eventTickId * 2 + 1}
           />
@@ -904,6 +1350,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
                 ? frameDiff.eventTickId
                 : undefined
             }
+            oppAttackEffectAvailableIids={
+              new Set(oppAttackEffectsByIid.keys())
+            }
           />
         </div>
 
@@ -935,6 +1384,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           defenseOnSubmit={handleDefenseSubmit}
           defenseOnHover={setHovered}
           defenseBusy={busy}
+          defenseOnUseOppAttackEffect={handleUseOppAttackEffect}
         />
       </div>
 
@@ -945,8 +1395,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         <AttackArrow attackerIid={attackerIid} mousePos={mousePos} />
       )}
 
-      {/* 攻撃 ビーム (= snapshot.event 拾って 一瞬 流す、 AI/自分 共通) */}
-      {snap.event && (
+      {/* 攻撃 ビーム (= snapshot.event 拾って 一瞬 流す、 AI/自分 共通)。
+          矢印 へし折り 直後 (= suppressEventArrowUntil 期間中) は 抑制。 */}
+      {snap.event && Date.now() >= suppressEventArrowUntil && (
         <AttackBeamOverlay
           attackerIid={snap.event.attacker_iid}
           targetIid={snap.event.target_iid}
@@ -955,8 +1406,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         />
       )}
 
-      {/* 攻撃 矢印 (= 1.3 秒、 「何を狙ってるか」 を 明示) */}
-      {snap.event && (
+      {/* 攻撃 矢印 (= 1.3 秒、 「何を狙ってるか」 を 明示)。 同上 で 抑制。 */}
+      {snap.event && Date.now() >= suppressEventArrowUntil && (
         <AttackTargetArrowOverlay
           attackerIid={snap.event.attacker_iid}
           targetIid={snap.event.target_iid}
@@ -965,8 +1416,10 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         />
       )}
 
-      {/* 防御 pending 中 の attacker→target 矢印 (= 持続表示、 カウンター 判断 用) */}
-      {isDefensePending && state.pending_payload && (
+      {/* 防御 pending 中 の attacker→target 矢印 (= 持続表示、 カウンター 判断 用)。
+          defenseClosing (= 確定 押下) で 即時 非表示 にして ArrowBreak/Strike 演出 と
+          視覚的 競合 を 防止。 */}
+      {isDefensePending && !defenseClosing && state.pending_payload && (
         <AttackTargetArrowOverlay
           attackerIid={
             typeof state.pending_payload.attacker_iid === "number"
@@ -986,16 +1439,29 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         />
       )}
 
+      {/* 自分 攻撃 中 (= AI 防御 決定 待ち) の attacker→target 矢印 (= 持続表示)。
+          HUMAN-defends 時 と 対称: 攻撃 を 宣言 した 瞬間 から AI counter 適用 まで。 */}
+      {pendingHumanAttack && (
+        <AttackTargetArrowOverlay
+          attackerIid={pendingHumanAttack.attackerIid}
+          targetIid={pendingHumanAttack.targetIid}
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+          persistent={true}
+        />
+      )}
+
       {/* 効果 log toast (= 「効果:」 行 を 中央上部 で 1.6秒 表示) */}
       <EffectToastOverlay log={state.log} />
 
       {/* 手札から使用 された カード を 中央 で 大型表示 → trash 方向 slide-fade */}
       <PlayedCardOverlay
-        trashAddedMe={frameDiff.trashAdded[state.human_idx]}
-        trashAddedOpp={frameDiff.trashAdded[state.ai_idx]}
+        trashAddedMe={trashAddedMeFiltered}
+        trashAddedOpp={trashAddedOppFiltered}
         leftCharasMe={frameDiff.leftCharas[state.human_idx]}
         leftCharasOpp={frameDiff.leftCharas[state.ai_idx]}
         excludeMeCardIds={usedCounterCardIds}
+        excludeOppCardIds={usedCounterCardIdsOpp}
         tickId={frameDiff.eventTickId}
       />
 
@@ -1014,6 +1480,39 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       {/* counter ドロップ 時 「+N」 popup + カード trash slide 演出 */}
       <CounterPlayOverlay />
 
+      {/* 防御 成功 演出 (= survived / blocker survived 検出 で 発火) */}
+      <DefenseSuccessOverlay />
+
+      {/* 防御中、 場のカード クリック で 「相手のアタック時」 効果 発動 確認 modal */}
+      {oppAttackEffectModalIid !== null && (() => {
+        const effs = oppAttackEffectsByIid.get(oppAttackEffectModalIid) ?? [];
+        if (effs.length === 0) return null;
+        const cardId = effs[0]?.card_id ?? "";
+        const cardName = effs[0]?.card_name ?? "";
+        return (
+          <OppAttackEffectClickModal
+            cardId={cardId}
+            cardName={cardName}
+            effects={effs}
+            onUse={async (effect_idx) => {
+              setOppAttackEffectModalIid(null);
+              await handleUseOppAttackEffect(oppAttackEffectModalIid, effect_idx);
+            }}
+            onCancel={() => setOppAttackEffectModalIid(null)}
+            busy={busy}
+          />
+        );
+      })()}
+
+      {/* 矢印 へし折り 演出 (= 防御 成功 と 同時 に 攻撃 矢印 を 真ん中 で 割る) */}
+      <ArrowBreakOverlay />
+
+      {/* 防御 失敗 (= 攻撃 成立) 時 矢印 が target に 突き刺さる 演出 */}
+      <ArrowStrikeOverlay />
+
+      {/* 手動 LIFE -N flash (= life_taken_choice modal 前 に 「LIFE -1 演出」 を 先に) */}
+      <ManualLifeFlashOverlay />
+
       {/* ターン 切替 banner (= YOUR TURN / OPPONENT TURN 大型) */}
       <TurnBannerOverlay
         turnPlayerIdx={
@@ -1023,7 +1522,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         humanIdx={state.human_idx}
         hasMulliganPending={
           isChoicePending &&
-          state.pending_payload?.kind === "mulligan_confirm"
+          (state.pending_payload?.kind === "mulligan_confirm" ||
+            state.pending_payload?.kind === "mulligan_redrawn")
         }
         pendingKind={state.pending_kind}
       />
@@ -1090,6 +1590,19 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "scry_deck_reorder" ? (
+          <ScryDeckReorderModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "view_life_top_choose_position" ? (
+          <ViewLifeTopChoosePositionModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "reveal_top_play_confirm" ? (
           <RevealTopPlayConfirmModal
             payload={state.pending_payload}
@@ -1104,12 +1617,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             busy={busy}
           />
         ) : state.pending_payload.kind === "mulligan_confirm" ? (
-          <MulliganConfirmModal
-            payload={state.pending_payload}
-            onSubmit={handleChoiceSubmit}
-            onHover={setHovered}
-            busy={busy}
-          />
+          // 「先攻/後攻」 banner 完了 を 待ってから 表示 (= 順序 制御)
+          initialBannerDone ? (
+            <MulliganConfirmModal
+              payload={state.pending_payload}
+              onSubmit={handleChoiceSubmit}
+              onHover={setHovered}
+              busy={busy}
+            />
+          ) : null
         ) : state.pending_payload.kind === "mulligan_redrawn" ? (
           <MulliganRedrawnModal
             payload={state.pending_payload}
@@ -1118,13 +1634,22 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             busy={busy}
           />
         ) : state.pending_payload.kind === "life_taken_choice" ? (
-          <LifeTakenChoiceModal
+          // life flash anim 完了 (~1.2 秒) を 待ってから modal 表示
+          lifeTakenModalReady ? (
+            <LifeTakenChoiceModal
+              payload={state.pending_payload}
+              onSubmit={handleChoiceSubmit}
+              busy={busy}
+            />
+          ) : null
+        ) : state.pending_payload.kind === "on_attack_optional" ? (
+          <OnAttackOptionalModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
-        ) : state.pending_payload.kind === "on_attack_optional" ? (
-          <OnAttackOptionalModal
+        ) : state.pending_payload.kind === "on_opp_attack_optional" ? (
+          <OnOppAttackOptionalModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}
             busy={busy}
@@ -1183,35 +1708,39 @@ function StartPanel({
   busy: boolean;
   error: string | null;
 }) {
+  const humanDeck = decks.find((d) => d.slug === deckA);
+  const aiDeck = decks.find((d) => d.slug === deckB);
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/"
-          className="rounded border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          ← ホームへ
-        </Link>
-      </div>
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          人間 vs AI 対戦 (大会練習)
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
+      {/* Hero header */}
+      <header className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-8 shadow-sm dark:border-zinc-800 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-rose-950/30">
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          人間 vs AI 対戦
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          GoalDirectedAI と 実際に 対戦 します。 手札 を 自フィールド に
-          ドラッグ で deploy、 自キャラ を 相手 に ドラッグ で attack、
-          DON を 自リーダー/キャラ に ドラッグ で attach。
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          GoalDirectedAI と ドラッグ&ドロップ で 実戦練習。 手札 → 自フィールド で
+          deploy、 自キャラ → 相手 で attack、 DON → 自リーダー/キャラ で attach。
         </p>
       </header>
-      <div className="flex flex-col gap-3 rounded border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold">対戦設定</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_120px_140px_auto]">
+
+      {/* VS panel: 2 deck cards + center VS */}
+      <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
+        {/* 人間 side */}
+        <div className="flex flex-col gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-5 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-500 px-3 py-0.5 text-xs font-bold text-white">
+              人間
+            </span>
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              あなたが操作
+            </span>
+          </div>
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-zinc-500">自分のデッキ</span>
+            <span className="text-zinc-500">デッキ選択</span>
             <select
               value={deckA}
               onChange={(e) => setDeckA(e.target.value)}
-              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              className="rounded-md border border-emerald-300 bg-white p-2 text-sm font-semibold text-zinc-900 dark:border-emerald-700 dark:bg-zinc-900 dark:text-zinc-100"
               disabled={busy}
             >
               {decks.map((d) => (
@@ -1221,12 +1750,36 @@ function StartPanel({
               ))}
             </select>
           </label>
+          {humanDeck && (
+            <div className="text-xs text-zinc-500">
+              選択中: <span className="font-mono">{humanDeck.slug}</span>
+            </div>
+          )}
+        </div>
+
+        {/* VS divider */}
+        <div className="flex items-center justify-center px-2">
+          <div className="text-4xl font-black tracking-widest text-zinc-300 dark:text-zinc-700">
+            VS
+          </div>
+        </div>
+
+        {/* AI side */}
+        <div className="flex flex-col gap-3 rounded-xl border-2 border-rose-300 bg-rose-50/60 p-5 shadow-sm dark:border-rose-700 dark:bg-rose-950/40">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-rose-500 px-3 py-0.5 text-xs font-bold text-white">
+              AI
+            </span>
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              GoalDirectedAI が操作
+            </span>
+          </div>
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-zinc-500">AI のデッキ</span>
+            <span className="text-zinc-500">デッキ選択</span>
             <select
               value={deckB}
               onChange={(e) => setDeckB(e.target.value)}
-              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              className="rounded-md border border-rose-300 bg-white p-2 text-sm font-semibold text-zinc-900 dark:border-rose-700 dark:bg-zinc-900 dark:text-zinc-100"
               disabled={busy}
             >
               {decks.map((d) => (
@@ -1236,46 +1789,78 @@ function StartPanel({
               ))}
             </select>
           </label>
+          {aiDeck && (
+            <div className="text-xs text-zinc-500">
+              選択中: <span className="font-mono">{aiDeck.slug}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Match options */}
+      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">
+          対戦オプション
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs">
-            <span className="text-zinc-500">seed</span>
-            <input
-              type="number"
-              value={seed}
-              onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-              disabled={busy}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-zinc-500">先攻</span>
+            <span className="text-zinc-500">先攻 / 後攻</span>
             <select
               value={humanFirst}
               onChange={(e) =>
                 setHumanFirst(e.target.value as "random" | "first" | "second")
               }
-              className="rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              className="rounded border border-zinc-300 bg-white p-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
               disabled={busy}
             >
               <option value="random">ランダム</option>
-              <option value="first">自分が先攻</option>
-              <option value="second">AI が先攻</option>
+              <option value="first">人間 が 先攻</option>
+              <option value="second">AI が 先攻</option>
             </select>
           </label>
-          <button
-            type="button"
-            onClick={onStart}
-            disabled={busy || !deckA || !deckB}
-            className="self-end rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {busy ? "開始中..." : "対戦開始"}
-          </button>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-zinc-500">
+              ランダム シード (= 同じ値 で 再現可能)
+            </span>
+            <div className="flex gap-1">
+              <input
+                type="number"
+                value={seed}
+                onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
+                className="flex-1 rounded border border-zinc-300 bg-white p-2 text-sm font-mono dark:border-zinc-700 dark:bg-zinc-800"
+                disabled={busy}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setSeed(Math.floor(Math.random() * 1_000_000))
+                }
+                disabled={busy}
+                className="rounded border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-200 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                title="ランダム生成"
+              >
+                ランダム
+              </button>
+            </div>
+          </label>
         </div>
-        {error && (
-          <div className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-            {error}
-          </div>
-        )}
       </div>
+
+      {/* Start button: 大型 + 中央 */}
+      <button
+        type="button"
+        onClick={onStart}
+        disabled={busy || !deckA || !deckB}
+        className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-5 text-xl font-bold text-white shadow-lg transition hover:from-emerald-400 hover:to-emerald-500 hover:shadow-xl active:scale-[0.98] disabled:from-zinc-400 disabled:to-zinc-500 disabled:opacity-50"
+      >
+        {busy ? "開始中..." : "▶ 対戦 開始"}
+      </button>
+
+      {error && (
+        <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
@@ -1303,6 +1888,7 @@ function PlayerMat({
   onDragEnd,
   onTrashClick,
   lifeDamageTickId,
+  oppAttackEffectAvailableIids,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -1322,6 +1908,7 @@ function PlayerMat({
   onDragEnd?: () => void;
   onTrashClick: () => void;
   lifeDamageTickId?: number;
+  oppAttackEffectAvailableIids?: Set<number>;
 }) {
   // どの drag を 受け入れる か
   const acceptHandDrop = isMe && drag?.kind === "hand";
@@ -1415,6 +2002,7 @@ function PlayerMat({
             onHover={onHover}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            oppAttackEffectAvailableIids={oppAttackEffectAvailableIids}
           />
         )}
 
@@ -1434,6 +2022,7 @@ function PlayerMat({
           onDropTarget={onDropTarget}
           onHover={onHover}
           onTrashClick={onTrashClick}
+          oppAttackEffectAvailableIids={oppAttackEffectAvailableIids}
         />
 
         {/* 下段: 相手ならキャラ (= 仕切り接触)、 自分なら DON (= 手前) */}
@@ -1655,6 +2244,7 @@ function CenterRow({
   onDropTarget,
   onHover,
   onTrashClick,
+  oppAttackEffectAvailableIids,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -1667,6 +2257,7 @@ function CenterRow({
   onDropTarget: (t: DropTarget) => void;
   onHover: (h: HoverInfo) => void;
   onTrashClick: () => void;
+  oppAttackEffectAvailableIids?: Set<number>;
 }) {
   // Leader drop 受け入れ:
   //  自リーダー: DON drag / hand drag (= PlayStage 等)
@@ -1695,11 +2286,26 @@ function CenterRow({
   return (
     <div className="relative flex shrink-0 items-center justify-center px-2 py-1">
       {/* リーダー + ステージ を 中央 配置、 横 ゆとり 大きく */}
-      <div className="flex items-center gap-8">
+      {/* opp 側 は flex-row-reverse で 左右 mirror (= 公式 鏡像 配置) */}
+      <div
+        className={
+          "flex items-center gap-8 " + (isMe ? "" : "flex-row-reverse")
+        }
+      >
         <div
           data-iid={player.leader.instance_id}
+          data-opp-attack-effect={
+            oppAttackEffectAvailableIids?.has(player.leader.instance_id)
+              ? "true"
+              : undefined
+          }
           onDragOver={leaderDragOver}
           onDrop={leaderDrop}
+          className={
+            oppAttackEffectAvailableIids?.has(player.leader.instance_id)
+              ? "rounded-lg ring-4 ring-cyan-400 animate-pulse"
+              : ""
+          }
         >
           <CharCard
             ch={player.leader}
@@ -1739,8 +2345,14 @@ function CenterRow({
           )}
         </div>
       </div>
-      {/* DECK + TRASH を 右端 absolute 寄せ (= Leader/Stage 中央 配置 を 妨げない) */}
-      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-2">
+      {/* DECK + TRASH を 端 absolute 寄せ (= Leader/Stage 中央 配置 を 妨げない)。
+          opp 側 は 左端 (= 公式 鏡像 配置: 相手 の deck/trash は user 左)。 */}
+      <div
+        className={
+          "absolute top-1/2 flex -translate-y-1/2 items-center gap-2 " +
+          (isMe ? "right-2" : "left-2")
+        }
+      >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xs font-semibold text-zinc-300">DECK</div>
         <div className="relative" data-deck-side={isMe ? "me" : "opp"}>
@@ -1809,6 +2421,7 @@ function CharacterRow({
   onHover,
   onDragStart,
   onDragEnd,
+  oppAttackEffectAvailableIids,
 }: {
   chars: CharSnapshot[];
   attackerIid: number | null;
@@ -1823,6 +2436,7 @@ function CharacterRow({
   onHover: (h: HoverInfo) => void;
   onDragStart?: (p: DragPayload) => void;
   onDragEnd?: () => void;
+  oppAttackEffectAvailableIids?: Set<number>;
 }) {
   const slots: (CharSnapshot | null)[] = [...chars];
   while (slots.length < 5) slots.push(null);
@@ -1889,10 +2503,13 @@ function CharacterRow({
                 a.kind === "AttackLeader" || a.kind === "AttackCharacter",
             );
 
+          const hasOppAttackEff =
+            oppAttackEffectAvailableIids?.has(c.instance_id) ?? false;
           return (
             <motion.div
               key={c.instance_id}
               data-iid={c.instance_id}
+              data-opp-attack-effect={hasOppAttackEff ? "true" : undefined}
               layoutId={`chara-${c.instance_id}`}
               initial={{ opacity: 0, scale: 0.6, y: isMe ? 40 : -40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1903,6 +2520,11 @@ function CharacterRow({
                 damping: 26,
                 opacity: { duration: 0.25 },
               }}
+              className={
+                hasOppAttackEff
+                  ? "rounded-lg ring-4 ring-cyan-400 animate-pulse"
+                  : ""
+              }
               onDragOver={(e) => {
                 // counter drag は 自分側 mat 全体 で 受けたい → child でも preventDefault
                 if (acceptOnThis || (isMe && drag?.kind === "counter"))
@@ -2355,10 +2977,19 @@ function sanitizeLogLine(line: string, aiIdx: number): string {
 }
 
 function LogSidebar({ log, aiIdx }: { log: string[]; aiIdx: number }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // log が 増える 度 に 最下部 (= 最新行) へ 自動 スクロール
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [log.length]);
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded bg-black/50 p-2 text-xs text-zinc-200">
       <div className="mb-1 shrink-0 text-sm font-bold">LOG</div>
-      <div className="flex-1 overflow-y-auto font-mono">
+      <div
+        ref={scrollRef}
+        className="log-scroll flex-1 overflow-y-auto font-mono"
+      >
         {log.map((line, i) => {
           const shown = sanitizeLogLine(line, aiIdx);
           const isMasked = shown !== line;
@@ -2411,6 +3042,7 @@ function RightPanel({
   defenseOnSubmit,
   defenseOnHover,
   defenseBusy,
+  defenseOnUseOppAttackEffect,
 }: {
   previewCardId: string | null;
   previewMeta:
@@ -2457,6 +3089,7 @@ function RightPanel({
   defenseOnSubmit: () => void;
   defenseOnHover: (h: HoverInfo) => void;
   defenseBusy: boolean;
+  defenseOnUseOppAttackEffect?: (source_iid: number, effect_idx: number) => void;
 }) {
   const turnLabel = gameOver
     ? winner === humanIdx
@@ -2487,15 +3120,15 @@ function RightPanel({
         </span>
       </div>
 
-      {/* preview */}
+      {/* preview — 親 (= flex-1 min-h-0) の 空き 高さ に 収まる ように object-contain */}
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded bg-black/40 p-2">
-        <div className="text-xs font-bold text-zinc-200">PREVIEW</div>
+        <div className="shrink-0 text-xs font-bold text-zinc-200">PREVIEW</div>
         {previewCardId ? (
-          <div className="flex justify-center">
+          <div className="flex min-h-0 flex-1 items-center justify-center">
             <CardImage
               cardId={previewCardId}
               alt={previewCardId}
-              className="max-h-[calc(100vh-260px)] w-full max-w-[440px] rounded object-contain shadow-2xl"
+              className="max-h-full max-w-full rounded object-contain shadow-2xl"
             />
           </div>
         ) : (
@@ -2526,11 +3159,6 @@ function RightPanel({
                 : "DRAW"}
           </div>
         )}
-        {!gameOver && !isHumanTurn && (
-          <div className="rounded bg-rose-900/60 p-3 text-center text-sm text-rose-100">
-            AI 思考中...
-          </div>
-        )}
         {!gameOver && isDefensePending && defensePayload && (
           <DefensePanel
             payload={defensePayload}
@@ -2539,6 +3167,7 @@ function RightPanel({
             setCounterIdxs={defenseSetCounterIdxs}
             onSubmit={defenseOnSubmit}
             busy={defenseBusy}
+            onUseOppAttackEffect={defenseOnUseOppAttackEffect}
           />
         )}
         {isHumanTurn && !selection && (
@@ -3169,6 +3798,181 @@ function OnAttackOptionalModal({
 }
 
 // ========================================================================== //
+// OppAttackEffectClickModal: 防御 中、 場 の カード を クリック して 「相手のアタック時」
+// 効果 を 発動 するか の 確認 modal。 複数 効果 持ち の キャラ に も 対応 (= 効果 list)。
+// ========================================================================== //
+
+function OppAttackEffectClickModal({
+  cardId,
+  cardName,
+  effects,
+  onUse,
+  onCancel,
+  busy,
+}: {
+  cardId: string;
+  cardName: string;
+  effects: {
+    source_iid: number;
+    effect_idx: number;
+    effect_text: string;
+    pay_don: number;
+    rest_self_don: number;
+    discard_hand: number;
+  }[];
+  onUse: (effect_idx: number) => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onCancel();
+      }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-6"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[95vh] w-full max-w-2xl flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-5 shadow-2xl"
+      >
+        <h3 className="mb-3 text-lg font-bold text-cyan-200">
+          {cardName} 【相手のアタック時】 効果
+        </h3>
+        <div className="mb-4 flex justify-center">
+          <CardImage
+            cardId={cardId}
+            alt={cardName}
+            className="h-72 w-auto rounded shadow-2xl ring-4 ring-cyan-300"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          {effects.map((eff) => {
+            const costParts: string[] = [];
+            if (eff.pay_don > 0) costParts.push(`DON-${eff.pay_don}`);
+            if (eff.rest_self_don > 0)
+              costParts.push(`DON-${eff.rest_self_don}(rest)`);
+            if (eff.discard_hand > 0)
+              costParts.push(`手札-${eff.discard_hand}`);
+            const costLabel =
+              costParts.length > 0 ? costParts.join(" + ") : "コストなし";
+            return (
+              <button
+                key={eff.effect_idx}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUse(eff.effect_idx);
+                }}
+                disabled={busy}
+                className="rounded-lg border-2 border-cyan-500 bg-cyan-900/40 px-4 py-3 text-left text-sm text-cyan-100 hover:border-cyan-300 hover:bg-cyan-800/60 disabled:opacity-50"
+              >
+                <div className="text-base font-bold">
+                  効果 を 発動 ({costLabel})
+                </div>
+                {eff.effect_text && (
+                  <div className="mt-1 text-xs text-cyan-200/80">
+                    {eff.effect_text}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel();
+            }}
+            disabled={busy}
+            className="mt-2 rounded bg-zinc-700 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// OnOppAttackOptionalModal: 相手アタック時 cost 持ち 効果 を 使うか 確認
+// (= 自リーダー/キャラ の 【相手のアタック時】 効果 で cost: discard_hand/pay_don あり)
+// ========================================================================== //
+
+function OnOppAttackOptionalModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const cardId = String(payload.card_id ?? "");
+  const cardName = String(payload.card_name ?? cardId);
+  const payDon = Number(payload.pay_don ?? 0);
+  const discardN = Number(payload.discard_hand ?? 0);
+  const effectText = String(payload.effect_text ?? "");
+  const costParts: string[] = [];
+  if (payDon > 0) costParts.push(`DON-${payDon}`);
+  if (discardN > 0) costParts.push(`手札${discardN}枚 ランダム捨て`);
+  const costLabel = costParts.length > 0 ? costParts.join(" + ") : "コストなし";
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-2 text-lg font-bold text-cyan-200">
+          {cardName} 【相手のアタック時】 効果
+        </h3>
+        <p className="mb-3 text-xs text-zinc-300">
+          {costLabel} を 払って 効果を 発動 しますか?
+        </p>
+        <div className="flex justify-center">
+          <CardImage
+            cardId={cardId}
+            alt={cardName}
+            className="h-72 w-auto rounded shadow-2xl ring-4 ring-cyan-300"
+          />
+        </div>
+        {effectText && (
+          <p className="mt-3 max-h-32 overflow-y-auto rounded bg-zinc-800/60 p-2 text-xs text-zinc-200">
+            {effectText}
+          </p>
+        )}
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-zinc-700 px-4 py-3 text-sm font-bold text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            使わない
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([1]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-cyan-500 px-4 py-3 text-base font-bold text-white shadow hover:bg-cyan-400 disabled:opacity-50"
+          >
+            効果 を 発動 ({costLabel})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
 // LifeTakenChoiceModal: ライフ受け取り 確認 (= trigger 使う/使わない or OK)
 // ========================================================================== //
 
@@ -3301,23 +4105,23 @@ function MulliganConfirmModal({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onSubmit([0]);
+              onSubmit([1]);
             }}
             disabled={busy}
-            className="rounded bg-emerald-600 px-6 py-2.5 text-base font-bold text-white shadow hover:bg-emerald-500 disabled:opacity-50"
+            className="rounded bg-rose-600 px-6 py-2.5 text-base font-bold text-white shadow hover:bg-rose-500 disabled:opacity-50"
           >
-            キープ (= この 手札 で 始める)
+            引き直し (= デッキ戻し + 新 5 枚)
           </button>
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onSubmit([1]);
+              onSubmit([0]);
             }}
             disabled={busy}
-            className="ml-auto rounded bg-rose-600 px-6 py-2.5 text-base font-bold text-white shadow hover:bg-rose-500 disabled:opacity-50"
+            className="ml-auto rounded bg-emerald-600 px-6 py-2.5 text-base font-bold text-white shadow hover:bg-emerald-500 disabled:opacity-50"
           >
-            引き直し (= デッキ戻し + 新 5 枚)
+            キープ (= この 手札 で 始める)
           </button>
         </div>
       </div>
@@ -3531,6 +4335,279 @@ function ScryLifeReorderModal({
 }
 
 // ========================================================================== //
+// scry_deck_reorder: デッキ上 N 枚 を 並び替え + 上/下 選択 (OP06-059 等)
+// ========================================================================== //
+
+function ScryDeckReorderModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const cards =
+    (payload.cards as
+      | {
+          card_id: string;
+          name: string;
+          trigger: boolean;
+          counter: number;
+          power: number;
+        }[]
+      | undefined) ?? [];
+  const description = String(payload.description ?? "自デッキ上 並び替え + 上or下");
+  const [order, setOrder] = useState<number[]>([]);
+
+  function appendPick(idx: number) {
+    if (order.includes(idx)) return;
+    if (order.length >= cards.length) return;
+    setOrder([...order, idx]);
+  }
+  function reset() {
+    setOrder([]);
+  }
+  function submit(position: 0 | 1) {
+    // picks = [...order, position]
+    onSubmit([...order, position]);
+  }
+
+  const orderRank: Record<number, number> = {};
+  order.forEach((idx, rank) => {
+    orderRank[idx] = rank + 1;
+  });
+  const ready = order.length === cards.length;
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-cyan-200">{description}</h3>
+          <span className="text-sm text-zinc-300">
+            #1 → #N の 順 に クリック (= 並び順)、 その後 「上 / 下」 で デッキ 位置 決定
+          </span>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {order.length} / {cards.length}
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {cards.map((c, idx) => {
+            const rank = orderRank[idx];
+            const isPicked = rank !== undefined;
+            return (
+              <button
+                key={`${c.card_id}-${idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  appendPick(idx);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                disabled={isPicked}
+                className={
+                  "relative rounded transition " +
+                  (isPicked
+                    ? "ring-4 ring-cyan-400 -translate-y-2 opacity-90"
+                    : "ring-2 ring-emerald-400 hover:ring-emerald-300")
+                }
+                title={`${c.name} (P=${c.power}, C=${c.counter}${c.trigger ? ", trigger" : ""})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-64 w-auto rounded shadow-xl"
+                />
+                {isPicked && (
+                  <span className="absolute top-0 left-0 rounded-br bg-cyan-500 px-2 text-base font-bold text-white">
+                    #{rank}
+                  </span>
+                )}
+                {c.trigger && (
+                  <span className="absolute top-0 right-0 rounded-bl bg-rose-600 px-1 text-[10px] font-bold text-white">
+                    TRG
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1.5 text-xs font-bold text-white">
+                  P{c.power}/C{c.counter}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              reset();
+            }}
+            disabled={busy || order.length === 0}
+            className="rounded bg-zinc-700 px-3 py-1.5 text-xs text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            リセット
+          </button>
+          <span className="text-xs text-zinc-400">
+            #1 が一番 上 (or 下) (= 並び順)
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              submit(0);
+            }}
+            disabled={busy || !ready}
+            className="ml-auto rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            デッキ 上 へ
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              submit(1);
+            }}
+            disabled={busy || !ready}
+            className="rounded bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-500 disabled:opacity-50"
+          >
+            デッキ 下 へ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// view_life_top_choose_position: 自/相手ライフ上 N 見て 上or下 (ST20-003 等)
+// ========================================================================== //
+
+function ViewLifeTopChoosePositionModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const owner = String(payload.owner ?? "self");
+  const depth = Number(payload.depth ?? 1);
+  const selfLife = Number(payload.self_life_count ?? 0);
+  const oppLife = Number(payload.opp_life_count ?? 0);
+  const description = String(payload.description ?? "ライフ上 並び替え");
+  const [pickedOwner, setPickedOwner] = useState<0 | 1 | null>(
+    owner === "either" ? null : owner === "self" ? 0 : 1,
+  );
+
+  function submit(position: 0 | 1) {
+    if (owner === "either") {
+      onSubmit([pickedOwner ?? 0, position]);
+    } else {
+      onSubmit([position]);
+    }
+  }
+
+  const needPickOwner = owner === "either" && pickedOwner === null;
+  const ownerLabel =
+    pickedOwner === 0 ? "自ライフ" : pickedOwner === 1 ? "相手ライフ" : "?";
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-2 text-lg font-bold text-cyan-200">{description}</h3>
+        <p className="mb-3 text-xs text-zinc-300">
+          ライフ上 {depth} 枚 (= 中身 公開 されない、 内容 を 確認 のみ engine で 完了)
+        </p>
+        {owner === "either" && (
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-sm text-zinc-300">対象:</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPickedOwner(0);
+              }}
+              disabled={selfLife === 0}
+              className={
+                "flex-1 rounded px-3 py-2 text-sm font-bold " +
+                (pickedOwner === 0
+                  ? "bg-emerald-500 text-white"
+                  : "bg-zinc-700 text-white hover:bg-zinc-600") +
+                (selfLife === 0 ? " opacity-50 cursor-not-allowed" : "")
+              }
+            >
+              自ライフ ({selfLife})
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPickedOwner(1);
+              }}
+              disabled={oppLife === 0}
+              className={
+                "flex-1 rounded px-3 py-2 text-sm font-bold " +
+                (pickedOwner === 1
+                  ? "bg-rose-500 text-white"
+                  : "bg-zinc-700 text-white hover:bg-zinc-600") +
+                (oppLife === 0 ? " opacity-50 cursor-not-allowed" : "")
+              }
+            >
+              相手ライフ ({oppLife})
+            </button>
+          </div>
+        )}
+        {!needPickOwner && (
+          <>
+            <p className="mb-3 text-sm text-cyan-100">
+              {ownerLabel} 上 {depth} 枚 を どちら に 戻す?
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submit(0);
+                }}
+                disabled={busy}
+                className="flex-1 rounded bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow hover:bg-emerald-500 disabled:opacity-50"
+              >
+                ライフ 上 へ (= 元の場所)
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submit(1);
+                }}
+                disabled={busy}
+                className="flex-1 rounded bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow hover:bg-rose-500 disabled:opacity-50"
+              >
+                ライフ 下 へ
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
 // reveal_top_play: デッキ上 1 枚 公開 → 登場 / skip confirm modal
 // ========================================================================== //
 
@@ -3694,6 +4771,7 @@ function DefensePanel({
   setCounterIdxs,
   onSubmit,
   busy,
+  onUseOppAttackEffect,
 }: {
   payload: Record<string, unknown>;
   me: PlayerSnapshot;
@@ -3701,7 +4779,21 @@ function DefensePanel({
   setCounterIdxs: (v: number[]) => void;
   onSubmit: () => void;
   busy: boolean;
+  onUseOppAttackEffect?: (source_iid: number, effect_idx: number) => void;
 }) {
+  type OppAttackEff = {
+    source_iid: number;
+    card_id: string;
+    card_name: string;
+    effect_idx: number;
+    effect_text: string;
+    when_key: string;
+    pay_don: number;
+    rest_self_don: number;
+    discard_hand: number;
+  };
+  const availableEffects =
+    (payload.available_opp_attack_effects as OppAttackEff[] | undefined) ?? [];
   const isLeaderAttack = !!payload.is_leader_attack;
   const atkPower = Number(payload.attacker_power ?? 0);
   // defender base power: leader or 該当 chara
@@ -3746,9 +4838,6 @@ function DefensePanel({
         >
           {defTotal}
         </span>
-      </div>
-      <div className="text-center text-xs text-zinc-300">
-        手札 の カウンター を マット へ ドラッグ で 加算
       </div>
       {counterIdxs.length > 0 && (
         <button

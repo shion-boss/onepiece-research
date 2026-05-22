@@ -413,6 +413,20 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 相手 cost≤4 キャラ 1 レスト",
+      "when": "trigger",
+      "do": [
+        {
+          "rest": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
+        }
+      ]
     }
   ],
   "OP11-028": [
@@ -1979,6 +1993,26 @@
           "draw": 1
         }
       ]
+    },
+    {
+      "_text": "OP11-041 ナミ 相手アタック時 [DON×1 + ターン1回 + 手札1捨て]: 自リーダー +2000",
+      "when": "opp_attack",
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": true,
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "battle"
+          }
+        }
+      ]
     }
   ],
   "OP12-020": [
@@ -2275,18 +2309,26 @@
   ],
   "OP14-060": [
     {
-      "_text": "紫ドフラミンゴ 相手アタック時: アタック対象を自リーダーに変更",
+      "_text": "紫ドフラミンゴ 相手アタック時 [DON-1, ターン1回]: リーダー or 特徴《ドンキホーテ海賊団》 キャラ 1 枚 を 選び アタック対象 変更",
       "when": "opp_attack",
-      "if": {
-        "self_don_active_ge": 1
-      },
       "do": [
         {
-          "redirect_attack": "self_leader"
+          "redirect_attack": {
+            "candidates": [
+              "self_leader",
+              {
+                "type": "all_self_chara_filtered",
+                "filter": {
+                  "feature": "ドンキホーテ海賊団"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       }
     }
   ],
@@ -2399,6 +2441,25 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "OP15-001 クリーク 相手ターン中 DON≥1 自キャラ全 東の海 のみ: 相手キャラ全員 -2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_don_active_ge": 1,
+        "self_all_chara_feature": "東の海"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_opp_characters",
+            "amount": -2000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "OP15-002": [
@@ -5028,6 +5089,23 @@
           "deal_opp_leader_damage": 1
         }
       ]
+    },
+    {
+      "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "mill_opp_life_to_trash": 1
+        }
+      ]
     }
   ],
   "OP06-104": [
@@ -5040,6 +5118,18 @@
       "do": [
         {
           "put_top_to_life": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -5403,6 +5493,23 @@
           "mill_opp_life_to_hand": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: 自ライフ≤1 で 相手 cost≤7 キャラ 1 レスト",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "rest": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 7
+            }
+          }
+        }
+      ]
     }
   ],
   "EB01-012": [
@@ -5583,6 +5690,15 @@
             "amount": -5000,
             "duration": "turn"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -5846,6 +5962,15 @@
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -6113,6 +6238,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP15-109": [
@@ -6308,6 +6442,23 @@
     {
       "_text": "OP12-119 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_ko",
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP12-119 くま 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
       "do": [
         {
           "put_top_to_life": 1
@@ -6728,6 +6879,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
+        }
+      ]
     }
   ],
   "OP13-098": [
@@ -7098,6 +7258,15 @@
         },
         {
           "rest": "one_opponent_character_any"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -7480,6 +7649,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
+        }
+      ]
     }
   ],
   "OP14-120": [
@@ -7565,6 +7743,15 @@
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
         }
       ]
     }
@@ -7700,6 +7887,29 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "EB03-041 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "cost_le": 6,
+                "feature": "SWORD"
+              }
+            },
+            "amount": 2000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -7875,6 +8085,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
+        }
+      ]
     }
   ],
   "OP15-074": [
@@ -7953,6 +8172,15 @@
             "amount": 3000,
             "duration": "turn"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 2ドロー",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 2
         }
       ]
     }
@@ -8656,6 +8884,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '九蛇海賊団'}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP14-107": [
@@ -8706,6 +8946,18 @@
             },
             "count": 1
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '九蛇海賊団'}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -9140,6 +9392,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP03-123": [
@@ -9160,6 +9421,15 @@
       "do": [
         {
           "return_to_hand": "one_opponent_character_power_le_6000"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
         }
       ]
     }
@@ -9973,6 +10243,23 @@
               "exclude_name": "ドクトル・ホグバック"
             },
             "limit": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: trash から cost4以下 スリラーバーク海賊団 キャラ 1 rested 登場",
+      "when": "trigger",
+      "do": [
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4,
+              "feature": "スリラーバーク海賊団"
+            },
+            "limit": 1,
+            "rested": true
           }
         }
       ]
@@ -10893,7 +11180,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     },
     {
       "_text": "【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
@@ -11354,6 +11644,24 @@
       "if": {
         "self_life_ge": 2
       }
+    },
+    {
+      "_text": "赤黄ボニー 相手ターン中 ライフ1以下: 自リーダー +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB03-001_p1": [
@@ -12098,6 +12406,25 @@
       "cost": {
         "once_per_turn": true
       }
+    },
+    {
+      "_text": "OP15-001 クリーク 相手ターン中 DON≥1 自キャラ全 東の海 のみ: 相手キャラ全員 -2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_don_active_ge": 1,
+        "self_all_chara_feature": "東の海"
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_opp_characters",
+            "amount": -2000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "OP15-002_p1": [
@@ -12360,18 +12687,26 @@
   ],
   "OP14-060_p1": [
     {
-      "_text": "OP14-060_p1: 紫ドフラミンゴ 相手アタック時: アタック対象を自リーダーに変更",
+      "_text": "紫ドフラミンゴ 相手アタック時 [DON-1, ターン1回]: リーダー or 特徴《ドンキホーテ海賊団》 キャラ 1 枚 を 選び アタック対象 変更",
       "when": "opp_attack",
-      "if": {
-        "self_don_active_ge": 1
-      },
       "do": [
         {
-          "redirect_attack": "self_leader"
+          "redirect_attack": {
+            "candidates": [
+              "self_leader",
+              {
+                "type": "all_self_chara_filtered",
+                "filter": {
+                  "feature": "ドンキホーテ海賊団"
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       }
     }
   ],
@@ -12856,7 +13191,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       }
     }
   ],
@@ -12890,7 +13226,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       }
     }
   ],
@@ -12911,6 +13248,31 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "OP10-001 スモーカー 相手ターン中: 自海軍/パンクハザード キャラ +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "海軍",
+                  "パンクハザード"
+                ]
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "OP10-001_p1": [
@@ -12928,6 +13290,31 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "OP10-001 スモーカー 相手ターン中: 自海軍/パンクハザード キャラ +1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "海軍",
+                  "パンクハザード"
+                ]
+              }
+            },
+            "amount": 1000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -14523,7 +14910,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "rest_self": true
+        "rest_self": true,
+        "pay_don": 1
       },
       "do": [
         {
@@ -14538,7 +14926,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "rest_self": true
+        "rest_self": true,
+        "pay_don": 1
       },
       "do": [
         {
@@ -14740,7 +15129,10 @@
             }
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 4
+      }
     }
   ],
   "OP02-072_p1": [
@@ -14763,7 +15155,10 @@
             }
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 4
+      }
     }
   ],
   "OP02-093": [
@@ -15694,7 +16089,10 @@
         {
           "self_turn": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "ST09-001": [
@@ -15778,7 +16176,8 @@
       "_text": "ST05-001 【起動メイン】【ターン1回】ドン‼-3(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の特徴《FILM》を持つキャラすべてを、このターン中、パワー+2000。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 3
       },
       "do": [
         {
@@ -15792,7 +16191,8 @@
       "_text": "ST04-001 【起動メイン】【ターン1回】ドン!!-7(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：相手のライフ1枚までをトラッシュに置く。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 7
       },
       "do": [
         {
@@ -15806,7 +16206,8 @@
       "_text": "ST03-001 【起動メイン】【ターン1回】ドン!!-4(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：コスト5以下のキャラ1枚までを、持ち主の手札に戻す。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 4
       },
       "do": [
         {
@@ -15888,7 +16289,8 @@
       "_text": "ST05-001_r1 【起動メイン】【ターン1回】ドン‼-3(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分の特徴《FILM》を持つキャラすべてを、このターン中、パワー+2000。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 3
       },
       "do": [
         {
@@ -16036,7 +16438,8 @@
       "_text": "P-086 【起動メイン】【ターン1回】ドン!!-3,自分のパワー3000以上のキャラ1枚を、デッキの下に置くことができる：自分の手札からコスト4以下の特徴《ハートの海賊団》を持つキャラカード1枚までを、登場させる。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 3
       },
       "do": [
         {
@@ -17643,7 +18046,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP02-068": [
@@ -17754,6 +18160,17 @@
         },
         {
           "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自デッキ上5枚 並び替え (上 or 下)",
+      "when": "trigger",
+      "do": [
+        {
+          "scry_deck_reorder": {
+            "depth": 5
+          }
         }
       ]
     }
@@ -20348,7 +20765,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP12-077": [
@@ -22394,6 +22814,19 @@
           "ko": "one_opponent_character_any"
         }
       ]
+    },
+    {
+      "_text": "OP08-019 main: 相手のキャラ1枚までを、このターン中、パワー-3000。その後、自分のキャラ1枚までを、このターン中、パワー+3000。",
+      "when": "main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
+            "duration": "turn"
+          }
+        }
+      ]
     }
   ],
   "OP08-033": [
@@ -23203,6 +23636,26 @@
           "rest": "one_opponent_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "OP07-116 main: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。その後、相手のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "if": {
+        "opp_life_le": 2,
+        "self_life_le": 2
+      }
     }
   ],
   "OP06-101": [
@@ -23214,6 +23667,20 @@
           "give_keyword": {
             "target": "self_leader",
             "keyword": "バニッシュ"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手 cost≤5 キャラ 1 KO",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 5
+            }
           }
         }
       ]
@@ -23345,6 +23812,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 1ドロー",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP04-064": [
@@ -23367,7 +23843,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 2
+      }
     }
   ],
   "OP05-039": [
@@ -23641,7 +24120,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP04-081": [
@@ -25668,7 +26150,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP02-068_p1": [
@@ -25771,6 +26256,15 @@
             "amount": -5000,
             "duration": "turn"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -25991,6 +26485,15 @@
           "rest": "one_opponent_character_any"
         }
       ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP07-114_p1": [
@@ -26036,6 +26539,15 @@
           "_condition": {
             "opp_chara_power_ge": 6000
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -26393,6 +26905,15 @@
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -29097,6 +29618,29 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "EB03-041 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "cost_le": 6,
+                "feature": "SWORD"
+              }
+            },
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB03-045_p1": [
@@ -29195,6 +29739,23 @@
       "do": [
         {
           "deal_opp_leader_damage": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "mill_opp_life_to_trash": 1
         }
       ]
     }
@@ -29342,6 +29903,23 @@
       "do": [
         {
           "deal_opp_leader_damage": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "mill_opp_life_to_trash": 1
         }
       ]
     }
@@ -29999,7 +30577,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     },
     {
       "_text": "【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
@@ -31684,6 +32265,23 @@
           "mill_opp_life_to_hand": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: 自ライフ≤1 で 相手 cost≤7 キャラ 1 レスト",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "rest": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 7
+            }
+          }
+        }
+      ]
     }
   ],
   "OP13-113_p1": [
@@ -32222,6 +32820,23 @@
     {
       "_text": "OP12-119_p1 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_ko",
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP12-119 くま 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
       "do": [
         {
           "put_top_to_life": 1
@@ -34222,7 +34837,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 2
+      }
     }
   ],
   "OP05-015_p1": [
@@ -34558,7 +35176,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 2
+      }
     }
   ],
   "OP04-082_p1": [
@@ -35670,6 +36291,26 @@
           "rest": "one_opponent_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "OP07-116_p1 main: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。その後、相手のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "if": {
+        "opp_life_le": 2,
+        "self_life_le": 2
+      }
     }
   ],
   "OP09-078_p1": [
@@ -35771,6 +36412,21 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ST22-002_p1 イゾウ 相手アタック時 [trash_self]: 1ドロー + 手札1 デッキ下",
+      "when": "opp_attack",
+      "cost": {
+        "trash_self": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "hand_to_deck_bottom": 1
+        }
+      ]
     }
   ],
   "ST22-003_p1": [
@@ -35845,6 +36501,15 @@
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
         }
       ]
     }
@@ -37058,6 +37723,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP06-025_p2": [
@@ -37934,6 +38608,23 @@
           "mill_opp_life_to_hand": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: 自ライフ≤1 で 相手 cost≤7 キャラ 1 レスト",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "rest": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 7
+            }
+          }
+        }
+      ]
     }
   ],
   "OP13-118_p5": [
@@ -38137,6 +38828,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '九蛇海賊団'}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "九蛇海賊団"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP14-107_p1": [
@@ -38201,7 +38904,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     },
     {
       "_text": "【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
@@ -39124,6 +39830,18 @@
           "put_top_to_life": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP06-118_p4": [
@@ -39377,6 +40095,26 @@
           "rest": "one_opponent_character_cost_le_4cost"
         }
       ]
+    },
+    {
+      "_text": "OP07-116_p2 main: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。その後、相手のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "if": {
+        "opp_life_le": 2,
+        "self_life_le": 2
+      }
     }
   ],
   "OP08-036_p1": [
@@ -39731,6 +40469,15 @@
             "destination": "hand",
             "rest_remain": "trash"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
         }
       ]
     }
@@ -40134,7 +40881,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "EB01-046_r1": [
@@ -40837,6 +41587,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP05-091_r1": [
@@ -41459,6 +42218,15 @@
           "rest": "one_opponent_character_any"
         }
       ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP07-109_r1": [
@@ -41619,6 +42387,15 @@
           "_condition": {
             "opp_chara_power_ge": 6000
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -46062,7 +46839,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP05-073_p2": [
@@ -46088,7 +46868,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP05-073_r1": [
@@ -46114,7 +46897,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP05-081_p1": [
@@ -48216,6 +49002,28 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "EB04-010 ルルシア王国 相手ターン中: 元コスト1キャラ全員 +5000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "original_cost_eq": 1
+              }
+            },
+            "amount": 5000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB04-012": [
@@ -48723,6 +49531,18 @@
             },
             "limit": 1
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 2ドロー + 手札1捨て",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -49722,6 +50542,37 @@
           "in_hand_cost_plus": 4
         }
       ]
+    },
+    {
+      "_text": "EB03-042 コアラ 相手ターン中 自KO時: コアラ以外 革命軍cost6以下 or ロビン 1 枚 hand/trash から 登場",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "play_from_hand_or_trash": {
+            "filter": {
+              "exclude_name": "コアラ",
+              "or": [
+                {
+                  "feature": "革命軍",
+                  "cost_le": 6
+                },
+                {
+                  "name": "ニコ・ロビン"
+                }
+              ]
+            },
+            "count": 1
+          }
+        }
+      ]
     }
   ],
   "EB03-042_p1": [
@@ -49763,6 +50614,37 @@
       "do": [
         {
           "in_hand_cost_plus": 4
+        }
+      ]
+    },
+    {
+      "_text": "EB03-042 コアラ 相手ターン中 自KO時: コアラ以外 革命軍cost6以下 or ロビン 1 枚 hand/trash から 登場",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "play_from_hand_or_trash": {
+            "filter": {
+              "exclude_name": "コアラ",
+              "or": [
+                {
+                  "feature": "革命軍",
+                  "cost_le": 6
+                },
+                {
+                  "name": "ニコ・ロビン"
+                }
+              ]
+            },
+            "count": 1
+          }
         }
       ]
     }
@@ -50274,6 +51156,37 @@
           "in_hand_cost_plus": 4
         }
       ]
+    },
+    {
+      "_text": "EB03-042 コアラ 相手ターン中 自KO時: コアラ以外 革命軍cost6以下 or ロビン 1 枚 hand/trash から 登場",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "play_from_hand_or_trash": {
+            "filter": {
+              "exclude_name": "コアラ",
+              "or": [
+                {
+                  "feature": "革命軍",
+                  "cost_le": 6
+                },
+                {
+                  "name": "ニコ・ロビン"
+                }
+              ]
+            },
+            "count": 1
+          }
+        }
+      ]
     }
   ],
   "EB02-002": [
@@ -50325,6 +51238,24 @@
       "if": {
         "leader_feature": "麦わらの一味"
       }
+    },
+    {
+      "_text": "EB02-003 チョッパー 相手ターン中 DON≥2: 自身 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_attached_don_ge": 2
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB02-003_p1": [
@@ -50351,6 +51282,24 @@
       "if": {
         "leader_feature": "麦わらの一味"
       }
+    },
+    {
+      "_text": "EB02-003 チョッパー 相手ターン中 DON≥2: 自身 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_attached_don_ge": 2
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "EB02-006": [
@@ -51629,7 +52578,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "EB01-036": [
@@ -51671,6 +52623,15 @@
         },
         {
           "ko": "one_opponent_character_cost_le_8"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -53138,6 +54099,30 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "OP14-016 X・ドレーク 相手ターン中 ターン1回: 超新星キャラ 効果 場離れ 代替 (cost: 自リーダー -2000 turn)",
+      "when": "replace_leave",
+      "if": {
+        "opp_turn": true,
+        "victim_feature_in": [
+          "超新星"
+        ],
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ],
+      "do": []
     }
   ],
   "OP14-017": [
@@ -53163,6 +54148,22 @@
             "target": "self_leader",
             "amount": 4000,
             "duration": "battle"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 手札から パワー2000以下 赤キャラ 1 登場",
+      "when": "trigger",
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "赤",
+              "power_le": 2000
+            },
+            "limit": 1
           }
         }
       ]
@@ -53641,6 +54642,26 @@
       "if": {
         "leader_feature": "九蛇海賊団"
       }
+    },
+    {
+      "_text": "OP14-115 リンドウ 相手ターン中 自KO時: 自デッキ→ライフ + 自身 1 ダメージ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "put_top_to_life": 1
+        },
+        {
+          "mill_self_life_to_trash": 1
+        }
+      ]
     }
   ],
   "OP14-117": [
@@ -54644,6 +55665,22 @@
       "do": [
         {
           "play_self": true
+        }
+      ]
+    },
+    {
+      "_text": "OP13-106 コニー 相手ターン中 自トリガー発動時: 自身 ブロッカー獲得 (このターン)",
+      "when": "on_self_trigger_fired",
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー",
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -56112,6 +57149,23 @@
             "target": "self",
             "keyword": "速攻"
           }
+        }
+      ]
+    },
+    {
+      "_text": "OP12-107 ドフラ 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "put_top_to_life": 1
         }
       ]
     }
@@ -57975,6 +59029,15 @@
           "ko": "one_opponent_rested_character_cost_le_7cost"
         }
       ]
+    },
+    {
+      "_text": "OP10-040 main: 相手のレストのコスト7以下のキャラ1枚までを、KOする。",
+      "when": "main",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_7cost"
+        }
+      ]
     }
   ],
   "OP10-043": [
@@ -58132,6 +59195,15 @@
           "add_don": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: ドン1 アクティブ 追加",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
     }
   ],
   "OP10-080": [
@@ -58212,6 +59284,23 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "OP10-086 シリュウ 相手ターン中: 自身 +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
         }
       ]
     }
@@ -59704,6 +60793,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 相手リーダー or キャラ 1 効果無効 turn",
+      "when": "trigger",
+      "do": [
+        {
+          "negate_effect": {
+            "target": "one_opp_character_any",
+            "duration": "turn"
+          }
+        }
+      ]
     }
   ],
   "OP09-098": [
@@ -59976,6 +61077,26 @@
       "cost": {
         "rest_self": true
       }
+    },
+    {
+      "_text": "OP04-119 ロシナンテ 相手ターン中 自身レスト時: 自アクティブ元コスト5キャラ KO耐性 (= 効果KO されない)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "cost_eq": 5
+            },
+            "rested": false
+          }
+        }
+      ]
     }
   ],
   "OP05-119_p5": [
@@ -60694,7 +61815,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP08-069": [
@@ -60771,6 +61895,32 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "OP08-071 ニワトリ伯爵 相手ターン中 自KO時 [DON-1]: デッキから タマゴ男爵 cost4以下 1 枚 登場",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "cost": {
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "summon_from_deck": {
+            "filter": {
+              "name": "タマゴ男爵",
+              "cost_le": 4
+            },
+            "count": 1
+          }
+        }
+      ]
     }
   ],
   "OP08-073": [
@@ -60788,6 +61938,32 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "OP08-073 ヒヨコ子爵 相手ターン中 自KO時 [DON-1]: デッキから ニワトリ伯爵 cost6以下 1 枚 登場",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "cost": {
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "summon_from_deck": {
+            "filter": {
+              "name": "ニワトリ伯爵",
+              "cost_le": 6
+            },
+            "count": 1
+          }
         }
       ]
     }
@@ -61082,6 +62258,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP08-094 main: 自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：相手のコスト2以下のキャラ1枚までを、KOする。",
+      "when": "main",
+      "do": [
+        {
+          "ko": "one_opponent_character_cost_le_2cost"
+        }
+      ]
     }
   ],
   "OP08-095": [
@@ -61226,6 +62411,18 @@
           "trash_self_hand_random": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: 2ドロー + 手札1捨て",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
     }
   ],
   "OP08-105_p1": [
@@ -61243,6 +62440,18 @@
       "cost": {
         "once_per_turn": true
       },
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 2ドロー + 手札1捨て",
+      "when": "trigger",
       "do": [
         {
           "draw": 2
@@ -61883,6 +63092,28 @@
             "filter": {
               "feature": "魚人族",
               "cost_le": 5
+            },
+            "keyword": "ブロッカー",
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP07-024 コアラ 相手アタック時 [rest_self]: 自コスト5以下魚人族 キャラ1枚に【ブロッカー】 (このターン)",
+      "when": "opp_attack",
+      "cost": {
+        "rest_self": true
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_le": 5,
+                "feature": "魚人族"
+              }
             },
             "keyword": "ブロッカー",
             "duration": "turn"
@@ -63150,6 +64381,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
+        }
+      ]
     }
   ],
   "OP06-040": [
@@ -63470,14 +64710,16 @@
         }
       ],
       "cost": {
-        "discard_hand": 2
+        "discard_hand": 2,
+        "pay_don": 1
       }
     },
     {
       "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       },
       "do": [
         {
@@ -63529,14 +64771,16 @@
         }
       ],
       "cost": {
-        "discard_hand": 2
+        "discard_hand": 2,
+        "pay_don": 1
       }
     },
     {
       "_text": "【起動メイン】【ターン1回】ドン!!-1：相手のドン!!1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       },
       "do": [
         {
@@ -64020,6 +65264,29 @@
           "trash_self_hand_random": 1
         }
       ]
+    },
+    {
+      "_text": "OP06-095 main: 自分のリーダーは、このターン中、パワー+1000。その後、自分のコスト2以下の特徴《スリラーバーク海賊団》を持つキャラを任意の枚数KOしてもよい。KOしたキャラ1枚につき、自分のリーダーは、このターン中、パワー+1000。",
+      "when": "main",
+      "optional": true,
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "ko": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "cost_le": 2
+            }
+          }
+        }
+      ]
     }
   ],
   "OP06-096": [
@@ -64168,6 +65435,18 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自ライフ≤2 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP06-103": [
@@ -64260,6 +65539,18 @@
               }
             ]
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自ライフ≤2 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -64870,7 +66161,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP05-075": [
@@ -66109,13 +67403,17 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 2
+      }
     },
     {
       "_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "opp_attack",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       },
       "do": [
         {
@@ -66160,13 +67458,17 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 2
+      }
     },
     {
       "_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "opp_attack",
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       },
       "do": [
         {
@@ -66250,7 +67552,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP04-068": [
@@ -66302,7 +67607,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     }
   ],
   "OP04-070": [
@@ -66354,7 +67662,10 @@
             ]
           }
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     },
     {
       "_text": "【相手のアタック時】ドン!!-1：このキャラは、このバトル中、【ブロッカー】を得て、パワー+1000。 ※battle→turn",
@@ -66376,6 +67687,29 @@
             "target": "self",
             "amount": 1000,
             "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP04-071 Mr.4(ベーブ) 相手アタック時 [DON-1]: 自身に【ブロッカー】+ パワー+1000 (バトル中)",
+      "when": "opp_attack",
+      "cost": {
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー",
+            "duration": "turn"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "battle"
           }
         }
       ]
@@ -67136,6 +68470,26 @@
       "cost": {
         "rest_self": true
       }
+    },
+    {
+      "_text": "OP04-119 ロシナンテ 相手ターン中 自身レスト時: 自アクティブ元コスト5キャラ KO耐性 (= 効果KO されない)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "cost_eq": 5
+            },
+            "rested": false
+          }
+        }
+      ]
     }
   ],
   "OP04-119_p1": [
@@ -67173,6 +68527,26 @@
       "cost": {
         "rest_self": true
       }
+    },
+    {
+      "_text": "OP04-119 ロシナンテ 相手ターン中 自身レスト時: 自アクティブ元コスト5キャラ KO耐性 (= 効果KO されない)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_rested": true
+      },
+      "do": [
+        {
+          "set_ko_immune": {
+            "type": "all_self_chara_filtered",
+            "filter": {
+              "cost_eq": 5
+            },
+            "rested": false
+          }
+        }
+      ]
     }
   ],
   "OP01-078_p2": [
@@ -67226,6 +68600,23 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "OP02-085 マゼラン 相手ターン中 自KO時: 相手 DON 2 ドンデッキへ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "opp_don_to_deck": 2
         }
       ]
     }
@@ -67373,6 +68764,24 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP03-017 main: 自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、相手のキャラ1枚までを、このターン中、パワー-4000。",
+      "when": "main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -4000,
+            "duration": "turn"
+          }
+        }
+      ],
+      "if": {
+        "leader_features_any": [
+          "白ひげ海賊団"
+        ]
+      }
     }
   ],
   "OP03-019": [
@@ -68427,6 +69836,26 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 手札2捨て で 自デッキ上1→ライフ",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP03-119": [
@@ -69414,6 +70843,23 @@
           "opp_turn": true
         }
       ]
+    },
+    {
+      "_text": "OP02-085 マゼラン 相手ターン中 自KO時: 相手 DON 2 ドンデッキへ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "opp_don_to_deck": 2
+        }
+      ]
     }
   ],
   "OP02-085_p1": [
@@ -69431,6 +70877,23 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "OP02-085 マゼラン 相手ターン中 自KO時: 相手 DON 2 ドンデッキへ",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "victim_iid_eq_self": true
+        }
+      ],
+      "do": [
+        {
+          "opp_don_to_deck": 2
         }
       ]
     }
@@ -70096,6 +71559,19 @@
         },
         {
           "ko": "one_opponent_character_le_4000"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手リーダー or キャラ 1 power-10000 turn",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opp_character_any",
+            "amount": -10000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -71856,6 +73332,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "ST29-012_p1": [
@@ -71874,6 +73359,15 @@
             },
             "count": 1
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -72101,6 +73595,18 @@
       "do": [
         {
           "put_top_to_life": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -74074,6 +75580,25 @@
       "conditions": [
         {
           "opp_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "ST19-004 ヒナ 相手ターン中 DON≥1: 自身 コスト+4",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_attached_don_ge": 1
+      },
+      "do": [
+        {
+          "set_base_cost_timed": {
+            "target": "self",
+            "amount": 4,
+            "duration": "static",
+            "relative": true
+          }
         }
       ]
     }
@@ -76510,6 +78035,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
+        }
+      ]
     }
   ],
   "ST07-016": [
@@ -76969,6 +78503,15 @@
         },
         {
           "add_don": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身の【メイン】効果 発動",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_main": true
         }
       ]
     }
@@ -82560,6 +84103,18 @@
           "trash_self_hand_random": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: 2ドロー + 手札1捨て",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
     }
   ],
   "OP08-105_p3": [
@@ -82577,6 +84132,18 @@
       "cost": {
         "once_per_turn": true
       },
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 2ドロー + 手札1捨て",
+      "when": "trigger",
       "do": [
         {
           "draw": 2
@@ -83602,25 +85169,151 @@
   "OP10-105_r1": [],
   "P-070_p1": [],
   "P-070_r1": [],
-  "P-088_p1": [],
-  "P-088_r1": [],
+  "P-088_p1": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '超新星', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "超新星",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "P-088_r1": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '超新星', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "超新星",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST12-005_p1": [],
   "ST12-005_r1": [],
   "ST14-010_p1": [],
   "ST14-010_r2": [],
   "ST14-013_p1": [],
   "ST14-013_r1": [],
-  "ST20-003_p1": [],
-  "ST20-003_r1": [],
+  "ST20-003_p1": [
+    {
+      "_text": "trigger: 自or相手ライフ上1 見て 上or下",
+      "when": "trigger",
+      "do": [
+        {
+          "view_life_top_choose_position": {
+            "owner": "either",
+            "depth": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST20-003_r1": [
+    {
+      "_text": "trigger: 自or相手ライフ上1 見て 上or下",
+      "when": "trigger",
+      "do": [
+        {
+          "view_life_top_choose_position": {
+            "owner": "either",
+            "depth": 1
+          }
+        }
+      ]
+    }
+  ],
   "OP04-089_p1": [],
   "OP04-089_p2": [],
   "OP04-089_p3": [],
   "OP04-089_r1": [],
-  "OP04-104_p2": [],
-  "OP04-104_r1": [],
-  "P-014_p1": [],
-  "P-014_p2": [],
-  "P-014_r1": [],
+  "OP04-104_p2": [
+    {
+      "_text": "trigger: 手札1捨て → 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP04-104_r1": [
+    {
+      "_text": "trigger: 手札1捨て → 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "P-014_p1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "P-014_p2": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "P-014_r1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST01-006_p8": [],
   "ST01-006_p9": [],
   "ST01-006_p10": [],
@@ -83632,13 +85325,83 @@
   "ST03-008_p7": [],
   "ST03-008_p8": [],
   "ST03-008_r1": [],
-  "ST03-013_p2": [],
-  "ST03-013_p3": [],
-  "ST03-013_p4": [],
-  "ST03-013_r1": [],
-  "ST07-007_p2": [],
-  "ST07-007_p3": [],
-  "ST07-007_r1": [],
+  "ST03-013_p2": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST03-013_p3": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST03-013_p4": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST03-013_r1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST07-007_p2": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST07-007_p3": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST07-007_r1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "EB03-002": [],
   "EB03-019": [],
   "EB03-030": [],
@@ -83649,7 +85412,21 @@
   "EB02-034": [],
   "EB02-042": [],
   "EB02-043": [],
-  "EB02-055": [],
+  "EB02-055": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '魚人族》か《人魚族', 'self_life_le': 2}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "魚人族》か《人魚族",
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "EB01-005": [],
   "EB01-017": [],
   "EB01-018": [],
@@ -83671,10 +85448,39 @@
   "OP14-073": [],
   "OP14-095": [],
   "OP14-101": [],
-  "OP14-106": [],
+  "OP14-106": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP13-010": [],
   "OP13-011": [],
-  "OP13-014": [],
+  "OP13-014": [
+    {
+      "_text": "trigger: 自「ポートガス・Ｄ・エース」 1 power+3000 turn",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "ポートガス・Ｄ・エース"
+              }
+            },
+            "amount": 3000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP13-018": [],
   "OP13-029": [],
   "OP13-036": [],
@@ -83712,7 +85518,25 @@
   "OP12-092": [],
   "OP12-103": [],
   "OP12-106": [],
-  "OP12-109": [],
+  "OP12-109": [
+    {
+      "_text": "trigger: 相手 cost≤1 キャラ 1 KO + 自身手札へ",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 1
+            }
+          }
+        },
+        {
+          "play_self": false
+        }
+      ]
+    }
+  ],
   "OP12-110": [],
   "OP12-111": [],
   "OP12-114": [],
@@ -83763,10 +85587,67 @@
   "OP09-082": [],
   "OP09-091": [],
   "OP09-094": [],
-  "OP09-100": [],
-  "OP09-105": [],
-  "OP09-108": [],
-  "OP09-109": [],
+  "OP09-100": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '革命軍', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "革命軍",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "OP09-105": [
+    {
+      "_text": "trigger: リーダー エッグヘッド なら デッキ上1→ライフ + 手札2捨て",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "エッグヘッド"
+      },
+      "do": [
+        {
+          "put_top_to_life": 1
+        },
+        {
+          "trash_self_hand_random": 2
+        }
+      ]
+    }
+  ],
+  "OP09-108": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '革命軍', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "革命軍",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "OP09-109": [
+    {
+      "_text": "trigger: リーダー ニコ・ロビン で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "ニコ・ロビン"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP09-111": [
     {
       "_text": "【トリガー】自分のリーダーが特徴《エッグヘッド》を持ち、 相手の手札が6枚以上の場合、 相手は自身の手札2枚を捨てる。",
@@ -83795,18 +85676,82 @@
   "OP08-099": [],
   "OP08-108": [],
   "OP07-007": [],
-  "OP07-008": [],
+  "OP07-008": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP07-027": [],
   "OP07-028": [],
   "OP07-067": [],
   "OP07-084": [],
   "OP07-089": [],
-  "OP07-102": [],
-  "OP07-103": [],
+  "OP07-102": [
+    {
+      "_text": "trigger: 相手 cost4以下 1 手札戻し + 自身手札",
+      "when": "trigger",
+      "do": [
+        {
+          "return_to_hand": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "OP07-103": [
+    {
+      "_text": "trigger: 自エッグヘッドキャラ 1 ブロッカー turn + 自身手札",
+      "when": "trigger",
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "エッグヘッド"
+              }
+            },
+            "keyword": "ブロッカー",
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP07-108": [],
   "OP06-005": [],
   "OP06-008": [],
-  "OP06-031": [],
+  "OP06-031": [
+    {
+      "_text": "trigger: 手札から cost3以下 魚人族/人魚族 キャラ 1 登場",
+      "when": "trigger",
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 3,
+              "feature_in": [
+                "魚人族",
+                "人魚族"
+              ]
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
   "OP06-032": [],
   "OP06-037": [],
   "OP06-049": [],
@@ -83814,7 +85759,26 @@
   "OP06-087": [],
   "OP06-094": [],
   "OP06-105": [],
-  "OP06-108": [],
+  "OP06-108": [
+    {
+      "_text": "trigger: 自ワノ国 リーダー or キャラ 1 power+2000 turn",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "ワノ国"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
   "OP05-012": [],
   "OP05-013": [],
   "OP05-024": [],
@@ -83830,22 +85794,108 @@
   "OP04-023": [],
   "OP04-054": [],
   "OP04-062": [],
-  "OP04-067": [],
+  "OP04-067": [
+    {
+      "_text": "trigger: DON-1 で 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "OP04-077": [],
   "OP04-078": [],
   "OP04-087": [],
   "OP04-089": [],
-  "OP04-104": [],
-  "OP04-104_p1": [],
+  "OP04-104": [
+    {
+      "_text": "trigger: 手札1捨て → 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP04-104_p1": [
+    {
+      "_text": "trigger: 手札1捨て → 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "OP04-107": [],
-  "OP04-113": [],
+  "OP04-113": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP04-114": [],
   "OP03-006": [],
   "OP03-007": [],
   "OP03-010": [],
   "OP03-023": [],
   "OP03-031": [],
-  "OP03-033": [],
+  "OP03-033": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '東の海'}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "東の海"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP03-035": [],
   "OP03-046": [],
   "OP03-052": [],
@@ -83855,7 +85905,28 @@
   "OP03-084": [],
   "OP03-085": [],
   "OP03-087": [],
-  "OP03-100": [],
+  "OP03-100": [
+    {
+      "_text": "trigger: 自ライフ1捨て で 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "OP03-101": [],
   "OP03-103": [],
   "OP03-106": [],
@@ -83875,26 +85946,77 @@
   "OP02-054": [],
   "OP02-055": [],
   "OP02-060": [],
-  "OP02-075": [],
+  "OP02-075": [
+    {
+      "_text": "trigger: DON-1 で 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "OP02-077": [],
   "OP02-080": [],
   "OP02-081": [],
   "OP02-084": [],
   "OP02-088": [],
   "OP02-097": [],
-  "OP02-104": [],
+  "OP02-104": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP02-107": [],
   "OP02-108": [],
   "OP02-108_p1": [],
   "OP02-109": [],
   "OP02-116": [],
-  "OP01-009": [],
+  "OP01-009": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP01-010": [],
   "OP01-012": [],
   "OP01-018": [],
   "OP01-023": [],
   "OP01-036": [],
-  "OP01-037": [],
+  "OP01-037": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP01-043": [],
   "OP01-045": [],
   "OP01-053": [],
@@ -83902,30 +86024,147 @@
   "OP01-066": [],
   "OP01-076": [],
   "OP01-081": [],
-  "OP01-082": [],
+  "OP01-082": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP01-092": [],
   "OP01-100": [],
   "OP01-103": [],
-  "OP01-104": [],
+  "OP01-104": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP01-107": [],
   "OP01-110": [],
   "ST30-005": [],
   "ST30-005_p1": [],
   "ST30-013": [],
   "ST30-013_p1": [],
-  "ST29-005": [],
-  "ST29-005_p1": [],
+  "ST29-005": [
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST29-005_p1": [
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST29-006": [],
   "ST29-006_p1": [],
-  "ST29-009": [],
-  "ST29-009_p1": [],
+  "ST29-009": [
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST29-009_p1": [
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST29-010": [],
   "ST29-010_p1": [],
   "ST29-011": [],
   "ST29-011_p1": [],
-  "ST29-013": [],
-  "ST29-013_p1": [],
-  "ST28-003": [],
+  "ST29-013": [
+    {
+      "_text": "trigger: 相手キャラ コスト≤合計ライフ 1 KO (簡略: コスト10以下)",
+      "_doc": "「お互いのライフの合計枚数以下のコスト」 動的 filter 未対応。 簡略 cost_le=10 (= 上限近似)。",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 10
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST29-013_p1": [
+    {
+      "_text": "trigger: 相手キャラ コスト≤合計ライフ 1 KO (簡略: コスト10以下)",
+      "_doc": "「お互いのライフの合計枚数以下のコスト」 動的 filter 未対応。 簡略 cost_le=10 (= 上限近似)。",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 10
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST28-003": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': 'ワノ国'}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "ワノ国"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP09-091_r1": [],
   "OP10-084_r1": [],
   "OP05-065_r1": [],
@@ -83960,7 +86199,20 @@
   "OP03-106_r1": [],
   "OP03-107_r1": [],
   "ST07-014_r1": [],
-  "ST20-003": [],
+  "ST20-003": [
+    {
+      "_text": "trigger: 自or相手ライフ上1 見て 上or下",
+      "when": "trigger",
+      "do": [
+        {
+          "view_life_top_choose_position": {
+            "owner": "either",
+            "depth": 1
+          }
+        }
+      ]
+    }
+  ],
   "OP02-108_r1": [],
   "OP02-109_r1": [],
   "OP02-116_r1": [],
@@ -83999,17 +86251,55 @@
   ],
   "ST09-003": [],
   "ST09-006": [],
-  "ST09-009": [],
+  "ST09-009": [
+    {
+      "_text": "trigger: 相手 cost≤1 キャラ 1 KO + 自身手札へ",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 1
+            }
+          }
+        },
+        {
+          "play_self": false
+        }
+      ]
+    }
+  ],
   "ST09-011": [],
   "ST09-013": [],
   "ST08-003": [],
-  "ST08-007": [],
+  "ST08-007": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST08-010": [],
   "ST08-011": [],
   "ST08-012": [],
   "ST07-002": [],
   "ST07-006": [],
-  "ST07-007": [],
+  "ST07-007": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST07-012": [],
   "ST07-014": [],
   "ST06-003": [],
@@ -84019,7 +86309,17 @@
   "ST06-013": [],
   "ST05-003": [],
   "ST05-007": [],
-  "ST05-009": [],
+  "ST05-009": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST05-012": [],
   "ST05-013": [],
   "ST05-015": [],
@@ -84033,7 +86333,17 @@
   "ST03-008": [],
   "ST03-011": [],
   "ST03-012": [],
-  "ST03-013": [],
+  "ST03-013": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST02-002": [],
   "ST02-004": [],
   "ST02-006": [],
@@ -84056,18 +86366,79 @@
   "ST02-012_r1": [],
   "ST05-003_r1": [],
   "ST05-007_r1": [],
-  "ST05-009_r1": [],
+  "ST05-009_r1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "ST05-012_r1": [],
   "ST05-013_r1": [],
   "ST05-015_r1": [],
-  "EB02-055_p1": [],
+  "EB02-055_p1": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '魚人族》か《人魚族', 'self_life_le': 2}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "魚人族》か《人魚族",
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP02-108_p2": [],
-  "OP03-033_p1": [],
+  "OP03-033_p1": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '東の海'}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "東の海"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP04-077_p2": [],
-  "OP09-108_p2": [],
+  "OP09-108_p2": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '革命軍', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "革命軍",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP12-106_p2": [],
   "P-012": [],
-  "P-014": [],
+  "P-014": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "P-015": [],
   "P-016": [],
   "P-016_p1": [],
@@ -84086,7 +86457,21 @@
   "P-080": [],
   "P-080_p1": [],
   "P-087": [],
-  "P-088": [],
+  "P-088": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '超新星', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "超新星",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "P-089": [],
   "P-119": [],
   "ST01-006_p2": [],
@@ -84100,8 +86485,31 @@
   "ST03-008_p5": [],
   "ST04-011_p1": [],
   "ST04-011_p3": [],
-  "ST07-007_p1": [],
-  "ST29-009_p2": [],
+  "ST07-007_p1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST29-009_p2": [
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP08-099_p2": [],
   "P-016_p2": [],
   "P-022_p2": [],
@@ -84112,7 +86520,17 @@
   "ST01-010_p1": [],
   "ST02-004_p2": [],
   "ST03-012_p2": [],
-  "ST03-013_p1": [],
+  "ST03-013_p1": [
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "EB01-057_r1": [
     {
       "_text": "[auto] on_ko (相手ターン中) → デッキ上1ライフ",
@@ -84849,6 +87267,18 @@
           "give_attack_active_chara": "self"
         }
       ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP06-110_p2": [
@@ -84861,6 +87291,18 @@
           "give_attack_active_chara": "self"
         }
       ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP06-110_r1": [
@@ -84871,6 +87313,18 @@
       "do": [
         {
           "give_attack_active_chara": "self"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -84954,11 +87408,42 @@
   ],
   "EB04-051": [
     {
-      "_text": "EB04-051 元々のパワー12000以上のキャラがいない場合、このキャラはアタックできない。",
-      "_doc": "「元々のパワー12000以上のキャラがいない場合」 条件 (= self_chara_max_power_lt 等) は engine 未対応。 簡略: 常に attack 可能 (= 効果無視)。 game balance 上 多くの 場面で 条件 false なので 機会 損失 程度。",
-      "when": "leader_passive",
-      "do": [],
-      "static": true
+      "_text": "EB04-051 エメト 元々パワー12000以上のキャラがいない場合 attack 不能",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_no_truly_original_power_ge": 12000
+      },
+      "do": [
+        {
+          "set_cannot_attack_static": "self"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手キャラ全員 -3000 turn",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_opp_characters",
+            "amount": -3000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自ライフ0なら 自身登場",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 0
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "EB04-056": [
@@ -85474,12 +87959,17 @@
   ],
   "OP14-003": [
     {
-      "_text": "OP14-003 このキャラは相手の元々のパワー5000以下のキャラの効果でKOされない。",
-      "_doc": "「効果source の元々のパワー5000以下」 を effect source 起点 で 判別する 機構 は engine 未対応。 簡略: 通常 KO 耐性 なし。 game 内 OP9-091 等 5000P↓ chara effect KO は 通る。",
+      "_text": "OP14-003 カポネ・ベッジ 相手の元々パワー5000以下のキャラの効果でKO不能",
       "when": "on_attached_don",
       "n": 0,
-      "do": [],
-      "static": true
+      "do": [
+        {
+          "set_ko_immune_from_source_power_le": {
+            "target": "self",
+            "threshold": 5000
+          }
+        }
+      ]
     }
   ],
   "OP14-004": [
@@ -85842,6 +88332,18 @@
       "do": [
         {
           "peek_self_life_top": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 2ドロー + 手札1捨て",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -86597,6 +89099,29 @@
           }
         }
       ]
+    },
+    {
+      "_text": "trigger: 手札1捨て + リーダー超新星 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "超新星"
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP09-012": [
@@ -86908,6 +89433,15 @@
         },
         {
           "discard_self_to_deck_top": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -87410,6 +89944,18 @@
           "set_ko_immune": "self"
         }
       ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "OP06-110": [
@@ -87420,6 +89966,18 @@
       "do": [
         {
           "give_attack_active_chara": "self"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -87862,7 +90420,20 @@
       ]
     }
   ],
-  "OP04-099": [],
+  "OP04-099": [
+    {
+      "_text": "trigger: 自ライフ≤1 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
   "OP04-118": [
     {
       "_text": "このキャラ以外の自分のコスト3以上の赤のキャラすべては、【速攻】を得る。",
@@ -88018,6 +90589,15 @@
             "amount": 2000,
             "duration": "static"
           }
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 自身登場 (play_self)",
+      "when": "trigger",
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -88404,6 +90984,18 @@
           "peek_self_life_top": 1
         }
       ]
+    },
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
     }
   ],
   "ST29-008_p1": [
@@ -88418,6 +91010,18 @@
       "do": [
         {
           "peek_self_life_top": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: リーダー モンキー・Ｄ・ルフィ で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_name": "モンキー・Ｄ・ルフィ"
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -88612,6 +91216,26 @@
       "do": [
         {
           "mill_self_life_to_trash": 1
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 手札1捨て → 自身登場",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -88987,6 +91611,18 @@
       "do": [
         {
           "give_attack_active_chara": "self"
+        }
+      ]
+    },
+    {
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
@@ -89499,6 +92135,23 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        }
+      ]
+    }
+  ],
+  "ST29-013_r1": [
+    {
+      "_text": "trigger: 相手キャラ コスト≤合計ライフ 1 KO (簡略: コスト10以下)",
+      "_doc": "「お互いのライフの合計枚数以下のコスト」 動的 filter 未対応。 簡略 cost_le=10 (= 上限近似)。",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 10
+            }
           }
         }
       ]

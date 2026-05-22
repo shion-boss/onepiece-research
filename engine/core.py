@@ -228,6 +228,11 @@ class InPlay:
     # 静的 KO 耐性 (on_attached_don 等の常在条件で True)。
     # evaluate_static_effects で毎回 False に戻されてから再計算される
     static_ko_immune: bool = False
+    # source-power-scoped KO 耐性 (= OP14-003 カポネ・ベッジ
+    # 「相手の元々のパワー N 以下のキャラの効果でKOされない」)。
+    # 値: 上限 N (= -1 で無効、 N で source.truly_original_power <= N なら KO 不発)。
+    # 静的 evaluate で毎回 -1 に戻す。
+    static_ko_immune_from_source_power_le: int = -1
     # 「元々のパワー」を上書き (None なら CardDef.power を使う)。
     # 静的効果でセット (on_attached_don)、evaluate_static_effects でリセット
     base_power_override: Optional[int] = None

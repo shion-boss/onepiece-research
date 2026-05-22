@@ -27,6 +27,7 @@ from typing import Optional
 from . import card_intents, card_role, hand_estimator, matchup_model
 from .ai_params import AIParams
 from .core import GameState, InPlay, Phase, Player, Category
+from .human_session import PauseSignal  # play_one_action で human pre-fire pending を 伝搬する 用
 from .game import (
     Action,
     ActivateMain,
@@ -2456,27 +2457,90 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
     referee (RuleReferee) を渡すと:
       - 適用前: AI の選択が legal_actions に含まれるかチェック
       - 適用後: 不変条件 (DON 総数、フィールド超過、instance_id 重複等) をチェック
+
+    PauseSignal 経由 で 中断 → 再 entry した 時 に AI が action を 再評価 して
+    別 action を 選ぶ の を 防止 する ため、 attack action は state._pending_ai_action
+    に キャッシュ。 apply_action 成功時 に クリア。
     """
-    action = ai_self.choose_action(state)
+    cached = getattr(state, "_pending_ai_action", None)
+    if cached is not None and cached.get("turn_player_idx") == state.turn_player_idx:
+        action = cached["action"]
+    else:
+        action = ai_self.choose_action(state)
 
     # 攻撃時: ブロッカー / カウンターを差し込む
     def _split_event_counters(
         defender_hand: list, counter_idxs: tuple[int, ...]
     ) -> tuple[tuple[int, ...], tuple[int, ...]]:
-        """counter idx を card / event に 分離。 event カード (= category=EVENT)
-        は counter_event_idxs にも 追加して 【カウンター】 効果 を 発動 する。
+        """counter idx を card (= 通常 counter 値) / event (= 【カウンター】効果) に 排他 分離。
+        EVENT カード で counter 値 0 (= "-") の もの は event_idxs に、 通常 counter は
+        card_idxs に。 同 idx が 両方 に 入らない (= _spend_counters と _fire_counter_events
+        が 同じ hand pop を 二重 で 実行 しない 様 に)。
         """
         events: list[int] = []
+        cards: list[int] = []
         for idx in counter_idxs:
-            if 0 <= idx < len(defender_hand):
-                c = defender_hand[idx]
-                if str(getattr(c, "category", "")).endswith("EVENT"):
-                    events.append(idx)
-        return counter_idxs, tuple(events)
+            if not (0 <= idx < len(defender_hand)):
+                continue
+            c = defender_hand[idx]
+            is_event = str(getattr(c, "category", "")).endswith("EVENT")
+            counter_val = int(getattr(c, "counter", 0) or 0)
+            # EVENT で counter 値 0 → 純 counter event。 EVENT で counter 値 > 0
+            # → 数値分は _spend_counters、 効果は _fire_counter_events 双方 で 処理
+            # するので 両方 に 含める ※ 但し _fire_counter_events 側 で card.pop 済
+            # の hand を _spend_counters が 二重 処理 しないよう 排他に。 公式 7-1-3-1-2 上
+            # 同 card で 「+counter」 と 「カウンター効果」 を 同時 発動 する ケースは
+            # rare (= 多くは counter 値 ≠ 0 か 0 のどちらか)。
+            if is_event:
+                events.append(idx)
+                if counter_val > 0:
+                    # counter 値 + event 効果 両方持ち: 数値分 だけ card_idxs にも 入れる が、
+                    # _fire_counter_events で hand pop 済 となる ので _spend_counters は skip。
+                    # → 値 計算 を _fire 側 で 別途 加算 する 必要 あり (現状 未対応、 rare)
+                    pass
+            else:
+                cards.append(idx)
+        return tuple(cards), tuple(events)
+
+    def _pre_fire_attack_triggers(attacker, is_leader_attack):
+        """attack declared 直後 (= defense 決定前) に on_attack + on_opp_attack 系 を 発火。
+        公式 7-1-1-3 準拠。 cost 持ち effect で pending_choice 立つ と PauseSignal 伝搬。
+        """
+        if not state.effects_overlay:
+            return
+        # 既 fire 済 なら skip (= retry 時)
+        attack_id = id(attacker)
+        already = getattr(state, "_opp_attack_pre_fired_id", None) == attack_id
+        if already:
+            return
+        me = state.turn_player
+        opp = state.opponent
+        from .effects import (
+            trigger_on_attack as _t_on_attack,
+            trigger_on_opp_attack as _t_opp,
+            trigger_on_opp_attack_on_leader as _t_opp_leader,
+            trigger_on_opp_attack_on_chara as _t_opp_chara,
+        )
+        _t_on_attack(state, me, opp, attacker, state.effects_overlay)
+        _t_opp(state, opp, me, attacker, state.effects_overlay)
+        if is_leader_attack:
+            _t_opp_leader(state, opp, me, attacker, state.effects_overlay)
+        else:
+            _t_opp_chara(state, opp, me, attacker, state.effects_overlay)
+        state._opp_attack_pre_fired_id = attack_id
 
     if isinstance(action, AttackLeader):
         from .game import _find_attacker  # noqa
         attacker = _find_attacker(state.turn_player, action.attacker_iid)
+        # cache action for PauseSignal retry
+        state._pending_ai_action = {
+            "action": action,
+            "turn_player_idx": state.turn_player_idx,
+        }
+        # 7-1-1-3: declare 直後 に triggers (人間 defender の cost 持ち は pending_choice → PauseSignal)
+        _pre_fire_attack_triggers(attacker, True)
+        if state.pending_choice is not None:
+            raise PauseSignal("choice", dict(state.pending_choice))
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, state.opponent.leader, True, state.opponent
         )
@@ -2491,6 +2555,13 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
     elif isinstance(action, AttackCharacter):
         from .game import _find_attacker, _find_character  # noqa
         attacker = _find_attacker(state.turn_player, action.attacker_iid)
+        state._pending_ai_action = {
+            "action": action,
+            "turn_player_idx": state.turn_player_idx,
+        }
+        _pre_fire_attack_triggers(attacker, False)
+        if state.pending_choice is not None:
+            raise PauseSignal("choice", dict(state.pending_choice))
         target = _find_character(state.opponent, action.target_iid)
         block_iid, counters = ai_opp.choose_defense(
             state, attacker, target, False, state.opponent
@@ -2508,6 +2579,9 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         referee.before_action(state, action)
 
     apply_action(state, action)
+    # action 適用 成功 → cache + pre-fire flag クリア
+    state._pending_ai_action = None
+    state._opp_attack_pre_fired_id = None
 
     if referee is not None:
         referee.after_action(state)

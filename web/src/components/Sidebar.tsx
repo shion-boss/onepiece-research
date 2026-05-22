@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const NAV = [
   { href: "/cards", label: "カード" },
@@ -15,8 +16,22 @@ const NAV = [
 
 export function Sidebar() {
   const path = usePathname();
-  // /play ルートでは sidebar を 非表示 (= 対戦画面 を フルスクリーン に)
-  if (path?.startsWith("/play")) return null;
+  // /play で 対戦 開始済 (= board 表示中) なら sidebar 非表示 (= fullscreen)。
+  // 開始前 (= StartPanel) は 表示。 HumanMatchPlay が window event で 通知する。
+  const [matchActive, setMatchActive] = useState(false);
+  useEffect(() => {
+    function onChange(e: Event) {
+      setMatchActive((e as CustomEvent<boolean>).detail === true);
+    }
+    window.addEventListener("match-state-change", onChange as EventListener);
+    return () =>
+      window.removeEventListener("match-state-change", onChange as EventListener);
+  }, []);
+  // path 変化 で reset (= 別 ページ 行ったら 開始済 flag 消える)
+  useEffect(() => {
+    if (!path?.startsWith("/play")) setMatchActive(false);
+  }, [path]);
+  if (path?.startsWith("/play") && matchActive) return null;
   return (
     <aside className="sticky top-0 flex h-screen w-48 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
       <Link

@@ -540,9 +540,9 @@ def advance_phase(state: GameState) -> None:
                 c.attached_dons = 0
                 if hasattr(c, "_act_used"):
                     delattr(c, "_act_used")
-                # on_attack のターン1回フラグもクリア (任意 idx)
+                # on_attack / opp_attack のターン1回フラグもクリア (任意 idx)
                 for attr in list(c.__dict__.keys()):
-                    if attr.startswith("_on_attack_used_"):
+                    if attr.startswith("_on_attack_used_") or attr.startswith("_opp_attack_used_"):
                         delattr(c, attr)
             # 「次のリフレッシュでアクティブにならない」 ドン数 (OP10-033 ナミ等) を差し引く
             kept_rested = me.next_refresh_kept_rested_don
@@ -562,7 +562,7 @@ def advance_phase(state: GameState) -> None:
             if hasattr(me.leader, "_act_used"):
                 delattr(me.leader, "_act_used")
             for attr in list(me.leader.__dict__.keys()):
-                if attr.startswith("_on_attack_used_"):
+                if attr.startswith("_on_attack_used_") or attr.startswith("_opp_attack_used_"):
                     delattr(me.leader, attr)
             # next_turn_buff (= 「次の自分のターン開始時まで」 期限) を所有者側でクリア。
             # 自分のターン開始時 = ここで自分の InPlay の next_turn_buff を 0 に。
@@ -1226,12 +1226,16 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             state.push_log(f"  アタック前コスト: 手札{n_needed}枚捨て ({attacker.card.name})")
         attacker.rested = True
         if state.effects_overlay:
-            from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
-            # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
-            trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-            trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
-            # defender=リーダー 限定の opp_attack (OP03-001 エース等)
-            trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay)
+            # play_one_action で 既 pre-fire 済 なら skip (= 二重発火 防止)。
+            # play_one_action 経由 でない 呼出 (= 直接 apply_action) では 通常通り 発火。
+            opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
+            if not opp_pre_fired:
+                from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
+                # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
+                trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
+                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+                # defender=リーダー 限定の opp_attack (OP03-001 エース等)
+                trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay)
         # アタック対象変更チェック (OP14-060 紫ドフラ等。redirect_attack プリミティブが set)
         if state.pending_attack_redirect is not None:
             redirect_iid = state.pending_attack_redirect
@@ -1522,11 +1526,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             state.push_log(f"  アタック前コスト: 手札{n_needed}枚捨て ({attacker.card.name})")
         attacker.rested = True
         if state.effects_overlay:
-            from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara
-            trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-            trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
-            # defender=キャラ 限定の opp_attack
-            trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay)
+            opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
+            if not opp_pre_fired:
+                from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara
+                trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
+                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+                # defender=キャラ 限定の opp_attack
+                trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay)
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),
