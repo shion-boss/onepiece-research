@@ -2432,13 +2432,10 @@ function CenterRow({
           }
         >
           {player.trash.length > 0 && (
-            <img
-              src={`/cards/${player.trash[player.trash.length - 1]}.png`}
+            <CardImage
+              cardId={player.trash[player.trash.length - 1]}
               alt="top trash"
               className="absolute inset-0 h-full w-full rounded object-cover opacity-80"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
             />
           )}
           <span className="absolute bottom-0 right-0 rounded bg-zinc-900 px-1.5 text-xs font-bold text-white">

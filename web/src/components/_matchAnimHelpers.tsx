@@ -1214,8 +1214,8 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             >
               <div className="relative">
-                <img
-                  src={`/cards/${it.cardId}.png`}
+                <CardImage
+                  cardId={it.cardId}
                   alt={it.cardId}
                   className={
                     "h-72 w-auto rounded shadow-2xl ring-4 " +
@@ -1223,10 +1223,6 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
                       ? "ring-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.85)]"
                       : "ring-rose-300 drop-shadow-[0_0_30px_rgba(244,114,182,0.85)]")
                   }
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "/assets/ura.png";
-                  }}
                 />
                 <div
                   className={
