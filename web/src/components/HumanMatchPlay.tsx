@@ -12,8 +12,10 @@ import {
   applyHumanUseOppAttackEffect,
   endHumanMatch,
   startHumanMatch,
+  type HumanActionLog,
   type HumanLegalAction,
   type HumanMatchState,
+  type HumanSessionSpec,
 } from "@/lib/api";
 import type { CharSnapshot, PlayerSnapshot, StateSnapshot } from "@/lib/types";
 import {
@@ -139,6 +141,32 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const router = useRouter();
   // applyAction 重複 防止 (= 連打 / 連 drop で 同時 fetch を 防ぐ)
   const applyInFlightRef = useRef(false);
+  // 直近 state を ref で 参照 (= async callback で setState 後 即 prior_actions を 構築 する 用)
+  const stateRef = useRef<HumanMatchState | null>(null);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  // resume payload: serverless で 別 function instance に 振られた 時 の session 再構築 用。
+  // server response の session_spec / actions が undefined の 場合 は 既存 state の値 を 引き継ぐ。
+  const buildResume = (): { session_spec?: HumanSessionSpec; prior_actions?: HumanActionLog[] } => {
+    const s = stateRef.current;
+    return {
+      session_spec: s?.session_spec,
+      prior_actions: s?.actions,
+    };
+  };
+  // merge: server response に session_spec / actions が なくても 既存値 を 維持
+  const mergeMatchState = (
+    next: HumanMatchState,
+    prev?: HumanMatchState | null,
+  ): HumanMatchState => {
+    const base = prev ?? stateRef.current;
+    return {
+      ...next,
+      session_spec: next.session_spec ?? base?.session_spec,
+      actions: next.actions ?? base?.actions,
+    };
+  };
 
   // frame 再生 ヘルパ (= AI ターン を ログ通り 順次 表示)
   // delay の デフォルト は 700ms。 最後の frame は 通常 setState に 任せる ので 含めない。
@@ -269,7 +297,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       }
     }
     try {
-      const next = await applyHumanAction(sessionId, action.idx);
+      const next = mergeMatchState(
+        await applyHumanAction(sessionId, action.idx, buildResume()),
+      );
       // 攻撃 で AI 思考 時間 を 演出: 持続 矢印 を 出した まま 1.2 秒 待ってから frame 再生
       if (isAttack) {
         await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -358,7 +388,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     setError(null);
     setBusy(true);
     try {
-      const next = await applyHumanChoice(sessionId, picks);
+      const next = mergeMatchState(
+        await applyHumanChoice(sessionId, picks, buildResume()),
+      );
       const frames = next.frames ?? [];
       if (frames.length > 1) {
         await playFrames(next, frames, 2200);
@@ -383,10 +415,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     setError(null);
     setBusy(true);
     try {
-      const next = await applyHumanUseOppAttackEffect(
-        sessionId,
-        source_iid,
-        effect_idx,
+      const next = mergeMatchState(
+        await applyHumanUseOppAttackEffect(
+          sessionId,
+          source_iid,
+          effect_idx,
+          buildResume(),
+        ),
       );
       setState(next);
     } catch (e) {
@@ -429,7 +464,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     }
     setDefenseClosing(true); // 確定 押下 で 即時 modal 視覚的 close
     try {
-      const next = await applyHumanDefense(sessionId, blockerIid, counterIdxs);
+      const next = mergeMatchState(
+        await applyHumanDefense(
+          sessionId,
+          blockerIid,
+          counterIdxs,
+          buildResume(),
+        ),
+      );
       // 防御 成功 検出 (= response frames に 「blocked / survived / blocker survived」)
       // → 持続矢印 が 消える 瞬間 に 矢印 へし折り 演出 を 即時 発火 (= 視覚的 同期)。
       const frames = next.frames ?? [];
@@ -956,7 +998,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
                 return false;
               });
               if (!a) break;
-              const next = await applyHumanAction(sessionId, a.idx);
+              const next = mergeMatchState(
+                await applyHumanAction(sessionId, a.idx, buildResume()),
+              );
               const fr = next.frames ?? [];
               if (fr.length > 1) {
                 await playFrames(next, fr, 2200);

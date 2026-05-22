@@ -559,6 +559,23 @@ export type HumanLegalAction = {
   n?: number;
 };
 
+export type HumanSessionSpec = {
+  seed: number;
+  deck_a_slug: string;
+  deck_b_slug: string;
+  human_first: boolean;
+};
+
+export type HumanActionLog = {
+  kind: "action" | "defense" | "choice" | "use_opp_attack_effect";
+  action_idx?: number;
+  blocker_iid?: number | null;
+  counter_card_idxs?: number[];
+  picks?: number[];
+  source_iid?: number;
+  effect_idx?: number;
+};
+
 export type HumanMatchState = {
   session_id?: string;
   game_over: boolean;
@@ -578,6 +595,15 @@ export type HumanMatchState = {
   snapshots_count: number;
   deck_a_slug: string;
   deck_b_slug: string;
+  // serverless 環境 で session が 別 function instance に 振られた 場合 に 再構築 する 用。
+  // start で受け取り、 各 apply* で 毎回 送信。 localStorage に 保存して リロード復元 も可。
+  session_spec?: HumanSessionSpec;
+  actions?: HumanActionLog[];
+};
+
+type ResumeFields = {
+  session_spec?: HumanSessionSpec;
+  prior_actions?: HumanActionLog[];
 };
 
 export async function startHumanMatch(
@@ -612,11 +638,16 @@ export async function fetchHumanMatch(sid: string): Promise<HumanMatchState> {
 export async function applyHumanAction(
   sid: string,
   actionIdx: number,
+  resume?: ResumeFields,
 ): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match/${sid}/action`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action_idx: actionIdx }),
+    body: JSON.stringify({
+      action_idx: actionIdx,
+      session_spec: resume?.session_spec,
+      prior_actions: resume?.prior_actions,
+    }),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -630,6 +661,7 @@ export async function applyHumanDefense(
   sid: string,
   blockerIid: number | null,
   counterCardIdxs: number[],
+  resume?: ResumeFields,
 ): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match/${sid}/defense`, {
     method: "POST",
@@ -637,6 +669,8 @@ export async function applyHumanDefense(
     body: JSON.stringify({
       blocker_iid: blockerIid,
       counter_card_idxs: counterCardIdxs,
+      session_spec: resume?.session_spec,
+      prior_actions: resume?.prior_actions,
     }),
     cache: "no-store",
   });
@@ -650,11 +684,16 @@ export async function applyHumanDefense(
 export async function applyHumanChoice(
   sid: string,
   picks: number[],
+  resume?: ResumeFields,
 ): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match/${sid}/choice`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ picks }),
+    body: JSON.stringify({
+      picks,
+      session_spec: resume?.session_spec,
+      prior_actions: resume?.prior_actions,
+    }),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -668,13 +707,19 @@ export async function applyHumanUseOppAttackEffect(
   sid: string,
   source_iid: number,
   effect_idx: number,
+  resume?: ResumeFields,
 ): Promise<HumanMatchState> {
   const res = await fetch(
     `${API}/api/human_match/${sid}/use_opp_attack_effect`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_iid, effect_idx }),
+      body: JSON.stringify({
+        source_iid,
+        effect_idx,
+        session_spec: resume?.session_spec,
+        prior_actions: resume?.prior_actions,
+      }),
       cache: "no-store",
     },
   );

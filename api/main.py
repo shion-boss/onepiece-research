@@ -2921,22 +2921,60 @@ class HumanMatchStart(BaseModel):
     human_first: Optional[bool] = None  # None=random
 
 
+class HumanSessionSpec(BaseModel):
+    """セッション 再構築 用 の 確定 spec。 client が localStorage 保持 + 毎 request 送信。
+
+    Vercel serverless で 同一 session が 異なる function instance に 振られる ため、
+    in-memory _HUMAN_SESSIONS dict だけだと cache miss で 404 になる。 spec + prior_actions
+    から完全 reconstruct できる ようにして deploy/instance 切替に対応する。
+    """
+
+    seed: int
+    deck_a_slug: str
+    deck_b_slug: str
+    human_first: bool  # 開始時に確定済み の bool
+
+
+class HumanActionLog(BaseModel):
+    """過去 action の 履歴 1 件。 reconstruct 時に 順次 apply。"""
+
+    kind: str  # "action" | "defense" | "choice" | "use_opp_attack_effect"
+    # action
+    action_idx: Optional[int] = None
+    # defense
+    blocker_iid: Optional[int] = None
+    counter_card_idxs: Optional[list[int]] = None
+    # choice
+    picks: Optional[list[int]] = None
+    # use_opp_attack_effect
+    source_iid: Optional[int] = None
+    effect_idx: Optional[int] = None
+
+
 class HumanActionIn(BaseModel):
     action_idx: int
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
 
 
 class HumanDefenseIn(BaseModel):
     blocker_iid: Optional[int] = None
     counter_card_idxs: list[int] = []
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
 
 
 class HumanChoiceIn(BaseModel):
     picks: list[int]
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
 
 
 class HumanUseOppAttackEffectIn(BaseModel):
     source_iid: int
     effect_idx: int
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
 
 
 def _load_deck_by_slug(slug: str):
@@ -2965,117 +3003,224 @@ def _build_default_ai_factory(deck_slug: str):
     return _default_ai_factory
 
 
-@app.post("/api/human_match")
-def human_match_start(req: HumanMatchStart):
-    """人間 vs AI セッション 開始。 session_id を 返す + 初期 state。"""
+def _build_human_session(spec: HumanSessionSpec):
+    """spec から HumanSession を construct (= 初期 state、 mulligan pending)。"""
     from engine.human_session import HumanSession  # lazy import
 
-    deck_a = _load_deck_by_slug(req.deck_a_slug)
-    deck_b = _load_deck_by_slug(req.deck_b_slug)
+    deck_a = _load_deck_by_slug(spec.deck_a_slug)
+    deck_b = _load_deck_by_slug(spec.deck_b_slug)
     overlay_path = ROOT / "db" / "card_effects.json"
     overlay = load_effect_overlay(overlay_path)
 
-    ai_factory = _build_default_ai_factory(req.deck_b_slug)
-    deck_b_analysis = _load_deck_analysis(req.deck_b_slug)
-    deck_a_analysis = _load_deck_analysis(req.deck_a_slug)
+    ai_factory = _build_default_ai_factory(spec.deck_b_slug)
+    deck_b_analysis = _load_deck_analysis(spec.deck_b_slug)
+    deck_a_analysis = _load_deck_analysis(spec.deck_a_slug)
 
-    session = HumanSession(
+    return HumanSession(
         deck_a=deck_a,
         deck_b=deck_b,
         ai_factory=ai_factory,
-        seed=req.seed or 42,
+        seed=spec.seed,
         effects_overlay=overlay,
         deck_a_analysis=deck_a_analysis,
         deck_b_analysis=deck_b_analysis,
-        human_first=req.human_first,
+        human_first=spec.human_first,
     )
+
+
+def _replay_action_log(session, log: "HumanActionLog") -> None:
+    """1 件の action log を session に apply。 reconstruct 時の per-action 適用。"""
+    kind = log.kind
+    if kind == "action":
+        if log.action_idx is None:
+            raise ValueError("action log missing action_idx")
+        session.apply_human_action(log.action_idx)
+    elif kind == "defense":
+        session.apply_human_defense(
+            log.blocker_iid, list(log.counter_card_idxs or [])
+        )
+    elif kind == "choice":
+        session.apply_human_choice(list(log.picks or []))
+    elif kind == "use_opp_attack_effect":
+        if log.source_iid is None or log.effect_idx is None:
+            raise ValueError("use_opp_attack_effect log missing fields")
+        session.apply_human_use_opp_attack_effect(log.source_iid, log.effect_idx)
+    else:
+        raise ValueError(f"unknown action kind: {kind}")
+
+
+def _resume_or_reconstruct_session(
+    sid: str,
+    spec: Optional[HumanSessionSpec],
+    prior_actions: Optional[list["HumanActionLog"]],
+):
+    """sid で in-memory cache を 引き、 miss なら spec + prior_actions から 再構築 + replay。
+
+    Returns: (session, action_log) — action_log は 現在 までに 適用された全 action の list。
+
+    Vercel serverless で 別 instance に振られた場合は cache miss だが、 client が
+    spec + prior_actions を 持っていれば 完全 reconstruct できる。
+    """
+    cached = _HUMAN_SESSIONS.get(sid)
+    if cached is not None:
+        session, log = cached
+        # 既存 instance hit。 prior_actions が cache よりも 多い (= 同 sid で
+        # 別 instance から replay された結果が 来た) ケース は 通常 起きない が、
+        # 万一 mismatch で 信頼性 を 取るなら spec + prior_actions ある時は そちらを
+        # ground truth として 強制 reconstruct も 検討余地。 現状は cache 優先。
+        return session, log
+    if spec is None:
+        raise HTTPException(404, "session not found")
+    session = _build_human_session(spec)
+    session.advance_until_pause()
+    log: list[HumanActionLog] = []
+    for entry in (prior_actions or []):
+        try:
+            _replay_action_log(session, entry)
+        except ValueError as e:
+            raise HTTPException(
+                400, f"replay failed at action {len(log)} ({entry.kind}): {e}"
+            )
+        log.append(entry)
+    # reconstruct 完了。 過去の全 frames は client が 既に 受け取り 済 として 扱う
+    # → baseline を 現在 の snapshot 数 に 更新。 次に 適用される action の 差分だけが
+    # frontend に 新規 frames として 返る。
+    session._last_seen_snapshot_count = len(session.state.snapshots)
+    _HUMAN_SESSIONS[sid] = (session, log)
+    return session, log
+
+
+def _action_log_to_payload(log: list["HumanActionLog"]) -> list[dict]:
+    return [
+        {k: v for k, v in entry.model_dump().items() if v is not None}
+        for entry in log
+    ]
+
+
+@app.post("/api/human_match")
+def human_match_start(req: HumanMatchStart):
+    """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。"""
+    # human_first None なら ここで 確定 (= rng 経由ではなく Python random で 単発決定)。
+    # 以降 spec.human_first は 確定 bool として 渡る → reconstruct で 同じ first_player。
+    import random as _r
+
+    human_first = req.human_first
+    if human_first is None:
+        human_first = _r.Random(req.seed or 42).random() < 0.5
+    spec = HumanSessionSpec(
+        seed=req.seed or 42,
+        deck_a_slug=req.deck_a_slug,
+        deck_b_slug=req.deck_b_slug,
+        human_first=bool(human_first),
+    )
+
+    session = _build_human_session(spec)
     session.advance_until_pause()
 
-    import uuid
-
     sid = uuid.uuid4().hex[:16]
-    _HUMAN_SESSIONS[sid] = session
+    _HUMAN_SESSIONS[sid] = (session, [])
 
     payload = session.snapshot_payload()
     payload["session_id"] = sid
+    payload["session_spec"] = spec.model_dump()
+    payload["actions"] = []
+    return payload
+
+
+def _human_match_response(
+    sid: str, session, action_log: list[HumanActionLog], spec: Optional[HumanSessionSpec]
+) -> dict:
+    """共通 response builder: snapshot + sid + spec + actions[] を返す。
+
+    spec は cache hit で None になり得る が、 そのケースでも client は 既存の spec を
+    保持しているので 問題なし (= 新規 client には start で 返している)。
+    """
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    payload["actions"] = _action_log_to_payload(action_log)
+    if spec is not None:
+        payload["session_spec"] = spec.model_dump()
     return payload
 
 
 @app.get("/api/human_match/{sid}")
 def human_match_status(sid: str):
-    session = _HUMAN_SESSIONS.get(sid)
-    if session is None:
+    cached = _HUMAN_SESSIONS.get(sid)
+    if cached is None:
         raise HTTPException(404, "session not found")
-    payload = session.snapshot_payload()
-    payload["session_id"] = sid
-    return payload
+    session, log = cached
+    return _human_match_response(sid, session, log, None)
 
 
 @app.post("/api/human_match/{sid}/action")
 def human_match_action(sid: str, req: HumanActionIn):
-    session = _HUMAN_SESSIONS.get(sid)
-    if session is None:
-        raise HTTPException(404, "session not found")
+    session, log = _resume_or_reconstruct_session(sid, req.session_spec, req.prior_actions)
     try:
         session.apply_human_action(req.action_idx)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    payload = session.snapshot_payload()
-    payload["session_id"] = sid
-    return payload
+    log.append(HumanActionLog(kind="action", action_idx=req.action_idx))
+    _HUMAN_SESSIONS[sid] = (session, log)
+    return _human_match_response(sid, session, log, req.session_spec)
 
 
 @app.post("/api/human_match/{sid}/defense")
 def human_match_defense(sid: str, req: HumanDefenseIn):
-    session = _HUMAN_SESSIONS.get(sid)
-    if session is None:
-        raise HTTPException(404, "session not found")
+    session, log = _resume_or_reconstruct_session(sid, req.session_spec, req.prior_actions)
     try:
         session.apply_human_defense(req.blocker_iid, req.counter_card_idxs)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    payload = session.snapshot_payload()
-    payload["session_id"] = sid
-    return payload
+    log.append(
+        HumanActionLog(
+            kind="defense",
+            blocker_iid=req.blocker_iid,
+            counter_card_idxs=list(req.counter_card_idxs),
+        )
+    )
+    _HUMAN_SESSIONS[sid] = (session, log)
+    return _human_match_response(sid, session, log, req.session_spec)
 
 
 @app.post("/api/human_match/{sid}/choice")
 def human_match_choice(sid: str, req: HumanChoiceIn):
     """人間 interactive 選択 (= search_top_n 等) を 適用。"""
-    session = _HUMAN_SESSIONS.get(sid)
-    if session is None:
-        raise HTTPException(404, "session not found")
+    session, log = _resume_or_reconstruct_session(sid, req.session_spec, req.prior_actions)
     try:
         session.apply_human_choice(req.picks)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    payload = session.snapshot_payload()
-    payload["session_id"] = sid
-    return payload
+    log.append(HumanActionLog(kind="choice", picks=list(req.picks)))
+    _HUMAN_SESSIONS[sid] = (session, log)
+    return _human_match_response(sid, session, log, req.session_spec)
 
 
 @app.post("/api/human_match/{sid}/use_opp_attack_effect")
 def human_match_use_opp_attack_effect(sid: str, req: HumanUseOppAttackEffectIn):
     """防御 pending 中、 自場 の カード の 【相手のアタック時】 効果 を click で 発動。"""
-    session = _HUMAN_SESSIONS.get(sid)
-    if session is None:
-        raise HTTPException(404, "session not found")
+    session, log = _resume_or_reconstruct_session(sid, req.session_spec, req.prior_actions)
     try:
         session.apply_human_use_opp_attack_effect(req.source_iid, req.effect_idx)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    payload = session.snapshot_payload()
-    payload["session_id"] = sid
-    return payload
+    log.append(
+        HumanActionLog(
+            kind="use_opp_attack_effect",
+            source_iid=req.source_iid,
+            effect_idx=req.effect_idx,
+        )
+    )
+    _HUMAN_SESSIONS[sid] = (session, log)
+    return _human_match_response(sid, session, log, req.session_spec)
 
 
 @app.delete("/api/human_match/{sid}")
 def human_match_end(sid: str):
-    session = _HUMAN_SESSIONS.pop(sid, None)
+    cached = _HUMAN_SESSIONS.pop(sid, None)
     saved_replay_id = None
-    if session is not None and getattr(session, "state", None) is not None:
-        # 試合終了 していれば 棋譜保存
-        if session.state.game_over:
+    if cached is not None:
+        session, _log = cached
+        if getattr(session, "state", None) is not None and session.state.game_over:
             saved_replay_id = session.save_replay()
     return {"ok": True, "replay_id": saved_replay_id}
 
@@ -3083,9 +3228,10 @@ def human_match_end(sid: str):
 @app.post("/api/human_match/{sid}/save_replay")
 def human_match_save_replay(sid: str):
     """試合終了後 (= game_over=true) に 棋譜 を SQLite 保存。"""
-    session = _HUMAN_SESSIONS.get(sid)
-    if session is None:
+    cached = _HUMAN_SESSIONS.get(sid)
+    if cached is None:
         raise HTTPException(404, "session not found")
+    session, _log = cached
     rid = session.save_replay()
     if rid is None:
         raise HTTPException(400, "game not over or save failed")
