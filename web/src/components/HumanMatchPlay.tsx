@@ -2345,11 +2345,6 @@ function CenterRow({
           }
           onDragOver={leaderDragOver}
           onDrop={leaderDrop}
-          className={
-            oppAttackEffectAvailableIids?.has(player.leader.instance_id)
-              ? "rounded-lg ring-4 ring-cyan-400 animate-pulse"
-              : ""
-          }
         >
           <CharCard
             ch={player.leader}
@@ -2364,6 +2359,9 @@ function CenterRow({
             onHover={onHover}
             draggable={false}
             dropHint={acceptOnLeader}
+            hasOppAttackEffect={oppAttackEffectAvailableIids?.has(
+              player.leader.instance_id,
+            )}
           />
         </div>
         <div className="flex flex-col items-center gap-0.5">
@@ -2561,11 +2559,6 @@ function CharacterRow({
                 damping: 26,
                 opacity: { duration: 0.25 },
               }}
-              className={
-                hasOppAttackEff
-                  ? "rounded-lg ring-4 ring-cyan-400 animate-pulse"
-                  : ""
-              }
               onDragOver={(e) => {
                 // counter drag は 自分側 mat 全体 で 受けたい → child でも preventDefault
                 if (acceptOnThis || (isMe && drag?.kind === "counter"))
@@ -2607,6 +2600,7 @@ function CharacterRow({
                 }
                 onDragEnd={onDragEnd}
                 dropHint={acceptOnThis}
+                hasOppAttackEffect={hasOppAttackEff}
               />
             </motion.div>
           );
@@ -2630,6 +2624,7 @@ function CharCard({
   onDragStart,
   onDragEnd,
   dropHint,
+  hasOppAttackEffect,
 }: {
   ch: CharSnapshot;
   isLeader: boolean;
@@ -2645,9 +2640,15 @@ function CharCard({
   onDragStart?: () => void;
   onDragEnd?: () => void;
   dropHint?: boolean;
+  hasOppAttackEffect?: boolean;
 }) {
   const dim = size === "leader" ? "h-40 w-28" : "h-32 w-24";
-  const ringClass = isSelected
+  // 防御 pending 中 の 「相手のアタック時」 効果 持ち は 水色 ring を 最優先 で 表示。
+  // 内側 div に 当てる ので、 ch.rested の rotate-90 と 一緒 に 回転 → レスト 時 でも
+  // カード を 正しく 囲う。
+  const ringClass = hasOppAttackEffect
+    ? "ring-4 ring-cyan-400 animate-pulse"
+    : isSelected
     ? "ring-4 ring-yellow-400 ring-offset-2 ring-offset-amber-950"
     : isAttacker
       ? "ring-4 ring-orange-500 ring-offset-2 ring-offset-amber-950 animate-pulse"
