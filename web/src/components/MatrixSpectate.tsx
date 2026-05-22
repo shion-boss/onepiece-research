@@ -6,7 +6,7 @@ import type { ReplayResponse } from "@/lib/types";
 import { MatchReplay } from "@/components/MatchReplay";
 
 /**
- * matrix 観戦パネル (= /meta/progress 内)
+ * matrix 観戦パネル (= /meta?tab=spectate 内)
  *
  * デッキ A / B / seed を選んで「▶ 観戦開始」 を押すと、 API が 1 試合
  * シミュレートして 盤面 snapshot 付き replay を返す。 既存の MatchReplay

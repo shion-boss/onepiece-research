@@ -22,8 +22,16 @@ export default function Home() {
             — メタデッキの管理・対戦シミュレーション
           </li>
           <li>
+            <strong className="text-zinc-800 dark:text-zinc-200">対戦 (vs AI)</strong>{" "}
+            — 人間 vs AI の 対戦
+          </li>
+          <li>
+            <strong className="text-zinc-800 dark:text-zinc-200">研究</strong>{" "}
+            — 対策デッキ探索 (= クイック / 進化的)
+          </li>
+          <li>
             <strong className="text-zinc-800 dark:text-zinc-200">メタ分析</strong>{" "}
-            — デッキ間の勝率行列 (N×N heatmap)
+            — デッキ間の勝率行列 + AI vs AI ライブ観戦
           </li>
           <li>
             <strong className="text-zinc-800 dark:text-zinc-200">Q&amp;A</strong>{" "}

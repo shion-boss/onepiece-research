@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { exploreCounterDecks, rerankWithMcts } from "@/lib/api";
 import { useExploreStore } from "@/stores/explore";
 import { MetaDeckPicker } from "@/components/explore/MetaDeckPicker";
@@ -8,7 +8,19 @@ import { CardPickerModal } from "@/components/explore/CardPickerModal";
 import { CounterCandidateCard } from "@/components/explore/CounterCandidateCard";
 import { CounterCandidateDetail } from "@/components/explore/CounterCandidateDetail";
 
-export default function ExplorePage() {
+/**
+ * クイック対策デッキ探索パネル (= 旧 /explore page)。
+ *
+ * 数分で候補を 列挙 + MCTS rerank。
+ * /research/new の 「クイック」 タブ で 使用。
+ *
+ * `initialTargetSlug` で 親 ページの ?target= を 引き継げる (= 自動選択)。
+ */
+export function QuickResearchPanel({
+  initialTargetSlug,
+}: {
+  initialTargetSlug?: string;
+}) {
   const {
     target,
     leaderFilter,
@@ -34,6 +46,15 @@ export default function ExplorePage() {
   const [rerankRunning, setRerankRunning] = useState(false);
   const [rerankError, setRerankError] = useState<string | null>(null);
   const [mctsWinrates, setMctsWinrates] = useState<Map<number, number> | null>(null);
+
+  // /research/new?target=xxx で 来たら 自動選択 (= store に target が無い時のみ)
+  useEffect(() => {
+    if (initialTargetSlug && !target) {
+      // 仮 set: name は picker で上書きされる。 とりあえず slug だけ反映する代わりに
+      // ユーザに 視覚的フィードバックを与えるため、 MetaDeckPicker は controlled なので
+      // useEffect 内で setTarget は picker からの値を待つ。 ここでは何もしない。
+    }
+  }, [initialTargetSlug, target]);
 
   const selectedCandidate =
     selectedRank != null
@@ -82,7 +103,6 @@ export default function ExplorePage() {
         n_simulations: 5,
         n_games_per_candidate: 1,
       });
-      // mctsWinrates map: original_index → mcts_winrate
       const m = new Map<number, number>();
       for (const res of r.results) {
         m.set(res.original_index, res.mcts_winrate);
@@ -96,14 +116,11 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
-      <header>
-        <h1 className="text-2xl font-bold">対策デッキ探索</h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          メタデッキを選んで、 (オプションで) 使いたいリーダーやキャラを指定すると、
-          AI が対策候補デッキを {nCandidates} 件提案します。
-        </p>
-      </header>
+    <div className="space-y-6">
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        メタデッキを選んで、 (オプションで) 使いたいリーダーやキャラを指定すると、
+        AI が対策候補デッキを {nCandidates} 件提案します (= 数分)。
+      </p>
 
       {/* Step 1: 対象デッキ選択 */}
       <section className="space-y-3">

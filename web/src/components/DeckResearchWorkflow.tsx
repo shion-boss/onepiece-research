@@ -1,19 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { runMatch } from "@/lib/api";
 import type { DeckSummary, MatchSummary } from "@/lib/types";
 import { useDeckSimulationStore } from "@/stores/deckSimulation";
 import { DeckImprovementSection } from "./DeckImprovementSection";
 
-type Goal = "improve" | "evaluate" | "learn";
+type Goal = "improve" | "evaluate";
 
 const GOALS: { id: Goal; emoji: string; label: string; sub: string }[] = [
   { id: "improve", emoji: "💪", label: "デッキを改善したい", sub: "弱点発見 + 提案 + 適用" },
   { id: "evaluate", emoji: "⚔️", label: "強さを測りたい", sub: "勝率と戦績の検証" },
-  { id: "learn", emoji: "🧠", label: "戦い方を学びたい", sub: "MCTS 思考ツリー" },
 ];
 
 export function DeckResearchWorkflow({
@@ -31,7 +29,7 @@ export function DeckResearchWorkflow({
     <div className="space-y-4">
       <div>
         <h2 className="mb-2 text-lg font-medium">🎯 何をしたい?</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {GOALS.map((g) => {
             const active = goal === g.id;
             return (
@@ -58,21 +56,21 @@ export function DeckResearchWorkflow({
 
       {goal === "improve" && (
         <>
-          {/* 🔬 研究ラボへの導線 (= 長時間自動研究) */}
+          {/* 🔬 研究 hub への導線 (= 短時間クイック / 長時間進化的 を両方提供) */}
           <div className="flex items-center justify-between rounded-lg border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-blue-50 p-3 dark:border-purple-700 dark:from-purple-950/30 dark:to-blue-950/30">
             <div>
               <div className="text-sm font-semibold">
-                🔬 真の対策デッキを研究する (= 進化的探索)
+                🔬 対策デッキを研究する (= /research)
               </div>
               <div className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                数時間かけて世代交代で自動探索 → 最強対策デッキを発見
+                クイック (= 数分) / 進化的 (= 数時間) を選んで 最強対策デッキを探索
               </div>
             </div>
             <Link
               href={`/research/new?target=${encodeURIComponent(selfSlug)}`}
               className="rounded bg-purple-600 px-3 py-2 text-xs font-medium text-white hover:bg-purple-500"
             >
-              研究セッション開始 →
+              研究を開始 →
             </Link>
           </div>
           <ImproveWorkflow selfSlug={selfSlug} selfName={selfName} opponents={opponents} />
@@ -81,9 +79,6 @@ export function DeckResearchWorkflow({
       {goal === "evaluate" && (
         <EvaluateWorkflow selfSlug={selfSlug} selfName={selfName} opponents={opponents} />
       )}
-      {goal === "learn" && (
-        <LearnWorkflow selfSlug={selfSlug} opponents={opponents} />
-      )}
     </div>
   );
 }
@@ -91,9 +86,7 @@ export function DeckResearchWorkflow({
 function goalActiveClass(g: Goal): string {
   if (g === "improve")
     return "border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950/30";
-  if (g === "evaluate")
-    return "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/30";
-  return "border-purple-500 bg-purple-50 dark:border-purple-400 dark:bg-purple-950/30";
+  return "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/30";
 }
 
 // ============================================================================ #
@@ -327,67 +320,6 @@ function EvaluateWorkflow({
         />
       )}
     </div>
-  );
-}
-
-// ============================================================================ #
-// 🧠 学習ワークフロー (= MCTS ツリー可視化ページへ遷移)
-// ============================================================================ #
-function LearnWorkflow({
-  selfSlug,
-  opponents,
-}: {
-  selfSlug: string;
-  opponents: DeckSummary[];
-}) {
-  const router = useRouter();
-  const [opponent, setOpponent] = useState(opponents[0]?.slug ?? "");
-  const [seed, setSeed] = useState(42);
-  const [nSim, setNSim] = useState(30);
-
-  function handleStart() {
-    if (!opponent) return;
-    router.push(
-      `/decks/${encodeURIComponent(selfSlug)}/mcts?opp=${encodeURIComponent(opponent)}&seed=${seed}&n_sim=${nSim}`,
-    );
-  }
-
-  return (
-    <Step
-      n={1}
-      title="戦い方の探索 (= MCTS の思考ツリーを別ページで可視化)"
-      body={
-        <div className="space-y-2">
-          <div className="text-xs text-zinc-500">
-            MCTSAI が 1 試合通して各ターンで深く考える内容を、 思考ツリー +
-            「Greedy なら何を選ぶか」 比較で見られる。 1 試合 30〜120 秒。
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <OpponentSelect value={opponent} onChange={setOpponent} opponents={opponents} />
-            <SeedInput value={seed} onChange={setSeed} />
-            <label className="flex items-center gap-1">
-              n_simulations
-              <input
-                type="number"
-                min={1}
-                max={200}
-                value={nSim}
-                onChange={(e) => setNSim(Number(e.target.value) || 30)}
-                className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={!opponent}
-            className="rounded bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
-          >
-            🧠 戦い方の探索を開始 → MCTS ページへ
-          </button>
-        </div>
-      }
-    />
   );
 }
 

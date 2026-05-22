@@ -1,9 +1,32 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { fetchMetaMatrix } from "@/lib/api";
-import { MatchupHeatmap } from "@/components/MatchupHeatmap";
+import type { MatchupMatrix } from "@/lib/types";
+import { MetaPageClient } from "./client";
 
-export default async function MetaPage() {
-  let data: Awaited<ReturnType<typeof fetchMetaMatrix>> | null = null;
+/**
+ * メタ分析 hub。 2 tab 構成:
+ * - matrix (= デフォルト): N×N 勝率 heatmap
+ * - spectate (= 旧 /meta/spectate): AI vs AI ライブ観戦 (= 1 試合 シミュ + 盤面再生)
+ *
+ * `?tab=spectate&a=<slug>&b=<slug>&seed=<n>` で 直接 spectate tab を 開ける。
+ */
+export default async function MetaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const get = (k: string): string | undefined => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const initialTab = get("tab") === "spectate" ? "spectate" : "matrix";
+  const initialA = get("a");
+  const initialB = get("b");
+  const seedStr = get("seed");
+  const initialSeed = seedStr ? parseInt(seedStr, 10) : undefined;
+
+  let data: MatchupMatrix | null = null;
   let error: string | null = null;
   try {
     data = await fetchMetaMatrix();
@@ -12,40 +35,15 @@ export default async function MetaPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">メタ分析</h1>
-          <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-            STD
-          </span>
-          <Link
-            href="/meta/progress"
-            className="ml-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
-          >
-            → 走行中の matrix progress
-          </Link>
-        </div>
-        {data && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {data.decks.length} デッキ × {data.decks.length} の勝率行列 (スタンダードレギュレーション)。各セル{" "}
-            {data.n_games} 戦 (seed={data.seed}) ・最終計算{" "}
-            {data.computed_at.replace("T", " ").replace("Z", "")} ・更新は{" "}
-            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
-              scripts/compute_matchup_matrix.py
-            </code>
-          </p>
-        )}
-      </header>
-
-      {error ? (
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-          <div className="font-medium">読み込み失敗</div>
-          <div className="mt-1 font-mono">{error}</div>
-        </div>
-      ) : data ? (
-        <MatchupHeatmap data={data} />
-      ) : null}
-    </main>
+    <Suspense fallback={<div className="p-6 text-sm text-zinc-500">読み込み中…</div>}>
+      <MetaPageClient
+        initialData={data}
+        initialError={error}
+        initialTab={initialTab}
+        initialA={initialA}
+        initialB={initialB}
+        initialSeed={Number.isFinite(initialSeed) ? initialSeed : undefined}
+      />
+    </Suspense>
   );
 }
