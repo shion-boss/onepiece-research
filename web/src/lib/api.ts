@@ -664,6 +664,29 @@ export async function applyHumanChoice(
   return res.json();
 }
 
+export async function applyHumanUseOppAttackEffect(
+  sid: string,
+  source_iid: number,
+  effect_idx: number,
+): Promise<HumanMatchState> {
+  const res = await fetch(
+    `${API}/api/human_match/${sid}/use_opp_attack_effect`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_iid, effect_idx }),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `applyHumanUseOppAttackEffect failed: ${res.status} ${text}`,
+    );
+  }
+  return res.json();
+}
+
 export async function endHumanMatch(sid: string): Promise<void> {
   await fetch(`${API}/api/human_match/${sid}`, {
     method: "DELETE",

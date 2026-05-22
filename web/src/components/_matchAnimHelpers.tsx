@@ -138,6 +138,86 @@ export function useFrameDiff(snap: StateSnapshot | null): FrameDiff {
 }
 
 // --------------------------------------------------------------------------
+// ManualLifeFlashOverlay: 明示的 に 発火 する LIFE -N flash (= ライフ取得 確認 modal
+// 前 に 「LIFE -1 演出」 を 先 に 見せる 用)。 fireLifeFlash(side, delta) で 発火、
+// auto fade。
+// --------------------------------------------------------------------------
+
+type LifeFlashItem = {
+  id: number;
+  side: "me" | "opp";
+  delta: number;
+};
+
+let _lifeFlashFire:
+  | ((side: "me" | "opp", delta: number) => void)
+  | null = null;
+
+export function fireLifeFlash(side: "me" | "opp", delta: number = 1): void {
+  if (_lifeFlashFire) _lifeFlashFire(side, delta);
+}
+
+export function ManualLifeFlashOverlay(): React.JSX.Element | null {
+  const [items, setItems] = useState<LifeFlashItem[]>([]);
+  const idRef = useRef(0);
+  useEffect(() => {
+    _lifeFlashFire = (side, delta) => {
+      const id = idRef.current++;
+      setItems((prev) => [...prev, { id, side, delta }]);
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== id));
+      }, 900);
+    };
+    return () => {
+      _lifeFlashFire = null;
+    };
+  }, []);
+  if (items.length === 0) return null;
+  return (
+    <AnimatePresence>
+      {items.map((it) => {
+        const color = it.delta > 0 ? "bg-rose-600/40" : "bg-emerald-500/25";
+        const label = it.delta > 0 ? `−${it.delta}` : `+${-it.delta}`;
+        const labelColor =
+          it.delta > 0
+            ? "text-red-400 drop-shadow-[0_0_18px_rgba(239,68,68,0.95)]"
+            : "text-emerald-200";
+        const sideClass =
+          it.side === "me" ? "top-1/2 bottom-0" : "top-0 bottom-1/2";
+        return (
+          <motion.div
+            key={it.id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.4, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.85, times: [0, 0.18, 0.55, 1] }}
+            className={
+              "pointer-events-none absolute left-0 right-0 z-30 flex items-center justify-center " +
+              sideClass +
+              " " +
+              color
+            }
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: [0.5, 1.4, 1.2], opacity: [0, 1, 1] }}
+              exit={{ opacity: 0, scale: 1.5 }}
+              transition={{ duration: 0.7 }}
+              className={
+                "rounded-full bg-black/60 px-8 py-3 text-5xl font-extrabold drop-shadow-2xl " +
+                labelColor
+              }
+            >
+              LIFE {label}
+            </motion.div>
+          </motion.div>
+        );
+      })}
+    </AnimatePresence>
+  );
+}
+
+// --------------------------------------------------------------------------
 // LifeFlashOverlay: ライフ 減 / 増 の flash overlay
 // --------------------------------------------------------------------------
 
@@ -263,6 +343,7 @@ export function PlayedCardOverlay({
   leftCharasMe,
   leftCharasOpp,
   excludeMeCardIds,
+  excludeOppCardIds,
   tickId,
 }: {
   trashAddedMe: string[];
@@ -271,6 +352,8 @@ export function PlayedCardOverlay({
   leftCharasOpp: CharSnapshot[];
   /** 自分側 trash 移動 で 別 演出 (= CounterPlayOverlay 等) 済 の card_id list を 除外 */
   excludeMeCardIds?: string[];
+  /** opp 側 trash 移動 で 別 演出 (= AI counter の CounterPlayOverlay 等) 済 を 除外 */
+  excludeOppCardIds?: string[];
   tickId: number;
 }) {
   const [items, setItems] = useState<PlayedCardItem[]>([]);
@@ -282,11 +365,13 @@ export function PlayedCardOverlay({
   const leftCharasMeRef = useRef(leftCharasMe);
   const leftCharasOppRef = useRef(leftCharasOpp);
   const excludeMeRef = useRef(excludeMeCardIds ?? []);
+  const excludeOppRef = useRef(excludeOppCardIds ?? []);
   trashAddedMeRef.current = trashAddedMe;
   trashAddedOppRef.current = trashAddedOpp;
   leftCharasMeRef.current = leftCharasMe;
   leftCharasOppRef.current = leftCharasOpp;
   excludeMeRef.current = excludeMeCardIds ?? [];
+  excludeOppRef.current = excludeOppCardIds ?? [];
 
   useEffect(() => {
     if (tickId === lastTickRef.current) return; // 重複 fire 防止
@@ -309,24 +394,27 @@ export function PlayedCardOverlay({
       return result;
     }
     let meHandPlays = diff(trashAddedMeRef.current, leftCharasMeRef.current);
-    const oppHandPlays = diff(
+    let oppHandPlays = diff(
       trashAddedOppRef.current,
       leftCharasOppRef.current,
     );
-    // CounterPlayOverlay 等 別 演出 済 card は 除外
-    if (excludeMeRef.current.length > 0) {
-      const excludeCounts: Record<string, number> = {};
-      for (const cid of excludeMeRef.current) {
-        excludeCounts[cid] = (excludeCounts[cid] ?? 0) + 1;
+    // CounterPlayOverlay 等 別 演出 済 card は 除外 (= 自/相手 共通)
+    function applyExclude(plays: string[], excludes: string[]): string[] {
+      if (excludes.length === 0) return plays;
+      const counts: Record<string, number> = {};
+      for (const cid of excludes) {
+        counts[cid] = (counts[cid] ?? 0) + 1;
       }
-      meHandPlays = meHandPlays.filter((cid) => {
-        if ((excludeCounts[cid] ?? 0) > 0) {
-          excludeCounts[cid] -= 1;
+      return plays.filter((cid) => {
+        if ((counts[cid] ?? 0) > 0) {
+          counts[cid] -= 1;
           return false;
         }
         return true;
       });
     }
+    meHandPlays = applyExclude(meHandPlays, excludeMeRef.current);
+    oppHandPlays = applyExclude(oppHandPlays, excludeOppRef.current);
     if (meHandPlays.length === 0 && oppHandPlays.length === 0) return;
     const additions: PlayedCardItem[] = [
       ...meHandPlays.map((cid) => ({
@@ -687,42 +775,65 @@ export function TurnBannerOverlay({
 }: {
   turnPlayerIdx: number;
   humanIdx: number;
-  /** マリガン modal 中 は banner fire しない (= ターン 概念前) */
+  /** マリガン modal 中 は ○○のターン banner は 出さない (= ターン 概念前)。
+   *  ただし 「先攻/後攻」 banner は mulligan 前 に 必ず 表示する。 */
   hasMulliganPending?: boolean;
   /** "action" (= 自分 操作可能) で fire 確定。 中間 frame で 早期 fire 防止。 */
   pendingKind?: string | null;
 }) {
-  type BannerItem = { id: number; label: string; color: "self" | "opp" };
+  type TurnBanner = {
+    id: number;
+    kind: "turn";
+    label: string;
+    color: "self" | "opp";
+  };
+  type FirstOrderBanner = {
+    id: number;
+    kind: "first_order";
+    /** humanIsFirst=true → 左 (先攻) が 緑、 右 (後攻) が 赤。 false で 逆。 */
+    humanIsFirst: boolean;
+  };
+  type BannerItem = TurnBanner | FirstOrderBanner;
   const [queue, setQueue] = useState<BannerItem[]>([]);
   const [showItem, setShowItem] = useState<BannerItem | null>(null);
   const prevTurnRef = useRef<number>(-1);
+  const firstOrderEnqueuedRef = useRef(false);
   const idRef = useRef(0);
 
-  // turn 変化 で queue に enqueue (= 自分 ターン start なら 「OPP END」 → 「YOUR TURN」
-  // 2 banner 連続、 相手 ターン start なら 「OPPONENT TURN」 1 banner)
   useEffect(() => {
-    if (hasMulliganPending) return;
-    const prev = prevTurnRef.current;
-    if (prev === turnPlayerIdx) return;
-    prevTurnRef.current = turnPlayerIdx;
     const isMe = turnPlayerIdx === humanIdx;
     const additions: BannerItem[] = [];
-    // 初回 (= prev=-1 → 試合 start) は 「先攻 X vs 後攻 Y」 を 先 enqueue
-    if (prev === -1) {
+
+    // 初回 (= 試合 start) は 「先攻/後攻」 banner を 先 enqueue。
+    // mulligan 中 でも 表示 (= 順序: 先攻後攻 → mulligan modal → ○○のターン)。
+    if (!firstOrderEnqueuedRef.current) {
+      firstOrderEnqueuedRef.current = true;
       additions.push({
         id: idRef.current++,
-        label: isMe
-          ? "先攻 あなた vs 後攻 AI"
-          : "先攻 AI vs 後攻 あなた",
-        color: isMe ? "self" : "opp",
+        kind: "first_order",
+        humanIsFirst: isMe,
       });
     }
-    additions.push({
-      id: idRef.current++,
-      label: isMe ? "あなたのターン" : "相手のターン",
-      color: isMe ? "self" : "opp",
-    });
-    setQueue((q) => [...q, ...additions]);
+
+    // ○○のターン banner: mulligan 中 は 出さない。 mulligan 解消 後 の
+    // turn 確定 で fire。 turn 切替 (= playFrames 中 の 中間 frame で
+    // turn_player_idx が 変わる 時) で も fire。
+    if (!hasMulliganPending) {
+      const prev = prevTurnRef.current;
+      if (prev !== turnPlayerIdx) {
+        prevTurnRef.current = turnPlayerIdx;
+        additions.push({
+          id: idRef.current++,
+          kind: "turn",
+          label: isMe ? "人間 の ターン" : "AI の ターン",
+          color: isMe ? "self" : "opp",
+        });
+      }
+    }
+
+    if (additions.length > 0) {
+      setQueue((q) => [...q, ...additions]);
+    }
     void pendingKind;
   }, [turnPlayerIdx, humanIdx, hasMulliganPending, pendingKind]);
 
@@ -741,7 +852,7 @@ export function TurnBannerOverlay({
   return (
     <div className="pointer-events-none fixed inset-0 z-[58] flex items-center justify-center">
       <AnimatePresence>
-        {showItem && (
+        {showItem && showItem.kind === "turn" && (
           <motion.div
             key={showItem.id}
             initial={{ opacity: 0, x: -300 }}
@@ -771,6 +882,84 @@ export function TurnBannerOverlay({
               }
             >
               {showItem.label}
+            </div>
+          </motion.div>
+        )}
+        {showItem && showItem.kind === "first_order" && (
+          <motion.div
+            key={showItem.id}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              scale: [0.6, 1, 1, 1.05],
+            }}
+            transition={{
+              duration: 1.5,
+              times: [0, 0.18, 0.7, 1],
+              ease: "easeOut",
+            }}
+            exit={{ opacity: 0 }}
+            className="flex w-[640px] items-stretch gap-0 shadow-2xl backdrop-blur"
+          >
+            {/* 左: 先攻 — basis-1/2 で 左右 等幅 (= AI vs 人間 の対比 を 強調) */}
+            <div
+              className={
+                "flex basis-1/2 flex-col items-center justify-center rounded-l-2xl border-4 border-r-0 px-8 py-8 " +
+                (showItem.humanIsFirst
+                  ? "border-emerald-300 bg-emerald-900/80"
+                  : "border-rose-300 bg-rose-900/80")
+              }
+            >
+              <div
+                className={
+                  "text-2xl font-bold tracking-widest " +
+                  (showItem.humanIsFirst
+                    ? "text-emerald-300"
+                    : "text-rose-300")
+                }
+              >
+                先攻
+              </div>
+              <div
+                className={
+                  "mt-1 text-5xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " +
+                  (showItem.humanIsFirst
+                    ? "text-emerald-200"
+                    : "text-rose-200")
+                }
+              >
+                {showItem.humanIsFirst ? "人間" : "AI"}
+              </div>
+            </div>
+            {/* 右: 後攻 — basis-1/2 で 左右 等幅 */}
+            <div
+              className={
+                "flex basis-1/2 flex-col items-center justify-center rounded-r-2xl border-4 px-8 py-8 " +
+                (showItem.humanIsFirst
+                  ? "border-rose-300 bg-rose-900/80"
+                  : "border-emerald-300 bg-emerald-900/80")
+              }
+            >
+              <div
+                className={
+                  "text-2xl font-bold tracking-widest " +
+                  (showItem.humanIsFirst
+                    ? "text-rose-300"
+                    : "text-emerald-300")
+                }
+              >
+                後攻
+              </div>
+              <div
+                className={
+                  "mt-1 text-5xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " +
+                  (showItem.humanIsFirst
+                    ? "text-rose-200"
+                    : "text-emerald-200")
+                }
+              >
+                {showItem.humanIsFirst ? "AI" : "人間"}
+              </div>
             </div>
           </motion.div>
         )}
@@ -1059,6 +1248,500 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
 }
 
 // --------------------------------------------------------------------------
+// ArrowBreakOverlay: 防御 成功 時 に 攻撃 矢印 を 真ん中 で 割って 飛び散らせる 演出。
+// fireArrowBreak({x1, y1, x2, y2}) で 発火 (= 0.8 秒 で 自動 dismiss)。
+// 左右 半 を 回転 + flying outward + 中央 衝撃波 + spark particle。
+// --------------------------------------------------------------------------
+
+type ArrowBreakItem = {
+  id: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
+
+let _arrowBreakFire:
+  | ((coords: { x1: number; y1: number; x2: number; y2: number }) => void)
+  | null = null;
+
+export function fireArrowBreak(coords: {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}): void {
+  if (_arrowBreakFire) _arrowBreakFire(coords);
+}
+
+// --------------------------------------------------------------------------
+// ArrowStrikeOverlay: 防御 失敗 (= 攻撃 成立) 時 に 矢印 が target に 突き刺さる 演出。
+// 持続矢印 が 消える 瞬間 に fireArrowStrike(coords) で 発火。
+// 矢印 が 一旦 縮んで 突き出る + target 位置 で 衝撃 flash + shake。
+// --------------------------------------------------------------------------
+
+type ArrowStrikeItem = {
+  id: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
+
+let _arrowStrikeFire:
+  | ((coords: { x1: number; y1: number; x2: number; y2: number }) => void)
+  | null = null;
+
+export function fireArrowStrike(coords: {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}): void {
+  if (_arrowStrikeFire) _arrowStrikeFire(coords);
+}
+
+export function ArrowStrikeOverlay(): React.JSX.Element | null {
+  const [items, setItems] = useState<ArrowStrikeItem[]>([]);
+  const idRef = useRef(0);
+  useEffect(() => {
+    _arrowStrikeFire = (coords) => {
+      const id = idRef.current++;
+      setItems((prev) => [...prev, { id, ...coords }].slice(-3));
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== id));
+      }, 1600);
+    };
+    return () => {
+      _arrowStrikeFire = null;
+    };
+  }, []);
+  if (items.length === 0) return null;
+  return (
+    <>
+      {/* 画面全体 赤フラッシュ (= 攻撃 命中 の 強調) */}
+      <AnimatePresence>
+        {items.map((it) => (
+          <motion.div
+            key={`flash-${it.id}`}
+            className="pointer-events-none fixed inset-0 z-[55] bg-rose-600"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 0.35, 0.15, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.85,
+              times: [0, 0.45, 0.6, 1],
+              ease: "easeOut",
+              delay: 0.35,
+            }}
+          />
+        ))}
+      </AnimatePresence>
+
+      <svg className="pointer-events-none absolute inset-0 z-[56] h-full w-full">
+        <defs>
+          <filter id="strikeGlow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="6" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <radialGradient id="impactGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fef08a" stopOpacity="1" />
+            <stop offset="40%" stopColor="#f97316" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#dc2626" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {items.map((it) => {
+          const dx = it.x2 - it.x1;
+          const dy = it.y2 - it.y1;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const ang = Math.atan2(dy, dx);
+          const overshoot = 50;
+          const x2e = it.x2 + Math.cos(ang) * overshoot;
+          const y2e = it.y2 + Math.sin(ang) * overshoot;
+          const angDeg = (ang * 180) / Math.PI;
+          // 矢の 通り過ぎ 軌跡 用 control point (= 曲線 でなく 直線 で 高速 通過)
+          return (
+            <g key={it.id}>
+              {/* === 攻撃 軌跡: 高速 凱旋 風 太線 (= 二重 で 立体感) === */}
+              <motion.line
+                x1={it.x1}
+                y1={it.y1}
+                x2={it.x2}
+                y2={it.y2}
+                stroke="#fde047"
+                strokeWidth={22}
+                strokeLinecap="round"
+                opacity={0.6}
+                filter="url(#strikeGlow)"
+                initial={{ opacity: 0, pathLength: 0 }}
+                animate={{
+                  opacity: [0, 0.85, 0.85, 0],
+                  pathLength: [0, 1, 1, 1],
+                }}
+                transition={{ duration: 1.0, times: [0, 0.25, 0.5, 0.8], ease: "easeOut" }}
+              />
+              <motion.line
+                x1={it.x1}
+                y1={it.y1}
+                x2={it.x2}
+                y2={it.y2}
+                stroke="#ef4444"
+                strokeWidth={14}
+                strokeLinecap="round"
+                filter="url(#strikeGlow)"
+                initial={{ opacity: 1, pathLength: 0 }}
+                animate={{
+                  opacity: [1, 1, 0.7, 0],
+                  pathLength: [0, 1, 1.1, 1.1],
+                }}
+                transition={{ duration: 1.0, times: [0, 0.25, 0.6, 0.85], ease: "easeOut" }}
+              />
+              {/* === 矢印 head (= 三角) === 線 が 伸びきった 後 (= t=0.25) に target で 出現
+                  → overshoot へ 突き抜け。 polygon (0,0) が 矢印 tip。
+                  transform-origin "0px 0px" で rotate も (0,0) を pivot に
+                  (= 旧 default bbox center で 位置 ずれ 発生 した 修正)。
+                  rotate を SVG attribute (= transform="rotate(deg, cx, cy)") として 直接 設定
+                  するため <g> で wrap し、 内側 polygon は 静的 に point 計算。
+              */}
+              <motion.g
+                initial={{ opacity: 0, x: it.x2, y: it.y2, scale: 1.4 }}
+                animate={{
+                  opacity: [0, 0, 1, 1, 0],
+                  x: [it.x2, it.x2, it.x2, x2e, x2e],
+                  y: [it.y2, it.y2, it.y2, y2e, y2e],
+                  scale: [1.4, 1.4, 1.6, 1.8, 1.8],
+                }}
+                transition={{
+                  duration: 1.0,
+                  times: [0, 0.25, 0.3, 0.5, 0.85],
+                  ease: "easeOut",
+                }}
+                style={{ transformOrigin: "0px 0px" }}
+              >
+                {/* tip を (0,0) に 置き、 angDeg 方向 に 向く 三角 (= 静的 計算) */}
+                {(() => {
+                  const c = Math.cos(ang);
+                  const s = Math.sin(ang);
+                  // 基本: 0,0 / -32,12 / -32,-12 (= 右向き矢印)
+                  // angDeg 回転 後 の 点
+                  const p1x = -32 * c - 12 * s;
+                  const p1y = -32 * s + 12 * c;
+                  const p2x = -32 * c + 12 * s;
+                  const p2y = -32 * s - 12 * c;
+                  return (
+                    <polygon
+                      points={`0,0 ${p1x},${p1y} ${p2x},${p2y}`}
+                      fill="#ef4444"
+                      stroke="#fef08a"
+                      strokeWidth={2}
+                      filter="url(#strikeGlow)"
+                    />
+                  );
+                })()}
+              </motion.g>
+              {/* === 巨大 衝撃 グラデ ヒット === */}
+              <motion.circle
+                cx={it.x2}
+                cy={it.y2}
+                fill="url(#impactGrad)"
+                initial={{ r: 0, opacity: 0 }}
+                animate={{ r: [0, 90, 130, 100], opacity: [0, 1, 0.7, 0] }}
+                transition={{ duration: 0.8, times: [0, 0.25, 0.55, 1], delay: 0.4, ease: "easeOut" }}
+                filter="url(#strikeGlow)"
+              />
+              {/* === 中央 白 コア (= 爆発 中心) === */}
+              <motion.circle
+                cx={it.x2}
+                cy={it.y2}
+                fill="#ffffff"
+                initial={{ r: 0, opacity: 0 }}
+                animate={{ r: [0, 50, 30, 0], opacity: [0, 1, 0.7, 0] }}
+                transition={{ duration: 0.5, times: [0, 0.3, 0.6, 1], delay: 0.4 }}
+                filter="url(#strikeGlow)"
+              />
+              {/* === 衝撃 波 リング 3 段 (= 拡散) === */}
+              {[0, 0.15, 0.3].map((offset, i) => (
+                <motion.circle
+                  key={`shock-${i}`}
+                  cx={it.x2}
+                  cy={it.y2}
+                  fill="none"
+                  stroke={i === 0 ? "#fef08a" : i === 1 ? "#f97316" : "#dc2626"}
+                  strokeWidth={6 - i * 1.5}
+                  filter="url(#strikeGlow)"
+                  initial={{ r: 20, opacity: 0 }}
+                  animate={{ r: [20, 120 + i * 60, 200 + i * 80], opacity: [0, 0.9, 0] }}
+                  transition={{ duration: 0.9, times: [0, 0.4, 1], delay: 0.4 + offset }}
+                />
+              ))}
+              {/* === 火花 12 方向 (= 内→外 散る) === */}
+              {Array.from({ length: 12 }).map((_, i) => {
+                const deg = i * 30;
+                const rad = (deg * Math.PI) / 180;
+                const dd = 100 + (i % 3) * 30;
+                return (
+                  <motion.circle
+                    key={`spark-${deg}`}
+                    cx={it.x2}
+                    cy={it.y2}
+                    r={4 + (i % 3) * 2}
+                    fill={i % 2 === 0 ? "#fde047" : "#fca5a5"}
+                    filter="url(#strikeGlow)"
+                    initial={{ x: 0, y: 0, opacity: 0, scale: 1.4 }}
+                    animate={{
+                      x: Math.cos(rad) * dd,
+                      y: Math.sin(rad) * dd,
+                      opacity: [0, 1, 0],
+                      scale: [1.4, 1.0, 0.4],
+                    }}
+                    transition={{ duration: 0.85, times: [0, 0.4, 1], delay: 0.4 }}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </>
+  );
+}
+
+export function ArrowBreakOverlay(): React.JSX.Element | null {
+  const [items, setItems] = useState<ArrowBreakItem[]>([]);
+  const idRef = useRef(0);
+  useEffect(() => {
+    _arrowBreakFire = (coords) => {
+      const id = idRef.current++;
+      setItems((prev) => [...prev, { id, ...coords }].slice(-3));
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== id));
+      }, 900);
+    };
+    return () => {
+      _arrowBreakFire = null;
+    };
+  }, []);
+  if (items.length === 0) return null;
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-[56] h-full w-full">
+      <defs>
+        <filter id="breakGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {items.map((it) => {
+        const midX = (it.x1 + it.x2) / 2;
+        const midY = (it.y1 + it.y2) / 2;
+        return (
+          <g key={it.id}>
+            {/* 左半 (= attacker → mid) を 上 へ 跳ね飛ばす + 回転 */}
+            <motion.line
+              x1={it.x1}
+              y1={it.y1}
+              x2={midX}
+              y2={midY}
+              stroke="#fde047"
+              strokeWidth={9}
+              strokeLinecap="round"
+              filter="url(#breakGlow)"
+              initial={{ opacity: 1, rotate: 0, x: 0, y: 0 }}
+              animate={{
+                opacity: [1, 1, 0],
+                rotate: [0, 45],
+                x: [0, -55],
+                y: [0, -40],
+              }}
+              transition={{ duration: 0.85, ease: "easeOut" }}
+              style={{ transformOrigin: `${midX}px ${midY}px` }}
+            />
+            {/* 右半 (= mid → target) も 反対 方向 へ */}
+            <motion.line
+              x1={midX}
+              y1={midY}
+              x2={it.x2}
+              y2={it.y2}
+              stroke="#fde047"
+              strokeWidth={9}
+              strokeLinecap="round"
+              filter="url(#breakGlow)"
+              initial={{ opacity: 1, rotate: 0, x: 0, y: 0 }}
+              animate={{
+                opacity: [1, 1, 0],
+                rotate: [0, -45],
+                x: [0, 55],
+                y: [0, -40],
+              }}
+              transition={{ duration: 0.85, ease: "easeOut" }}
+              style={{ transformOrigin: `${midX}px ${midY}px` }}
+            />
+            {/* 中央 衝撃波 (= 拡大 + フェード) */}
+            <motion.circle
+              cx={midX}
+              cy={midY}
+              fill="none"
+              stroke="#fde047"
+              strokeWidth={5}
+              filter="url(#breakGlow)"
+              initial={{ r: 8, opacity: 1 }}
+              animate={{ r: [8, 70, 140], opacity: [1, 0.5, 0] }}
+              transition={{ duration: 0.85, ease: "easeOut" }}
+            />
+            <motion.circle
+              cx={midX}
+              cy={midY}
+              fill="#fef08a"
+              initial={{ r: 0, opacity: 1 }}
+              animate={{ r: [0, 26, 16], opacity: [1, 0.9, 0] }}
+              transition={{ duration: 0.55, ease: "easeOut" }}
+              filter="url(#breakGlow)"
+            />
+            {/* 火花 8 方向 */}
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
+              const rad = (deg * Math.PI) / 180;
+              const dx = Math.cos(rad) * 75;
+              const dy = Math.sin(rad) * 75;
+              return (
+                <motion.circle
+                  key={deg}
+                  cx={midX}
+                  cy={midY}
+                  r={5}
+                  fill="#fde047"
+                  filter="url(#breakGlow)"
+                  initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                  animate={{
+                    x: dx,
+                    y: dy,
+                    opacity: [1, 1, 0],
+                    scale: [1, 0.6, 0.3],
+                  }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                />
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// --------------------------------------------------------------------------
+// DefenseSuccessOverlay: 攻撃 不発 (= "  survived" / "  blocker survived" log)
+// を 検出 → 「防御 成功!」 / 「攻撃 阻止!」 banner を 一瞬 表示。
+// fireDefenseSuccess(side, blocked) を 呼び出して 発火。
+//   side: "me" (= 自分 が 守った)、 "opp" (= 自分 の 攻撃 が AI に 防がれた)
+//   blocked: true (= blocker が 受けて 生存)、 false (= attack power 不足 で 不発)
+// --------------------------------------------------------------------------
+
+type DefenseFireItem = {
+  id: number;
+  side: "me" | "opp";
+  blocked: boolean;
+};
+
+let _defenseFireExternal:
+  | ((side: "me" | "opp", blocked: boolean) => void)
+  | null = null;
+
+export function fireDefenseSuccess(
+  side: "me" | "opp",
+  blocked: boolean = false,
+): void {
+  if (_defenseFireExternal) _defenseFireExternal(side, blocked);
+}
+
+export function DefenseSuccessOverlay(): React.JSX.Element | null {
+  const [items, setItems] = useState<DefenseFireItem[]>([]);
+  const idRef = useRef(0);
+  useEffect(() => {
+    _defenseFireExternal = (side, blocked) => {
+      const id = idRef.current++;
+      setItems((prev) => [...prev, { id, side, blocked }].slice(-3));
+      setTimeout(() => {
+        setItems((cur) => cur.filter((x) => x.id !== id));
+      }, 1500);
+    };
+    return () => {
+      _defenseFireExternal = null;
+    };
+  }, []);
+  if (items.length === 0) return null;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[57] flex items-center justify-center">
+      <AnimatePresence>
+        {items.map((it, idx) => {
+          const isMe = it.side === "me";
+          const yOffset = (idx - (items.length - 1) / 2) * 90;
+          const label = isMe
+            ? it.blocked
+              ? "ブロッカー で 防御!"
+              : "防御 成功!"
+            : it.blocked
+              ? "AI ブロック で 耐えた"
+              : "攻撃 が 通らない";
+          return (
+            <motion.div
+              key={it.id}
+              initial={{ opacity: 0, scale: 0.4, rotate: -8, y: yOffset }}
+              animate={{
+                opacity: [0, 1, 1, 0],
+                scale: [0.4, 1.2, 1.0, 1.0],
+                rotate: [-8, 0, 0, 4],
+                y: [yOffset, yOffset, yOffset, yOffset - 20],
+              }}
+              transition={{
+                duration: 1.5,
+                times: [0, 0.18, 0.75, 1],
+                ease: "easeOut",
+              }}
+              exit={{ opacity: 0 }}
+              className="absolute"
+            >
+              <div
+                className={
+                  "relative rounded-2xl border-4 px-12 py-5 shadow-2xl backdrop-blur " +
+                  (isMe
+                    ? "border-cyan-300 bg-cyan-900/85"
+                    : "border-amber-300 bg-amber-900/85")
+                }
+              >
+                {/* shield 形 装飾 (= SVG) */}
+                <svg
+                  viewBox="0 0 24 24"
+                  className={
+                    "absolute -left-2 -top-2 h-12 w-12 drop-shadow-[0_0_15px_rgba(255,255,255,0.7)] " +
+                    (isMe ? "text-cyan-200" : "text-amber-200")
+                  }
+                  fill="currentColor"
+                >
+                  <path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" />
+                </svg>
+                <div
+                  className={
+                    "text-center text-4xl font-extrabold drop-shadow-[0_0_25px_rgba(255,255,255,0.7)] " +
+                    (isMe ? "text-cyan-100" : "text-amber-100")
+                  }
+                >
+                  {label}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // AttackTargetArrowOverlay: 相手 攻撃 中 に attacker → target の 矢印 (三角ヘッド) を
 // 一定時間 表示 する。 AttackBeam とは別、 「何 を 狙ってるか」 を 明示的 に 示す ための
 // 静的 な 矢印 (= 1.2 秒)。
@@ -1084,11 +1767,23 @@ export function AttackTargetArrowOverlay({
     x2: number;
     y2: number;
   } | null>(null);
+  // 同 attacker→target に 対する 連続 fire (= atk frame の 直後 に counter frame で
+  // pending_event が 再 set される ケース) を 重複表示 しない 用 dedupe key。
+  const lastFiredKeyRef = useRef<string>("");
 
   useEffect(() => {
     if (attackerIid === null || targetIid === null || !boardRef.current) {
       setCoords(null);
+      // event 無し に なったら dedupe key を 解除 (= 次 の 同 attacker 攻撃 で 再 fire)
+      lastFiredKeyRef.current = "";
       return;
+    }
+    // non-persistent 矢印: 同 (attacker, target) で 連続 fire したら skip (= 既 表示済)
+    // event が 一旦 null に なった 後 の 再 fire は OK (= 別 攻撃 と 判定)。
+    if (!persistent) {
+      const key = `${attackerIid}:${targetIid}`;
+      if (key === lastFiredKeyRef.current) return;
+      lastFiredKeyRef.current = key;
     }
     const board = boardRef.current;
     // DOM レイアウト が 確定するのを 待って 座標 取得 (= playFrames で 直後 だと 未配置)
@@ -1213,12 +1908,19 @@ export function AttackBeamOverlay({
     x2: number;
     y2: number;
   } | null>(null);
+  // 同 attacker→target に 対する 連続 fire (= atk → counter で pending_event 再 set)
+  // を 重複表示 しない 用 dedupe key。
+  const lastFiredKeyRef = useRef<string>("");
 
   useEffect(() => {
     if (attackerIid === null || targetIid === null || !boardRef.current) {
       setCoords(null);
+      lastFiredKeyRef.current = "";
       return;
     }
+    const key = `${attackerIid}:${targetIid}`;
+    if (key === lastFiredKeyRef.current) return;
+    lastFiredKeyRef.current = key;
     const board = boardRef.current;
     const r = board.getBoundingClientRect();
     const findEl = (iid: number): HTMLElement | null =>

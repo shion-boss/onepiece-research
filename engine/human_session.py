@@ -78,20 +78,70 @@ class HumanAI:
             block_iid, counters = self.session._pending_defense
             self.session._pending_defense = None
             return block_iid, counters
+        # pending_attack_redirect (= OP14-060 紫ドフラ 等 で 効果適用 済) が セット
+        # されていれば 攻撃対象 を その iid に 上書き (= UI が 正しい target に 矢印 を 向ける ため)。
+        redirected_iid = getattr(state, "pending_attack_redirect", None)
+        if redirected_iid is not None:
+            # 該当 InPlay を defender 側 から 探索 (= リーダー or キャラ)
+            new_target = None
+            new_is_leader = False
+            if redirected_iid == defender.leader.instance_id:
+                new_target = defender.leader
+                new_is_leader = True
+            else:
+                for c in defender.characters:
+                    if c.instance_id == redirected_iid:
+                        new_target = c
+                        new_is_leader = False
+                        break
+            if new_target is not None:
+                target = new_target
+                is_leader_attack = new_is_leader
         # 未設定 → pause
         # blocker 候補 = defender.characters の中 で is_blocker_now かつ active な もの
         # (= 公式: ブロッカー キーワード 持ち + アクティブ + 召喚酔いなし)
-        blocker_iids = [
-            b.instance_id for b in defender.characters
-            if b.is_blocker_now and not b.rested and not b.summoning_sickness
-        ]
+        # is_leader_attack が False (= キャラ 攻撃) なら blocker は 通常 不可 だが redirect 後 は
+        # blocker step 不要 (= 既に target 確定)。 簡略 で blocker 候補 を 出さない。
+        if is_leader_attack:
+            blocker_iids = [
+                b.instance_id for b in defender.characters
+                if b.is_blocker_now and not b.rested and not b.summoning_sickness
+                and b.instance_id != getattr(target, "instance_id", None)
+            ]
+        else:
+            blocker_iids = [
+                b.instance_id for b in defender.characters
+                if b.is_blocker_now and not b.rested and not b.summoning_sickness
+                and b.instance_id != getattr(target, "instance_id", None)
+            ]
         # counter 候補: hand の counter 持ち + 各 idx の counter 値
+        # + 【カウンター】 EVENT カード (= when:"counter" 効果あり、 DON cost 支払い可能)。
+        # 公式 7-1-3-1-2: defender は アタック宣言時 に counter event を 発動 可能。
         counter_idxs = []
         counter_values: dict[int, int] = {}
+        counter_event_idxs: list[int] = []
+        overlay = self.session.state.effects_overlay or {}
+        don_avail = defender.don_active
         for i, c in enumerate(defender.hand):
-            if c.counter and c.counter > 0:
+            counter_val = int(c.counter) if (c.counter and c.counter > 0) else 0
+            is_counter_event = False
+            # EVENT カード で when:"counter" 効果 + DON cost 払える なら counter event 候補
+            if str(getattr(c, "category", "")).endswith("EVENT"):
+                eff_bundle = overlay.get(c.card_id) or []
+                if isinstance(eff_bundle, list):
+                    for e in eff_bundle:
+                        if isinstance(e, dict) and e.get("when") == "counter":
+                            if c.cost <= don_avail:
+                                is_counter_event = True
+                            break
+            if counter_val > 0 or is_counter_event:
                 counter_idxs.append(i)
-                counter_values[i] = int(c.counter)
+                # counter event のみ (= 数値なし) は表示用に 0 で記録
+                counter_values[i] = counter_val
+                if is_counter_event:
+                    counter_event_idxs.append(i)
+        # 人間 defender 用 「相手のアタック時」 効果 リスト (= clickable で 発動)
+        available_effects = getattr(state, "_available_opp_attack_effects", []) or []
         raise PauseSignal(
             "defense",
             {
@@ -102,6 +152,8 @@ class HumanAI:
                 "legal_blocker_iids": blocker_iids,
                 "legal_counter_card_idxs": counter_idxs,
                 "counter_values": counter_values,
+                "counter_event_idxs": counter_event_idxs,
+                "available_opp_attack_effects": list(available_effects),
             },
         )
 
@@ -161,8 +213,6 @@ class HumanSession:
         self.state.push_log(
             f"マリガン: {self.state.players[self.human_idx].name} 手札確認 (keep/引き直し)"
         )
-        if self.state.log:
-            self.state.snapshots.append(self.state._build_snapshot(self.state.log[-1]))
         # frame 再生 用: 前回 payload を 返した 時点 の snapshot 数。
         # snapshot_payload で 新規 frames を 返却 → ベースライン 更新。
         self._last_seen_snapshot_count = 0
@@ -255,10 +305,6 @@ class HumanSession:
                         {"card_id": c.card_id, "name": c.name} for c in me.hand
                     ],
                 }
-                if self.state.log:
-                    self.state.snapshots.append(
-                        self.state._build_snapshot(self.state.log[-1])
-                    )
                 self.pending_kind = "choice"
                 self.pending_payload = dict(self.state.pending_choice)
                 return
@@ -270,10 +316,6 @@ class HumanSession:
                 human_mulligan=False,
                 human_player_idx=self.human_idx,
             )
-            if self.state.log:
-                self.state.snapshots.append(
-                    self.state._build_snapshot(self.state.log[-1])
-                )
             play_until_main(self.state)
             self.pending_kind = None
             self.pending_payload = None
@@ -291,10 +333,6 @@ class HumanSession:
                 human_mulligan=False,
                 human_player_idx=self.human_idx,
             )
-            if self.state.log:
-                self.state.snapshots.append(
-                    self.state._build_snapshot(self.state.log[-1])
-                )
             play_until_main(self.state)
             self.pending_kind = None
             self.pending_payload = None
@@ -333,10 +371,105 @@ class HumanSession:
         """人間 防御 (= ブロッカー + カウンター 選択) を 適用。"""
         if self.pending_kind != "defense":
             raise ValueError("not waiting for human defense")
+        # available_opp_attack_effects は defense 確定 で クリア (= 次 attack 用)
+        if hasattr(self.state, "_available_opp_attack_effects"):
+            self.state._available_opp_attack_effects = []
         self._pending_defense = (blocker_iid, tuple(counter_card_idxs))
         self.pending_kind = None
         self.pending_payload = None
         self.advance_until_pause()
+
+    def apply_human_use_opp_attack_effect(
+        self, source_iid: int, effect_idx: int
+    ) -> None:
+        """防御 pending 中、 場 の カード を クリック して 【相手のアタック時】 効果 を 発動。
+        cost (DON / 手札) を 支払い + 効果 fire → 更新 された defense payload で 再 pause。
+        """
+        if self.pending_kind != "defense":
+            raise ValueError("not waiting for human defense")
+        # available list から 該当 effect を 取得
+        avail = getattr(self.state, "_available_opp_attack_effects", []) or []
+        match = None
+        for e in avail:
+            if e.get("source_iid") == source_iid and e.get("effect_idx") == effect_idx:
+                match = e
+                break
+        if match is None:
+            raise ValueError(f"effect not in available list: source={source_iid} idx={effect_idx}")
+        # cost 支払い + enqueue
+        defender_idx = self.human_idx
+        defender = self.state.players[defender_idx]
+        source = None
+        for ip in [defender.leader, *defender.characters, *defender.stages]:
+            if ip.instance_id == source_iid:
+                source = ip
+                break
+        if source is None:
+            raise ValueError(f"source iid not found: {source_iid}")
+        pay_don = int(match.get("pay_don", 0))
+        rest_don = int(match.get("rest_self_don", 0))
+        discard_n = int(match.get("discard_hand", 0))
+        if pay_don > 0:
+            # ドン!!-N: don_active から N 枚 を don_remaining_in_deck に 戻す
+            taken = min(pay_don, defender.don_active)
+            defender.don_active -= taken
+            defender.don_remaining_in_deck += taken
+            rest_more = min(pay_don - taken, defender.don_rested)
+            defender.don_rested -= rest_more
+            defender.don_remaining_in_deck += rest_more
+        if rest_don > 0:
+            defender.don_active -= rest_don
+            defender.don_rested += rest_don
+        if discard_n > 0:
+            for _ in range(min(discard_n, len(defender.hand))):
+                i = self.rng.randrange(len(defender.hand))
+                defender.trash.append(defender.hand.pop(i))
+        bundle = self.state.effects_overlay.get(source.card.card_id) if self.state.effects_overlay else None
+        if bundle is None:
+            return
+        eff = bundle.effects[effect_idx] if 0 <= effect_idx < len(bundle.effects) else None
+        if eff is None:
+            return
+        cost = eff.get("cost") or {}
+        if cost.get("once_per_turn"):
+            setattr(source, f"_opp_attack_used_{effect_idx}", True)
+        when_key = str(match.get("when_key") or "opp_attack")
+        from .effects import enqueue_event, resolve_triggers
+        enqueue_event(
+            self.state,
+            when=when_key,
+            owner_idx=defender_idx,
+            source_card_id=source.card.card_id,
+            source_iid=source.instance_id,
+            payload={"effect_indexes": [effect_idx]},
+        )
+        prev_forced = getattr(self.state, "forced_human_actor_idx", None)
+        self.state.forced_human_actor_idx = defender_idx
+        try:
+            resolve_triggers(self.state)
+        finally:
+            self.state.forced_human_actor_idx = prev_forced
+        # available list から 消費 済 を 除外
+        self.state._available_opp_attack_effects = [
+            e for e in avail
+            if not (e.get("source_iid") == source_iid and e.get("effect_idx") == effect_idx)
+        ]
+        # 効果 解決中 に target_pick 等 の pending_choice が 立った場合 (= OP14-060
+        # ドフラ の 「リーダー or ドンキホーテ海賊団 キャラ」 選択 等) は そちら を
+        # 優先 表示。 user 解決 後 advance_until_pause で defense に 戻る。
+        if self.state.pending_choice is not None:
+            self.pending_kind = "choice"
+            self.pending_payload = dict(self.state.pending_choice)
+            return
+        # defense payload を 更新: attacker_power が 変動 した 可能性 があるので 再構築
+        if self.pending_payload is not None:
+            attacker_iid = self.pending_payload.get("attacker_iid")
+            # 最新 power を 反映
+            for ip in [*self.state.players[1 - defender_idx].characters, self.state.players[1 - defender_idx].leader]:
+                if ip.instance_id == attacker_iid:
+                    self.pending_payload["attacker_power"] = int(getattr(ip, "power", 0) or 0)
+                    break
+            self.pending_payload["available_opp_attack_effects"] = list(self.state._available_opp_attack_effects)
 
     def save_replay(self, max_per_pair: int = 500) -> Optional[int]:
         """試合終了後 に 棋譜 を db/match_replays.sqlite に 保存。

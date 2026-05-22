@@ -1,0 +1,2854 @@
+[
+  {
+    "card_id": "OP05-017",
+    "name": "リンドバーグ",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-017 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。"
+  },
+  {
+    "card_id": "OP05-098",
+    "name": "エネル",
+    "eff_idx": 0,
+    "when": "on_life_zero",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-098 on_life_zero (相手ターン中): デッキ上1枚をライフへ + 手札1枚捨て"
+  },
+  {
+    "card_id": "EB02-045",
+    "name": "トラファルガー・ロー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB02-045 【ブロッカー】【登場時】自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：以下から1つを選ぶ。・カード1枚を引く。・相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP01-038",
+    "name": "カン十郎",
+    "eff_idx": 1,
+    "when": "on_ko",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "don×1 on_ko: 自分の手札1枚を相手が選び、捨てる"
+  },
+  {
+    "card_id": "OP01-038",
+    "name": "カン十郎",
+    "eff_idx": 3,
+    "when": "on_ko",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-038 on_ko: 自分の手札1枚を相手が選び、捨てる。"
+  },
+  {
+    "card_id": "OP06-115",
+    "name": "お前が消えろ",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-115 trigger: 自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-020",
+    "name": "火拳",
+    "eff_idx": 0,
+    "when": "main",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP15-020 main: 自分のリーダーを、このターン中、パワー+3000し、相手のキャラ1枚までを、次の相手のエンドフェイズ終了時まで、パワー-8000。その後、自分の手札2枚を捨てて"
+  },
+  {
+    "card_id": "OP15-054",
+    "name": "誰にも渡さねェよ!“あいつ”の形見だ",
+    "eff_idx": 0,
+    "when": "main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP15-054 【メイン】自分のリーダーが「ルーシー」の場合、以下から1つを選ぶ。・カード2枚を引き、自分の手札1枚を捨てる。その後、自分の手札からコスト4以下の特徴《ドレスローザ》を持つキャラカード1枚までを、登場させる。・ステージ1枚"
+  },
+  {
+    "card_id": "OP05-038",
+    "name": "舞踏石",
+    "eff_idx": 0,
+    "when": "counter",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-038 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分の手札1枚を捨ててもよい。そうした場合、自分のドン!!3枚までを、アクティブにする"
+  },
+  {
+    "card_id": "OP08-115",
+    "name": "大地は敗けない!!!",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP08-115 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-105",
+    "name": "サトリ",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-105 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP14-061",
+    "name": "ヴェルゴ",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ"
+  },
+  {
+    "card_id": "EB04-044",
+    "name": "コビー",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)",
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "EB04-044 replace_ko (海軍リーダー + ターン1回): 場を離れる代わりに手札1枚捨て"
+  },
+  {
+    "card_id": "OP06-093",
+    "name": "ペローナ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-093 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。"
+  },
+  {
+    "card_id": "OP05-094",
+    "name": "高級仕立パッチ★ワーク",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-094 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-060",
+    "name": "エネル",
+    "eff_idx": 1,
+    "when": "on_attached_don",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "自分の場のドン!!が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-060",
+    "name": "エネル",
+    "eff_idx": 2,
+    "when": "activate_main",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "EB04-021",
+    "name": "イガラム",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のリーダーが「ネフェルタリ・ビビ」の場合、カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-001_p2",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "OP05-001_p2 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。"
+  },
+  {
+    "card_id": "OP05-001",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "OP05-001 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。"
+  },
+  {
+    "card_id": "OP05-001_p1",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "OP05-001_p1 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。"
+  },
+  {
+    "card_id": "ST29-001",
+    "name": "モンキー・Ｄ・ルフィ",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-001 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST29-001",
+    "name": "モンキー・Ｄ・ルフィ",
+    "eff_idx": 1,
+    "when": "on_attached_don",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-001 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST29-001_p1",
+    "name": "モンキー・Ｄ・ルフィ",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-001_p1 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST29-001_p1",
+    "name": "モンキー・Ｄ・ルフィ",
+    "eff_idx": 1,
+    "when": "on_attached_don",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-001_p1 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-098_p3",
+    "name": "エネル",
+    "eff_idx": 0,
+    "when": "on_life_zero",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-098_p3 on_life_zero (相手ターン中): デッキ上1枚をライフへ + 手札1枚捨て"
+  },
+  {
+    "card_id": "OP05-098_p1",
+    "name": "エネル",
+    "eff_idx": 0,
+    "when": "on_life_zero",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-098_p1 on_life_zero (相手ターン中): デッキ上1枚をライフへ + 手札1枚捨て"
+  },
+  {
+    "card_id": "OP05-098_p2",
+    "name": "エネル",
+    "eff_idx": 0,
+    "when": "on_life_zero",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-098_p2 on_life_zero (相手ターン中): デッキ上1枚をライフへ + 手札1枚捨て"
+  },
+  {
+    "card_id": "OP05-098_p4",
+    "name": "エネル",
+    "eff_idx": 0,
+    "when": "on_life_zero",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-098_p4 on_life_zero (相手ターン中): デッキ上1枚をライフへ + 手札1枚捨て"
+  },
+  {
+    "card_id": "OP03-076",
+    "name": "ロブ・ルッチ",
+    "eff_idx": 0,
+    "when": "on_opp_chara_ko",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-076 ロブ・ルッチ on_opp_chara_ko: 自ターン中 1回、手札2枚捨てる → 自リーダーアクティブ"
+  },
+  {
+    "card_id": "OP03-076_p1",
+    "name": "ロブ・ルッチ",
+    "eff_idx": 0,
+    "when": "on_opp_chara_ko",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-076_p1 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の手札2枚を捨てることができる：相手のキャラがKOされた時、このリーダーをアクティブにする。"
+  },
+  {
+    "card_id": "ST18-002",
+    "name": "おナミ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST18-002 on_play: 自分の場のドン!!が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。"
+  },
+  {
+    "card_id": "OP03-113",
+    "name": "シャーロット・ペロスペロー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-113 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "EB04-036",
+    "name": "フォクシー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストにする。"
+  },
+  {
+    "card_id": "OP12-057",
+    "name": "アイス塊暴雉嘴",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP12-057 trigger: 自分の手札1枚を捨てることができる：カード1枚を引く。"
+  },
+  {
+    "card_id": "OP09-059",
+    "name": "湯けむり殺人事件",
+    "eff_idx": 0,
+    "when": "counter",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP09-059 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。その後、自分の手札2枚までを捨てる。捨てた枚数と同じ枚数を、自分のデッキの上からトラッシュに置"
+  },
+  {
+    "card_id": "OP08-104",
+    "name": "シャーロット・ポワール",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP08-104 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。その後、カード1枚を引く。"
+  },
+  {
+    "card_id": "OP08-113",
+    "name": "S-ベア",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP08-113 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させ、相手のコスト3以下のキャラ1枚までを、KOする。"
+  },
+  {
+    "card_id": "OP02-062",
+    "name": "モンキー・Ｄ・ルフィ",
+    "eff_idx": 2,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。"
+  },
+  {
+    "card_id": "ST29-004",
+    "name": "サンジ",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-004 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "ST07-009",
+    "name": "シャーロット・モンドール",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST07-009 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP06-115_p1",
+    "name": "お前が消えろ",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-115_p1 trigger: 自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST18-002_p2",
+    "name": "おナミ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST18-002_p2 on_play: 自分の場のドン‼が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。"
+  },
+  {
+    "card_id": "OP03-113_p2",
+    "name": "シャーロット・ペロスペロー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-113_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP05-105_p1",
+    "name": "サトリ",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-105_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP05-105_p2",
+    "name": "サトリ",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-105_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP05-105_p3",
+    "name": "サトリ",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-105_p3 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "EB04-036_p1",
+    "name": "フォクシー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】ドン‼-1：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。その後、相手のコスト9以下のキャラ1枚までを、レストにする。"
+  },
+  {
+    "card_id": "EB04-044_p1",
+    "name": "コビー",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)",
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "EB04-044_p1 replace_ko (海軍リーダー + ターン1回): 場を離れる代わりに手札1枚捨て"
+  },
+  {
+    "card_id": "EB04-044_p2",
+    "name": "コビー",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)",
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "EB04-044_p2 replace_ko (海軍リーダー + ターン1回): 場を離れる代わりに手札1枚捨て"
+  },
+  {
+    "card_id": "EB02-045_p1",
+    "name": "トラファルガー・ロー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB02-045_p1 【ブロッカー】【登場時】自分のトラッシュからカード2枚を好きな順番でデッキの下に置くことができる：以下から1つを選ぶ。・カード1枚を引く。・相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-060_p1",
+    "name": "エネル",
+    "eff_idx": 1,
+    "when": "on_attached_don",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "自分の場のドン!!が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-060_p1",
+    "name": "エネル",
+    "eff_idx": 2,
+    "when": "activate_main",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP14-061_p1",
+    "name": "ヴェルゴ",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ"
+  },
+  {
+    "card_id": "OP06-093_p3",
+    "name": "ペローナ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-093_p3 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。"
+  },
+  {
+    "card_id": "OP06-093_p1",
+    "name": "ペローナ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-093_p1 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。"
+  },
+  {
+    "card_id": "OP03-113_p1",
+    "name": "シャーロット・ペロスペロー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-113_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP02-062_p1",
+    "name": "モンキー・Ｄ・ルフィ",
+    "eff_idx": 2,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。"
+  },
+  {
+    "card_id": "ST29-004_p1",
+    "name": "サンジ",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-004_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP06-093_p2",
+    "name": "ペローナ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-093_p2 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。"
+  },
+  {
+    "card_id": "OP15-060_p2",
+    "name": "エネル",
+    "eff_idx": 1,
+    "when": "on_attached_don",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "自分の場のドン!!が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-060_p2",
+    "name": "エネル",
+    "eff_idx": 2,
+    "when": "activate_main",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST18-002_p1",
+    "name": "おナミ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST18-002_p1 on_play: 自分の場のドン!!が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。"
+  },
+  {
+    "card_id": "EB01-060_p1",
+    "name": "我が神なり",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB01-060_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "EB01-060_r1",
+    "name": "我が神なり",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB01-060_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-083_r2",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP06-115_r1",
+    "name": "お前が消えろ",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-115_r1 trigger: 自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-109_p1",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-109_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-109_r1",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-109_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST18-002_r1",
+    "name": "おナミ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST18-002_r1 on_play: 自分の場のドン‼が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。"
+  },
+  {
+    "card_id": "OP03-108_p2",
+    "name": "シャーロット・クラッカー",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-108_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-108_r1",
+    "name": "シャーロット・クラッカー",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-108_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-110_p2",
+    "name": "シャーロット・スムージー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-110_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-110_p3",
+    "name": "シャーロット・スムージー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-110_p3 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-110_p4",
+    "name": "シャーロット・スムージー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-110_p4 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-110_r1",
+    "name": "シャーロット・スムージー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-110_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-113_r1",
+    "name": "シャーロット・ペロスペロー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-113_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP04-083_r1",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-095_p2",
+    "name": "バ～～～～リアッ!!",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-095_p2 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-095_p3",
+    "name": "バ～～～～リアッ!!",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-095_p3 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-095_r1",
+    "name": "バ～～～～リアッ!!",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-095_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-082_p1",
+    "name": "しらほし",
+    "eff_idx": 0,
+    "when": "activate_main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-082_p1 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-082_p2",
+    "name": "しらほし",
+    "eff_idx": 0,
+    "when": "activate_main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-082_p2 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-082_p3",
+    "name": "しらほし",
+    "eff_idx": 0,
+    "when": "activate_main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-082_p3 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-082_r1",
+    "name": "しらほし",
+    "eff_idx": 0,
+    "when": "activate_main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-082_r1 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-115_p1",
+    "name": "2億V雷神",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-115_p1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "OP05-115_p2",
+    "name": "2億V雷神",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-115_p2 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "OP05-115_p3",
+    "name": "2億V雷神",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-115_p3 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "OP05-115_r1",
+    "name": "2億V雷神",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-115_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "ST09-014_p1",
+    "name": "鳴鏑",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST09-014_p1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "ST09-014_p2",
+    "name": "鳴鏑",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST09-014_p2 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "ST09-014_r1",
+    "name": "鳴鏑",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST09-014_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "ST10-010_p3",
+    "name": "トラファルガー・ロー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST10-010_p3 on_play: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：相手の手札が7枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "ST10-010_r1",
+    "name": "トラファルガー・ロー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST10-010_r1 on_play: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：相手の手札が7枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "EB04-059",
+    "name": "黒縄・大龍巻",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB04-059 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "EB04-060",
+    "name": "ゴムゴムの鷹銃乱打",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB04-060 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "EB03-054",
+    "name": "ニコ・ロビン",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB03-054 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "EB01-060",
+    "name": "我が神なり",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "EB01-060 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP15-104",
+    "name": "コニス",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP15-104 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP13-114",
+    "name": "S-スネーク",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP13-114 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP13-114_p1",
+    "name": "S-スネーク",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP13-114_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP12-085",
+    "name": "カラス",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP12-085 on_attack: 自分のリーダーが特徴《革命軍》を持ち、相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-087",
+    "name": "トニートニー・チョッパー",
+    "eff_idx": 0,
+    "when": "activate_main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-087 activate_main: このキャラと自分の特徴《ドレスローザ》を持つ、リーダーかステージ1枚を、レストにできる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。その後、自分"
+  },
+  {
+    "card_id": "OP10-097",
+    "name": "ゴムゴムの犀榴弾砲",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-097 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-109",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-109 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-116",
+    "name": "電磁砲",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-116 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-118",
+    "name": "モンキー・D・ルフィ",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-118 on_attack: 自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP10-118_p1",
+    "name": "モンキー・D・ルフィ",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP10-118_p1 on_attack: 自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP09-087",
+    "name": "シャーロット・プリン",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP09-087 on_play: 相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP09-101",
+    "name": "クザン",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP09-101 on_play: 相手のコスト3以下のキャラ1枚を、相手のライフの上か下に表向きで置く：相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP09-106",
+    "name": "ニコ・オルビア",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP09-106 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP08-111",
+    "name": "S-シャーク",
+    "eff_idx": 2,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP08-111 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。"
+  },
+  {
+    "card_id": "OP08-114",
+    "name": "S-ホーク",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP08-114 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。"
+  },
+  {
+    "card_id": "OP07-093",
+    "name": "ロブ・ルッチ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP07-093 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手は自身の手札1枚を捨てる。その後、相手のトラッシュのカード1枚までを、デッキの下に置"
+  },
+  {
+    "card_id": "OP03-078_p2",
+    "name": "イッショウ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-078_p2 on_play: 相手の手札が6枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP06-095",
+    "name": "影の集合地",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP06-097",
+    "name": "ネガティブホロウ",
+    "eff_idx": 0,
+    "when": "main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP06-097 main: 相手の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-016",
+    "name": "モーリー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-016 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。"
+  },
+  {
+    "card_id": "OP05-082",
+    "name": "しらほし",
+    "eff_idx": 0,
+    "when": "activate_main",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-082 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-115",
+    "name": "2億V雷神",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-115 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "OP04-060",
+    "name": "クロコダイル",
+    "eff_idx": 1,
+    "when": "opp_attack",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-060_p1",
+    "name": "クロコダイル",
+    "eff_idx": 1,
+    "when": "opp_attack",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【相手のアタック時】【ターン1回】ドン!!-1：カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-083",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-083_p1",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-083_p2",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-086",
+    "name": "チンジャオ",
+    "eff_idx": 0,
+    "when": "on_attached_don",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "on_attached_don n=1: このキャラのバトルによって相手のキャラをKOした時、カード2枚を引き、自分の手札2枚を捨てる"
+  },
+  {
+    "card_id": "OP04-093",
+    "name": "ゴムゴムの大猿王銃",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-093 trigger: カード3枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-095",
+    "name": "バ～～～～リアッ!!",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-106",
+    "name": "シャーロット・ババロア",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-106 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP04-108",
+    "name": "シャーロット・モスカート",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-108 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-069",
+    "name": "ミノリノケロス",
+    "eff_idx": 0,
+    "when": "on_ko",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-069 on_ko: 自分のリーダーが特徴《インペルダウン》を持つ場合、カード2枚を引き、手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP03-078",
+    "name": "イッショウ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-078 on_play: 相手の手札が6枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP03-078_p1",
+    "name": "イッショウ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-078_p1 on_play: 相手の手札が6枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP03-095",
+    "name": "石鹼羊",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-095 trigger: 相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP03-108",
+    "name": "シャーロット・クラッカー",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-108 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-108_p1",
+    "name": "シャーロット・クラッカー",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-108_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-110",
+    "name": "シャーロット・スムージー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-110 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP02-119",
+    "name": "流星火山",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP02-119 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP01-088",
+    "name": "砂漠の宝刀",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-088 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP01-102",
+    "name": "ジャック",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-102 on_attack: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP01-102_p1",
+    "name": "ジャック",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-102_p1 on_attack: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP01-114",
+    "name": "X・ドレーク",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-114 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST29-017",
+    "name": "死・獅子歌歌",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST29-017 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP03-110_r2",
+    "name": "シャーロット・スムージー",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-110_r2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP03-118_r1",
+    "name": "威国",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP03-118_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "ST10-010",
+    "name": "トラファルガー・ロー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST10-010 on_play: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：相手の手札が7枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "ST09-014",
+    "name": "鳴鏑",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST09-014 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。"
+  },
+  {
+    "card_id": "ST06-015",
+    "name": "大噴火",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST06-015 trigger: 相手は自身の手札1枚を選び、捨てる。"
+  },
+  {
+    "card_id": "OP01-114_p1",
+    "name": "X・ドレーク",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-114_p1 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-083_p3",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP09-106_p1",
+    "name": "ニコ・オルビア",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP09-106_p1 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP09-106_p2",
+    "name": "ニコ・オルビア",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP09-106_p2 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "P-096",
+    "name": "少女",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "P-121",
+    "name": "ブルック",
+    "eff_idx": 1,
+    "when": "on_ko",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "P-121 on_ko: 相手は自身の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "ST10-010_p2",
+    "name": "トラファルガー・ロー",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "ST10-010_p2 on_play: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：相手の手札が7枚以上ある場合、相手の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP01-114_p2",
+    "name": "X・ドレーク",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 1,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 1,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP01-114_p2 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手は自身の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-083_p5",
+    "name": "サボ",
+    "eff_idx": 0,
+    "when": "on_play",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【登場時】自分のキャラすべては、次の自分のターン開始時まで、効果でKOされない。その後、カード2枚を引き、自分の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP04-095_p1",
+    "name": "バ～～～～リアッ!!",
+    "eff_idx": 1,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP04-095_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP05-105_r1",
+    "name": "サトリ",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP05-105_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。"
+  },
+  {
+    "card_id": "OP09-111",
+    "name": "ブルック",
+    "eff_idx": 0,
+    "when": "trigger",
+    "needed_don": 0,
+    "needed_hand": 2,
+    "needed_opt": false,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札2枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "【トリガー】自分のリーダーが特徴《エッグヘッド》を持ち、 相手の手札が6枚以上の場合、 相手は自身の手札2枚を捨てる。"
+  },
+  {
+    "card_id": "OP07-029_r1",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 1,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。"
+  },
+  {
+    "card_id": "OP07-031_p1",
+    "name": "バルトロメオ",
+    "eff_idx": 0,
+    "when": "on_self_chara_rested_by_self_effect",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP07-031_p1 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP07-031_r2",
+    "name": "バルトロメオ",
+    "eff_idx": 0,
+    "when": "on_self_chara_rested_by_self_effect",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP07-031_r2 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP14-092",
+    "name": "Mr.3(ギャルディーノ)",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] this KO 代替 → 自トラッシュ3枚をデッキ下 (ターン1回)"
+  },
+  {
+    "card_id": "OP12-053",
+    "name": "ボルサリーノ",
+    "eff_idx": 0,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)",
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることができる。"
+  },
+  {
+    "card_id": "OP11-101",
+    "name": "カポネ・ベッジ",
+    "eff_idx": 0,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] 自《超新星》他 効果離脱 → デッキ上1ライフ (裏向き、 ターン1回)"
+  },
+  {
+    "card_id": "OP11-101_p1",
+    "name": "カポネ・ベッジ",
+    "eff_idx": 0,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] 自《超新星》他 効果離脱 → デッキ上1ライフ (裏向き、 ターン1回)"
+  },
+  {
+    "card_id": "OP10-034",
+    "name": "フランキー",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] this バトル KO 代替 → ライフ1手札 (ターン1回 任意)"
+  },
+  {
+    "card_id": "OP10-074",
+    "name": "ピーカ",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] this 効果KO 代替 → アクティブドン2レスト (ターン1回)"
+  },
+  {
+    "card_id": "OP07-029",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 1,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。"
+  },
+  {
+    "card_id": "OP07-029_p1",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 1,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、代わりに相手のキャラ1枚をレストにできる。"
+  },
+  {
+    "card_id": "OP07-031",
+    "name": "バルトロメオ",
+    "eff_idx": 0,
+    "when": "on_self_chara_rested_by_self_effect",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP07-031 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "OP07-042",
+    "name": "ゲッコー・モリア",
+    "eff_idx": 0,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "OP07-042 【ターン1回】自分のリーダーが特徴《王下七武海》を持ち、このキャラが相手の効果で場を離れる場合、代わりに自分の、「ゲッコー・モリア」以外のキャラ1枚を持ち主のデッキの下に置いてもよい。"
+  },
+  {
+    "card_id": "OP07-031_r1",
+    "name": "バルトロメオ",
+    "eff_idx": 0,
+    "when": "on_self_chara_rested_by_self_effect",
+    "needed_don": 0,
+    "needed_hand": 1,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": true,
+    "mismatches": [
+      "手札1枚捨て 未実装 (paid=0)"
+    ],
+    "overlay_text": "OP07-031_r1 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、カード1枚を引き、自分の手札1枚を捨てる。"
+  },
+  {
+    "card_id": "ST20-002",
+    "name": "シャーロット・クラッカー",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] this 効果KO 代替 → ライフ1トラッシュ (ターン1回 任意)"
+  },
+  {
+    "card_id": "ST15-005",
+    "name": "ポートガス・D・エース",
+    "eff_idx": 1,
+    "when": "replace_leave",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、 代わりにこのキャラを、 このターン中、 パワー-2000できる。"
+  },
+  {
+    "card_id": "ST09-010",
+    "name": "ポートガス・D・エース",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "[auto] this KO 代替 → ライフ上1トラッシュ (ターン1回、  上か下→上)"
+  },
+  {
+    "card_id": "P-111",
+    "name": "ニコ・ロビン",
+    "eff_idx": 0,
+    "when": "replace_ko",
+    "needed_don": 0,
+    "needed_hand": 0,
+    "needed_opt": true,
+    "paid_don": 0,
+    "paid_hand": 0,
+    "paid_opt": false,
+    "mismatches": [
+      "【ターン1回】 未指定"
+    ],
+    "overlay_text": "P-111 ロビン 置換 (ターン1回): 自麦わらキャラが相手効果で場離れる時、 ドン1レスト"
+  }
+]

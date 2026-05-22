@@ -1,0 +1,72 @@
+[
+  {
+    "card_id": "OP13-002",
+    "name": "ポートガス・Ｄ・エース",
+    "eff_idx": 1,
+    "when": "on_attack",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": false,
+    "text": "赤青エース ドン1+ 自分アタック時 1ドロー"
+  },
+  {
+    "card_id": "OP14-060",
+    "name": "ドンキホーテ・ドフラミンゴ",
+    "eff_idx": 0,
+    "when": "opp_attack",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": true,
+    "text": "紫ドフラミンゴ 相手アタック時: アタック対象を自リーダーに変更"
+  },
+  {
+    "card_id": "OP14-060_p1",
+    "name": "ドンキホーテ・ドフラミンゴ",
+    "eff_idx": 0,
+    "when": "opp_attack",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": true,
+    "text": "OP14-060_p1: 紫ドフラミンゴ 相手アタック時: アタック対象を自リーダーに変更"
+  },
+  {
+    "card_id": "ST02-010",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": false,
+    "text": "ホーキンス アタック時: ドン1+ で自身アクティブ化"
+  },
+  {
+    "card_id": "ST02-010_r1",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": false,
+    "text": "ST02-010_r1: ホーキンス アタック時: ドン1+ で自身アクティブ化"
+  },
+  {
+    "card_id": "P-114",
+    "name": "ロロノア・ゾロ",
+    "eff_idx": 0,
+    "when": "end_of_turn",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": false,
+    "text": "P-114 ロロノア・ゾロ 自ターン終了時: 自アクティブドンある時 自身アクティブ化"
+  },
+  {
+    "card_id": "ST02-010_p2",
+    "name": "バジル・ホーキンス",
+    "eff_idx": 0,
+    "when": "on_attack",
+    "needed_don": 1,
+    "paid": 0,
+    "has_don_minus_text": false,
+    "text": "ST02-010_p2: ホーキンス アタック時: ドン1+ で自身アクティブ化"
+  }
+]
