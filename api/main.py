@@ -618,9 +618,20 @@ class DeckSummary(BaseModel):
 def _list_deck_files() -> list[Path]:
     if not DECKS_DIR.exists():
         return []
-    # *.analysis.json は分析メタデータなのでデッキ本体から除外
+    # デッキ本体 (= main 50 枚レシピ) のみ返す。
+    # 以下は派生メタデータなので除外:
+    #   *.analysis.json     — 静的分析結果
+    #   *.target_v1.json    — Plan H target spec (= entries[], main なし)
+    #   *.target_v1_locked.json — Plan H locked baseline
+    suffixes_to_skip = (
+        ".analysis.json",
+        ".target_v1.json",
+        ".target_v1_locked.json",
+    )
     return sorted(
-        p for p in DECKS_DIR.glob("*.json") if not p.name.endswith(".analysis.json")
+        p
+        for p in DECKS_DIR.glob("*.json")
+        if not any(p.name.endswith(s) for s in suffixes_to_skip)
     )
 
 
