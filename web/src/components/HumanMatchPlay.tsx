@@ -569,10 +569,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   }, [state]);
 
   // life_taken_choice modal 表示 順序:
-  //   1. ArrowStrike (= playFrames 開始時 fire 済、 ~1.0s)
-  //   2. LIFE -1 演出 (= ここで fireLifeFlash、 ~0.9s)
-  //   3. modal 表示 (= 上記 完了後)
-  // pending が 切り替わった 瞬間 に life flash → 1.0s 後 modal
+  //   1. ArrowStrike + 自然 LifeFlashOverlay (= 攻撃 成立 frame で fire 済)
+  //   2. modal 表示 (= 上記 完了後 短く 待つ)
+  // 旧: ここで fireLifeFlash("me", 1) を 追加 で 出していた が、 1. と 重複 する ため 削除。
   const lifeTakenPending =
     state?.pending_kind === "choice" &&
     state.pending_payload?.kind === "life_taken_choice";
@@ -582,9 +581,6 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       return;
     }
     setLifeTakenModalReady(false);
-    // defender = human → life flash side="me" (= 自分側 上半分 で 表示)
-    fireLifeFlash("me", 1);
-    manualLifeFlashSuppressMeRef.current = Date.now() + 6000;
     const t = setTimeout(() => setLifeTakenModalReady(true), 1000);
     return () => clearTimeout(t);
   }, [lifeTakenPending]);
