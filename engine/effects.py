@@ -977,26 +977,37 @@ def _resolve_target(
             name = target_spec.get("name", "")
             return [ip for ip in me.characters if ip.card.name == name]
         if t == "one_self_chara_or_leader_filtered":
-            # 自リーダー / キャラから filter にマッチする 1 枚 (パワー高い順)
+            # 自リーダー / キャラから filter にマッチする 1 枚 (パワー高い順、 human は modal で選択)
             filt = target_spec.get("filter", {})
             cands = [ip for ip in [me.leader, *me.characters]
                      if _matches_filter(ip.card, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="自リーダー or キャラ から 1 枚 選択",
+            ):
+                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "one_self_chara_filtered":
-            # 自キャラのみから filter にマッチする 1 枚 (パワー高い順)
+            # 自キャラのみから filter にマッチする 1 枚 (パワー高い順、 human は modal で選択)
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.characters
                      if _matches_filter(ip.card, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="自キャラ から 1 枚 選択",
+            ):
+                return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "all_self_chara_filtered":
             # 自キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
             # rested フィールド (= optional) で active/rested を 絞れる。
+            # human + 候補 > limit なら modal で 選択。
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.characters if _matches_filter(ip.card, filt)]
             if "rested" in target_spec:
@@ -1006,6 +1017,11 @@ def _resolve_target(
             if iid_picks is not None and limit is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:int(limit)]
             if limit is not None:
+                if outer_kind and len(cands) > int(limit) and _maybe_request_target_pick(
+                    state, cands, int(limit), outer_kind, outer_value, self_inplay,
+                    description=f"自キャラ から {limit} 枚 まで 選択",
+                ):
+                    return []
                 # AI 簡易: power 高い順 (= 強いキャラ優先)
                 cands.sort(key=lambda ip: -ip.power)
                 return cands[:int(limit)]
@@ -1067,12 +1083,17 @@ def _resolve_target(
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
         if t == "one_self_stage_filtered":
-            # 自分のステージから filter にマッチする 1 枚 (= レスト中優先)。
+            # 自分のステージから filter にマッチする 1 枚 (= レスト中優先、 human は modal で選択)。
             # 公式 「自分の紫のステージ1枚までを、 アクティブにする」 (P-077 等)。
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.stages if _matches_filter(ip.card, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="自ステージ から 1 枚 選択",
+            ):
+                return []
             # untap 用途なら rested を優先、 そうでなければ任意 1 枚
             cands.sort(key=lambda ip: (0 if ip.rested else 1))
             return cands[:1]
@@ -1123,8 +1144,14 @@ def _resolve_target(
         return [opp.leader]
     if target_spec == "one_self_character_filtered":
         # spec が辞書じゃないと filter は外から渡せないので、 caller 側でラップ済みを期待。
-        # 単独で来た場合は全自キャラから最強を返す (= フォールバック)
-        cands = sorted(me.characters, key=lambda c: -c.power)
+        # 単独で来た場合は全自キャラから最強を返す (= フォールバック、 human は modal で選択)
+        cands = list(me.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自キャラ から 1 枚 選択",
+        ):
+            return []
+        cands.sort(key=lambda c: -c.power)
         return cands[:1]
     if target_spec == "one_opponent_rested_character_le_5000":
         cands = sorted(
@@ -1137,9 +1164,15 @@ def _resolve_target(
     if target_spec == "all_self_team":
         return [me.leader] + list(me.characters)
     if target_spec == "one_self_team_any":
-        # 自分のリーダー or キャラ 1 枚 (power 高い順)。
+        # 自分のリーダー or キャラ 1 枚 (power 高い順、 human は modal で選択)。
         # 公式: 「自分のリーダーかキャラ1枚まで」 用。 OP11-119 コビー 等。
-        cands = sorted([me.leader] + list(me.characters), key=lambda ip: -ip.power)
+        cands = [me.leader] + list(me.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自リーダー or キャラ から 1 枚 選択",
+        ):
+            return []
+        cands.sort(key=lambda ip: -ip.power)
         return cands[:1]
 
     # --- パラメトリック target (regex マッチ) ---
@@ -5592,39 +5625,79 @@ def _ai_should_fire_end_of_turn_cost(
     source: InPlay,
     eff: dict,
 ) -> bool:
-    """AI が cost-bearing end_of_turn 効果 を 自発的 に 発動するか の 簡易 heuristic。
+    """AI が cost-bearing end_of_turn 効果 を 自発的 に 発動するか の EV heuristic。
 
-    現状: 「effect の do が DON 系 のみ」 + 「cost が 軽量 (discard_hand=1 / pay_don≤1)」
-    なら True、 trash_self / return_self_to_hand は source が 弱いキャラ (= cost≤3 か
-    パワー<=4000) なら True。 厳密 評価 は Phase 7 以降 の AI ヒューリスティック 強化で。
+    2026-05-23 強化: 効果別 benefit / cost を 数値化、 闕的状況補正 (= life/hand) で 判定。
+    旧 雑 ロジック (= do_keys & beneficial で 即 True、 trash_self は 弱キャラ のみ) を
+    EV 比較 に 置換。
     """
     cost = eff.get("cost") or {}
     do_list = eff.get("do") or []
-    do_keys = set()
+    do_keys: set = set()
     for prim in do_list:
         if isinstance(prim, dict):
             do_keys.update(prim.keys())
-    # untap_don / add_don / draw 等 は AI に 有利、 ほぼ 常に fire 推奨
-    beneficial = bool(do_keys & {"untap_don", "add_don", "draw", "search", "search_top_n"})
-    if not beneficial:
-        # 攻撃系 (= ko 等) は very contextual。 cost が 軽い なら fire。
-        if not (do_keys & {"ko", "ko_multi", "return_to_hand", "return_to_hand_multi"}):
-            return False
-    # trash_self / return_self_to_hand: source が 価値 低い 場合 のみ
-    if cost.get("trash_self") or cost.get("return_self_to_hand"):
-        # 「価値 低い」 = cost <= 3 かつ パワー <= 4000
-        card = source.card
-        if int(card.cost or 0) > 3 or int(card.power or 0) > 4000:
-            return False
-    # return_self_chara_to_hand: 場 の filter 該当 で 1 枚以上 戻せる なら fire
-    if cost.get("return_self_chara_to_hand"):
-        # 既に _can_pay で 払える 前提
-        pass
-    # discard_hand: 手札 が 2 枚 以下 で N 捨て なら リスク 高、 skip
+
+    # cost 価値 数値化 (= EV 比較 用)
+    cost_value = 0
+    pay_don = int(cost.get("pay_don", 0))
+    rest_don = int(cost.get("rest_self_don", 0))
     discard_n = int(cost.get("discard_hand", 0))
-    if discard_n > 0 and len(owner.hand) <= discard_n + 1:
-        return False
-    return True
+    cost_value += pay_don * 800 + rest_don * 400 + discard_n * 1500
+    if cost.get("trash_self"):
+        # source の 価値 = cost*1000 + power
+        card = source.card
+        cost_value += int(card.cost or 0) * 1000 + int(card.power or 0) // 2
+    if cost.get("return_self_to_hand"):
+        # 手札 戻し は 再 プレイ 可能 だが 一旦 場 を 失う
+        card = source.card
+        cost_value += int(card.cost or 0) * 500 + int(card.power or 0) // 4
+    if cost.get("rest_self") and not source.rested:
+        cost_value += 600
+
+    # benefit 数値化
+    benefit = 0
+    if do_keys & {"draw"}:
+        benefit += 1500  # 1 枚ドロー
+    if do_keys & {"search", "search_top_n"}:
+        benefit += 2000  # サーチ ドローより 強い
+    if do_keys & {"add_don"}:
+        benefit += 1000
+    if do_keys & {"untap_don"}:
+        # active 化 = 来ターンの 行動余地
+        opp_active = state.players[1 - state.players.index(owner)].don_active
+        benefit += 800 + opp_active * 50  # 相手 ターン リソース余裕 多いほど 価値高
+    if do_keys & {"ko", "ko_multi"}:
+        # 相手キャラ KO: コスト * 1000 を 仮定 平均 3
+        benefit += 3000
+    if do_keys & {"return_to_hand", "return_to_hand_multi"}:
+        benefit += 2500
+    if do_keys & {"power_pump"}:
+        # end_of_turn の power_pump は 通常 「相手 ターン中 持続」 で 守備強化
+        benefit += 1500
+    if do_keys & {"give_keyword"}:
+        benefit += 2000
+
+    # 闕的状況補正
+    life = len(owner.life)
+    hand = len(owner.hand)
+    if life <= 1:
+        benefit += 1000  # 守り強化系の価値 アップ
+    if hand <= 2:
+        # 手札少 で discard_hand 系 cost は 致命的
+        if discard_n > 0:
+            cost_value += 2000
+        # draw 系 は 命綱
+        if do_keys & {"draw", "search"}:
+            benefit += 1500
+
+    # trash_self: source の 価値 が 効果 を 下回る なら fire しない
+    if cost.get("trash_self"):
+        card = source.card
+        # 弱キャラ (= cost≤3 + power≤4000) は trash 推奨
+        if int(card.cost or 0) <= 3 and int(card.power or 0) <= 4000:
+            cost_value -= 1500  # 価値補正 で fire しやすく
+    return benefit > cost_value
 
 
 def trigger_end_of_turn(
@@ -5747,11 +5820,79 @@ def _maybe_prompt_end_of_turn_optional(state: GameState) -> None:
     )
 
 
+def _ai_should_fire_opp_attack_cost(
+    state: GameState,
+    me: Player,
+    source_inplay: InPlay,
+    eff: dict,
+    attacker: Optional[InPlay] = None,
+) -> bool:
+    """AI defender が cost 付き opp_attack 効果 を 発動 すべきか の EV 判定。
+
+    旧挙動 は cost 払えれば 必ず fire していて、 「不利交換 (= 発動 しても 攻撃 通る + don 損)」
+    を 見抜けなかった。 簡易 EV モデル で benefit > cost なら fire 推奨。
+
+    考慮:
+    - cost 価値: pay_don=800/枚、 rest_don=400/枚、 discard_hand=1500/枚
+    - benefit 推定: ko/return → attacker.cost * 1000、 power_pump → 2000、
+      give_keyword (= ブロッカー等) → 2500、 draw/search → 1500、
+      prevent_ko → life 残量 で 5000/3000/1500
+    - ライフ少 (= life ≤ 1) bonus: +2000 (= 守備積極化)
+    - 攻撃 確実失敗 (= attacker_power < me.target_power - 2000) なら skip
+      (= 不要 発動 防止)
+
+    """
+    cost = eff.get("cost") or {}
+    do_list = eff.get("do") or []
+
+    pay_don = int(cost.get("pay_don", 0))
+    rest_don = int(cost.get("rest_self_don", 0))
+    discard_n = int(cost.get("discard_hand", 0))
+    cost_value = pay_don * 800 + rest_don * 400 + discard_n * 1500
+
+    do_keys: set = set()
+    for prim in do_list:
+        if isinstance(prim, dict):
+            do_keys.update(prim.keys())
+
+    benefit = 0
+    if do_keys & {"ko", "ko_multi", "return_to_hand", "return_to_hand_multi"}:
+        atk_cost = int(attacker.card.cost) if attacker and attacker.card.cost else 3
+        benefit += atk_cost * 1000
+    if do_keys & {"power_pump"}:
+        benefit += 2000
+    if do_keys & {"give_keyword", "give_rush"}:
+        benefit += 2500
+    if do_keys & {"draw", "search", "search_top_n"}:
+        benefit += 1500
+    if do_keys & {"prevent_ko", "set_ko_immune", "set_ko_immune_timed", "set_ko_immune_battle_only"}:
+        life = len(me.life)
+        benefit += 5000 if life <= 1 else 3000 if life <= 2 else 1500
+    if do_keys & {"add_don", "attach_don", "attach_active_don"}:
+        benefit += 1000
+
+    # 攻撃 確実失敗 推定 (= 発動 不要)
+    if attacker is not None:
+        atk_power = int(attacker.power or 0)
+        # defender が source_inplay 自身 と 仮定 して、 atk < src_power なら fire 不要
+        src_power = int(source_inplay.power or 0)
+        if src_power > 0 and atk_power + 2000 < src_power:
+            return False
+
+    # ライフ補正
+    life = len(me.life)
+    if life <= 1:
+        benefit += 2000
+
+    return benefit > cost_value
+
+
 def _enqueue_opp_attack_with_cost(
     state: GameState,
     me: Player,
     when_key: str,
     effects_overlay: dict[str, CardEffectBundle],
+    attacker: Optional[InPlay] = None,
 ) -> None:
     """【相手のアタック時】 系 を 処理。
     人間 defender + cost 持ち: pending_choice "on_opp_attack_optional" で user 確認。
@@ -5800,6 +5941,9 @@ def _enqueue_opp_attack_with_cost(
             if is_human_actor:
                 # 人間 defender → pending_choice 候補 へ
                 pending_costed_human.append((source_inplay, idx, eff))
+                continue
+            # AI: EV 判定 → 発動 価値 低い なら skip (= 旧 「常 fire」 から 改善)
+            if not _ai_should_fire_opp_attack_cost(state, me, source_inplay, eff, attacker):
                 continue
             # AI: 即時 支払 + fire
             # pay_don: ドン!!-N → don_active から N 枚 を don_remaining_in_deck に 戻す
@@ -5873,7 +6017,7 @@ def trigger_on_opp_attack(
     """
     if not effects_overlay:
         return
-    _enqueue_opp_attack_with_cost(state, me, "opp_attack", effects_overlay)
+    _enqueue_opp_attack_with_cost(state, me, "opp_attack", effects_overlay, attacker=attacker)
     _maybe_resolve(state)
 
 
@@ -5889,7 +6033,7 @@ def trigger_on_opp_attack_on_leader(
     AttackLeader 時のみ発火 (= opp_attack と並行)。 me = defender 側。"""
     if not effects_overlay:
         return
-    _enqueue_opp_attack_with_cost(state, me, "opp_attack_on_leader", effects_overlay)
+    _enqueue_opp_attack_with_cost(state, me, "opp_attack_on_leader", effects_overlay, attacker=attacker)
     _maybe_resolve(state)
 
 
@@ -5904,7 +6048,7 @@ def trigger_on_opp_attack_on_chara(
     AttackCharacter 時のみ発火 (= opp_attack と並行)。 me = defender 側。"""
     if not effects_overlay:
         return
-    _enqueue_opp_attack_with_cost(state, me, "opp_attack_on_chara", effects_overlay)
+    _enqueue_opp_attack_with_cost(state, me, "opp_attack_on_chara", effects_overlay, attacker=attacker)
     _maybe_resolve(state)
 
 

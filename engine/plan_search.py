@@ -81,6 +81,11 @@ def fast_clone(state: "GameState") -> "GameState":
     cloned.record_snapshots = False
     # cloned 内 apply_action での eval_before/after 記録を抑止 (= compute_score 二重実行カット)
     cloned.record_action_evals = False
+    # plan_search 内 シミュレーション は AI vs AI として 動作 する。
+    # human_player_idx を 残すと、 simulated 人間ターン で self-side target_pick が
+    # pending_choice を 立てて plan_search が halt する (= 2026-05-23 self-side target_pick 拡張 で 発覚)。
+    cloned.human_player_idx = None
+    cloned.forced_human_actor_idx = None
     return cloned
 
 
