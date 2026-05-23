@@ -3247,3 +3247,67 @@ def human_match_save_replay(sid: str):
     if rid is None:
         raise HTTPException(400, "game not over or save failed")
     return {"replay_id": rid}
+
+
+# saved_blob_url cache (= 同一 session で 重複 upload 防止)
+_SAVED_BLOB_URLS: dict[str, str] = {}
+
+
+@app.post("/api/human_match/{sid}/save_result")
+def human_match_save_result(sid: str):
+    """試合終了後 (= game_over=true) に full データ を Vercel Blob に upload。
+
+    AI vs Human の 全 試合 を Blob に 蓄積 → ohtsuki さん依頼時に sync して解析。
+    BLOB_READ_WRITE_TOKEN env が無い ローカル 環境 では fallback で
+    db/human_play_log/ に file 書き出し。
+    """
+    cached = _HUMAN_SESSIONS.get(sid)
+    if cached is None:
+        raise HTTPException(404, "session not found")
+    session, _log = cached
+
+    if not session.state.game_over:
+        raise HTTPException(400, "game not over")
+
+    # 同 session で 既に upload 済 なら 同 URL を 返す (= idempotent)
+    if sid in _SAVED_BLOB_URLS:
+        return {"url": _SAVED_BLOB_URLS[sid], "cached": True}
+
+    try:
+        payload = session.serialize_for_log()
+    except Exception as e:
+        raise HTTPException(500, f"serialize failed: {e}")
+
+    from datetime import datetime, timezone
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    deck_human = (payload["metadata"]["deck_human_slug"] or "human").replace("/", "_")
+    deck_ai = (payload["metadata"]["deck_ai_slug"] or "ai").replace("/", "_")
+    winner = payload["result"]["winner_for_human"]
+    winner_tag = "humanW" if winner == 1 else "aiW" if winner == 0 else "draw"
+    pathname = f"human_play/{ts}_{deck_human}_vs_{deck_ai}_{winner_tag}_{sid[:8]}.json"
+
+    from api.blob_storage import put_json, is_configured
+
+    if is_configured():
+        try:
+            # public blob だが random suffix で URL guessable 防止
+            url = put_json(pathname, payload, add_random_suffix=True)
+            _SAVED_BLOB_URLS[sid] = url
+            return {"url": url, "cached": False, "destination": "blob"}
+        except Exception as e:
+            raise HTTPException(500, f"blob upload failed: {e}")
+
+    # Fallback: local file (= dev 環境 で BLOB token 未設定 の 場合)
+    from pathlib import Path
+    import json as _json
+
+    local_dir = ROOT / "db" / "human_play_log"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    local_path = local_dir / Path(pathname).name
+    local_path.write_text(
+        _json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    _SAVED_BLOB_URLS[sid] = str(local_path)
+    return {"url": str(local_path), "cached": False, "destination": "local_file"}

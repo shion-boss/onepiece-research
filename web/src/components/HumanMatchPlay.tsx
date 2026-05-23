@@ -11,6 +11,7 @@ import {
   applyHumanDefense,
   applyHumanUseOppAttackEffect,
   endHumanMatch,
+  saveHumanMatchResult,
   startHumanMatch,
   type HumanActionLog,
   type HumanLegalAction,
@@ -180,18 +181,24 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       return;
     }
     // 各 frame で snapshot (= board) は 中間状態 を 表示 する が、
-    // log は 累積 で 表示 する (= 「相手ターン中 log が 1 行 しか 出ない」 修正)。
-    // frame.log は その時点 の 1 行 のみ なので、 final.log (= 全行) を 使う。
+    // log は 「baseLog + frame[0..i].log」 で frame 進行 に 同期 した progressive 表示。
+    // → EffectToastOverlay が log の 1 行 ずつ 検出 → 各効果 toast が frame の wait に
+    // 同期 して 順次 ポップアップ。 末尾 frame で 通常 setState(final) を 呼ぶ ので、
+    // server 側 truncation (= state.log[-30:]) で 差分 が 出ても 最終 log は final と 同一。
     // ライフ→手札 / KO / draw / turn切替 等 重い演出 frame は wait 延長。
+    const baseLog = stateRef.current?.log ?? [];
+    const progressive: string[] = [...baseLog];
     let prevTurn = -1;
     for (let i = 0; i < frames.length - 1; i++) {
       const f = frames[i];
+      const frameLog = typeof f.log === "string" ? f.log : "";
+      if (frameLog) progressive.push(frameLog);
       setState({
         ...final,
         snapshot: f,
         legal_actions: [],
         pending_kind: null,
-        log: final.log,
+        log: progressive.slice(),
       });
       const logLine = typeof f.log === "string" ? f.log : "";
       const curTurn =
@@ -553,6 +560,26 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // ゲーム終了 検知時 に AI 改善 用 の full データ を Blob (= or local file) に 1 回 保存。
+  // 重複 POST 防止 で savedResultRef で gate。 失敗時 は console.warn だけ (= UI 邪魔 しない)。
+  const savedResultRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionId) return;
+    if (!state?.game_over) return;
+    if (savedResultRef.current === sessionId) return;
+    savedResultRef.current = sessionId;
+    saveHumanMatchResult(sessionId)
+      .then((res) => {
+        console.log(
+          `[human_play] result saved (${res.destination ?? "blob"}): ${res.url}`,
+        );
+      })
+      .catch((err) => {
+        console.warn("[human_play] save_result failed:", err);
+        savedResultRef.current = null; // retry 可能化
+      });
+  }, [sessionId, state?.game_over]);
 
   // 対戦 開始 / 終了 を Sidebar に 通知 (= 開始済 なら sidebar 非表示 = fullscreen)
   useEffect(() => {
@@ -1692,6 +1719,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           <OnOppAttackOptionalModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "end_of_turn_optional" ? (
+          <EndOfTurnOptionalModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
             busy={busy}
           />
         ) : (
@@ -4003,6 +4037,167 @@ function OnOppAttackOptionalModal({
             className="flex-1 rounded bg-cyan-500 px-4 py-3 text-base font-bold text-white shadow hover:bg-cyan-400 disabled:opacity-50"
           >
             効果 を 発動 ({costLabel})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// EndOfTurnOptionalModal: 自分のターン終了時 cost 付き 任意効果 を 複数 まとめ 選択。
+// payload.available = [{card_id, card_name, source_iid, effect_idx, effect_text,
+//                       pay_don, rest_self_don, discard_hand, trash_self,
+//                       return_self_to_hand, return_self_chara_to_hand, rest_self,
+//                       ko_self_with_filter, when_key, owner_idx}]
+// onSubmit(picks) で 発動 を 選んだ index list を 送る (= 空 = 全 skip)。
+// ========================================================================== //
+
+type EotEffect = {
+  source_iid: number;
+  card_id: string;
+  card_name: string;
+  effect_idx: number;
+  effect_text: string;
+  pay_don: number;
+  rest_self_don: number;
+  discard_hand: number;
+  trash_self: boolean;
+  return_self_to_hand: boolean;
+  return_self_chara_to_hand: boolean;
+  rest_self: boolean;
+  ko_self_with_filter: boolean;
+  when_key: string;
+  owner_idx: number;
+};
+
+function buildEotCostLabel(e: EotEffect): string {
+  const parts: string[] = [];
+  if (e.trash_self) parts.push("このキャラをトラッシュ");
+  if (e.return_self_to_hand) parts.push("このキャラを手札へ");
+  if (e.return_self_chara_to_hand) parts.push("自キャラ1枚を手札へ");
+  if (e.ko_self_with_filter) parts.push("自キャラ1枚KO");
+  if (e.rest_self) parts.push("このキャラをレスト");
+  if (e.pay_don > 0) parts.push(`DON-${e.pay_don}`);
+  if (e.rest_self_don > 0) parts.push(`DON-${e.rest_self_don}(rest)`);
+  if (e.discard_hand > 0) parts.push(`手札-${e.discard_hand}`);
+  return parts.length > 0 ? parts.join(" + ") : "コストなし";
+}
+
+function EndOfTurnOptionalModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover?: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const available = (payload.available as EotEffect[]) ?? [];
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const toggle = (i: number) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+  const submit = () => {
+    if (busy) return;
+    onSubmit([...picked].sort((a, b) => a - b));
+  };
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-2xl flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-1 text-lg font-bold text-amber-200">
+          ターン終了時の任意効果
+        </h3>
+        <p className="mb-3 text-xs text-zinc-300">
+          コストを 払って 発動 する 効果 を 選択 してください ({available.length}件)
+        </p>
+        <div className="flex flex-col gap-2 overflow-y-auto">
+          {available.map((eff, i) => {
+            const selected = picked.has(i);
+            const costLabel = buildEotCostLabel(eff);
+            const text = eff.effect_text || `${eff.card_name} の ターン終了時 効果`;
+            return (
+              <button
+                key={`${eff.source_iid}:${eff.effect_idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle(i);
+                }}
+                onMouseEnter={() =>
+                  onHover?.({ kind: "hand", cardId: eff.card_id })
+                }
+                onMouseLeave={() => onHover?.(null)}
+                disabled={busy}
+                className={
+                  "flex items-start gap-3 rounded-lg border-2 px-3 py-3 text-left text-sm transition disabled:opacity-50 " +
+                  (selected
+                    ? "border-amber-300 bg-amber-900/40 text-amber-100"
+                    : "border-zinc-700 bg-zinc-800/40 text-zinc-300 hover:border-amber-500 hover:bg-amber-900/20")
+                }
+              >
+                <div className="flex shrink-0 items-center justify-center">
+                  <CardImage
+                    cardId={eff.card_id}
+                    alt={eff.card_name}
+                    className="h-24 w-auto rounded shadow"
+                  />
+                </div>
+                <div className="flex grow flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        "inline-block h-4 w-4 shrink-0 rounded border-2 " +
+                        (selected
+                          ? "border-amber-200 bg-amber-400"
+                          : "border-zinc-500 bg-transparent")
+                      }
+                    />
+                    <span className="font-bold">{eff.card_name}</span>
+                    <span className="text-xs text-amber-300/80">
+                      コスト: {costLabel}
+                    </span>
+                  </div>
+                  <div className="text-xs text-zinc-300/90">{text}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (busy) return;
+              onSubmit([]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-zinc-700 px-4 py-3 text-sm font-bold text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            全て スキップ
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              submit();
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-amber-500 px-4 py-3 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+          >
+            {picked.size === 0 ? "確定 (全 skip)" : `確定 (${picked.size}件 発動)`}
           </button>
         </div>
       </div>

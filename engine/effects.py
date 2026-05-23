@@ -229,9 +229,16 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 self_inplay = ip
                 break
         # 場から消えている場合: on_ko 等は self_inplay=None で許容、
-        # それ以外 (on_attack/on_block 等) は途中で KO されたので発火中止
-        if self_inplay is None and evt.when not in (
-            "on_ko", "main", "counter", "trigger"
+        # cost で 既に 自身 trash 済 (= effect_indexes で 既払い 明示) の 場合 も 許容。
+        # それ以外 (on_attack/on_block 等) は途中で KO されたので発火中止。
+        cost_paid_explicit = (
+            evt.payload.get("effect_indexes") is not None
+            and evt.when in ("activate_main", "end_of_turn", "opp_end_of_turn")
+        )
+        if (
+            self_inplay is None
+            and not cost_paid_explicit
+            and evt.when not in ("on_ko", "main", "counter", "trigger")
         ):
             return
         # 効果無効化 (negate_effect/disable_effect プリミティブで付与)。 場にいて、 かつ
@@ -4626,6 +4633,85 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             state.forced_human_actor_idx = prev_forced
         return
 
+    if kind == "end_of_turn_optional":
+        # picks = available[] の index の list (= 発動 を 選んだ もの だけ)。
+        # picks=[] なら 全 skip。 picks=[0,2] なら 0 番目 と 2 番目 を 順に 発動。
+        available = choice.get("available", []) or []
+        state.pending_choice = None
+        # 重複排除 + range guard
+        seen = set()
+        ordered_picks: list[int] = []
+        for i in picks:
+            if isinstance(i, int) and 0 <= i < len(available) and i not in seen:
+                seen.add(i)
+                ordered_picks.append(i)
+        # 支払い + enqueue 順 は user pick 順 を 尊重 (= 公式 8-1-3 同陣営内 順序 任意)
+        for i in ordered_picks:
+            item = available[i]
+            owner_idx = int(item["owner_idx"])
+            owner = state.players[owner_idx]
+            opp_for_pay = state.players[1 - owner_idx]
+            source = None
+            for ip in [owner.leader, *owner.characters, *owner.stages]:
+                if ip.instance_id == item["source_iid"]:
+                    source = ip
+                    break
+            if source is None:
+                # 場 から 消えた (= 直前 の effect で trash 等) → skip
+                state.push_log(
+                    f"  ターン終了 任意効果: {item.get('card_name','?')} は 既に 場 に いない (skip)"
+                )
+                continue
+            bundle = state.effects_overlay.get(source.card.card_id) if state.effects_overlay else None
+            if bundle is None:
+                continue
+            eff_idx = int(item["effect_idx"])
+            eff = bundle.effects[eff_idx] if 0 <= eff_idx < len(bundle.effects) else None
+            if eff is None:
+                continue
+            cost = eff.get("cost") or {}
+            # 再 verify (= 場 状況 変化 で 払えなくなった ケース ガード)
+            if not _can_pay_end_of_turn_cost(state, owner, source, cost):
+                state.push_log(
+                    f"  ターン終了 任意効果: {source.card.name} cost 払えず skip"
+                )
+                continue
+            state.push_log(f"ターン終了任意: {source.card.name}")
+            _pay_end_of_turn_cost(state, owner, opp_for_pay, source, cost, eff_idx)
+            enqueue_event(
+                state,
+                when=str(item.get("when_key", "end_of_turn")),
+                owner_idx=owner_idx,
+                source_card_id=item["card_id"],
+                source_iid=item["source_iid"],
+                payload={"effect_indexes": [eff_idx]},
+            )
+        # skip された ものは log だけ
+        skipped_n = len(available) - len(ordered_picks)
+        if skipped_n > 0:
+            state.push_log(
+                f"  ターン終了 任意効果: {skipped_n}件 skip"
+            )
+        # forced_human_actor で human owner の target_pick が 立つよう に
+        prev_forced = getattr(state, "forced_human_actor_idx", None)
+        if state.human_player_idx is not None:
+            state.forced_human_actor_idx = state.human_player_idx
+        try:
+            _maybe_resolve(state)
+        finally:
+            state.forced_human_actor_idx = prev_forced
+        if state.pending_choice is not None:
+            # nested target_pick 等 → user 解決 待ち、 advance_phase は 後段 で 自然 再開
+            return
+        # END phase の 後半 (= reset_turn_buff + turn flip + REFRESH→MAIN) を 駆動
+        from .game import advance_phase, play_until_main
+        # advance_phase Phase.END handler は _end_of_turn_done フラグ で trigger 再発 を skip
+        advance_phase(state)
+        if state.pending_choice is not None or state.game_over:
+            return
+        play_until_main(state)
+        return
+
     if kind == "on_attack_optional":
         # picks[0] = 1 → 使う、 0 → skip
         use_eff = bool(picks and picks[0] == 1)
@@ -5324,20 +5410,341 @@ def trigger_turn_start(
     _maybe_resolve(state)
 
 
+def _end_of_turn_cost_is_real(cost: dict) -> bool:
+    """end_of_turn の cost dict が user-optional payment を伴うか判定。
+
+    once_per_turn のみ なら 「ターン1回ガード」 = 強制 効果 (= 払う もの 無し)。
+    trash_self / return_self_to_hand / discard_hand / pay_don / rest_self_don /
+    return_self_chara_to_hand 等 を 1 つ でも 含む なら user-optional。
+    """
+    if not isinstance(cost, dict):
+        return False
+    real_cost_keys = {
+        "trash_self",
+        "return_self_to_hand",
+        "return_self_chara_to_hand",
+        "discard_hand",
+        "discard_hand_with_filter",
+        "pay_don",
+        "rest_self_don",
+        "ko_self_with_filter",
+        "rest_self",
+    }
+    return any(k in cost for k in real_cost_keys)
+
+
+def _can_pay_end_of_turn_cost(
+    state: GameState,
+    owner: Player,
+    source: InPlay,
+    cost: dict,
+) -> bool:
+    """end_of_turn cost が支払い可能か判定 (= modal 候補に出すか の前提)。"""
+    if not isinstance(cost, dict):
+        return True
+    pay_don = int(cost.get("pay_don", 0))
+    if pay_don > 0 and (owner.don_active + owner.don_rested) < pay_don:
+        return False
+    rest_don = int(cost.get("rest_self_don", 0))
+    if rest_don > 0 and owner.don_active < rest_don:
+        return False
+    discard_n = int(cost.get("discard_hand", 0))
+    if discard_n > 0 and len(owner.hand) < discard_n:
+        return False
+    if cost.get("return_self_to_hand") and source not in owner.characters and source not in owner.stages:
+        return False
+    if cost.get("trash_self") and source not in owner.characters and source not in owner.stages:
+        return False
+    # return_self_chara_to_hand: filter 該当 候補 必須
+    rsc = cost.get("return_self_chara_to_hand")
+    if rsc:
+        if isinstance(rsc, dict):
+            filt = rsc.get("filter", {})
+            need = int(rsc.get("count", 1))
+        else:
+            filt, need = {}, 1
+        from_chara = list(owner.characters)
+        candidates = [c for c in from_chara if _matches_filter(c.card, filt)]
+        if len(candidates) < need:
+            return False
+    # ko_self_with_filter
+    ksf = cost.get("ko_self_with_filter")
+    if ksf:
+        if not any(_matches_filter(c.card, ksf) for c in owner.characters):
+            return False
+    return True
+
+
+def _pay_end_of_turn_cost(
+    state: GameState,
+    owner: Player,
+    opp: Player,
+    source: InPlay,
+    cost: dict,
+    eff_idx: int,
+) -> None:
+    """end_of_turn cost を 実際 に 支払う (= activate_main の fire_activate_main 風)。
+
+    log は 「ターン終了コスト: ...」 prefix で push。 source は trash/return された 場合
+    場 から 取り除かれている (= 後続 enqueue で source_iid 探索 が None になる が、
+    explicit effect_indexes payload 経由 で 効果 は 発火 する)。
+    """
+    me = owner
+    # trash_self
+    if cost.get("trash_self"):
+        if source in me.characters:
+            me.characters.remove(source)
+            me.trash.append(source.card)
+            if source.attached_dons > 0:
+                me.don_rested += source.attached_dons
+                source.attached_dons = 0
+            state.push_log(f"  ターン終了コスト: 自トラッシュ {source.card.name}")
+        elif source in me.stages:
+            me.stages.remove(source)
+            me.trash.append(source.card)
+            if source.attached_dons > 0:
+                me.don_rested += source.attached_dons
+                source.attached_dons = 0
+            state.push_log(f"  ターン終了コスト: 自ステージトラッシュ {source.card.name}")
+    # return_self_to_hand
+    if cost.get("return_self_to_hand") and source in me.characters:
+        me.characters.remove(source)
+        me.hand.append(source.card)
+        if source.attached_dons > 0:
+            me.don_rested += source.attached_dons
+            source.attached_dons = 0
+        state.push_log(f"  ターン終了コスト: 自 → 手札 {source.card.name}")
+    # pay_don
+    pay_don = int(cost.get("pay_don", 0))
+    if pay_don > 0:
+        taken = min(pay_don, me.don_active)
+        me.don_active -= taken
+        me.don_remaining_in_deck += taken
+        rest_more = min(pay_don - taken, me.don_rested)
+        me.don_rested -= rest_more
+        me.don_remaining_in_deck += rest_more
+        state.push_log(f"  ターン終了コスト: ドン-{pay_don}")
+        if (taken + rest_more) > 0 and state.effects_overlay:
+            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+    # rest_self_don
+    rest_don = int(cost.get("rest_self_don", 0))
+    if rest_don > 0:
+        actual = min(rest_don, me.don_active)
+        me.don_active -= actual
+        me.don_rested += actual
+        state.push_log(f"  ターン終了コスト: アクティブドン {actual} レスト")
+    # rest_self
+    if cost.get("rest_self") and not source.rested:
+        source.rested = True
+        state.push_log(f"  ターン終了コスト: 自レスト {source.card.name}")
+    # discard_hand: random (= activate_main と 同 semantics、 modal 拡張 は 別 issue)
+    discard_n = int(cost.get("discard_hand", 0))
+    if discard_n > 0:
+        import random as _rng
+        rng = state.rng or _rng.Random()
+        for _ in range(min(discard_n, len(me.hand))):
+            i = rng.randrange(len(me.hand))
+            me.trash.append(me.hand.pop(i))
+        state.push_log(f"  ターン終了コスト: 手札{discard_n}捨て")
+    # return_self_chara_to_hand: filter 該当 chara を N 枚 手札 戻し
+    rsc = cost.get("return_self_chara_to_hand")
+    if rsc:
+        if isinstance(rsc, dict):
+            filt = rsc.get("filter", {})
+            need = int(rsc.get("count", 1))
+        else:
+            filt, need = {}, 1
+        returned = 0
+        for c in list(me.characters):
+            if returned >= need:
+                break
+            if not _matches_filter(c.card, filt):
+                continue
+            me.characters.remove(c)
+            me.hand.append(c.card)
+            if c.attached_dons > 0:
+                me.don_rested += c.attached_dons
+                c.attached_dons = 0
+            state.push_log(f"  ターン終了コスト: {c.card.name} を手札へ")
+            returned += 1
+    # ko_self_with_filter
+    ksf = cost.get("ko_self_with_filter")
+    if ksf:
+        for c in list(me.characters):
+            if _matches_filter(c.card, ksf):
+                me.characters.remove(c)
+                me.trash.append(c.card)
+                if c.attached_dons > 0:
+                    me.don_rested += c.attached_dons
+                state.push_log(f"  ターン終了コスト: 自KO {c.card.name}")
+                if state.effects_overlay:
+                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
+                break
+    # once_per_turn フラグ
+    if cost.get("once_per_turn"):
+        setattr(source, f"_end_of_turn_used_{eff_idx}", True)
+
+
+def _ai_should_fire_end_of_turn_cost(
+    state: GameState,
+    owner: Player,
+    source: InPlay,
+    eff: dict,
+) -> bool:
+    """AI が cost-bearing end_of_turn 効果 を 自発的 に 発動するか の 簡易 heuristic。
+
+    現状: 「effect の do が DON 系 のみ」 + 「cost が 軽量 (discard_hand=1 / pay_don≤1)」
+    なら True、 trash_self / return_self_to_hand は source が 弱いキャラ (= cost≤3 か
+    パワー<=4000) なら True。 厳密 評価 は Phase 7 以降 の AI ヒューリスティック 強化で。
+    """
+    cost = eff.get("cost") or {}
+    do_list = eff.get("do") or []
+    do_keys = set()
+    for prim in do_list:
+        if isinstance(prim, dict):
+            do_keys.update(prim.keys())
+    # untap_don / add_don / draw 等 は AI に 有利、 ほぼ 常に fire 推奨
+    beneficial = bool(do_keys & {"untap_don", "add_don", "draw", "search", "search_top_n"})
+    if not beneficial:
+        # 攻撃系 (= ko 等) は very contextual。 cost が 軽い なら fire。
+        if not (do_keys & {"ko", "ko_multi", "return_to_hand", "return_to_hand_multi"}):
+            return False
+    # trash_self / return_self_to_hand: source が 価値 低い 場合 のみ
+    if cost.get("trash_self") or cost.get("return_self_to_hand"):
+        # 「価値 低い」 = cost <= 3 かつ パワー <= 4000
+        card = source.card
+        if int(card.cost or 0) > 3 or int(card.power or 0) > 4000:
+            return False
+    # return_self_chara_to_hand: 場 の filter 該当 で 1 枚以上 戻せる なら fire
+    if cost.get("return_self_chara_to_hand"):
+        # 既に _can_pay で 払える 前提
+        pass
+    # discard_hand: 手札 が 2 枚 以下 で N 捨て なら リスク 高、 skip
+    discard_n = int(cost.get("discard_hand", 0))
+    if discard_n > 0 and len(owner.hand) <= discard_n + 1:
+        return False
+    return True
+
+
 def trigger_end_of_turn(
     state: GameState,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
     """エンドフェイズの自動効果を enqueue (公式 6-6-1-1)。
     順序: ターン側【自分のターン終了時】→ 非ターン側【相手のターン終了時】。
+
+    cost 付き optional 効果 (= 「このキャラをトラッシュに置くことができる：〜」 等) は:
+    - 効果 owner が human: pending_choice "end_of_turn_optional" を 立てて user 選択 待ち
+      (= forced 効果 は 通常通り enqueue、 cost optional のみ defer)
+    - 効果 owner が AI: 簡易 heuristic で 即 決定 → 支払い + enqueue
     """
     if not effects_overlay:
         return
     me = state.turn_player
     opp = state.opponent
-    _enqueue_field_when(state, me, "end_of_turn", effects_overlay)
-    _enqueue_field_when(state, opp, "opp_end_of_turn", effects_overlay)
+    me_idx = state.players.index(me)
+    opp_idx = 1 - me_idx
+
+    human_optionals: list[dict] = []
+
+    for player, when_key, player_idx in [
+        (me, "end_of_turn", me_idx),
+        (opp, "opp_end_of_turn", opp_idx),
+    ]:
+        is_human = (
+            state.human_player_idx is not None
+            and player_idx == state.human_player_idx
+        )
+        for source in [player.leader, *player.characters, *player.stages]:
+            bundle = effects_overlay.get(source.card.card_id)
+            if bundle is None:
+                continue
+            forced_idxs: list[int] = []
+            for idx, eff in enumerate(bundle.effects):
+                if eff.get("when") != when_key:
+                    continue
+                cost = eff.get("cost") or {}
+                # once_per_turn 既使用 は skip (= cost 経由 / top-level 両方)
+                per_turn_key = f"_end_of_turn_used_{idx}"
+                if cost.get("once_per_turn") and getattr(source, per_turn_key, False):
+                    continue
+                if not _end_of_turn_cost_is_real(cost):
+                    # 強制 効果 (= cost なし / once_per_turn のみ): 常 enqueue
+                    forced_idxs.append(idx)
+                    continue
+                # cost-bearing optional
+                if not eval_all_conditions(eff, state, player, source):
+                    continue
+                if not _can_pay_end_of_turn_cost(state, player, source, cost):
+                    continue
+                if is_human:
+                    human_optionals.append({
+                        "owner_idx": player_idx,
+                        "when_key": when_key,
+                        "source_iid": source.instance_id,
+                        "card_id": source.card.card_id,
+                        "card_name": source.card.name,
+                        "effect_idx": idx,
+                        "effect_text": eff.get("_text", ""),
+                        "pay_don": int(cost.get("pay_don", 0)),
+                        "rest_self_don": int(cost.get("rest_self_don", 0)),
+                        "discard_hand": int(cost.get("discard_hand", 0)),
+                        "trash_self": bool(cost.get("trash_self")),
+                        "return_self_to_hand": bool(cost.get("return_self_to_hand")),
+                        "return_self_chara_to_hand": bool(cost.get("return_self_chara_to_hand")),
+                        "rest_self": bool(cost.get("rest_self")),
+                        "ko_self_with_filter": bool(cost.get("ko_self_with_filter")),
+                    })
+                else:
+                    # AI: heuristic で 即決
+                    if _ai_should_fire_end_of_turn_cost(state, player, source, eff):
+                        opp_for_pay = state.players[1 - player_idx]
+                        _pay_end_of_turn_cost(state, player, opp_for_pay, source, cost, idx)
+                        forced_idxs.append(idx)
+            if forced_idxs:
+                enqueue_event(
+                    state,
+                    when=when_key,
+                    owner_idx=player_idx,
+                    source_card_id=source.card.card_id,
+                    source_iid=source.instance_id,
+                    payload={"effect_indexes": sorted(set(forced_idxs))},
+                )
+
+    if human_optionals:
+        # 強制 効果 を 先 に drain → その 後 で 任意効果 modal を 立てる
+        # (= 強制 effect が 場 を 動かす と modal の 表示内容 が ズレる ため)。
+        # 但し forced 解決 中 に target_pick が 立つ 可能性 あり → 立ったら 待ち、
+        # resolve_pending_choice の 再 entry で end_of_turn_optional を セット する。
+        state._pending_end_of_turn_optional = human_optionals
+        _maybe_resolve(state)
+        _maybe_prompt_end_of_turn_optional(state)
+        return
+
     _maybe_resolve(state)
+
+
+def _maybe_prompt_end_of_turn_optional(state: GameState) -> None:
+    """forced 効果 が 完全 に 解決 され、 nested choice も ない なら end_of_turn_optional を 立てる。
+
+    target_pick / option_pick 等 が pending なら 何もしない (= それらの resolve 後 に
+    再呼び出し される)。
+    """
+    if state.pending_choice is not None:
+        return
+    pending = getattr(state, "_pending_end_of_turn_optional", None)
+    if not pending:
+        return
+    state.pending_choice = {
+        "kind": "end_of_turn_optional",
+        "available": list(pending),
+        "description": "ターン終了時の任意効果",
+    }
+    state._pending_end_of_turn_optional = []
+    state.push_log(
+        f"  効果: ターン終了時 任意効果 {len(pending)}件 選択 待ち"
+    )
 
 
 def _enqueue_opp_attack_with_cost(

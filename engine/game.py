@@ -653,10 +653,17 @@ def advance_phase(state: GameState) -> None:
         state.phase = Phase.END
 
     elif cur == Phase.END:
-        # 公式 6-6-1-1: 【自分/相手のターン終了時】の自動効果発動
-        if state.effects_overlay:
+        # 公式 6-6-1-1: 【自分/相手のターン終了時】の自動効果発動。
+        # cost 付き optional 効果 は human owner の 場合 pending_choice を 立てて 待機。
+        # 同 ターン 内 で 既に trigger 済 (= choice 解決 後 の 再 entry) なら skip。
+        if state.effects_overlay and getattr(state, "_end_of_turn_done_for_turn", -1) != state.turn_number:
             from .effects import trigger_end_of_turn
             trigger_end_of_turn(state, state.effects_overlay)
+            state._end_of_turn_done_for_turn = state.turn_number
+        # pending_choice が 立った 場合 は phase を END で 据え置き、 user 入力 待ち。
+        # resolve_pending_choice → human_session.advance_until_pause が この 関数 を 再 呼出。
+        if state.pending_choice is not None:
+            return
         # 公式ルール上、手札上限はない (3-4)。ターン終了時の discard は不要。
         _reset_turn_buff(state)
         if state.extra_turn_pending:
@@ -679,6 +686,9 @@ def advance_phase(state: GameState) -> None:
 
 def play_until_main(state: GameState) -> None:
     while state.phase != Phase.MAIN and not state.game_over:
+        # human pending_choice (= ターン終了時 任意効果 等) で 止まっている なら 抜ける
+        if state.pending_choice is not None:
+            return
         advance_phase(state)
 
 
@@ -1093,8 +1103,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
     if isinstance(action, EndPhase):
         # Step 2-pre: ターン終了時の don_active 残数 = 機会損失累積
         me.dons_unused_at_end_count += me.don_active
-        advance_phase(state)
-        advance_phase(state)
+        advance_phase(state)  # MAIN → END
+        if state.pending_choice is not None or state.game_over:
+            return
+        advance_phase(state)  # END → REFRESH (= trigger_end_of_turn)
+        if state.pending_choice is not None or state.game_over:
+            return
         play_until_main(state)
         return
 

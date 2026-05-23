@@ -717,6 +717,20 @@ export async function endHumanMatch(sid: string): Promise<void> {
   });
 }
 
+export async function saveHumanMatchResult(
+  sid: string,
+): Promise<{ url: string; cached: boolean; destination?: string }> {
+  const res = await fetch(`${API}/api/human_match/${sid}/save_result`, {
+    method: "POST",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`saveHumanMatchResult failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
 export async function fetchMatchHistory(
   deckId?: string,
   limit = 20,

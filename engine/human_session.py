@@ -245,17 +245,37 @@ class HumanSession:
     def advance_until_pause(self, max_actions: int = 200) -> None:
         """ゲーム 終了 か 人間 input 必要 まで AI を 進める。"""
         from .ai import play_one_action
+        from .game import Phase, advance_phase, play_until_main
+        from .effects import _maybe_prompt_end_of_turn_optional, resolve_triggers
 
         for _ in range(max_actions):
             if self.state.game_over:
                 self.pending_kind = None
                 self.pending_payload = None
                 return
-            # 人間 選択 待ち (= search_top_n 等) も pause 条件
+            # 余 イベント が キュー に 残って いる なら drain (= 任意効果 解決後 の cleanup)
+            if (
+                self.state.event_queue
+                and not self.state.resolving
+                and self.state.pending_choice is None
+            ):
+                resolve_triggers(self.state)
+            # END phase で deferred な ターン終了任意効果 が 残って いれば modal を 立てる
+            if self.state.pending_choice is None:
+                _maybe_prompt_end_of_turn_optional(self.state)
+            # 人間 選択 待ち (= search_top_n / end_of_turn_optional 等) は pause 条件
             if self.state.pending_choice is not None:
                 self.pending_kind = "choice"
                 self.pending_payload = dict(self.state.pending_choice)
                 return
+            # Phase.END で 止まって いる (= 任意効果 解決後 など、 phase 進行 が 必要) なら
+            # advance_phase + play_until_main で 次 ターン の MAIN まで 進める。
+            if self.state.phase == Phase.END:
+                advance_phase(self.state)
+                if self.state.pending_choice is not None or self.state.game_over:
+                    continue
+                play_until_main(self.state)
+                continue
             tp = self.state.turn_player_idx
             try:
                 if tp == self.ai_idx:
@@ -470,6 +490,59 @@ class HumanSession:
                     self.pending_payload["attacker_power"] = int(getattr(ip, "power", 0) or 0)
                     break
             self.pending_payload["available_opp_attack_effects"] = list(self.state._available_opp_attack_effects)
+
+    def serialize_for_log(self) -> dict:
+        """試合終了後 の full データ を 1 dict に まとめる (= Blob upload 用)。
+
+        含むもの:
+        - metadata: timestamp / deck slugs / seed / human_first / winner / turns
+        - log: 全 push_log
+        - snapshots: 全 snapshot (= 中間 state、 frontend 再生 と同じ)
+        - action_evals: 全 action の eval_before/after/delta (= 人間 + AI 両方、
+          player_idx で 分離可能。 「AI 悪手」 + 「人間 良手」 両方の 解析素材)
+        - winner_for_human: 1=人間勝利、 0=AI勝利、 -1=引き分け/時間切れ
+
+        Raises:
+            ValueError: game_over=False の場合
+        """
+        if not self.state.game_over:
+            raise ValueError("serialize_for_log は 試合終了後のみ呼び出せます")
+
+        from datetime import datetime, timezone
+
+        winner_for_human = -1
+        if self.state.winner == self.human_idx:
+            winner_for_human = 1
+        elif self.state.winner == self.ai_idx:
+            winner_for_human = 0
+
+        ai_class_name = type(self.ai).__name__
+        ai_spec_version = getattr(self.ai, "spec_version", None)
+
+        return {
+            "schema_version": 1,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "metadata": {
+                "deck_human_slug": self.deck_a_slug,
+                "deck_ai_slug": self.deck_b_slug,
+                "human_idx": self.human_idx,
+                "ai_idx": self.ai_idx,
+                "human_first": (self.human_idx == 0),
+                "seed": getattr(self.rng, "_seed_for_log", None),
+                "ai_class": ai_class_name,
+                "ai_spec_version": ai_spec_version,
+            },
+            "result": {
+                "winner_idx": self.state.winner,
+                "winner_for_human": winner_for_human,
+                "turns": self.state.turn_number,
+                "p_human_life_left": len(self.state.players[self.human_idx].life),
+                "p_ai_life_left": len(self.state.players[self.ai_idx].life),
+            },
+            "log": list(self.state.log),
+            "snapshots": [dict(s) for s in self.state.snapshots],
+            "action_evals": list(self.state.action_evals),
+        }
 
     def save_replay(self, max_per_pair: int = 500) -> Optional[int]:
         """試合終了後 に 棋譜 を db/match_replays.sqlite に 保存。

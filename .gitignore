@@ -168,3 +168,7 @@ db/mcts_rollout_combined.jsonl
 db/mcts_rollout_by_deck/
 db/mcts_rollout_by_deck.tar.gz
 *.bak_before_*
+.env*.local
+
+# Human Play 対戦 log (= Vercel Blob から sync した personal data、 commit しない)
+db/human_play_log/
