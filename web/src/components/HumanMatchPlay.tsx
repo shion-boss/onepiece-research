@@ -3719,8 +3719,19 @@ function TargetPickModal({
         </div>
         <div className="mt-3 flex items-center gap-3">
           <span className="text-xs text-zinc-400">
-            候補をクリックして 選択 (最大 {limit} 枚)。
+            候補をクリックして 選択 (最大 {limit} 枚)。 0 枚 でも 「skip」 で 確定可 (= 「N 枚まで」 で 0 を 選ぶ)。
           </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([]);
+            }}
+            disabled={busy}
+            className="rounded border border-zinc-500 bg-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
+          >
+            skip (0 枚)
+          </button>
           <button
             type="button"
             onClick={(e) => {
@@ -3728,7 +3739,7 @@ function TargetPickModal({
               onSubmit(picked);
             }}
             disabled={busy || picked.length === 0}
-            className="ml-auto rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+            className="ml-2 rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
           >
             確定 ({picked.length}枚)
           </button>

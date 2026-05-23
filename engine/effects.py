@@ -1144,33 +1144,58 @@ def _resolve_target(
         # 全員対象 (board wipe 系)。普通のカード「1枚まで」は one_* を使うこと
         return [c for c in opp.characters if c.power <= 5000]
     # --- single-target (公式テキスト「1 枚まで」相当) ---
-    # 候補を power 高い順にソートして「最も脅威となるキャラ」を狙う簡略化
+    # 候補を power 高い順にソートして「最も脅威となるキャラ」を狙う簡略化 (AI 用)。
+    # 人間 acting + outer_kind あり なら modal で 選ばせる (= ohtsuki さん 要望
+    # 「本来 人間判断 すべき箇所が auto 実行」 修正)。
     if target_spec == "one_opponent_character_le_5000":
-        cands = sorted(
-            [c for c in opp.characters if c.power <= 5000],
-            key=lambda c: -_opp_value(c),
-        )
+        cands = [c for c in opp.characters if c.power <= 5000]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手キャラ から 1 枚 選択 (パワー≤5000)",
+        ):
+            return []
+        cands.sort(key=lambda c: -_opp_value(c))
         return cands[:1]
     if target_spec == "one_opponent_character_le_4000":
-        cands = sorted(
-            [c for c in opp.characters if c.power <= 4000],
-            key=lambda c: -_opp_value(c),
-        )
+        cands = [c for c in opp.characters if c.power <= 4000]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手キャラ から 1 枚 選択 (パワー≤4000)",
+        ):
+            return []
+        cands.sort(key=lambda c: -_opp_value(c))
         return cands[:1]
     if target_spec == "one_opponent_character_any":
-        cands = sorted(opp.characters, key=lambda c: -_opp_value(c))
+        cands = list(opp.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手キャラ から 1 枚 選択",
+        ):
+            return []
+        cands.sort(key=lambda c: -_opp_value(c))
         return cands[:1]
     if target_spec == "one_opp_chara_blocker":
         # 相手の【ブロッカー】 を持つキャラ 1 枚 (= 実害評価高い順)
         cands = [c for c in opp.characters if c.is_blocker_now]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手ブロッカー から 1 枚 選択",
+        ):
+            return []
         cands.sort(key=lambda ip: -_opp_value(ip))
         return cands[:1]
     if target_spec == "one_opponent_inplay_any":
         # リーダー or キャラ 1 枚 (= 「相手のリーダーかキャラ 1 枚まで」)。
-        # 脅威優先: 実害評価高いキャラ → なければリーダー
-        cands = sorted(opp.characters, key=lambda c: -_opp_value(c))
-        if cands:
-            return cands[:1]
+        cands = [opp.leader] + list(opp.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手リーダー or キャラ から 1 枚 選択",
+        ):
+            return []
+        # AI: 脅威優先: 実害評価高いキャラ → なければリーダー
+        chara_cands = sorted(opp.characters, key=lambda c: -_opp_value(c))
+        if chara_cands:
+            return chara_cands[:1]
         return [opp.leader]
     if target_spec == "one_self_character_filtered":
         # spec が辞書じゃないと filter は外から渡せないので、 caller 側でラップ済みを期待。
@@ -1184,10 +1209,13 @@ def _resolve_target(
         cands.sort(key=lambda c: -c.power)
         return cands[:1]
     if target_spec == "one_opponent_rested_character_le_5000":
-        cands = sorted(
-            [c for c in opp.characters if c.rested and c.power <= 5000],
-            key=lambda c: -_opp_value(c),
-        )
+        cands = [c for c in opp.characters if c.rested and c.power <= 5000]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手レストキャラ から 1 枚 選択 (パワー≤5000)",
+        ):
+            return []
+        cands.sort(key=lambda c: -_opp_value(c))
         return cands[:1]
     if target_spec == "all_self_characters":
         return list(me.characters)
@@ -1211,10 +1239,13 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.card.cost <= n],
-                key=lambda c: -_opp_value(c),
-            )
+            cands = [c for c in opp.characters if c.card.cost <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -_opp_value(c))
             return cands[:1]
 
         # any_opponent_character_cost_le_N (全員)
@@ -1227,20 +1258,26 @@ def _resolve_target(
         m = re.match(r"one_opponent_rested_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.rested and c.card.cost <= n],
-                key=lambda c: -_opp_value(c),
-            )
+            cands = [c for c in opp.characters if c.rested and c.card.cost <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手レストキャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -_opp_value(c))
             return cands[:1]
 
         # one_opponent_character_power_le_N (パワー N 以下、1 体)
         m = re.match(r"one_opponent_character_power_le_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.power <= n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in opp.characters if c.power <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (パワー≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_opponent_character_power_eq_N (パワー N ぴったり、 1 体)。
@@ -1248,10 +1285,13 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_power_eq_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.card.power == n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in opp.characters if c.card.power == n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (元々のパワー={n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_opponent_character_attached_don_ge_N (= 相手のドン N 枚以上付与キャラ、 1 体)
@@ -1259,20 +1299,26 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_attached_don_ge_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.attached_dons >= n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in opp.characters if c.attached_dons >= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (付与ドン≥{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_self_character_cost_le_N (= 自分のキャラ コスト N 以下、 1 体, power 最大)
         m = re.match(r"one_self_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in me.characters if c.card.cost <= n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in me.characters if c.card.cost <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自キャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_self_chara_no_on_play_cost_le_N (= 自分のキャラ コスト N 以下 で 【登場時】 効果を
@@ -1289,33 +1335,42 @@ def _resolve_target(
                     return False
                 return any(e.get("when") == "on_play" for e in bundle.effects)
 
-            cands = sorted(
-                [
-                    c for c in me.characters
-                    if c.card.cost <= n and not _has_on_play(c.card)
-                ],
-                key=lambda c: -c.power,
-            )
+            cands = [
+                c for c in me.characters
+                if c.card.cost <= n and not _has_on_play(c.card)
+            ]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自キャラ から 1 枚 選択 (コスト≤{n}, 登場時効果なし)",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_opponent_rested_character_power_le_N (レスト + パワー N 以下)
         m = re.match(r"one_opponent_rested_character_power_le_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.rested and c.power <= n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in opp.characters if c.rested and c.power <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手レストキャラ から 1 枚 選択 (パワー≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_opponent_character_cost_eq_N / cost_0 等 (= ぴったり N コスト)
         m = re.match(r"one_opponent_character_cost_(?:eq_)?(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.card.cost == n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in opp.characters if c.card.cost == n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (コスト={n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # all_opponent_rested_characters_le_Ncost
@@ -1328,20 +1383,26 @@ def _resolve_target(
         m = re.match(r"one_self_character_le_(\d+)cost$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in me.characters if c.card.cost <= n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in me.characters if c.card.cost <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自キャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # one_self_character_cost_eq_N (= 自分の cost N ぴったりキャラ 1 枚)
         m = re.match(r"one_self_character_cost_eq_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in me.characters if c.card.cost == n],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in me.characters if c.card.cost == n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自キャラ から 1 枚 選択 (コスト={n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # any_opp_inplay_n_N (= 相手のリーダーかキャラ 合計 N 枚まで)
@@ -1349,20 +1410,29 @@ def _resolve_target(
         m = re.match(r"any_opp_inplay_n_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(opp.characters, key=lambda c: -c.power)
-            # キャラ N 体未満なら リーダーで補う (= 全ての可能対象を返す)
-            if len(cands) < n:
-                cands = list(cands) + [opp.leader]
-            return cands[:n]
+            cands = [opp.leader] + list(opp.characters)
+            if outer_kind and len(cands) > n and _maybe_request_target_pick(
+                state, cands, n, outer_kind, outer_value, self_inplay,
+                description=f"相手リーダー or キャラ から {n} 枚 まで 選択",
+            ):
+                return []
+            # AI: chara 優先、 N 体未満ならリーダー補充
+            sorted_chara = sorted(opp.characters, key=lambda c: -c.power)
+            if len(sorted_chara) < n:
+                sorted_chara = list(sorted_chara) + [opp.leader]
+            return sorted_chara[:n]
 
         # any_opp_rested_chara_n_N (= 相手のレストのキャラ N 体まで)
         m = re.match(r"any_opp_rested_chara_n_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
-                [c for c in opp.characters if c.rested],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in opp.characters if c.rested]
+            if outer_kind and len(cands) > n and _maybe_request_target_pick(
+                state, cands, n, outer_kind, outer_value, self_inplay,
+                description=f"相手レストキャラ から {n} 枚 まで 選択",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:n]
 
         # one_self_character_named_X (名前一致セレクタ。 X は 「エネル」 等)
@@ -1370,6 +1440,11 @@ def _resolve_target(
         if m:
             target_name = m.group(1)
             cands = [c for c in me.characters if c.card.name == target_name]
+            if outer_kind and len(cands) > 1 and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自キャラ から 1 枚 選択 ({target_name})",
+            ):
+                return []
             return cands[:1]
 
         # all_self_characters_named_X (名前一致全員)
@@ -1383,10 +1458,13 @@ def _resolve_target(
         m = re.match(r"one_self_character_feature_(.+)$", target_spec)
         if m:
             feat = m.group(1)
-            cands = sorted(
-                [c for c in me.characters if feat in c.card.features],
-                key=lambda c: -c.power,
-            )
+            cands = [c for c in me.characters if feat in c.card.features]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自キャラ から 1 枚 選択 (特徴《{feat}》)",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # all_self_characters_feature_X (= 自分の特徴 X を持つキャラ 全員)
@@ -1402,6 +1480,11 @@ def _resolve_target(
             feat = m.group(1)
             cands = [me.leader] + list(me.characters)
             cands = [c for c in cands if feat in c.card.features]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"自リーダー or キャラ から 1 枚 選択 (特徴《{feat}》)",
+            ):
+                return []
             cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
@@ -1417,26 +1500,50 @@ def _resolve_target(
         m = re.match(r"one_opponent_inplay_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = sorted(
+            cands = [opp.leader] + [c for c in opp.characters if c.card.cost <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手リーダー or キャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            sorted_chara = sorted(
                 [c for c in opp.characters if c.card.cost <= n],
                 key=lambda c: -c.power,
             )
-            if cands:
-                return cands[:1]
+            if sorted_chara:
+                return sorted_chara[:1]
             return [opp.leader]
 
         # one_self_character_any (= 自分の任意 1 体、 パワー高い順)
         if target_spec == "one_self_character_any":
-            cands = sorted(me.characters, key=lambda c: -c.power)
+            cands = list(me.characters)
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="自キャラ から 1 枚 選択",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # other_self_chara (= self 以外の自キャラ 1 体)
         if target_spec == "other_self_chara":
             cands = [c for c in me.characters if c is not self_inplay]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="自キャラ から 1 枚 選択 (このキャラ以外)",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
             return cands[:1]
 
         # self_inplay_choice (= 自リーダーまたはキャラ 1 体、 リーダー優先)
         if target_spec == "self_inplay_choice":
+            cands = [me.leader] + list(me.characters)
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="自リーダー or キャラ から 1 枚 選択",
+            ):
+                return []
             return [me.leader]
 
     return []
@@ -1688,8 +1795,39 @@ def execute_effect(
                 or (isinstance(v, dict) and v.get("type") == "one_opp_chara_or_don")
             )
             if is_chara_or_don:
-                # AI 優先順位: 相手アクティブキャラ (最も脅威) > opp.don_active > opp.don_rested (= 無意味だが順序保持)。
+                # _iid_picks 注入 (= 人間 modal 解決後 の 再実行 path)
+                iid_picks = None
+                if isinstance(v, dict) and "_iid_picks" in v:
+                    iid_picks = v["_iid_picks"]
                 active_charas = [c for c in opp.characters if not c.rested and not c.cannot_be_rested_buff]
+                # 人間 acting + active chara 候補あり (= 複数 chara or chara + DON 両方 可能)
+                # → chara から 選ばせる modal を 出す。
+                # 選ばない (= 空 picks) なら DON 側 へ fallback。
+                if iid_picks is None and active_charas and (opp.don_active > 0 or len(active_charas) > 1):
+                    if _maybe_request_target_pick(
+                        state, active_charas, 1, "rest",
+                        {"type": "one_opp_chara_or_don"}, self_inplay,
+                        description="相手キャラ から 1 枚 レスト (skip で 相手ドン 1 枚 レスト)",
+                    ):
+                        return False
+                # 解決 path: iid_picks が 与えられ かつ 中身あり → そのキャラ を レスト
+                if iid_picks is not None and iid_picks:
+                    target = next((c for c in active_charas if c.instance_id in iid_picks), None)
+                    if target is not None:
+                        target.rested = True
+                        state.push_log(f"  効果: レスト → 相手キャラ {target.card.name}")
+                        return True
+                    # iid mismatch (= 不正 pick) は fallthrough
+                # 解決 path: iid_picks が 空 list → DON 側 で 処理 (= human 「キャラ pick せず」)
+                if iid_picks is not None and not iid_picks:
+                    if opp.don_active > 0:
+                        opp.don_active -= 1
+                        opp.don_rested += 1
+                        state.push_log(f"  効果: レスト → 相手アクティブドン 1 枚")
+                        return True
+                    state.push_log(f"  効果: レスト → 対象なし (不発)")
+                    return False
+                # AI 優先順位: 相手アクティブキャラ (最も脅威) > opp.don_active > opp.don_rested
                 active_charas.sort(key=lambda ip: -ip.power)
                 if active_charas:
                     target = active_charas[0]
@@ -1760,13 +1898,25 @@ def execute_effect(
                 state.push_log(f"  効果: レスト → 対象なし (不発)")
         elif k == "rest_self_cards":
             # 自分のリーダー/キャラから N 枚をレスト。 AI 簡易: アクティブの中から power 低い順。
-            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            # 人間 acting + 候補 > N なら modal で 選ばせる。
+            spec_val = v if isinstance(v, dict) else {"count": int(v)}
+            n = int(spec_val.get("count", 1))
+            iid_picks = spec_val.get("_iid_picks") if isinstance(v, dict) else None
             actives = [me.leader] + list(me.characters)
             actives = [ip for ip in actives if not ip.rested]
-            actives.sort(key=lambda ip: ip.power)
-            for ip in actives[:n]:
+            if iid_picks is not None:
+                chosen = [ip for ip in actives if ip.instance_id in iid_picks][:n]
+            else:
+                if len(actives) > n and _maybe_request_target_pick(
+                    state, actives, n, "rest_self_cards", v, self_inplay,
+                    description=f"自リーダー or キャラ から {n} 枚 を レスト",
+                ):
+                    return False
+                actives.sort(key=lambda ip: ip.power)
+                chosen = actives[:n]
+            for ip in chosen:
                 ip.rested = True
-            state.push_log(f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in actives[:n]]}")
+            state.push_log(f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in chosen]}")
         elif k == "return_to_hand":
             targets = _resolve_target(
                 v, state, me, opp, self_inplay,
@@ -3328,21 +3478,35 @@ def execute_effect(
             spec_val = v if isinstance(v, dict) else {}
             don_ge = int(spec_val.get("don_ge", 1))
             limit = int(spec_val.get("limit", 1))
+            iid_picks = spec_val.get("_iid_picks")
             cands = [c for c in opp.characters if c.rested and c.attached_dons >= don_ge]
-            cands.sort(key=lambda c: -c.power)
-            for t in cands[:limit]:
+            if iid_picks is not None:
+                chosen = [c for c in cands if c.instance_id in iid_picks][:limit]
+            elif len(cands) > limit and _maybe_request_target_pick(
+                state, cands, limit, "keep_opp_rested_chara_with_don_ge_next_refresh",
+                v, self_inplay,
+                description=f"相手 ドン≥{don_ge} 付与 レストキャラ {limit} 枚 まで 選択",
+            ):
+                return False
+            else:
+                cands.sort(key=lambda c: -c.power)
+                chosen = cands[:limit]
+            for t in chosen:
                 t.stay_rested_next_refresh = True
             state.push_log(
                 f"  効果: 相手 ドン{don_ge}+付与レストキャラ stay_rested → "
-                f"{[t.card.name for t in cands[:limit]]}"
+                f"{[t.card.name for t in chosen]}"
             )
         elif k == "transfer_attached_don_to_feature":
             # 「自分の付与されているドン!! N 枚までを、 自分の特徴 X を持つキャラ 1 枚に
             # 付与する」 (EB02-009 アンナ等)。
             # spec: {"feature": "麦わらの一味", "count": 1}
+            # 人間 acting + target 複数 候補 なら 移動先 を modal で 選ばせる。
+            # source (= 付与ドン取り外し元) は 簡易: power 低い順 で 自動 (= 1 ターン内 で 影響軽微)。
             spec_val = v if isinstance(v, dict) else {}
             feature = spec_val.get("feature", "")
             count = int(spec_val.get("count", 1))
+            target_iid_picks = spec_val.get("_iid_picks")
             # 取り出し元: leader と キャラ から attached_dons > 0
             sources = [
                 ip for ip in [me.leader, *me.characters]
@@ -3356,11 +3520,25 @@ def execute_effect(
             ]
             if not targets:
                 return False
-            # AI 簡易: source は power 低い順 (= 弱いキャラから剥がす)、 target は power 高い順
+            # AI 簡易: source は power 低い順 (= 弱いキャラから剥がす)
             sources.sort(key=lambda ip: ip.power)
-            targets.sort(key=lambda ip: -ip.power)
             source = sources[0]
-            target = targets[0]
+            # 移動先 modal (= 人間 + 候補 > 1)
+            if target_iid_picks is not None:
+                target = next(
+                    (c for c in targets if c.instance_id in target_iid_picks), None,
+                )
+                if target is None:
+                    return False
+            elif len(targets) > 1 and _maybe_request_target_pick(
+                state, targets, 1, "transfer_attached_don_to_feature",
+                v, self_inplay,
+                description=f"付与ドン 移動先 (特徴《{feature}》) を 選択",
+            ):
+                return False
+            else:
+                targets.sort(key=lambda ip: -ip.power)
+                target = targets[0]
             take = min(count, source.attached_dons)
             source.attached_dons -= take
             target.attached_dons += take
@@ -3399,6 +3577,8 @@ def execute_effect(
             # アクティブにならない」 OP07-059 フォクシー等。
             spec_val = v if isinstance(v, dict) else {}
             target_spec = spec_val.get("target_rest", "one_opp_chara_or_leader")
+            limit = int(spec_val.get("limit", 1))
+            iid_picks = spec_val.get("_iid_picks")
             # target_rest は「one_opp_chara_or_leader」 想定。 シンプル: opp.leader + chara から rested 1 枚
             cands = []
             if opp.leader.rested:
@@ -3406,10 +3586,22 @@ def execute_effect(
             for c in opp.characters:
                 if c.rested:
                     cands.append(c)
-            if cands:
+            if not cands:
+                return False
+            if iid_picks is not None:
+                chosen = [c for c in cands if c.instance_id in iid_picks][:limit]
+            elif len(cands) > limit and _maybe_request_target_pick(
+                state, cands, limit, "keep_opp_rested_inplay_next_refresh",
+                v, self_inplay,
+                description=f"相手 レスト リーダー or キャラ {limit} 枚 まで 選択",
+            ):
+                return False
+            else:
                 cands.sort(key=lambda ip: -ip.power)
-                cands[0].stay_rested_next_refresh = True
-                state.push_log(f"  効果: {cands[0].card.name} stay_rested")
+                chosen = cands[:limit]
+            for c in chosen:
+                c.stay_rested_next_refresh = True
+            state.push_log(f"  効果: stay_rested → {[c.card.name for c in chosen]}")
         elif k == "to_hand_self_trigger":
             # 公式: 「このカードを手札に加える」 (ST09-002 雨月天ぷら等の trigger 内)。
             # state にフラグを立て、 game.py の AttackLeader/Character 処理が trash の代わりに hand に置く。
@@ -3434,9 +3626,11 @@ def execute_effect(
         elif k == "rest_self_cards_filtered":
             # 公式: 「自分の (filter) カード N 枚をレストにできる」 (cost 用簡略 primitive)。
             # spec: {"count": 2, "filter": {...}}
+            # 人間 acting + 候補 > N なら modal で 選ばせる。
             spec_val = v if isinstance(v, dict) else {"count": int(v)}
             count = int(spec_val.get("count", 1))
             filt = spec_val.get("filter", {})
+            iid_picks = spec_val.get("_iid_picks")
             cands = [
                 ip for ip in [me.leader, *me.characters, *me.stages]
                 if not ip.rested and _matches_filter(ip.card, filt)
@@ -3444,11 +3638,20 @@ def execute_effect(
             if len(cands) < count:
                 state.push_log(f"  効果: レスト不能 (active 不足)")
                 return False
-            cands.sort(key=lambda ip: ip.power)
-            for ip in cands[:count]:
+            if iid_picks is not None:
+                chosen = [ip for ip in cands if ip.instance_id in iid_picks][:count]
+            else:
+                if len(cands) > count and _maybe_request_target_pick(
+                    state, cands, count, "rest_self_cards_filtered", v, self_inplay,
+                    description=f"自カード から {count} 枚 を レスト",
+                ):
+                    return False
+                cands.sort(key=lambda ip: ip.power)
+                chosen = cands[:count]
+            for ip in chosen:
                 ip.rested = True
             state.push_log(
-                f"  効果: 自カード {count}枚レスト → {[ip.card.name for ip in cands[:count]]}"
+                f"  効果: 自カード {count}枚レスト → {[ip.card.name for ip in chosen]}"
             )
         elif k == "chara_to_opp_life":
             # 公式: 「相手のキャラ1枚までを、 相手のライフの上か下に表向きで置く」 EB01-053 等。
