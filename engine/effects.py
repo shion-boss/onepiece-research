@@ -2461,21 +2461,80 @@ def execute_effect(
             #        "limit": 1, "rested": bool, "unique_name": false}
             # play_multi_from_trash は alias (= 公式 「~まで」 N 枚指定の意図を明示)。
             # unique_name=true で カード名が重複しないように複数体登場 (OP06-062 ジャッジ)。
+            # 人間 acting + 候補 > limit なら modal で 選ばせる。
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
             filt = spec.get("filter", {})
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             unique_name = bool(spec.get("unique_name", False))
+            picks_idx: Optional[list[int]] = None
+            if isinstance(v, dict) and "_picks_idx" in v:
+                picks_idx = list(v["_picks_idx"])
+            # 候補 抽出 (= trash idx + CardDef)
+            candidates: list[tuple[int, CardDef]] = [
+                (i, c) for i, c in enumerate(me.trash)
+                if c.category == Category.CHARACTER and _matches_filter(c, filt)
+            ]
+            # 人間 acting + 候補 > limit + picks 未指定 → modal
+            if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
+                cand_list = [
+                    {
+                        "trash_idx": i,
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": int(c.power) if c.power is not None else 0,
+                    }
+                    for i, c in candidates
+                ]
+                state.pending_choice = {
+                    "kind": "play_from_trash_pick",
+                    "primitive_value": v,
+                    "candidates": cand_list,
+                    "limit": limit,
+                    "rested": rested,
+                    "filter_desc": _describe_filter_jp(filt),
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: トラッシュ から 登場 候補 {len(candidates)} 枚 → 人間 選択 待ち (= {limit} 枚 まで)"
+                )
+                return True
+            # picks 解決 path: 指定 trash idx を 順 に 登場 (= 後ろ から で trash 削除 安全)
+            if picks_idx is not None:
+                if not picks_idx:
+                    state.push_log("  効果: トラッシュ から 登場 0 枚 選択 (= skip)")
+                    return False
+                # 後ろ から 取り出し で index ずれ 防止
+                chosen_indexes = sorted(
+                    [i for i in picks_idx if 0 <= i < len(me.trash)],
+                    reverse=True,
+                )
+                played_count = 0
+                for i in chosen_indexes[:limit]:
+                    card = me.trash[i]
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state)
+                    me.trash.pop(i)
+                    ip = InPlay.of(card, rested=rested, sickness=True)
+                    me.characters.append(ip)
+                    played_count += 1
+                    label = "レストで" if rested else ""
+                    state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                if played_count == 0:
+                    return False
+                continue
+            # AI / 候補 <= limit: 既存 挙動 (= 先頭 から filter 一致 を 登場)
             found = 0
             seen_names: set[str] = set()
             new_trash = []
             for card in me.trash:
                 if found < limit and card.category == Category.CHARACTER and _matches_filter(card, filt):
                     if unique_name and card.name in seen_names:
-                        # name 重複: 登場させずトラッシュに残す
                         new_trash.append(card)
                         continue
-                    # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state)
                     ip = InPlay.of(card, rested=rested, sickness=True)
@@ -4968,6 +5027,35 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "play_from_trash_pick":
+        # picks: candidates[] の index list → trash_idx へ。 空 = skip。
+        candidates = choice.get("candidates", [])
+        primitive_value = choice.get("primitive_value") or {}
+        source_iid = choice.get("source_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        trash_idxs = [int(candidates[i]["trash_idx"]) for i in valid_picks]
+        state.pending_choice = None
+        if not trash_idxs:
+            state.push_log("  効果: play_from_trash 0 枚 選択 (= skip)")
+            return
+        if isinstance(primitive_value, dict):
+            new_spec = dict(primitive_value)
+        else:
+            new_spec = {}
+        new_spec["_picks_idx"] = trash_idxs
+        state.push_log(
+            f"  効果: 人間選択 → トラッシュ から 登場 {len(trash_idxs)} 枚"
+        )
+        execute_effect({"play_from_trash": new_spec}, state, me, opp, self_inplay)
         return
 
     if kind in ("play_from_hand_pick", "hand_to_life_pick", "play_event_from_hand_pick"):

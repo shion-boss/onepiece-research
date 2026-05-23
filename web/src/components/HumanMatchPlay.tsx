@@ -1704,6 +1704,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "play_from_trash_pick" ? (
+          <PlayFromTrashPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "mulligan_confirm" ? (
           // 「先攻/後攻」 banner 完了 を 待ってから 表示 (= 順序 制御)
           initialBannerDone ? (
@@ -3898,6 +3905,142 @@ function PlayFromHandPickModal({
             }}
             disabled={busy || picked.length === 0}
             className="ml-2 rounded bg-purple-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-purple-400 disabled:opacity-50"
+          >
+            確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// PlayFromTrashPickModal: 「自分のトラッシュ から filter 該当 キャラ を N 枚 まで 登場」
+// (= play_from_trash / play_multi_from_trash 81 cards、 黒クロコ等)。
+// ========================================================================== //
+
+function PlayFromTrashPickModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const candidates =
+    (payload.candidates as
+      | {
+          trash_idx: number;
+          card_id: string;
+          name: string;
+          cost: number;
+          power: number;
+        }[]
+      | undefined) ?? [];
+  const limit = Number(payload.limit ?? 1);
+  const filterDesc = String(payload.filter_desc ?? "");
+  const rested = !!payload.rested;
+  const [picked, setPicked] = useState<number[]>([]);
+
+  function togglePick(idx: number) {
+    if (picked.includes(idx)) {
+      setPicked(picked.filter((x) => x !== idx));
+      return;
+    }
+    if (picked.length < limit) {
+      setPicked([...picked, idx]);
+      return;
+    }
+    if (limit === 1) {
+      setPicked([idx]);
+    } else {
+      setPicked([...picked.slice(1), idx]);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-orange-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-orange-200">
+            トラッシュ から 登場 (= {filterDesc || "filter 該当"}、 {limit} 枚 まで{rested ? " / レスト" : ""})
+          </h3>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {picked.length} / {limit}
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {candidates.length === 0 ? (
+            <span className="text-zinc-400">該当 トラッシュ なし</span>
+          ) : (
+            candidates.map((c, idx) => {
+              const isSelected = picked.includes(idx);
+              return (
+                <button
+                  key={`${c.trash_idx}-${c.card_id}-${idx}`}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePick(idx);
+                  }}
+                  onMouseEnter={() =>
+                    onHover({ kind: "hand", cardId: c.card_id })
+                  }
+                  onMouseLeave={() => onHover(null)}
+                  className={
+                    "relative rounded transition " +
+                    (isSelected
+                      ? "ring-4 ring-amber-400 -translate-y-2"
+                      : "ring-2 ring-orange-400 hover:ring-orange-300")
+                  }
+                  title={`${c.name} (cost=${c.cost}, P=${c.power})`}
+                >
+                  <CardImage
+                    cardId={c.card_id}
+                    alt={c.name}
+                    className="h-56 w-auto rounded shadow-xl"
+                  />
+                  <span className="absolute top-0 left-0 rounded-br bg-orange-600 px-1.5 text-xs font-bold text-white">
+                    c{c.cost}
+                  </span>
+                  <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1.5 text-xs font-bold text-white">
+                    P{c.power}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            候補をクリックして 選択 (最大 {limit} 枚)。 0 枚 でも 「skip」 で 確定可。
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([]);
+            }}
+            disabled={busy}
+            className="rounded border border-zinc-500 bg-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
+          >
+            skip (0 枚)
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(picked);
+            }}
+            disabled={busy || picked.length === 0}
+            className="ml-2 rounded bg-orange-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-orange-400 disabled:opacity-50"
           >
             確定 ({picked.length}枚)
           </button>
