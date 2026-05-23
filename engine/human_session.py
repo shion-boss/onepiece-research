@@ -125,15 +125,22 @@ class HumanAI:
         for i, c in enumerate(defender.hand):
             counter_val = int(c.counter) if (c.counter and c.counter > 0) else 0
             is_counter_event = False
-            # EVENT カード で when:"counter" 効果 + DON cost 払える なら counter event 候補
+            # EVENT カード で when:"counter" 効果 + DON cost 払える なら counter event 候補。
+            # overlay.get() は CardEffectBundle オブジェクト を 返す (= 旧 isinstance list で
+            # 常 False の bug、 2026-05-23 修正)。 .effects 属性 を 走査。
             if str(getattr(c, "category", "")).endswith("EVENT"):
-                eff_bundle = overlay.get(c.card_id) or []
-                if isinstance(eff_bundle, list):
-                    for e in eff_bundle:
-                        if isinstance(e, dict) and e.get("when") == "counter":
-                            if c.cost <= don_avail:
-                                is_counter_event = True
-                            break
+                eff_bundle = overlay.get(c.card_id)
+                effects_list = []
+                if eff_bundle is not None:
+                    if hasattr(eff_bundle, "effects"):
+                        effects_list = eff_bundle.effects
+                    elif isinstance(eff_bundle, list):
+                        effects_list = eff_bundle
+                for e in effects_list:
+                    if isinstance(e, dict) and e.get("when") == "counter":
+                        if c.cost <= don_avail:
+                            is_counter_event = True
+                        break
             if counter_val > 0 or is_counter_event:
                 counter_idxs.append(i)
                 # counter event のみ (= 数値なし) は表示用に 0 で記録
