@@ -1711,6 +1711,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "summon_from_deck_pick" ? (
+          <PlayFromTrashPickModal
+            payload={{ ...state.pending_payload, _source_zone: "deck" }}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "mulligan_confirm" ? (
           // 「先攻/後攻」 banner 完了 を 待ってから 表示 (= 順序 制御)
           initialBannerDone ? (
@@ -3930,10 +3937,13 @@ function PlayFromTrashPickModal({
   onHover: (h: HoverInfo) => void;
   busy: boolean;
 }) {
+  // source_zone: "trash" (default) または "deck" (= summon_from_deck_pick)
+  const sourceZone = String((payload as { _source_zone?: string })._source_zone ?? "trash");
   const candidates =
     (payload.candidates as
       | {
-          trash_idx: number;
+          trash_idx?: number;
+          deck_idx?: number;
           card_id: string;
           name: string;
           cost: number;
@@ -3970,7 +3980,7 @@ function PlayFromTrashPickModal({
       <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-orange-400 bg-zinc-900 p-4 shadow-2xl">
         <div className="mb-3 flex items-baseline gap-3">
           <h3 className="text-lg font-bold text-orange-200">
-            トラッシュ から 登場 (= {filterDesc || "filter 該当"}、 {limit} 枚 まで{rested ? " / レスト" : ""})
+            {sourceZone === "deck" ? "デッキ" : "トラッシュ"} から 登場 (= {filterDesc || "filter 該当"}、 {limit} 枚 まで{rested ? " / レスト" : ""})
           </h3>
           <span className="ml-auto text-sm font-bold text-emerald-300">
             選択 {picked.length} / {limit}
@@ -3978,13 +3988,14 @@ function PlayFromTrashPickModal({
         </div>
         <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
           {candidates.length === 0 ? (
-            <span className="text-zinc-400">該当 トラッシュ なし</span>
+            <span className="text-zinc-400">該当 {sourceZone === "deck" ? "デッキ" : "トラッシュ"} なし</span>
           ) : (
             candidates.map((c, idx) => {
               const isSelected = picked.includes(idx);
+              const cardIdx = c.trash_idx ?? c.deck_idx ?? idx;
               return (
                 <button
-                  key={`${c.trash_idx}-${c.card_id}-${idx}`}
+                  key={`${cardIdx}-${c.card_id}-${idx}`}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();

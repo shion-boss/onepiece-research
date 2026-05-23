@@ -2015,11 +2015,73 @@ def execute_effect(
             # デッキから filter 一致のキャラを 1 枚場に登場 (search の "場へ" 版)。
             # OP11-022 緑黄しらほし起動メイン (海王類/メガロをデッキから登場) 等。
             # spec: {"filter": {...}, "limit": 1, "rested": false, "sickness": true}
+            # 公式 search 系 で 「持ち主だけ デッキを 見る」 ので 人間 acting で 候補 > limit
+            # なら modal で 選ばせる (= deck 検索 効果 は 隠匿情報 流出 OK の 公式 例外)。
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             sickness = bool(spec.get("sickness", True))
+            picks_idx: Optional[list[int]] = None
+            if isinstance(v, dict) and "_picks_idx" in v:
+                picks_idx = list(v["_picks_idx"])
+            # 候補 抽出 (deck index + CardDef)
+            candidates: list[tuple[int, CardDef]] = [
+                (i, c) for i, c in enumerate(me.deck)
+                if c.category == Category.CHARACTER and _matches_filter(c, filt)
+            ]
+            if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
+                cand_list = [
+                    {
+                        "deck_idx": i,
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": int(c.power) if c.power is not None else 0,
+                    }
+                    for i, c in candidates
+                ]
+                state.pending_choice = {
+                    "kind": "summon_from_deck_pick",
+                    "primitive_value": v,
+                    "candidates": cand_list,
+                    "limit": limit,
+                    "rested": rested,
+                    "filter_desc": _describe_filter_jp(filt),
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: デッキ から 登場 候補 {len(candidates)} 枚 → 人間 選択 待ち (= {limit} 枚 まで)"
+                )
+                return True
+            # picks 解決 path
+            if picks_idx is not None:
+                if not picks_idx:
+                    state.push_log("  効果: デッキ 登場 0 枚 選択 (= skip)")
+                    # 検索 後 は シャッフル (= 公式 8-7-3-3)
+                    state.rng.shuffle(me.deck)
+                    return False
+                chosen_indexes = sorted(
+                    [i for i in picks_idx if 0 <= i < len(me.deck)],
+                    reverse=True,
+                )
+                played_count = 0
+                for i in chosen_indexes[:limit]:
+                    card = me.deck[i]
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state)
+                    me.deck.pop(i)
+                    ip = InPlay.of(card, rested=rested, sickness=sickness)
+                    me.characters.append(ip)
+                    played_count += 1
+                    state.push_log(f"  効果: デッキから登場 → {card.name}")
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                state.rng.shuffle(me.deck)
+                if played_count == 0:
+                    return False
+                continue
+            # AI / 候補 <= limit: 既存 挙動 (= 先頭 から filter 一致 を 登場)
             found = 0
             picked: list[CardDef] = []
             remaining: list[CardDef] = []
@@ -2029,7 +2091,6 @@ def execute_effect(
                     and c.category == Category.CHARACTER
                     and _matches_filter(c, filt)
                 ):
-                    # 公式 3-7-6-1: 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state)
                     ip = InPlay.of(c, rested=rested, sickness=sickness)
@@ -2042,7 +2103,6 @@ def execute_effect(
                 else:
                     remaining.append(c)
             me.deck = remaining
-            # サーチ後はシャッフル (公式 8-7-3-3)
             state.rng.shuffle(me.deck)
             if not picked:
                 state.push_log(f"  効果: デッキ登場 (該当なし)")
@@ -5029,8 +5089,8 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
         return
 
-    if kind == "play_from_trash_pick":
-        # picks: candidates[] の index list → trash_idx へ。 空 = skip。
+    if kind in ("play_from_trash_pick", "summon_from_deck_pick"):
+        # picks: candidates[] の index list → trash_idx / deck_idx へ。 空 = skip。
         candidates = choice.get("candidates", [])
         primitive_value = choice.get("primitive_value") or {}
         source_iid = choice.get("source_iid")
@@ -5042,20 +5102,27 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
                     self_inplay = ip
                     break
         valid_picks = [i for i in picks if 0 <= i < len(candidates)]
-        trash_idxs = [int(candidates[i]["trash_idx"]) for i in valid_picks]
+        if kind == "play_from_trash_pick":
+            zone_idxs = [int(candidates[i]["trash_idx"]) for i in valid_picks]
+            target_primitive = "play_from_trash"
+            zone_label = "トラッシュ"
+        else:
+            zone_idxs = [int(candidates[i]["deck_idx"]) for i in valid_picks]
+            target_primitive = "summon_from_deck"
+            zone_label = "デッキ"
         state.pending_choice = None
-        if not trash_idxs:
-            state.push_log("  効果: play_from_trash 0 枚 選択 (= skip)")
+        if not zone_idxs:
+            state.push_log(f"  効果: {target_primitive} 0 枚 選択 (= skip)")
             return
         if isinstance(primitive_value, dict):
             new_spec = dict(primitive_value)
         else:
             new_spec = {}
-        new_spec["_picks_idx"] = trash_idxs
+        new_spec["_picks_idx"] = zone_idxs
         state.push_log(
-            f"  効果: 人間選択 → トラッシュ から 登場 {len(trash_idxs)} 枚"
+            f"  効果: 人間選択 → {zone_label} から 登場 {len(zone_idxs)} 枚"
         )
-        execute_effect({"play_from_trash": new_spec}, state, me, opp, self_inplay)
+        execute_effect({target_primitive: new_spec}, state, me, opp, self_inplay)
         return
 
     if kind in ("play_from_hand_pick", "hand_to_life_pick", "play_event_from_hand_pick"):
