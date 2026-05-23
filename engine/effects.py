@@ -849,6 +849,36 @@ def _should_human_pick(state: GameState) -> bool:  # noqa: F811
     )
 
 
+def _describe_filter_jp(filt: dict) -> str:
+    """filter spec を 日本語 短文 で 記述 (= UI 説明用)。"""
+    parts: list[str] = []
+    if not isinstance(filt, dict):
+        return ""
+    if "cost_le" in filt:
+        parts.append(f"コスト{filt['cost_le']}以下")
+    if "cost_ge" in filt:
+        parts.append(f"コスト{filt['cost_ge']}以上")
+    if "power_le" in filt:
+        parts.append(f"パワー{filt['power_le']}以下")
+    if "power_ge" in filt:
+        parts.append(f"パワー{filt['power_ge']}以上")
+    if "feature" in filt:
+        parts.append(f"特徴《{filt['feature']}》")
+    if "feature_any" in filt:
+        feats = filt["feature_any"]
+        if isinstance(feats, list):
+            parts.append(f"特徴《{'/'.join(feats)}》")
+    if "color" in filt:
+        parts.append(f"{filt['color']}")
+    if "name" in filt:
+        parts.append(f"「{filt['name']}」")
+    if "name_in" in filt:
+        names = filt["name_in"]
+        if isinstance(names, list):
+            parts.append(f"「{', '.join(names[:3])}」")
+    return " ".join(parts) if parts else ""
+
+
 def _maybe_request_target_pick(
     state: GameState,
     candidates: list,
@@ -2267,30 +2297,78 @@ def execute_effect(
                     new_trash.append(card)
             me.trash[:] = new_trash
         elif k == "play_from_hand":
-            # 「自分の手札からキャラ1枚を 0 コストで登場」(緑紫ルフィ起動メイン等)。
+            # 「自分の手札からキャラ1枚を 0 コストで登場」(緑紫ルフィ起動メイン / OP10-071 ドフラ 等)。
             # spec: {"filter": {"feature": "...", "cost_le": N}, "limit": 1, "rested": bool}
             # 通常の PlayCharacter と異なり、 コスト無視 (= 効果代替の登場)。
+            # 人間 acting + 複数候補 + 0 < limit < 候補数 なら modal 選択 (= 2026-05-23 修正、
+            # ohtsuki さん 指摘: OP10-071 ドフラ 登場時 で 勝手 に 選ばれる)。
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
             filt = spec.get("filter", {})
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
-            found = 0
-            new_hand = []
-            for card in me.hand:
-                if found < limit and card.category == Category.CHARACTER and _matches_filter(card, filt):
-                    # 5 枚埋まり時は最弱 1 枚 trash で空き枠を作る (3-7-6-1)
+            # 既 解決 picks (= resolve_pending_choice 経由) の場合 は直接実行
+            picks_idx: Optional[list[int]] = None
+            if isinstance(v, dict) and "_picks_idx" in v:
+                picks_idx = list(v["_picks_idx"])
+            # 候補抽出
+            candidates: list[tuple[int, CardDef]] = []
+            for i, card in enumerate(me.hand):
+                if card.category != Category.CHARACTER:
+                    continue
+                if not _matches_filter(card, filt):
+                    continue
+                candidates.append((i, card))
+            if not candidates:
+                state.push_log(f"  効果: play_from_hand 該当 手札 なし (不発)")
+            else:
+                # 人間 acting + 候補 > limit + picks 未指定 → modal で選択 (= 0 picks 含む)
+                if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
+                    cand_list = [
+                        {
+                            "hand_idx": i,
+                            "card_id": c.card_id,
+                            "name": c.name,
+                            "cost": int(c.cost) if c.cost is not None else 0,
+                            "power": int(c.power) if c.power is not None else 0,
+                        }
+                        for i, c in candidates
+                    ]
+                    state.pending_choice = {
+                        "kind": "play_from_hand_pick",
+                        "primitive_value": v,
+                        "candidates": cand_list,
+                        "limit": limit,
+                        "rested": rested,
+                        "filter_desc": _describe_filter_jp(filt),
+                        "source_iid": self_inplay.instance_id if self_inplay else None,
+                    }
+                    state.push_log(
+                        f"  効果: 手札 から 登場 候補 {len(candidates)} 枚 → 人間 選択 待ち (= {limit} 枚 まで)"
+                    )
+                    return True
+                # picks 指定 or AI or 候補 <= limit → 既存挙動
+                if picks_idx is not None:
+                    chosen_indexes = sorted(
+                        [i for i in picks_idx if 0 <= i < len(me.hand)],
+                        reverse=True,
+                    )
+                else:
+                    # ヒューリスティック並び: cost 降順 → power 降順 → name (安定)
+                    candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+                    chosen = candidates[:limit]
+                    chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
+                chosen_cards: list[CardDef] = []
+                for idx in chosen_indexes:
+                    chosen_cards.append(me.hand.pop(idx))
+                for card in chosen_cards:
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state)
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
-                    found += 1
                     label = "レストで" if rested else ""
                     state.push_log(f"  効果: 手札から{label}登場 → {card.name}")
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
-                else:
-                    new_hand.append(card)
-            me.hand[:] = new_hand
         elif k == "play_from_hand_choice":
             # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
             # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
@@ -4596,6 +4674,38 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "play_from_hand_pick":
+        # picks: candidates[] の index list (= 選択 した 手札 候補)。 空 picks = 全 skip。
+        candidates = choice.get("candidates", [])
+        primitive_value = choice.get("primitive_value") or {}
+        source_iid = choice.get("source_iid")
+        # self_inplay 復元
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        # candidates[i]["hand_idx"] → 実 hand idx
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
+        state.pending_choice = None
+        if not hand_idxs:
+            state.push_log("  効果: play_from_hand 0 枚 選択 (= skip)")
+            return
+        # spec に _picks_idx 注入 して 再実行 (= 既 解決 path)
+        if isinstance(primitive_value, dict):
+            new_spec = dict(primitive_value)
+        else:
+            new_spec = {}
+        new_spec["_picks_idx"] = hand_idxs
+        state.push_log(
+            f"  効果: 人間選択 → 手札 から 登場 {len(hand_idxs)} 枚"
+        )
+        execute_effect({"play_from_hand": new_spec}, state, me, opp, self_inplay)
         return
 
     if kind == "life_taken_choice":
