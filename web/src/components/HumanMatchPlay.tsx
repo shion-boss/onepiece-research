@@ -1690,6 +1690,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "hand_to_life_pick" ? (
+          <PlayFromHandPickModal
+            payload={{ ...state.pending_payload, _destination: "life" }}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "play_event_from_hand_pick" ? (
+          <PlayFromHandPickModal
+            payload={{ ...state.pending_payload, _destination: "event" }}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "mulligan_confirm" ? (
           // 「先攻/後攻」 banner 完了 を 待ってから 表示 (= 順序 制御)
           initialBannerDone ? (
@@ -3778,6 +3792,14 @@ function PlayFromHandPickModal({
   const limit = Number(payload.limit ?? 1);
   const filterDesc = String(payload.filter_desc ?? "");
   const rested = !!payload.rested;
+  // destination: "play" (default 登場) / "life" (自ライフへ) / "event" (イベント発動)
+  const destination = String((payload as { _destination?: string })._destination ?? "play");
+  const titleByDest: Record<string, string> = {
+    play: `手札 から 登場 (= ${filterDesc || "filter 該当"}、 ${limit} 枚 まで${rested ? " / レスト" : ""})`,
+    life: `手札 → 自ライフ (= ${filterDesc || "filter 該当"}、 ${limit} 枚 まで)`,
+    event: `手札 イベント 発動 (= ${filterDesc || "filter 該当"}、 1 枚)`,
+  };
+  const title = titleByDest[destination] ?? titleByDest.play;
   const [picked, setPicked] = useState<number[]>([]);
 
   function togglePick(idx: number) {
@@ -3805,7 +3827,7 @@ function PlayFromHandPickModal({
       <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-purple-400 bg-zinc-900 p-4 shadow-2xl">
         <div className="mb-3 flex items-baseline gap-3">
           <h3 className="text-lg font-bold text-purple-200">
-            手札 から 登場 (= {filterDesc || "filter 該当"}、 {limit} 枚 まで{rested ? " / レスト" : ""})
+            {title}
           </h3>
           <span className="ml-auto text-sm font-bold text-emerald-300">
             選択 {picked.length} / {limit}

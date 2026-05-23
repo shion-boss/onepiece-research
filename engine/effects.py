@@ -1953,8 +1953,51 @@ def execute_effect(
             # 手札から filter 一致のイベント1枚を 0 コストで発動 (青紫サンジ起動メイン)。
             # 通常の PlayEvent と異なり「コストを払って発動」の代替 (発動本体は overlay の when:"main" を引き起こす)。
             # spec: {"filter": {"feature": "麦わらの一味", "cost_le": 3}}
+            # 人間 acting + 候補 > 1 なら modal で 選ばせる。
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
+            picks_idx: Optional[list[int]] = None
+            if isinstance(v, dict) and "_picks_idx" in v:
+                picks_idx = list(v["_picks_idx"])
+            candidates: list[tuple[int, CardDef]] = [
+                (i, c) for i, c in enumerate(me.hand)
+                if c.category == Category.EVENT and _matches_filter(c, filt)
+            ]
+            if picks_idx is None and _should_human_pick(state) and len(candidates) > 1:
+                cand_list = [
+                    {
+                        "hand_idx": i,
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": 0,
+                    }
+                    for i, c in candidates
+                ]
+                state.pending_choice = {
+                    "kind": "play_event_from_hand_pick",
+                    "primitive_value": v,
+                    "candidates": cand_list,
+                    "limit": 1,
+                    "filter_desc": _describe_filter_jp(filt),
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: イベント発動 候補 {len(candidates)} 枚 → 人間 選択 待ち"
+                )
+                return True
+            # picks 解決 path: 指定 idx を 1 枚 発動
+            if picks_idx is not None and picks_idx:
+                # 1 枚 のみ 採用 (= limit=1)
+                i = picks_idx[0]
+                if 0 <= i < len(me.hand):
+                    card = me.hand.pop(i)
+                    me.trash.append(card)
+                    state.push_log(f"  効果: イベント発動 → {card.name}")
+                    if state.effects_overlay:
+                        trigger_main_event(state, me, opp, card, state.effects_overlay)
+                    continue
+            # AI: 先頭 一致 を 発動
             for i, card in enumerate(me.hand):
                 if card.category != Category.EVENT:
                     continue
@@ -3924,19 +3967,67 @@ def execute_effect(
         elif k == "hand_to_self_life":
             # 「自分の手札から [filter] カード N 枚までを、 ライフの上に裏向きで加える」。
             # spec: {"filter": {feature/cost_le/...}, "count": 1}
+            # 人間 acting + 候補 > count なら modal で 選ばせる (= 既存 play_from_hand_pick と
+            # 同じ pattern、 destination="life" で UI 区別)。
             spec = v if isinstance(v, dict) else {"filter": {}, "count": int(v) if isinstance(v, int) else 1}
             filt = spec.get("filter", {})
             count = int(spec.get("count", 1))
-            moved = 0
-            new_hand = []
-            for card in me.hand:
-                if moved < count and _matches_filter(card, filt):
+            picks_idx: Optional[list[int]] = None
+            if isinstance(v, dict) and "_picks_idx" in v:
+                picks_idx = list(v["_picks_idx"])
+            # 候補抽出
+            candidates: list[tuple[int, CardDef]] = [
+                (i, c) for i, c in enumerate(me.hand) if _matches_filter(c, filt)
+            ]
+            if picks_idx is None and _should_human_pick(state) and len(candidates) > count:
+                cand_list = [
+                    {
+                        "hand_idx": i,
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": int(c.power) if c.power is not None else 0,
+                    }
+                    for i, c in candidates
+                ]
+                state.pending_choice = {
+                    "kind": "hand_to_life_pick",
+                    "primitive_value": v,
+                    "candidates": cand_list,
+                    "limit": count,
+                    "filter_desc": _describe_filter_jp(filt),
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: 手札 → 自ライフ 候補 {len(candidates)} 枚 → 人間 選択 待ち (= {count} 枚 まで)"
+                )
+                return True
+            # picks 解決 path: 指定 idx を 先に 落とす
+            if picks_idx is not None:
+                chosen_indexes = sorted(
+                    [i for i in picks_idx if 0 <= i < len(me.hand)],
+                    reverse=True,
+                )
+                moved = 0
+                for i in chosen_indexes:
+                    if moved >= count:
+                        break
+                    card = me.hand.pop(i)
                     me.life.append(card)
                     moved += 1
                     state.push_log(f"  効果: {card.name} を自ライフへ")
-                else:
-                    new_hand.append(card)
-            me.hand[:] = new_hand
+            else:
+                # AI / 候補 <= count: 既存 挙動 (= 先頭 から filter 一致 を 移動)
+                moved = 0
+                new_hand = []
+                for card in me.hand:
+                    if moved < count and _matches_filter(card, filt):
+                        me.life.append(card)
+                        moved += 1
+                        state.push_log(f"  効果: {card.name} を自ライフへ")
+                    else:
+                        new_hand.append(card)
+                me.hand[:] = new_hand
         elif k == "negate_effect":
             # 相手のキャラ / リーダー 1 枚 を このターン中、 効果無効化 (簡略実装)。
             # 「効果を発動しなくなる」 → granted_keywords に "効果無効" を追加。
@@ -4879,8 +4970,9 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
         return
 
-    if kind == "play_from_hand_pick":
-        # picks: candidates[] の index list (= 選択 した 手札 候補)。 空 picks = 全 skip。
+    if kind in ("play_from_hand_pick", "hand_to_life_pick", "play_event_from_hand_pick"):
+        # 手札 から 候補 を 選ばせる 3 系統 (= play_from_hand / hand_to_self_life /
+        # play_event_from_hand)。 共通の picks → hand_idx 抽出 + spec 再実行 path。
         candidates = choice.get("candidates", [])
         primitive_value = choice.get("primitive_value") or {}
         source_iid = choice.get("source_iid")
@@ -4896,8 +4988,14 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         # candidates[i]["hand_idx"] → 実 hand idx
         hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
         state.pending_choice = None
+        kind_to_primitive = {
+            "play_from_hand_pick": "play_from_hand",
+            "hand_to_life_pick": "hand_to_self_life",
+            "play_event_from_hand_pick": "play_event_from_hand",
+        }
+        target_primitive = kind_to_primitive[kind]
         if not hand_idxs:
-            state.push_log("  効果: play_from_hand 0 枚 選択 (= skip)")
+            state.push_log(f"  効果: {target_primitive} 0 枚 選択 (= skip)")
             return
         # spec に _picks_idx 注入 して 再実行 (= 既 解決 path)
         if isinstance(primitive_value, dict):
@@ -4906,9 +5004,9 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             new_spec = {}
         new_spec["_picks_idx"] = hand_idxs
         state.push_log(
-            f"  効果: 人間選択 → 手札 から 登場 {len(hand_idxs)} 枚"
+            f"  効果: 人間選択 → {target_primitive} {len(hand_idxs)} 枚"
         )
-        execute_effect({"play_from_hand": new_spec}, state, me, opp, self_inplay)
+        execute_effect({target_primitive: new_spec}, state, me, opp, self_inplay)
         return
 
     if kind == "life_taken_choice":
