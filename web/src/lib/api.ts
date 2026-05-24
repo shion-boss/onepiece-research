@@ -545,13 +545,19 @@ export type HumanSessionSpec = {
 };
 
 export type HumanActionLog = {
-  kind: "action" | "defense" | "choice" | "use_opp_attack_effect";
+  kind:
+    | "action"
+    | "defense"
+    | "choice"
+    | "use_opp_attack_effect"
+    | "use_counter_event";
   action_idx?: number;
   blocker_iid?: number | null;
   counter_card_idxs?: number[];
   picks?: number[];
   source_iid?: number;
   effect_idx?: number;
+  hand_idx?: number;
 };
 
 export type HumanMatchState = {
@@ -705,6 +711,33 @@ export async function applyHumanUseOppAttackEffect(
     const text = await res.text().catch(() => "");
     throw new Error(
       `applyHumanUseOppAttackEffect failed: ${res.status} ${text}`,
+    );
+  }
+  return res.json();
+}
+
+export async function applyHumanUseCounterEvent(
+  sid: string,
+  hand_idx: number,
+  resume?: ResumeFields,
+): Promise<HumanMatchState> {
+  const res = await fetch(
+    `${API}/api/human_match/${sid}/use_counter_event`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hand_idx,
+        session_spec: resume?.session_spec,
+        prior_actions: resume?.prior_actions,
+      }),
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `applyHumanUseCounterEvent failed: ${res.status} ${text}`,
     );
   }
   return res.json();

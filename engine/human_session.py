@@ -406,6 +406,117 @@ class HumanSession:
         self.pending_payload = None
         self.advance_until_pause()
 
+    def apply_human_use_counter_event(self, hand_idx: int) -> None:
+        """防御 pending 中、 手札 の 【カウンター】 イベント (= 神避 等) を クリック
+        で 即時 発動 (= 公式 7-1-3 「使った 瞬間 に 効果 適用」)。
+
+        旧 flow (= apply_human_defense で counter_card_idxs に event idx を 渡す):
+        防御 確定 → apply_action 内 で counter event 順次 発動 で UX 不自然。
+        新 flow: 防御 modal で event を click → 即 pop + cost 払い + trigger_counter_event
+        → modal (= discard / target_pick) 解決 後 defense modal 再表示 (= 残り
+        counter 値 カード / blocker 追加 調整 可能、 また 別 counter event 発動 可能)。
+        """
+        if self.pending_kind != "defense":
+            raise ValueError("not waiting for human defense")
+        defender_idx = self.human_idx
+        defender = self.state.players[defender_idx]
+        attacker_player = self.state.players[1 - defender_idx]
+        if not (0 <= hand_idx < len(defender.hand)):
+            raise ValueError(f"hand_idx out of range: {hand_idx}")
+        card = defender.hand[hand_idx]
+        # 検証: EVENT + 【カウンター】 効果あり + DON cost 払える
+        if not str(getattr(card, "category", "")).endswith("EVENT"):
+            raise ValueError(f"hand[{hand_idx}]={card.name} is not EVENT")
+        overlay = self.state.effects_overlay or {}
+        bundle = overlay.get(card.card_id)
+        has_counter = False
+        if bundle is not None:
+            effects_list = bundle.effects if hasattr(bundle, "effects") else (
+                bundle if isinstance(bundle, list) else []
+            )
+            for e in effects_list:
+                if isinstance(e, dict) and e.get("when") == "counter":
+                    has_counter = True
+                    break
+        if not has_counter:
+            raise ValueError(f"{card.name} has no counter effect")
+        if defender.don_active < card.cost:
+            raise ValueError(f"insufficient DON: need {card.cost}, have {defender.don_active}")
+        # cost 払い + hand → trash (= _fire_counter_events と 同 step)
+        defender.hand.pop(hand_idx)
+        defender.don_rested += card.cost
+        defender.don_active -= card.cost
+        defender.trash.append(card)
+        self.state.push_log(f"  counter event: {card.name} (cost {card.cost})")
+        # counter event 発動 (= 既存 trigger_counter_event を 流用)
+        from .effects import trigger_counter_event
+        prev_forced = getattr(self.state, "forced_human_actor_idx", None)
+        self.state.forced_human_actor_idx = defender_idx
+        try:
+            trigger_counter_event(
+                self.state, defender, attacker_player, card, self.state.effects_overlay,
+            )
+        finally:
+            self.state.forced_human_actor_idx = prev_forced
+        # modal pending (= discard / target) なら choice へ 切替
+        if self.state.pending_choice is not None:
+            self.pending_kind = "choice"
+            self.pending_payload = dict(self.state.pending_choice)
+            return
+        # 全 解決済 → defense modal を 再構築 (= hand 縮小 + attacker_power 再評価)
+        self._rebuild_defense_payload()
+
+    def _rebuild_defense_payload(self) -> None:
+        """defense pending payload を 現 state から 再構築 (= counter event 発動 後 の hand
+        変化 / attacker_power 変動 反映)。 共通 candidate 抽出 ロジック は HumanAI.choose_defense
+        と 同じ。 hand pop で idx が ずれる ため legal_counter_card_idxs / counter_event_idxs
+        を 完全再計算。"""
+        if self.pending_payload is None:
+            return
+        defender_idx = self.human_idx
+        defender = self.state.players[defender_idx]
+        attacker_iid = self.pending_payload.get("attacker_iid")
+        # attacker_power を 最新 値 に
+        for ip in [
+            *self.state.players[1 - defender_idx].characters,
+            self.state.players[1 - defender_idx].leader,
+        ]:
+            if ip.instance_id == attacker_iid:
+                self.pending_payload["attacker_power"] = int(getattr(ip, "power", 0) or 0)
+                break
+        # legal_counter_card_idxs / counter_event_idxs / counter_values を 再計算
+        overlay = self.state.effects_overlay or {}
+        don_avail = defender.don_active
+        counter_idxs: list[int] = []
+        counter_values: dict[int, int] = {}
+        counter_event_idxs: list[int] = []
+        for i, c in enumerate(defender.hand):
+            counter_val = int(c.counter) if (c.counter and c.counter > 0) else 0
+            is_counter_event = False
+            if str(getattr(c, "category", "")).endswith("EVENT"):
+                eff_bundle = overlay.get(c.card_id)
+                effects_list = []
+                if eff_bundle is not None:
+                    if hasattr(eff_bundle, "effects"):
+                        effects_list = eff_bundle.effects
+                    elif isinstance(eff_bundle, list):
+                        effects_list = eff_bundle
+                for e in effects_list:
+                    if isinstance(e, dict) and e.get("when") == "counter":
+                        if c.cost <= don_avail:
+                            is_counter_event = True
+                        break
+            if counter_val > 0 or is_counter_event:
+                counter_idxs.append(i)
+                counter_values[i] = counter_val
+                if is_counter_event:
+                    counter_event_idxs.append(i)
+        self.pending_payload["legal_counter_card_idxs"] = counter_idxs
+        self.pending_payload["counter_values"] = counter_values
+        self.pending_payload["counter_event_idxs"] = counter_event_idxs
+        avail = getattr(self.state, "_available_opp_attack_effects", []) or []
+        self.pending_payload["available_opp_attack_effects"] = list(avail)
+
     def apply_human_use_opp_attack_effect(
         self, source_iid: int, effect_idx: int
     ) -> None:

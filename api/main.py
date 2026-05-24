@@ -2949,7 +2949,7 @@ class HumanSessionSpec(BaseModel):
 class HumanActionLog(BaseModel):
     """過去 action の 履歴 1 件。 reconstruct 時に 順次 apply。"""
 
-    kind: str  # "action" | "defense" | "choice" | "use_opp_attack_effect"
+    kind: str  # "action" | "defense" | "choice" | "use_opp_attack_effect" | "use_counter_event"
     # action
     action_idx: Optional[int] = None
     # defense
@@ -2960,6 +2960,8 @@ class HumanActionLog(BaseModel):
     # use_opp_attack_effect
     source_iid: Optional[int] = None
     effect_idx: Optional[int] = None
+    # use_counter_event (= 神避 等 を 手札 click で 即時 発動)
+    hand_idx: Optional[int] = None
 
 
 class HumanActionIn(BaseModel):
@@ -2984,6 +2986,12 @@ class HumanChoiceIn(BaseModel):
 class HumanUseOppAttackEffectIn(BaseModel):
     source_iid: int
     effect_idx: int
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
+
+
+class HumanUseCounterEventIn(BaseModel):
+    hand_idx: int
     session_spec: Optional[HumanSessionSpec] = None
     prior_actions: Optional[list[HumanActionLog]] = None
 
@@ -3056,6 +3064,10 @@ def _replay_action_log(session, log: "HumanActionLog") -> None:
         if log.source_iid is None or log.effect_idx is None:
             raise ValueError("use_opp_attack_effect log missing fields")
         session.apply_human_use_opp_attack_effect(log.source_iid, log.effect_idx)
+    elif kind == "use_counter_event":
+        if log.hand_idx is None:
+            raise ValueError("use_counter_event log missing hand_idx")
+        session.apply_human_use_counter_event(log.hand_idx)
     else:
         raise ValueError(f"unknown action kind: {kind}")
 
@@ -3221,6 +3233,21 @@ def human_match_use_opp_attack_effect(sid: str, req: HumanUseOppAttackEffectIn):
             effect_idx=req.effect_idx,
         )
     )
+    _HUMAN_SESSIONS[sid] = (session, log)
+    return _human_match_response(sid, session, log, req.session_spec)
+
+
+@app.post("/api/human_match/{sid}/use_counter_event")
+def human_match_use_counter_event(sid: str, req: HumanUseCounterEventIn):
+    """防御 pending 中、 手札 の 【カウンター】 イベント を click で 即時 発動
+    (= 神避 等)。 cost 払い + trigger → discard / target modal で 解決 後 defense 復帰。
+    """
+    session, log = _resume_or_reconstruct_session(sid, req.session_spec, req.prior_actions)
+    try:
+        session.apply_human_use_counter_event(req.hand_idx)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    log.append(HumanActionLog(kind="use_counter_event", hand_idx=req.hand_idx))
     _HUMAN_SESSIONS[sid] = (session, log)
     return _human_match_response(sid, session, log, req.session_spec)
 

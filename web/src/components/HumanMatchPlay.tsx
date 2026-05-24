@@ -9,6 +9,7 @@ import {
   applyHumanAction,
   applyHumanChoice,
   applyHumanDefense,
+  applyHumanUseCounterEvent,
   applyHumanUseOppAttackEffect,
   endHumanMatch,
   saveHumanMatchResult,
@@ -429,6 +430,34 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           effect_idx,
           buildResume(),
         ),
+      );
+      setState(next);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      applyInFlightRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function handleUseCounterEvent(hand_idx: number) {
+    // 防御 中 に 手札 の 【カウンター】 イベント (= 神避 等) を click / drag で
+    // 即時 発動。 discard / target modal で 解決 後 defense modal 復帰。
+    if (!sessionId) return;
+    if (applyInFlightRef.current) return;
+    applyInFlightRef.current = true;
+    setError(null);
+    setBusy(true);
+    try {
+      const cardId = me.hand[hand_idx];
+      if (cardId) {
+        // counter event 使用 (= 即時 trash) の 視覚 演出: 通常 の counter card と
+        // 同 アニメ (= 黄色 リング → trash 移動) を 流用。 +N power は modal 後。
+        fireCounterPlay(cardId, 0);
+        setUsedCounterCardIds((prev) => [...prev, cardId]);
+      }
+      const next = mergeMatchState(
+        await applyHumanUseCounterEvent(sessionId, hand_idx, buildResume()),
       );
       setState(next);
     } catch (e) {
@@ -1053,6 +1082,17 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         );
       }
     } else if (drag.kind === "counter") {
+      // counter event (= 神避 等) は drag/drop で 即時 発動 (= 公式 7-1-3「使った
+      // 瞬間 に 効果 適用」)。 通常 counter 値 カード は 従来通り 累積 選択。
+      const counterEventIdxs =
+        (state?.pending_payload?.counter_event_idxs as
+          | number[]
+          | undefined) ?? [];
+      if (counterEventIdxs.includes(drag.handIdx)) {
+        setDrag(null);
+        handleUseCounterEvent(drag.handIdx);
+        return;
+      }
       // 防御 中: 手札 counter idx を toggle で counterIdxs に追加 + 視覚 演出
       if (!counterIdxs.includes(drag.handIdx)) {
         const cardId = me.hand[drag.handIdx];
@@ -1309,10 +1349,18 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
                         | undefined)
                     : undefined
                 }
+                counterEventIdxs={
+                  isDefensePending && state.pending_payload
+                    ? (state.pending_payload.counter_event_idxs as
+                        | number[]
+                        | undefined)
+                    : undefined
+                }
                 counterSelectedIdxs={isDefensePending ? counterIdxs : undefined}
                 onCounterDragStart={(handIdx) =>
                   setDrag({ kind: "counter", handIdx })
                 }
+                onCounterEventClick={handleUseCounterEvent}
                 onClick={clickHandCard}
                 onHover={setHovered}
                 onDragStart={(handIdx) => {
@@ -2817,8 +2865,10 @@ function HandRow({
   draggingHandIdx,
   recentDrawnIdxs,
   counterIdxsAvail,
+  counterEventIdxs,
   counterSelectedIdxs,
   onCounterDragStart,
+  onCounterEventClick,
   onClick,
   onHover,
   onDragStart,
@@ -2831,8 +2881,10 @@ function HandRow({
   draggingHandIdx: number | null;
   recentDrawnIdxs?: Set<number>;
   counterIdxsAvail?: number[];
+  counterEventIdxs?: number[];
   counterSelectedIdxs?: number[];
   onCounterDragStart?: (handIdx: number) => void;
+  onCounterEventClick?: (handIdx: number) => void;
   onClick: (idx: number) => void;
   onHover: (h: HoverInfo) => void;
   onDragStart: (handIdx: number) => void;
@@ -2849,21 +2901,24 @@ function HandRow({
         {hand.map((cardId, i) => {
           const playable = canAct && (actionsByHand.get(i)?.length ?? 0) > 0;
           const isCounterAvail = !!counterIdxsAvail?.includes(i);
+          const isCounterEvent = !!counterEventIdxs?.includes(i);
           const isCounterSelected = !!counterSelectedIdxs?.includes(i);
           const selected = selectedIdx === i;
           const dragging = draggingHandIdx === i;
           const isRecentDrawn = !!recentDrawnIdxs?.has(i);
           const ring = isCounterSelected
             ? "ring-4 ring-amber-400 drop-shadow-[0_0_14px_rgba(251,191,36,0.85)]"
-            : isCounterAvail
-              ? "ring-2 ring-amber-500 hover:ring-amber-300"
-              : isRecentDrawn
-                ? "ring-4 ring-cyan-300 drop-shadow-[0_0_18px_rgba(103,232,249,0.85)]"
-                : selected
-                  ? "ring-4 ring-yellow-400"
-                  : playable
-                    ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
-                    : "ring-1 ring-zinc-700 opacity-90";
+            : isCounterEvent
+              ? "ring-4 ring-purple-400 drop-shadow-[0_0_14px_rgba(192,132,252,0.7)] hover:ring-purple-300"
+              : isCounterAvail
+                ? "ring-2 ring-amber-500 hover:ring-amber-300"
+                : isRecentDrawn
+                  ? "ring-4 ring-cyan-300 drop-shadow-[0_0_18px_rgba(103,232,249,0.85)]"
+                  : selected
+                    ? "ring-4 ring-yellow-400"
+                    : playable
+                      ? "ring-2 ring-emerald-400 hover:ring-emerald-300"
+                      : "ring-1 ring-zinc-700 opacity-90";
           const dragMode = isCounterAvail
             ? "counter"
             : playable
@@ -2884,6 +2939,11 @@ function HandRow({
               onDragEnd={onDragEnd}
               onClick={(e) => {
                 e.stopPropagation();
+                // counter event (= 神避 等) は click で 即時 発動 (= 公式 7-1-3)。
+                if (isCounterEvent && onCounterEventClick) {
+                  onCounterEventClick(i);
+                  return;
+                }
                 if (playable) onClick(i);
               }}
               onMouseEnter={() => onHover({ kind: "hand", cardId })}
