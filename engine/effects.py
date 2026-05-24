@@ -312,20 +312,70 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
             # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
             if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
                 continue
-            # counter event の cost (= 「自分の手札 1 枚を捨てる」 等 任意 コスト):
-            # 公式 「コスト：効果」 で コスト 払えない なら 効果 不発。
+            # event cost (= 「自分の手札 1 枚を捨てる」 等 任意 コスト):
+            # 公式 「コスト：効果」 で コスト 払えない なら 効果 不発 (= 4-10)。
             # 旧 engine は cost を 無視 して 効果 発動 (= bug、 player は コスト 払わず 効果 取得)。
-            # 新: counter 専用 path で cost 支払い 検証 + 支払い。 払えなければ 効果 skip。
-            # 注: 現状 modal UI 未対応 (= 人間 も auto-pay)、 将来 「counter_optional」 modal 追加 予定。
-            if when == "counter":
-                cost = eff.get("cost") or {}
-                if cost:
-                    if not _can_pay_counter_cost(state, me, self_inplay, cost):
+            # 対象 when: counter / on_play / on_ko / on_block / main / trigger /
+            #            on_*_X (= on_self_chara_played 等)、 計 500+ cards 影響。
+            # cost が 既 払い 済 (= explicit_idxs) や 別 path で 処理 (= activate_main /
+            # on_attack / end_of_turn / opp_attack) の when は ここに 来ない。
+            # 人間 acting + discard_hand cost なら modal で 捨てる カード を 選ばせる。
+            # AI / その他 cost は auto-pay (= random discard / DON 等)。
+            cost = eff.get("cost") or {}
+            # cost が array (= replace_ko 等 の 特殊 形式) は ここでは scope 外。
+            if isinstance(cost, dict) and cost and when in (
+                "counter", "on_play", "on_ko", "on_block", "main", "trigger",
+                "on_self_chara_played", "on_opp_chara_played",
+                "on_self_chara_ko", "on_opp_chara_ko",
+                "on_self_chara_leave_by_self_effect",
+                "on_self_rested", "on_self_chara_rested_by_self_effect",
+                "on_self_hand_discarded", "on_self_don_returned_to_deck",
+                "on_self_event_played", "on_opp_event_or_trigger_fired",
+                "on_self_life_taken", "on_opp_life_taken",
+                "on_self_life_to_hand", "on_self_life_to_trash",
+                "on_self_draw_non_draw_phase", "on_life_zero",
+                "opp_attack_on_chara", "opp_attack_on_leader",
+                "on_opp_blocker_use",
+            ):
+                # once_per_turn のみ の cost は 既に _check_and_set_once_per_turn で 処理 済
+                # (= 上の if で gate)。 ここに 来た 時点 で 実 cost (= discard/pay_don 等) なし
+                # の 場合 は no-op で 通す。
+                real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
+                if real_cost:
+                    if not _can_pay_counter_cost(state, me, self_inplay, real_cost):
                         state.push_log(
-                            f"  counter 効果: cost 支払い不能 → skip ({evt.source_card_id})"
+                            f"  {when} 効果: cost 支払い不能 → skip ({evt.source_card_id})"
                         )
                         continue
-                    _pay_counter_cost(state, me, opp, self_inplay, cost)
+                    discard_n = int(real_cost.get("discard_hand", 0))
+                    if discard_n > 0 and _should_human_pick(state) and len(me.hand) >= discard_n:
+                        cand_list = [
+                            {
+                                "hand_idx": i,
+                                "card_id": c.card_id,
+                                "name": c.name,
+                                "cost": int(c.cost) if c.cost is not None else 0,
+                                "power": int(c.power) if c.power is not None else 0,
+                            }
+                            for i, c in enumerate(me.hand)
+                        ]
+                        state.pending_choice = {
+                            "kind": "counter_discard_pick",
+                            "when_key": when,
+                            "card_id": evt.source_card_id,
+                            "owner_idx": evt.owner_idx,
+                            "source_iid": evt.source_iid,
+                            "effect_idx": idx,
+                            "discard_n": discard_n,
+                            "cost": real_cost,
+                            "candidates": cand_list,
+                            "limit": discard_n,
+                        }
+                        state.push_log(
+                            f"  {when} コスト: 手札 {discard_n} 枚 捨てる 対象 を 選択 待ち"
+                        )
+                        return
+                    _pay_counter_cost(state, me, opp, self_inplay, real_cost)
             for primitive in eff.get("do", []):
                 execute_effect(primitive, state, me, opp, self_inplay)
     finally:
@@ -1234,8 +1284,59 @@ def _resolve_target(
         return [opp.leader]
     if target_spec == "self_leader":
         return [me.leader]
-    if target_spec == "all_opponent_characters":
+    if target_spec in ("all_opponent_characters", "all_opp_characters"):
         return list(opp.characters)
+    if target_spec == "any_self_chara":
+        # 「自分のキャラ 1 枚」 を 表す 別名 (= 25 overlay 使用)。
+        # 公式 「自分のキャラ 1 枚を、 〜」 系。 one_self_character_any と 同 semantics。
+        cands = list(me.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自キャラ から 1 枚 選択",
+        ):
+            return []
+        cands.sort(key=lambda c: -c.power)
+        return cands[:1]
+    if target_spec == "one_opp_character_any":
+        # `one_opponent_character_any` の typo / 短縮形 (= 2 overlay 使用)。
+        return _resolve_target(
+            "one_opponent_character_any", state, me, opp, self_inplay,
+            outer_kind=outer_kind, outer_value=outer_value,
+        )
+    if target_spec == "one_opp_chara_or_leader":
+        # 相手リーダー or キャラ 1 枚 (= one_opponent_inplay_any の alias、 3 overlay 使用)。
+        return _resolve_target(
+            "one_opponent_inplay_any", state, me, opp, self_inplay,
+            outer_kind=outer_kind, outer_value=outer_value,
+        )
+    if target_spec == "all_opp_chara_blocker_filtered":
+        # 相手の【ブロッカー】 を持つ キャラ 全員 (= OP11-013 等)。
+        return [c for c in opp.characters if c.is_blocker_now]
+    if target_spec == "one_self_chara_no_effect":
+        # 「自分の元々の効果のないキャラ 1 枚」 (= EB03-009 等)。
+        # overlay に effect が 登録されてない (= effects=[]) を 「効果なし」 と判定。
+        overlay_map = state.effects_overlay or {}
+        def _no_effect(card):
+            bundle = overlay_map.get(card.card_id)
+            return bundle is None or len(bundle.effects) == 0
+        cands = [c for c in me.characters if _no_effect(c.card)]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自キャラ から 1 枚 選択 (元々の効果なし)",
+        ):
+            return []
+        cands.sort(key=lambda c: -c.power)
+        return cands[:1]
+    if target_spec == "opponent_attacker":
+        # 公式 「相手のアタックしているリーダーかキャラ」 (= opp_attack コンテキスト)。
+        # state.current_attacker_iid から 引く。 OP04-069 等。
+        attacker_iid = getattr(state, "current_attacker_iid", None)
+        if attacker_iid is None:
+            return []
+        for ip in [opp.leader, *opp.characters]:
+            if ip.instance_id == attacker_iid:
+                return [ip]
+        return []
     if target_spec == "any_opponent_character_le_5000":
         # 全員対象 (board wipe 系)。普通のカード「1枚まで」は one_* を使うこと
         return [c for c in opp.characters if c.power <= 5000]
@@ -1536,8 +1637,23 @@ def _resolve_target(
             cands.sort(key=lambda c: -c.power)
             return cands[:n]
 
-        # one_self_character_named_X (名前一致セレクタ。 X は 「エネル」 等)
-        m = re.match(r"one_self_character_named_(.+)$", target_spec)
+        # one_opponent_character_filtered_by_truly_power_le_N (= 元々のパワー N 以下、 1 体)
+        # OP13-077 等 「相手の元々のパワー N 以下のキャラ 1 枚」。
+        m = re.match(r"one_opponent_character_filtered_by_truly_power_le_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = [c for c in opp.characters if c.card.power <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (元々のパワー≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
+            return cands[:1]
+
+        # one_self_character_named_X / one_self_chara_named_X (名前一致セレクタ。 X は 「エネル」 等)
+        # chara / character 両表記 を 救済 (= 1 overlay 使用 のため alias)。
+        m = re.match(r"one_self_(?:character|chara)_named_(.+)$", target_spec)
         if m:
             target_name = m.group(1)
             cands = [c for c in me.characters if c.card.name == target_name]
@@ -3547,6 +3663,83 @@ def execute_effect(
             me.characters.append(ip)
             if state.effects_overlay:
                 trigger_on_play(state, me, opp, ip, state.effects_overlay)
+        elif k == "fire_self_main":
+            # 「このカードの【メイン】効果を発動する」 (= fire_self_effect when_kind="main" の shorthand、
+            # 10 cards 使用、 trigger 系)。 値 (= True) は 互換性 のため 無視 する。
+            spec = {"when_kind": "main"}
+            src_cid = (
+                self_inplay.card.card_id if self_inplay
+                else getattr(state, "current_source_card_id", None)
+            )
+            if not src_cid:
+                continue
+            depth = getattr(state, "_fire_self_depth", 0)
+            if depth >= 2:
+                state.push_log(f"  効果コピー: 再帰深度上限 (skip)")
+                continue
+            state._fire_self_depth = depth + 1
+            try:
+                bundle = state.effects_overlay.get(src_cid) if state.effects_overlay else None
+                if bundle is None:
+                    continue
+                for eff in bundle.effects:
+                    if eff.get("when") != "main":
+                        continue
+                    if not eval_all_conditions(eff, state, me, self_inplay):
+                        continue
+                    for prim in eff.get("do", []):
+                        execute_effect(prim, state, me, opp, self_inplay)
+                state.push_log(f"  効果: 自身の【メイン】効果を発動")
+            finally:
+                state._fire_self_depth = depth
+        elif k == "opp_don_to_deck":
+            # 「相手のドン N 枚を ドンデッキ に 戻す」 (= return_opp_don の alias、 OP02-085 マゼラン)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            removed = 0
+            # active 優先 で 戻す (= opp に 不利)
+            from_active = min(opp.don_active, n)
+            opp.don_active -= from_active
+            removed += from_active
+            from_rested = min(opp.don_rested, n - removed)
+            opp.don_rested -= from_rested
+            removed += from_rested
+            opp.don_remaining_in_deck += removed
+            state.push_log(f"  効果: 相手 ドン {removed} 枚 ドンデッキ へ")
+            if removed > 0 and state.effects_overlay:
+                # 相手 視点 の 「自分のドン が ドンデッキ に 戻った時」 trigger
+                trigger_on_self_don_returned_to_deck(state, opp, me, state.effects_overlay)
+        elif k == "hand_to_deck_bottom":
+            # 「自分の手札 N 枚を デッキの下 に 置く」 (= self_hand_to_deck_bottom の typo / alias、
+            # ST22-002_p1 イゾウ 1 card)。 簡易: 先頭 から N 枚 (= UI 上 random 同等)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            actual = min(n, len(me.hand))
+            for _ in range(actual):
+                me.deck.append(me.hand.pop(0))
+            state.push_log(f"  効果: 自手札 {actual} 枚 → デッキ下")
+        elif k == "summon_stage_from_deck_with_feature":
+            # 「自分の特徴 X を持つステージ 1 枚 を デッキ から 場 に 出す」 (OP13-079 等)。
+            # spec: "特徴名" (= string)
+            feature = str(v) if not isinstance(v, dict) else str(v.get("feature", ""))
+            found_idx = None
+            for i, c in enumerate(me.deck):
+                if c.category == Category.STAGE and feature in c.features:
+                    found_idx = i
+                    break
+            if found_idx is None:
+                state.push_log(f"  効果: デッキから ステージ 登場 (= 特徴《{feature}》 該当 なし)")
+                state.rng.shuffle(me.deck)
+                return False
+            card = me.deck.pop(found_idx)
+            # 自場 ステージ 上限 (= 公式 1 枚) チェック
+            if me.stages:
+                old = me.stages.pop(0)
+                me.trash.append(old.card)
+                if old.attached_dons > 0:
+                    me.don_rested += old.attached_dons
+                state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
+            me.stages.append(InPlay.of(card, rested=False, sickness=False))
+            state.push_log(f"  効果: デッキ → ステージ 登場 {card.name} (特徴《{feature}》)")
+            state.rng.shuffle(me.deck)
         elif k == "fire_self_effect":
             # このカードの【XXX】効果を発動する。 同 bundle 内の指定 when 効果を再発火。
             # 再帰防止: state._fire_self_depth で深度制限 (max 2)。
@@ -5434,6 +5627,58 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         if state.pending_choice is not None or state.game_over:
             return
         play_until_main(state)
+        return
+
+    if kind == "counter_discard_pick":
+        # event cost 「自分の手札 N 枚 捨てる：効果」 で 人間 が 捨てる カード を 選んだ ところ。
+        # 適用 when: counter / on_play / on_ko / on_block / main / trigger / on_*_X
+        # picks=[] (= skip) なら 効果 不発 (= 公式 4-10 cost 払えず)。
+        candidates = choice.get("candidates", []) or []
+        discard_n = int(choice.get("discard_n", 1))
+        cost = choice.get("cost") or {}
+        when_key = str(choice.get("when_key", "counter"))
+        card_id = choice.get("card_id", "")
+        owner_idx = int(choice.get("owner_idx", state.turn_player_idx))
+        source_iid = choice.get("source_iid")
+        eff_idx = int(choice.get("effect_idx", -1))
+        owner = state.players[owner_idx]
+        opp_for_pay = state.players[1 - owner_idx]
+        valid_picks = [i for i in picks if isinstance(i, int) and 0 <= i < len(candidates)]
+        hand_idxs = sorted(
+            list({int(candidates[i]["hand_idx"]) for i in valid_picks}),
+            reverse=True,
+        )
+        state.pending_choice = None
+        if len(hand_idxs) < discard_n:
+            state.push_log(
+                f"  {when_key} コスト 不払い (= {len(hand_idxs)}/{discard_n} 選択) → 効果 skip"
+            )
+            return
+        for i in hand_idxs[:discard_n]:
+            owner.trash.append(owner.hand.pop(i))
+        state.push_log(f"  {when_key} コスト: 手札 {discard_n} 枚 捨て (人間 選択)")
+        if state.effects_overlay:
+            trigger_on_self_hand_discarded(
+                state, owner, opp_for_pay, None, discard_n, state.effects_overlay
+            )
+        remaining_cost = {k: v for k, v in cost.items() if k != "discard_hand"}
+        if remaining_cost:
+            _pay_counter_cost(state, owner, opp_for_pay, None, remaining_cost)
+        if eff_idx >= 0:
+            enqueue_event(
+                state,
+                when=when_key,
+                owner_idx=owner_idx,
+                source_card_id=card_id,
+                source_iid=source_iid,
+                payload={"effect_indexes": [eff_idx]},
+            )
+            prev_forced = getattr(state, "forced_human_actor_idx", None)
+            state.forced_human_actor_idx = owner_idx if owner_idx == state.human_player_idx else -1
+            try:
+                _maybe_resolve(state)
+            finally:
+                state.forced_human_actor_idx = prev_forced
         return
 
     if kind == "on_attack_optional":

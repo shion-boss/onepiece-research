@@ -10790,10 +10790,12 @@
         },
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "feature": "ビッグ・マム海賊団",
-              "cost_ge": 3
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "feature": "ビッグ・マム海賊団",
+                "cost_ge": 3
+              }
             },
             "count": 2
           }
@@ -13041,16 +13043,18 @@
       "do": [
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "or_clauses": [
-                {
-                  "feature": "魚人族"
-                },
-                {
-                  "feature": "人魚族"
-                }
-              ]
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "or_clauses": [
+                  {
+                    "feature": "魚人族"
+                  },
+                  {
+                    "feature": "人魚族"
+                  }
+                ]
+              }
             },
             "count": 1
           }
@@ -13071,16 +13075,18 @@
       "do": [
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "or_clauses": [
-                {
-                  "feature": "魚人族"
-                },
-                {
-                  "feature": "人魚族"
-                }
-              ]
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "or_clauses": [
+                  {
+                    "feature": "魚人族"
+                  },
+                  {
+                    "feature": "人魚族"
+                  }
+                ]
+              }
             },
             "count": 1
           }
@@ -13519,21 +13525,25 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "超新星",
-              "cost_ge": 3,
-              "cost_le": 8
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "超新星",
+                "cost_ge": 3,
+                "cost_le": 8
+              }
             }
           }
         },
         {
           "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "超新星",
-              "cost_ge": 3,
-              "cost_le": 8
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "超新星",
+                "cost_ge": 3,
+                "cost_le": 8
+              }
             },
             "keyword": "ブロッカー",
             "duration": "next_opp_turn_end"
@@ -13562,21 +13572,25 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "超新星",
-              "cost_ge": 3,
-              "cost_le": 8
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "超新星",
+                "cost_ge": 3,
+                "cost_le": 8
+              }
             }
           }
         },
         {
           "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "超新星",
-              "cost_ge": 3,
-              "cost_le": 8
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "超新星",
+                "cost_ge": 3,
+                "cost_le": 8
+              }
             },
             "keyword": "ブロッカー",
             "duration": "next_opp_turn_end"
@@ -14590,8 +14604,10 @@
         },
         {
           "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {},
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {}
+            },
             "keyword": "速攻",
             "duration": "turn"
           }
@@ -14625,8 +14641,10 @@
         },
         {
           "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {},
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {}
+            },
             "keyword": "速攻",
             "duration": "turn"
           }
@@ -14663,9 +14681,11 @@
       "do": [
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "cost_le": 5
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "cost_le": 5
+              }
             },
             "count": 1
           }
@@ -14680,9 +14700,11 @@
       "do": [
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "cost_le": 5
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "cost_le": 5
+              }
             },
             "count": 1
           }
@@ -22053,9 +22075,11 @@
       "do": [
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "cost_le": 5
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "cost_le": 5
+              }
             },
             "count": 1
           }
@@ -25413,10 +25437,12 @@
         },
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "feature": "ビッグ・マム海賊団",
-              "cost_le": 3
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "feature": "ビッグ・マム海賊団",
+                "cost_le": 3
+              }
             },
             "count": 1
           }
@@ -25637,11 +25663,13 @@
         },
         {
           "ko_multi": {
-            "target": "all_chara_filtered",
-            "scope": "both",
-            "filter": {
-              "cost_le": 1
-            }
+            "target": {
+              "type": "all_chara_filtered",
+              "filter": {
+                "cost_le": 1
+              }
+            },
+            "scope": "both"
           }
         }
       ],
@@ -33150,10 +33178,12 @@
         },
         {
           "untap_chara": {
-            "target": "self_chara_filtered",
-            "filter": {
-              "feature": "ビッグ・マム海賊団",
-              "cost_ge": 3
+            "target": {
+              "type": "self_chara_filtered",
+              "filter": {
+                "feature": "ビッグ・マム海賊団",
+                "cost_ge": 3
+              }
             },
             "count": 2
           }
@@ -42754,9 +42784,11 @@
         },
         {
           "rest": {
-            "target": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 6
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6
+              }
             }
           }
         }
@@ -48369,10 +48401,12 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_filtered",
-            "filter": {
-              "exclude_name": "バルトロメオ",
-              "feature": "FILM"
+            "target": {
+              "type": "one_self_character_filtered",
+              "filter": {
+                "exclude_name": "バルトロメオ",
+                "feature": "FILM"
+              }
             },
             "limit": 1
           }
@@ -48387,10 +48421,12 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_filtered",
-            "filter": {
-              "exclude_name": "バルトロメオ",
-              "feature": "FILM"
+            "target": {
+              "type": "one_self_character_filtered",
+              "filter": {
+                "exclude_name": "バルトロメオ",
+                "feature": "FILM"
+              }
             },
             "limit": 1
           }
@@ -48405,10 +48441,12 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_filtered",
-            "filter": {
-              "exclude_name": "バルトロメオ",
-              "feature": "FILM"
+            "target": {
+              "type": "one_self_character_filtered",
+              "filter": {
+                "exclude_name": "バルトロメオ",
+                "feature": "FILM"
+              }
             },
             "limit": 1
           }
@@ -60403,9 +60441,11 @@
         },
         {
           "rest": {
-            "target": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 6
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6
+              }
             }
           }
         }
@@ -60439,9 +60479,11 @@
         },
         {
           "rest": {
-            "target": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 6
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6
+              }
             }
           }
         }
@@ -63088,10 +63130,12 @@
       "do": [
         {
           "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "魚人族",
-              "cost_le": 5
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "魚人族",
+                "cost_le": 5
+              }
             },
             "keyword": "ブロッカー",
             "duration": "turn"
@@ -68393,9 +68437,11 @@
       "do": [
         {
           "give_keyword": {
-            "target": "one_self_chara_filtered",
-            "filter": {
-              "feature": "ワノ国"
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ワノ国"
+              }
             },
             "keyword": "ダブルアタック",
             "duration": "turn"
@@ -75924,10 +75970,12 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_filtered",
-            "filter": {
-              "exclude_name": "バルトロメオ",
-              "feature": "FILM"
+            "target": {
+              "type": "one_self_character_filtered",
+              "filter": {
+                "exclude_name": "バルトロメオ",
+                "feature": "FILM"
+              }
             },
             "limit": 1
           }
@@ -80805,9 +80853,11 @@
         },
         {
           "rest": {
-            "target": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 6
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6
+              }
             }
           }
         }
@@ -81507,10 +81557,12 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_filtered",
-            "filter": {
-              "exclude_name": "バルトロメオ",
-              "feature": "FILM"
+            "target": {
+              "type": "one_self_character_filtered",
+              "filter": {
+                "exclude_name": "バルトロメオ",
+                "feature": "FILM"
+              }
             },
             "limit": 1
           }

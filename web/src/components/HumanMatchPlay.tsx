@@ -1704,6 +1704,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "counter_discard_pick" ? (
+          <PlayFromHandPickModal
+            payload={{ ...state.pending_payload, _destination: "discard" }}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "play_from_trash_pick" ? (
           <PlayFromTrashPickModal
             payload={state.pending_payload}
@@ -3809,11 +3816,13 @@ function PlayFromHandPickModal({
   const filterDesc = String(payload.filter_desc ?? "");
   const rested = !!payload.rested;
   // destination: "play" (default 登場) / "life" (自ライフへ) / "event" (イベント発動)
+  //   / "discard" (counter event の cost で 捨てる)
   const destination = String((payload as { _destination?: string })._destination ?? "play");
   const titleByDest: Record<string, string> = {
     play: `手札 から 登場 (= ${filterDesc || "filter 該当"}、 ${limit} 枚 まで${rested ? " / レスト" : ""})`,
     life: `手札 → 自ライフ (= ${filterDesc || "filter 該当"}、 ${limit} 枚 まで)`,
     event: `手札 イベント 発動 (= ${filterDesc || "filter 該当"}、 1 枚)`,
+    discard: `counter コスト: 手札 ${limit} 枚 を 捨てる`,
   };
   const title = titleByDest[destination] ?? titleByDest.play;
   const [picked, setPicked] = useState<number[]>([]);
