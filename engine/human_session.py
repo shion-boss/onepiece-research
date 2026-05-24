@@ -351,13 +351,13 @@ class HumanSession:
         if choice.get("kind") == "mulligan_redrawn":
             # 新手札 OK → finalize (= ライフ配布 既済 + AI 側 mulligan + game_start)
             self.state.pending_choice = None
-            # 既 マリガン適用 済 なので human_mulligan=False で finalize 呼び (= もう 2 回目
-            # 引き直し しない、 AI 側 のみ _should_mulligan で 判定)
+            # 既 マリガン適用 済 + log 済 なので human_already_processed=True で finalize 呼び
+            # (= 「引き直し」 後 に 「引き直さない (keep)」 と log する 矛盾 を 防ぐ)。
             finalize_setup_after_mulligan(
                 self.state,
                 rng=self.rng,
                 effects_overlay=self.effects_overlay,
-                human_mulligan=False,
+                human_already_processed=True,
                 human_player_idx=self.human_idx,
             )
             play_until_main(self.state)

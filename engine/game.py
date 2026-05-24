@@ -230,6 +230,7 @@ def finalize_setup_after_mulligan(
     effects_overlay: Optional[dict] = None,
     human_mulligan: Optional[bool] = None,
     human_player_idx: Optional[int] = None,
+    human_already_processed: bool = False,
 ) -> None:
     """setup_game(do_mulligan_and_finalize=False) で 留めた state に マリガン適用 +
     ライフ配布 + game_start 効果 を 後段適用 して 試合 を 開始可能 状態 にする。
@@ -237,12 +238,18 @@ def finalize_setup_after_mulligan(
     human_mulligan: 人間 player の マリガン 選択 (= True 引き直し / False keep / None なら
        _should_mulligan で auto)。 None なら AI 側 と 同じ logic。
     human_player_idx: 人間 player の index (= state.players 内)。
+    human_already_processed: True なら 人間 側 の マリガン は 既 適用 + log 済 と 判断 し
+       finalize 内 では skip (= MulliganRedrawnModal 後 の OK で finalize 呼ぶ ケース)。
+       これ が ない と 「引き直し」 後 に 続けて 「引き直さない (keep)」 が log されて 矛盾。
     """
     analyses = getattr(state, "_mulligan_analyses", [None, None])
     # マリガン適用 (= ライフ は setup_game で 既配布、 keep)
     # マリガン した か どうか を 各 player 別 で log に 明示 (= ユーザ要望)
     for idx, (p, a) in enumerate(zip(state.players, analyses)):
         actor = "人間" if idx == human_player_idx else "AI"
+        # 人間 側 が 外部 (= human_session) で 既 マリガン 処理 + log 済 なら skip
+        if idx == human_player_idx and human_already_processed:
+            continue
         if idx == human_player_idx and human_mulligan is not None:
             do_mull = human_mulligan
         else:
