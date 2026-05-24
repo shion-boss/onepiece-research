@@ -2530,7 +2530,7 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         state._opp_attack_pre_fired_id = attack_id
 
     if isinstance(action, AttackLeader):
-        from .game import _find_attacker  # noqa
+        from .game import _find_attacker, _fire_counter_events  # noqa
         attacker = _find_attacker(state.turn_player, action.attacker_iid)
         # cache action for PauseSignal retry
         state._pending_ai_action = {
@@ -2541,19 +2541,36 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         _pre_fire_attack_triggers(attacker, True)
         if state.pending_choice is not None:
             raise PauseSignal("choice", dict(state.pending_choice))
-        block_iid, counters = ai_opp.choose_defense(
-            state, attacker, state.opponent.leader, True, state.opponent
-        )
-        card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
-        action = AttackLeader(
-            attacker_iid=action.attacker_iid,
-            counter_card_idxs=card_idxs,
-            counter_event_idxs=event_idxs,
-            blocker_iid=block_iid,
-        )
+        # counter event 事前発火 marker: 同 attacker で 既に choose_defense + _fire_counter_events
+        # 済 なら 再 entry 時 に skip (= 神避 等 の 2 段 modal 後 の retry で 二重 fire 防止)。
+        ce_marker = (state.turn_player_idx, attacker.instance_id, "AttackLeader")
+        if getattr(state, "_counter_events_fired_for", None) != ce_marker:
+            block_iid, counters = ai_opp.choose_defense(
+                state, attacker, state.opponent.leader, True, state.opponent
+            )
+            card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
+            # counter event を 攻撃 ダメージ 解決 前 に 発火 (= battle_buff 反映 + modal halt)。
+            # 旧 実装 では apply_action 内 で 発火 → modal が life_taken_choice に 上書きされ、
+            # 神避 等 で +3000 が 反映されない bug あり。
+            if event_idxs and state.effects_overlay:
+                _fire_counter_events(state, state.opponent, state.turn_player, event_idxs)
+            action = AttackLeader(
+                attacker_iid=action.attacker_iid,
+                counter_card_idxs=card_idxs,
+                counter_event_idxs=(),  # 事前発火 済 → apply_action 内 で 再 fire しない
+                blocker_iid=block_iid,
+            )
+            state._counter_events_fired_for = ce_marker
+            state._pending_ai_action["action"] = action
+            if state.pending_choice is not None:
+                # 神避 の discard cost 等 で modal pending → halt
+                raise PauseSignal("choice", dict(state.pending_choice))
+        else:
+            # retry: cached action (= 既に counter_event_idxs クリア済) を 使う
+            action = state._pending_ai_action["action"]
 
     elif isinstance(action, AttackCharacter):
-        from .game import _find_attacker, _find_character  # noqa
+        from .game import _find_attacker, _find_character, _fire_counter_events  # noqa
         attacker = _find_attacker(state.turn_player, action.attacker_iid)
         state._pending_ai_action = {
             "action": action,
@@ -2562,18 +2579,28 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         _pre_fire_attack_triggers(attacker, False)
         if state.pending_choice is not None:
             raise PauseSignal("choice", dict(state.pending_choice))
-        target = _find_character(state.opponent, action.target_iid)
-        block_iid, counters = ai_opp.choose_defense(
-            state, attacker, target, False, state.opponent
-        )
-        card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
-        action = AttackCharacter(
-            attacker_iid=action.attacker_iid,
-            target_iid=action.target_iid,
-            counter_card_idxs=card_idxs,
-            counter_event_idxs=event_idxs,
-            blocker_iid=block_iid,
-        )
+        ce_marker = (state.turn_player_idx, attacker.instance_id, "AttackCharacter", action.target_iid)
+        if getattr(state, "_counter_events_fired_for", None) != ce_marker:
+            target = _find_character(state.opponent, action.target_iid)
+            block_iid, counters = ai_opp.choose_defense(
+                state, attacker, target, False, state.opponent
+            )
+            card_idxs, event_idxs = _split_event_counters(state.opponent.hand, counters)
+            if event_idxs and state.effects_overlay:
+                _fire_counter_events(state, state.opponent, state.turn_player, event_idxs)
+            action = AttackCharacter(
+                attacker_iid=action.attacker_iid,
+                target_iid=action.target_iid,
+                counter_card_idxs=card_idxs,
+                counter_event_idxs=(),
+                blocker_iid=block_iid,
+            )
+            state._counter_events_fired_for = ce_marker
+            state._pending_ai_action["action"] = action
+            if state.pending_choice is not None:
+                raise PauseSignal("choice", dict(state.pending_choice))
+        else:
+            action = state._pending_ai_action["action"]
 
     if referee is not None:
         referee.before_action(state, action)
@@ -2582,6 +2609,7 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
     # action 適用 成功 → cache + pre-fire flag クリア
     state._pending_ai_action = None
     state._opp_attack_pre_fired_id = None
+    state._counter_events_fired_for = None
 
     if referee is not None:
         referee.after_action(state)

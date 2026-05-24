@@ -1303,10 +1303,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     f"{redirect_target.card.name}(P={base_defender_power})"
                 )
                 # === Counter フェイズ ===
+                # 発火 後 は battle_buff (= 神避 等) が redirect_target に 載るので 再読。
                 _fire_counter_events(state, opp, me, action.counter_event_idxs)
                 counter_added = _spend_counters(opp, action.counter_card_idxs)
-                defender_power = base_defender_power + counter_added
-                if counter_added > 0:
+                defender_power = redirect_target.power + counter_added
+                if defender_power != base_defender_power:
                     state.pending_event = {
                         "type": "attack",
                         "attacker_iid": attacker.instance_id,
@@ -1404,12 +1405,15 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         )
         # === Counter フェイズ ===
         # カウンターイベント発動 (7-1-3-1-2): 各イベント毎に push_log → snapshot
+        # counter event (= 神避 等) は play_one_action で 事前 発火 済 の 場合 idxs 空。
+        # 直接 apply_action 経由 (= テスト等) の 未発火 case も 残す。
         _fire_counter_events(state, opp, me, action.counter_event_idxs)
         # カウンターカード消費 (キャラ counter 値、_spend_counters は log なし)
         counter_added = _spend_counters(opp, action.counter_card_idxs)
-        defender_power = base_defender_power + counter_added
+        # 発火 後 は battle_buff が actual_target に 載るので 再読 (= 神避 +3000 等)。
+        defender_power = actual_target.power + counter_added
         # === Post-counter snapshot: counter 加算後の defender_power ===
-        if counter_added > 0:
+        if defender_power != base_defender_power:
             state.pending_event = {
                 "type": "attack",
                 "attacker_iid": attacker.instance_id,
@@ -1612,11 +1616,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             f"{actual_target.card.name}(P={base_defender_power})"
         )
         # === Counter フェイズ ===
+        # counter event (= 神避 等) は play_one_action で 事前 発火 済 だが、 AI sim や
+        # 直接 apply_action 経由 で 未発火 の case も 残す。 発火 後 は battle_buff が
+        # actual_target に 載るので、 defender_power は actual_target.power を 再読 する。
         _fire_counter_events(state, opp, me, action.counter_event_idxs)
         counter_added = _spend_counters(opp, action.counter_card_idxs)
-        defender_power = base_defender_power + counter_added
+        defender_power = actual_target.power + counter_added
         # === Post-counter snapshot ===
-        if counter_added > 0:
+        if defender_power != base_defender_power:
             state.pending_event = {
                 "type": "attack",
                 "attacker_iid": attacker.instance_id,
