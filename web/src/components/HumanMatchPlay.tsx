@@ -2453,11 +2453,13 @@ function CenterRow({
         </div>
       </div>
       {/* DECK + TRASH を 端 absolute 寄せ (= Leader/Stage 中央 配置 を 妨げない)。
-          opp 側 は 左端 (= 公式 鏡像 配置: 相手 の deck/trash は user 左)。 */}
+          opp 側 は 左端 (= 公式 鏡像 配置: 相手 の deck/trash は user 左)。
+          flex-row-reverse で 中身 順序 を 反転 = 公式 180度 回転 配置
+          (自分 [...][DECK 中央寄り][TRASH 外側右] / 相手 [TRASH 外側左][DECK 中央寄り][...])。 */}
       <div
         className={
           "absolute top-1/2 flex -translate-y-1/2 items-center gap-2 " +
-          (isMe ? "right-2" : "left-2")
+          (isMe ? "right-2" : "left-2 flex-row-reverse")
         }
       >
       <div className="flex flex-col items-center gap-0.5">

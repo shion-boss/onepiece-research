@@ -312,6 +312,20 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
             # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
             if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
                 continue
+            # counter event の cost (= 「自分の手札 1 枚を捨てる」 等 任意 コスト):
+            # 公式 「コスト：効果」 で コスト 払えない なら 効果 不発。
+            # 旧 engine は cost を 無視 して 効果 発動 (= bug、 player は コスト 払わず 効果 取得)。
+            # 新: counter 専用 path で cost 支払い 検証 + 支払い。 払えなければ 効果 skip。
+            # 注: 現状 modal UI 未対応 (= 人間 も auto-pay)、 将来 「counter_optional」 modal 追加 予定。
+            if when == "counter":
+                cost = eff.get("cost") or {}
+                if cost:
+                    if not _can_pay_counter_cost(state, me, self_inplay, cost):
+                        state.push_log(
+                            f"  counter 効果: cost 支払い不能 → skip ({evt.source_card_id})"
+                        )
+                        continue
+                    _pay_counter_cost(state, me, opp, self_inplay, cost)
             for primitive in eff.get("do", []):
                 execute_effect(primitive, state, me, opp, self_inplay)
     finally:
@@ -319,6 +333,75 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
         state.forced_human_actor_idx = prev_forced
         if when == "on_ko":
             state.last_ko_by_opp_effect = prev_ko_by_opp
+
+
+def _can_pay_counter_cost(
+    state: GameState,
+    me: Player,
+    self_inplay: Optional[InPlay],
+    cost: dict,
+) -> bool:
+    """counter event の cost が 支払い可能 か 判定。
+
+    counter event は 「コスト：効果」 で コスト 払えない なら 効果 不発 (公式 4-10)。
+    typical cost: discard_hand: 1 / pay_don: N / rest_self_don: N。
+    """
+    if not isinstance(cost, dict):
+        return True
+    discard_n = int(cost.get("discard_hand", 0))
+    if discard_n > 0 and len(me.hand) < discard_n:
+        return False
+    pay_don = int(cost.get("pay_don", 0))
+    if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
+        return False
+    rest_don = int(cost.get("rest_self_don", 0))
+    if rest_don > 0 and me.don_active < rest_don:
+        return False
+    return True
+
+
+def _pay_counter_cost(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    self_inplay: Optional[InPlay],
+    cost: dict,
+) -> None:
+    """counter event の cost を 実支払い (= 簡易: discard 系 は random)。
+
+    将来 「counter_optional」 modal で 人間 が discard 対象 を 選べる ように 拡張 予定。
+    現状: AI/人間 共 random discard で 動作。
+    """
+    if not isinstance(cost, dict):
+        return
+    discard_n = int(cost.get("discard_hand", 0))
+    if discard_n > 0:
+        actual = min(discard_n, len(me.hand))
+        for _ in range(actual):
+            i = state.rng.randrange(len(me.hand))
+            me.trash.append(me.hand.pop(i))
+        state.push_log(f"  counter コスト: 手札 {actual} 枚 捨て")
+        if actual > 0 and state.effects_overlay:
+            trigger_on_self_hand_discarded(
+                state, me, opp, self_inplay, actual, state.effects_overlay
+            )
+    pay_don = int(cost.get("pay_don", 0))
+    if pay_don > 0:
+        from_active = min(me.don_active, pay_don)
+        me.don_active -= from_active
+        me.don_remaining_in_deck += from_active
+        rest_more = min(pay_don - from_active, me.don_rested)
+        me.don_rested -= rest_more
+        me.don_remaining_in_deck += rest_more
+        state.push_log(f"  counter コスト: ドン-{pay_don}")
+        if (from_active + rest_more) > 0 and state.effects_overlay:
+            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+    rest_don = int(cost.get("rest_self_don", 0))
+    if rest_don > 0:
+        actual = min(rest_don, me.don_active)
+        me.don_active -= actual
+        me.don_rested += actual
+        state.push_log(f"  counter コスト: アクティブドン {actual} レスト")
 
 
 def _check_and_set_once_per_turn(
@@ -1134,6 +1217,19 @@ def _resolve_target(
         return [vic] if vic is not None else []
     if target_spec in (None, "self") and self_inplay is not None:
         return [self_inplay]
+    # "self_inplay" は 「自分のリーダーかキャラ 1 枚 まで」 の shorthand
+    # (overlay 249 件 で 使用、 主に counter event / trigger 等 で
+    # 「自分のリーダーかキャラ1枚までを、 このバトル中、 パワー+N」 系)。
+    # one_self_team_any と 同 semantics で 解決 (= 人間 acting で modal、 AI auto-pick)。
+    if target_spec == "self_inplay":
+        cands = [me.leader] + list(me.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自リーダー or キャラ から 1 枚 選択",
+        ):
+            return []
+        cands.sort(key=lambda ip: -ip.power)
+        return cands[:1]
     if target_spec == "opponent_leader":
         return [opp.leader]
     if target_spec == "self_leader":
@@ -1249,7 +1345,12 @@ def _resolve_target(
             return cands[:1]
 
         # any_opponent_character_cost_le_N (全員)
-        m = re.match(r"any_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
+        # OP14-069 ドフラ で `any_opponent_character_le_Ncost` 表記 も 使用 (= 引数順序違い)
+        # → 両方 同 semantics で 受け付ける。
+        m = (
+            re.match(r"any_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
+            or re.match(r"any_opponent_character_le_(\d+)cost$", target_spec)
+        )
         if m:
             n = int(m.group(1))
             return [c for c in opp.characters if c.card.cost <= n]
@@ -3301,11 +3402,35 @@ def execute_effect(
             opp.next_refresh_kept_rested_don += actually
             state.push_log(f"  効果: 相手レストドン {actually} 枚 次リフレッシュで起きない")
         elif k == "set_cannot_rest":
-            # 「対象は、 次の (相手) ターン終了時まで、 レストにできない」 (OP14-033 等)。
+            # 「対象 N 枚 まで は、 次の (相手) ターン終了時まで、 レストにできない」
+            # (OP14-033 / OP14-069 ドフラ 等)。 spec.count で 上限指定 (= 「N 枚 まで」)。
             # rest プリミティブで cannot_be_rested_buff のあるキャラはスキップされる。
             # 適用時 applier_idx と applied_turn を記録し、 _reset_turn_buff でクリア。
-            target_spec = v if isinstance(v, str) else (v or {}).get("target", "all_self_characters")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_rest", outer_value=target_spec)
+            spec_val = v if isinstance(v, dict) else {}
+            target_spec = v if isinstance(v, str) else spec_val.get("target", "all_self_characters")
+            count = int(spec_val.get("count", 99)) if isinstance(v, dict) else 99
+            iid_picks = spec_val.get("_iid_picks") if isinstance(v, dict) else None
+            # `any_*` target は 「filter 一致 全員」 を 返す ので count 上限 を 後段 で 適用。
+            # outer_value に count 込み の v を 渡し て、 modal 解決後 の 再実行 で
+            # 同 count + _iid_picks 経由 path に 入る ように する。
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="set_cannot_rest", outer_value=v,
+            )
+            if iid_picks is not None:
+                # 既 picked: count 上限 適用 (= UI 側 制約 と 二重 防御)
+                targets = [t for t in targets if t.instance_id in iid_picks][:count]
+            elif len(targets) > count and _should_human_pick(state):
+                # 人間 acting + 候補 > count → modal で 選ばせる
+                if _maybe_request_target_pick(
+                    state, targets, count, "set_cannot_rest", v, self_inplay,
+                    description=f"レスト不能 対象 を {count} 枚 まで 選択",
+                ):
+                    return False
+                targets = targets[:count]
+            else:
+                # AI / 候補 <= count: 既存 挙動 (= 先頭 N 枚)
+                targets = targets[:count]
             me_idx = state.players.index(me)
             for t in targets:
                 t.cannot_be_rested_buff = True
