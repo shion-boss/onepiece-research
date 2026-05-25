@@ -113,7 +113,32 @@ def main() -> int:
                     help="既存 matrix を読み、 stale cell のみ再計算 (Phase 7F-4)")
     ap.add_argument("--ai-version", default=DEFAULT_AI_VERSION,
                     help="cell に記録する AI version 識別子")
+    ap.add_argument(
+        "--ai-mode", default="default",
+        choices=["default", "greedy", "planning"],
+        help=(
+            "AI factory mode: "
+            "default = GoalDirectedAI (= 最新 default、 高品質 だが ~60s/game)、 "
+            "greedy = GreedyAI (= 高速、 1-2s/game、 マトリックス 計算 用)、 "
+            "planning = PlanningAI (= 中間、 ~10s/game)"
+        ),
+    )
     args = ap.parse_args()
+
+    # --ai-mode に 応じた factory を 構築。 default 以外 は run_matchup に 渡す。
+    ai_factory = None
+    if args.ai_mode == "greedy":
+        from engine.ai import GreedyAI
+        def ai_factory(rng, deck_analysis=None):
+            return GreedyAI(rng=rng)
+        if args.ai_version == DEFAULT_AI_VERSION:
+            args.ai_version = "GreedyAI_matrix_fast"
+    elif args.ai_mode == "planning":
+        from engine.ai import PlanningAI
+        def ai_factory(rng, deck_analysis=None):
+            return PlanningAI(rng=rng, deck_analysis=deck_analysis)
+        if args.ai_version == DEFAULT_AI_VERSION:
+            args.ai_version = "PlanningAI_matrix_mid"
 
     if args.row_diff:
         before_path = Path(args.row_diff[0])
@@ -228,7 +253,11 @@ def main() -> int:
                 "deck_a": slug_a, "deck_a_name": name_a,
                 "deck_b": slug_b, "deck_b_name": name_b,
             })
-            rep = run_matchup(deck_a, deck_b, n_games=args.n_games, seed=args.seed)
+            rep_kwargs = dict(n_games=args.n_games, seed=args.seed)
+            if ai_factory is not None:
+                rep_kwargs["ai_factory_1"] = ai_factory
+                rep_kwargs["ai_factory_2"] = ai_factory
+            rep = run_matchup(deck_a, deck_b, **rep_kwargs)
             # per-game の簡易 summary を NDJSON に出す (= UI の log tail で観戦)
             for gi, g in enumerate(getattr(rep, "games", []) or []):
                 _append_log({
