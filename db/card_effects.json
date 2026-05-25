@@ -13667,22 +13667,62 @@
   ],
   "OP09-061": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【ドン‼×1】自分のキャラすべてを、コスト+1",
+      "when": "on_attached_don",
+      "n": 1,
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "all_self_characters",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
   ],
   "OP09-061_p1": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【ドン‼×1】自分のキャラすべてを、コスト+1",
+      "when": "on_attached_don",
+      "n": 1,
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "all_self_characters",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -15561,11 +15601,31 @@
   ],
   "OP09-061_p2": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【ドン‼×1】自分のキャラすべてを、コスト+1",
+      "when": "on_attached_don",
+      "n": 1,
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "all_self_characters",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -16773,11 +16833,31 @@
   ],
   "OP09-061_p3": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【ドン‼×1】自分のキャラすべてを、コスト+1",
+      "when": "on_attached_don",
+      "n": 1,
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "all_self_characters",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }
@@ -76137,33 +76217,26 @@
   ],
   "ST11-004_p2": [
     {
-      "_text": "ST11-004_p2 main: 自分のリーダーが「ウタ」の場合、自分のデッキの上から3枚を見て、「新時代」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな",
+      "_text": "【メイン】自分のリーダーが「ウタ」の場合、自分のデッキの上から3枚を見て、「新時代」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分のドン!!1枚までを、アクティブにする。",
       "when": "main",
-      "do": [
-        {
-          "untap_don": 1
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
-    },
-    {
-      "_text": "[auto] on_play: search_top_n 補完",
-      "when": "on_play",
+      },
       "do": [
         {
           "search_top_n": {
             "depth": 3,
             "filter": {
               "feature": "FILM",
-              "name": "新時代",
               "exclude_name": "新時代"
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        },
+        {
+          "untap_don": 1
         }
       ]
     }
@@ -77329,33 +77402,26 @@
   ],
   "ST11-004": [
     {
-      "_text": "ST11-004 main: 自分のリーダーが「ウタ」の場合、自分のデッキの上から3枚を見て、「新時代」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな",
+      "_text": "【メイン】自分のリーダーが「ウタ」の場合、自分のデッキの上から3枚を見て、「新時代」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分のドン!!1枚までを、アクティブにする。",
       "when": "main",
-      "do": [
-        {
-          "untap_don": 1
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
-    },
-    {
-      "_text": "[auto] on_play: search_top_n 補完",
-      "when": "on_play",
+      },
       "do": [
         {
           "search_top_n": {
             "depth": 3,
             "filter": {
               "feature": "FILM",
-              "name": "新時代",
               "exclude_name": "新時代"
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        },
+        {
+          "untap_don": 1
         }
       ]
     }
@@ -83487,33 +83553,26 @@
   ],
   "ST11-004_p1": [
     {
-      "_text": "ST11-004_p1 main: 自分のリーダーが「ウタ」の場合、自分のデッキの上から3枚を見て、「新時代」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな",
+      "_text": "【メイン】自分のリーダーが「ウタ」の場合、自分のデッキの上から3枚を見て、「新時代」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分のドン!!1枚までを、アクティブにする。",
       "when": "main",
-      "do": [
-        {
-          "untap_don": 1
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
-    },
-    {
-      "_text": "[auto] on_play: search_top_n 補完",
-      "when": "on_play",
+      },
       "do": [
         {
           "search_top_n": {
             "depth": 3,
             "filter": {
               "feature": "FILM",
-              "name": "新時代",
               "exclude_name": "新時代"
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        },
+        {
+          "untap_don": 1
         }
       ]
     }
@@ -86881,8 +86940,12 @@
   ],
   "OP08-067_r1": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_rested_don": 1
@@ -88106,7 +88169,7 @@
   ],
   "OP14-034": [
     {
-      "_text": "[auto] 自ターン中、 自緑特徴《麦わらの一味》コスト4以上 キャラすべて パワー+1000",
+      "_text": "【自分のターン中】自分の元々のコスト4以上の緑の特徴《麦わらの一味》を持つキャラすべてを、パワー+1000",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -88126,6 +88189,21 @@
             "amount": 1000,
             "duration": "static"
           }
+        }
+      ]
+    },
+    {
+      "_text": "【ターン1回】自分の特徴《麦わらの一味》を持つキャラが相手の効果でKOされる場合、代わりに自分のキャラ1枚をレストにできる",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "麦わらの一味",
+        "by_opp_effect": true
+      },
+      "once_per_turn": true,
+      "do": [
+        {
+          "rest": "any_self_chara"
         }
       ]
     }
@@ -89500,8 +89578,12 @@
   ],
   "OP08-067": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_rested_don": 1
@@ -89511,8 +89593,12 @@
   ],
   "OP08-067_p1": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_rested_don": 1
@@ -91726,8 +91812,12 @@
   ],
   "OP08-067_p2": [
     {
-      "_text": "[auto] on_self_don_returned_to_deck: add_don 補完",
+      "_text": "【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
       "when": "on_self_don_returned_to_deck",
+      "if": {
+        "self_turn": true
+      },
+      "once_per_turn": true,
       "do": [
         {
           "add_rested_don": 1
