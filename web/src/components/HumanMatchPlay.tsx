@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { CardImage } from "./CardImage";
+import { CardPreloader } from "./CardPreloader";
 import {
   applyHumanAction,
   applyHumanChoice,
@@ -100,6 +101,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [state, setState] = useState<HumanMatchState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 「対戦開始」 押下 から CardPreloader 完了まで の preload phase
+  const [preloading, setPreloading] = useState(false);
   const [selection, setSelection] = useState<Selection>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
     null,
@@ -242,13 +245,19 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     setState(final);
   }
 
-  async function handleStart() {
+  // 「対戦開始」 押下 → CardPreloader 表示 → 完了で beginMatch を 呼ぶ flow。
+  function handleStart() {
+    if (!deckA || !deckB) return;
     setError(null);
-    setBusy(true);
     setSelection(null);
     setCounterIdxs([]);
     setBlockerIid(null);
     setInitialBannerDone(false);
+    setPreloading(true);
+  }
+
+  async function beginMatch() {
+    setBusy(true);
     try {
       const hf = humanFirst === "random" ? null : humanFirst === "first";
       const next = await startHumanMatch(deckA, deckB, {
@@ -269,6 +278,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       setError(String(e));
     } finally {
       setBusy(false);
+      setPreloading(false);
     }
   }
 
@@ -835,6 +845,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       : frameDiff.trashAdded[aiIdxSafe];
 
   if (!state) {
+    if (preloading) {
+      const humanDeck = decks.find((d) => d.slug === deckA);
+      const aiDeck = decks.find((d) => d.slug === deckB);
+      return (
+        <CardPreloader
+          deckSlugA={deckA}
+          deckSlugB={deckB}
+          deckNameA={humanDeck?.name}
+          deckNameB={aiDeck?.name}
+          onComplete={beginMatch}
+          title="対戦準備中... カード を 読み込んでいます"
+        />
+      );
+    }
     return (
       <StartPanel
         decks={decks}

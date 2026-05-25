@@ -4,6 +4,7 @@ import { useState } from "react";
 import { runMatrixSampleReplay } from "@/lib/api";
 import type { ReplayResponse } from "@/lib/types";
 import { MatchReplay } from "@/components/MatchReplay";
+import { CardPreloader } from "@/components/CardPreloader";
 
 /**
  * matrix 観戦パネル (= /meta?tab=spectate 内)
@@ -40,11 +41,12 @@ export function MatrixSpectate({
   );
   const [seed, setSeed] = useState<number>(initialSeed ?? 42);
   const [running, setRunning] = useState(false);
+  const [preloading, setPreloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
 
-  async function handleStart() {
+  function handleStart() {
     setError(null);
     setReplay(null);
     setElapsed(null);
@@ -52,6 +54,11 @@ export function MatrixSpectate({
       setError("両方のデッキを選択してください");
       return;
     }
+    setPreloading(true);
+  }
+
+  async function runReplayAfterPreload() {
+    setPreloading(false);
     setRunning(true);
     const t0 = performance.now();
     try {
@@ -128,10 +135,10 @@ export function MatrixSpectate({
           <button
             type="button"
             onClick={handleStart}
-            disabled={running || !deckA || !deckB}
+            disabled={running || preloading || !deckA || !deckB}
             className="shrink-0 rounded bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {running ? "計算中..." : "▶ 観戦開始"}
+            {preloading ? "読込中..." : running ? "計算中..." : "▶ 観戦開始"}
           </button>
         </div>
 
@@ -171,8 +178,19 @@ export function MatrixSpectate({
         ) : null}
       </div>
 
-      {/* 計算中スピナー or MatchReplay は flex-1 で残り高さを取る */}
-      {running ? (
+      {/* preload / 計算中スピナー / MatchReplay は flex-1 で残り高さを取る */}
+      {preloading ? (
+        <div className="flex flex-1 items-center justify-center overflow-auto rounded bg-zinc-50 dark:bg-zinc-950">
+          <CardPreloader
+            deckSlugA={deckA}
+            deckSlugB={deckB}
+            deckNameA={decks.find((d) => d.slug === deckA)?.name}
+            deckNameB={decks.find((d) => d.slug === deckB)?.name}
+            onComplete={runReplayAfterPreload}
+            title="観戦準備中... カード を 読み込んでいます"
+          />
+        </div>
+      ) : running ? (
         <div className="flex flex-1 items-center justify-center rounded bg-zinc-50 p-6 text-sm text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500 align-middle" />{" "}
           <span className="ml-2">シミュレート中... (GoalDirectedAI v1 軽量モード、 通常 3-8 秒)</span>
