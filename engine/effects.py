@@ -5699,10 +5699,15 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         if attacker is None:
             return
         # 支払い + enqueue
+        # 公式: 「ドン!!-N」 は active/rested から DON デッキ (= don_remaining_in_deck) に 戻す。
+        # rested 化 では ない (= ターン終了 refresh で 復活 してしまう → 実質 コスト 0 の bug)。
         if pay_don > 0:
             from_active = min(me.don_active, pay_don)
             me.don_active -= from_active
-            me.don_rested += from_active
+            me.don_remaining_in_deck += from_active
+            rest_more = min(pay_don - from_active, me.don_rested)
+            me.don_rested -= rest_more
+            me.don_remaining_in_deck += rest_more
         bundle = state.effects_overlay.get(attacker.card.card_id) if state.effects_overlay else None
         if bundle is None:
             return
@@ -7774,10 +7779,14 @@ def trigger_on_attack(
             pending_cost_effects.append((idx, eff))
             continue
         # AI: 即時 支払 + 発動
+        # 公式: 「ドン!!-N」 は active/rested から DON デッキ に 戻す (= don_remaining_in_deck)。
         if pay_don > 0:
             from_active = min(me.don_active, pay_don)
             me.don_active -= from_active
-            me.don_rested += from_active
+            me.don_remaining_in_deck += from_active
+            rest_more = min(pay_don - from_active, me.don_rested)
+            me.don_rested -= rest_more
+            me.don_remaining_in_deck += rest_more
         if cost.get("once_per_turn"):
             setattr(attacker, per_turn_key, True)
         paid_indexes.append(idx)

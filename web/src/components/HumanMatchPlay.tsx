@@ -456,6 +456,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         fireCounterPlay(cardId, 0);
         setUsedCounterCardIds((prev) => [...prev, cardId]);
       }
+      // counterIdxs / blockerIid は hand pop で idx が シフト するので clear。
+      // 以前 toggle した counter は 「神避 を 先に使った直後」 に 全て リセットされる。
+      // (= 残さない と stale idx で 別 カード が 選ばれる / 範囲外 で 黙って skip されるバグ)
+      setCounterIdxs([]);
+      setBlockerIid(null);
       const next = mergeMatchState(
         await applyHumanUseCounterEvent(sessionId, hand_idx, buildResume()),
       );
@@ -470,6 +475,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 
   async function handleDefenseSubmit() {
     if (!sessionId) return;
+    // 連打 / 連 submit 防止 (= 他 handler と 同じ synchronous guard)。
+    // busy state は React 非同期 batching で disable 反映 が 遅れる ため、
+    // ref で 同 frame 内 の 2 個目 click を block する。
+    if (applyInFlightRef.current) return;
+    applyInFlightRef.current = true;
     setError(null);
     setBusy(true);
     // 矢印 演出 座標 を defenseClosing 適用 (= 再 render) 前 に 取得
@@ -562,6 +572,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     } catch (e) {
       setError(String(e));
     } finally {
+      applyInFlightRef.current = false;
       setBusy(false);
       setDefenseClosing(false); // 次 pending=defense なら modal 再 open される
       // 防御確定 完了 後、 used counter は 1 秒後 に 記録 clear (= 以降 通常 動作)
@@ -2317,63 +2328,82 @@ function DonRow({
   return (
     <div className="flex h-16 shrink-0 items-center gap-1 rounded bg-black/30 px-3">
       <span className="text-xs font-bold text-zinc-200">DON</span>
+      {/*
+        AnimatePresence で active / rested DON の swap (= refresh phase 等) を 滑らかに。
+        旧実装 は state 更新 で 即 再 render → active + rested 両方 一瞬 visible で 「倍数」 に見えた
+        bug。 mode="wait" で 旧 element の exit anim 完了後 に 新 element を mount する → 重なり 解消。
+      */}
       <div className="flex items-center gap-1.5 overflow-visible py-1">
-        {Array.from({ length: donActive }).map((_, i) => {
-          const isSel = selected.has(i);
-          return (
-            <button
-              key={`a-${i}`}
-              type="button"
-              draggable={isMe && donActive > 0}
-              onClick={(e) => handleDonClick(i, e)}
-              onDragStart={() => {
-                // 選択中 なら 選択数、 そうでなければ 1 枚 で drag
-                const count = isSel && selected.size > 0 ? selected.size : 1;
-                onDragStart?.(count);
-              }}
-              onDragEnd={() => {
-                onDragEnd?.();
-                setSelected(new Set());
-                lastClickedRef.current = null;
-              }}
-              className={
-                "h-10 w-7 rounded ring-1 transition " +
-                (isSel
-                  ? "ring-cyan-300 ring-offset-1 ring-offset-zinc-900 -translate-y-1"
-                  : "ring-amber-400") +
-                " " +
-                (isMe ? "cursor-grab active:cursor-grabbing" : "cursor-default")
-              }
-              title={
-                isMe
-                  ? "クリック=選択 / Shift+クリック=範囲選択 / Ctrl+クリック=個別 追加。 ドラッグで attach"
-                  : "DON"
-              }
-            >
-              <img
-                src="/assets/don.png"
-                alt="DON"
-                className="h-full w-full rounded shadow"
-                draggable={false}
-              />
-            </button>
-          );
-        })}
-        {donRested > 0 && (
-          <div className="flex">
-            {Array.from({ length: donRested }).map((_, i) => (
-              <div
-                key={`r-${i}`}
-                style={{ marginLeft: i === 0 ? 0 : -20 }}
-                className="relative h-7 w-10"
+        <AnimatePresence mode="popLayout" initial={false}>
+          {Array.from({ length: donActive }).map((_, i) => {
+            const isSel = selected.has(i);
+            return (
+              <motion.button
+                key={`a-${i}`}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.18 }}
+                type="button"
+                draggable={isMe && donActive > 0}
+                onClick={(e) => handleDonClick(i, e)}
+                onDragStart={() => {
+                  // 選択中 なら 選択数、 そうでなければ 1 枚 で drag
+                  const count = isSel && selected.size > 0 ? selected.size : 1;
+                  onDragStart?.(count);
+                }}
+                onDragEnd={() => {
+                  onDragEnd?.();
+                  setSelected(new Set());
+                  lastClickedRef.current = null;
+                }}
+                className={
+                  "h-10 w-7 rounded ring-1 transition " +
+                  (isSel
+                    ? "ring-cyan-300 ring-offset-1 ring-offset-zinc-900 -translate-y-1"
+                    : "ring-amber-400") +
+                  " " +
+                  (isMe ? "cursor-grab active:cursor-grabbing" : "cursor-default")
+                }
+                title={
+                  isMe
+                    ? "クリック=選択 / Shift+クリック=範囲選択 / Ctrl+クリック=個別 追加。 ドラッグで attach"
+                    : "DON"
+                }
               >
                 <img
                   src="/assets/don.png"
-                  alt="DON rested"
-                  className="absolute left-1/2 top-1/2 h-10 w-7 -translate-x-1/2 -translate-y-1/2 rotate-90 rounded opacity-70 shadow"
+                  alt="DON"
+                  className="h-full w-full rounded shadow"
+                  draggable={false}
                 />
-              </div>
-            ))}
+              </motion.button>
+            );
+          })}
+        </AnimatePresence>
+        {donRested > 0 && (
+          <div className="flex">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {Array.from({ length: donRested }).map((_, i) => (
+                <motion.div
+                  key={`r-${i}`}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.18 }}
+                  style={{ marginLeft: i === 0 ? 0 : -20 }}
+                  className="relative h-7 w-10"
+                >
+                  <img
+                    src="/assets/don.png"
+                    alt="DON rested"
+                    className="absolute left-1/2 top-1/2 h-10 w-7 -translate-x-1/2 -translate-y-1/2 rotate-90 rounded opacity-70 shadow"
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
         {Array.from({ length: Math.max(0, totalShown - donActive - donRested) }).map(
