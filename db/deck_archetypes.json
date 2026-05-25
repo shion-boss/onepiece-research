@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "built_at": "2026-05-25",
+    "n_decks": 16,
+    "skipped": []
+  },
+  "map": {
+    "cardrush_1342": "コントロール",
+    "cardrush_1385": "ミッドレンジ",
+    "cardrush_1392": "コントロール",
+    "cardrush_1399": "ミッドレンジ",
+    "cardrush_1439": "コントロール",
+    "cardrush_1453": "ミッドレンジ",
+    "cardrush_1454": "ミッドレンジ",
+    "cardrush_1455": "コントロール",
+    "cardrush_1456": "コントロール",
+    "tcgportal_bonney": "コントロール",
+    "tcgportal_calgara": "ミッドレンジ",
+    "tcgportal_coby": "ミッドレンジ",
+    "tcgportal_corazon": "ミッドレンジ",
+    "tcgportal_hancock": "コントロール",
+    "tcgportal_op11_luffy": "ミッドレンジ",
+    "tcgportal_op13_luffy": "ミッドレンジ"
+  },
+  "speed_map": {
+    "cardrush_1342": "低速",
+    "cardrush_1385": "低速",
+    "cardrush_1392": "低速",
+    "cardrush_1399": "低速",
+    "cardrush_1439": "低速",
+    "cardrush_1453": "中速",
+    "cardrush_1454": "高速",
+    "cardrush_1455": "低速",
+    "cardrush_1456": "低速",
+    "tcgportal_bonney": "低速",
+    "tcgportal_calgara": "低速",
+    "tcgportal_coby": "中速",
+    "tcgportal_corazon": "中速",
+    "tcgportal_hancock": "低速",
+    "tcgportal_op11_luffy": "低速",
+    "tcgportal_op13_luffy": "低速"
+  }
+}

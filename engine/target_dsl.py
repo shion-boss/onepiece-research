@@ -266,20 +266,41 @@ _CONDITION_COMPAT = {
 }
 
 
+# Tier weight (= leader 厳密 / archetype 一致 / wildcard) — 2026-05-25 ハイブリッド
+_TIER_LEADER_EXACT = 1.0   # Tier 1: opp_leader_id 厳密一致
+_TIER_ARCHETYPE = 0.7      # Tier 2: opp_archetype 一致 (= leader 不一致 or 未指定 だが archetype 一致)
+_TIER_WILDCARD = 0.5       # Tier 3: opp_leader_id=null かつ opp_archetype=null (= 完全 generic)
+
+
 def find_matching_entries(
     target_spec: dict,
     turn_number: int,
     opp_leader_id: str,
     self_condition: str,
+    opp_archetype: Optional[str] = None,
 ) -> list[tuple[dict, float]]:
-    """target_spec の entries から (turn, opp_leader_id, self_condition) で fuzzy match。
+    """target_spec の entries から (turn, opp_leader_id, opp_archetype, self_condition) で fuzzy match。
+
+    **排他 logic** (= 2026-05-25): per-deck **内部 wildcard** (= v1 refined "attack 必須" generic、
+    +2pt baseline の 一部) は 常時 含める。 **外部 generic.json entries** (= `_external_generic` flag
+    付き) のみ、 per-deck Tier 1 match が 1 件 でも あれば drop する。
+
+    これに より:
+    - 既知 deck × 既知 leader: per-deck spec が 純粋 適用 (= +2pt baseline 維持)
+    - 既知 deck × 未知 leader / 未知 deck: 外部 generic が fallback として 効く
 
     複数 entry が match する 場合 全部 返す (= (entry, weight) tuple list)。
-    weight ∈ [0, 1]、 turn_weight × cond_weight。
+    weight ∈ [0, 1]、 leader_tier × turn_weight × cond_weight。
 
     - turn: 厳密一致 → 1.0、 ±1 → 0.6、 else → 0 (skip)
-    - opp_leader_id: 厳密一致 → 1.0、 None / "" (= wildcard) → 0.7 (= leader 不問 generic)
+    - leader_tier:
+        - opp_leader_id 厳密一致 → 1.0 (Tier 1)
+        - opp_leader_id null + opp_archetype 一致 → 0.7 (Tier 2)
+        - opp_leader_id null + opp_archetype null → 0.5 (Tier 3 純 wildcard)
+        - その他 → skip
     - condition: _CONDITION_COMPAT table で 0.3〜1.0
+    - **外部 generic 排他**: per-deck Tier 1 match があれば、 `_external_generic` flag 付き
+      entry のみ 結果 から drop (= per-deck 内部 wildcard は 残る)
     """
     if not target_spec:
         return []
@@ -288,17 +309,32 @@ def find_matching_entries(
         return []
 
     cond_table = _CONDITION_COMPAT.get(self_condition, {self_condition: 1.0})
-    matches: list[tuple[dict, float]] = []
+    per_deck_matches: list[tuple[dict, float]] = []
+    external_matches: list[tuple[dict, float]] = []
+    has_per_deck_tier1 = False
 
     for entry in entries:
         e_opp_leader = entry.get("opp_leader_id")
-        # wildcard match (= opp_leader_id None/"" で 全 leader 共通 generic entry)
-        if e_opp_leader is None or e_opp_leader == "":
-            leader_w = 0.7  # leader 別 entry より 低 priority
-        elif e_opp_leader == opp_leader_id:
-            leader_w = 1.0
+        e_opp_arch = entry.get("opp_archetype")
+        is_external = bool(entry.get("_external_generic"))
+        is_tier1 = False
+        # ハイブリッド 4-tier lookup
+        if e_opp_leader and e_opp_leader == opp_leader_id:
+            # Tier 1: leader 厳密一致
+            leader_w = _TIER_LEADER_EXACT
+            is_tier1 = True
+        elif e_opp_leader:
+            # leader 指定 ある が 不一致 → skip
+            continue
+        elif e_opp_arch and opp_archetype and e_opp_arch == opp_archetype:
+            # Tier 2: leader null + archetype 一致
+            leader_w = _TIER_ARCHETYPE
+        elif e_opp_arch:
+            # archetype 指定 ある が 不一致 → skip
+            continue
         else:
-            continue  # 別 leader の entry は 無関係
+            # Tier 3: leader null + archetype null (= 純 wildcard)
+            leader_w = _TIER_WILDCARD
         e_turn = entry.get("turn", 0)
         turn_diff = abs(e_turn - turn_number)
         if turn_diff == 0:
@@ -312,9 +348,18 @@ def find_matching_entries(
         if cond_w <= 0:
             continue
         weight = leader_w * turn_w * cond_w
-        matches.append((entry, weight))
+        if is_external:
+            external_matches.append((entry, weight))
+        else:
+            per_deck_matches.append((entry, weight))
+            if is_tier1:
+                has_per_deck_tier1 = True
 
-    return matches
+    # 外部 generic 排他: per-deck Tier 1 match が あれば 外部 generic を drop。
+    # per-deck 内部 wildcard (= v1 spec の 一部) は 常時 残す。
+    if has_per_deck_tier1:
+        return per_deck_matches
+    return per_deck_matches + external_matches
 
 
 def find_target_entry(
@@ -322,12 +367,69 @@ def find_target_entry(
     turn_number: int,
     opp_leader_id: str,
     self_condition: str,
+    opp_archetype: Optional[str] = None,
 ) -> Optional[dict]:
     """後方互換 shim: find_matching_entries の 最高 weight entry を 返す。"""
-    matches = find_matching_entries(target_spec, turn_number, opp_leader_id, self_condition)
+    matches = find_matching_entries(
+        target_spec, turn_number, opp_leader_id, self_condition, opp_archetype
+    )
     if not matches:
         return None
     return max(matches, key=lambda em: em[1])[0]
+
+
+# ===========================================================================
+# opp archetype 取得 (= ハイブリッド Tier 2 用、 db/deck_archetypes.json lookup)
+# ===========================================================================
+
+# deck slug → archetype (= "アグロ" / "ミッドレンジ" / "コントロール" / "ランプ") の memo cache。
+# scripts/build_deck_archetypes.py で 事前 build した db/deck_archetypes.json を 読む。
+# 未知 deck (= map に 無い) は None → Tier 2 skip → Tier 3 (純 wildcard) のみ 効く。
+_ARCHETYPE_MAP: Optional[dict[str, str]] = None
+_ARCHETYPE_MAP_LOADED: bool = False
+
+
+def _load_archetype_map() -> dict[str, str]:
+    """db/deck_archetypes.json (= 事前 build slug → archetype map) を 読む (= 1 回 のみ)。
+
+    無ければ 空 dict。 build script が 走って いない 場合 は 全 deck が None 扱い。
+    """
+    global _ARCHETYPE_MAP, _ARCHETYPE_MAP_LOADED
+    if _ARCHETYPE_MAP_LOADED:
+        return _ARCHETYPE_MAP or {}
+    _ARCHETYPE_MAP_LOADED = True
+    map_path = Path(__file__).resolve().parent.parent / "db" / "deck_archetypes.json"
+    if not map_path.exists():
+        _ARCHETYPE_MAP = {}
+        return {}
+    try:
+        data = json.loads(map_path.read_text(encoding="utf-8"))
+        # format: {"cardrush_1456": "コントロール", ...} or {"map": {...}, "meta": {...}}
+        if isinstance(data, dict) and "map" in data:
+            _ARCHETYPE_MAP = data["map"]
+        else:
+            _ARCHETYPE_MAP = data
+        return _ARCHETYPE_MAP or {}
+    except Exception:
+        _ARCHETYPE_MAP = {}
+        return {}
+
+
+def get_archetype_by_slug(slug: Optional[str]) -> Optional[str]:
+    """deck slug から archetype を 引く (= db/deck_archetypes.json lookup)。
+
+    map に 無い slug は None (= 未知 deck、 Tier 2 skip)。
+    """
+    if not slug:
+        return None
+    return _load_archetype_map().get(slug)
+
+
+def clear_archetype_cache() -> None:
+    """テスト 用 cache clear。"""
+    global _ARCHETYPE_MAP, _ARCHETYPE_MAP_LOADED
+    _ARCHETYPE_MAP = None
+    _ARCHETYPE_MAP_LOADED = False
 
 
 # ===========================================================================
@@ -345,11 +447,11 @@ def compute_target_match_bonus(
 ) -> int:
     """plan_search の leaf eval で 呼ばれる bonus 計算 (= 集約 版、 2026-05-19 更新)。
 
-    現 state の (turn, opp_leader_id, self_condition) で **match する 全 entries** を 探し、
-    各 entry で priority 順 に targets を 評価 → 最初 match の bonus を 取得 →
+    現 state の (turn, opp_leader_id, opp_archetype, self_condition) で **match する 全 entries** を
+    探し、 各 entry で priority 順 に targets を 評価 → 最初 match の bonus を 取得 →
     `weight × importance × bonus` で 重み付き加算。 合計 を cap で 抑える。
 
-    weight = turn_weight × cond_weight (= find_matching_entries 由来、 [0, 1])
+    weight = leader_tier × turn_weight × cond_weight (= find_matching_entries 由来、 [0, 1])
     importance = entry.get("importance", 1.0) (= 戦略的重要度、 default 1.0)
     cap = 暴走防止 (= default 3000、 既存 W_TURN_PLAN と 同 scale)
 
@@ -363,8 +465,22 @@ def compute_target_match_bonus(
     if not opp_leader_id:
         return 0
 
+    # opp archetype 取得 (= state.deck_slugs[opp_idx] → db/deck_archetypes.json lookup)
+    # 失敗時 (= 未知 deck) None で Tier 2 skip、 Tier 3 (純 wildcard) のみ 効く
+    opp_idx = 1 - me_idx
+    opp_slug: Optional[str] = None
+    try:
+        deck_slugs = getattr(state, "deck_slugs", None)
+        if deck_slugs and len(deck_slugs) > opp_idx:
+            opp_slug = deck_slugs[opp_idx] or None
+    except Exception:
+        opp_slug = None
+    opp_archetype = get_archetype_by_slug(opp_slug)
+
     self_cond = compute_self_condition(state, me_idx)
-    matches = find_matching_entries(target_spec, turn_number, opp_leader_id, self_cond)
+    matches = find_matching_entries(
+        target_spec, turn_number, opp_leader_id, self_cond, opp_archetype
+    )
     if not matches:
         return 0
 
@@ -389,12 +505,41 @@ def compute_target_match_bonus(
 # ===========================================================================
 
 _TARGET_SPEC_CACHE: dict[str, dict] = {}
+_GENERIC_SPEC_CACHE: Optional[dict] = None
+_GENERIC_SPEC_LOADED: bool = False
+
+
+def _load_generic_spec(base_dir: Path) -> Optional[dict]:
+    """db/target_generic.json を 読み込む (= プロセス 中 1 回 のみ)。
+
+    全 deck 共通 の fallback entries (= archetype + wildcard 軸)。
+    1 度 load したら _GENERIC_SPEC_CACHE に 保持、 file 無し なら None で 確定。
+    """
+    global _GENERIC_SPEC_CACHE, _GENERIC_SPEC_LOADED
+    if _GENERIC_SPEC_LOADED:
+        return _GENERIC_SPEC_CACHE
+    _GENERIC_SPEC_LOADED = True
+    # base_dir は decks/、 generic は db/ に置く
+    generic_path = base_dir.parent / "db" / "target_generic.json"
+    if not generic_path.exists():
+        _GENERIC_SPEC_CACHE = None
+        return None
+    try:
+        _GENERIC_SPEC_CACHE = json.loads(generic_path.read_text(encoding="utf-8"))
+        return _GENERIC_SPEC_CACHE
+    except Exception:
+        _GENERIC_SPEC_CACHE = None
+        return None
 
 
 def load_target_spec(
     deck_slug: str, base_dir: Optional[Path] = None, version: str = "v1"
 ) -> Optional[dict]:
-    """decks/<slug>.target_<version>.json を 読み込む (= memo cache)。 なければ None。
+    """decks/<slug>.target_<version>.json を 読み込む (= memo cache)。
+
+    2026-05-25 ハイブリッド: per-deck spec が あれば 生 spec + generic を merge。
+    per-deck spec が 無くて も generic が あれば generic だけ で spec 返す
+    (= 未知 deck でも Tier 2/3 fallback が 効く)。
 
     version: "v1" (= default、 既存) or "v2" (= cross-trained、 2026-05-20)
     """
@@ -404,22 +549,49 @@ def load_target_spec(
 
     if base_dir is None:
         base_dir = Path(__file__).resolve().parent.parent / "decks"
+
+    # per-deck spec を 読む (= 既存 path)
     path = base_dir / f"{deck_slug}.target_{version}.json"
-    if not path.exists():
+    per_deck_spec: Optional[dict] = None
+    if path.exists():
+        try:
+            per_deck_spec = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            per_deck_spec = None
+
+    # generic spec を 読む (= 全 deck 共通 fallback)
+    generic_spec = _load_generic_spec(base_dir)
+
+    # merge: per-deck entries + generic entries を 1 つ の spec に 統合
+    if per_deck_spec is None and generic_spec is None:
         _TARGET_SPEC_CACHE[cache_key] = None  # type: ignore[assignment]
         return None
-    try:
-        spec = json.loads(path.read_text(encoding="utf-8"))
-        _TARGET_SPEC_CACHE[cache_key] = spec
-        return spec
-    except Exception:
-        _TARGET_SPEC_CACHE[cache_key] = None  # type: ignore[assignment]
-        return None
+
+    merged_entries: list[dict] = []
+    base: dict = {}
+    if per_deck_spec is not None:
+        merged_entries.extend(per_deck_spec.get("entries", []))
+        base = {k: v for k, v in per_deck_spec.items() if k != "entries"}
+    if generic_spec is not None:
+        # 外部 generic entries に _external_generic=True flag を 付与 (= find_matching_entries で
+        # per-deck 内部 wildcard と 区別 して 排他 判定 に 使う)。 元 file は 触らない。
+        for ge in generic_spec.get("entries", []):
+            tagged = dict(ge)
+            tagged["_external_generic"] = True
+            merged_entries.append(tagged)
+    merged = dict(base)
+    merged["entries"] = merged_entries
+    merged.setdefault("deck_slug", deck_slug)
+    _TARGET_SPEC_CACHE[cache_key] = merged
+    return merged
 
 
 def clear_target_spec_cache() -> None:
     """テスト 用 cache clear。"""
+    global _GENERIC_SPEC_CACHE, _GENERIC_SPEC_LOADED
     _TARGET_SPEC_CACHE.clear()
+    _GENERIC_SPEC_CACHE = None
+    _GENERIC_SPEC_LOADED = False
 
 
 # ===========================================================================
@@ -429,10 +601,16 @@ def clear_target_spec_cache() -> None:
 DSL_SPEC = """\
 # Target Spec DSL (= Plan H、 Claude が 書く 形式)
 
-## 軸
+## 軸 (= 2026-05-25 ハイブリッド 4-tier)
 
-leader 個別 軸 (= 16 × 16 = 256 matchup) × turn (= 1-10) × self_condition (= advantage/even/behind)
-→ 全 7,680 entry / 全 16 self_deck (= 480 entry / deck)
+per-deck file (= `decks/<slug>.target_v1.json`):
+  Tier 1: opp_leader_id 厳密一致 entry (weight 1.0) — 16×16=256 matchup × turn × condition
+
+shared file (= `db/target_generic.json`):
+  Tier 2: opp_leader_id=null + opp_archetype 一致 entry (weight 0.7) — archetype × turn × condition
+  Tier 3: opp_leader_id=null + opp_archetype=null entry (weight 0.5) — 純 wildcard × turn × condition
+
+未指定 self_deck (= spec 不在) でも Tier 2/3 fallback で 動く = デッキ研究 ツール 汎用化。
 
 ## entry 構造
 
