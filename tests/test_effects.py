@@ -2207,6 +2207,88 @@ def test_on_opp_chara_returned_once_per_turn_gate():
     assert log2_count == log1_count, "once_per_turn ガードが 2 回目を gate していない"
 
 
+def test_activate_main_cost_pick_human_halt():
+    """activate_main の ko_self_with_filter cost で 人間 acting + 候補 > 1 なら modal halt"""
+    from engine.effects import CardEffectBundle, fire_activate_main, resolve_pending_choice
+    from engine.core import InPlay
+    repo = _repo()
+    source_card = repo.get("OP14-079")
+    # candidates: 2 B・W chara を 場 に 置く (= 適当 な OP01 chara で 代用、 features を 偽装)
+    # 実 test では、 ko_self_with_filter が 2+ 候補 で halt する 挙動 を 確認 する。
+    overlay = {
+        "OP14-079": CardEffectBundle(card_id="OP14-079", effects=[{
+            "when": "activate_main",
+            "cost": {"ko_self_with_filter": {"feature": "麦わらの一味"}, "once_per_turn": True},
+            "do": [{"draw": 1}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # source は 自場 (= 人間 同視点)
+    source_ip = InPlay.of(source_card, sickness=False)
+    me.characters = [source_ip]
+    # 候補 2 体 (= 麦わらの一味 feature)
+    cand_a = InPlay.of(repo.get("OP01-013"), sickness=False)  # サンジ 麦わらの一味
+    cand_b = InPlay.of(repo.get("OP01-016"), sickness=False)  # ナミ 麦わらの一味
+    me.characters.extend([cand_a, cand_b])
+    me.deck = [repo.get("OP01-013")] * 5
+    me.hand = []
+    # 人間 acting 状態 に セット
+    state.human_player_idx = 0
+    state.forced_human_actor_idx = 0
+    eff = overlay["OP14-079"].effects[0]
+    fire_activate_main(state, me, opp, source_ip, eff)
+    # pending_choice 立った こと を 確認
+    assert state.pending_choice is not None
+    assert state.pending_choice["kind"] == "activate_main_cost_pick"
+    assert state.pending_choice["cost_kind"] == "ko_self_with_filter"
+    assert len(state.pending_choice["candidates"]) == 2
+    # 候補 [0] (= cand_a サンジ) を pick → resolve
+    resolve_pending_choice(state, [0])
+    # cand_a が KO + draw 1 (= 効果) が 実行されている
+    chara_names = [c.card.name for c in me.characters]
+    assert "サンジ" not in chara_names, f"サンジ が KO されていない: {chara_names}"
+    assert "ナミ" in chara_names, "ナミ は 残るべき"
+    assert len(me.hand) == 1, "効果 draw 1 が 発動 してない"
+
+
+def test_activate_main_cost_pick_ai_auto():
+    """AI acting なら modal 立てず auto-pick (= 既存挙動 維持)"""
+    from engine.effects import CardEffectBundle, fire_activate_main
+    from engine.core import InPlay
+    repo = _repo()
+    source_card = repo.get("OP14-079")
+    overlay = {
+        "OP14-079": CardEffectBundle(card_id="OP14-079", effects=[{
+            "when": "activate_main",
+            "cost": {"ko_self_with_filter": {"feature": "麦わらの一味"}, "once_per_turn": True},
+            "do": [{"draw": 1}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    source_ip = InPlay.of(source_card, sickness=False)
+    me.characters = [source_ip]
+    me.characters.extend([
+        InPlay.of(repo.get("OP01-013"), sickness=False),
+        InPlay.of(repo.get("OP01-016"), sickness=False),
+    ])
+    me.deck = [repo.get("OP01-013")] * 5
+    me.hand = []
+    # AI 状態 (= human_player_idx None)
+    state.human_player_idx = None
+    eff = overlay["OP14-079"].effects[0]
+    fire_activate_main(state, me, opp, source_ip, eff)
+    # halt せず 直接 完了 (= auto-pick 最初 の 候補)
+    assert state.pending_choice is None
+    # 1 体 KO されている (= 元 3 → 2)
+    assert len(me.characters) == 2
+    # draw 1 発動
+    assert len(me.hand) == 1
+
+
 def test_optional_cost_then_trash_to_deck_payable():
     """optional_cost_then: trash_to_deck を cost とした payability check 成立"""
     from engine.effects import execute_effect

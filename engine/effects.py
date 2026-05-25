@@ -5975,6 +5975,44 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             )
         return
 
+    if kind == "activate_main_cost_pick":
+        # picks: candidates[] の index list (= 通常 1 個)。 空 = skip 不可 (= cost 必須)。
+        candidates = choice.get("candidates", [])
+        cost_kind = choice.get("cost_kind", "")
+        source_iid = choice.get("source_iid")
+        effect_index = choice.get("effect_index")
+        prior_picks = dict(choice.get("prior_picks") or {})
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        if not valid_picks:
+            # 0 件 選択 (= 人間 が skip 試みた): cost 払い 不能 で activate_main 全体 中止
+            state.pending_choice = None
+            state.push_log(f"  起動メインコスト: {cost_kind} 選択 なし → 中止")
+            return
+        picked_iid = int(candidates[valid_picks[0]]["iid"])
+        # cost_picks に inject (= prior に 重ねる)
+        if cost_kind == "ko_self_with_filter":
+            prior_picks["ko_iid"] = picked_iid
+        elif cost_kind == "rest_self_target_name":
+            prior_picks["rest_iid"] = picked_iid
+        # source inplay 復元
+        inplay = None
+        for ip in [*me.characters, me.leader, *me.stages]:
+            if ip.instance_id == source_iid:
+                inplay = ip
+                break
+        if inplay is None or effect_index is None:
+            state.pending_choice = None
+            return
+        bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
+        if bundle is None or effect_index >= len(bundle.effects):
+            state.pending_choice = None
+            return
+        eff = bundle.effects[effect_index]
+        state.pending_choice = None
+        # cost_picks 付き で fire_activate_main 再呼出 (= header 二重 push しない、 cost 適用 再開)
+        fire_activate_main(state, me, opp, inplay, eff, cost_picks=prior_picks)
+        return
+
     if kind != "search_top_n":
         # 未知 kind は クリア のみ
         state.pending_choice = None
@@ -8204,12 +8242,27 @@ def list_activate_main_effects(
     return out
 
 
+def _find_effect_index(state: GameState, inplay: InPlay, eff: EffectSpec) -> Optional[int]:
+    """overlay bundle 内 で eff が 何 番目 か 返す。 activate_main_cost_pick の
+    resume 時 に effect 再 lookup する 為 の helper。"""
+    if not state.effects_overlay:
+        return None
+    bundle = state.effects_overlay.get(inplay.card.card_id)
+    if bundle is None:
+        return None
+    for i, e in enumerate(bundle.effects):
+        if e is eff:
+            return i
+    return None
+
+
 def fire_activate_main(
     state: GameState,
     me: Player,
     opp: Player,
     inplay: InPlay,
     eff: EffectSpec,
+    cost_picks: Optional[dict[str, int]] = None,
 ) -> None:
     """起動メインの発火。 コストは同期支払い、 効果は enqueue (= effect_indexes payload 経由)。
 
@@ -8220,107 +8273,161 @@ def fire_activate_main(
     log 順: 「起動メイン: X」 (header) → 「起動メインコスト: ...」 (cost) → 「効果: ...」 (effect)。
     cost を先に書くと、 人間が観戦時に「何の起動メインを発動した結果これを払ったのか」 が
     分からないため、 header を先に push する。
+
+    cost_picks: resume 時 (= activate_main_cost_pick modal 解決後) に 渡される
+        picks dict。 key: "ko_iid" / "rest_iid"。 None なら 初回 呼出 (= header push する)。
+        人間 acting + 候補 > 1 の cost (= ko_self_with_filter / rest_self_target_name)
+        で modal halt → 解決後 cost_picks 付き で 再呼出 する。
     """
-    state.push_log(f"起動メイン: {inplay.card.name}")
+    is_resume = cost_picks is not None
+    if cost_picks is None:
+        cost_picks = {}
+    if not is_resume:
+        state.push_log(f"起動メイン: {inplay.card.name}")
     cost = eff.get("cost", {})
-    # rest_self: log push 漏れ で 「コスト と 状態 変化 の 順序 逆」 と 見える bug 修正
-    # (= U2 観戦コメント T1 由来)。 push_log し ない と state.rested が 「起動メイン: X」
-    # snap 後 silent に true 化 する ので、 観戦者 は cost 払い タイミング を 見失う。
-    if cost.get("rest_self"):
-        inplay.rested = True
-        state.push_log(f"  起動メインコスト: 自レスト {inplay.card.name}")
-    # trash_self: 起動コストとしてこのキャラ自身をトラッシュに置く
-    # 公式: 「このキャラをトラッシュに置くことができる」 = 自KO 同等の扱い
-    # (= 場から取り除き、 持ち主のトラッシュへ、 付与ドンはレストでコストエリアへ)
-    if cost.get("trash_self"):
-        if inplay in me.characters:
+    # resume 時 (= 既に cost 一部 払い済) は 既 paid cost を スキップ し て
+    # 「未払い pick-needing cost + enqueue effect」 のみ 実行 する。
+    # rest_self / trash_self / pay_don / rest_self_don / return_self_to_hand /
+    # discard_hand / discard_hand_with_filter / reveal_hand_with_filter は 全 自動 適用 で、
+    # 初回 呼出 で 既 完了 → resume 時 スキップ。
+    if not is_resume:
+        # rest_self: log push 漏れ で 「コスト と 状態 変化 の 順序 逆」 と 見える bug 修正
+        # (= U2 観戦コメント T1 由来)。 push_log し ない と state.rested が 「起動メイン: X」
+        # snap 後 silent に true 化 する ので、 観戦者 は cost 払い タイミング を 見失う。
+        if cost.get("rest_self"):
+            inplay.rested = True
+            state.push_log(f"  起動メインコスト: 自レスト {inplay.card.name}")
+        # trash_self: 起動コストとしてこのキャラ自身をトラッシュに置く
+        # 公式: 「このキャラをトラッシュに置くことができる」 = 自KO 同等の扱い
+        # (= 場から取り除き、 持ち主のトラッシュへ、 付与ドンはレストでコストエリアへ)
+        if cost.get("trash_self"):
+            if inplay in me.characters:
+                me.characters.remove(inplay)
+                me.trash.append(inplay.card)
+                if inplay.attached_dons > 0:
+                    me.don_rested += inplay.attached_dons
+                    inplay.attached_dons = 0
+                state.push_log(f"  起動メインコスト: 自トラッシュ {inplay.card.name}")
+            elif inplay in me.stages:
+                me.stages.remove(inplay)
+                me.trash.append(inplay.card)
+                if inplay.attached_dons > 0:
+                    me.don_rested += inplay.attached_dons
+                    inplay.attached_dons = 0
+                state.push_log(f"  起動メインコスト: 自ステージトラッシュ {inplay.card.name}")
+        # pay_don N: 場のドンを N 枚ドンデッキに戻す (active 優先)
+        pay_don = int(cost.get("pay_don", 0))
+        if pay_don > 0:
+            taken = min(pay_don, me.don_active)
+            me.don_active -= taken
+            me.don_remaining_in_deck += taken
+            rest_more = min(pay_don - taken, me.don_rested)
+            me.don_rested -= rest_more
+            me.don_remaining_in_deck += rest_more
+            state.push_log(f"  起動メインコスト: ドン-{pay_don}")
+            if (taken + rest_more) > 0 and state.effects_overlay:
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+        # rest_self_don N: アクティブドン N 枚を rested に
+        rest_self_don = int(cost.get("rest_self_don", 0))
+        if rest_self_don > 0:
+            actual = min(rest_self_don, me.don_active)
+            me.don_active -= actual
+            me.don_rested += actual
+            state.push_log(f"  起動メインコスト: アクティブドン {actual} レスト")
+        # return_self_to_hand: self を 場 から 手札 に 戻す
+        if cost.get("return_self_to_hand") and inplay in me.characters:
             me.characters.remove(inplay)
-            me.trash.append(inplay.card)
+            me.hand.append(inplay.card)
             if inplay.attached_dons > 0:
                 me.don_rested += inplay.attached_dons
                 inplay.attached_dons = 0
-            state.push_log(f"  起動メインコスト: 自トラッシュ {inplay.card.name}")
-        elif inplay in me.stages:
-            me.stages.remove(inplay)
-            me.trash.append(inplay.card)
-            if inplay.attached_dons > 0:
-                me.don_rested += inplay.attached_dons
-                inplay.attached_dons = 0
-            state.push_log(f"  起動メインコスト: 自ステージトラッシュ {inplay.card.name}")
-    # pay_don N: 場のドンを N 枚ドンデッキに戻す (active 優先)
-    pay_don = int(cost.get("pay_don", 0))
-    if pay_don > 0:
-        taken = min(pay_don, me.don_active)
-        me.don_active -= taken
-        me.don_remaining_in_deck += taken
-        rest_more = min(pay_don - taken, me.don_rested)
-        me.don_rested -= rest_more
-        me.don_remaining_in_deck += rest_more
-        state.push_log(f"  起動メインコスト: ドン-{pay_don}")
-        if (taken + rest_more) > 0 and state.effects_overlay:
-            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
-    # rest_self_don N: アクティブドン N 枚を rested に
-    rest_self_don = int(cost.get("rest_self_don", 0))
-    if rest_self_don > 0:
-        actual = min(rest_self_don, me.don_active)
-        me.don_active -= actual
-        me.don_rested += actual
-        state.push_log(f"  起動メインコスト: アクティブドン {actual} レスト")
-    # return_self_to_hand: self を 場 から 手札 に 戻す
-    if cost.get("return_self_to_hand") and inplay in me.characters:
-        me.characters.remove(inplay)
-        me.hand.append(inplay.card)
-        if inplay.attached_dons > 0:
-            me.don_rested += inplay.attached_dons
-            inplay.attached_dons = 0
-        state.push_log(f"  起動メインコスト: 自 → 手札 {inplay.card.name}")
-    # discard_hand N: 手札N枚ランダム捨て (簡略: 末尾から)
-    discard_n = int(cost.get("discard_hand", 0))
-    for _ in range(discard_n):
-        if not me.hand:
-            break
-        idx = state.rng.randrange(len(me.hand))
-        me.trash.append(me.hand.pop(idx))
-        state.push_log(f"  起動メインコスト: 手札1捨て")
-    # filter 付き discard cost (= 「自分の手札から特徴X を持つカード N 枚を捨てる」)
-    discard_filter_spec = cost.get("discard_hand_with_filter")
-    if discard_filter_spec:
-        if "filter" in discard_filter_spec:
-            d_filt = discard_filter_spec.get("filter", {})
-        else:
-            d_filt = {k: v for k, v in discard_filter_spec.items() if k != "count"}
-        d_count = int(discard_filter_spec.get("count", 1))
-        discarded = 0
-        new_hand = []
-        for c in me.hand:
-            if discarded < d_count and _matches_filter(c, d_filt):
-                me.trash.append(c)
-                discarded += 1
-                state.push_log(f"  起動メインコスト: 手札捨て (filter) → {c.name}")
+            state.push_log(f"  起動メインコスト: 自 → 手札 {inplay.card.name}")
+        # discard_hand N: 手札N枚ランダム捨て (簡略: 末尾から)
+        discard_n = int(cost.get("discard_hand", 0))
+        for _ in range(discard_n):
+            if not me.hand:
+                break
+            idx = state.rng.randrange(len(me.hand))
+            me.trash.append(me.hand.pop(idx))
+            state.push_log(f"  起動メインコスト: 手札1捨て")
+        # filter 付き discard cost (= 「自分の手札から特徴X を持つカード N 枚を捨てる」)
+        discard_filter_spec = cost.get("discard_hand_with_filter")
+        if discard_filter_spec:
+            if "filter" in discard_filter_spec:
+                d_filt = discard_filter_spec.get("filter", {})
             else:
-                new_hand.append(c)
-        me.hand = new_hand
-    # R4: reveal_hand_with_filter (公開のみ、 実消費なし)。
-    # 公式: 「自分の手札から特徴X を持つカード N 枚を公開することができる：効果」 (OP14-105 等)。
-    # payability で hand に N 枚以上あることは確認済。 ここでは公開ログのみ。
-    reveal_filter_spec = cost.get("reveal_hand_with_filter")
-    if reveal_filter_spec:
-        if "filter" in reveal_filter_spec:
-            r_filt = reveal_filter_spec.get("filter", {})
-        else:
-            r_filt = {k: v for k, v in reveal_filter_spec.items() if k != "count"}
-        r_count = int(reveal_filter_spec.get("count", 1))
-        revealed = []
-        for c in me.hand:
-            if len(revealed) < r_count and _matches_filter(c, r_filt):
-                revealed.append(c.name)
-        state.push_log(f"  起動メインコスト: 手札公開 (実消費なし) → {revealed}")
+                d_filt = {k: v for k, v in discard_filter_spec.items() if k != "count"}
+            d_count = int(discard_filter_spec.get("count", 1))
+            discarded = 0
+            new_hand = []
+            for c in me.hand:
+                if discarded < d_count and _matches_filter(c, d_filt):
+                    me.trash.append(c)
+                    discarded += 1
+                    state.push_log(f"  起動メインコスト: 手札捨て (filter) → {c.name}")
+                else:
+                    new_hand.append(c)
+            me.hand = new_hand
+        # R4: reveal_hand_with_filter (公開のみ、 実消費なし)。
+        # 公式: 「自分の手札から特徴X を持つカード N 枚を公開することができる：効果」 (OP14-105 等)。
+        # payability で hand に N 枚以上あることは確認済。 ここでは公開ログのみ。
+        reveal_filter_spec = cost.get("reveal_hand_with_filter")
+        if reveal_filter_spec:
+            if "filter" in reveal_filter_spec:
+                r_filt = reveal_filter_spec.get("filter", {})
+            else:
+                r_filt = {k: v for k, v in reveal_filter_spec.items() if k != "count"}
+            r_count = int(reveal_filter_spec.get("count", 1))
+            revealed = []
+            for c in me.hand:
+                if len(revealed) < r_count and _matches_filter(c, r_filt):
+                    revealed.append(c.name)
+            state.push_log(f"  起動メインコスト: 手札公開 (実消費なし) → {revealed}")
     # ko_self_with_filter: 自場の該当キャラ1枚KO
+    # 人間 acting + 候補 > 1 + pick 未指定 → modal halt + activate_main_cost_pick で resume。
     ko_filter = cost.get("ko_self_with_filter")
-    if ko_filter:
+    if ko_filter is not None:
         candidates = [c for c in me.characters if _matches_filter(c.card, ko_filter)]
         if candidates:
-            target = candidates[0]
+            target = None
+            if "ko_iid" in cost_picks:
+                target = next(
+                    (c for c in candidates if c.instance_id == cost_picks["ko_iid"]),
+                    None,
+                )
+            elif len(candidates) > 1 and _should_human_pick(state):
+                eff_idx = _find_effect_index(state, inplay, eff)
+                if eff_idx is not None:
+                    state.pending_choice = {
+                        "kind": "activate_main_cost_pick",
+                        "cost_kind": "ko_self_with_filter",
+                        "source_iid": inplay.instance_id,
+                        "effect_index": eff_idx,
+                        "candidates": [
+                            {
+                                "iid": c.instance_id,
+                                "card_id": c.card.card_id,
+                                "name": c.card.name,
+                                "cost": int(c.card.cost) if c.card.cost is not None else 0,
+                                "power": int(c.power),
+                                "rested": bool(c.rested),
+                                "attached_dons": int(c.attached_dons),
+                                "owner": "self",
+                                "is_leader": False,
+                            }
+                            for c in candidates
+                        ],
+                        "prior_picks": dict(cost_picks),
+                        "limit": 1,
+                        "primitive_kind": "ko_self_with_filter",
+                        "description": "起動メインコスト: 自KO 対象 を 選択",
+                    }
+                    state.push_log(
+                        f"  起動メインコスト 候補 {len(candidates)} 枚 → 人間 選択 待ち (= 自KO)"
+                    )
+                    return
+            if target is None:
+                target = candidates[0]
             me.characters.remove(target)
             me.trash.append(target.card)
             if target.attached_dons > 0:
@@ -8333,17 +8440,59 @@ def fire_activate_main(
                 trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
     # rest_self_target_name: 自場の name 一致キャラ/ステージを 1 枚 rest
     # 公式: 「自分の『ハチノス』1枚をレストにできる：効果」 (ST27-001 アバロ・ピサロ等)
+    # 人間 acting + 候補 > 1 + pick 未指定 → modal halt (= ko と 同じ pattern)。
     rest_filter_name = cost.get("rest_self_target_name") or cost.get("rest_self_target")
     if rest_filter_name:
         target_name = (
             rest_filter_name.get("name", "") if isinstance(rest_filter_name, dict)
             else str(rest_filter_name)
         )
-        for ip in (list(me.characters) + list(me.stages)):
-            if ip.card.name == target_name and not ip.rested:
-                ip.rested = True
-                state.push_log(f"  起動メインコスト: 自レスト {ip.card.name}")
-                break
+        rest_candidates = [
+            ip for ip in (list(me.characters) + list(me.stages))
+            if ip.card.name == target_name and not ip.rested
+        ]
+        if rest_candidates:
+            target_ip = None
+            if "rest_iid" in cost_picks:
+                target_ip = next(
+                    (ip for ip in rest_candidates if ip.instance_id == cost_picks["rest_iid"]),
+                    None,
+                )
+            elif len(rest_candidates) > 1 and _should_human_pick(state):
+                eff_idx = _find_effect_index(state, inplay, eff)
+                if eff_idx is not None:
+                    state.pending_choice = {
+                        "kind": "activate_main_cost_pick",
+                        "cost_kind": "rest_self_target_name",
+                        "source_iid": inplay.instance_id,
+                        "effect_index": eff_idx,
+                        "candidates": [
+                            {
+                                "iid": ip.instance_id,
+                                "card_id": ip.card.card_id,
+                                "name": ip.card.name,
+                                "cost": int(ip.card.cost) if ip.card.cost is not None else 0,
+                                "power": int(ip.power),
+                                "rested": bool(ip.rested),
+                                "attached_dons": int(ip.attached_dons),
+                                "owner": "self",
+                                "is_leader": False,
+                            }
+                            for ip in rest_candidates
+                        ],
+                        "prior_picks": dict(cost_picks),
+                        "limit": 1,
+                        "primitive_kind": "rest_self_target_name",
+                        "description": f"起動メインコスト: 自レスト 対象 「{target_name}」 を 選択",
+                    }
+                    state.push_log(
+                        f"  起動メインコスト 候補 {len(rest_candidates)} 枚 → 人間 選択 待ち (= 自レスト)"
+                    )
+                    return
+            if target_ip is None:
+                target_ip = rest_candidates[0]
+            target_ip.rested = True
+            state.push_log(f"  起動メインコスト: 自レスト {target_ip.card.name}")
     # once_per_turn フラグ
     if cost.get("once_per_turn", True):
         setattr(inplay, "_act_used", True)

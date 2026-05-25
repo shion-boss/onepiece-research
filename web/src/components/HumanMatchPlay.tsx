@@ -1709,6 +1709,16 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "activate_main_cost_pick" ? (
+          /* activate_main の cost (= ko_self_with_filter / rest_self_target_name) で
+             候補 > 1 の 時 の 人間 modal。 TargetPickModal を 再利用 (= candidates +
+             limit + description + primitive_kind の 形式 揃え 済)。 */
+          <TargetPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "scry_life_reorder" ? (
           <ScryLifeReorderModal
             payload={state.pending_payload}
