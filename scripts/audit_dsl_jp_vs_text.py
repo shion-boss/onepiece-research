@@ -137,7 +137,12 @@ def check_concept_missing(text: str, rendered: str, entries: list, cid: str) -> 
                 break
     # 「自分のデッキの上から N 枚を見て」 → search_top_n
     if re.search(r"自分のデッキの上から\d+枚を見て", text):
-        if "search_top_n" not in flat_entries and "look_top_reorder" not in flat_entries and "reveal_top" not in flat_entries:
+        if (
+            "search_top_n" not in flat_entries
+            and "look_top_reorder" not in flat_entries
+            and "reveal_top" not in flat_entries
+            and "scry_deck_reorder" not in flat_entries
+        ):
             issues.append({"kind": "missing_search_top_n_concept", "severity": 5})
     # 「自分のデッキから...手札に加え」 → search
     if re.search(r"自分のデッキから.{0,50}手札に加える", text) and not re.search(r"上から", text):

@@ -1,26 +1,10 @@
 {
   "summary": {
-    "total_primitives": 274,
-    "implemented": 240,
-    "missing": 34
+    "total_primitives": 284,
+    "implemented": 248,
+    "missing": 36
   },
   "missing": [
-    {
-      "name": "leader_passive",
-      "do": 0,
-      "cost": 0,
-      "if": 0,
-      "when": 9,
-      "sample_cards": [
-        "OP05-074_p4",
-        "OP05-074_r1",
-        "OP05-074_r2",
-        "EB04-051",
-        "OP09-025"
-      ],
-      "implemented": false,
-      "total_usage": 9
-    },
     {
       "name": "in_hand_cost_plus",
       "do": 8,
@@ -33,6 +17,22 @@
         "EB03-042",
         "EB03-042_p1",
         "EB03-042_p2"
+      ],
+      "implemented": false,
+      "total_usage": 8
+    },
+    {
+      "name": "leader_passive",
+      "do": 0,
+      "cost": 0,
+      "if": 0,
+      "when": 8,
+      "sample_cards": [
+        "OP05-074_p4",
+        "OP05-074_r1",
+        "OP05-074_r2",
+        "OP09-025",
+        "OP05-074_p3"
       ],
       "implemented": false,
       "total_usage": 8
@@ -102,6 +102,22 @@
       "total_usage": 6
     },
     {
+      "name": "total_life_le",
+      "do": 0,
+      "cost": 0,
+      "if": 6,
+      "when": 0,
+      "sample_cards": [
+        "P-088_p1",
+        "P-088_r1",
+        "OP09-100",
+        "OP09-108",
+        "OP09-108_p2"
+      ],
+      "implemented": false,
+      "total_usage": 6
+    },
+    {
       "name": "on_self_chara_rested_by_self_effect",
       "do": 0,
       "cost": 0,
@@ -163,21 +179,6 @@
       "total_usage": 4
     },
     {
-      "name": "opp_discard_hand_to_deck_bottom",
-      "do": 4,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP06-044_p1",
-        "OP06-044_r1",
-        "OP08-046",
-        "OP06-044"
-      ],
-      "implemented": false,
-      "total_usage": 4
-    },
-    {
       "name": "set_protect_from_opp_effect_static",
       "do": 4,
       "cost": 0,
@@ -191,20 +192,6 @@
       ],
       "implemented": false,
       "total_usage": 4
-    },
-    {
-      "name": "return_self_chara_to_hand",
-      "do": 0,
-      "cost": 3,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "EB01-021_p2",
-        "EB01-021",
-        "EB01-021_p1"
-      ],
-      "implemented": false,
-      "total_usage": 3
     },
     {
       "name": "leader_attribute",
@@ -229,6 +216,19 @@
       "sample_cards": [
         "OP11-041",
         "OP11-041_p1"
+      ],
+      "implemented": false,
+      "total_usage": 2
+    },
+    {
+      "name": "self_all_chara_feature",
+      "do": 0,
+      "cost": 0,
+      "if": 2,
+      "when": 0,
+      "sample_cards": [
+        "OP15-001",
+        "OP15-001_p1"
       ],
       "implemented": false,
       "total_usage": 2
@@ -325,6 +325,18 @@
       "total_usage": 2
     },
     {
+      "name": "on_self_trigger_fired",
+      "do": 0,
+      "cost": 0,
+      "if": 0,
+      "when": 1,
+      "sample_cards": [
+        "OP13-106"
+      ],
+      "implemented": false,
+      "total_usage": 1
+    },
+    {
       "name": "self_leader_power_le",
       "do": 0,
       "cost": 0,
@@ -332,6 +344,18 @@
       "when": 0,
       "sample_cards": [
         "OP15-013"
+      ],
+      "implemented": false,
+      "total_usage": 1
+    },
+    {
+      "name": "set_ko_immune_from_source_power_le",
+      "do": 1,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP14-003"
       ],
       "implemented": false,
       "total_usage": 1
@@ -475,7 +499,7 @@
       "do": 0,
       "cost": 0,
       "if": 0,
-      "when": 1650,
+      "when": 1646,
       "sample_cards": [
         "OP01-016",
         "OP02-013",
@@ -484,11 +508,11 @@
         "EB03-047"
       ],
       "implemented": true,
-      "total_usage": 1650
+      "total_usage": 1646
     },
     {
       "name": "power_pump",
-      "do": 908,
+      "do": 930,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -500,7 +524,23 @@
         "OP02-001"
       ],
       "implemented": true,
-      "total_usage": 908
+      "total_usage": 930
+    },
+    {
+      "name": "trigger",
+      "do": 0,
+      "cost": 0,
+      "if": 0,
+      "when": 797,
+      "sample_cards": [
+        "EB02-018",
+        "OP11-028",
+        "OP05-017",
+        "EB03-058",
+        "OP03-026"
+      ],
+      "implemented": true,
+      "total_usage": 797
     },
     {
       "name": "activate_main",
@@ -519,25 +559,9 @@
       "total_usage": 701
     },
     {
-      "name": "trigger",
-      "do": 0,
-      "cost": 0,
-      "if": 0,
-      "when": 664,
-      "sample_cards": [
-        "OP11-028",
-        "OP05-017",
-        "EB03-058",
-        "OP03-026",
-        "OP03-029"
-      ],
-      "implemented": true,
-      "total_usage": 664
-    },
-    {
       "name": "once_per_turn",
       "do": 0,
-      "cost": 628,
+      "cost": 630,
       "if": 0,
       "when": 0,
       "sample_cards": [
@@ -548,7 +572,7 @@
         "EB02-010"
       ],
       "implemented": true,
-      "total_usage": 628
+      "total_usage": 630
     },
     {
       "name": "on_attack",
@@ -568,7 +592,7 @@
     },
     {
       "name": "draw",
-      "do": 520,
+      "do": 529,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -580,11 +604,11 @@
         "OP01-080"
       ],
       "implemented": true,
-      "total_usage": 520
+      "total_usage": 529
     },
     {
       "name": "ko",
-      "do": 478,
+      "do": 487,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -596,14 +620,14 @@
         "OP01-007"
       ],
       "implemented": true,
-      "total_usage": 478
+      "total_usage": 487
     },
     {
       "name": "on_attached_don",
       "do": 0,
       "cost": 0,
       "if": 0,
-      "when": 415,
+      "when": 434,
       "sample_cards": [
         "OP01-001",
         "OP15-011",
@@ -612,11 +636,11 @@
         "OP11-001"
       ],
       "implemented": true,
-      "total_usage": 415
+      "total_usage": 434
     },
     {
       "name": "trash_self_hand_random",
-      "do": 411,
+      "do": 418,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -628,7 +652,23 @@
         "OP12-046"
       ],
       "implemented": true,
-      "total_usage": 411
+      "total_usage": 418
+    },
+    {
+      "name": "main",
+      "do": 0,
+      "cost": 0,
+      "if": 0,
+      "when": 392,
+      "sample_cards": [
+        "OP13-075",
+        "OP08-036",
+        "OP13-040",
+        "OP14-096",
+        "OP13-076"
+      ],
+      "implemented": true,
+      "total_usage": 392
     },
     {
       "name": "search_top_n",
@@ -647,42 +687,10 @@
       "total_usage": 387
     },
     {
-      "name": "main",
-      "do": 0,
-      "cost": 0,
-      "if": 0,
-      "when": 384,
-      "sample_cards": [
-        "OP13-075",
-        "OP08-036",
-        "OP13-040",
-        "OP14-096",
-        "OP13-076"
-      ],
-      "implemented": true,
-      "total_usage": 384
-    },
-    {
-      "name": "discard_hand",
-      "do": 0,
-      "cost": 358,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "EB03-025",
-        "OP06-051",
-        "OP09-044",
-        "OP12-046",
-        "OP13-002"
-      ],
-      "implemented": true,
-      "total_usage": 358
-    },
-    {
       "name": "leader_feature",
       "do": 0,
       "cost": 0,
-      "if": 346,
+      "if": 361,
       "when": 0,
       "sample_cards": [
         "OP05-005",
@@ -692,11 +700,43 @@
         "OP08-040"
       ],
       "implemented": true,
-      "total_usage": 346
+      "total_usage": 361
+    },
+    {
+      "name": "discard_hand",
+      "do": 0,
+      "cost": 359,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "EB03-025",
+        "OP06-051",
+        "OP09-044",
+        "OP12-046",
+        "OP11-041"
+      ],
+      "implemented": true,
+      "total_usage": 359
+    },
+    {
+      "name": "pay_don",
+      "do": 1,
+      "cost": 350,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "EB02-010",
+        "OP07-059",
+        "OP12-061",
+        "OP14-060",
+        "EB04-033"
+      ],
+      "implemented": true,
+      "total_usage": 351
     },
     {
       "name": "give_keyword",
-      "do": 321,
+      "do": 325,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -708,23 +748,23 @@
         "OP15-041"
       ],
       "implemented": true,
-      "total_usage": 321
+      "total_usage": 325
     },
     {
-      "name": "pay_don",
-      "do": 1,
-      "cost": 305,
+      "name": "optional_cost_then",
+      "do": 283,
+      "cost": 0,
       "if": 0,
       "when": 0,
       "sample_cards": [
-        "EB02-010",
-        "OP07-059",
-        "OP12-061",
-        "EB04-033",
-        "OP01-041"
+        "OP01-002",
+        "OP01-060",
+        "OP03-013",
+        "OP07-040",
+        "OP07-047"
       ],
       "implemented": true,
-      "total_usage": 306
+      "total_usage": 283
     },
     {
       "name": "counter",
@@ -743,36 +783,20 @@
       "total_usage": 279
     },
     {
-      "name": "optional_cost_then",
-      "do": 273,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP01-002",
-        "OP01-060",
-        "OP03-013",
-        "OP07-040",
-        "OP07-047"
-      ],
-      "implemented": true,
-      "total_usage": 273
-    },
-    {
       "name": "rest",
-      "do": 261,
+      "do": 269,
       "cost": 0,
       "if": 0,
       "when": 0,
       "sample_cards": [
+        "EB02-018",
         "EB02-019",
         "OP03-024",
         "OP05-025",
-        "OP07-032",
-        "OP08-040"
+        "OP07-032"
       ],
       "implemented": true,
-      "total_usage": 261
+      "total_usage": 269
     },
     {
       "name": "on_ko",
@@ -794,7 +818,7 @@
       "name": "self_life_le",
       "do": 0,
       "cost": 0,
-      "if": 176,
+      "if": 189,
       "when": 0,
       "sample_cards": [
         "OP13-054",
@@ -804,12 +828,12 @@
         "EB03-058"
       ],
       "implemented": true,
-      "total_usage": 176
+      "total_usage": 189
     },
     {
       "name": "rest_self",
       "do": 0,
-      "cost": 173,
+      "cost": 174,
       "if": 0,
       "when": 0,
       "sample_cards": [
@@ -820,11 +844,27 @@
         "EB01-016"
       ],
       "implemented": true,
-      "total_usage": 173
+      "total_usage": 174
+    },
+    {
+      "name": "play_self",
+      "do": 172,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "EB03-058",
+        "OP03-026",
+        "OP03-029",
+        "OP03-030",
+        "OP04-052"
+      ],
+      "implemented": true,
+      "total_usage": 172
     },
     {
       "name": "play_from_hand",
-      "do": 158,
+      "do": 160,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -836,11 +876,11 @@
         "EB03-044"
       ],
       "implemented": true,
-      "total_usage": 158
+      "total_usage": 160
     },
     {
       "name": "add_don",
-      "do": 142,
+      "do": 153,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -849,10 +889,10 @@
         "EB01-061",
         "OP13-068",
         "OP13-075",
-        "EB04-038"
+        "OP05-077"
       ],
       "implemented": true,
-      "total_usage": 142
+      "total_usage": 153
     },
     {
       "name": "attach_don",
@@ -872,7 +912,7 @@
     },
     {
       "name": "return_to_hand",
-      "do": 129,
+      "do": 130,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -884,7 +924,23 @@
         "OP08-040"
       ],
       "implemented": true,
-      "total_usage": 129
+      "total_usage": 130
+    },
+    {
+      "name": "opp_turn",
+      "do": 0,
+      "cost": 0,
+      "if": 130,
+      "when": 0,
+      "sample_cards": [
+        "OP15-011",
+        "OP15-024",
+        "OP15-048",
+        "EB04-001",
+        "OP05-098"
+      ],
+      "implemented": true,
+      "total_usage": 130
     },
     {
       "name": "untap_don",
@@ -905,7 +961,7 @@
     {
       "name": "trash_self",
       "do": 0,
-      "cost": 116,
+      "cost": 117,
       "if": 0,
       "when": 0,
       "sample_cards": [
@@ -916,23 +972,7 @@
         "OP04-032"
       ],
       "implemented": true,
-      "total_usage": 116
-    },
-    {
-      "name": "opp_turn",
-      "do": 0,
-      "cost": 0,
-      "if": 113,
-      "when": 0,
-      "sample_cards": [
-        "OP15-011",
-        "OP15-024",
-        "OP15-048",
-        "EB04-001",
-        "OP05-098"
-      ],
-      "implemented": true,
-      "total_usage": 113
+      "total_usage": 117
     },
     {
       "name": "end_of_turn",
@@ -949,6 +989,54 @@
       ],
       "implemented": true,
       "total_usage": 106
+    },
+    {
+      "name": "self_attached_don_ge",
+      "do": 0,
+      "cost": 0,
+      "if": 103,
+      "when": 0,
+      "sample_cards": [
+        "OP01-060",
+        "OP01-084",
+        "OP11-041",
+        "OP12-020",
+        "OP13-001"
+      ],
+      "implemented": true,
+      "total_usage": 103
+    },
+    {
+      "name": "self_turn",
+      "do": 0,
+      "cost": 0,
+      "if": 103,
+      "when": 0,
+      "sample_cards": [
+        "OP03-013",
+        "OP11-041",
+        "EB02-035",
+        "EB01-014",
+        "OP12-099"
+      ],
+      "implemented": true,
+      "total_usage": 103
+    },
+    {
+      "name": "add_rested_don",
+      "do": 103,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP15-058",
+        "OP13-067",
+        "OP13-072",
+        "OP11-080",
+        "OP14-067"
+      ],
+      "implemented": true,
+      "total_usage": 103
     },
     {
       "name": "fire_self_effect",
@@ -983,74 +1071,10 @@
       "total_usage": 101
     },
     {
-      "name": "play_self",
-      "do": 101,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "EB03-058",
-        "OP03-026",
-        "OP03-029",
-        "OP03-030",
-        "OP04-052"
-      ],
-      "implemented": true,
-      "total_usage": 101
-    },
-    {
-      "name": "self_attached_don_ge",
-      "do": 0,
-      "cost": 0,
-      "if": 99,
-      "when": 0,
-      "sample_cards": [
-        "OP01-060",
-        "OP01-084",
-        "OP12-020",
-        "OP13-001",
-        "EB01-026"
-      ],
-      "implemented": true,
-      "total_usage": 99
-    },
-    {
-      "name": "add_rested_don",
-      "do": 99,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP15-058",
-        "OP13-067",
-        "OP13-072",
-        "OP11-080",
-        "OP14-067"
-      ],
-      "implemented": true,
-      "total_usage": 99
-    },
-    {
-      "name": "self_turn",
-      "do": 0,
-      "cost": 0,
-      "if": 94,
-      "when": 0,
-      "sample_cards": [
-        "OP03-013",
-        "OP11-041",
-        "EB02-035",
-        "EB01-014",
-        "OP12-099"
-      ],
-      "implemented": true,
-      "total_usage": 94
-    },
-    {
       "name": "leader_name",
       "do": 0,
       "cost": 0,
-      "if": 93,
+      "if": 101,
       "when": 0,
       "sample_cards": [
         "EB02-025",
@@ -1060,7 +1084,23 @@
         "OP15-075"
       ],
       "implemented": true,
-      "total_usage": 93
+      "total_usage": 101
+    },
+    {
+      "name": "put_top_to_life",
+      "do": 97,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP05-098",
+        "EB04-058",
+        "EB04-054",
+        "EB02-052",
+        "OP15-113"
+      ],
+      "implemented": true,
+      "total_usage": 97
     },
     {
       "name": "return_to_deck_bottom",
@@ -1074,22 +1114,6 @@
         "OP13-058",
         "OP04-056",
         "OP01-070"
-      ],
-      "implemented": true,
-      "total_usage": 92
-    },
-    {
-      "name": "put_top_to_life",
-      "do": 92,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP05-098",
-        "EB04-058",
-        "EB04-054",
-        "EB02-052",
-        "OP15-113"
       ],
       "implemented": true,
       "total_usage": 92
@@ -1131,22 +1155,22 @@
       "do": 0,
       "cost": 0,
       "if": 0,
-      "when": 71,
+      "when": 75,
       "sample_cards": [
         "OP07-019",
+        "OP11-041",
         "OP13-001",
         "OP13-002",
-        "OP14-060",
-        "OP15-002"
+        "OP14-060"
       ],
       "implemented": true,
-      "total_usage": 71
+      "total_usage": 75
     },
     {
       "name": "target",
       "do": 0,
       "cost": 0,
-      "if": 69,
+      "if": 70,
       "when": 0,
       "sample_cards": [
         "OP15-098",
@@ -1156,11 +1180,11 @@
         "OP14-029"
       ],
       "implemented": true,
-      "total_usage": 69
+      "total_usage": 70
     },
     {
       "name": "play_from_trash",
-      "do": 68,
+      "do": 69,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -1172,7 +1196,23 @@
         "EB03-024"
       ],
       "implemented": true,
-      "total_usage": 68
+      "total_usage": 69
+    },
+    {
+      "name": "leader_features_any",
+      "do": 0,
+      "cost": 0,
+      "if": 67,
+      "when": 0,
+      "sample_cards": [
+        "OP02-013",
+        "EB02-028",
+        "OP07-032",
+        "OP13-072",
+        "OP14-087"
+      ],
+      "implemented": true,
+      "total_usage": 67
     },
     {
       "name": "self_hand_count_le",
@@ -1189,22 +1229,6 @@
       ],
       "implemented": true,
       "total_usage": 67
-    },
-    {
-      "name": "leader_features_any",
-      "do": 0,
-      "cost": 0,
-      "if": 66,
-      "when": 0,
-      "sample_cards": [
-        "OP02-013",
-        "EB02-028",
-        "OP07-032",
-        "OP13-072",
-        "OP14-087"
-      ],
-      "implemented": true,
-      "total_usage": 66
     },
     {
       "name": "life_to_hand",
@@ -1226,7 +1250,7 @@
       "name": "by_opp_effect",
       "do": 0,
       "cost": 0,
-      "if": 60,
+      "if": 62,
       "when": 0,
       "sample_cards": [
         "OP15-098",
@@ -1236,7 +1260,7 @@
         "OP14-029"
       ],
       "implemented": true,
-      "total_usage": 60
+      "total_usage": 62
     },
     {
       "name": "self_trash_count_ge",
@@ -1256,7 +1280,7 @@
     },
     {
       "name": "look_top_reorder",
-      "do": 54,
+      "do": 53,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -1268,7 +1292,7 @@
         "P-109"
       ],
       "implemented": true,
-      "total_usage": 54
+      "total_usage": 53
     },
     {
       "name": "untap_chara",
@@ -1287,6 +1311,38 @@
       "total_usage": 53
     },
     {
+      "name": "set_ko_immune",
+      "do": 49,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP15-118",
+        "OP13-083",
+        "OP13-089",
+        "OP13-091",
+        "OP13-080"
+      ],
+      "implemented": true,
+      "total_usage": 49
+    },
+    {
+      "name": "opp_life_le",
+      "do": 0,
+      "cost": 0,
+      "if": 47,
+      "when": 0,
+      "sample_cards": [
+        "OP06-022",
+        "EB01-054",
+        "OP06-104",
+        "OP14-108",
+        "OP14-107"
+      ],
+      "implemented": true,
+      "total_usage": 47
+    },
+    {
       "name": "self_don_ge",
       "do": 0,
       "cost": 0,
@@ -1298,22 +1354,6 @@
         "EB02-013",
         "ST18-001",
         "OP10-072"
-      ],
-      "implemented": true,
-      "total_usage": 46
-    },
-    {
-      "name": "set_ko_immune",
-      "do": 46,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP15-118",
-        "OP13-083",
-        "OP13-089",
-        "OP13-091",
-        "OP13-080"
       ],
       "implemented": true,
       "total_usage": 46
@@ -1371,7 +1411,7 @@
       "do": 0,
       "cost": 0,
       "if": 0,
-      "when": 39,
+      "when": 40,
       "sample_cards": [
         "OP15-098",
         "OP10-032",
@@ -1380,7 +1420,7 @@
         "EB04-044"
       ],
       "implemented": true,
-      "total_usage": 39
+      "total_usage": 40
     },
     {
       "name": "on_self_don_returned_to_deck",
@@ -1413,22 +1453,6 @@
       ],
       "implemented": true,
       "total_usage": 37
-    },
-    {
-      "name": "opp_life_le",
-      "do": 0,
-      "cost": 0,
-      "if": 35,
-      "when": 0,
-      "sample_cards": [
-        "OP06-022",
-        "EB01-054",
-        "OP06-104",
-        "OP14-108",
-        "OP14-107"
-      ],
-      "implemented": true,
-      "total_usage": 35
     },
     {
       "name": "stay_rested_next_refresh",
@@ -1483,16 +1507,16 @@
       "do": 0,
       "cost": 0,
       "if": 0,
-      "when": 32,
+      "when": 33,
       "sample_cards": [
         "OP14-029",
+        "OP14-016",
         "OP07-029_r1",
         "OP15-009",
-        "OP15-094",
-        "OP15-105"
+        "OP15-094"
       ],
       "implemented": true,
-      "total_usage": 32
+      "total_usage": 33
     },
     {
       "name": "opp_hand_count_ge",
@@ -1543,6 +1567,38 @@
       "total_usage": 26
     },
     {
+      "name": "on_self_chara_ko",
+      "do": 0,
+      "cost": 0,
+      "if": 0,
+      "when": 24,
+      "sample_cards": [
+        "OP14-041",
+        "EB03-055",
+        "OP12-119",
+        "OP14-041_p1",
+        "OP10-042"
+      ],
+      "implemented": true,
+      "total_usage": 24
+    },
+    {
+      "name": "mill_self_life_to_trash",
+      "do": 24,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "EB03-055",
+        "OP15-116",
+        "OP03-121",
+        "OP03-121_p4",
+        "OP03-121_p5"
+      ],
+      "implemented": true,
+      "total_usage": 24
+    },
+    {
       "name": "in_hand",
       "do": 0,
       "cost": 0,
@@ -1557,22 +1613,6 @@
       ],
       "implemented": true,
       "total_usage": 24
-    },
-    {
-      "name": "mill_self_life_to_trash",
-      "do": 23,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "EB03-055",
-        "OP15-116",
-        "OP03-121",
-        "OP03-121_p4",
-        "OP03-121_p5"
-      ],
-      "implemented": true,
-      "total_usage": 23
     },
     {
       "name": "don_diff_le",
@@ -1639,6 +1679,22 @@
       "total_usage": 21
     },
     {
+      "name": "mill_opp_life_to_trash",
+      "do": 19,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "EB03-055",
+        "EB03-055_p1",
+        "EB03-055_p2",
+        "OP10-109_p1",
+        "OP10-109_r1"
+      ],
+      "implemented": true,
+      "total_usage": 19
+    },
+    {
       "name": "in_hand_cost_minus",
       "do": 18,
       "cost": 0,
@@ -1669,22 +1725,6 @@
       ],
       "implemented": true,
       "total_usage": 17
-    },
-    {
-      "name": "mill_opp_life_to_trash",
-      "do": 16,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP10-109_p1",
-        "OP10-109_r1",
-        "OP10-112_r1",
-        "EB03-057",
-        "EB03-057_p1"
-      ],
-      "implemented": true,
-      "total_usage": 16
     },
     {
       "name": "self_hand_to_deck_bottom",
@@ -1719,6 +1759,22 @@
       "total_usage": 15
     },
     {
+      "name": "target_feature",
+      "do": 0,
+      "cost": 0,
+      "if": 14,
+      "when": 0,
+      "sample_cards": [
+        "OP15-098",
+        "OP14-061",
+        "OP15-098_p1",
+        "OP14-061_p1",
+        "OP15-094"
+      ],
+      "implemented": true,
+      "total_usage": 14
+    },
+    {
       "name": "self_life_ge",
       "do": 0,
       "cost": 0,
@@ -1751,17 +1807,33 @@
       "total_usage": 13
     },
     {
-      "name": "target_feature",
+      "name": "play_from_hand_or_trash",
+      "do": 13,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP14-091",
+        "OP14-091_p1",
+        "EB01-060_p1",
+        "EB01-060_r1",
+        "PRB02-018"
+      ],
+      "implemented": true,
+      "total_usage": 13
+    },
+    {
+      "name": "self_rested",
       "do": 0,
       "cost": 0,
       "if": 13,
       "when": 0,
       "sample_cards": [
-        "OP15-098",
-        "OP14-061",
-        "OP15-098_p1",
-        "OP14-061_p1",
-        "OP15-094"
+        "OP14-026",
+        "OP14-027",
+        "OP01-051",
+        "OP01-051_p3",
+        "OP14-027_p1"
       ],
       "implemented": true,
       "total_usage": 13
@@ -1815,6 +1887,22 @@
       "total_usage": 12
     },
     {
+      "name": "opp_hand_to_deck_bottom",
+      "do": 12,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP15-048",
+        "EB03-026",
+        "EB03-026_p1",
+        "EB03-026_p2",
+        "P-048"
+      ],
+      "implemented": true,
+      "total_usage": 12
+    },
+    {
       "name": "self_chara_unique_name",
       "do": 0,
       "cost": 0,
@@ -1861,6 +1949,22 @@
       ],
       "implemented": true,
       "total_usage": 12
+    },
+    {
+      "name": "set_base_cost",
+      "do": 11,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP15-092",
+        "OP09-061",
+        "OP09-061_p1",
+        "OP09-061_p2",
+        "OP09-061_p3"
+      ],
+      "implemented": true,
+      "total_usage": 11
     },
     {
       "name": "self_summoning_sickness",
@@ -1911,6 +2015,22 @@
       "total_usage": 11
     },
     {
+      "name": "fire_self_main",
+      "do": 10,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP13-096",
+        "OP14-099",
+        "OP10-059",
+        "OP05-076",
+        "OP10-060"
+      ],
+      "implemented": true,
+      "total_usage": 10
+    },
+    {
       "name": "opp_event_or_trigger_fired",
       "do": 0,
       "cost": 0,
@@ -1943,33 +2063,17 @@
       "total_usage": 10
     },
     {
-      "name": "play_from_hand_or_trash",
+      "name": "negate_effect",
       "do": 10,
       "cost": 0,
       "if": 0,
       "when": 0,
       "sample_cards": [
-        "OP14-091",
-        "OP14-091_p1",
-        "EB01-060_p1",
-        "EB01-060_r1",
-        "PRB02-018"
-      ],
-      "implemented": true,
-      "total_usage": 10
-    },
-    {
-      "name": "self_rested",
-      "do": 0,
-      "cost": 0,
-      "if": 10,
-      "when": 0,
-      "sample_cards": [
-        "OP14-026",
-        "OP14-027",
-        "OP01-051",
-        "OP01-051_p3",
-        "OP14-027_p1"
+        "OP09-097_p1",
+        "OP09-097_r1",
+        "OP09-098_p1",
+        "OP09-098_r1",
+        "OP09-097"
       ],
       "implemented": true,
       "total_usage": 10
@@ -2055,22 +2159,6 @@
       "total_usage": 10
     },
     {
-      "name": "on_self_chara_ko",
-      "do": 0,
-      "cost": 0,
-      "if": 0,
-      "when": 9,
-      "sample_cards": [
-        "OP14-041",
-        "OP14-041_p1",
-        "OP10-042",
-        "OP10-042_p1",
-        "ST08-001"
-      ],
-      "implemented": true,
-      "total_usage": 9
-    },
-    {
       "name": "reveal_top_play",
       "do": 9,
       "cost": 0,
@@ -2135,17 +2223,17 @@
       "total_usage": 9
     },
     {
-      "name": "negate_effect",
+      "name": "set_base_cost_timed",
       "do": 9,
       "cost": 0,
       "if": 0,
       "when": 0,
       "sample_cards": [
-        "OP09-097_p1",
-        "OP09-097_r1",
-        "OP09-098_p1",
-        "OP09-098_r1",
-        "OP09-098"
+        "ST14-001",
+        "EB02-041",
+        "EB02-041_p1",
+        "OP14-082",
+        "OP14-098"
       ],
       "implemented": true,
       "total_usage": 9
@@ -2210,22 +2298,6 @@
         "OP05-043_p2",
         "OP05-043_p1",
         "PRB02-005"
-      ],
-      "implemented": true,
-      "total_usage": 8
-    },
-    {
-      "name": "opp_hand_to_deck_bottom",
-      "do": 8,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP15-048",
-        "EB03-026",
-        "EB03-026_p1",
-        "EB03-026_p2",
-        "P-048"
       ],
       "implemented": true,
       "total_usage": 8
@@ -2321,22 +2393,6 @@
         "EB04-003",
         "EB04-003_p1",
         "OP15-070"
-      ],
-      "implemented": true,
-      "total_usage": 8
-    },
-    {
-      "name": "set_base_cost_timed",
-      "do": 8,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "ST14-001",
-        "EB02-041",
-        "EB02-041_p1",
-        "OP14-082",
-        "OP14-098"
       ],
       "implemented": true,
       "total_usage": 8
@@ -2470,17 +2526,17 @@
       "total_usage": 7
     },
     {
-      "name": "set_base_cost",
+      "name": "set_cannot_attack_static",
       "do": 7,
       "cost": 0,
       "if": 0,
       "when": 0,
       "sample_cards": [
-        "OP15-092",
-        "OP15-092_p1",
-        "OP08-083",
-        "OP08-093",
-        "OP07-081"
+        "OP14-056",
+        "OP11-022",
+        "OP11-022_p1",
+        "EB04-005",
+        "EB04-051"
       ],
       "implemented": true,
       "total_usage": 7
@@ -2534,22 +2590,6 @@
       "total_usage": 6
     },
     {
-      "name": "set_cannot_attack_static",
-      "do": 6,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP14-056",
-        "OP11-022",
-        "OP11-022_p1",
-        "EB04-005",
-        "OP11-058"
-      ],
-      "implemented": true,
-      "total_usage": 6
-    },
-    {
       "name": "target_cost_le",
       "do": 0,
       "cost": 0,
@@ -2561,6 +2601,22 @@
         "OP12-102_p1",
         "OP10-049",
         "OP10-049_p2"
+      ],
+      "implemented": true,
+      "total_usage": 6
+    },
+    {
+      "name": "summon_from_deck",
+      "do": 6,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP11-022",
+        "OP11-022_p1",
+        "OP08-071",
+        "OP08-073",
+        "OP02-030"
       ],
       "implemented": true,
       "total_usage": 6
@@ -2909,8 +2965,8 @@
       "when": 0,
       "sample_cards": [
         "OP13-002",
-        "OP14-060",
-        "OP14-060_p1",
+        "OP15-001",
+        "OP15-001_p1",
         "P-114"
       ],
       "implemented": true,
@@ -2956,21 +3012,6 @@
         "OP15-008_p1",
         "OP15-015",
         "OP11-013"
-      ],
-      "implemented": true,
-      "total_usage": 4
-    },
-    {
-      "name": "summon_from_deck",
-      "do": 4,
-      "cost": 0,
-      "if": 0,
-      "when": 0,
-      "sample_cards": [
-        "OP11-022",
-        "OP11-022_p1",
-        "OP02-030",
-        "OP02-030_p1"
       ],
       "implemented": true,
       "total_usage": 4
@@ -3147,6 +3188,20 @@
       "total_usage": 3
     },
     {
+      "name": "return_self_chara_to_hand",
+      "do": 0,
+      "cost": 3,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "EB01-021_p2",
+        "EB01-021",
+        "EB01-021_p1"
+      ],
+      "implemented": true,
+      "total_usage": 3
+    },
+    {
       "name": "opp_attack_on_leader",
       "do": 0,
       "cost": 0,
@@ -3244,6 +3299,20 @@
       "total_usage": 3
     },
     {
+      "name": "victim_feature_in",
+      "do": 0,
+      "cost": 0,
+      "if": 3,
+      "when": 0,
+      "sample_cards": [
+        "OP14-016",
+        "OP09-080",
+        "OP08-056"
+      ],
+      "implemented": true,
+      "total_usage": 3
+    },
+    {
       "name": "set_attack_cost_discard_hand",
       "do": 3,
       "cost": 0,
@@ -3267,6 +3336,20 @@
         "OP07-024",
         "OP04-071",
         "OP11-088"
+      ],
+      "implemented": true,
+      "total_usage": 3
+    },
+    {
+      "name": "opp_don_to_deck",
+      "do": 3,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP02-085_p2",
+        "OP02-085",
+        "OP02-085_p1"
       ],
       "implemented": true,
       "total_usage": 3
@@ -3309,6 +3392,20 @@
         "ST06-016",
         "ST05-017",
         "ST05-017_r1"
+      ],
+      "implemented": true,
+      "total_usage": 3
+    },
+    {
+      "name": "view_life_top_choose_position",
+      "do": 3,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "ST20-003_p1",
+        "ST20-003_r1",
+        "ST20-003"
       ],
       "implemented": true,
       "total_usage": 3
@@ -3575,6 +3672,19 @@
       "total_usage": 2
     },
     {
+      "name": "scry_deck_reorder",
+      "do": 2,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "OP06-059",
+        "EB02-023"
+      ],
+      "implemented": true,
+      "total_usage": 2
+    },
+    {
       "name": "play_from_hand_choice",
       "do": 2,
       "cost": 0,
@@ -3718,19 +3828,6 @@
       "total_usage": 2
     },
     {
-      "name": "victim_feature_in",
-      "do": 0,
-      "cost": 0,
-      "if": 2,
-      "when": 0,
-      "sample_cards": [
-        "OP09-080",
-        "OP08-056"
-      ],
-      "implemented": true,
-      "total_usage": 2
-    },
-    {
       "name": "set_opp_protect_static",
       "do": 1,
       "cost": 0,
@@ -3851,6 +3948,18 @@
       "total_usage": 1
     },
     {
+      "name": "hand_to_deck_bottom",
+      "do": 1,
+      "cost": 0,
+      "if": 0,
+      "when": 0,
+      "sample_cards": [
+        "ST22-002_p1"
+      ],
+      "implemented": true,
+      "total_usage": 1
+    },
+    {
       "name": "swap_opp_power",
       "do": 1,
       "cost": 0,
@@ -3942,6 +4051,30 @@
       "when": 0,
       "sample_cards": [
         "EB04-005"
+      ],
+      "implemented": true,
+      "total_usage": 1
+    },
+    {
+      "name": "self_chara_no_truly_original_power_ge",
+      "do": 0,
+      "cost": 0,
+      "if": 1,
+      "when": 0,
+      "sample_cards": [
+        "EB04-051"
+      ],
+      "implemented": true,
+      "total_usage": 1
+    },
+    {
+      "name": "on_opp_chara_returned_to_hand_by_self_effect",
+      "do": 0,
+      "cost": 0,
+      "if": 0,
+      "when": 1,
+      "sample_cards": [
+        "EB02-023"
       ],
       "implemented": true,
       "total_usage": 1

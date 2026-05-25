@@ -328,6 +328,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 "on_self_chara_played", "on_opp_chara_played",
                 "on_self_chara_ko", "on_opp_chara_ko",
                 "on_self_chara_leave_by_self_effect",
+                "on_opp_chara_returned_to_hand_by_self_effect",
                 "on_self_rested", "on_self_chara_rested_by_self_effect",
                 "on_self_hand_discarded", "on_self_don_returned_to_deck",
                 "on_self_event_played", "on_opp_event_or_trigger_fired",
@@ -473,8 +474,16 @@ def _check_and_set_once_per_turn(
 
     cost 経由の once_per_turn (= activate_main / on_attack の `cost.once_per_turn`) は
     InPlay 側のフラグで別管理されているのでここでは触れない。
+
+    一方、 field-when (= on_self_chara_leave_by_self_effect 等、 resolve_triggers 経由) で
+    `cost: {once_per_turn: true}` 形式 で 指定 された 場合 は、 cost 払い path が なく
+    InPlay フラグ も 立たない ので、 ここ で 同じ key で gate する。
     """
     opt = eff.get("once_per_turn")
+    if not opt:
+        cost = eff.get("cost")
+        if isinstance(cost, dict):
+            opt = cost.get("once_per_turn")
     if not opt:
         return True
     if opt is True:
@@ -1126,9 +1135,23 @@ def _resolve_target(
             + list(me.stages) + list(opp.stages)
         )
         return [ip for ip in all_inplay if ip.instance_id in iid_picks]
+    # 辞書 spec の filter に dynamic key (= cost_le_dynamic 等) が あれば 静的化。
+    # 元 spec は 変更せず、 解決後 の spec を 以降 の dispatch で 使う。
+    if isinstance(target_spec, dict) and "filter" in target_spec:
+        resolved_filter = _resolve_dynamic_filter(target_spec.get("filter") or {}, state, me, opp)
+        if resolved_filter is not target_spec.get("filter"):
+            target_spec = {**target_spec, "filter": resolved_filter}
     # 辞書 spec で type-based dispatch
     if isinstance(target_spec, dict) and "type" in target_spec:
         t = target_spec["type"]
+        # chara / character 表記揺れ alias (= 短縮形 を 長形 に 正規化)
+        # 既存 overlay 8 件 が "one_opp_chara_filtered" を 使っていて 全 silent no-op だった bug 対策。
+        _TYPE_ALIASES = {
+            "one_opp_chara_filtered": "one_opponent_character_filtered",
+            "one_opp_chara_any": "one_opponent_character_any",
+        }
+        if t in _TYPE_ALIASES:
+            t = _TYPE_ALIASES[t]
         if t == "self_chara_named":
             name = target_spec.get("name", "")
             return [ip for ip in me.characters if ip.card.name == name][:1]
@@ -1228,6 +1251,12 @@ def _resolve_target(
             if iid_picks is not None and limit is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:int(limit)]
             if limit is not None:
+                # 人間 acting + 候補 > limit で modal (= 自分が 「相手キャラ N 枚 まで」 を 選ぶ)
+                if outer_kind and len(cands) > int(limit) and _maybe_request_target_pick(
+                    state, cands, int(limit), outer_kind, outer_value, self_inplay,
+                    description=f"相手キャラ から {limit} 枚 まで 選択",
+                ):
+                    return []
                 cands.sort(key=lambda ip: -_opp_value(ip))
                 return cands[:int(limit)]
             return cands
@@ -2166,6 +2195,7 @@ def execute_effect(
                     _ret_any = True
             if _ret_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+                trigger_on_opp_chara_returned_to_hand_by_self_effect(state, me, opp, state.effects_overlay)
         elif k == "play_event_from_hand":
             # 手札から filter 一致のイベント1枚を 0 コストで発動 (青紫サンジ起動メイン)。
             # 通常の PlayEvent と異なり「コストを払って発動」の代替 (発動本体は overlay の when:"main" を引き起こす)。
@@ -2909,6 +2939,11 @@ def execute_effect(
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             target_category = spec.get("category", "CHARACTER")
+            # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)。
+            # picks_idx (= hand_idx list) は modal で 人間 が 選んだ 結果。
+            picks_idx: Optional[list[int]] = None
+            if isinstance(v, dict) and "_picks_idx" in v:
+                picks_idx = list(v["_picks_idx"])
             # 候補抽出 (= (original_index, card) のリスト)
             candidates: list[tuple[int, CardDef]] = []
             for i, card in enumerate(me.hand):
@@ -2920,10 +2955,43 @@ def execute_effect(
             if not candidates:
                 state.push_log(f"  効果: play_from_hand_choice 該当なし (不発)")
                 return False
-            # ヒューリスティック並び: cost 降順 → power 降順 → name (安定)
-            candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
-            chosen = candidates[:limit]
-            chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
+            # 人間 acting + 候補 > limit + picks 未指定 → modal で選択 (= 0 picks 含む)
+            # play_from_hand と 同じ pattern (= line 2878)。
+            if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
+                cand_list = [
+                    {
+                        "hand_idx": i,
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": int(c.power) if c.power is not None else 0,
+                    }
+                    for i, c in candidates
+                ]
+                state.pending_choice = {
+                    "kind": "play_from_hand_pick",
+                    "primitive_value": v,
+                    "candidates": cand_list,
+                    "limit": limit,
+                    "rested": rested,
+                    "filter_desc": _describe_filter_jp(filt),
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: 手札 から 任意 登場 候補 {len(candidates)} 枚 → 人間 選択 待ち (= {limit} 枚 まで)"
+                )
+                return True
+            # picks 指定 / AI / 候補 <= limit → 既存 ヒューリスティック
+            if picks_idx is not None:
+                chosen_indexes = sorted(
+                    [i for i in picks_idx if 0 <= i < len(me.hand)],
+                    reverse=True,
+                )
+            else:
+                # ヒューリスティック並び: cost 降順 → power 降順 → name (安定)
+                candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+                chosen = candidates[:limit]
+                chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
             chosen_cards: list[CardDef] = []
             for i in chosen_indexes:
                 chosen_cards.append(me.hand.pop(i))
@@ -3981,11 +4049,11 @@ def execute_effect(
             # 「自分の付与されているドン!! N 枚までを、 自分の特徴 X を持つキャラ 1 枚に
             # 付与する」 (EB02-009 アンナ等)。
             # spec: {"feature": "麦わらの一味", "count": 1}
-            # 人間 acting + target 複数 候補 なら 移動先 を modal で 選ばせる。
-            # source (= 付与ドン取り外し元) は 簡易: power 低い順 で 自動 (= 1 ターン内 で 影響軽微)。
+            # 人間 acting で 移動 元 / 移動 先 両方 複数 候補 なら modal で 選ばせる。
             spec_val = v if isinstance(v, dict) else {}
             feature = spec_val.get("feature", "")
             count = int(spec_val.get("count", 1))
+            source_iid_picks = spec_val.get("_source_iid_picks")
             target_iid_picks = spec_val.get("_iid_picks")
             # 取り出し元: leader と キャラ から attached_dons > 0
             sources = [
@@ -4000,9 +4068,22 @@ def execute_effect(
             ]
             if not targets:
                 return False
-            # AI 簡易: source は power 低い順 (= 弱いキャラから剥がす)
-            sources.sort(key=lambda ip: ip.power)
-            source = sources[0]
+            # source modal (= 人間 + 候補 > 1)。 source_iid_picks は 再実行 path。
+            if source_iid_picks is not None:
+                source = next(
+                    (s for s in sources if s.instance_id in source_iid_picks), None,
+                )
+                if source is None:
+                    return False
+            elif len(sources) > 1 and _maybe_request_target_pick(
+                state, sources, 1, "transfer_attached_don_to_feature_source",
+                v, self_inplay,
+                description=f"付与ドン 移動 元 (ドン 付与済) を 選択",
+            ):
+                return False
+            else:
+                sources.sort(key=lambda ip: ip.power)
+                source = sources[0]
             # 移動先 modal (= 人間 + 候補 > 1)
             if target_iid_picks is not None:
                 target = next(
@@ -4366,6 +4447,7 @@ def execute_effect(
                         _rhm_any = True
             if _rhm_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+                trigger_on_opp_chara_returned_to_hand_by_self_effect(state, me, opp, state.effects_overlay)
         elif k == "return_to_deck_bottom_multi":
             # マルチターゲット 「持ち主のデッキの下に置く」。
             if not isinstance(v, list):
@@ -4895,19 +4977,13 @@ def execute_effect(
             # target_spec で辞書 {"type": "one_self_chara_or_leader_filtered",
             #                    "filter": {"power_ge": 6000, "feature": "..."}} もサポート。
             target_spec = v if not isinstance(v, dict) or "target" not in v else v.get("target")
-            if isinstance(target_spec, dict) and target_spec.get("type") == "one_self_chara_or_leader_filtered":
-                filt = target_spec.get("filter", {})
-                # 全自リーダー/キャラから filter にマッチする 1 枚 (= power 高い順)
-                cands = [me.leader] + list(me.characters)
-                cands = [ip for ip in cands if _matches_filter(ip.card, filt)]
-                # power_ge は dataclass の InPlay.power (= base + buff) を参照する場合と
-                # card.power の場合で意図が異なる。 公式は「現在のパワー」なので InPlay.power を見る。
-                if "power_ge" in filt:
-                    cands = [ip for ip in cands if ip.power >= int(filt["power_ge"])]
-                cands.sort(key=lambda ip: -ip.power)
-                targets = cands[:1]
-            else:
-                targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="prevent_blocker_for_attacker", outer_value=target_spec)
+            # 全 type を _resolve_target 経由で 統一処理。 旧 custom 分岐 (= one_self_chara_or_leader_filtered
+            # 直接 sort + [:1]) は 人間 acting 時 modal バイパス bug の 原因 だった → 削除。
+            # _resolve_target は outer_kind 指定 で 人間 acting + cand > 1 で modal 化 する。
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="prevent_blocker_for_attacker", outer_value=target_spec,
+            )
             for t in targets:
                 t.attacker_prevents_blocker_until_turn_end = True
             state.push_log(
@@ -5936,6 +6012,38 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
     else:
         me.deck.extend(remaining)
     state.pending_choice = None
+
+
+def _resolve_dynamic_filter(
+    filt: dict[str, Any],
+    state: GameState,
+    me: Player,
+    opp: Player,
+) -> dict[str, Any]:
+    """filter dict の 動的 fields (= 値が ゲーム状態 に 依存) を 静的 値 に 解決。
+
+    対応 key (= 公式テキスト で 動的 cost cap 等 を 表現する 効果 用):
+    - `cost_le_dynamic`: "sum_both_life_count" → cost_le = len(me.life) + len(opp.life)
+      (= ST29-013 ロブ・ルッチ: 「お互いのライフの合計枚数以下のコスト」)
+    - 将来 他 source (= "self_don_active" 等) を 追加可能。 unknown source は no-op。
+
+    呼び元 で 解決後 の filter を _matches_filter に 渡すと 静的 cost_le として 動く。
+    元 filt は 変更しない (= shallow copy で 返却)。
+    """
+    if not isinstance(filt, dict) or not filt:
+        return filt
+    if "cost_le_dynamic" not in filt and "or" not in filt:
+        return filt
+    out = dict(filt)
+    src = out.pop("cost_le_dynamic", None)
+    if src == "sum_both_life_count":
+        out["cost_le"] = len(me.life) + len(opp.life)
+    elif src is not None:
+        # 未知 source は 防御的 に 大値 (= 制限 ない と 同義) で 通す
+        out["cost_le"] = 99
+    if "or" in out and isinstance(out["or"], list):
+        out["or"] = [_resolve_dynamic_filter(sub, state, me, opp) for sub in out["or"]]
+    return out
 
 
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
@@ -7080,6 +7188,27 @@ def trigger_on_self_chara_leave_by_self_effect(
     _maybe_resolve(state)
 
 
+def trigger_on_opp_chara_returned_to_hand_by_self_effect(
+    state: GameState,
+    actor: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「相手のキャラが自分の効果で持ち主の手札に戻った時」
+    (on_opp_chara_returned_to_hand_by_self_effect)。
+    actor = 効果発動者 (= me)。 return_to_hand / return_to_hand_multi 等 で 相手の キャラ
+    が 手札 に 戻った 直後 に actor の 場 で 発火。
+    EB02-023 クロコダイル 等。 trigger_on_self_chara_leave_by_self_effect と 同時 に 呼ぶ
+    (= 同じ primitive の 後 で 別軸 観点 の trigger)。
+    """
+    if not effects_overlay:
+        return
+    _enqueue_field_when(
+        state, actor, "on_opp_chara_returned_to_hand_by_self_effect", effects_overlay
+    )
+    _maybe_resolve(state)
+
+
 def trigger_on_self_chara_ko(
     state: GameState,
     victim_owner: Player,
@@ -8094,9 +8223,12 @@ def fire_activate_main(
     """
     state.push_log(f"起動メイン: {inplay.card.name}")
     cost = eff.get("cost", {})
-    # rest_self
+    # rest_self: log push 漏れ で 「コスト と 状態 変化 の 順序 逆」 と 見える bug 修正
+    # (= U2 観戦コメント T1 由来)。 push_log し ない と state.rested が 「起動メイン: X」
+    # snap 後 silent に true 化 する ので、 観戦者 は cost 払い タイミング を 見失う。
     if cost.get("rest_self"):
         inplay.rested = True
+        state.push_log(f"  起動メインコスト: 自レスト {inplay.card.name}")
     # trash_self: 起動コストとしてこのキャラ自身をトラッシュに置く
     # 公式: 「このキャラをトラッシュに置くことができる」 = 自KO 同等の扱い
     # (= 場から取り除き、 持ち主のトラッシュへ、 付与ドンはレストでコストエリアへ)

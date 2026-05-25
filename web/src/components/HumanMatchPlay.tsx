@@ -2300,6 +2300,30 @@ function DonRow({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const lastClickedRef = useRef<number | null>(null);
 
+  // U1 fix (= spectate comment 6 件 evidence): refresh phase で active 0→N + rested N→0 が
+  // 同 frame で 切替わると、 両 AnimatePresence が parallel に exit/enter して 「倍」 (= 14 枚)
+  // が 一瞬 visible になる bug。 「増加 側」 を 180ms (= active exit anim と 同じ) 遅らせて
+  // 表示することで 「減少 → 完了 → 増加」 の sequential 表示 を 保証。
+  const [displayActive, setDisplayActive] = useState(donActive);
+  const [displayRested, setDisplayRested] = useState(donRested);
+  useEffect(() => {
+    // refresh phase (= active 増加 + rested 減少): rested を 即時 反映、 active を 遅延
+    if (donActive > displayActive && donRested < displayRested) {
+      setDisplayRested(donRested);
+      const t = setTimeout(() => setDisplayActive(donActive), 200);
+      return () => clearTimeout(t);
+    }
+    // attack tap (= active 減少 + rested 増加): active を 即時 反映、 rested を 遅延
+    if (donActive < displayActive && donRested > displayRested) {
+      setDisplayActive(donActive);
+      const t = setTimeout(() => setDisplayRested(donRested), 200);
+      return () => clearTimeout(t);
+    }
+    // それ以外 (= 単方向 変化 / 同方向 等): 即時
+    setDisplayActive(donActive);
+    setDisplayRested(donRested);
+  }, [donActive, donRested, displayActive, displayRested]);
+
   function handleDonClick(i: number, e: React.MouseEvent) {
     e.stopPropagation();
     if (!isMe) return;
@@ -2330,12 +2354,12 @@ function DonRow({
       <span className="text-xs font-bold text-zinc-200">DON</span>
       {/*
         AnimatePresence で active / rested DON の swap (= refresh phase 等) を 滑らかに。
-        旧実装 は state 更新 で 即 再 render → active + rested 両方 一瞬 visible で 「倍数」 に見えた
-        bug。 mode="wait" で 旧 element の exit anim 完了後 に 新 element を mount する → 重なり 解消。
+        U1 fix: displayActive / displayRested で 「増加 側」 を 180ms 遅延 表示 する
+        ことで、 active + rested 両方 一瞬 visible で 「倍数」 に見える bug を 解消。
       */}
       <div className="flex items-center gap-1.5 overflow-visible py-1">
         <AnimatePresence mode="popLayout" initial={false}>
-          {Array.from({ length: donActive }).map((_, i) => {
+          {Array.from({ length: displayActive }).map((_, i) => {
             const isSel = selected.has(i);
             return (
               <motion.button
@@ -2346,7 +2370,7 @@ function DonRow({
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.18 }}
                 type="button"
-                draggable={isMe && donActive > 0}
+                draggable={isMe && displayActive > 0}
                 onClick={(e) => handleDonClick(i, e)}
                 onDragStart={() => {
                   // 選択中 なら 選択数、 そうでなければ 1 枚 で drag
@@ -2382,10 +2406,10 @@ function DonRow({
             );
           })}
         </AnimatePresence>
-        {donRested > 0 && (
+        {displayRested > 0 && (
           <div className="flex">
             <AnimatePresence mode="popLayout" initial={false}>
-              {Array.from({ length: donRested }).map((_, i) => (
+              {Array.from({ length: displayRested }).map((_, i) => (
                 <motion.div
                   key={`r-${i}`}
                   layout
@@ -2406,7 +2430,7 @@ function DonRow({
             </AnimatePresence>
           </div>
         )}
-        {Array.from({ length: Math.max(0, totalShown - donActive - donRested) }).map(
+        {Array.from({ length: Math.max(0, totalShown - displayActive - displayRested) }).map(
           (_, i) => (
             <div key={`p-${i}`} className="h-10 w-7 rounded bg-zinc-700/40" />
           ),

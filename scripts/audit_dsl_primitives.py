@@ -153,6 +153,7 @@ def main():
         "trigger",
         "replace_rest",  # = レスト 置換 個別
         "on_self_chara_leave_by_self_effect",
+        "on_opp_chara_returned_to_hand_by_self_effect",
         "on_self_rested",
         "on_self_hand_discarded",
         "on_self_chara_played",

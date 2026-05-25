@@ -7124,7 +7124,7 @@
       ]
     },
     {
-      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "_text": "【相手のターン中】自分のリーダーが特徴《海軍》を持つ場合、このキャラのパワー+1000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -26898,7 +26898,7 @@
       ]
     },
     {
-      "_text": "[auto] 【相手のターン中】 self パワー+1000",
+      "_text": "【相手のターン中】自分のリーダーが特徴《海軍》を持つ場合、このキャラのパワー+1000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -82292,7 +82292,7 @@
       }
     },
     {
-      "_text": "[auto] 【相手のターン中】 self パワー-3000",
+      "_text": "【相手のターン中】このキャラのパワー-3000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -86230,15 +86230,14 @@
   "ST29-011_p1": [],
   "ST29-013": [
     {
-      "_text": "trigger: 相手キャラ コスト≤合計ライフ 1 KO (簡略: コスト10以下)",
-      "_doc": "「お互いのライフの合計枚数以下のコスト」 動的 filter 未対応。 簡略 cost_le=10 (= 上限近似)。",
+      "_text": "【トリガー】お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "trigger",
       "do": [
         {
           "ko": {
-            "type": "one_opp_chara_filtered",
+            "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_le": 10
+              "cost_le_dynamic": "sum_both_life_count"
             }
           }
         }
@@ -86247,15 +86246,14 @@
   ],
   "ST29-013_p1": [
     {
-      "_text": "trigger: 相手キャラ コスト≤合計ライフ 1 KO (簡略: コスト10以下)",
-      "_doc": "「お互いのライフの合計枚数以下のコスト」 動的 filter 未対応。 簡略 cost_le=10 (= 上限近似)。",
+      "_text": "【トリガー】お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "trigger",
       "do": [
         {
           "ko": {
-            "type": "one_opp_chara_filtered",
+            "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_le": 10
+              "cost_le_dynamic": "sum_both_life_count"
             }
           }
         }
@@ -87643,7 +87641,7 @@
   ],
   "EB02-005": [
     {
-      "_text": "[auto] 【自分のターン中】このキャラのパワー+2000",
+      "_text": "【自分のターン中】このキャラのパワー+2000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -87660,7 +87658,7 @@
       ]
     },
     {
-      "_text": "[auto] 【相手のターン中】このキャラのパワー-2000",
+      "_text": "【相手のターン中】このキャラのパワー-2000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -87702,11 +87700,17 @@
   ],
   "EB02-023": [
     {
-      "_text": "[auto] on_play: search_top_n 補完",
-      "when": "on_play",
+      "_text": "【自分のターン中】【ターン1回】相手のキャラが自分の効果で持ち主の手札に戻った時、自分のデッキの上から3枚を見て、好きな順番に並び替え、デッキの上か下に置く。",
+      "when": "on_opp_chara_returned_to_hand_by_self_effect",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "look_top_reorder": {
+          "scry_deck_reorder": {
             "depth": 3
           }
         }
@@ -87918,28 +87922,11 @@
   ],
   "OP15-051": [
     {
-      "_text": "[auto] 【相手のターン中】このキャラのパワー+3000",
+      "_text": "【相手のターン中】自分のリーダーが特徴《ドレスローザ》を持つ場合、このキャラのパワー+3000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
         "opp_turn": true,
-        "leader_feature": "ドレスローザ"
-      },
-      "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 3000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "[auto] リーダー特徴 ドレスローザ で このキャラ パワー+3000",
-      "when": "on_attached_don",
-      "n": 0,
-      "if": {
         "leader_feature": "ドレスローザ"
       },
       "do": [
@@ -91245,7 +91232,7 @@
       ]
     },
     {
-      "_text": "[auto] 【相手のターン中】 self パワー+5000",
+      "_text": "【相手のターン中】このキャラのパワー+5000。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -92284,15 +92271,14 @@
   ],
   "ST29-013_r1": [
     {
-      "_text": "trigger: 相手キャラ コスト≤合計ライフ 1 KO (簡略: コスト10以下)",
-      "_doc": "「お互いのライフの合計枚数以下のコスト」 動的 filter 未対応。 簡略 cost_le=10 (= 上限近似)。",
+      "_text": "【トリガー】お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "trigger",
       "do": [
         {
           "ko": {
-            "type": "one_opp_chara_filtered",
+            "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_le": 10
+              "cost_le_dynamic": "sum_both_life_count"
             }
           }
         }

@@ -2084,6 +2084,129 @@ def test_on_self_chara_leave_by_self_effect_fires_on_ko():
     assert len(me.hand) == 1  # ハンコック効果で 1 ドロー
 
 
+def test_on_opp_chara_returned_to_hand_by_self_effect_fires_scry():
+    """EB02-023 クロコダイル: 自分の効果で相手キャラを手札に戻すと scry_deck_reorder 発火"""
+    from engine.effects import execute_effect, CardEffectBundle
+    from engine.core import InPlay
+    repo = _repo()
+    croc_card = repo.get("EB02-023")
+    victim_card = repo.get("OP01-013")
+    overlay = {
+        "EB02-023": CardEffectBundle(card_id="EB02-023", effects=[{
+            "when": "on_opp_chara_returned_to_hand_by_self_effect",
+            "cost": {"once_per_turn": True},
+            "if": {"self_turn": True},
+            "do": [{"scry_deck_reorder": {"depth": 3}}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    me.characters = [InPlay.of(croc_card)]
+    opp.characters = [InPlay.of(victim_card)]
+    # 自デッキ top に値の異なる 3 枚 → scry_deck_reorder AI heuristic で sort
+    high_value_card = repo.get("OP01-013")  # power 等の数値で差別化
+    low_value_card = repo.get("OP01-001")
+    me.deck = [low_value_card, high_value_card, low_value_card] + me.deck
+    me.hand = []
+    deck_before_top3 = me.deck[:3]
+    execute_effect(
+        {"return_to_hand": "one_opponent_character_any"},
+        state, me, opp, None,
+    )
+    assert len(opp.characters) == 0
+    assert len(opp.hand) == 1  # 手札に戻った
+    # scry が発火していれば 自デッキ top 3 が並び替えられている (= 順序変動 or no-op いずれか)
+    # log で発火を確認 (= AI 簡易: trig/counter/power 降順)
+    log_text = "\n".join(state.log)
+    assert "scry_deck_reorder" in log_text or "並び替え" in log_text
+
+
+def test_cost_le_dynamic_sum_both_life_count():
+    """ST29-013 ロブ・ルッチ trigger: cost_le_dynamic で 合計ライフ枚数 以下 の 相手キャラ KO"""
+    from engine.effects import execute_effect
+    from engine.core import InPlay
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    # 合計ライフ = me.life + opp.life。 各 4 枚 ずつ で 合計 8 → cost 8 以下 が 対象
+    life_card = repo.get("OP01-013")
+    me.life = [life_card] * 4
+    opp.life = [life_card] * 4
+    # 相手キャラ: cost 7 (= 対象内) と cost 9 (= 対象外)
+    low_ip = InPlay.of(repo.get("OP09-009_r1"))  # cost 7
+    high_ip = InPlay.of(repo.get("OP06-118_r2"))  # cost 9
+    opp.characters = [low_ip, high_ip]
+    # ko 実行 (= 動的 filter)
+    execute_effect(
+        {"ko": {"type": "one_opponent_character_filtered",
+                "filter": {"cost_le_dynamic": "sum_both_life_count"}}},
+        state, me, opp, None,
+    )
+    # cost 7 が KO される、 cost 9 は 残る
+    remaining_costs = sorted(ip.card.cost for ip in opp.characters)
+    assert remaining_costs == [9], f"動的 cost filter 不正: 残 {remaining_costs}"
+
+
+def test_cost_le_dynamic_zero_life_no_targets():
+    """ST29-013: 合計ライフ 0 (= 両者 lethal 圏内) なら cost 0 以下 のみ → 通常 0 件"""
+    from engine.effects import execute_effect
+    from engine.core import InPlay
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+    me.life = []
+    opp.life = []
+    low_ip = InPlay.of(repo.get("EB01-015_p2"))  # cost 1
+    opp.characters = [low_ip]
+    execute_effect(
+        {"ko": {"type": "one_opponent_character_filtered",
+                "filter": {"cost_le_dynamic": "sum_both_life_count"}}},
+        state, me, opp, None,
+    )
+    # cost 1 > 0 (= 合計ライフ) → KO されない
+    assert len(opp.characters) == 1
+
+
+def test_on_opp_chara_returned_once_per_turn_gate():
+    """EB02-023: once_per_turn cost で 同ターン 2 回目 は 発火しない"""
+    from engine.effects import execute_effect, CardEffectBundle
+    from engine.core import InPlay
+    repo = _repo()
+    croc_card = repo.get("EB02-023")
+    victim_card = repo.get("OP01-013")
+    overlay = {
+        "EB02-023": CardEffectBundle(card_id="EB02-023", effects=[{
+            "when": "on_opp_chara_returned_to_hand_by_self_effect",
+            "cost": {"once_per_turn": True},
+            "if": {"self_turn": True},
+            "do": [{"scry_deck_reorder": {"depth": 3}}],
+        }]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    me.characters = [InPlay.of(croc_card)]
+    opp.characters = [InPlay.of(victim_card), InPlay.of(victim_card)]
+    me.deck = [repo.get("OP01-013")] * 6
+    me.hand = []
+    # 1 回目: 発火
+    execute_effect(
+        {"return_to_hand": "one_opponent_character_any"},
+        state, me, opp, None,
+    )
+    log1_count = "\n".join(state.log).count("並び替え")
+    # 2 回目: gate により 発火しない
+    execute_effect(
+        {"return_to_hand": "one_opponent_character_any"},
+        state, me, opp, None,
+    )
+    log2_count = "\n".join(state.log).count("並び替え")
+    assert log2_count == log1_count, "once_per_turn ガードが 2 回目を gate していない"
+
+
 def test_optional_cost_then_trash_to_deck_payable():
     """optional_cost_then: trash_to_deck を cost とした payability check 成立"""
     from engine.effects import execute_effect

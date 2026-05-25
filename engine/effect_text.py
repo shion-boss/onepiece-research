@@ -51,6 +51,7 @@ WHEN_LABEL = {
     "opp_event_or_trigger_fired": "【相手イベント/トリガー発動時】",
     "on_self_chara_played": "【自キャラ登場時】",
     "on_self_chara_leave_by_self_effect": "【自分効果で自キャラ離脱時】",
+    "on_opp_chara_returned_to_hand_by_self_effect": "【自分効果で相手キャラ手札戻し時】",
     "on_opp_life_taken": "【相手ライフ受領時】",
     "leader_passive": "【リーダー常在】",
     "replace_rest": "【レスト置換】",

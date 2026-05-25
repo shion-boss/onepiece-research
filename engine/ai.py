@@ -136,7 +136,26 @@ def _is_event_overkill(
             best = max(candidates, key=lambda c: c.power)
             # 確定 KO 条件: best.power + amount <= 0 (= power が 0 以下 = 場から除去)
             if best.power + amount > 0:
-                continue  # debuff のみ = follow-up 余地あり、 撃ってよい
+                # debuff のみ = follow-up attacker が この turn に KO 圏内 で attack 可能 か 確認。
+                # 観戦コメント T4 futility/event 由来: 「弱キャラを-5000しても何もしない event の 意味 無し」
+                # follow-up 不可能 (= 全 attacker が KO 圏外) なら 撃つ 価値 なし。
+                debuffed_power = best.power + amount
+                # me の active attacker (= active + can attack now) 中、 power ≥ debuffed_power が 1 体 以上 必要
+                # leader は カウント しない (= 自分の leader を 攻撃 に 出すか は heuristic 判断)
+                follow_up_possible = False
+                if _can_attack_this_turn(state, me.leader, is_leader=True) and me.leader.power >= debuffed_power:
+                    follow_up_possible = True
+                if not follow_up_possible:
+                    for c in me.characters:
+                        if not _can_attack_this_turn(state, c, is_leader=False):
+                            continue
+                        # DON +1000 まで 余裕 を 見る (= attach し て attack)
+                        if c.power + 1000 >= debuffed_power:
+                            follow_up_possible = True
+                            break
+                if not follow_up_possible:
+                    return True  # follow-up 不可能 = debuff 無駄 = 撃たない
+                continue  # debuff のみ で follow-up 可能 = 撃ってよい
             # 確定 KO する場合
             if best.power >= _OVERKILL_MIN_TARGET_POWER:
                 continue  # 強キャラを倒せる、 撃つ価値あり
@@ -189,10 +208,16 @@ def _is_attach_don_wasteful(state: GameState, action) -> bool:
     True なら撃つに値しない。 観戦コメント #7/#9 由来:
     - #7: T17 P0 attach to leader (= leader rested) → 攻撃不可なのに attach
     - #9: T1 P0 attach to leader (= turn 1 で battle 不可) → 完全に意味なし
+    - #16 (新規): T17 attach 大量 だが 結局 攻撃せず 終了 (= attach 後 でも 攻撃 圏外 で
+      意味なし)。 attacker.power + attached_dons + 1000 が opp leader / chara の 最低 power
+      未満 なら 攻撃 圏外 → attach 無意味 → 剪定。
     """
     me = state.turn_player
+    opp = state.opponent
     if isinstance(action, AttachDonToLeader):
-        return not _can_attack_this_turn(state, me.leader, is_leader=True)
+        if not _can_attack_this_turn(state, me.leader, is_leader=True):
+            return True
+        return _attach_don_no_reachable_target(me.leader, opp)
     if isinstance(action, AttachDonToCharacter):
         target = next(
             (c for c in me.characters if c.instance_id == action.target_iid),
@@ -200,8 +225,31 @@ def _is_attach_don_wasteful(state: GameState, action) -> bool:
         )
         if target is None:
             return True  # 対象消失 = 不正、 剪定
-        return not _can_attack_this_turn(state, target, is_leader=False)
+        if not _can_attack_this_turn(state, target, is_leader=False):
+            return True
+        return _attach_don_no_reachable_target(target, opp)
     return False
+
+
+def _attach_don_no_reachable_target(attacker: InPlay, opp) -> bool:
+    """attacker に DON 1 枚 追加 (= +1000) しても 攻撃 圏外 の opp target が ない なら True
+    (= attach 無意味)。 観戦コメント #16 由来 (T17 attach 大量 で 終了)。
+
+    判定:
+    - opp leader と opp chara の 最低 power を 取得
+    - attacker.power + 1000 (= attach 1 枚 後) が 最低 power 未満 なら 圏外
+    - opp 全 target が 「自分が KO 不可」 → attach の 意味 0
+
+    counter / blocker は 考慮 しない (= 単純 power 比較 のみ、 conservative)。
+    """
+    targets_power = [opp.leader.power]
+    for c in opp.characters:
+        targets_power.append(c.power)
+    if not targets_power:
+        return False
+    min_target = min(targets_power)
+    projected_power = attacker.power + 1000  # この attach 1 枚 で +1000
+    return projected_power < min_target
 
 
 def _is_attack_confirmed_fail_no_effect(

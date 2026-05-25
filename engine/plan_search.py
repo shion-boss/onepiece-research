@@ -445,10 +445,40 @@ def search_turn_plan(
         return [], -float("inf")
 
     # 終端 score でランク付け → 最良プランを返す
+    # plan leaf penalty: 観戦コメント T17 由来 — attach_don しても 攻撃せず end_turn する
+    # 悪手 を 防止 する 為、 「active attacker に attached DON があり、 plan 中で 1 回も
+    # attack で 使われてない」 leaf を 重く penalty (= attach_don の +W_ATTACHED_DON eval
+    # を 帳消し)。
+    def _unused_attached_don_penalty(cur_state, plan) -> float:
+        me_player = cur_state.players[me_idx]
+        # plan 中 で attack (= AttackLeader / AttackCharacter) に 使われた attacker_iid
+        from .game import AttackLeader, AttackCharacter
+        attacked_iids: set[int] = set()
+        for act in plan:
+            if isinstance(act, (AttackLeader, AttackCharacter)):
+                attacked_iids.add(getattr(act, "attacker_iid", -1))
+        wasted_don = 0
+        # leader + chara で 「attach されてるが 攻撃 してない」 を 集計
+        for ip in [me_player.leader, *me_player.characters]:
+            if ip.attached_dons <= 0:
+                continue
+            if ip.rested:
+                continue  # rested = 既に 攻撃 した = OK
+            if ip.instance_id in attacked_iids:
+                continue
+            wasted_don += ip.attached_dons
+        # W_ATTACHED_DON (= 400 default) を 帳消し + 追加 penalty (= 1000) で 確実 抑制。
+        # 1 wasted attach = -1400 eval。 attack による 副作用 損失 (= -W_ACTIVE_CHARA 等)
+        # より 大きく して 「attach するなら attack も plan する」 に 誘導。
+        from .eval import BoardEvalWeights
+        weights = BoardEvalWeights()
+        return -wasted_don * (weights.W_ATTACHED_DON + 1000)
+
     best_plan: list = []
     best_score = -float("inf")
     for cur_state, plan in completed:
         s = compute_score(cur_state, me_idx)
+        s += _unused_attached_don_penalty(cur_state, plan)
         if s > best_score:
             best_score = s
             best_plan = plan
