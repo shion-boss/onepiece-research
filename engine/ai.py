@@ -2448,6 +2448,28 @@ class DeepPlanningAI(GreedyAI):
 
         if not best_plan:
             return super().choose_action(state)
+
+        # 観戦 コメント 5 件 由来 の 補正 (= 2026-05-25):
+        # plan 内 で 「attack action が 1 つ も ない」 のに 「attach_don あり」 は 死に手。
+        # is_owners_turn の attached_don は 翌 opp turn で 失効 (= +1000 が 反映 されない)。
+        # その turn で 自場 が 1 回 も 攻撃 しない なら attach せず EndPhase が 常に 上位。
+        # attach 系 を skip して plan 内の 次の non-attach action (= PlayCharacter / ActivateMain /
+        # PlayEvent 等) を 返す、 全部 attach なら EndPhase。
+        has_any_attack = any(
+            isinstance(a, (AttackLeader, AttackCharacter)) for a in best_plan
+        )
+        if not has_any_attack:
+            first_non_attach = next(
+                (
+                    a
+                    for a in best_plan
+                    if not isinstance(a, (AttachDonToLeader, AttachDonToCharacter))
+                ),
+                None,
+            )
+            if first_non_attach is not None:
+                return first_non_attach
+            return EndPhase()
         return best_plan[0]
 
 
