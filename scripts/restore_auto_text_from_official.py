@@ -46,6 +46,40 @@ PAT_TURN_FEAT_PUMP = re.compile(
 PAT_FEAT_ONLY_PUMP = re.compile(
     r"自分のリーダーが特徴《(?P<feat>[^》]+)》を持つ場合、?このキャラのパワー(?P<sign>[+\-−])(?P<n>\d+)。?"
 )
+# パターン: 「[任意]の場合、 このキャラのコスト+N」 (= in_hand/in_hand_cost_plus)
+PAT_IN_HAND_COST_PLUS = re.compile(
+    r"(?P<prefix>(?:.+?場合、)?)このキャラのコスト(?P<sign>[+\-−])(?P<n>\d+)。?"
+)
+# パターン: 「[任意]の場合、 このキャラはバトルでKOされない」 (= on_attached_don/set_ko_immune_battle_only)
+PAT_KO_IMMUNE_BATTLE = re.compile(
+    r"(?P<prefix>(?:.+?場合、)?)このキャラはバトルでKOされない。?"
+)
+# パターン: 「[条件]のキャラ(=フィルタ)がKOされる場合、 代わりにこのキャラをトラッシュに置くことができる」
+#   (= replace_ko/return_self_to_trash)
+PAT_REPLACE_KO_RETURN_SELF = re.compile(
+    r"(?P<prefix>.+?)(?:相手の効果で)?KOされる場合、代わりにこのキャラをトラッシュに置くことができる。?"
+)
+# 汎用 power_pump: 「[任意 prefix の場合、]?この(キャラ|リーダー)(は)?(の)?パワー[+\-]N」
+# 全 on_attached_don/power_pump entry に 対応 (= ヤマト, ルフィ＆エース 等)
+PAT_GENERIC_PUMP = re.compile(
+    r"(?P<prefix>(?:【[^】]+】|[^。])+?場合、)?"
+    r"この(?P<target>キャラ|リーダー)(?:は|の)?パワー(?P<sign>[+\-−])(?P<n>\d+)。?"
+)
+# 「【ドン!!×N】このキャラは相手のアクティブのキャラにもアタックできる」
+# (= on_attached_don/give_attack_active_chara)
+PAT_GIVE_ATTACK_ACTIVE = re.compile(
+    r"【ドン\s*!!×\d+】このキャラは相手のアクティブのキャラにもアタックできる。?"
+)
+# 「[条件]、 自分の[条件]キャラは、 登場したターンにキャラへアタックできる」
+# (= on_attached_don/give_keyword 速攻 系)
+PAT_GIVE_RUSH = re.compile(
+    r"(?P<prefix>(?:.+?場合、)?)(?:自分の.+?キャラは、|このキャラは、)登場したターンにキャラへアタックできる。?"
+)
+# 「このキャラが相手の効果でKOされた時、 自分のデッキの上から1枚までを、 ライフの上に加える」
+# (= on_ko/put_top_to_life, EB01-057 しらほし)
+PAT_PUT_TOP_TO_LIFE = re.compile(
+    r"このキャラが相手の効果でKOされた時、自分のデッキの上から\d+枚までを、ライフの上に加える。?"
+)
 
 
 def find_matching_sentence(card_text: str, eff: dict) -> str | None:
@@ -64,7 +98,7 @@ def find_matching_sentence(card_text: str, eff: dict) -> str | None:
     if when == "on_attached_don" and prim_key == "power_pump":
         target = (prim_val or {}).get("target")
         amount = int((prim_val or {}).get("amount", 0))
-        if target != "self":
+        if target not in ("self", "self_leader"):
             return None
         # if の condition から 期待する turn / feat を 取得
         expected_turn = None
@@ -110,6 +144,88 @@ def find_matching_sentence(card_text: str, eff: dict) -> str | None:
 
         if len(candidates) == 1:
             return candidates[0]
+
+        # パターン 3 (汎用): 「[任意 prefix 場合、]このキャラ/このリーダー パワー±N」
+        # target=self / self_leader 区別 + amount 合致 + 1 match なら 採用
+        expected_target_jp = "キャラ" if target == "self" else "リーダー"
+        generic_candidates = []
+        for m in PAT_GENERIC_PUMP.finditer(card_text):
+            cand_target = m.group("target")
+            cand_sign = m.group("sign")
+            cand_n = int(m.group("n"))
+            signed_n = -cand_n if cand_sign in ("-", "−") else cand_n
+            if cand_target != expected_target_jp:
+                continue
+            if signed_n != amount:
+                continue
+            start = m.start("prefix") if m.group("prefix") else m.start()
+            sentence = card_text[start:m.end()].rstrip("。") + "。"
+            generic_candidates.append(sentence)
+        if len(generic_candidates) == 1:
+            return generic_candidates[0]
+
+    # ケース 2: in_hand + in_hand_cost_plus / in_hand_cost_minus
+    if when == "in_hand" and prim_key in ("in_hand_cost_plus", "in_hand_cost_minus"):
+        amount = int(prim_val) if not isinstance(prim_val, dict) else int(prim_val.get("amount", 0))
+        signed_n = amount if prim_key == "in_hand_cost_plus" else -amount
+        candidates = []
+        for m in PAT_IN_HAND_COST_PLUS.finditer(card_text):
+            cand_sign = m.group("sign")
+            cand_n = int(m.group("n"))
+            cand_signed = -cand_n if cand_sign in ("-", "−") else cand_n
+            if cand_signed != signed_n:
+                continue
+            # prefix で 「コスト+N」 の 前 を 含めた sentence を 切り取る
+            start = m.start("prefix") if m.group("prefix") else m.start()
+            sentence = card_text[start:m.end()].rstrip("。") + "。"
+            candidates.append(sentence)
+        if len(candidates) == 1:
+            return candidates[0]
+
+    # ケース 3: on_attached_don + set_ko_immune_battle_only
+    if when == "on_attached_don" and prim_key == "set_ko_immune_battle_only":
+        candidates = []
+        for m in PAT_KO_IMMUNE_BATTLE.finditer(card_text):
+            start = m.start("prefix") if m.group("prefix") else m.start()
+            sentence = card_text[start:m.end()].rstrip("。") + "。"
+            candidates.append(sentence)
+        if len(candidates) == 1:
+            return candidates[0]
+
+    # ケース 4: replace_ko + return_self_to_trash
+    if when == "replace_ko" and prim_key == "return_self_to_trash":
+        candidates = []
+        for m in PAT_REPLACE_KO_RETURN_SELF.finditer(card_text):
+            start = m.start("prefix")
+            sentence = card_text[start:m.end()].rstrip("。") + "。"
+            candidates.append(sentence)
+        if len(candidates) == 1:
+            return candidates[0]
+
+    # ケース 5: on_attached_don + give_attack_active_chara
+    if when == "on_attached_don" and prim_key == "give_attack_active_chara":
+        m = PAT_GIVE_ATTACK_ACTIVE.search(card_text)
+        if m:
+            return m.group(0)
+
+    # ケース 6: on_attached_don + give_keyword (= 速攻 = 「登場したターンにアタックできる」)
+    if when == "on_attached_don" and prim_key == "give_keyword":
+        # keyword=速攻 のみ 対象 (= give_rush パターン)
+        spec_val = prim_val if isinstance(prim_val, dict) else {}
+        if spec_val.get("keyword") == "速攻":
+            candidates = []
+            for m in PAT_GIVE_RUSH.finditer(card_text):
+                start = m.start("prefix") if m.group("prefix") else m.start()
+                sentence = card_text[start:m.end()].rstrip("。") + "。"
+                candidates.append(sentence)
+            if len(candidates) == 1:
+                return candidates[0]
+
+    # ケース 7: on_ko + put_top_to_life (= EB01-057 しらほし)
+    if when == "on_ko" and prim_key == "put_top_to_life":
+        m = PAT_PUT_TOP_TO_LIFE.search(card_text)
+        if m:
+            return m.group(0)
     return None
 
 
