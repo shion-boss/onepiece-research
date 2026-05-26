@@ -56,6 +56,9 @@ def fast_clone(state: "GameState") -> "GameState":
     saved_overlay = state.effects_overlay
     saved_hook = state.event_order_hook
     saved_rec = state.record_snapshots
+    # _fired_target_counts は bonus 学習 用 集計 container。 deepcopy せず 共有 すれば
+    # 子 plan_search 内 の leaf eval fire が 原 state に 集約される。
+    saved_fired = getattr(state, "_fired_target_counts", None)
 
     # 元 state を一時的に空に置き換え → deepcopy → 復元
     state.log = []
@@ -64,6 +67,9 @@ def fast_clone(state: "GameState") -> "GameState":
     state.effects_overlay = {}
     state.event_order_hook = None
     state.record_snapshots = False
+    if saved_fired is not None:
+        # 一時 None 化 で deepcopy 対象外 → 後で 原 + cloned 共に 共有 参照 を 戻す
+        state._fired_target_counts = None  # type: ignore[attr-defined]
     try:
         cloned = copy.deepcopy(state)
     finally:
@@ -74,11 +80,16 @@ def fast_clone(state: "GameState") -> "GameState":
         state.effects_overlay = saved_overlay
         state.event_order_hook = saved_hook
         state.record_snapshots = saved_rec
+        if saved_fired is not None:
+            state._fired_target_counts = saved_fired  # type: ignore[attr-defined]
 
     # cloned 側: overlay / hook は元参照を共有 (= 不変)。 log 系は空のまま (= plan 内では不要)
     cloned.effects_overlay = saved_overlay
     cloned.event_order_hook = saved_hook
     cloned.record_snapshots = False
+    # _fired_target_counts は 原 state と 同じ list を 共有 (= 子 fire は 親に 集約)
+    if saved_fired is not None:
+        cloned._fired_target_counts = saved_fired  # type: ignore[attr-defined]
     # cloned 内 apply_action での eval_before/after 記録を抑止 (= compute_score 二重実行カット)
     cloned.record_action_evals = False
     # plan_search 内 シミュレーション は AI vs AI として 動作 する。

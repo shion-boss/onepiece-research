@@ -22,7 +22,7 @@
             "self_chara_count_ge": 1,
             "self_hand_ge": 5
           },
-          "bonus": 1000,
+          "bonus": 968,
           "description": "T1 1c B・W chara play、 手札 5+ 維持"
         },
         {
@@ -30,7 +30,7 @@
           "if": {
             "self_chara_count_ge": 1
           },
-          "bonus": 600,
+          "bonus": 580,
           "description": "fallback: 1c chara"
         },
         {
@@ -38,7 +38,7 @@
           "if": {
             "self_leader_attached_don_ge": 1
           },
-          "bonus": 500,
+          "bonus": 484,
           "description": "fallback: don 余り leader"
         }
       ]
@@ -111,7 +111,7 @@
             },
             "self_hand_ge": 5
           },
-          "bonus": 1100,
+          "bonus": 1045,
           "description": "T2: B・W chara 2 体 + 手札 5、 起動メイン KO 用 source 確保"
         },
         {
@@ -120,7 +120,7 @@
             "self_chara_count_ge": 2,
             "self_hand_ge": 4
           },
-          "bonus": 700,
+          "bonus": 665,
           "description": "fallback"
         }
       ]
@@ -139,7 +139,7 @@
             "self_counter_in_hand_ge": 5000,
             "self_hand_ge": 5
           },
-          "bonus": 1200,
+          "bonus": 1182,
           "description": "behind T2: 場 1 + counter 5000 + 手札 5、 巻き返し仕込み"
         },
         {
@@ -147,7 +147,7 @@
           "if": {
             "self_counter_in_hand_ge": 5000
           },
-          "bonus": 800,
+          "bonus": 788,
           "description": "fallback"
         }
       ]
@@ -168,7 +168,7 @@
             },
             "self_leader_attached_don_ge": 1
           },
-          "bonus": 1100,
+          "bonus": 990,
           "description": "advantage T2: B・W 2 + don leader push"
         },
         {
@@ -176,7 +176,7 @@
           "if": {
             "self_chara_count_ge": 2
           },
-          "bonus": 700,
+          "bonus": 630,
           "description": "fallback"
         }
       ]
@@ -195,7 +195,7 @@
             "self_field_power_ge": 4000,
             "self_hand_ge": 5
           },
-          "bonus": 1200,
+          "bonus": 1288,
           "description": "T3: 3c B・W chara 着地、 場 power 4000、 リーダー起動メイン で 相手 cost-10 → KO 仕込み"
         },
         {
@@ -204,7 +204,7 @@
             "self_chara_count_ge": 2,
             "self_hand_ge": 5
           },
-          "bonus": 800,
+          "bonus": 858,
           "description": "fallback"
         }
       ]
@@ -281,7 +281,7 @@
             },
             "self_hand_ge": 4
           },
-          "bonus": 1400,
+          "bonus": 1297,
           "description": "T4 OP14-091 ボン・クレー 4c 5000 (= KO 時 5 以下 B・W play) 着地、 場 power 5000 + B・W 3 = KO 連鎖 path 確保"
         },
         {
@@ -290,7 +290,7 @@
             "self_field_power_ge": 4000,
             "self_chara_count_ge": 3
           },
-          "bonus": 900,
+          "bonus": 833,
           "description": "fallback"
         }
       ]
@@ -341,7 +341,7 @@
               "count": 3
             }
           },
-          "bonus": 1300,
+          "bonus": 1216,
           "description": "advantage T4: 場 power 6000 + B・W 3、 push"
         },
         {
@@ -349,7 +349,7 @@
           "if": {
             "self_field_power_ge": 4000
           },
-          "bonus": 800,
+          "bonus": 748,
           "description": "fallback"
         }
       ]
@@ -373,7 +373,7 @@
             "self_blocker_count_ge": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1600,
+          "bonus": 1489,
           "description": "T5: OP14-090 Mr.1 5c 6000 (= 0/8+ で 速攻 + 0 rest) or OP14-094 Mr.5 BLK 5c 6000 (= 0/8+ で 2 ドロー) 着地"
         },
         {
@@ -382,7 +382,7 @@
             "self_field_power_ge": 6000,
             "self_chara_count_ge": 3
           },
-          "bonus": 1000,
+          "bonus": 930,
           "description": "fallback"
         }
       ]
@@ -435,7 +435,7 @@
             },
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1635,
           "description": "advantage T5: 場 power 9000 + B・W 4 体、 制圧"
         },
         {
@@ -443,7 +443,7 @@
           "if": {
             "self_field_power_ge": 7000
           },
-          "bonus": 900,
+          "bonus": 981,
           "description": "fallback"
         }
       ]
@@ -529,7 +529,7 @@
             "opp_life_le": 4,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1700,
+          "bonus": 1750,
           "description": "advantage T6: 場 11000 + B・W 4 + 相手ライフ 4"
         },
         {
@@ -537,7 +537,7 @@
           "if": {
             "self_field_power_ge": 9000
           },
-          "bonus": 1000,
+          "bonus": 1029,
           "description": "fallback"
         }
       ]
@@ -621,7 +621,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1850,
+          "bonus": 1978,
           "description": "advantage T7: finisher + 場 13000 + 相手ライフ 3、 リーサル 視野"
         },
         {
@@ -630,7 +630,7 @@
             "self_field_power_ge": 11000,
             "opp_life_le": 4
           },
-          "bonus": 1300,
+          "bonus": 1390,
           "description": "fallback"
         }
       ]
@@ -714,7 +714,7 @@
             "min_attacks_this_turn_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1950,
+          "bonus": 2049,
           "description": "advantage T8: クロコ + 場 15000 + 相手ライフ 2、 lethal 直前"
         },
         {
@@ -723,7 +723,7 @@
             "self_field_power_ge": 13000,
             "opp_life_le": 3
           },
-          "bonus": 1300,
+          "bonus": 1365,
           "description": "fallback"
         }
       ]
@@ -744,7 +744,7 @@
             "min_attacks_this_turn_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1950,
+          "bonus": 1755,
           "description": "T9: クロコ 2 体目 or 大型 連打、 場 16000 + 相手ライフ 2"
         },
         {
@@ -753,7 +753,7 @@
             "self_finisher_on_field_ge": 1,
             "self_field_power_ge": 14000
           },
-          "bonus": 1300,
+          "bonus": 1170,
           "description": "fallback"
         }
       ]
@@ -804,7 +804,7 @@
             "min_attacks_this_turn_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 2000,
+          "bonus": 2163,
           "description": "advantage T9: 相手ライフ 1 + finisher 2、 確実 lethal"
         },
         {
@@ -813,7 +813,7 @@
             "opp_life_le": 2,
             "self_field_power_ge": 13000
           },
-          "bonus": 1500,
+          "bonus": 1622,
           "description": "fallback"
         }
       ]
@@ -834,7 +834,7 @@
             "min_attacks_this_turn_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 2000,
+          "bonus": 1800,
           "description": "T10: P-100 ティーチ 10c 12000 (= アタック時 全効果 無効) 着地、 場 17000 + 相手ライフ 1 = lethal"
         },
         {
@@ -843,7 +843,7 @@
             "self_finisher_on_field_ge": 1,
             "self_field_power_ge": 14000
           },
-          "bonus": 1400,
+          "bonus": 1260,
           "description": "fallback"
         }
       ]
@@ -890,7 +890,7 @@
             "min_attacks_this_turn_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 2000,
+          "bonus": 2200,
           "description": "advantage T10: 相手ライフ 0 + finisher、 確実 lethal"
         },
         {
@@ -899,7 +899,7 @@
             "opp_life_le": 1,
             "self_field_power_ge": 15000
           },
-          "bonus": 1500,
+          "bonus": 1650,
           "description": "fallback"
         }
       ]
@@ -1300,7 +1300,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2285,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -1309,7 +1309,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1371,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -1318,7 +1318,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1097,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -1327,7 +1327,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 914,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -1392,7 +1392,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2250,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -1401,7 +1401,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1350,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -1410,7 +1410,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1080,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -1419,7 +1419,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 900,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -1438,7 +1438,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2307,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -1447,7 +1447,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1384,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -1456,7 +1456,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1107,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -1465,7 +1465,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 923,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -1576,7 +1576,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2300,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -1585,7 +1585,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1380,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -1594,7 +1594,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1104,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -1603,7 +1603,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 919,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -1668,7 +1668,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2750,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -1677,7 +1677,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1650,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -1686,7 +1686,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1320,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -1695,7 +1695,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 1100,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -1714,7 +1714,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2750,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -1723,7 +1723,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1650,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -1732,7 +1732,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1320,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -1741,7 +1741,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 1100,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -2128,7 +2128,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2750,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -2137,7 +2137,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1650,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -2146,7 +2146,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1320,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -2155,7 +2155,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 1100,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -2266,7 +2266,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2268,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -2275,7 +2275,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1361,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -2284,7 +2284,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1088,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -2293,7 +2293,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 907,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -2312,7 +2312,7 @@
             "min_leader_attacks_this_turn_ge": 1,
             "min_attacks_this_turn_ge": 2
           },
-          "bonus": 2500,
+          "bonus": 2250,
           "description": "致命打圏内: leader attack + 連続attack"
         },
         {
@@ -2321,7 +2321,7 @@
             "opp_life_le": 3,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1500,
+          "bonus": 1350,
           "description": "致命打圏内 attack 必須"
         },
         {
@@ -2330,7 +2330,7 @@
             "opp_chara_count_le": 1,
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 1200,
+          "bonus": 1080,
           "description": "相手場ほぼ無 で attack"
         },
         {
@@ -2339,7 +2339,7 @@
             "opp_field_total_power_le": 6000,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 1000,
+          "bonus": 900,
           "description": "相手場power弱 で leader attack"
         }
       ]
@@ -2385,7 +2385,7 @@
             "self_field_count_ge": 2,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 700,
+          "bonus": 691,
           "description": "場 2 体 + leader attack"
         },
         {
@@ -2393,7 +2393,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 400,
+          "bonus": 395,
           "description": "fallback"
         }
       ]
@@ -2412,7 +2412,7 @@
             "min_attacks_this_turn_ge": 1,
             "self_field_count_ge": 2
           },
-          "bonus": 700,
+          "bonus": 630,
           "description": "attack + 場 2 体"
         },
         {
@@ -2420,7 +2420,7 @@
           "if": {
             "min_attacks_this_turn_ge": 1
           },
-          "bonus": 400,
+          "bonus": 360,
           "description": "fallback"
         }
       ]
@@ -2439,7 +2439,7 @@
             "self_hand_ge": 4,
             "self_field_count_ge": 2
           },
-          "bonus": 700,
+          "bonus": 661,
           "description": "手札 4 + 場 2 体"
         },
         {
@@ -2447,7 +2447,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 400,
+          "bonus": 378,
           "description": "fallback"
         }
       ]
@@ -2791,7 +2791,7 @@
             "self_field_count_ge": 1,
             "self_hand_ge": 5
           },
-          "bonus": 400,
+          "bonus": 369,
           "description": "場 1 + 手札 5 維持"
         },
         {
@@ -2799,7 +2799,7 @@
           "if": {
             "self_hand_ge": 5
           },
-          "bonus": 250,
+          "bonus": 230,
           "description": "fallback: 手札 5 維持"
         }
       ]
@@ -2872,7 +2872,7 @@
             "self_field_count_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 500,
+          "bonus": 455,
           "description": "場 1 + leader attack"
         },
         {
@@ -2880,7 +2880,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 300,
+          "bonus": 273,
           "description": "fallback: 場 1 体"
         }
       ]
@@ -3244,7 +3244,7 @@
             "self_field_count_ge": 2,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 700,
+          "bonus": 752,
           "description": "場 2 体 + leader attack"
         },
         {
@@ -3252,7 +3252,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 400,
+          "bonus": 429,
           "description": "fallback"
         }
       ]
@@ -3298,7 +3298,7 @@
             "self_hand_ge": 4,
             "self_field_count_ge": 2
           },
-          "bonus": 700,
+          "bonus": 757,
           "description": "手札 4 + 場 2 体"
         },
         {
@@ -3306,7 +3306,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 400,
+          "bonus": 433,
           "description": "fallback"
         }
       ]
@@ -3650,7 +3650,7 @@
             "self_field_count_ge": 1,
             "self_hand_ge": 5
           },
-          "bonus": 400,
+          "bonus": 426,
           "description": "場 1 + 手札 5 維持"
         },
         {
@@ -3658,7 +3658,7 @@
           "if": {
             "self_hand_ge": 5
           },
-          "bonus": 250,
+          "bonus": 266,
           "description": "fallback: 手札 5 維持"
         }
       ]
@@ -3731,7 +3731,7 @@
             "self_field_count_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 500,
+          "bonus": 550,
           "description": "場 1 + leader attack"
         },
         {
@@ -3739,7 +3739,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 300,
+          "bonus": 330,
           "description": "fallback: 場 1 体"
         }
       ]
@@ -3758,7 +3758,7 @@
             "self_field_count_ge": 1,
             "min_leader_attacks_this_turn_ge": 1
           },
-          "bonus": 500,
+          "bonus": 543,
           "description": "場 1 + leader attack"
         },
         {
@@ -3766,7 +3766,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 300,
+          "bonus": 326,
           "description": "fallback: 場 1 体"
         }
       ]
@@ -4076,7 +4076,7 @@
             "self_field_count_ge": 2,
             "self_counter_in_hand_ge": 3000
           },
-          "bonus": 700,
+          "bonus": 637,
           "description": "場 2 + counter 3000"
         },
         {
@@ -4084,7 +4084,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 400,
+          "bonus": 364,
           "description": "fallback"
         }
       ]
@@ -4157,7 +4157,7 @@
             "self_blocker_count_ge": 1,
             "self_field_power_ge": 10000
           },
-          "bonus": 700,
+          "bonus": 705,
           "description": "blocker + 場 10000"
         },
         {
@@ -4165,7 +4165,7 @@
           "if": {
             "self_field_count_ge": 2
           },
-          "bonus": 400,
+          "bonus": 402,
           "description": "fallback"
         }
       ]
@@ -4508,7 +4508,7 @@
             "self_field_count_ge": 1,
             "self_hand_ge": 5
           },
-          "bonus": 400,
+          "bonus": 363,
           "description": "場 1 + 手札 5 維持"
         },
         {
@@ -4516,7 +4516,7 @@
           "if": {
             "self_hand_ge": 5
           },
-          "bonus": 250,
+          "bonus": 227,
           "description": "fallback: 手札 5 維持"
         }
       ]
@@ -4587,7 +4587,7 @@
           "if": {
             "self_field_count_ge": 2
           },
-          "bonus": 500,
+          "bonus": 450,
           "description": "場 2 体 展開"
         },
         {
@@ -4595,7 +4595,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 300,
+          "bonus": 270,
           "description": "fallback: 場 1 体"
         }
       ]
@@ -4613,7 +4613,7 @@
           "if": {
             "self_field_count_ge": 2
           },
-          "bonus": 500,
+          "bonus": 481,
           "description": "場 2 体 展開"
         },
         {
@@ -4621,7 +4621,7 @@
           "if": {
             "self_field_count_ge": 1
           },
-          "bonus": 300,
+          "bonus": 288,
           "description": "fallback: 場 1 体"
         }
       ]

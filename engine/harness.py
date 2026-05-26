@@ -49,6 +49,8 @@ class GameResult:
     snapshots: list[dict] = field(default_factory=list)  # record_snapshots=True で埋まる
     rule_violations: list[str] = field(default_factory=list)  # referee 違反ログ
     action_evals: list[dict] = field(default_factory=list)  # R64+ AI 行動品質評価
+    # bonus 学習 用 fire log (= enable_fire_logging=True 時 のみ) — [p0, p1] の entry_id → count
+    fire_counts: list[dict] = field(default_factory=lambda: [{}, {}])
 
 
 @dataclass
@@ -140,6 +142,7 @@ def run_matchup(
     deck2_analysis: Optional[dict] = None,
     record_replays: bool = False,
     replays_db_path: Optional[Path] = None,
+    enable_fire_logging: bool = False,
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
@@ -205,6 +208,9 @@ def run_matchup(
             # setup 中の "start:" ログ分の snapshot を補完
             if state.log:
                 state.snapshots.append(state._build_snapshot(state.log[-1]))
+        # bonus 学習 用 fire logging を 初期化 (= compute_target_match_bonus が 各 leaf eval で 集計)
+        if enable_fire_logging:
+            state._fired_target_counts = [{}, {}]  # type: ignore[attr-defined]
         play_until_main(state)
         # first_player == 0 なら deck1 が先攻 (= AI1, analysis1)、 1 なら逆
         if first_player == 0:
@@ -259,6 +265,18 @@ def run_matchup(
                 report.deck2_wins += 1
                 winner_for_deck = 1
 
+        # fire_counts は state._fired_target_counts (= [p0, p1]) を deck1/deck2 対応 に re-map。
+        # state.players[0] は first_player のデッキ なので、 first_player=0 なら p0=deck1。
+        raw_fc = getattr(state, "_fired_target_counts", None) if enable_fire_logging else None
+        if raw_fc:
+            # first_player==0 → [p0=deck1, p1=deck2]、 first_player==1 → [p0=deck2, p1=deck1]
+            if first_player == 0:
+                fire_counts = [dict(raw_fc[0]), dict(raw_fc[1])]
+            else:
+                fire_counts = [dict(raw_fc[1]), dict(raw_fc[0])]
+        else:
+            fire_counts = [{}, {}]
+
         result = GameResult(
             winner=winner_for_deck,
             first_player=first_player,
@@ -272,6 +290,7 @@ def run_matchup(
             snapshots=list(state.snapshots) if record_snapshots else [],
             rule_violations=(list(referee.violations) if referee else []),
             action_evals=list(state.action_evals),
+            fire_counts=fire_counts,
         )
         report.games.append(result)
 

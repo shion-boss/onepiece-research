@@ -313,7 +313,26 @@ def find_matching_entries(
     external_matches: list[tuple[dict, float]] = []
     has_per_deck_tier1 = False
 
-    for entry in entries:
+    # === 高速化 (= 2026-05-26): entries を opp_leader_id 別 に index 化 ===
+    # spec 内 entries 数 が 数百〜数千 規模 で 線形 走査 が plan_search の bottleneck (= 16x slowdown)。
+    # leader_id ごと の bucket + null leader bucket (= Tier 2/3) を 事前 build、 lookup を O(K) に 削減。
+    # cache key は spec object の id() (= mutate されない 前提、 load_target_spec の cache と 同 寿命)。
+    spec_id = id(target_spec)
+    leader_index = _LEADER_INDEX_CACHE.get(spec_id)
+    if leader_index is None:
+        leader_index = {"_by_leader": {}, "_no_leader": []}
+        for entry in entries:
+            elid = entry.get("opp_leader_id")
+            if elid:
+                leader_index["_by_leader"].setdefault(elid, []).append(entry)
+            else:
+                leader_index["_no_leader"].append(entry)
+        _LEADER_INDEX_CACHE[spec_id] = leader_index
+
+    # 候補 entry 集合: 厳密 leader 一致 (= Tier 1) + null leader (= Tier 2/3)
+    candidate_entries = leader_index["_by_leader"].get(opp_leader_id, []) + leader_index["_no_leader"]
+
+    for entry in candidate_entries:
         e_opp_leader = entry.get("opp_leader_id")
         e_opp_arch = entry.get("opp_archetype")
         is_external = bool(entry.get("_external_generic"))
@@ -445,15 +464,19 @@ def compute_target_match_bonus(
     cap: int = 3000,
     plan=None,
 ) -> int:
-    """plan_search の leaf eval で 呼ばれる bonus 計算 (= 集約 版、 2026-05-19 更新)。
+    """plan_search の leaf eval で 呼ばれる bonus 計算 (= MAX 版、 2026-05-26 更新)。
 
     現 state の (turn, opp_leader_id, opp_archetype, self_condition) で **match する 全 entries** を
     探し、 各 entry で priority 順 に targets を 評価 → 最初 match の bonus を 取得 →
-    `weight × importance × bonus` で 重み付き加算。 合計 を cap で 抑える。
+    `weight × importance × bonus` の **最大値** を 返す (= leaf 選択 を 駆動 する のは 最良 target 1 件)。
+
+    旧 SUM 版 では 7200 cross-leader entries 投入 後 cap=3000 飽和 で leaf 差別化 が
+    消失していた (= どの leaf も 同じ bonus に 潰れる)。 MAX 化 で 「ターン目標 = 1 つ の 明確 ゴール」
+    という 本来 設計 に 寄せる。
 
     weight = leader_tier × turn_weight × cond_weight (= find_matching_entries 由来、 [0, 1])
     importance = entry.get("importance", 1.0) (= 戦略的重要度、 default 1.0)
-    cap = 暴走防止 (= default 3000、 既存 W_TURN_PLAN と 同 scale)
+    cap = 暴走防止 (= default 3000、 単一 entry の bonus は 500-2000 範囲 なので 通常 cap 未満)
 
     全 entry miss / no priority match → 0。
     """
@@ -484,7 +507,8 @@ def compute_target_match_bonus(
     if not matches:
         return 0
 
-    total_bonus = 0.0
+    best_bonus = 0.0
+    best_entry_id: Optional[str] = None
     for entry, weight in matches:
         importance = float(entry.get("importance", 1.0))
         targets = entry.get("targets", [])
@@ -495,9 +519,19 @@ def compute_target_match_bonus(
             if_cond = tgt.get("if", {})
             if evaluate_target_condition(if_cond, state, me_idx, plan):
                 target_bonus = int(tgt.get("bonus", 0))
-                total_bonus += weight * importance * target_bonus
+                contribution = weight * importance * target_bonus
+                if contribution > best_bonus:
+                    best_bonus = contribution
+                    best_entry_id = entry.get("_entry_id")
                 break  # priority chain で 1 つ 採用、 次 entry へ
-    return int(min(total_bonus, cap))
+    # fire logging hook (= state._fired_target_counts[me_idx] が dict なら 集計)
+    # bonus 学習 で 「どの entry が 何回 driving した か」 を per-player track する。
+    # default off (= 通常 plan_search では 無効)、 eval_with_entry_firings.py が opt-in。
+    if best_entry_id and best_bonus > 0:
+        counts = getattr(state, "_fired_target_counts", None)
+        if counts is not None and me_idx < len(counts):
+            counts[me_idx][best_entry_id] = counts[me_idx].get(best_entry_id, 0) + 1
+    return int(min(best_bonus, cap))
 
 
 # ===========================================================================
@@ -507,6 +541,8 @@ def compute_target_match_bonus(
 _TARGET_SPEC_CACHE: dict[str, dict] = {}
 _GENERIC_SPEC_CACHE: Optional[dict] = None
 _GENERIC_SPEC_LOADED: bool = False
+# spec id() → {_by_leader: {leader_id: [entries]}, _no_leader: [entries]} (= find_matching_entries 高速化)
+_LEADER_INDEX_CACHE: dict[int, dict] = {}
 
 
 def _load_generic_spec(base_dir: Path) -> Optional[dict]:
@@ -570,14 +606,20 @@ def load_target_spec(
     merged_entries: list[dict] = []
     base: dict = {}
     if per_deck_spec is not None:
-        merged_entries.extend(per_deck_spec.get("entries", []))
+        # per-deck entries に entry_id = "<deck_slug>#<idx>" を 付与 (= bonus 学習 fire log の key)
+        for idx, e in enumerate(per_deck_spec.get("entries", [])):
+            tagged = dict(e)
+            tagged.setdefault("_entry_id", f"{deck_slug}#{idx}")
+            merged_entries.append(tagged)
         base = {k: v for k, v in per_deck_spec.items() if k != "entries"}
     if generic_spec is not None:
         # 外部 generic entries に _external_generic=True flag を 付与 (= find_matching_entries で
         # per-deck 内部 wildcard と 区別 して 排他 判定 に 使う)。 元 file は 触らない。
-        for ge in generic_spec.get("entries", []):
+        # entry_id = "generic#<idx>" (= 全 deck 共通、 fire log で global 集計)
+        for idx, ge in enumerate(generic_spec.get("entries", [])):
             tagged = dict(ge)
             tagged["_external_generic"] = True
+            tagged.setdefault("_entry_id", f"generic#{idx}")
             merged_entries.append(tagged)
     merged = dict(base)
     merged["entries"] = merged_entries
@@ -590,6 +632,7 @@ def clear_target_spec_cache() -> None:
     """テスト 用 cache clear。"""
     global _GENERIC_SPEC_CACHE, _GENERIC_SPEC_LOADED
     _TARGET_SPEC_CACHE.clear()
+    _LEADER_INDEX_CACHE.clear()
     _GENERIC_SPEC_CACHE = None
     _GENERIC_SPEC_LOADED = False
 

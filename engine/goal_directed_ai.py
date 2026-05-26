@@ -94,11 +94,17 @@ class GoalDirectedAI(_NoNNPlanningBase):
             if spec is None and self._spec_version != "v1":
                 spec = load_target_spec(self._deck_slug, version="v1")
             return spec
-        # auto-detect from state.players[me_idx].deck_slug
+        # auto-detect: state.deck_slugs[me_idx] (= setup_game で 設定) を 優先、
+        # fallback で state.players[me_idx].deck_slug (= 一部 path で 注入 される 可能性)
         me_idx = state.turn_player_idx
         try:
-            me_player = state.players[me_idx]
-            slug = getattr(me_player, "deck_slug", None)
+            slug: Optional[str] = None
+            deck_slugs = getattr(state, "deck_slugs", None)
+            if deck_slugs and me_idx < len(deck_slugs):
+                slug = deck_slugs[me_idx] or None
+            if not slug:
+                me_player = state.players[me_idx]
+                slug = getattr(me_player, "deck_slug", None)
             if slug:
                 spec = load_target_spec(slug, version=self._spec_version)
                 if spec is None and self._spec_version != "v1":

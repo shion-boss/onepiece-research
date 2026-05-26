@@ -1,0 +1,1252 @@
+{
+  "meta_pool_iteration": 1,
+  "n_games_per_cell": 3,
+  "completed_cells": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      2
+    ],
+    [
+      0,
+      3
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      2,
+      0
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      3,
+      0
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      3,
+      3
+    ]
+  ],
+  "games": [
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1342",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1342#0": 2,
+        "cardrush_1342#4": 6,
+        "cardrush_1342#14": 6,
+        "cardrush_1342#11": 1,
+        "cardrush_1342#20": 3,
+        "cardrush_1342#17": 1,
+        "cardrush_1342#23": 3,
+        "cardrush_1342#26": 21,
+        "cardrush_1342#29": 14
+      },
+      "fire_counts_b": {
+        "cardrush_1342#4": 1,
+        "cardrush_1342#0": 3,
+        "cardrush_1342#3": 7,
+        "cardrush_1342#9": 15,
+        "cardrush_1342#11": 25,
+        "cardrush_1342#46": 2,
+        "cardrush_1342#6": 1,
+        "cardrush_1342#12": 8,
+        "cardrush_1342#14": 12,
+        "cardrush_1342#15": 16,
+        "cardrush_1342#18": 13,
+        "cardrush_1342#21": 15,
+        "cardrush_1342#41": 53
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1342",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1342#0": 25,
+        "cardrush_1342#6": 3,
+        "cardrush_1342#15": 17,
+        "cardrush_1342#12": 3,
+        "cardrush_1342#17": 18,
+        "cardrush_1342#23": 7,
+        "cardrush_1342#20": 6,
+        "cardrush_1342#18": 7,
+        "cardrush_1342#29": 49
+      },
+      "fire_counts_b": {
+        "cardrush_1342#11": 1,
+        "cardrush_1342#17": 4,
+        "cardrush_1342#24": 7,
+        "cardrush_1342#23": 1,
+        "cardrush_1342#27": 44
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1342",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1342#14": 4,
+        "cardrush_1342#20": 3,
+        "cardrush_1342#17": 1,
+        "cardrush_1342#29": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1342#4": 3,
+        "cardrush_1342#0": 4,
+        "cardrush_1342#11": 9,
+        "cardrush_1342#15": 10,
+        "cardrush_1342#18": 11,
+        "cardrush_1342#27": 22
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1385",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1342#82": 1,
+        "cardrush_1342#85": 9,
+        "cardrush_1342#66": 13,
+        "cardrush_1342#42": 2,
+        "cardrush_1342#46": 1,
+        "cardrush_1342#60": 9,
+        "cardrush_1342#95": 3
+      },
+      "fire_counts_b": {
+        "cardrush_1385#85": 18,
+        "cardrush_1385#67": 12,
+        "cardrush_1385#82": 5,
+        "cardrush_1385#69": 60,
+        "cardrush_1385#46": 40,
+        "cardrush_1385#49": 8,
+        "cardrush_1385#64": 30,
+        "cardrush_1385#65": 6
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1385",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1342#85": 3,
+        "cardrush_1342#66": 6
+      },
+      "fire_counts_b": {
+        "cardrush_1385#82": 4,
+        "cardrush_1385#85": 4,
+        "cardrush_1385#67": 32,
+        "cardrush_1385#43": 13,
+        "cardrush_1385#69": 37,
+        "cardrush_1385#68": 12,
+        "cardrush_1385#45": 7,
+        "cardrush_1385#46": 3,
+        "cardrush_1385#63": 2
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1385",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1342#82": 1,
+        "cardrush_1342#85": 4,
+        "cardrush_1342#66": 12,
+        "cardrush_1342#86": 7,
+        "cardrush_1342#69": 8,
+        "cardrush_1342#60": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1385#85": 1,
+        "cardrush_1385#67": 12,
+        "cardrush_1385#82": 4,
+        "cardrush_1385#69": 6
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1392",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1342#112": 1,
+        "cardrush_1342#97": 8,
+        "cardrush_1342#99": 5
+      },
+      "fire_counts_b": {
+        "cardrush_1392#82": 13,
+        "cardrush_1392#67": 10,
+        "cardrush_1392#69": 6,
+        "cardrush_1392#76": 3,
+        "cardrush_1392#79": 2
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1392",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1342#97": 1,
+        "cardrush_1342#99": 2
+      },
+      "fire_counts_b": {
+        "cardrush_1392#82": 2,
+        "cardrush_1392#85": 7,
+        "cardrush_1392#67": 12,
+        "cardrush_1392#69": 73
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1392",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1342#112": 1,
+        "cardrush_1342#116": 2,
+        "cardrush_1342#97": 12,
+        "cardrush_1342#42": 2,
+        "cardrush_1342#45": 1,
+        "cardrush_1342#99": 8,
+        "cardrush_1342#54": 13,
+        "cardrush_1342#57": 9,
+        "cardrush_1342#61": 16,
+        "cardrush_1342#64": 7
+      },
+      "fire_counts_b": {
+        "cardrush_1392#85": 4,
+        "cardrush_1392#81": 3,
+        "cardrush_1392#67": 7,
+        "cardrush_1392#69": 13,
+        "cardrush_1392#95": 3
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1399",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1342#142": 4,
+        "cardrush_1342#146": 14,
+        "cardrush_1342#126": 12,
+        "cardrush_1342#55": 7,
+        "cardrush_1342#58": 5
+      },
+      "fire_counts_b": {
+        "cardrush_1399#85": 8,
+        "cardrush_1399#82": 3,
+        "cardrush_1399#67": 13,
+        "cardrush_1399#69": 14,
+        "cardrush_1399#46": 8,
+        "cardrush_1399#49": 7,
+        "cardrush_1399#58": 2
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1399",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1342#145": 1,
+        "cardrush_1342#126": 17,
+        "cardrush_1342#129": 10,
+        "cardrush_1342#52": 4,
+        "cardrush_1342#55": 4,
+        "cardrush_1342#51": 1,
+        "cardrush_1342#65": 10,
+        "cardrush_1342#64": 10
+      },
+      "fire_counts_b": {
+        "cardrush_1399#82": 5,
+        "cardrush_1399#85": 5,
+        "cardrush_1399#67": 30,
+        "cardrush_1399#43": 1,
+        "cardrush_1399#69": 31,
+        "cardrush_1399#49": 14,
+        "cardrush_1399#52": 7,
+        "cardrush_1399#60": 53,
+        "cardrush_1399#63": 12
+      }
+    },
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1399",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1342#142": 1,
+        "cardrush_1342#146": 16,
+        "cardrush_1342#126": 3,
+        "cardrush_1342#129": 21,
+        "cardrush_1342#49": 6,
+        "cardrush_1342#52": 6,
+        "cardrush_1342#48": 10,
+        "cardrush_1342#51": 7
+      },
+      "fire_counts_b": {
+        "cardrush_1399#85": 11,
+        "cardrush_1399#81": 1,
+        "cardrush_1399#82": 2,
+        "cardrush_1399#67": 13,
+        "cardrush_1399#69": 15,
+        "cardrush_1399#46": 6,
+        "cardrush_1399#49": 4
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1342",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1385#82": 1,
+        "cardrush_1385#67": 28,
+        "cardrush_1385#69": 19,
+        "cardrush_1385#61": 19,
+        "cardrush_1385#64": 3
+      },
+      "fire_counts_b": {
+        "cardrush_1342#85": 9,
+        "cardrush_1342#82": 1,
+        "cardrush_1342#66": 22,
+        "cardrush_1342#69": 33,
+        "cardrush_1342#45": 2,
+        "cardrush_1342#48": 1,
+        "cardrush_1342#57": 2,
+        "cardrush_1342#60": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1342",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 13,
+      "fire_counts_a": {
+        "cardrush_1385#85": 32,
+        "cardrush_1385#82": 9,
+        "cardrush_1385#67": 21,
+        "cardrush_1385#69": 71,
+        "cardrush_1385#64": 48
+      },
+      "fire_counts_b": {
+        "cardrush_1342#82": 4,
+        "cardrush_1342#66": 3,
+        "cardrush_1342#69": 2,
+        "cardrush_1342#54": 2,
+        "cardrush_1342#57": 1,
+        "cardrush_1342#61": 4,
+        "cardrush_1342#64": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1342",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1385#82": 2,
+        "cardrush_1385#85": 3,
+        "cardrush_1385#67": 33,
+        "cardrush_1385#69": 32
+      },
+      "fire_counts_b": {
+        "cardrush_1342#85": 5,
+        "cardrush_1342#66": 20,
+        "cardrush_1342#69": 7,
+        "cardrush_1342#45": 1,
+        "cardrush_1342#58": 2
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1385",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1385#4": 2,
+        "cardrush_1385#0": 6,
+        "cardrush_1385#6": 32,
+        "cardrush_1385#3": 4,
+        "cardrush_1385#9": 13,
+        "cardrush_1385#12": 1,
+        "cardrush_1385#14": 56,
+        "cardrush_1385#11": 8,
+        "cardrush_1385#17": 15,
+        "cardrush_1385#51": 1,
+        "cardrush_1385#48": 1,
+        "cardrush_1385#20": 103,
+        "cardrush_1385#23": 20,
+        "cardrush_1385#34": 3,
+        "cardrush_1385#36": 1,
+        "cardrush_1385#29": 8,
+        "cardrush_1385#26": 30
+      },
+      "fire_counts_b": {
+        "cardrush_1385#4": 2,
+        "cardrush_1385#0": 13,
+        "cardrush_1385#3": 7,
+        "cardrush_1385#8": 3,
+        "cardrush_1385#11": 16,
+        "cardrush_1385#9": 29,
+        "cardrush_1385#46": 3,
+        "cardrush_1385#49": 1,
+        "cardrush_1385#12": 2,
+        "cardrush_1385#24": 13,
+        "cardrush_1385#20": 3,
+        "cardrush_1385#23": 16,
+        "cardrush_1385#27": 30
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1385",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1385#7": 1,
+        "cardrush_1385#0": 8,
+        "cardrush_1385#4": 4,
+        "cardrush_1385#3": 3,
+        "cardrush_1385#6": 7,
+        "cardrush_1385#9": 2,
+        "cardrush_1385#12": 3,
+        "cardrush_1385#11": 4,
+        "cardrush_1385#17": 32,
+        "cardrush_1385#14": 4,
+        "cardrush_1385#20": 18,
+        "cardrush_1385#23": 22,
+        "cardrush_1385#26": 7
+      },
+      "fire_counts_b": {
+        "cardrush_1385#4": 3,
+        "cardrush_1385#0": 5,
+        "cardrush_1385#3": 7,
+        "cardrush_1385#5": 10,
+        "cardrush_1385#11": 25,
+        "cardrush_1385#17": 18,
+        "cardrush_1385#20": 17,
+        "cardrush_1385#24": 26,
+        "cardrush_1385#26": 10,
+        "cardrush_1385#27": 9
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1385",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1385#14": 20,
+        "cardrush_1385#11": 8,
+        "cardrush_1385#20": 18,
+        "cardrush_1385#23": 7,
+        "cardrush_1385#17": 1,
+        "cardrush_1385#26": 64
+      },
+      "fire_counts_b": {
+        "cardrush_1385#7": 3,
+        "cardrush_1385#0": 9,
+        "cardrush_1385#4": 3,
+        "cardrush_1385#3": 7,
+        "cardrush_1385#6": 6,
+        "cardrush_1385#11": 51,
+        "cardrush_1385#9": 69,
+        "cardrush_1385#12": 20,
+        "cardrush_1385#17": 8,
+        "cardrush_1385#14": 4,
+        "cardrush_1385#24": 7,
+        "cardrush_1385#20": 5,
+        "cardrush_1385#27": 13
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1392",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1385#112": 5,
+        "cardrush_1385#113": 1,
+        "cardrush_1385#116": 2,
+        "cardrush_1385#97": 13,
+        "cardrush_1385#99": 20
+      },
+      "fire_counts_b": {
+        "cardrush_1392#111": 9,
+        "cardrush_1392#96": 18,
+        "cardrush_1392#99": 6
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1392",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1385#115": 9,
+        "cardrush_1385#112": 6,
+        "cardrush_1385#97": 14,
+        "cardrush_1385#116": 2,
+        "cardrush_1385#99": 133,
+        "cardrush_1385#46": 5,
+        "cardrush_1385#49": 1,
+        "cardrush_1385#52": 26,
+        "cardrush_1385#51": 9,
+        "cardrush_1385#54": 3,
+        "cardrush_1385#55": 3
+      },
+      "fire_counts_b": {
+        "cardrush_1392#112": 3,
+        "cardrush_1392#115": 7,
+        "cardrush_1392#96": 33,
+        "cardrush_1392#99": 91,
+        "cardrush_1392#49": 41,
+        "cardrush_1392#52": 13
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1392",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1385#112": 6,
+        "cardrush_1385#113": 1,
+        "cardrush_1385#116": 2,
+        "cardrush_1385#97": 33,
+        "cardrush_1385#99": 14,
+        "cardrush_1385#42": 2,
+        "cardrush_1385#46": 1,
+        "cardrush_1385#43": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1392#115": 13,
+        "cardrush_1392#111": 3,
+        "cardrush_1392#96": 17
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1399",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1385#142": 6,
+        "cardrush_1385#143": 1,
+        "cardrush_1385#146": 6,
+        "cardrush_1385#126": 4,
+        "cardrush_1385#129": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1399#115": 9,
+        "cardrush_1399#111": 1,
+        "cardrush_1399#96": 5,
+        "cardrush_1399#99": 12,
+        "cardrush_1399#125": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1399",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1385#145": 9,
+        "cardrush_1385#142": 4,
+        "cardrush_1385#126": 13,
+        "cardrush_1385#146": 7,
+        "cardrush_1385#129": 22
+      },
+      "fire_counts_b": {
+        "cardrush_1399#112": 6,
+        "cardrush_1399#115": 8,
+        "cardrush_1399#96": 61,
+        "cardrush_1399#43": 3,
+        "cardrush_1399#99": 27,
+        "cardrush_1399#46": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1399",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1385#142": 1,
+        "cardrush_1385#146": 25,
+        "cardrush_1385#126": 16,
+        "cardrush_1385#129": 47
+      },
+      "fire_counts_b": {
+        "cardrush_1399#115": 17,
+        "cardrush_1399#112": 1,
+        "cardrush_1399#96": 15,
+        "cardrush_1399#99": 9,
+        "cardrush_1399#51": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1342",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1392#82": 14,
+        "cardrush_1392#67": 21,
+        "cardrush_1392#69": 27,
+        "cardrush_1392#73": 9,
+        "cardrush_1392#76": 6
+      },
+      "fire_counts_b": {
+        "cardrush_1342#116": 27,
+        "cardrush_1342#112": 5,
+        "cardrush_1342#97": 25,
+        "cardrush_1342#99": 51,
+        "cardrush_1342#52": 24,
+        "cardrush_1342#55": 10
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1342",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1392#82": 10,
+        "cardrush_1392#67": 3,
+        "cardrush_1392#69": 5
+      },
+      "fire_counts_b": {
+        "cardrush_1342#112": 1,
+        "cardrush_1342#99": 4
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1342",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1392#82": 4,
+        "cardrush_1392#55": 3,
+        "cardrush_1392#58": 1,
+        "cardrush_1392#64": 14
+      },
+      "fire_counts_b": {
+        "cardrush_1342#116": 11,
+        "cardrush_1342#112": 2,
+        "cardrush_1342#97": 13,
+        "cardrush_1342#99": 2,
+        "cardrush_1342#57": 23,
+        "cardrush_1342#60": 5
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1385",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1392#112": 2,
+        "cardrush_1392#115": 7,
+        "cardrush_1392#96": 18,
+        "cardrush_1392#99": 9
+      },
+      "fire_counts_b": {
+        "cardrush_1385#115": 13,
+        "cardrush_1385#97": 12,
+        "cardrush_1385#116": 9,
+        "cardrush_1385#112": 4,
+        "cardrush_1385#99": 19
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1385",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 9,
+      "fire_counts_a": {
+        "cardrush_1392#111": 4,
+        "cardrush_1392#96": 5
+      },
+      "fire_counts_b": {
+        "cardrush_1385#112": 2,
+        "cardrush_1385#116": 3,
+        "cardrush_1385#97": 18,
+        "cardrush_1385#99": 21
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1385",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1392#112": 4,
+        "cardrush_1392#96": 39,
+        "cardrush_1392#99": 15
+      },
+      "fire_counts_b": {
+        "cardrush_1385#116": 14,
+        "cardrush_1385#97": 13,
+        "cardrush_1385#112": 7,
+        "cardrush_1385#99": 25
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1392",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1392#0": 2,
+        "cardrush_1392#1": 1,
+        "cardrush_1392#4": 2,
+        "cardrush_1392#7": 5,
+        "cardrush_1392#8": 11,
+        "cardrush_1392#11": 16,
+        "cardrush_1392#27": 3,
+        "cardrush_1392#29": 7
+      },
+      "fire_counts_b": {
+        "cardrush_1392#7": 2,
+        "cardrush_1392#4": 2,
+        "cardrush_1392#3": 5,
+        "cardrush_1392#6": 6,
+        "cardrush_1392#10": 11,
+        "cardrush_1392#14": 4,
+        "cardrush_1392#20": 9,
+        "cardrush_1392#29": 27
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1392",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1392#0": 4,
+        "cardrush_1392#3": 7,
+        "cardrush_1392#1": 10,
+        "cardrush_1392#6": 7,
+        "cardrush_1392#9": 1,
+        "cardrush_1392#20": 28,
+        "cardrush_1392#23": 2,
+        "cardrush_1392#24": 110,
+        "cardrush_1392#29": 12,
+        "cardrush_1392#26": 2
+      },
+      "fire_counts_b": {
+        "cardrush_1392#4": 8,
+        "cardrush_1392#0": 1,
+        "cardrush_1392#7": 2,
+        "cardrush_1392#3": 7,
+        "cardrush_1392#8": 8,
+        "cardrush_1392#9": 18,
+        "cardrush_1392#11": 3,
+        "cardrush_1392#20": 18,
+        "cardrush_1392#26": 47,
+        "cardrush_1392#29": 20
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1392",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1392#0": 3,
+        "cardrush_1392#1": 7,
+        "cardrush_1392#8": 27,
+        "cardrush_1392#3": 3,
+        "cardrush_1392#4": 4,
+        "cardrush_1392#9": 4,
+        "cardrush_1392#17": 16,
+        "cardrush_1392#26": 10,
+        "cardrush_1392#27": 47
+      },
+      "fire_counts_b": {
+        "cardrush_1392#0": 5,
+        "cardrush_1392#1": 10,
+        "cardrush_1392#3": 5,
+        "cardrush_1392#6": 6,
+        "cardrush_1392#9": 1,
+        "cardrush_1392#20": 7,
+        "cardrush_1392#29": 34
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1399",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 13,
+      "fire_counts_a": {
+        "cardrush_1392#142": 6,
+        "cardrush_1392#126": 9,
+        "cardrush_1392#129": 5
+      },
+      "fire_counts_b": {
+        "cardrush_1399#145": 9,
+        "cardrush_1399#142": 2,
+        "cardrush_1399#127": 8,
+        "cardrush_1399#129": 17,
+        "cardrush_1399#63": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1399",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1392#142": 5,
+        "cardrush_1392#126": 4,
+        "cardrush_1392#65": 75
+      },
+      "fire_counts_b": {
+        "cardrush_1399#142": 7,
+        "cardrush_1399#145": 4,
+        "cardrush_1399#127": 51,
+        "cardrush_1399#129": 31
+      }
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1399",
+      "game_idx": 2,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1392#142": 3,
+        "cardrush_1392#126": 9,
+        "cardrush_1392#129": 3,
+        "cardrush_1392#61": 13,
+        "cardrush_1392#64": 3,
+        "cardrush_1392#62": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1399#145": 16,
+        "cardrush_1399#142": 1,
+        "cardrush_1399#127": 9,
+        "cardrush_1399#129": 17
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1342",
+      "game_idx": 0,
+      "winner_for_deck_a": 1,
+      "first_player": 0,
+      "turns": 14,
+      "fire_counts_a": {
+        "cardrush_1399#82": 6,
+        "cardrush_1399#85": 5,
+        "cardrush_1399#67": 18,
+        "cardrush_1399#69": 25
+      },
+      "fire_counts_b": {
+        "cardrush_1342#126": 3
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1342",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 12,
+      "fire_counts_a": {
+        "cardrush_1399#85": 13,
+        "cardrush_1399#81": 1,
+        "cardrush_1399#82": 1,
+        "cardrush_1399#67": 11,
+        "cardrush_1399#69": 60,
+        "cardrush_1399#46": 3,
+        "cardrush_1399#49": 1,
+        "cardrush_1399#63": 4
+      },
+      "fire_counts_b": {
+        "cardrush_1342#142": 1,
+        "cardrush_1342#146": 4,
+        "cardrush_1342#126": 3,
+        "cardrush_1342#129": 12,
+        "cardrush_1342#61": 3,
+        "cardrush_1342#64": 1
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1342",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#82": 4,
+        "cardrush_1399#85": 5,
+        "cardrush_1399#67": 27,
+        "cardrush_1399#43": 3,
+        "cardrush_1399#46": 1,
+        "cardrush_1399#69": 19,
+        "cardrush_1399#49": 15,
+        "cardrush_1399#52": 8
+      },
+      "fire_counts_b": {
+        "cardrush_1342#145": 4,
+        "cardrush_1342#142": 1,
+        "cardrush_1342#126": 21,
+        "cardrush_1342#129": 10,
+        "cardrush_1342#52": 1,
+        "cardrush_1342#51": 7,
+        "cardrush_1342#55": 4,
+        "cardrush_1342#54": 3
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1385",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#112": 5,
+        "cardrush_1399#115": 34,
+        "cardrush_1399#96": 4,
+        "cardrush_1399#99": 43,
+        "cardrush_1399#60": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1385#145": 13,
+        "cardrush_1385#126": 94,
+        "cardrush_1385#146": 14,
+        "cardrush_1385#142": 4,
+        "cardrush_1385#129": 32
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1385",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#115": 17,
+        "cardrush_1399#111": 2,
+        "cardrush_1399#112": 1,
+        "cardrush_1399#96": 2,
+        "cardrush_1399#99": 30,
+        "cardrush_1399#46": 1,
+        "cardrush_1399#58": 3,
+        "cardrush_1399#61": 1,
+        "cardrush_1399#125": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1385#142": 1,
+        "cardrush_1385#143": 1,
+        "cardrush_1385#146": 25,
+        "cardrush_1385#126": 11,
+        "cardrush_1385#129": 132
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1385",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 9,
+      "fire_counts_a": {
+        "cardrush_1399#112": 7,
+        "cardrush_1399#115": 32,
+        "cardrush_1399#96": 10,
+        "cardrush_1399#99": 42
+      },
+      "fire_counts_b": {
+        "cardrush_1385#145": 14,
+        "cardrush_1385#126": 77,
+        "cardrush_1385#146": 3,
+        "cardrush_1385#142": 6,
+        "cardrush_1385#129": 12
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1392",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#142": 7,
+        "cardrush_1399#145": 4,
+        "cardrush_1399#127": 24,
+        "cardrush_1399#129": 35
+      },
+      "fire_counts_b": {
+        "cardrush_1392#145": 9,
+        "cardrush_1392#142": 1,
+        "cardrush_1392#126": 14,
+        "cardrush_1392#129": 6
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1392",
+      "game_idx": 1,
+      "winner_for_deck_a": 0,
+      "first_player": 1,
+      "turns": 10,
+      "fire_counts_a": {
+        "cardrush_1399#145": 8,
+        "cardrush_1399#142": 2,
+        "cardrush_1399#127": 12,
+        "cardrush_1399#129": 10,
+        "cardrush_1399#57": 16,
+        "cardrush_1399#60": 4
+      },
+      "fire_counts_b": {
+        "cardrush_1392#142": 3,
+        "cardrush_1392#145": 9,
+        "cardrush_1392#126": 17,
+        "cardrush_1392#129": 15,
+        "cardrush_1392#62": 37,
+        "cardrush_1392#65": 7
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1392",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#142": 6,
+        "cardrush_1399#145": 4,
+        "cardrush_1399#127": 47,
+        "cardrush_1399#43": 1,
+        "cardrush_1399#129": 38,
+        "cardrush_1399#60": 27,
+        "cardrush_1399#155": 9
+      },
+      "fire_counts_b": {
+        "cardrush_1392#145": 5,
+        "cardrush_1392#142": 3,
+        "cardrush_1392#126": 22,
+        "cardrush_1392#59": 8,
+        "cardrush_1392#58": 4,
+        "cardrush_1392#61": 3,
+        "cardrush_1392#62": 2
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1399",
+      "game_idx": 0,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#0": 11,
+        "cardrush_1399#6": 15,
+        "cardrush_1399#12": 11,
+        "cardrush_1399#26": 13,
+        "cardrush_1399#23": 4,
+        "cardrush_1399#29": 13
+      },
+      "fire_counts_b": {
+        "cardrush_1399#0": 3,
+        "cardrush_1399#3": 3,
+        "cardrush_1399#6": 13,
+        "cardrush_1399#9": 48,
+        "cardrush_1399#12": 29,
+        "cardrush_1399#27": 112,
+        "cardrush_1399#41": 31
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1399",
+      "game_idx": 1,
+      "winner_for_deck_a": 1,
+      "first_player": 1,
+      "turns": 11,
+      "fire_counts_a": {
+        "cardrush_1399#0": 5,
+        "cardrush_1399#3": 5,
+        "cardrush_1399#6": 26,
+        "cardrush_1399#12": 13,
+        "cardrush_1399#24": 19,
+        "cardrush_1399#23": 21,
+        "cardrush_1399#20": 6,
+        "cardrush_1399#27": 46,
+        "cardrush_1399#29": 1
+      },
+      "fire_counts_b": {
+        "cardrush_1399#0": 7,
+        "cardrush_1399#5": 7,
+        "cardrush_1399#6": 6,
+        "cardrush_1399#14": 5,
+        "cardrush_1399#11": 2,
+        "cardrush_1399#12": 3,
+        "cardrush_1399#17": 11,
+        "cardrush_1399#20": 58,
+        "cardrush_1399#23": 34,
+        "cardrush_1399#26": 30,
+        "cardrush_1399#24": 7,
+        "cardrush_1399#27": 7,
+        "cardrush_1399#29": 2
+      }
+    },
+    {
+      "deck_a": "cardrush_1399",
+      "deck_b": "cardrush_1399",
+      "game_idx": 2,
+      "winner_for_deck_a": 0,
+      "first_player": 0,
+      "turns": 13,
+      "fire_counts_a": {
+        "cardrush_1399#0": 8,
+        "cardrush_1399#14": 8,
+        "cardrush_1399#11": 26,
+        "cardrush_1399#17": 5,
+        "cardrush_1399#20": 26,
+        "cardrush_1399#23": 8,
+        "cardrush_1399#26": 2,
+        "cardrush_1399#29": 35
+      },
+      "fire_counts_b": {
+        "cardrush_1399#0": 4,
+        "cardrush_1399#6": 20,
+        "cardrush_1399#9": 12,
+        "cardrush_1399#12": 22,
+        "cardrush_1399#17": 14,
+        "cardrush_1399#20": 13,
+        "cardrush_1399#27": 5
+      }
+    }
+  ]
+}

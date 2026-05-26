@@ -1,0 +1,26 @@
+{
+  "description": "GoalDirectedAI bonus 学習対象 deck snapshot。 current = 現環境、 history = 過去環境 (= 凍結 entries の 由来)。",
+  "current": {
+    "snapshot_date": "2026-05-26",
+    "iteration": 1,
+    "slugs": [
+      "cardrush_1342",
+      "cardrush_1385",
+      "cardrush_1392",
+      "cardrush_1399",
+      "cardrush_1439",
+      "cardrush_1453",
+      "cardrush_1454",
+      "cardrush_1455",
+      "cardrush_1456",
+      "tcgportal_bonney",
+      "tcgportal_calgara",
+      "tcgportal_coby",
+      "tcgportal_corazon",
+      "tcgportal_hancock",
+      "tcgportal_op11_luffy",
+      "tcgportal_op13_luffy"
+    ]
+  },
+  "history": []
+}
