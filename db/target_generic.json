@@ -1,13 +1,14 @@
 {
   "version": "generic_v1",
-  "description": "GoalDirectedAI Tier 2/3 fallback entries (= archetype 軸 + 純 wildcard 軸)。全 deck 共通 で merge され、 leader 個別 entry が 無い matchup で 動く。 2026-05-25 ハイブリッド設計。",
+  "description": "GoalDirectedAI Tier 2/3 fallback entries (= archetype 軸 + 純 wildcard 軸)。全 deck 共通 で merge され、 leader 個別 entry が 無い matchup で 動く。 2026-05-25 ハイブリッド設計。 2026-05-26 turn 1-2 + 8-10 拡張 (= 序盤/終盤 fallback 追加)。",
   "meta": {
     "built_at": "2026-05-25",
     "archetypes": ["アグロ", "コントロール", "ミッドレンジ", "ランプ"],
-    "turn_range": "3-7 (= 序盤展開 〜 中盤決着)",
+    "turn_range": "1-10 (= 序盤マリガン 〜 終盤リーサル、 2026-05-26 拡張)",
     "tier2_importance": 0.7,
     "tier3_importance": 0.5,
-    "bonus_range": "tier2 400-800 / tier3 300-500 (= per-deck 500-2000 より 控えめ で 暴走防止)"
+    "bonus_range": "tier2 400-800 / tier3 300-500 (= per-deck 500-2000 より 控えめ で 暴走防止)",
+    "updated_at": "2026-05-26"
   },
   "entries": [
     {
@@ -175,7 +176,6 @@
         {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback"}
       ]
     },
-
     {
       "turn": 3,
       "opp_archetype": "コントロール",
@@ -341,7 +341,6 @@
         {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback"}
       ]
     },
-
     {
       "turn": 3,
       "opp_archetype": "ミッドレンジ",
@@ -507,7 +506,6 @@
         {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback"}
       ]
     },
-
     {
       "turn": 3,
       "opp_archetype": "ランプ",
@@ -673,7 +671,6 @@
         {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback"}
       ]
     },
-
     {
       "turn": 3,
       "self_condition": "behind",
@@ -821,6 +818,846 @@
       "description": "純 wildcard 7T advantage: リーサル 必達",
       "targets": [
         {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "リーサル"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "アグロ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs アグロ 1T: 場 1 体 確保 + ハンド 維持 (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "アグロ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs アグロ 1T: 場 1 体 確保 + ハンド 維持 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "アグロ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs アグロ 1T: 場 1 体 確保 + ハンド 維持 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "コントロール",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs コントロール 1T: ハンド 維持 + 場 1 体 (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "コントロール",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs コントロール 1T: ハンド 維持 + 場 1 体 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "コントロール",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs コントロール 1T: ハンド 維持 + 場 1 体 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ミッド 1T: 場 1 体 + ハンド 維持 (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ミッド 1T: 場 1 体 + ハンド 維持 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ミッド 1T: 場 1 体 + ハンド 維持 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "ランプ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ランプ 1T: 場 1 体 確保 (= 後の 速攻 準備) (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "ランプ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ランプ 1T: 場 1 体 確保 (= 後の 速攻 準備) (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 1,
+      "opp_archetype": "ランプ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ランプ 1T: 場 1 体 確保 (= 後の 速攻 準備) (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "self_hand_ge": 5}, "bonus": 400, "description": "場 1 + 手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 5}, "bonus": 250, "description": "fallback: 手札 5 維持"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "アグロ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs アグロ 2T: 場 1-2 体 + leader attack で 削り 開始 (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 2}, "bonus": 500, "description": "場 2 体 展開"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "アグロ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs アグロ 2T: 場 1-2 体 + leader attack で 削り 開始 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 2}, "bonus": 500, "description": "場 2 体 展開"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "アグロ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs アグロ 2T: 場 1-2 体 + leader attack で 削り 開始 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 2}, "bonus": 500, "description": "場 2 体 展開"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "コントロール",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs コントロール 2T: 場 1-2 体 + leader attack (= 序盤 ライフ 削り 必須) (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_leader_attacks_this_turn_ge": 1}, "bonus": 500, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "コントロール",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs コントロール 2T: 場 1-2 体 + leader attack (= 序盤 ライフ 削り 必須) (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_leader_attacks_this_turn_ge": 1}, "bonus": 500, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "コントロール",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs コントロール 2T: 場 1-2 体 + leader attack (= 序盤 ライフ 削り 必須) (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_leader_attacks_this_turn_ge": 1}, "bonus": 500, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ミッド 2T: 場 1-2 体 展開 (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 2}, "bonus": 500, "description": "場 2 体 展開"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ミッド 2T: 場 1-2 体 展開 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 2}, "bonus": 500, "description": "場 2 体 展開"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ミッド 2T: 場 1-2 体 展開 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 2}, "bonus": 500, "description": "場 2 体 展開"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "ランプ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ランプ 2T: 場 1-2 体 + leader attack (= 速攻 加速) (= behind)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_leader_attacks_this_turn_ge": 1}, "bonus": 500, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "ランプ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ランプ 2T: 場 1-2 体 + leader attack (= 速攻 加速) (= even)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_leader_attacks_this_turn_ge": 1}, "bonus": 500, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 2,
+      "opp_archetype": "ランプ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ランプ 2T: 場 1-2 体 + leader attack (= 速攻 加速) (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_leader_attacks_this_turn_ge": 1}, "bonus": 500, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 300, "description": "fallback: 場 1 体"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "アグロ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs アグロ 8T: 大型 finisher + 連撃 で 決着 (= behind、 最後 の リーサル)",
+      "targets": [
+        {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "finisher + attack 2"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "アグロ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs アグロ 8T: 大型 finisher + 連撃 で 決着 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "アグロ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs アグロ 8T: 大型 finisher + 連撃 で 決着 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "コントロール",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs コントロール 8T: 大型 + 連撃 圧力 (= 相手 大型 への 対抗) (= behind、 最後 の リーサル)",
+      "targets": [
+        {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "finisher + attack 2"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "コントロール",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs コントロール 8T: 大型 + 連撃 圧力 (= 相手 大型 への 対抗) (= even)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "コントロール",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs コントロール 8T: 大型 + 連撃 圧力 (= 相手 大型 への 対抗) (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ミッド 8T: 連撃 + finisher で 決着 (= behind、 最後 の リーサル)",
+      "targets": [
+        {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "finisher + attack 2"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ミッド 8T: 連撃 + finisher で 決着 (= even)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ミッド 8T: 連撃 + finisher で 決着 (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "ランプ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ランプ 8T: リーサル トライ (= 相手 大型 着地後、 急ぐ) (= behind、 最後 の リーサル)",
+      "targets": [
+        {"priority": 1, "if": {"self_finisher_on_field_ge": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "finisher + attack 2"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "ランプ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ランプ 8T: リーサル トライ (= 相手 大型 着地後、 急ぐ) (= even)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 8,
+      "opp_archetype": "ランプ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ランプ 8T: リーサル トライ (= 相手 大型 着地後、 急ぐ) (= advantage)",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "アグロ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs アグロ 9T behind: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 700, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "アグロ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs アグロ 9T even: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "アグロ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs アグロ 9T advantage: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "コントロール",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs コントロール 9T behind: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 700, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "コントロール",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs コントロール 9T even: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "コントロール",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs コントロール 9T advantage: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ミッドレンジ 9T behind: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 700, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ミッドレンジ 9T even: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ミッドレンジ 9T advantage: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "ランプ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ランプ 9T behind: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 700, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "ランプ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ランプ 9T even: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 9,
+      "opp_archetype": "ランプ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ランプ 9T advantage: リーサル 必達",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 800, "description": "リーサル 必達"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2 で 削り 切る"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback: attack 1"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "アグロ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs アグロ 10T behind: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "アグロ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs アグロ 10T even: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "アグロ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs アグロ 10T advantage: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "コントロール",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs コントロール 10T behind: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "コントロール",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs コントロール 10T even: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "コントロール",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs コントロール 10T advantage: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ミッドレンジ 10T behind: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ミッドレンジ 10T even: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "ミッドレンジ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ミッドレンジ 10T advantage: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "ランプ",
+      "self_condition": "behind",
+      "importance": 0.7,
+      "description": "vs ランプ 10T behind: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "ランプ",
+      "self_condition": "even",
+      "importance": 0.7,
+      "description": "vs ランプ 10T even: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "opp_archetype": "ランプ",
+      "self_condition": "advantage",
+      "importance": 0.7,
+      "description": "vs ランプ 10T advantage: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 800, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 1,
+      "self_condition": "behind",
+      "importance": 0.5,
+      "description": "純 wildcard 1T behind: ハンド 維持",
+      "targets": [
+        {"priority": 1, "if": {"self_hand_ge": 5}, "bonus": 300, "description": "手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 4}, "bonus": 200, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 1,
+      "self_condition": "even",
+      "importance": 0.5,
+      "description": "純 wildcard 1T even: ハンド 維持",
+      "targets": [
+        {"priority": 1, "if": {"self_hand_ge": 5}, "bonus": 300, "description": "手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 4}, "bonus": 200, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 1,
+      "self_condition": "advantage",
+      "importance": 0.5,
+      "description": "純 wildcard 1T advantage: ハンド 維持",
+      "targets": [
+        {"priority": 1, "if": {"self_hand_ge": 5}, "bonus": 300, "description": "手札 5 維持"},
+        {"priority": 2, "if": {"self_hand_ge": 4}, "bonus": 200, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 2,
+      "self_condition": "behind",
+      "importance": 0.5,
+      "description": "純 wildcard 2T behind: 場 1 体 展開",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 2,
+      "self_condition": "even",
+      "importance": 0.5,
+      "description": "純 wildcard 2T even: 場 1 体 展開",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 2,
+      "self_condition": "advantage",
+      "importance": 0.5,
+      "description": "純 wildcard 2T advantage: 場 1 体 展開",
+      "targets": [
+        {"priority": 1, "if": {"self_field_count_ge": 1, "min_attacks_this_turn_ge": 1}, "bonus": 400, "description": "場 1 + leader attack"},
+        {"priority": 2, "if": {"self_field_count_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 8,
+      "self_condition": "behind",
+      "importance": 0.5,
+      "description": "純 wildcard 8T behind: 連撃 + finisher",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 600, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 400, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 8,
+      "self_condition": "even",
+      "importance": 0.5,
+      "description": "純 wildcard 8T even: 連撃 + finisher",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 400, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 8,
+      "self_condition": "advantage",
+      "importance": 0.5,
+      "description": "純 wildcard 8T advantage: 連撃 + finisher",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "リーサル 圏"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 400, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 9,
+      "self_condition": "behind",
+      "importance": 0.5,
+      "description": "純 wildcard 9T behind: リーサル トライ",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "リーサル"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 350, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 9,
+      "self_condition": "even",
+      "importance": 0.5,
+      "description": "純 wildcard 9T even: リーサル トライ",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "リーサル"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 350, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 9,
+      "self_condition": "advantage",
+      "importance": 0.5,
+      "description": "純 wildcard 9T advantage: リーサル トライ",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 1, "min_attacks_this_turn_ge": 2}, "bonus": 500, "description": "リーサル"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 2}, "bonus": 350, "description": "attack 2"},
+        {"priority": 3, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 250, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "self_condition": "behind",
+      "importance": 0.5,
+      "description": "純 wildcard 10T behind: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 500, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "self_condition": "even",
+      "importance": 0.5,
+      "description": "純 wildcard 10T even: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 500, "description": "リーサル 確定"},
+        {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
+      ]
+    },
+    {
+      "turn": 10,
+      "self_condition": "advantage",
+      "importance": 0.5,
+      "description": "純 wildcard 10T advantage: 最終 リーサル",
+      "targets": [
+        {"priority": 1, "if": {"opp_life_le": 0, "min_attacks_this_turn_ge": 1}, "bonus": 500, "description": "リーサル 確定"},
         {"priority": 2, "if": {"min_attacks_this_turn_ge": 1}, "bonus": 300, "description": "fallback"}
       ]
     }
