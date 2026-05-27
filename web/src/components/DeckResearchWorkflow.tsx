@@ -28,7 +28,7 @@ export function DeckResearchWorkflow({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="mb-2 text-lg font-medium">🎯 何をしたい?</h2>
+        <h2 className="mb-2 text-lg font-medium">何をしたい?</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {GOALS.map((g) => {
             const active = goal === g.id;

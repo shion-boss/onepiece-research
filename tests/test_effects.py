@@ -2722,3 +2722,74 @@ def test_choice_default_option_0_when_life_mid():
     # option=0 → ライフ 1枚を手札へ → ライフ 2 / 手札 2
     assert len(me.life) == 2
     assert len(me.hand) == 2
+
+
+# ─────────────────────────────────────────────────────
+# once_per_turn: 同 card_id 複数 instance bug fix (= 2026-05-27)
+# ohtsuki さん 観戦 報告: 「盤面の同じキャラカードが複数枚あるときに、
+# 起動メインの発動の管理に不具合ある」
+# ─────────────────────────────────────────────────────
+
+
+def test_once_per_turn_instance_isolation():
+    """同 card_id, 同 effect idx でも 別 instance なら once_per_turn は 独立 (fix 2026-05-27)。"""
+    from engine.effects import _check_and_set_once_per_turn
+
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    eff = {"when": "activate_main", "once_per_turn": True, "do": []}
+
+    # instance A 発動 → 通る
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "TEST-001", 0, source_iid=101
+    ) is True
+    # 同 instance 再発動 → blocked
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "TEST-001", 0, source_iid=101
+    ) is False
+    # 別 instance (= 同 card_id 2 枚目) → 通る (= fix の core)
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "TEST-001", 0, source_iid=102
+    ) is True
+
+
+def test_once_per_turn_explicit_key_shared_across_instances():
+    """once_per_turn: \"<str>\" は 明示 共有 key、 instance 跨ぎ で blocked (= 既存仕様維持)。"""
+    from engine.effects import _check_and_set_once_per_turn
+
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    eff = {"when": "on_play", "once_per_turn": "shared_namespace_x", "do": []}
+
+    # instance 101 通る
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "CARD-X", 0, source_iid=101
+    ) is True
+    # 別 instance でも 同 key → blocked (= 共有意図)
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "CARD-Y", 0, source_iid=102
+    ) is False
+
+
+def test_once_per_turn_no_source_iid_fallback_card_id():
+    """source_iid 渡されない 場合 は 後方互換 で card_id key を 使う。"""
+    from engine.effects import _check_and_set_once_per_turn
+
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    eff = {"when": "main", "once_per_turn": True, "do": []}
+
+    # source_iid 指定なし → card_id key (= 後方互換)
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "TEST-002", 0
+    ) is True
+    # 同 card_id 同 idx 再発動 → blocked
+    assert _check_and_set_once_per_turn(
+        state, me, eff, "TEST-002", 0
+    ) is False

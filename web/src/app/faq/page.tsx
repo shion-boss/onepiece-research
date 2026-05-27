@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { fetchFaqSources, searchFaq } from "@/lib/api";
 import type { FaqHit, FaqSource } from "@/lib/types";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/PageShell";
 
 const TABS: { key: string; label: string; prefix: string | null }[] = [
   { key: "all", label: "all", prefix: null },
@@ -77,14 +79,11 @@ export default function FaqPage() {
   }, [hitsAll, activeTab]);
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Q&amp;A</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          公式 Q&A 横断検索 ({totalQa.toLocaleString()} 件 / {sources.length} ソース)。
-          複数キーワードはスペース区切りで AND 検索。
-        </p>
-      </header>
+    <PageShell>
+      <PageHeader
+        title="Q&A"
+        description={`公式 Q&A 横断検索 (${totalQa.toLocaleString()} 件 / ${sources.length} ソース)。 複数キーワードは スペース区切り で AND 検索。`}
+      />
 
       <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
         <input
@@ -171,7 +170,7 @@ export default function FaqPage() {
           </li>
         ))}
       </ul>
-    </main>
+    </PageShell>
   );
 }
 

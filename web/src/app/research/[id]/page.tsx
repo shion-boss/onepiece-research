@@ -109,7 +109,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
 
   if (error && !data) {
     return (
-      <main className="mx-auto max-w-4xl p-6">
+      <main className="mx-auto w-full max-w-6xl px-6 py-8">
         <div className="rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
           エラー: {error}
         </div>
@@ -128,10 +128,10 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
   const targetWR = data.config.target_winrate as number ?? 0.7;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 p-6">
+    <main className="mx-auto w-full max-w-6xl space-y-6 px-6 py-8">
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">🔬 研究セッション {sessionId.slice(0, 8)}…</h1>
+          <h1 className="text-2xl font-bold">研究セッション {sessionId.slice(0, 8)}…</h1>
           <div className="mt-1 text-sm text-zinc-500">
             対象: <span className="font-mono">{data.target_slug}</span> / 目標勝率{" "}
             {(targetWR * 100).toFixed(0)}% / 最大 {maxGen} 世代
@@ -163,7 +163,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
                 disabled={actionBusy}
                 className="rounded bg-yellow-600 px-3 py-1 text-xs font-medium text-white hover:bg-yellow-500 disabled:opacity-50"
               >
-                ⏸ 一時停止
+                一時停止
               </button>
               <button
                 type="button"
@@ -171,7 +171,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
                 disabled={actionBusy}
                 className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
-                🛑 停止
+                停止
               </button>
             </>
           )}
@@ -182,7 +182,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
               disabled={actionBusy}
               className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
             >
-              ▶ 再開
+              再開
             </button>
           )}
         </div>
@@ -190,7 +190,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
 
       {/* 進捗グラフ (= 簡易 ASCII chart) */}
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="mb-2 text-sm font-medium">📈 世代別ベスト勝率</h2>
+        <h2 className="mb-2 text-sm font-medium">世代別 ベスト勝率</h2>
         {data.generation_history.length === 0 ? (
           <div className="text-xs text-zinc-500">まだ世代完了なし…</div>
         ) : (
@@ -224,14 +224,14 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
         <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium">
-              🏆 現在のベストデッキ (勝率 {((data.best_winrate ?? 0) * 100).toFixed(1)}%)
+              現在のベストデッキ (勝率 {((data.best_winrate ?? 0) * 100).toFixed(1)}%)
             </h2>
             {savedAs ? (
               <Link
                 href={`/decks/${encodeURIComponent(savedAs)}`}
                 className="rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-500"
               >
-                ✓ 保存済 → デッキを見る
+                保存済 — デッキを見る
               </Link>
             ) : (
               <button
@@ -240,7 +240,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
                 disabled={actionBusy}
                 className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
               >
-                💾 ベストデッキを保存
+                ベストデッキを保存
               </button>
             )}
           </div>
@@ -291,10 +291,10 @@ function StatusBadge({ status }: { status: string }) {
           ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
           : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
   const label =
-    status === "running" ? "🔄 実行中"
-      : status === "paused" ? "⏸ 一時停止"
-        : status === "completed" ? "✓ 完了"
-          : "🛑 停止";
+    status === "running" ? "実行中"
+      : status === "paused" ? "一時停止"
+        : status === "completed" ? "完了"
+          : "停止";
   return (
     <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
       {label}

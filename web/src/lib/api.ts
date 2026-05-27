@@ -764,6 +764,25 @@ export async function saveHumanMatchResult(
   return res.json();
 }
 
+export async function addHumanMatchLogComment(
+  sid: string,
+  log_index: number,
+  log_text: string | null,
+  comment: string,
+): Promise<{ entry: unknown; total: number }> {
+  const res = await fetch(`${API}/api/human_match/${sid}/log_comment`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ log_index, log_text, comment }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`addHumanMatchLogComment failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
 export async function fetchMatchHistory(
   deckId?: string,
   limit = 20,

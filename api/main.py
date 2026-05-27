@@ -2996,6 +2996,12 @@ class HumanUseCounterEventIn(BaseModel):
     prior_actions: Optional[list[HumanActionLog]] = None
 
 
+class HumanLogCommentIn(BaseModel):
+    log_index: int
+    comment: str
+    log_text: Optional[str] = None
+
+
 def _load_deck_by_slug(slug: str):
     repo = get_repo()
     deck_path = ROOT / "decks" / f"{slug}.json"
@@ -3261,6 +3267,23 @@ def human_match_end(sid: str):
         if getattr(session, "state", None) is not None and session.state.game_over:
             saved_replay_id = session.save_replay()
     return {"ok": True, "replay_id": saved_replay_id}
+
+
+@app.post("/api/human_match/{sid}/log_comment")
+def human_match_log_comment(sid: str, req: HumanLogCommentIn):
+    """log の 指定 行 に 試合中の bug 報告 / メモ を 紐付け。
+
+    名前 / id 不要、 comment 1 つ だけ。 serialize_for_log で 一緒に Blob upload される。
+    """
+    cached = _HUMAN_SESSIONS.get(sid)
+    if cached is None:
+        raise HTTPException(404, "session not found")
+    session, _log = cached
+    comment_text = (req.comment or "").strip()
+    if not comment_text:
+        raise HTTPException(400, "comment is empty")
+    entry = session.add_log_comment(req.log_index, comment_text, req.log_text)
+    return {"entry": entry, "total": len(session.log_comments)}
 
 
 @app.post("/api/human_match/{sid}/save_replay")

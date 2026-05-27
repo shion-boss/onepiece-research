@@ -297,7 +297,10 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 # 【ターン1回】 ガード (cost 経由ではない top-level once_per_turn)。
                 # cost 持ち効果は trigger_on_attack/fire_activate_main 側で支払い時にチェック済み。
                 # ここは「cost 不要の once_per_turn」 (= on_play / on_attack 非コスト等) を扱う。
-                if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
+                if _check_and_set_once_per_turn(
+                    state, me, eff, evt.source_card_id, idx,
+                    source_iid=evt.source_iid,
+                ) is False:
                     continue
                 for primitive in eff.get("do", []):
                     execute_effect(primitive, state, me, opp, self_inplay)
@@ -316,7 +319,10 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 )
                 continue
             # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
-            if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:
+            if _check_and_set_once_per_turn(
+                state, me, eff, evt.source_card_id, idx,
+                source_iid=evt.source_iid,
+            ) is False:
                 continue
             # event cost (= 「自分の手札 1 枚を捨てる」 等 任意 コスト):
             # 公式 「コスト：効果」 で コスト 払えない なら 効果 不発 (= 4-10)。
@@ -467,6 +473,7 @@ def _check_and_set_once_per_turn(
     eff: EffectSpec,
     card_id: str,
     idx: int,
+    source_iid: Optional[int] = None,
 ) -> bool:
     """effect spec の `once_per_turn` をチェックし、 未使用なら使用済みフラグを立てる。
 
@@ -475,8 +482,9 @@ def _check_and_set_once_per_turn(
     - False: 既に使用済み → 発動拒否 (= 呼び出し元は continue でスキップ)
 
     once_per_turn の値:
-    - True: 自動キー (= f"{card_id}:{when}:{idx}")
-    - "<str>": 明示キー (= 複数 effect で同一キーを共有可)
+    - True: 自動キー。 source_iid あれば instance 単位 (= 同 card_id 複数 instance を
+      別 個体 として 扱う、 公式 7-5-3 通り)、 なければ card_id 単位 fallback。
+    - "<str>": 明示キー (= 複数 effect で同一キーを共有可、 instance 跨ぎ も 共有)
 
     cost 経由の once_per_turn (= activate_main / on_attack の `cost.once_per_turn`) は
     InPlay 側のフラグで別管理されているのでここでは触れない。
@@ -484,6 +492,10 @@ def _check_and_set_once_per_turn(
     一方、 field-when (= on_self_chara_leave_by_self_effect 等、 resolve_triggers 経由) で
     `cost: {once_per_turn: true}` 形式 で 指定 された 場合 は、 cost 払い path が なく
     InPlay フラグ も 立たない ので、 ここ で 同じ key で gate する。
+
+    2026-05-27 fix: 同 card_id 複数 instance あるとき 1 体 発動 で 全 instance blocked
+    に なる bug を 修正 (= ohtsuki さん 観戦時 報告)。 source_iid 渡せれば instance 単位
+    で 区別。
     """
     opt = eff.get("once_per_turn")
     if not opt:
@@ -493,7 +505,10 @@ def _check_and_set_once_per_turn(
     if not opt:
         return True
     if opt is True:
-        key = f"{card_id}:{eff.get('when', '')}:{idx}"
+        if source_iid is not None:
+            key = f"iid:{source_iid}:{eff.get('when', '')}:{idx}"
+        else:
+            key = f"{card_id}:{eff.get('when', '')}:{idx}"
     else:
         key = f"key:{opt}"
     if key in me.once_per_turn_used:
@@ -1900,7 +1915,7 @@ def execute_effect(
                 idx = state.rng.randrange(len(me.hand))
                 me.trash.append(me.hand.pop(idx))
                 actually_discarded += 1
-            state.push_log(f"  効果: 手札{n}枚捨て")
+            state.push_log(f"  効果: 自手札 {n} 枚 トラッシュ")
             if actually_discarded > 0 and state.effects_overlay:
                 trigger_on_self_hand_discarded(
                     state, me, opp, self_inplay, actually_discarded, state.effects_overlay
@@ -1913,7 +1928,7 @@ def execute_effect(
                     break
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
-            state.push_log(f"  効果: 相手手札{n}枚捨て")
+            state.push_log(f"  効果: 相手手札 {n} 枚 トラッシュ")
         elif k == "ko":
             targets = _resolve_target(
                 v, state, me, opp, self_inplay,

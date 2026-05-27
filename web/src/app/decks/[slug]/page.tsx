@@ -26,7 +26,7 @@ export default async function DeckDetailPage({
 
   if (error) {
     return (
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-6">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
         <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
           <div className="font-medium">読み込み失敗</div>
           <div className="mt-1 font-mono">{error}</div>
@@ -59,7 +59,7 @@ export default async function DeckDetailPage({
   const totalCards = detail.main.reduce((s, e) => s + e.count, 0);
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
       {/* ヘッダー: リーダー画像 + デッキ情報 */}
       <header className="flex gap-5">
         <div className="shrink-0">

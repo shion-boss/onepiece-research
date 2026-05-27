@@ -171,7 +171,7 @@ function NewDeckPageContent() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link
@@ -284,7 +284,7 @@ function NewDeckPageContent() {
             className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
             title="API 経由で decks/<slug>.json に保存"
           >
-            {saving ? "保存中…" : "☁️ サーバ保存"}
+            {saving ? "保存中…" : "サーバ保存"}
           </button>
           <button
             type="button"

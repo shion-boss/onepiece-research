@@ -1,7 +1,7 @@
 ---
 name: review-all-match-feedback
-description: spectate コメント + AI vs AI matchup ログ + AI vs 人間 (Human Play) ログ を 3 つまとめて 横断 解析 し、 (a) engine/ai.py / engine/eval.py の AI heuristic 改善、 (b) db/card_effects.json overlay + engine/effects.py primitive の カード効果 バグ修正、 (c) UI/UX 改善 を 優先度 付き で 出す orchestrator skill。 ohtsuki さん が 「コメント と 対戦ログ まとめて 確認 して」 「全部 見て 改善案 出して」 「総合 解析 して」 「カード効果 バグ 探して」 と 言った時 に invoke する。
-last_checked: 2026-05-25
+description: spectate コメント + AI vs AI matchup ログ + AI vs 人間 (Human Play) ログ + 試合中 log 行 右クリック コメント (= log_comments) を まとめて 横断 解析 し、 (a) engine/ai.py / engine/eval.py の AI heuristic 改善、 (b) db/card_effects.json overlay + engine/effects.py primitive の カード効果 バグ修正、 (c) UI/UX 改善 を 優先度 付き で 出す orchestrator skill。 ohtsuki さん が 「コメント と 対戦ログ まとめて 確認 して」 「全部 見て 改善案 出して」 「総合 解析 して」 「カード効果 バグ 探して」 「人間vsAI ログ コメント も 見て」 と 言った時 に invoke する。
+last_checked: 2026-05-27
 ---
 
 # 全 match feedback まとめ 解析 skill
@@ -19,6 +19,7 @@ ohtsuki さん が こう言ったら invoke:
 - 「engine 改善 タスク 一覧 ほしい」
 - 「カード効果 バグ 探して」 「効果 動いてない カード ない?」
 - 「公式と違う 動き してる カード あれば 直して」
+- 「人間 vs AI の ログ コメント も 見て」 「play で 残した メモ 反映」
 
 **単独 source だけ で 十分** な場合 は 個別 skill を invoke:
 - spectate コメント のみ → `/api/spectate/comments/clusters` 直 curl (= skill 不要)
@@ -32,6 +33,7 @@ ohtsuki さん が こう言ったら invoke:
 | spectate コメント | SQLite/Postgres `comments` | **人間視点 の 質的 評価** (= 「これ悪手」 「効果 発動 してない」 「演出 直して」) | 件数 少、 主観 | UX + 戦術 + 効果バグ報告 |
 | AI vs AI matrix | `db/matchup_matrix*.json` + `report_bad_moves.py` | **統計強度** (= 数千試合)、 客観 delta、 効果未発火 検知 | パターン重複、 「真の悪手」 か engine 正常 か 切分け 難 | engine 系統 bias + 効果実装漏れ |
 | Human Play Blob | Vercel Blob `human_play/*.json` | **ohtsuki さん 視点 の AI 弱さ** + 良手 教師 + 効果違和感 | 件数 少、 個別事例 | heuristic 漏れ + 効果挙動異常 |
+| Human Play **log_comments** | 同上 payload の `log_comments[]` field | **ohtsuki さん が 試合中 リアルタイム に 残した 違和感 / bug 報告** (= 該当 log_index + comment + turn_number) | spectate より さらに 件数 少、 ただし 該当 log 行 と 紐付く ので 文脈 明確 | 効果バグ + UI バグ + 違和感 |
 
 3 つ を 重ねた時 に 浮かぶ パターン が **最優先 改善 対象** (= 統計 + 質 + 教師 が 揃う)。
 
@@ -54,7 +56,8 @@ ohtsuki さん が こう言ったら invoke:
 | matrix log | `db/matchup_matrix.json` (= 最新)、 `db/matchup_matrix.step7_*.json` (= 履歴) |
 | bad_moves 抽出 | `scripts/report_bad_moves.py` |
 | Human Play sync | `scripts/sync_human_play_log.py` → `db/human_play_log/*.json` |
-| serialize 形式 | `engine/human_session.py:serialize_for_log` (= schema_version=1) |
+| serialize 形式 | `engine/human_session.py:serialize_for_log` (= schema_version=1、 `log_comments[]` field 含む) |
+| log_comments 入力 | `POST /api/human_match/{sid}/log_comment` (= 試合中 LogSidebar 右クリック で 投稿) |
 | カード効果 overlay | `db/card_effects.json` (= 4,518 全カード、 _unimplemented = 0 が 健全状態) |
 | DSL primitive 実装 | `engine/effects.py:execute_effect` の `elif k == "..."` 列挙 (= 180+ 種) |
 | overlay vs FAQ 監査 | `scripts/audit_overlay_vs_faq.py` → `db/overlay_audit.{md,json}` |
@@ -126,33 +129,72 @@ theme × action_type の 組合せ が 同じ で 複数 コメント = **engine
 - 全 log で AI 悪手 + 人間 良手 抽出
 - snapshot で 文脈 復元
 - パターン抽出
+- **log_comments[] を 必ず 解析対象 に 含める** (= ohtsuki さん が 試合中 残した 直接 fb):
+
+```python
+import json, glob
+all_human_comments = []  # 全 log の log_comments を 1 list に
+for fp in glob.glob("db/human_play_log/*.json"):
+    payload = json.loads(open(fp).read())
+    for entry in payload.get("log_comments", []):
+        all_human_comments.append({
+            **entry,
+            "_source_file": fp,
+            "_deck_human": payload.get("metadata", {}).get("deck_human_slug"),
+            "_deck_ai": payload.get("metadata", {}).get("deck_ai_slug"),
+            "_winner_for_human": payload.get("result", {}).get("winner_for_human"),
+        })
+# log_index + log_text + comment + turn_number 全部 揃ってる ので
+# 「該当 turn の snapshot」 と 「該当 log 周辺」 を 文脈 として 復元 可能
+for c in all_human_comments:
+    print(f"T{c['turn_number']} [{c['_deck_human']} vs {c['_deck_ai']}]: {c['comment']}")
+    print(f"  log: {c.get('log_text','')}")
+```
 
 各 step の 詳細 出力 を 中間 buffer に 保存:
-- A → `/tmp/feedback_a_comments.md`
-- B → `/tmp/feedback_b_aiVsAi.md`
-- C → `/tmp/feedback_c_humanVsAi.md`
+- A → `/tmp/feedback_a_comments.md` (= spectate)
+- B → `/tmp/feedback_b_aiVsAi.md` (= matrix)
+- C → `/tmp/feedback_c_humanVsAi.md` (= human_play action_evals + log_comments 両方)
 
 ### Step 2.5: カード効果 バグ 検知 (= 全 source 横断)
 
 「AI heuristic 改善」 とは別軸 で、 **カード効果 が 公式通り に 動いていない** バグ を 横断 抽出。 検知 ソース は 3 つ:
 
-**(i) コメント text grep** (= 人間 が 「効果 動かない」 と 報告):
+**(i) コメント text grep** (= 人間 が 「効果 動かない」 と 報告)。 spectate + log_comments 両方 を 同じ KEYWORDS で 走査:
 
 ```python
-import json, re
-clusters = json.loads(open("/tmp/comment_clusters.json").read())
-# theme=bug/effect or text に キーワード 含む
+import json, re, glob
 KEYWORDS = ["効果", "発動", "不発", "動かない", "動いてない", "おかしい",
             "公式と違う", "ルール違反", "バグ", "想定と違う", "発動しない"]
-bug_comments = []
+bug_comments = []  # 統合 list
+
+# spectate 由来
+clusters = json.loads(open("/tmp/comment_clusters.json").read())
 for cl in clusters:
     if cl.get('dominant_theme') in ('bug', 'effect'):
-        bug_comments.extend(cl['comments'])
+        for cm in cl['comments']:
+            bug_comments.append({**cm, "_origin": "spectate", "_cluster_theme": cl.get('dominant_theme')})
     else:
         for cm in cl['comments']:
             if any(k in cm['text'] for k in KEYWORDS):
-                bug_comments.append(cm)
-# 同 card_id (= snapshot_log から抽出) で 複数件 = バグ濃厚
+                bug_comments.append({**cm, "_origin": "spectate"})
+
+# Human Play log_comments 由来 (= 試合中 右クリック で 残した)
+for fp in glob.glob("db/human_play_log/*.json"):
+    payload = json.loads(open(fp).read())
+    for entry in payload.get("log_comments", []):
+        text = entry.get("comment", "")
+        if any(k in text for k in KEYWORDS) or "効果" in (entry.get("log_text") or ""):
+            bug_comments.append({
+                "text": text,
+                "log_text": entry.get("log_text"),
+                "turn_number": entry.get("turn_number"),
+                "_origin": "human_play",
+                "_source_file": fp,
+                "_deck_human": payload.get("metadata", {}).get("deck_human_slug"),
+                "_deck_ai": payload.get("metadata", {}).get("deck_ai_slug"),
+            })
+# 同 card_id / 同 効果名 で 複数件 = バグ濃厚 (= origin が spectate + human_play 両方 なら 最強 signal)
 ```
 
 **(ii) Human Play log の primitive エラー grep** (= engine 内部 error):
@@ -278,12 +320,13 @@ for pat in human_play_patterns:
 ohtsuki さん 向け 報告:
 
 ```
-# 総合 match feedback 解析 (= コメント X件 + matrix N pair + human Y試合)
+# 総合 match feedback 解析 (= spectate X件 + matrix N pair + human Y試合 + log_comments Z件)
 
 ## source 別 概況
 - spectate コメント: X件 (= K cluster、 dominant: <theme>)
 - AI vs AI matrix: 平均 勝率 Tier <変動>、 異常 cell <M>
 - AI vs Human: Y 試合 (= 人間 P 勝 / AI Q 勝)、 反復 AI 悪手 <pat>
+- **Human Play log_comments**: Z 件 (= 試合中 残された 直接 fb、 該当 turn + log 行 と 紐付き)
 - audit script: overlay_vs_faq <X件>、 cardqa_missing <Y件>、 dsl_jp <Z件>、 engine_strict <K/10>
 
 ## カード効果 バグ 検知 結果 (= 軸 b、 公式 厳密 主義)

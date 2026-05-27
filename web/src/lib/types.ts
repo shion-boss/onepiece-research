@@ -177,6 +177,9 @@ export type MatchupMatrix = {
   seed: number;
   decks: { slug: string; name: string }[];
   matrix: MatchupRow[];
+  // schema 2.0+ で 追加 (= compute_matchup_matrix.py の AI version 識別子)
+  ai_version?: string;
+  schema_version?: string;
 };
 
 export type GameLog = {
