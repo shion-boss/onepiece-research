@@ -1,44 +1,71 @@
+import Link from "next/link";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/PageShell";
+
+const FEATURES = [
+  {
+    href: "/cards",
+    label: "カード",
+    description: "全 4,518 枚 の 検索・ フィルタ・ 詳細表示",
+  },
+  {
+    href: "/decks",
+    label: "デッキ",
+    description: "メタデッキ 16 件 の 管理・ 静的分析・ AI vs AI 対戦",
+  },
+  {
+    href: "/play",
+    label: "対戦 (vs AI)",
+    description: "人間 が AI と 対戦 (= プレイ感確認 / 学習データ収集)",
+  },
+  {
+    href: "/research",
+    label: "研究",
+    description: "対策デッキ 探索 (= クイック / 進化的 アルゴリズム)",
+  },
+  {
+    href: "/meta",
+    label: "メタ分析",
+    description: "デッキ間 N×N 勝率行列 + AI vs AI ライブ観戦",
+  },
+  {
+    href: "/faq",
+    label: "Q&A",
+    description: "公式ルール Q&A 横断検索 (= 2,500+ 件)",
+  },
+] as const;
+
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 p-12">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          One Piece Research
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          ワンピースカードゲームのデッキ構築・分析・対戦シミュレーションツール。
-        </p>
-      </header>
-
-      <div className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
-        <p>左のサイドバーから各機能へ移動できます:</p>
-        <ul className="ml-4 list-disc space-y-1.5 text-zinc-600 dark:text-zinc-400">
-          <li>
-            <strong className="text-zinc-800 dark:text-zinc-200">カード</strong>{" "}
-            — 全 4,518 枚の検索・フィルタ
-          </li>
-          <li>
-            <strong className="text-zinc-800 dark:text-zinc-200">デッキ</strong>{" "}
-            — メタデッキの管理・対戦シミュレーション
-          </li>
-          <li>
-            <strong className="text-zinc-800 dark:text-zinc-200">対戦 (vs AI)</strong>{" "}
-            — 人間 vs AI の 対戦
-          </li>
-          <li>
-            <strong className="text-zinc-800 dark:text-zinc-200">研究</strong>{" "}
-            — 対策デッキ探索 (= クイック / 進化的)
-          </li>
-          <li>
-            <strong className="text-zinc-800 dark:text-zinc-200">メタ分析</strong>{" "}
-            — デッキ間の勝率行列 + AI vs AI ライブ観戦
-          </li>
-          <li>
-            <strong className="text-zinc-800 dark:text-zinc-200">Q&amp;A</strong>{" "}
-            — 公式ルールQ&amp;A の横断検索 (2,500+ 件)
-          </li>
-        </ul>
+    <PageShell>
+      <PageHeader
+        title="One Piece Research"
+        description="ワンピースカードゲーム デッキ研究 + AI 対戦シミュレーション プラットフォーム"
+      />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {FEATURES.map(({ href, label, description }) => (
+          <Link
+            key={href}
+            href={href}
+            className="group flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-5 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium text-zinc-900 dark:text-zinc-100">
+                {label}
+              </h2>
+              <span
+                className="text-zinc-400 transition-transform group-hover:translate-x-0.5 dark:text-zinc-500"
+                aria-hidden
+              >
+                →
+              </span>
+            </div>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {description}
+            </p>
+          </Link>
+        ))}
       </div>
-    </main>
+    </PageShell>
   );
 }

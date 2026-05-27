@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { listResearchSessions } from "@/lib/api";
 import type { ResearchSessionSummary } from "@/lib/types";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/PageShell";
 
 export default function ResearchListPage() {
   const [sessions, setSessions] = useState<ResearchSessionSummary[]>([]);
@@ -37,33 +39,31 @@ export default function ResearchListPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 p-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">🔬 研究セッション</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            対策デッキを世代交代で進化させる長時間研究の管理
-          </p>
-        </div>
-        <Link
-          href="/research/new"
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
-        >
-          + 新規セッション
-        </Link>
-      </header>
+    <PageShell>
+      <PageHeader
+        title="研究セッション"
+        description="対策デッキを 世代交代 で 進化させる 長時間研究 の 管理"
+        actions={
+          <Link
+            href="/research/new"
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          >
+            + 新規セッション
+          </Link>
+        }
+      />
 
       {error && (
-        <div className="rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
+        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
           エラー: {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-sm text-zinc-500">読み込み中…</div>
+        <div className="text-sm text-zinc-500 dark:text-zinc-400">読み込み中…</div>
       ) : sessions.length === 0 ? (
-        <div className="rounded bg-zinc-50 p-6 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-          まだセッションがありません。 「新規セッション」 から開始してください。
+        <div className="rounded-lg border border-zinc-200 p-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          まだ セッションが ありません。 「新規セッション」 から 開始してください。
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
@@ -113,7 +113,7 @@ export default function ResearchListPage() {
           </table>
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }
 

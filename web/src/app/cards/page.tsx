@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { fetchCards } from "@/lib/api";
 import type { CardCategory, CardFilters } from "@/lib/types";
 import { CardFilterBar } from "@/components/CardFilterBar";
 import { CardGrid } from "@/components/CardGrid";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/PageShell";
 
 const VALID_CATEGORIES = new Set<CardCategory>([
   "LEADER",
@@ -53,27 +54,30 @@ export default async function CardsPage({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">カード</h1>
-        <div className="text-sm text-zinc-600 dark:text-zinc-400">
-          {error ? "—" : `${cards.length} 件 (上限 200)`}
-        </div>
-      </header>
+    <PageShell variant="wide">
+      <PageHeader
+        title="カード"
+        description="全 4,518 枚 の 検索 + フィルタ"
+        actions={
+          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+            {error ? "—" : `${cards.length} 件 (上限 200)`}
+          </div>
+        }
+      />
 
       <CardFilterBar />
 
       {error ? (
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-          <div className="font-medium">API への接続に失敗しました</div>
-          <div className="mt-1 font-mono">{error}</div>
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+          <div className="font-medium">API への 接続に 失敗しました</div>
+          <div className="mt-1 font-mono text-xs">{error}</div>
           <div className="mt-2 text-red-800 dark:text-red-300">
-            <code>uvicorn api.main:app --reload --port 8000</code> を起動してください。
+            <code className="rounded bg-red-100 px-1 dark:bg-red-900">uvicorn api.main:app --reload --port 8000</code> を 起動してください。
           </div>
         </div>
       ) : (
         <CardGrid cards={cards} />
       )}
-    </main>
+    </PageShell>
   );
 }
