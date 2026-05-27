@@ -1660,6 +1660,11 @@ class GreedyAI:
         strict = self.ai_params.activate_main_don_compensated_strict
         min_payoff = self.ai_params.activate_main_min_payoff_global
         from .eval import compute_score
+        # plan_search.fast_clone は effects_overlay (= 4,518 entries) を 共有参照 で
+        # 残し、 log/snapshots/action_evals 等 不要 field を 軽量化 した clone。 corazon
+        # deck で plan_search._simulate_opp_turn → _pick_activate_main → copy.deepcopy(state)
+        # 連鎖 で deepcopy が 1h+ hang する pre-existing perf bug の 修正 (2026-05-27)。
+        from .plan_search import fast_clone
         me_idx = state.turn_player_idx
         for a in candidates:
             eff = self._get_activate_eff(state, a)
@@ -1671,7 +1676,7 @@ class GreedyAI:
             # gate 2: min_payoff > 0 なら eval delta 要求
             if min_payoff > 0:
                 pre = compute_score(state, me_idx)
-                sim = copy.deepcopy(state)
+                sim = fast_clone(state)
                 try:
                     apply_action(sim, a)
                 except Exception:
@@ -1686,7 +1691,7 @@ class GreedyAI:
         best_action: Optional[Action] = None
         best_delta = 0
         for a in candidates:
-            sim = copy.deepcopy(state)
+            sim = fast_clone(state)
             try:
                 apply_action(sim, a)
             except Exception:
