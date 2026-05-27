@@ -64,6 +64,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         deck_slug: Optional[str] = None,
         spec_version: str = "v1",
         recursion_depth: int = 0,
+        strong: bool = False,
         **kwargs,
     ):
         """
@@ -76,7 +77,17 @@ class GoalDirectedAI(_NoNNPlanningBase):
                             2+ = GreedyAI fallback (= 無限再帰回避)。 plan_search.py が
                             ONEPIECE_GOAL_MIRROR_OPP=1 で opp_sim_ai 生成時に
                             recursion_depth=1 で構築する。
+            strong: True で v2 強化モード (= 2026-05-28)。 構造的 改善 (= 計算量 同等) のみ:
+                    - eval.py: opp_life≤2 or self_life≤1 で W_OPP_NEXT_LETHAL × 1.5
+                    - plan_search.py: opp_life≤2 で「active attacker 残し plan」 を -2000/未使用 で penalty
+                    - ai.py choose_defense: defender life ≤ 2 で counter 閾値 ×1.5、 max_cards+1
+                    choose_action 中 だけ ONEPIECE_GOAL_STRONG=1 を set (= eval.py / plan_search.py 用)。
+                    choose_defense は opp ターン中 呼出 で env 未 set なので self._strong 直接参照。
+                    default False = 既存 baseline 互換。
         """
+        # strong mode は beam / depth 同じ (= 計算量 爆発 回避)。 強化 は eval boost /
+        # defense threshold / plan penalty で 達成。
+        self._strong = strong
         kwargs.setdefault("beam_width", 4)
         kwargs.setdefault("max_depth", 6)
         kwargs.setdefault("adaptive", False)
@@ -86,6 +97,10 @@ class GoalDirectedAI(_NoNNPlanningBase):
         self._deck_slug = deck_slug
         self._spec_version = spec_version
         self.recursion_depth = recursion_depth
+
+    # _compute_adaptive_params override は 削除 (= 2026-05-28)。
+    # strong mode で beam+1 すると mid/late 計算量 倍以上 で 実用 不能。
+    # 強化 は eval boost / defense threshold / plan penalty (= 構造的) のみ で 達成 する。
 
     def _resolve_target_spec(self, state: GameState) -> Optional[dict]:
         """target spec を 解決。 優先順位: 明示 > deck_slug 引数 > state から auto-detect。
@@ -134,6 +149,13 @@ class GoalDirectedAI(_NoNNPlanningBase):
         if self._spec_version == "v3":
             os.environ["ONEPIECE_AZ_VALUE_NN"] = "1"
             os.environ["ONEPIECE_AZ_VALUE_NN_PATH"] = "db/value_nn_phase_h3.pt"
+        # v2 強化モード (= 2026-05-28、 strong=True 時)。 ONEPIECE_GOAL_STRONG=1 で:
+        # 1) ai.py の defense / prune 強化、 2) eval.py の dynamic weight boost、
+        # 3) plan_search.py の plan-level penalty 追加。
+        # choose_action 中 だけ set、 finally で restore (= 相手 AI への 漏れ 防止)。
+        saved_strong = os.environ.get("ONEPIECE_GOAL_STRONG")
+        if self._strong:
+            os.environ["ONEPIECE_GOAL_STRONG"] = "1"
         # target spec を state に attach (= search_turn_plan の auto-load で 拾う)。
         # 既存 attached spec が あれば 上書きしない (= 多重呼出し対応)
         target_spec = self._resolve_target_spec(state)
@@ -158,6 +180,12 @@ class GoalDirectedAI(_NoNNPlanningBase):
                     os.environ.pop("ONEPIECE_AZ_VALUE_NN_PATH", None)
                 else:
                     os.environ["ONEPIECE_AZ_VALUE_NN_PATH"] = saved_nn_path
+            # strong env restore (= 相手 AI / 次 turn AI が baseline なら 漏れ ない)
+            if self._strong:
+                if saved_strong is None:
+                    os.environ.pop("ONEPIECE_GOAL_STRONG", None)
+                else:
+                    os.environ["ONEPIECE_GOAL_STRONG"] = saved_strong
             if attached:
                 try:
                     delattr(state, "_goal_target_spec")

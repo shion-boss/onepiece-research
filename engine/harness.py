@@ -24,15 +24,37 @@ from .ai import GreedyAI, PlanningAI, RandomAI, play_one_action
 
 
 def _default_ai_factory(rng, deck_analysis=None):
-    """harness の new default AI (= 2026-05-20): GoalDirectedAI(v1 spec + adaptive=True)。
+    """harness の new default AI (= 2026-05-28 v2): GoalDirectedAI(strong=True、 v1 spec、 adaptive=True)。
 
-    過去 default の PlanningAI と 比較 で +6pt 改善 確証済 (= wave 1+2+3+4_r1、 14 deck × 60g)。
+    v2 強化 (= 2026-05-28、 strong=True):
+      - ai.py defense: opp lethal 圏内 で counter exhaustion + finisher attack に 重め counter
+      - prune_mechanical_waste: EndPhase 抑制 強化 (= active attacker 残し 全 prune)
+      - plan_search.py: opp life ≤ 2 で active attacker 全使用 enforce (= -2000/未使用 attacker)
+      - eval.py: opp life ≤ 2 / self life ≤ 1 で W_OPP_NEXT_LETHAL × 1.5
+
+    Baseline (= GoalDirectedAI strong=False) と 比較で mirror match で 勝ち越し 期待。
     deck_slug は deck_analysis から auto-detect (= goal_directed_ai._resolve_target_spec)。
 
     lazy import で module load 時 の torch import 回避 (= Vercel function memory 制限対策)。
     """
     from .goal_directed_ai import GoalDirectedAI
-    return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=True, spec_version="v1")
+    return GoalDirectedAI(
+        rng=rng, deck_analysis=deck_analysis,
+        adaptive=True, spec_version="v1", strong=True,
+    )
+
+
+def _baseline_ai_factory(rng, deck_analysis=None):
+    """v2 比較用 baseline AI (= 強化前 default、 2026-05-28 snapshot)。
+
+    GoalDirectedAI(strong=False) で 過去 default 挙動 を 維持。
+    mirror eval / cross eval で 強化後 vs 強化前 比較 に 使う。
+    """
+    from .goal_directed_ai import GoalDirectedAI
+    return GoalDirectedAI(
+        rng=rng, deck_analysis=deck_analysis,
+        adaptive=True, spec_version="v1", strong=False,
+    )
 
 
 @dataclass

@@ -507,11 +507,53 @@ def search_turn_plan(
         weights = BoardEvalWeights()
         return -wasted_don * (weights.W_ATTACHED_DON + 1000)
 
+    # v2 強化モード (= 2026-05-28、 ONEPIECE_GOAL_STRONG=1): 追加 plan-level penalty。
+    # _strong は init 開始 時 取得 (= 試合中 set/clear が ある ので choose_action 開始時の値)。
+    _is_strong = _os.environ.get("ONEPIECE_GOAL_STRONG") == "1"
+
+    def _unused_attacker_penalty_strong(cur_state, plan) -> float:
+        """v2 強化: opp life ≤ 2 で 「active attacker を 1 体 でも 残した」 plan を 重く penalty。
+        相手 が lethal 圏内 = 全力 攻撃 が 当然 (= ohtsuki さん feedback)。
+        """
+        if not _is_strong:
+            return 0.0
+        opp_player = cur_state.players[1 - me_idx]
+        if len(opp_player.life) > 2:
+            return 0.0
+        me_player = cur_state.players[me_idx]
+        from .game import AttackLeader, AttackCharacter
+        attacked_iids: set[int] = set()
+        for act in plan:
+            if isinstance(act, (AttackLeader, AttackCharacter)):
+                attacked_iids.add(getattr(act, "attacker_iid", -1))
+        unused_attackers = 0
+        # leader (= 公式 7-1-4: KO されない、 攻撃ノーコスト)
+        ld = me_player.leader
+        if (
+            not ld.rested
+            and not ld.summoning_sickness
+            and ld.instance_id not in attacked_iids
+        ):
+            unused_attackers += 1
+        for c in me_player.characters:
+            if c.rested:
+                continue
+            if c.summoning_sickness and not c.is_rush_now:
+                continue
+            if c.cannot_attack_until_turn_end or c.cannot_attack_static:
+                continue
+            if c.instance_id in attacked_iids:
+                continue
+            unused_attackers += 1
+        # 1 unused attacker = -2000 (= compute_score の typical magnitude 比較 で 抑制力 強)
+        return -unused_attackers * 2000
+
     best_plan: list = []
     best_score = -float("inf")
     for cur_state, plan in completed:
         s = compute_score(cur_state, me_idx)
         s += _unused_attached_don_penalty(cur_state, plan)
+        s += _unused_attacker_penalty_strong(cur_state, plan)
         if s > best_score:
             best_score = s
             best_plan = plan

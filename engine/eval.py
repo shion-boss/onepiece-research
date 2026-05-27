@@ -1545,7 +1545,15 @@ def compute_score(
     if weights.W_OPP_NEXT_LETHAL != 0:
         me_forward = project_opp_next_turn_lethal(state, 1 - me_idx)
         opp_forward = project_opp_next_turn_lethal(state, me_idx)
-        score += (me_forward - opp_forward) * weights.W_OPP_NEXT_LETHAL
+        # v2 強化 (= 2026-05-28、 ONEPIECE_GOAL_STRONG=1): opp life ≤ 2 で W_OPP_NEXT_LETHAL ×1.5、
+        # self life ≤ 1 で 被 lethal リスク 重み ×1.5。 lethal 圏内 で 攻撃 / 防御 判断 強化。
+        w_next_lethal = float(weights.W_OPP_NEXT_LETHAL)
+        if os.environ.get("ONEPIECE_GOAL_STRONG") == "1":
+            opp_life_now = len(opp.life)
+            me_life_now = len(me.life)
+            if opp_life_now <= 2 or me_life_now <= 1:
+                w_next_lethal *= 1.5
+        score += (me_forward - opp_forward) * w_next_lethal
 
     # === Group 3: deck_finisher (= role_db 経由で deck 走査) ===
     if weights.W_DECK_FINISHER != 0:
