@@ -1915,7 +1915,7 @@ def execute_effect(
                 idx = state.rng.randrange(len(me.hand))
                 me.trash.append(me.hand.pop(idx))
                 actually_discarded += 1
-            state.push_log(f"  効果: 手札{n}枚捨て")
+            state.push_log(f"  効果: 自手札 {n} 枚 トラッシュ")
             if actually_discarded > 0 and state.effects_overlay:
                 trigger_on_self_hand_discarded(
                     state, me, opp, self_inplay, actually_discarded, state.effects_overlay
@@ -1928,7 +1928,7 @@ def execute_effect(
                     break
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
-            state.push_log(f"  効果: 相手手札{n}枚捨て")
+            state.push_log(f"  効果: 相手手札 {n} 枚 トラッシュ")
         elif k == "ko":
             targets = _resolve_target(
                 v, state, me, opp, self_inplay,
