@@ -73,12 +73,13 @@
       6
     ]
   ],
-  "archetype": "ミッドレンジ",
+  "archetype": "ランプ",
   "speed": "中速",
   "defense": "硬い",
   "consistency": "高い",
-  "strategy_summary": "特徴《超新星》軸のミッドレンジデッキ (中速)。防御 硬い・安定性 高い。",
+  "strategy_summary": "特徴《超新星》軸のランプデッキ (中速)。防御 硬い・安定性 高い。",
   "mulligan_keep_card_ids": [
+    "OP12-034",
     "ST24-002"
   ],
   "mulligan_keep_criteria": [
@@ -129,7 +130,9 @@
       ]
     }
   ],
-  "weaknesses": [],
+  "weaknesses": [
+    "ramp 前にアグロ押し切り食らうと加速 仕切れず詰む"
+  ],
   "strengths": [
     "カウンター総量 ≥ 32,000: 防御層が厚く、 ライフ詰めに強い",
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
@@ -154,10 +157,26 @@
       "reason": "高コスト (9)・高パワー (10000) フィニッシャー"
     },
     {
+      "card_id": "OP13-031",
+      "name": "トラファルガー・ロー",
+      "count": 4,
+      "cost": 6,
+      "role": "removal",
+      "reason": "相手キャラ除去 → 盤面コントロールの要"
+    },
+    {
       "card_id": "ST24-002",
       "name": "キッド＆キラー",
       "count": 4,
       "cost": 2,
+      "role": "search",
+      "reason": "デッキからサーチ → 安定性向上の柱"
+    },
+    {
+      "card_id": "OP12-034",
+      "name": "ペローナ",
+      "count": 4,
+      "cost": 1,
       "role": "search",
       "reason": "デッキからサーチ → 安定性向上の柱"
     },
@@ -168,14 +187,6 @@
       "cost": 5,
       "role": "ramp",
       "reason": "DON 加速 → 大型早出しの起点"
-    },
-    {
-      "card_id": "OP13-031",
-      "name": "トラファルガー・ロー",
-      "count": 4,
-      "cost": 6,
-      "role": "blocker",
-      "reason": "ブロッカー → 直接攻撃を止める防御の柱"
     },
     {
       "card_id": "OP15-035",
@@ -195,11 +206,15 @@
     }
   ],
   "ai_hints": [
-    "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
+    "DON 加速を最優先、 小型ブロッカーで凌いで大型展開へ",
     "特徴《超新星》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
   ],
   "ai_hint_signals": [
+    {
+      "type": "prioritize_ramp_first",
+      "value": true
+    },
     {
       "type": "counter_aggression",
       "value": "mid"
@@ -221,6 +236,10 @@
     },
     {
       "type": "have_search_loop",
+      "value": true
+    },
+    {
+      "type": "have_removal_arsenal",
       "value": true
     },
     {
