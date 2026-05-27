@@ -225,6 +225,9 @@ class HumanSession:
         self._last_seen_snapshot_count = 0
         # human_idx / ai_idx / human_player_idx は 上 で 設定済
         self.effects_overlay = effects_overlay
+        # 試合中 に user が log を 右クリックして 残す bug 報告 / メモ (= 2026-05-27)。
+        # serialize_for_log で payload に 含めて Blob upload、 後で 解析素材 に なる。
+        self.log_comments: list[dict] = []
         # マリガン pending を 設定済 → pending_kind 設定
         self.pending_kind: Optional[str] = "choice"
         self.pending_payload: Optional[dict] = dict(self.state.pending_choice or {})
@@ -660,7 +663,31 @@ class HumanSession:
             "log": list(self.state.log),
             "snapshots": [dict(s) for s in self.state.snapshots],
             "action_evals": list(self.state.action_evals),
+            "log_comments": list(self.log_comments),
         }
+
+    def add_log_comment(
+        self,
+        log_index: int,
+        comment: str,
+        log_text: Optional[str] = None,
+    ) -> dict:
+        """log の 指定 行 に user コメント を 紐付け。
+
+        bug 報告 / 違和感 メモ を 蓄積し、 serialize_for_log で Blob upload に含める。
+        名前 / id 不要 (= ohtsuki さん 依頼 通り 「コメント だけ」 で OK)。
+        """
+        from datetime import datetime, timezone
+
+        entry = {
+            "log_index": int(log_index),
+            "comment": str(comment).strip(),
+            "log_text": str(log_text) if log_text is not None else None,
+            "turn_number": int(getattr(self.state, "turn_number", 0)),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        self.log_comments.append(entry)
+        return entry
 
     def save_replay(self, max_per_pair: int = 500) -> Optional[int]:
         """試合終了後 に 棋譜 を db/match_replays.sqlite に 保存。

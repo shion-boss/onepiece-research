@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CardImage } from "./CardImage";
 import { CardPreloader } from "./CardPreloader";
 import {
+  addHumanMatchLogComment,
   applyHumanAction,
   applyHumanChoice,
   applyHumanDefense,
@@ -1359,7 +1360,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             reveal={state.game_over}
             onHover={setHovered}
           />
-          <LogSidebar log={state.log} aiIdx={state.ai_idx} />
+          <LogSidebar
+            log={state.log}
+            aiIdx={state.ai_idx}
+            sessionId={sessionId ?? null}
+          />
           {/* 自分側 (= 数字 + 手札) を 1 つの emerald エリア に まとめる */}
           <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
             <StatBadge player={me} label="YOU" color="bg-emerald-700 text-white" />
@@ -3240,16 +3245,36 @@ function sanitizeLogLine(line: string, aiIdx: number): string {
   return out;
 }
 
-function LogSidebar({ log, aiIdx }: { log: string[]; aiIdx: number }) {
+function LogSidebar({
+  log,
+  aiIdx,
+  sessionId,
+}: {
+  log: string[];
+  aiIdx: number;
+  sessionId: string | null;
+}) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // log が 増える 度 に 最下部 (= 最新行) へ 自動 スクロール
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [log.length]);
+  // 右クリックで log 行 に bug 報告 / メモ コメント を 紐付け
+  const [commentTarget, setCommentTarget] = useState<
+    { index: number; text: string } | null
+  >(null);
+  const [commentedIndexes, setCommentedIndexes] = useState<Set<number>>(
+    () => new Set(),
+  );
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded bg-black/50 p-2 text-xs text-zinc-200">
-      <div className="mb-1 shrink-0 text-sm font-bold">LOG</div>
+      <div className="mb-1 flex shrink-0 items-center justify-between">
+        <div className="text-sm font-bold">LOG</div>
+        <div className="text-[10px] text-zinc-400">
+          行を 右クリックで メモ
+        </div>
+      </div>
       <div
         ref={scrollRef}
         className="log-scroll flex-1 overflow-y-auto font-mono"
@@ -3257,19 +3282,132 @@ function LogSidebar({ log, aiIdx }: { log: string[]; aiIdx: number }) {
         {log.map((line, i) => {
           const shown = sanitizeLogLine(line, aiIdx);
           const isMasked = shown !== line;
+          const hasComment = commentedIndexes.has(i);
           return (
             <div
               key={i}
               className={
-                "border-b border-zinc-700/50 py-0.5 " +
-                (isMasked ? "text-zinc-400 italic" : "")
+                "cursor-context-menu border-b border-zinc-700/50 py-0.5 transition-colors hover:bg-zinc-700/30 " +
+                (isMasked ? "text-zinc-400 italic " : "") +
+                (hasComment ? "border-l-2 border-l-amber-400 pl-1 " : "")
               }
-              title={shown}
+              title={
+                hasComment
+                  ? `${shown} (コメント済)`
+                  : `${shown} — 右クリックで メモ`
+              }
+              onContextMenu={(e) => {
+                if (!sessionId) return;
+                e.preventDefault();
+                setCommentTarget({ index: i, text: shown });
+              }}
             >
               {shown}
             </div>
           );
         })}
+      </div>
+      {commentTarget && sessionId && (
+        <LogCommentModal
+          sessionId={sessionId}
+          target={commentTarget}
+          onClose={() => setCommentTarget(null)}
+          onSaved={() => {
+            const idx = commentTarget.index;
+            setCommentedIndexes((prev) => {
+              const next = new Set(prev);
+              next.add(idx);
+              return next;
+            });
+            setCommentTarget(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LogCommentModal({
+  sessionId,
+  target,
+  onClose,
+  onSaved,
+}: {
+  sessionId: string;
+  target: { index: number; text: string };
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+  const submit = async () => {
+    const trimmed = comment.trim();
+    if (!trimmed) {
+      setError("コメントが空です");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await addHumanMatchLogComment(sessionId, target.index, target.text, trimmed);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 p-4 text-sm text-zinc-100 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-2 text-xs text-zinc-400">この log 行 に メモ</div>
+        <div className="mb-3 max-h-24 overflow-y-auto rounded bg-zinc-800 p-2 font-mono text-[11px] text-zinc-300">
+          {target.text}
+        </div>
+        <textarea
+          ref={textareaRef}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="バグ報告 / 違和感 / メモ など"
+          className="h-24 w-full resize-none rounded border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 outline-none focus:border-amber-400"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+            else if (e.key === "Escape") onClose();
+          }}
+        />
+        {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="text-[10px] text-zinc-500">
+            ⌘/Ctrl + Enter で 送信、 Esc で 閉じる
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy}
+              className="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-amber-400 disabled:opacity-50"
+            >
+              {busy ? "送信中…" : "送信"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
