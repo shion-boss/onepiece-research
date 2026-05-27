@@ -284,7 +284,7 @@ function NewDeckPageContent() {
             className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
             title="API 経由で decks/<slug>.json に保存"
           >
-            {saving ? "保存中…" : "☁️ サーバ保存"}
+            {saving ? "保存中…" : "サーバ保存"}
           </button>
           <button
             type="button"

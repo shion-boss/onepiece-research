@@ -124,7 +124,7 @@ export default async function MatchJobPage({
                           href={`/decks/${encodeURIComponent(slug)}/match/${encodeURIComponent(job_id)}/${g.index}/replay`}
                           className="text-sm text-violet-600 hover:underline dark:text-violet-400"
                         >
-                          ▶ 再生
+                          再生
                         </Link>
                       </td>
                     </tr>

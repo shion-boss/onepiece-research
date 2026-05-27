@@ -257,6 +257,8 @@ AI が意味ある効果の使い方・戦い方をしている」 こと。 評
 - グラフ: recharts(SVG・SSR可。analyze ページで導入済)
 - shadcn/ui は **未導入**(必要になったら `npx shadcn@latest init`。
   CLI 名は `shadcn-ui` ではなく `shadcn` (rename 済))
+- **UI に絵文字を使わない**: ボタン/ラベル/ヘッダー/バッジ/状態表示 等、ユーザーが目にする全 UI 要素 で 絵文字 禁止。アイコンが必要なら SVG (lucide-react 等) を 使う。詳細は `web/AGENTS.md` 参照
+- 全 page の outer shell は `<PageShell>` (= max-w-6xl 固定)、 header は `<PageHeader>` で統一。横幅をナビ毎に変えない (= 視覚的安定 優先)
 
 ### コンポーネント命名規約
 

@@ -258,7 +258,7 @@ export function DeckImprovementSection({
                     }`}
                   >
                     {applied
-                      ? "✓ 適用済"
+                      ? "適用済"
                       : applying === p.proposal_id
                         ? "適用中…"
                         : "提案を反映"}

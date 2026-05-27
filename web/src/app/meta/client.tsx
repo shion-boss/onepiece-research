@@ -45,7 +45,7 @@ export function MetaPageClient({
       <main className="flex h-screen w-full flex-col gap-1.5 px-3 py-1.5">
         <PageHeader
           title="メタ分析"
-          description="デッキ A / B / seed を選んで「▶ 観戦開始」 で 1 試合 シミュレート → 盤面再生"
+          description="デッキ A / B / seed を 選んで 「観戦開始」 で 1 試合 シミュレート → 盤面再生"
           actions={tabs}
         />
         {decks.length >= 2 ? (
