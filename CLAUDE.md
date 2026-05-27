@@ -21,7 +21,7 @@
 - 分散コンピューティング (= Phase 9 以降) でコミュニティ参加型に拡大
 
 **詳細ロードマップは [docs/ROADMAP.md](./docs/ROADMAP.md) を参照**。
-Phase 1-6 + 4.5 (= PlanningAI) は完了済、 Phase 7 (= AI ヒューリスティック層強化) が直近の進行フェーズ。
+Phase 1-7 完了 (= 全カード公式準拠 100% + GoalDirectedAI default)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
 
 ## アーキテクチャ
 
@@ -35,16 +35,15 @@ onepiece_research/
 ├── db/             # cards.json / cards.sqlite / card_effects.json (4,518 全登録, 効果あり 3,745)
 │                   #   + rules/ (公式PDF) / faq/ (公式Q&A) / banlist/ (禁止リスト)
 │                   #   + matchup_matrix.json (事前計算 N×N 勝率)
-├── decks/          # メタデッキ JSON (cardrush_*.json — cardrush.media 大会上位由来)
+├── decks/          # メタデッキ JSON (cardrush_*.json + tcgportal_*.json、 16 デッキ pool)
 │   ├── *.analysis.json # 各デッキの静的分析 (戦略 / マリガン / キーカード / AI ヒント)
 │   └── _archive/   # 旧 meta_*.json + 非代表 cardrush_raw/ の退避先
-├── images/         # 全カード画像 (空、scraper --with-images で取得)
-├── scripts/        # 補助スクリプト (scrape / cache / matrix / overlay / weight tuning)
+├── images/         # 全カード画像 (必要時 scripts/cache_all_images.py で取得)
+├── scripts/        # 補助スクリプト (scrape / cache / matrix / overlay / audit / weight tuning)
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
 │   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
-├── web_skeleton/   # Next.js セットアップ手順 (キックオフ用ハンドオフ、現役性低)
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
-├── tests/          # pytest テスト (270 passed + FAQ 200 placeholder skip)
+├── tests/          # pytest テスト (799 collected)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 
@@ -72,7 +71,7 @@ onepiece_research/
       on_opp_life_taken / on_self_life_to_hand/to_trash / on_self_don_returned_to_deck /
       on_opp_blocker_use / on_self_chara_ko / on_opp_chara_ko / opp_attack_on_leader /
       opp_attack_on_chara**
-  - DSL プリミティブ **180+ 種** (engine/effects.py 内 elif k == "..." パターンで列挙)
+  - DSL プリミティブ **226 種** (engine/effects.py 内 elif k == "..." パターンで列挙、 [[project_card_implementation_audit]] で 226/226 実装確認済)
 - [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
   - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
   - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
@@ -80,7 +79,7 @@ onepiece_research/
   - audit sev≥5 = 0、 sev=3-4 = 0 (R59) — `db/audit_acknowledged.json` で intrinsic 除外
   - engine 厳密化 audit 10/10 pass (`scripts/audit_engine_strictness.py`)
   - cardqa vs overlay 整合性 0 漏れ (X5、 `scripts/verify_overlay_vs_cardqa.py`)
-  - メタデッキ 15 リーダーは公式テキスト準拠で手書き、その他は自動生成 (近似 + fallback)
+  - **全 4,518 カード 公式テキスト 100% 整合済** (2026-05-22 完了、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
   - DSL 条件 (eval_condition): leader_feature/color, self/opp life/hand/don 各種, opp_turn/self_turn,
     self_rested, self_trash_count_ge, self_don_ge, victim_truly_original_power_ge,
     victim_feature_in, played_chara_truly_original_cost_ge, played_self_chara_has_no_effect,
@@ -113,34 +112,13 @@ onepiece_research/
     - **その他**: redirect_attack / negate_effect / disable_effect / extra_turn / swap_opp_power /
       draw_per_hand_to_deck_bottom / return_self_to_deck_bottom_if_condition / trash_to_deck /
       opp_trash_to_deck_bottom / static_swords_attack_chara / 他
-- [x] **Phase 3 完了**: AI (`GreedyAI` / `RandomAI` / `LookaheadAI` / `MCTSAI`)、対戦ハーネス
-  - GreedyAI 攻撃: パワー不足の確定失敗アタックを除外 / 1ドンで届く gap には DON 付与 /
-    キャラ KO 狙いを優先 (相手コスト高優先)
-  - GreedyAI 守備: ライフ残量別の counter 切り判定 (life≤1 全力, life=2 +8000/3枚許容,
-    life=3 +6000/2枚, life≥4 +2000/1枚)、コスト4以上のキャラ攻撃には1枚カウンター
-  - **リーサル計算**: ターン開始時、合計打点 - 相手 counter 推定 で勝利可能か判定
-  - **アタック順最適化**: 弱→強で攻撃 (相手の counter 抗力を消費させる)
-  - **reactive buff 予測**: opp_attack による defender 強化を事前見積、低パワー攻撃を抑制
-    (`engine.effects.estimate_opp_attack_buff_to_leader` を choose_action で使用)
-  - **アーキタイプ別ヒューリスティック**: `decks/<slug>.analysis.json` を読み込んで GreedyAI が
-    アーキタイプ (アグロ/ミッド/コントロール/ランプ) ごとに防御閾値・攻撃 gap_tolerance を切替。
-    マリガンも `mulligan_keep_card_ids` ベース。 `harness.run_matchup` が deck.slug 経由で自動ロード。
-  - **構造化 AI ヒント** (`ai_hint_signals`): synergy_feature_priority / early_finisher_hold /
-    avoid_life_loss / tank_lifeup_ok / blocker_scarce 等を AI が読み取って挙動に反映
-  - **defender の attacker buff 予測**: `estimate_attacker_self_buff` で attacker の on_attack
-    自己強化を見越して counter 量を決定 (= 「6000 攻撃に 1000 counter で打ち消されるはず」 のバグ修正)
-  - **重み自動チューニング** (`scripts/tune_eval_weights.py`): matchup matrix を ground truth に
-    grid search で W_LIFE 等を最適化提案 (auto-apply はしない、 現状 79.5% 予測精度で近最適)
-  - **ハンド推定** (`engine/hand_estimator.py`): 隠匿情報モデル最小実装。 sample_opponent_hand /
-    estimate_counter_total / determinize_state を提供 (将来 MCTS 等で活用予定)
-  - MCTSAI: UCT-based、`n_simulations=30`、ロールアウト+ヒューリスティック評価。opt-in (低速)
-  - **RuleReferee**: AI vs AI 対戦中のルール違反監視。 R60 matchup matrix 計算 (256 ペア × 20 戦 = 5120 試合) で違反ゼロ
-  - **AI 行動品質評価基盤** (R61-R64):
-    - `engine/eval.py`: 9 指標 board_eval (life/field/power/hand/don/blocker/attached_don/active_chara/lethal)
-    - `state.action_evals`: apply_action 前後で compute_score → 1 action = 1 delta 記録
-    - `scripts/report_bad_moves.py`: delta_eval が大きく負の手を抽出 → AI 改善ヒント
-    - 検証結果: 真の悪手 0.5% (= 1535 actions 中 8 件)、 AI 判断は概ね健全
-    - `engine.effects.estimate_opp_life_trigger_attacker_ko_risk`: ライフトリガー雷迎リスク見積
+- [x] **Phase 3 完了**: AI 階層 + 対戦ハーネス
+  - AI クラス: `RandomAI` / `GreedyAI` / `LookaheadAI` / `MCTSAI` / `PlanningAI` / `GoalDirectedAI`
+    - **default は `GoalDirectedAI`** (= Plan H、 archetype 別 bonus + 3-tier fallback)
+  - **共通基盤**: lethal_planner / hand_estimator (= 隠匿情報モデル) / アーキタイプ別ヒューリスティック (= `decks/<slug>.analysis.json` を読込)
+  - **静的解析**: `decks/<slug>.analysis.json` の `mulligan_keep_card_ids` / `ai_hint_signals` を全 AI で参照
+  - **RuleReferee**: AI vs AI 対戦中のルール違反監視。 matchup matrix 計算で違反ゼロ
+  - **AI 行動品質評価**: `engine/eval.py` 15 指標 board_eval + `state.action_evals` delta 記録 + `scripts/report_bad_moves.py`
 - [x] **Phase 4 完了**: メタデッキ DB **16 デッキ** (`decks/cardrush_*.json` 15 件 + テストデッキ 1)。
   cardrush.media の大会上位入賞 (優勝/準優勝) を `scripts/scrape_cardrush_decks.py` で取得 →
   アーキタイプ毎に最新優勝を `select_cardrush_representatives.py` で代表選出 →
@@ -161,13 +139,10 @@ onepiece_research/
   - `/faq` 公式FAQ + cardqa 検索
 - [x] **画像配信**: 全 4,518 枚を `web/public/cards/` にキャッシュ済 (878MB)。
   `<CardImage>` で 404 → 公式 URL フォールバック。
-- [x] **Phase 4.5 完了 (R70+R71)**: **PlanningAI** (ターン全体プラン beam search)。
-  - `engine/plan_search.py`: beam search + fast_clone (= CardDef/InPlay の __deepcopy__ 共有/手書きで 3.3x 高速化)
-  - `engine/ai.py:PlanningAI` (= GreedyAI を継承、 (beam=4, depth=6) で動作)
-  - `engine/eval.py`: 15 指標 board_eval (= 9 基本 + 4 拡張 + chara_quality/hand_quality/opp_hand_threat)
-  - 検証: cross matrix で 30 cells 中 23 改善 / 平均 **+26pt** vs Greedy baseline
-  - 速度: 8s/g → **2.4s/g** (R70 deepcopy 削減 + depth 8→6)
-  - `engine/harness.run_matchup` の default AI に採用 (= R71)
+- [x] **Phase 4.5 完了 (R70+R71)**: **PlanningAI** (ターン全体プラン beam search)
+  - `engine/plan_search.py`: beam search + fast_clone (= CardDef/InPlay の __deepcopy__ 共有で 3.3x 高速化)
+  - `engine/ai.py:PlanningAI` (= GreedyAI を継承、 beam=4 / depth=6)
+  - PlanningAI は `GoalDirectedAI` の親クラスとして 現役 (= 直接 default ではないが内部で使用)
 - [x] **メタデッキ Phase 4 拡張 (= tcg-portal 化、 2026-05-14)**: 16 デッキ pool。
   - cardrush 10 件 (= 個別優勝レシピ、 3 ヶ月集計から代表選出)
     + tcg-portal 6 件 (= cardrush 不在の leader を集計合成で補完)
@@ -177,73 +152,26 @@ onepiece_research/
 ### 進行中 / 計画中フェーズ (= Phase 7+, 詳細は [docs/ROADMAP.md](./docs/ROADMAP.md))
 
 - [x] **Phase 7 完了 (2026-05-14)**: AI ヒューリスティック層強化 + bluff + lethal_planner
-  - 7A: `choose_defense` 3-tier (= safe / rescue / sacrifice) + blocker `>` rule fix
-  - 7B: `hand_estimator` 分布化 (= ハイパージオメトリック + 確率ベース リーサル判定)
-  - 7C: ベイズ deck classifier (= 18 archetype × 106 recipe 学習)
-  - 7D: MatchupProfile dynamic (= ターン毎 classifier で archetype 再評価)
-  - 7E: hand pool メタデッキ仮定 (= opp.deck 直読を classifier 経由に置換)
-  - 7F: meta pool 再構造化 (= variant 検出 + matrix v2 schema)
-  - 7G: 絶望状況での bluff 行動 (= DON 温存 + 攻撃継続)
-  - 7H: archetype 別 bluff 判定 + リスク調整リーサル threshold
-  - 7I: 公開済手札追跡 (= return_to_hand / search 経由を known_hand_card_ids で track)
-  - 7J: lethal_planner (= 均等化 + ±2k マージン + 階段戦略) + choose_action 統合
-  - 7K: リーダー攻撃先行 + blocker play 遅延 (= life trigger 対策)
   - 累計 108 新規 tests / 全 pass、 期待効果 +15〜+30pt vs 旧 PlanningAI
-  - 残 sub-step (= 7F-1/2/5/6/7、 directory restructure 等) は別 task で運用整備
-- [~] **Phase 8 進行中 (2026-05-17~18)**: 学習基盤 / self-play AI (= 期待 +20〜40pt)
-  - ✅ **Step 7 完了 (2026-05-17 夜)**: matrix 16×16 完走、 adaptive AI (= per-deck NN preference) で
-    mirror baseline +2.0pt 確定、 default 化済 (= PR #1 main 統合)
-  - ✅ **adaptive AI mirror-based**: db/nn_per_deck_preference.json で NN-on: tcgportal_coby のみ
-  - 🟡 **Phase 2 RL (= Plan F)**: WeightNN supervised + REINFORCE で 動的重み学習
-    - Step 1 supervised 完了 (= -3pt、 教師の限界)
-    - cycle 1 snapshot collection 進行中 (= 1000 試合、 2026-05-18 朝)
-  - 🟡 **Plan D AlphaZero**: MCTS rollout で P(win|state) 計算 → value NN 学習
-    - infrastructure 完成 (= engine/value_nn_alphazero.py + collect_mcts_rollout_snapshots.py)
-    - 学習データ収集 + Colab 学習 待ち
-  - 📋 **Plan E genetic**: 多 AI variant × tournament で 進化的探索 (= skeleton 完成)
-  - 📋 **MegaPlanningAI**: TwoTurn + AZ value + WeightNN + adaptive 統合
-  - 📋 **AdaptiveComboAI**: adaptive + 評価関数 ComboDim (= 自キャラ最大攻撃 で KO 可能性) 統合
-  - 詳細: [[project_morning_status_summary]]
-- [ ] **Phase 9 計画中**: 分散コンピューティング / ボランティア参加 (= 1-3 ヶ月)
-  - 9A: 内部分散インフラ (= /api/research/* + research_client.py)
-  - 9B: 公開可能版 (= UI + GitHub OAuth + 検証強化)
-  - 9C: ブラウザ WASM クライアント (= Pyodide 経由)
+- [x] **Plan H = GoalDirectedAI 完了 (2026-05-25)**: target spec DSL + archetype 別 bonus + 3-tier fallback
+  - 詳細: [[project_plan_h_hybrid_result]] + [[project_bonus_learning_pipeline]]
+  - 現 default AI、 16 deck mirror eval で平均 +1.9pt (= [[project_phase1_5_baseline]])
+- [~] **AI 強化統合 plan 進行中**: [[project_ai_strengthening_plan]]
+  - Phase 1 完了 (= effect 不発 prune + fast_clone fix + EndPhase prune)
+  - Phase 2 着手前 (= opp model mirror)
+- **Dead-end 路線** (= 撤退、 教訓のみ memory 保持):
+  - Plan D (= AlphaZero value NN): [[project_plan_d_results]] スケール不足確定
+  - Plan F (= 重み NN): [[feedback_weight_nn_limit]] argmax 不変で eval 反映されず
+  - Plan E / MegaPlanningAI / AdaptiveComboAI: 着手前で凍結
+- [ ] **Phase 9 計画中**: 分散コンピューティング / ボランティア参加 (= 詳細 ROADMAP.md)
 - [ ] **Phase 10+ 長期**: 任意 deck 汎用 AI / デッキ構築 AI / ナッシュ均衡解析
-  - 詳細は ROADMAP.md 参照、 6-12 ヶ月の研究プロジェクト級
 
 ### 現在のメタ Tier
 
-> **注**: 2026-05-17 夜の Step 7 matrix (= 16×16 × 20 戦、 7.2h) 完走済。
-> `db/matchup_matrix.step7_a_nn_off.json` (= 線形 eval mirror) と `step7_b_nn_on.json` (= NN v1 mirror) で
-> 各 deck 平均勝率 + NN 引き起こす相性逆転 cell ±50pt 14 個 等の 詳細 insight。
-> 詳細 analysis: `scripts/analyze_matrix.py` + `db/matrix_analysis_report.json` (= 10 軸)。
+最新 16 deck mirror eval は [[project_phase1_5_baseline]] を参照 (= 2026-05-27、 +1.9pt avg)。
+詳細 analysis: `scripts/analyze_matrix.py` + `db/matrix_analysis_report.json`。
 
-**Tier (= A-arm 線形 eval mirror、 2026-05-17):**
-```
-S: cardrush_1456 96.3%, cardrush_1455 83.7%, tcgportal_bonney 79.3%, tcgportal_op11_luffy 79.0%
-A: tcgportal_hancock 59.3%, cardrush_1454 56.0%, cardrush_1439 54.7%, cardrush_1342 49.7%
-B: cardrush_1385 43.7%, cardrush_1399 41.0%, tcgportal_corazon 28.3% (= partial 5 セル)
-C: tcgportal_calgara 36.3%, cardrush_1453 36.0%, cardrush_1392 16.0%
-F: tcgportal_coby 1.0% (= 線形 eval で 死に体、 NN で +25pt 救済される)
-```
-
-NN 入れた時の変化 (= B-arm の 差分):
-- 救済: tcgportal_coby +25pt、 cardrush_1392 +25pt
-- 弱体化: cardrush_1454 -18pt、 cardrush_1455 -11pt、 cardrush_1456 -12pt
-- → これが adaptive AI (= per-deck NN preference) の根拠
-
-**評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 他デッキが効果を正しく
-発揮できるようになった結果、 相対的に成績が下がったデッキも存在する。
-ゴールは「全デッキが強くなる」 ことではなく、 「正しくゲームが行われ、
-AI が意味ある効果の使い方・戦い方をしている」 こと。 評価すべきは AI の
-各手が (1) 盤面を有利に傾けたか (2) 有利に傾ける布石か (3) 効果を意味ある
-タイミング/対象で発動しているか。 詳細は memory `feedback_evaluation_axis.md`。
-
-> 注: 低勝率デッキ (緑紫ルフィ 13% / 青紫サンジ 20% / 黒クロコ 5% 等) の多くは、 起動メインの
-> 「ドン-N」 コストを忠実に実装した結果、 AI ヒューリスティックではコスト負担に見合うリターンを
-> 引き出せていないため。 本来は手札のシナジーカードを引き出すコンボ前提の効果なので、 デッキ自体の
-> 研究と AI 改善の余地が残る。 ただし R64 の bad_moves 分析で「真の AI 悪手は 0.5%」 と判明、
-> 残りは確率的不運 (= 雷迎ライフトリガー等) や engine の正常化による相対的変動。
+**評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 ゴールは「全デッキが強くなる」 ことではなく、 「正しくゲームが行われ、 AI が意味ある効果の使い方・戦い方をしている」 こと。 評価すべきは AI の各手が (1) 盤面を有利に傾けたか (2) 布石か (3) 効果を意味あるタイミング/対象で発動しているか。 詳細: [[feedback_evaluation_axis]]。
 
 ## Next.js 側の方針
 
