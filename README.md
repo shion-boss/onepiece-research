@@ -17,14 +17,14 @@ onepiece_research/
 ├── scraper/            # 公式サイトから全弾スクレイプ
 ├── engine/             # ルールエンジン + 効果DSL + AI + 対戦ハーネス
 │   ├── core.py / deck.py / deckbuilder.py
-│   ├── effects.py             # 効果DSL (プリミティブ 180+、 トリガー 20+)
+│   ├── effects.py             # 効果DSL (プリミティブ 226、 トリガー 20+)
 │   ├── game.py                # ターン進行 / 攻防 / 合法手生成
 │   ├── eval.py                # 9 指標盤面評価関数 (LookaheadAI/MCTSAI/UI 共通)
 │   ├── analyzer.py            # 試合後分析 (ターニングポイント抽出)
 │   ├── loss_classifier.py     # 敗因タグ分類 (AI 改善ヒント抽出)
 │   ├── replay_recorder.py     # 試合 replay 保存 (SQLite + gzip、 board_eval 含む)
 │   ├── deck_analyzer.py       # 静的デッキ分析 (戦略 / マリガン / キーカード / AI ヒント)
-│   ├── ai.py                  # Random / Greedy / EvalGreedy / Lookahead / MCTS
+│   ├── ai.py                  # Random / Greedy / Lookahead / MCTS / Planning / GoalDirected (= default)
 │   ├── ai_params.py           # チューニング可能な AI パラメータ (重み等)
 │   ├── hand_estimator.py      # 隠匿情報モデル (相手手札の確率推定)
 │   ├── referee.py             # ルール違反監視 (RuleReferee)
@@ -38,13 +38,13 @@ onepiece_research/
 │   ├── banlist/master.json   # 禁止リスト
 │   ├── rules/   ※ 公式PDF (gitignore、scraper で取得)
 │   └── faq/     ※ 公式Q&A (gitignore、scraper で取得)
-├── decks/              # cardrush.media 大会上位由来 (cardrush_*.json, 15デッキ + テストデッキ)
+├── decks/              # cardrush + tcgportal 由来 (cardrush_*.json + tcgportal_*.json、 16 デッキ + テスト)
 │   └── *.analysis.json    # 各デッキの静的分析 (戦略/マリガン/AI ヒント)
 ├── examples/           # スモークテスト・デモスクリプト (demo_smoke.py 等)
 ├── scripts/            # scrape / cache / matrix / overlay / audit / 行動分析 補助
 ├── web/                # Next.js (App Router, Tailwind CSS v4, Zustand)
 │   └── public/cards/   ※ 全画像 (878MB、gitignore)
-└── tests/              # pytest (270 passed + 200 FAQ placeholder skip)
+└── tests/              # pytest (799 collected)
 ```
 
 ## セットアップ手順
@@ -90,11 +90,11 @@ python3 -m venv .venv
 
 ```bash
 # pytest
-.venv/bin/pytest                                        # 270 passed (+200 FAQ placeholder skip)
+.venv/bin/pytest                                        # 799 collected
 
 # 対戦シミュレーション デモ
-.venv/bin/python demo_smoke.py
-.venv/bin/python demo_matchup.py
+.venv/bin/python examples/demo_smoke.py
+.venv/bin/python examples/demo_matchup.py
 
 # 勝率行列 (~30s)
 .venv/bin/python scripts/compute_matchup_matrix.py --n-games 20 --seed 42
@@ -114,10 +114,10 @@ cd web && npm run dev
 | Phase | 状態 | 概要 |
 |---|---|---|
 | 1. カードDB | ✅ | 全 54 弾 4,518 枚 |
-| 2. ルールエンジン + DSL | ✅ | **プリミティブ 180+, トリガー 20+** |
+| 2. ルールエンジン + DSL | ✅ | **プリミティブ 226, トリガー 20+** |
 | 2.5 効果オーバーレイ | ✅ | **全 4,518 カード公式準拠** (`_unimplemented` = 0 🎯) |
-| 3. AI / 対戦ハーネス | ✅ | Greedy / Random / EvalGreedy / Lookahead / MCTS + 行動品質評価 (R63) |
-| 4. メタデッキ DB | ✅ | cardrush.media 産 **15 デッキ** + 月次更新 |
+| 3. AI / 対戦ハーネス | ✅ | Greedy / Random / Lookahead / MCTS / PlanningAI / **GoalDirectedAI (= default)** + 行動品質評価 |
+| 4. メタデッキ DB | ✅ | cardrush + tcgportal **16 デッキ** + 月次更新 |
 | 5. デッキビルダー | ✅ | UI + API (`/decks/new`, `POST /api/decks`) |
 | 6. Next.js UI | ✅ | `/cards` `/decks` `/decks/[slug]` `/decks/new` `/decks/[slug]/analyze` `/meta` `/faq` |
 | Audit | ✅ | overlay sev≥3 = 0、 engine 厳密化 10/10 pass、 cardqa 整合性 0 漏れ |
