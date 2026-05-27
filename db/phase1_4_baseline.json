@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "phase": "Phase 1.4 mirror eval baseline",
+    "date": "2026-05-27",
+    "head_commit": "9ec1f45",
+    "branch": "feat/goal-directed-hybrid-fallback",
+    "ai": "GoalDirectedAI (Phase 1.1 prune + 1 周目 学習 bonus + fast_clone fix) vs PlanningAI (baseline)",
+    "settings": "n_games=10, seed=42, beam_width=4, max_depth=6, goal_adaptive=True, baseline_adaptive=True, light_opp_sim=True",
+    "comment": "Phase 2/3 比較 baseline。 4 PASS / 5 MARGINAL / 7 FAIL、 OVERALL avg -3.75pt vs PlanningAI"
+  },
+  "results": [
+    { "deck": "cardrush_1342",       "delta_pt": -10.0, "wins": 4, "losses": 6, "elapsed_s": 583.0,  "verdict": "FAIL" },
+    { "deck": "cardrush_1385",       "delta_pt":   0.0, "wins": 5, "losses": 5, "elapsed_s": 508.6,  "verdict": "MARGINAL" },
+    { "deck": "cardrush_1392",       "delta_pt": +10.0, "wins": 6, "losses": 4, "elapsed_s": 717.0,  "verdict": "PASS" },
+    { "deck": "cardrush_1399",       "delta_pt":   0.0, "wins": 5, "losses": 5, "elapsed_s": 827.3,  "verdict": "MARGINAL" },
+    { "deck": "cardrush_1439",       "delta_pt": -10.0, "wins": 4, "losses": 6, "elapsed_s": 523.2,  "verdict": "FAIL" },
+    { "deck": "cardrush_1453",       "delta_pt": -20.0, "wins": 3, "losses": 7, "elapsed_s": 698.8,  "verdict": "FAIL" },
+    { "deck": "cardrush_1454",       "delta_pt": -20.0, "wins": 3, "losses": 7, "elapsed_s": 1085.2, "verdict": "FAIL" },
+    { "deck": "cardrush_1455",       "delta_pt":   0.0, "wins": 5, "losses": 5, "elapsed_s": 295.9,  "verdict": "MARGINAL" },
+    { "deck": "cardrush_1456",       "delta_pt":   0.0, "wins": 5, "losses": 5, "elapsed_s": 1116.7, "verdict": "MARGINAL" },
+    { "deck": "tcgportal_bonney",    "delta_pt":   0.0, "wins": 5, "losses": 5, "elapsed_s": 994.1,  "verdict": "MARGINAL" },
+    { "deck": "tcgportal_calgara",   "delta_pt": -30.0, "wins": 2, "losses": 8, "elapsed_s": 265.3,  "verdict": "FAIL" },
+    { "deck": "tcgportal_coby",      "delta_pt": -20.0, "wins": 3, "losses": 7, "elapsed_s": 1381.8, "verdict": "FAIL" },
+    { "deck": "tcgportal_corazon",   "delta_pt": +20.0, "wins": 7, "losses": 3, "elapsed_s": 1012.6, "verdict": "PASS" },
+    { "deck": "tcgportal_hancock",   "delta_pt": +10.0, "wins": 6, "losses": 4, "elapsed_s": 269.4,  "verdict": "PASS" },
+    { "deck": "tcgportal_op11_luffy","delta_pt": -10.0, "wins": 4, "losses": 6, "elapsed_s": 809.1,  "verdict": "FAIL" },
+    { "deck": "tcgportal_op13_luffy","delta_pt": +20.0, "wins": 7, "losses": 3, "elapsed_s": 602.6,  "verdict": "PASS" }
+  ],
+  "summary": {
+    "n_decks": 16,
+    "pass_count": 4,
+    "marginal_count": 5,
+    "fail_count": 7,
+    "overall_avg_delta_pt": -3.75,
+    "pass_decks": ["cardrush_1392", "tcgportal_corazon", "tcgportal_hancock", "tcgportal_op13_luffy"],
+    "fail_decks": ["cardrush_1342", "cardrush_1439", "cardrush_1453", "cardrush_1454", "tcgportal_calgara", "tcgportal_coby", "tcgportal_op11_luffy"]
+  }
+}

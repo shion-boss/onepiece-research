@@ -174,6 +174,73 @@ def _is_event_overkill(
     return False
 
 
+def _can_pay_effect_cost(me: Player, cost: dict, event_play_cost: int = 0) -> bool:
+    """event の per-effect cost (= cost dict) が AI 視点 で 支払い可能 か 判定。
+
+    effects._can_pay_counter_cost の AI 側 mirror。 ただし event 自身 の 再生コスト
+    (= event_play_cost、 PlayEvent 適用 で 消費 する DON) と 手札 1 枚 (= event 自身
+    の trash) を 考慮:
+
+    - discard_hand: event 自身 trash 後 の hand で 評価 → hand_before >= discard_n + 1
+    - rest_self_don: event 再生コスト で active が 減る → active - event_play_cost >= rest_don
+    - pay_don: total - event_play_cost >= pay_don
+
+    Phase 1.1: 神避 (= rest_self_don: 5、 active=2 不足) 等 の 不発 event の play 抑制 用。
+    """
+    if not isinstance(cost, dict):
+        return True
+    discard_n = int(cost.get("discard_hand", 0))
+    if discard_n > 0 and len(me.hand) < discard_n + 1:
+        return False
+    avail_active = me.don_active - event_play_cost
+    avail_total = (me.don_active + me.don_rested) - event_play_cost
+    pay_don = int(cost.get("pay_don", 0))
+    if pay_don > 0 and avail_total < pay_don:
+        return False
+    rest_don = int(cost.get("rest_self_don", 0))
+    if rest_don > 0 and avail_active < rest_don:
+        return False
+    return True
+
+
+def _is_event_main_effect_unfirable(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    event_card,
+    overlay: dict,
+) -> bool:
+    """event の when="main" 効果 が 全て cost / if で skip → True (= 撃つに値しない)。
+
+    Phase 1.1 由来 (= AI が 神避 等 を 効果不発 で play する bug):
+    - 1 つ でも 「cost 払える + if 満たす」 main 効果 が あれば False (= 撃ってよい)
+    - 全 main 効果 が cost / if で skip なら True (= イベント 1 枚 を 無駄に trash 送り)
+    - overlay 不在 / when=main 効果なし は False (= 判定不能 = 撃つに任せる)
+
+    Note: when="counter" 効果 は 判定対象外 (= 後で 相手 attack 時 に counter として 使える)。
+    main 効果 不発 でも counter 専用 として hand 保持 が 適切 な カード も ある が、
+    そういった カード は そもそも 「main を 撃たない」 のが 正解 = この prune と 一致。
+    """
+    if not overlay or event_card is None:
+        return False
+    bundle = overlay.get(event_card.card_id)
+    if not bundle:
+        return False
+    main_effects = [eff for eff in bundle.effects if eff.get("when") == "main"]
+    if not main_effects:
+        return False
+    from .effects import eval_all_conditions
+    event_play_cost = int(getattr(event_card, "cost", 0) or 0)
+    for eff in main_effects:
+        cost = eff.get("cost") or {}
+        if not _can_pay_effect_cost(me, cost, event_play_cost):
+            continue
+        if not eval_all_conditions(eff, state, me, None):
+            continue
+        return False  # 1 つでも fire 可能
+    return True
+
+
 def _can_attack_this_turn(state: GameState, target: InPlay, is_leader: bool) -> bool:
     """このターン中に target が attack に出れるか判定 (= attach 効果が活きるか)。
 
@@ -317,6 +384,8 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
     - PlayEvent: 過剰除去判定 (_is_event_overkill が True)
     - AttachDonToLeader / AttachDonToCharacter: 今ターン attack 不可な target への attach
     - AttackLeader / AttackCharacter: 確定失敗 + on_attack 効果なし の空打ち attack
+    - EndPhase: 他に 「やる事」 がある時 (= 2026-05-27、 bad_moves で DON 余 / 攻撃可能 で
+      EndPhase が AI 悪手の 主犯 と判明、 prune 後の 他 actions は 全て 価値ありと前提)
 
     全 action が剪定されたら元リストを返す (= AI を破綻させない safety)。
     """
@@ -325,12 +394,19 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
     me = state.turn_player
     opp = state.opponent
     overlay = state.effects_overlay or {}
-    pruned = []
+    # Pass 1: 非 EndPhase actions を prune (= 既存 PlayEvent / AttachDon / Attack ルール)
+    non_end_pruned = []
+    end_actions = []
     for a in actions:
+        if isinstance(a, EndPhase):
+            end_actions.append(a)
+            continue
         if isinstance(a, PlayEvent):
             if 0 <= a.hand_idx < len(me.hand):
                 card = me.hand[a.hand_idx]
                 if _is_event_overkill(state, me, opp, card, overlay):
+                    continue
+                if _is_event_main_effect_unfirable(state, me, opp, card, overlay):
                     continue
         elif isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
             if _is_attach_don_wasteful(state, a):
@@ -338,7 +414,10 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
         elif isinstance(a, (AttackLeader, AttackCharacter)):
             if _is_attack_confirmed_fail_no_effect(state, a, overlay):
                 continue
-        pruned.append(a)
+        non_end_pruned.append(a)
+    # Pass 2: 非 EndPhase が 1 つ でも 残れば EndPhase 排除 (= 早期 end 抑制)。
+    # 全 prune されたら EndPhase だけでも 返す (= safety、 AI 動作維持)。
+    pruned = non_end_pruned if non_end_pruned else end_actions
     if not pruned:
         return actions
     return pruned
@@ -866,17 +945,20 @@ class GreedyAI:
         # ただし 「過剰除去」 系 (= ガンマナイフを弱小キャラに撃つ等) は剪定して除外。
         play_event_actions: list[PlayEvent] = [a for a in actions if isinstance(a, PlayEvent)]
         if play_event_actions:
+            overlay = state.effects_overlay or {}
             non_wasteful = [
                 a for a in play_event_actions
-                if not _is_event_overkill(state, me, opp, me.hand[a.hand_idx],
-                                           state.effects_overlay or {})
+                if not _is_event_overkill(state, me, opp, me.hand[a.hand_idx], overlay)
+                and not _is_event_main_effect_unfirable(
+                    state, me, opp, me.hand[a.hand_idx], overlay
+                )
             ]
             chosen_pool = non_wasteful if non_wasteful else play_event_actions
-            # non_wasteful が空 = 全部 overkill → 結局撃たないのが正解 (= 後続 action へ)。
+            # non_wasteful が空 = 全部 overkill / unfirable → 結局撃たないのが正解 (= 後続 action へ)。
             # PlayEvent そのものを skip して 他 action にフォールバック。
             if non_wasteful:
                 return min(chosen_pool, key=lambda a: me.hand[a.hand_idx].cost)
-            # 全部 overkill: ここでは event を選ばず後続 (= キャラ play / attack 等) へ進む
+            # 全部 overkill / unfirable: ここでは event を選ばず後続 (= キャラ play / attack 等) へ進む
 
         # 0.7) ステージは現状空のとき登場 (差替の判断はしない、安全側)
         play_stage_actions: list[PlayStage] = [a for a in actions if isinstance(a, PlayStage)]
@@ -1588,6 +1670,11 @@ class GreedyAI:
         strict = self.ai_params.activate_main_don_compensated_strict
         min_payoff = self.ai_params.activate_main_min_payoff_global
         from .eval import compute_score
+        # plan_search.fast_clone は effects_overlay (= 4,518 entries) を 共有参照 で
+        # 残し、 log/snapshots/action_evals 等 不要 field を 軽量化 した clone。 corazon
+        # deck で plan_search._simulate_opp_turn → _pick_activate_main → copy.deepcopy(state)
+        # 連鎖 で deepcopy が 1h+ hang する pre-existing perf bug の 修正 (2026-05-27)。
+        from .plan_search import fast_clone
         me_idx = state.turn_player_idx
         for a in candidates:
             eff = self._get_activate_eff(state, a)
@@ -1599,7 +1686,7 @@ class GreedyAI:
             # gate 2: min_payoff > 0 なら eval delta 要求
             if min_payoff > 0:
                 pre = compute_score(state, me_idx)
-                sim = copy.deepcopy(state)
+                sim = fast_clone(state)
                 try:
                     apply_action(sim, a)
                 except Exception:
@@ -1614,7 +1701,7 @@ class GreedyAI:
         best_action: Optional[Action] = None
         best_delta = 0
         for a in candidates:
-            sim = copy.deepcopy(state)
+            sim = fast_clone(state)
             try:
                 apply_action(sim, a)
             except Exception:
@@ -1773,15 +1860,18 @@ class EvalGreedyAI(GreedyAI):
 
         play_event_actions = [a for a in actions if isinstance(a, PlayEvent)]
         if play_event_actions:
-            # 過剰除去を剪定 (= ガンマナイフを弱小キャラに撃つ等は撃たない)。
+            # 過剰除去 / 効果不発 を剪定 (= ガンマナイフを弱小キャラに / 神避を cost 不足で 撃たない)。
+            overlay = state.effects_overlay or {}
             non_wasteful = [
                 a for a in play_event_actions
-                if not _is_event_overkill(state, me, opp, me.hand[a.hand_idx],
-                                           state.effects_overlay or {})
+                if not _is_event_overkill(state, me, opp, me.hand[a.hand_idx], overlay)
+                and not _is_event_main_effect_unfirable(
+                    state, me, opp, me.hand[a.hand_idx], overlay
+                )
             ]
             if non_wasteful:
                 return self._eval_pick(state, non_wasteful)
-            # 全 event が overkill = event は撃たず後続 action へフォールスルー
+            # 全 event が overkill / unfirable = event は撃たず後続 action へフォールスルー
 
         play_stage_actions = [a for a in actions if isinstance(a, PlayStage)]
         if play_stage_actions and len(me.stages) == 0:

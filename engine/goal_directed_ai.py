@@ -63,6 +63,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         target_spec: Optional[dict] = None,
         deck_slug: Optional[str] = None,
         spec_version: str = "v1",
+        recursion_depth: int = 0,
         **kwargs,
     ):
         """
@@ -71,6 +72,10 @@ class GoalDirectedAI(_NoNNPlanningBase):
             target_spec: 明示指定の target spec dict。 None なら deck_slug or auto-load。
             deck_slug: target spec を load する deck slug。 None なら state から auto-detect。
             spec_version: "v1" (= default refined) or "v2" (= cross-trained、 2026-05-20)
+            recursion_depth: 0 = 通常 plan_search、 1 = 内部 opp_sim (= plan_search 動作)、
+                            2+ = GreedyAI fallback (= 無限再帰回避)。 plan_search.py が
+                            ONEPIECE_GOAL_MIRROR_OPP=1 で opp_sim_ai 生成時に
+                            recursion_depth=1 で構築する。
         """
         kwargs.setdefault("beam_width", 4)
         kwargs.setdefault("max_depth", 6)
@@ -80,6 +85,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         self._explicit_target_spec = target_spec
         self._deck_slug = deck_slug
         self._spec_version = spec_version
+        self.recursion_depth = recursion_depth
 
     def _resolve_target_spec(self, state: GameState) -> Optional[dict]:
         """target spec を 解決。 優先順位: 明示 > deck_slug 引数 > state から auto-detect。
@@ -115,6 +121,9 @@ class GoalDirectedAI(_NoNNPlanningBase):
         return None
 
     def choose_action(self, state: GameState):
+        if self.recursion_depth >= 2:
+            from .ai import GreedyAI
+            return GreedyAI.choose_action(self, state)
         saved = os.environ.get("ONEPIECE_GOAL_TARGET_W")
         os.environ["ONEPIECE_GOAL_TARGET_W"] = str(self._goal_target_w)
         # v3: Phase H-3 NN value 加算 path (= 2026-05-20)

@@ -308,6 +308,12 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
             if eff.get("when") != when:
                 continue
             if not eval_all_conditions(eff, state, me, self_inplay):
+                # silent skip だと AI が 無駄 play しても 観戦/ Human Play log に 痕跡 なし。
+                # Phase 1.2 (= 2026-05-26): if 条件 不一致 を 明示 ログ 化 し、
+                # 解析 skill (= analyze-human-play-log / analyze-ai-matchup-log) で 検出可能 に。
+                state.push_log(
+                    f"  {when} 効果: if 条件 不一致 → skip ({evt.source_card_id})"
+                )
                 continue
             # 【ターン1回】 ガード: spec.once_per_turn が True/str なら使用済みチェック
             if _check_and_set_once_per_turn(state, me, eff, evt.source_card_id, idx) is False:

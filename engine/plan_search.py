@@ -242,9 +242,29 @@ def search_turn_plan(
         # opp sim: 2026-05-18 ONEPIECE_LIGHT_OPP_SIM=1 で GreedyAI 固定 (= 大幅高速化)。
         # LightDeepPlanningAI は plan_search 内 plan_search で 1 opp sim あたり 1-2 sec、
         # max_turns=2 で 1 試合 30 分超 になる。 GreedyAI なら 0.1 sec、 10-20x 高速。
+        #
+        # ONEPIECE_GOAL_MIRROR_OPP=1 (= 2026-05-27 Phase 2): opp_sim を GoalDirectedAI 化。
+        # 実戦 GoalDirectedAI(adaptive=True) と sim opp が 構造的に一致 → 採用 entry の
+        # if 評価 が ズレない。 計算コスト 5-20x 想定 (= pilot で 実測)。
+        # mirror 優先 (= 明示的に enable した = コスト払う意思あり)、 mirror set 時 light を override。
         import os as _os
+        _mirror_opp = _os.environ.get("ONEPIECE_GOAL_MIRROR_OPP") == "1"
         _light_opp = _os.environ.get("ONEPIECE_LIGHT_OPP_SIM") == "1"
-        if _light_opp:
+        if _mirror_opp:
+            # opp_sim 超軽量化 (= 2026-05-27 v3): beam=1 depth=1 で 5-10x 高速化。
+            # 「相手だけ cap 1」 (= 1 手読み + GoalDirected eval)。 plan_search は 走らせる
+            # ので target spec bonus + nn_disabled 等 mirror eval は 効くが、 多手読み を 完全 削減。
+            # full settings (= beam=4 depth=6) で 60+ 分/g、 beam=2 depth=3 で 12-45 分/g、
+            # beam=1 depth=1 で 3-10 分/g 目標。
+            from .goal_directed_ai import GoalDirectedAI
+            opp_sim_ai = GoalDirectedAI(
+                rng=getattr(state, "rng", None),
+                adaptive=False,
+                recursion_depth=caller_depth + 1,
+                beam_width=1,
+                max_depth=1,
+            )
+        elif _light_opp:
             opp_sim_ai = GreedyAI(rng=getattr(state, "rng", None))
         elif ai_opp is None or isinstance(ai_opp, PlanningAI):
             # 既存: LightDeepPlanningAI(recursion_depth=caller+1) で archetype-aware 多手読み。
@@ -254,7 +274,9 @@ def search_turn_plan(
             )
         else:
             opp_sim_ai = ai_opp
-        # opp 攻撃時の me 側 defense AI も同様 (= 速度優先で GreedyAI 化)
+        # opp 攻撃時の me 側 defense AI: 速度優先で GreedyAI 固定 (= mirror 時も同様)。
+        # defense は plan_search 呼ばない (= GreedyAI 継承) ので、 mirror 化しても
+        # 計算重いだけで構造的差異 小。 GreedyAI 固定 で 全 mode 統一。
         if ai_self is None or isinstance(ai_self, PlanningAI):
             self_defense_ai = GreedyAI(rng=getattr(state, "rng", None))
         else:
