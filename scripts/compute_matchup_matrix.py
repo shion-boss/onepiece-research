@@ -206,6 +206,33 @@ def main() -> int:
         "seed": args.seed,
         "incremental": bool(args.incremental),
     })
+    # 2026-05-27: cell 単位 incremental save (= 行単位 だと GoalDirectedAI で 1 行 ~1-2h、
+    # その間 kill すると 全 cell 損失)。 PARTIAL_SAVE_EVERY cell ごと に 「現 row が
+    # partial でも 含めて」 全体 dump、 任意 タイミング kill でも 損失 5 cell 以内。
+    PARTIAL_SAVE_EVERY = 5
+
+    def _write_partial_snapshot(current_row_cells, current_slug_a, current_name_a):
+        """途中 row を 含めて 全体 dump。 partial_row=True flag で 半分作った row を 識別可。"""
+        matrix_snapshot = list(cells)
+        if current_row_cells:
+            matrix_snapshot.append({
+                "deck_a": current_slug_a,
+                "deck_a_name": current_name_a,
+                "row": list(current_row_cells),
+                "partial_row": len(current_row_cells) < len(decks),
+            })
+        partial = {
+            "schema_version": MATRIX_SCHEMA_VERSION,
+            "computed_at": now_utc_iso(),
+            "n_games": args.n_games,
+            "seed": args.seed,
+            "ai_version": ai_version,
+            "partial": True,
+            "decks": [{"slug": s, "name": n} for s, n, _ in decks],
+            "matrix": matrix_snapshot,
+        }
+        OUT.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
+
     for slug_a, name_a, deck_a in decks:
         hash_a = deck_hashes.get(slug_a, "")
         existing_row = existing_row_by_slug.get(slug_a, {}).get("row", [])
@@ -214,6 +241,7 @@ def main() -> int:
         }
 
         row = []
+        cells_in_row = 0  # この row で 計算済 cell 数 (= partial save トリガー用)
         for slug_b, name_b, deck_b in decks:
             done += 1
             if slug_a == slug_b:
@@ -298,6 +326,10 @@ def main() -> int:
                 "cell_draws": rep.draws,
                 "avg_turns": round(rep.avg_turns, 2),
             })
+            cells_in_row += 1
+            # cell 単位 partial save (= PARTIAL_SAVE_EVERY 個ごと、 もしくは row 末尾)
+            if cells_in_row % PARTIAL_SAVE_EVERY == 0:
+                _write_partial_snapshot(row, slug_a, name_a)
         elapsed = time.time() - t0
         rate = done / elapsed if elapsed > 0 else 0
         eta = (total - done) / rate if rate > 0 else 0
