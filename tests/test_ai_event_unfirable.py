@@ -239,3 +239,45 @@ def test_prune_safety_fallback_returns_original():
     actions = [PlayEvent(hand_idx=0)]
     pruned = prune_mechanical_waste(state, actions)
     assert pruned == actions  # 元 list そのもの
+
+
+# ─────────────────────────────────────────────────────
+# prune_mechanical_waste: EndPhase 早期 end 抑制 (= 2026-05-27)
+# bad_moves 1342 mirror で 全 bad move が EndPhase = DON 余・ 攻撃可能 で 終了 と 判明
+# ─────────────────────────────────────────────────────
+
+
+def test_prune_removes_endphase_when_play_character_legal():
+    """PlayCharacter が legal なら EndPhase は 排除 (= 早期 end 抑制)。"""
+    from engine.game import EndPhase, PlayCharacter
+    repo = _repo()
+    state = _make_state(repo, my_don_active=2)
+    me = state.players[0]
+    me.hand = [repo.get("OP01-013")]
+    actions = [PlayCharacter(hand_idx=0), EndPhase()]
+    pruned = prune_mechanical_waste(state, actions)
+    assert any(isinstance(a, PlayCharacter) for a in pruned)
+    assert not any(isinstance(a, EndPhase) for a in pruned)
+
+
+def test_prune_keeps_endphase_when_only_action():
+    """legal_actions が EndPhase のみ なら そのまま 残す (= safety)。"""
+    from engine.game import EndPhase
+    repo = _repo()
+    state = _make_state(repo)
+    actions = [EndPhase()]
+    pruned = prune_mechanical_waste(state, actions)
+    assert any(isinstance(a, EndPhase) for a in pruned)
+
+
+def test_prune_keeps_endphase_when_all_others_wasteful():
+    """PlayEvent unfirable + EndPhase なら EndPhase 残る (= 既存 test と 同 path safety)。"""
+    from engine.game import EndPhase
+    repo = _repo()
+    state = _make_state(repo, my_don_active=2)
+    me = state.players[0]
+    me.hand = [repo.get("OP13-076")]
+    actions = [PlayEvent(hand_idx=0), EndPhase()]
+    pruned = prune_mechanical_waste(state, actions)
+    assert any(isinstance(a, EndPhase) for a in pruned)
+    assert not any(isinstance(a, PlayEvent) for a in pruned)

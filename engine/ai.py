@@ -384,6 +384,8 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
     - PlayEvent: 過剰除去判定 (_is_event_overkill が True)
     - AttachDonToLeader / AttachDonToCharacter: 今ターン attack 不可な target への attach
     - AttackLeader / AttackCharacter: 確定失敗 + on_attack 効果なし の空打ち attack
+    - EndPhase: 他に 「やる事」 がある時 (= 2026-05-27、 bad_moves で DON 余 / 攻撃可能 で
+      EndPhase が AI 悪手の 主犯 と判明、 prune 後の 他 actions は 全て 価値ありと前提)
 
     全 action が剪定されたら元リストを返す (= AI を破綻させない safety)。
     """
@@ -392,8 +394,13 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
     me = state.turn_player
     opp = state.opponent
     overlay = state.effects_overlay or {}
-    pruned = []
+    # Pass 1: 非 EndPhase actions を prune (= 既存 PlayEvent / AttachDon / Attack ルール)
+    non_end_pruned = []
+    end_actions = []
     for a in actions:
+        if isinstance(a, EndPhase):
+            end_actions.append(a)
+            continue
         if isinstance(a, PlayEvent):
             if 0 <= a.hand_idx < len(me.hand):
                 card = me.hand[a.hand_idx]
@@ -407,7 +414,10 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
         elif isinstance(a, (AttackLeader, AttackCharacter)):
             if _is_attack_confirmed_fail_no_effect(state, a, overlay):
                 continue
-        pruned.append(a)
+        non_end_pruned.append(a)
+    # Pass 2: 非 EndPhase が 1 つ でも 残れば EndPhase 排除 (= 早期 end 抑制)。
+    # 全 prune されたら EndPhase だけでも 返す (= safety、 AI 動作維持)。
+    pruned = non_end_pruned if non_end_pruned else end_actions
     if not pruned:
         return actions
     return pruned
