@@ -39,6 +39,64 @@ LOG_PATH = ROOT / "db" / "matrix_run_log.ndjson"
 DEFAULT_AI_VERSION = "PlanningAI_R71_phase7"
 
 
+def _compute_cell_worker(task):
+    """multiprocessing.Pool worker: 1 cell の run_matchup を 計算。
+
+    task: (slug_a, slug_b, deck_a_path_str, deck_b_path_str, n_games, seed, ai_mode)
+    return: dict with slug_a, slug_b, winrate, wins, losses, draws, avg_turns, games_info
+    """
+    slug_a, slug_b, deck_a_path, deck_b_path, n_games, seed, ai_mode = task
+    # 各 worker で 個別 load (= 並列 fork なら CoW で 大体共有、 spawn なら 個別 cost)
+    from engine.deck import CardRepository, DeckList
+    from engine.harness import run_matchup
+    from pathlib import Path as _Path
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    deck_a = DeckList.from_json(_Path(deck_a_path), repo)
+    deck_b = DeckList.from_json(_Path(deck_b_path), repo)
+
+    rep_kwargs = dict(n_games=n_games, seed=seed)
+    if ai_mode == "greedy":
+        from engine.ai import GreedyAI
+
+        def _aif(rng, deck_analysis=None):
+            return GreedyAI(rng=rng)
+
+        rep_kwargs["ai_factory_1"] = _aif
+        rep_kwargs["ai_factory_2"] = _aif
+    elif ai_mode == "planning":
+        from engine.ai import PlanningAI
+
+        def _aif(rng, deck_analysis=None):
+            return PlanningAI(rng=rng, deck_analysis=deck_analysis)
+
+        rep_kwargs["ai_factory_1"] = _aif
+        rep_kwargs["ai_factory_2"] = _aif
+    # ai_mode == "default" は harness が GoalDirectedAI を 自動 構築
+
+    rep = run_matchup(deck_a, deck_b, **rep_kwargs)
+    games_info = []
+    for gi, g in enumerate(getattr(rep, "games", []) or []):
+        games_info.append({
+            "game_index": gi,
+            "winner": g.winner,
+            "turns": g.turns,
+            "p0_life_left": g.p0_life_left,
+            "p1_life_left": g.p1_life_left,
+            "p0_field": g.p0_field,
+            "p1_field": g.p1_field,
+        })
+    return {
+        "slug_a": slug_a,
+        "slug_b": slug_b,
+        "winrate": round(rep.deck1_winrate, 4),
+        "wins": rep.deck1_wins,
+        "losses": rep.deck2_wins,
+        "draws": rep.draws,
+        "avg_turns": round(rep.avg_turns, 2),
+        "games_info": games_info,
+    }
+
+
 def _append_log(entry: dict) -> None:
     """matrix 走行中の per-cell / per-game 記録を NDJSON で追記。
     UI (/meta/progress) が tail で読む。 書き込み失敗は無視 (= matrix 本体を止めない)。"""
@@ -121,6 +179,13 @@ def main() -> int:
             "default = GoalDirectedAI (= 最新 default、 高品質 だが ~60s/game)、 "
             "greedy = GreedyAI (= 高速、 1-2s/game、 マトリックス 計算 用)、 "
             "planning = PlanningAI (= 中間、 ~10s/game)"
+        ),
+    )
+    ap.add_argument(
+        "--workers", type=int, default=1,
+        help=(
+            "並列度。 1 = sequential (= 既存挙動)、 2+ = multiprocessing で N cell 同時計算。 "
+            "推奨: GoalDirectedAI で 4-8 (= memory 2 GiB/worker、 16 GiB RAM 環境 で 8 が 安全)。"
         ),
     )
     args = ap.parse_args()
@@ -233,6 +298,167 @@ def main() -> int:
         }
         OUT.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # === 並列 path (= --workers > 1) ===
+    if args.workers > 1:
+        from multiprocessing import Pool
+
+        # cells_to_compute 構築 (= mirror / reuse 除外)
+        tasks = []
+        mirror_cells_by_a: dict[str, list] = {}
+        reused_cells_by_a: dict[str, list] = {}
+        for slug_a, name_a, _ in decks:
+            hash_a = deck_hashes.get(slug_a, "")
+            existing_row = existing_row_by_slug.get(slug_a, {}).get("row", [])
+            existing_cell_by_b = {c.get("deck_b"): c for c in existing_row}
+            mirror_cells_by_a[slug_a] = []
+            reused_cells_by_a[slug_a] = []
+            for slug_b, _name_b, _ in decks:
+                if slug_a == slug_b:
+                    mirror_cells_by_a[slug_a].append({
+                        "deck_b": slug_b,
+                        "winrate": None,
+                        "wins": 0, "losses": 0, "draws": 0,
+                        "avg_turns": 0.0,
+                        "deck_a_recipe_hash": hash_a,
+                        "deck_b_recipe_hash": hash_a,
+                        "ai_version": ai_version,
+                        "computed_at": now_utc_iso(),
+                        "stale": False,
+                    })
+                    continue
+                hash_b = deck_hashes.get(slug_b, "")
+                if args.incremental:
+                    ec = existing_cell_by_b.get(slug_b)
+                    if ec and not is_cell_stale(ec, hash_a, hash_b, ai_version):
+                        rc = dict(ec)
+                        rc["deck_a_recipe_hash"] = hash_a
+                        rc["deck_b_recipe_hash"] = hash_b
+                        rc["ai_version"] = ai_version
+                        rc["stale"] = False
+                        reused_cells_by_a[slug_a].append(rc)
+                        reused += 1
+                        continue
+                tasks.append((
+                    slug_a, slug_b,
+                    str(ROOT / "decks" / f"{slug_a}.json"),
+                    str(ROOT / "decks" / f"{slug_b}.json"),
+                    args.n_games, args.seed, args.ai_mode,
+                ))
+
+        print(f"並列計算: {len(tasks)} cells × {args.workers} workers (= reuse {reused})", flush=True)
+        results: dict = {}  # (slug_a, slug_b) -> cell dict
+        deck_name_by_slug = {s: n for s, n, _ in decks}
+
+        def _build_partial_matrix():
+            """results + mirror + reuse から 全 row 構成 を rebuild (= partial save 用)。"""
+            matrix_snapshot = []
+            for slug_a, name_a, _ in decks:
+                row_cells = []
+                for slug_b, _, _ in decks:
+                    if slug_a == slug_b:
+                        row_cells.append(mirror_cells_by_a[slug_a][0])
+                        continue
+                    cell = results.get((slug_a, slug_b))
+                    if cell is None:
+                        # まだ 計算 してない、 もしくは reuse 候補
+                        for rc in reused_cells_by_a[slug_a]:
+                            if rc.get("deck_b") == slug_b:
+                                cell = rc
+                                break
+                    if cell is not None:
+                        row_cells.append(cell)
+                # row_cells が 半分作りでも 全体 dump (= UI partial 対応)
+                expected = len(decks)
+                matrix_snapshot.append({
+                    "deck_a": slug_a,
+                    "deck_a_name": name_a,
+                    "row": row_cells,
+                    "partial_row": len(row_cells) < expected,
+                })
+            return matrix_snapshot
+
+        def _write_partial_parallel():
+            partial = {
+                "schema_version": MATRIX_SCHEMA_VERSION,
+                "computed_at": now_utc_iso(),
+                "n_games": args.n_games,
+                "seed": args.seed,
+                "ai_version": ai_version,
+                "partial": True,
+                "decks": [{"slug": s, "name": n} for s, n, _ in decks],
+                "matrix": _build_partial_matrix(),
+            }
+            OUT.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        t_par = time.time()
+        with Pool(args.workers) as pool:
+            for r in pool.imap_unordered(_compute_cell_worker, tasks, chunksize=1):
+                slug_a = r["slug_a"]
+                slug_b = r["slug_b"]
+                hash_a = deck_hashes.get(slug_a, "")
+                hash_b = deck_hashes.get(slug_b, "")
+                cell = make_cell_v2(
+                    deck_b_slug=slug_b,
+                    winrate=r["winrate"],
+                    wins=r["wins"],
+                    losses=r["losses"],
+                    draws=r["draws"],
+                    avg_turns=r["avg_turns"],
+                    deck_a_hash=hash_a,
+                    deck_b_hash=hash_b,
+                    ai_version=ai_version,
+                    stale=False,
+                )
+                results[(slug_a, slug_b)] = cell
+                for g in r["games_info"]:
+                    _append_log({
+                        "ts": now_utc_iso(), "event": "game",
+                        "deck_a": slug_a, "deck_a_name": deck_name_by_slug[slug_a],
+                        "deck_b": slug_b, "deck_b_name": deck_name_by_slug[slug_b],
+                        **g,
+                    })
+                _append_log({
+                    "ts": now_utc_iso(), "event": "cell_done",
+                    "deck_a": slug_a, "deck_b": slug_b,
+                    "cell_winrate": r["winrate"],
+                    "cell_wins": r["wins"], "cell_losses": r["losses"],
+                    "cell_draws": r["draws"], "avg_turns": r["avg_turns"],
+                })
+                recomputed += 1
+                done_now = len(results)
+                el = time.time() - t_par
+                rate = done_now / el if el > 0 else 0
+                eta = (len(tasks) - done_now) / rate if rate > 0 else 0
+                print(
+                    f"  done {done_now}/{len(tasks)}  {slug_a:<22} vs {slug_b:<22} "
+                    f"wr={r['winrate']:.3f}  elapsed {el:.0f}s  ETA {eta:.0f}s",
+                    flush=True,
+                )
+                if done_now % 5 == 0:
+                    _write_partial_parallel()
+
+        # final
+        cells = _build_partial_matrix()
+        out = {
+            "schema_version": MATRIX_SCHEMA_VERSION,
+            "computed_at": now_utc_iso(),
+            "n_games": args.n_games,
+            "seed": args.seed,
+            "ai_version": ai_version,
+            "decks": [{"slug": s, "name": n} for s, n, _ in decks],
+            "matrix": cells,
+        }
+        OUT.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        elapsed = time.time() - t0
+        print(f"\n並列計算 完了: {recomputed} cells recomputed, {reused} reused, elapsed {elapsed:.0f}s", flush=True)
+        _append_log({
+            "ts": now_utc_iso(), "event": "run_done",
+            "cells_done": done + recomputed, "elapsed_sec": round(elapsed, 1),
+            "reused": reused, "recomputed": recomputed,
+        })
+        return 0
+
+    # === Sequential path (= --workers == 1、 既存挙動 維持) ===
     for slug_a, name_a, deck_a in decks:
         hash_a = deck_hashes.get(slug_a, "")
         existing_row = existing_row_by_slug.get(slug_a, {}).get("row", [])
