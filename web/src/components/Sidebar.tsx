@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 const NAV = [
   { href: "/cards", label: "カード" },
   { href: "/decks", label: "デッキ" },
-  { href: "/play", label: "対戦 (vs AI)" },
+  { href: "/play", label: "対戦" },
   { href: "/research", label: "研究" },
   { href: "/meta", label: "メタ分析" },
   { href: "/faq", label: "Q&A" },
@@ -32,16 +32,29 @@ export function Sidebar() {
   }, [path]);
   if (path?.startsWith("/play") && matchActive) return null;
   return (
-    <aside className="sticky top-0 flex h-screen w-48 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+    <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
       <Link
         href="/"
-        className="flex items-center gap-2 border-b border-zinc-200 px-4 py-4 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        className="flex items-center gap-3 border-b border-zinc-200 px-4 py-4 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
       >
-        <div>
-          <div className="text-sm font-bold leading-tight tracking-tight text-zinc-900 dark:text-zinc-100">
-            One Piece
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold tracking-tight text-white"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--brand-strong) 0%, var(--brand) 60%, var(--accent) 100%)",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+          }}
+          aria-hidden
+        >
+          OP
+        </div>
+        <div className="leading-tight">
+          <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            ワンピース
           </div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Research</div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            カード研究所
+          </div>
         </div>
       </Link>
       <nav
@@ -59,12 +72,20 @@ export function Sidebar() {
                   ? "bg-zinc-200 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
                   : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100"
               }`}
+              style={
+                active
+                  ? { borderLeft: "2px solid var(--brand)", paddingLeft: "calc(0.75rem - 2px)" }
+                  : undefined
+              }
             >
               {label}
             </Link>
           );
         })}
       </nav>
+      <div className="mt-auto border-t border-zinc-200 px-4 py-3 text-[10px] text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
+        Research Platform
+      </div>
     </aside>
   );
 }

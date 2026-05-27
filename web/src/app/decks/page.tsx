@@ -3,6 +3,7 @@ import { fetchDecks } from "@/lib/api";
 import { DeckSummaryTile } from "@/components/DeckSummaryTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
+import { Button } from "@/components/ui/Button";
 
 export default async function DecksPage() {
   let decks: Awaited<ReturnType<typeof fetchDecks>> = [];
@@ -19,11 +20,8 @@ export default async function DecksPage() {
         title="デッキ"
         description={`メタデッキ DB (${decks.length} 個)。 クリックで 詳細・ AI vs AI 対戦`}
         actions={
-          <Link
-            href="/decks/new"
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            + 新規デッキ
+          <Link href="/decks/new">
+            <Button variant="primary">+ 新規デッキ</Button>
           </Link>
         }
       />
@@ -34,7 +32,7 @@ export default async function DecksPage() {
           <div className="mt-1 font-mono text-xs">{error}</div>
         </div>
       ) : decks.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200 p-6 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <div className="surface-panel p-6 text-sm text-zinc-500 dark:text-zinc-400">
           まだ デッキが 登録されていません。
         </div>
       ) : (

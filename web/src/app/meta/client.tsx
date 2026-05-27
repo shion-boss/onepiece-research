@@ -25,11 +25,13 @@ export function MetaPageClient({
   initialSeed?: number;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
-
   const decks = initialData?.decks ?? [];
 
   const tabs = (
-    <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+    <div
+      className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800"
+      role="tablist"
+    >
       <TabButton active={tab === "matrix"} onClick={() => setTab("matrix")}>
         マトリックス
       </TabButton>
@@ -39,41 +41,20 @@ export function MetaPageClient({
     </div>
   );
 
-  // spectate tab は full-screen layout (= 既存)、 matrix tab は PageShell。
-  if (tab === "spectate") {
-    return (
-      <main className="flex h-screen w-full flex-col gap-1.5 px-3 py-1.5">
-        <PageHeader
-          title="メタ分析"
-          description="デッキ A / B / seed を 選んで 「観戦開始」 で 1 試合 シミュレート → 盤面再生"
-          actions={tabs}
-        />
-        {decks.length >= 2 ? (
-          <MatrixSpectate
-            decks={decks}
-            initialDeckA={initialA}
-            initialDeckB={initialB}
-            initialSeed={initialSeed}
-          />
-        ) : (
-          <NoMatrixBanner />
-        )}
-      </main>
-    );
-  }
-
   return (
     <PageShell>
       <PageHeader
         title="メタ分析"
         description={
-          initialData
+          tab === "spectate"
+            ? "デッキ A / B / seed を 選んで 「観戦開始」 で 1 試合 シミュレート → 盤面再生"
+            : initialData
             ? `${initialData.decks.length} デッキ × ${initialData.decks.length} の 勝率行列。 各 cell ${initialData.n_games} 戦 (seed=${initialData.seed})`
             : "デッキ間 N×N 勝率行列"
         }
         actions={tabs}
         meta={
-          initialData && (
+          tab === "matrix" && initialData ? (
             <>
               {initialData.ai_version && (
                 <span>
@@ -93,13 +74,24 @@ export function MetaPageClient({
                 </code>
               </span>
             </>
-          )
+          ) : undefined
         }
       />
       {initialError ? (
         <ErrorBanner message={initialError} />
-      ) : initialData ? (
-        <MatchupHeatmap data={initialData} />
+      ) : tab === "matrix" ? (
+        initialData ? (
+          <MatchupHeatmap data={initialData} />
+        ) : (
+          <NoMatrixBanner />
+        )
+      ) : decks.length >= 2 ? (
+        <MatrixSpectate
+          decks={decks}
+          initialDeckA={initialA}
+          initialDeckB={initialB}
+          initialSeed={initialSeed}
+        />
       ) : (
         <NoMatrixBanner />
       )}
@@ -119,10 +111,12 @@ function TabButton({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       className={`-mb-px border-b-2 px-3 py-1.5 text-sm transition ${
         active
-          ? "border-blue-600 font-medium text-zinc-900 dark:border-blue-400 dark:text-zinc-100"
+          ? "border-[color:var(--brand)] font-medium text-zinc-900 dark:text-zinc-100"
           : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
       }`}
     >
