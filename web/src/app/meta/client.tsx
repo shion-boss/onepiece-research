@@ -1,5 +1,7 @@
 "use client";
 
+// 方針: matrix データ は default AI (= GoalDirectedAI) で 計算した db/matchup_matrix.json を 表示する。
+// 現データ が GreedyAI_matrix_fast の 場合 は 旧計算、 再計算 待ち。
 import { useState } from "react";
 import type { MatchupMatrix } from "@/lib/types";
 import { MatchupHeatmap } from "@/components/MatchupHeatmap";

@@ -1925,7 +1925,7 @@ function StartPanel({
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       {/* Hero header */}
       <header className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-8 shadow-sm dark:border-zinc-800 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-rose-950/30">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">

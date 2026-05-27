@@ -36,7 +36,7 @@ from engine.matrix_schema import (  # noqa: E402
 
 OUT = ROOT / "db" / "matchup_matrix.json"
 LOG_PATH = ROOT / "db" / "matrix_run_log.ndjson"
-DEFAULT_AI_VERSION = "PlanningAI_R71_phase7"
+DEFAULT_AI_VERSION = "GoalDirectedAI_default"
 
 
 def _compute_cell_worker(task):

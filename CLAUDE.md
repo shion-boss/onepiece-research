@@ -285,6 +285,7 @@ onepiece_research/
 - `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (R60 で 16×16 = 256 セルに更新)
+  - **方針: 表示用 matrix は default AI (= GoalDirectedAI) で 計算する** (= meta page `/meta` で 公開する データ品質を 最新 AI に 揃える)。 旧 `GreedyAI_matrix_fast` データは 再計算 待ち
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
 - `overlay_when_missing.json`: cardqa sweep 結果 (X5、 missing 0)
 - `rules/*.pdf`: 公式ルール一次情報
