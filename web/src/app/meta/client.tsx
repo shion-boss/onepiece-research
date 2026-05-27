@@ -63,7 +63,7 @@ export function MetaPageClient({
   }
 
   return (
-    <PageShell variant="wide">
+    <PageShell>
       <PageHeader
         title="メタ分析"
         description={

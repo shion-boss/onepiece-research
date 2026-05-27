@@ -14,7 +14,7 @@ export default async function PlayPage() {
 
   if (error) {
     return (
-      <PageShell variant="narrow">
+      <PageShell>
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
           <div className="font-medium">API への 接続に 失敗しました</div>
           <div className="mt-1 font-mono text-xs">{error}</div>
@@ -25,7 +25,7 @@ export default async function PlayPage() {
 
   if (decks.length === 0) {
     return (
-      <PageShell variant="narrow">
+      <PageShell>
         <div className="rounded-lg border border-zinc-200 p-6 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           まだ デッキが 登録されていません。
         </div>

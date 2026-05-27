@@ -109,7 +109,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
 
   if (error && !data) {
     return (
-      <main className="mx-auto max-w-4xl p-6">
+      <main className="mx-auto w-full max-w-6xl px-6 py-8">
         <div className="rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
           エラー: {error}
         </div>
@@ -128,7 +128,7 @@ function ResearchDetailContent({ params }: { params: Promise<{ id: string }> }) 
   const targetWR = data.config.target_winrate as number ?? 0.7;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 p-6">
+    <main className="mx-auto w-full max-w-6xl space-y-6 px-6 py-8">
       <header className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">🔬 研究セッション {sessionId.slice(0, 8)}…</h1>

@@ -171,7 +171,7 @@ function NewDeckPageContent() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link

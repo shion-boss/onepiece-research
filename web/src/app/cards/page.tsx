@@ -54,7 +54,7 @@ export default async function CardsPage({
   }
 
   return (
-    <PageShell variant="wide">
+    <PageShell>
       <PageHeader
         title="カード"
         description="全 4,518 枚 の 検索 + フィルタ"
