@@ -512,13 +512,17 @@ def search_turn_plan(
     _is_strong = _os.environ.get("ONEPIECE_GOAL_STRONG") == "1"
 
     def _unused_attacker_penalty_strong(cur_state, plan) -> float:
-        """v2 強化: opp life ≤ 2 で 「active attacker を 1 体 でも 残した」 plan を 重く penalty。
-        相手 が lethal 圏内 = 全力 攻撃 が 当然 (= ohtsuki さん feedback)。
+        """v2 強化: opp life ≤ 1 で 「active leader を 残した」 plan を penalty。
+
+        絞り込み (= 2026-05-28 v2 後 調整):
+        - opp_life ≤ 1 のみ (= 本当に lethal 圏内、 計算量 抑制)
+        - leader のみ (= 公式 7-1-4 で KO されない、 攻撃 ノーコスト だから 確実に お得)
+        - chara は 除外 (= 攻撃 失敗 → KO 損失 リスクあり、 plan_search の eval に 委ねる)
         """
         if not _is_strong:
             return 0.0
         opp_player = cur_state.players[1 - me_idx]
-        if len(opp_player.life) > 2:
+        if len(opp_player.life) > 1:
             return 0.0
         me_player = cur_state.players[me_idx]
         from .game import AttackLeader, AttackCharacter
@@ -526,27 +530,15 @@ def search_turn_plan(
         for act in plan:
             if isinstance(act, (AttackLeader, AttackCharacter)):
                 attacked_iids.add(getattr(act, "attacker_iid", -1))
-        unused_attackers = 0
-        # leader (= 公式 7-1-4: KO されない、 攻撃ノーコスト)
+        # leader のみ チェック (= 公式 7-1-4: KO されない、 攻撃ノーコスト)
         ld = me_player.leader
         if (
             not ld.rested
             and not ld.summoning_sickness
             and ld.instance_id not in attacked_iids
         ):
-            unused_attackers += 1
-        for c in me_player.characters:
-            if c.rested:
-                continue
-            if c.summoning_sickness and not c.is_rush_now:
-                continue
-            if c.cannot_attack_until_turn_end or c.cannot_attack_static:
-                continue
-            if c.instance_id in attacked_iids:
-                continue
-            unused_attackers += 1
-        # 1 unused attacker = -2000 (= compute_score の typical magnitude 比較 で 抑制力 強)
-        return -unused_attackers * 2000
+            return -3000  # leader 1 体 残し で -3000 (= 重く 抑制)
+        return 0.0
 
     best_plan: list = []
     best_score = -float("inf")

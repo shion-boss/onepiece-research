@@ -1545,14 +1545,13 @@ def compute_score(
     if weights.W_OPP_NEXT_LETHAL != 0:
         me_forward = project_opp_next_turn_lethal(state, 1 - me_idx)
         opp_forward = project_opp_next_turn_lethal(state, me_idx)
-        # v2 強化 (= 2026-05-28、 ONEPIECE_GOAL_STRONG=1): opp life ≤ 2 で W_OPP_NEXT_LETHAL ×1.5、
-        # self life ≤ 1 で 被 lethal リスク 重み ×1.5。 lethal 圏内 で 攻撃 / 防御 判断 強化。
+        # v2 強化 (= 2026-05-28、 ONEPIECE_GOAL_STRONG=1): self life ≤ 1 で 被 lethal 重み ×1.3。
+        # opp 攻撃 受け 拒否 判断 強化 (= counter / blocker 使い 切る 方向)。
+        # 過剰 boost は AI 行動 を 歪める ので 控えめ。
         w_next_lethal = float(weights.W_OPP_NEXT_LETHAL)
         if os.environ.get("ONEPIECE_GOAL_STRONG") == "1":
-            opp_life_now = len(opp.life)
-            me_life_now = len(me.life)
-            if opp_life_now <= 2 or me_life_now <= 1:
-                w_next_lethal *= 1.5
+            if len(me.life) <= 1:
+                w_next_lethal *= 1.3
         score += (me_forward - opp_forward) * w_next_lethal
 
     # === Group 3: deck_finisher (= role_db 経由で deck 走査) ===

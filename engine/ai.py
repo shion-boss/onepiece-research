@@ -1539,12 +1539,12 @@ class GreedyAI:
             if self._get_card_primary_role(attacker.card.card_id) == "finisher":
                 max_total = int(max_total * 1.3)
                 max_cards = max_cards + 1
-            # v2 強化 (= 2026-05-28、 self._strong=True): life ≤ 2 で 閾値 拡張 (1.5×)。
+            # v2 強化 (= 2026-05-28、 self._strong=True): life ≤ 2 で 閾値 拡張 (1.3×、 +1 card)。
             # opp が lethal 圏内 = 1 ライフ も 渡せない 文脈 で counter 出し惜しみ 抑制。
             # choose_defense は opp ターン中 (= 自分 choose_action 内 でない) に 呼ばれる ため、
             # ONEPIECE_GOAL_STRONG env は set されておらず、 self._strong (= GoalDirectedAI 由来) 直接参照。
             if getattr(self, "_strong", False) and life_left <= 2:
-                max_total = int(max_total * 1.5)
+                max_total = int(max_total * 1.3)
                 max_cards = max_cards + 1
             if life_left <= 1:
                 return block_iid, tuple(spent)
