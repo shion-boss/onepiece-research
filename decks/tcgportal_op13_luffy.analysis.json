@@ -84,11 +84,11 @@
       4
     ]
   ],
-  "archetype": "ミッドレンジ",
-  "speed": "低速",
+  "archetype": "ランプ",
+  "speed": "中速",
   "defense": "標準",
   "consistency": "高い",
-  "strategy_summary": "特徴《麦わらの一味》軸のミッドレンジデッキ (低速)。防御 標準・安定性 高い。",
+  "strategy_summary": "特徴《麦わらの一味》軸のランプデッキ (中速)。防御 標準・安定性 高い。",
   "mulligan_keep_card_ids": [
     "EB04-002",
     "OP13-016"
@@ -140,7 +140,9 @@
       ]
     }
   ],
-  "weaknesses": [],
+  "weaknesses": [
+    "ramp 前にアグロ押し切り食らうと加速 仕切れず詰む"
+  ],
   "strengths": [
     "サーチ / ドロー多数: ハンド事故しにくい、 動きの再現性高い",
     "特徴《麦わらの一味》専属 (25 枚): シナジーカードで爆発力"
@@ -228,11 +230,15 @@
     }
   ],
   "ai_hints": [
-    "コスト効率を最大化、 毎ターン展開と除去のバランスを取る",
+    "DON 加速を最優先、 小型ブロッカーで凌いで大型展開へ",
     "特徴《麦わらの一味》専属: シナジーカードを優先プレイ",
     "リーダー効果で DON アクティブ化 = 起動メイン使用後の追加展開を計算"
   ],
   "ai_hint_signals": [
+    {
+      "type": "prioritize_ramp_first",
+      "value": true
+    },
     {
       "type": "counter_aggression",
       "value": "mid"

@@ -332,7 +332,11 @@ def _classify_archetype(
     # === アグロスコア ===
     # 「ライフ詰め型」 を捉える。 平均コスト・低コスト密度・速攻持ち・on_attack 強化 が主シグナル
     aggro = 0
-    if avg_cost <= 2.7:
+    # 2026-05-27: 超低コスト deck (= avg ≤ 2.0、 cardrush_1454 エネル 1.54 等) は
+    # 確実アグロ。 midrange base に 押し負けない 大幅加点。
+    if avg_cost <= 2.0:
+        aggro += 45
+    elif avg_cost <= 2.7:
         aggro += 30
     elif avg_cost <= 3.0:
         aggro += 22
@@ -411,8 +415,10 @@ def _classify_archetype(
         ramp += 10
 
     # === ミッドレンジスコア ===
-    # base を上げて、 「中型キャラ + 適度な除去/ブロッカー」 の中庸デッキを拾う
-    midrange = 35
+    # 2026-05-27: base 35 → 25 に 下げる。 アグロ / ランプ の しきい値 緩和 と セット で
+    # 「avg_cost が 中庸 寄り の デフォ ミッド」 と 「真に ミッドレンジ」 を 区別 する。
+    # 「中型キャラ + 適度な除去/ブロッカー」 = 真ミッド は 加点 で 補強。
+    midrange = 25
     if 2.8 <= avg_cost <= 3.7:
         midrange += 18
     elif 2.5 <= avg_cost <= 4.0:
@@ -462,6 +468,8 @@ def _compute_mulligan(
     counter = Counter(c.card_id for c in main)
     leader_features = set(leader.features)
 
+    # 2026-05-27: 4 積み 限定 だと 一部 deck (= 3 積み 主流) で keep_ids が 1-2 件 と 過少 に
+    # なる ため、 3 積み カード も 候補 に 含める (= 引ける確率 ~25-30% で 充分 序盤キー扱い)。
     keep_ids: list[str] = []
     seen: set[str] = set()
     for c in main:
@@ -469,7 +477,7 @@ def _compute_mulligan(
             continue
         seen.add(c.card_id)
         n = counter[c.card_id]
-        if n < 4:
+        if n < 3:
             continue
         if c.cost > 4:
             continue
@@ -589,11 +597,20 @@ def _compute_weaknesses(
         out.append("コントロールに対しガス欠リスク: 後半の手札・打点が枯れる")
     elif archetype == "コントロール":
         out.append("アグロデッキの早期 ライフ削りに脆弱、 序盤の捌きが重要")
+    elif archetype == "ランプ":
+        out.append("ramp 前にアグロ押し切り食らうと加速 仕切れず詰む")
 
     # KO 効果が少ない
     high_cost_chars = [c for c in main if c.category.value == "CHARACTER" and c.cost >= 5]
     if len(high_cost_chars) <= 4:
         out.append("コスト 5+ キャラ少ない: 大型相手の処理手段が限定的")
+
+    # fallback: ミッドレンジ で 全条件 通過した 「ザ・バランス型」 でも 必ず 1 件 weakness 出す
+    # (= 「弱点 なし」 表記 は 戦略指南 として 役立たない、 メタ相性 観点 で 構造的弱点 を 必ず 1 行)
+    if not out and archetype == "ミッドレンジ":
+        out.append(
+            "ミッドレンジ 共通: 純アグロ に 序盤押し切られ、 純コントロール に 後半 リソース勝負 で 負ける 可能性"
+        )
     return out
 
 

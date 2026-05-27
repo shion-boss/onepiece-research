@@ -15,7 +15,7 @@ const FEATURES = [
   },
   {
     href: "/play",
-    label: "対戦 (vs AI)",
+    label: "対戦",
     description: "人間 が AI と 対戦 (= プレイ感確認 / 学習データ収集)",
   },
   {
@@ -39,22 +39,22 @@ export default function Home() {
   return (
     <PageShell>
       <PageHeader
-        title="One Piece Research"
-        description="ワンピースカードゲーム デッキ研究 + AI 対戦シミュレーション プラットフォーム"
+        title="ワンピースカード研究所"
+        description="公式準拠 100% の OPTCG エンジン 上で、 デッキ研究 と AI 対戦 を 集合知 で 進める 研究プラットフォーム"
       />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ href, label, description }) => (
           <Link
             key={href}
             href={href}
-            className="group flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-5 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+            className="surface-panel group flex flex-col gap-2 p-5 transition-colors hover:border-[color:var(--brand)] hover:bg-[color:var(--brand-soft)] dark:hover:bg-zinc-900"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-medium text-zinc-900 dark:text-zinc-100">
                 {label}
               </h2>
               <span
-                className="text-zinc-400 transition-transform group-hover:translate-x-0.5 dark:text-zinc-500"
+                className="text-zinc-400 transition-all group-hover:translate-x-0.5 group-hover:text-[color:var(--brand)] dark:text-zinc-500"
                 aria-hidden
               >
                 →

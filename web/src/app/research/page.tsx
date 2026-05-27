@@ -6,6 +6,7 @@ import { listResearchSessions } from "@/lib/api";
 import type { ResearchSessionSummary } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
+import { Button } from "@/components/ui/Button";
 
 export default function ResearchListPage() {
   const [sessions, setSessions] = useState<ResearchSessionSummary[]>([]);
@@ -44,11 +45,8 @@ export default function ResearchListPage() {
         title="研究セッション"
         description="対策デッキを 世代交代 で 進化させる 長時間研究 の 管理"
         actions={
-          <Link
-            href="/research/new"
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            + 新規セッション
+          <Link href="/research/new">
+            <Button variant="primary">+ 新規セッション</Button>
           </Link>
         }
       />

@@ -33,8 +33,12 @@ def main():
     overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
 
     deck_files = sorted((ROOT / "decks").glob("*.json"))
-    # exclude analysis files themselves
-    deck_files = [f for f in deck_files if not f.name.endswith(".analysis.json")]
+    # exclude analysis files themselves + target spec files (= 別 schema、 deck list じゃない)
+    deck_files = [
+        f for f in deck_files
+        if not f.name.endswith(".analysis.json")
+        and ".target_v" not in f.name
+    ]
 
     print(f"対象デッキ: {len(deck_files)} 件")
     generated = 0
