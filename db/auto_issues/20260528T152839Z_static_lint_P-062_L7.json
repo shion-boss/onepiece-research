@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L7",
+  "card_id": "P-062",
+  "severity": 4,
+  "risk_tier": "low",
+  "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
+  "evidence": {
+    "text_excerpt": "【起動メイン】【ターン1回】相手のコスト4以下のキャラ1枚までを、レストにし、このキャラは、このターン中、パワー＋1000。その後、自…",
+    "n": 4
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:P-062",
+    "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T152839Z"
+}

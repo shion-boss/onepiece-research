@@ -280,6 +280,70 @@ def fix_l8_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
     return True, f"{cid} に set_cannot_attack({target}, next_opp_turn_end) 追加"
 
 
+def fix_l8_missing_power_pump(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8: 「次相手 end まで パワー +N」 / 「-N」 missing primitive 追加。
+
+    text pattern: 「(対象)、 次の相手のターン終了時まで、 パワー[+-]N」
+    overlay に power_pump primitive ない場合 main entry に 追加。
+    """
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected != "next_opp_turn_end":
+        return False, "next_opp_turn_end 以外"
+    text = _get_card_text(cid)
+    m_pw = re.search(r"次の相手のターン終了時まで、?\s*パワー([+-])(\d+)", text)
+    if not m_pw:
+        return False, "power +/- pattern なし"
+    sign = m_pw.group(1)
+    amount_abs = int(m_pw.group(2))
+    amount = amount_abs if sign == "+" else -amount_abs
+
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) == 0 or len(entries) > 2:
+        return False, f"entry 数 unsupported ({len(entries) if isinstance(entries,list) else '?'})"
+    # 既 power_pump duration next_opp_turn_end あれば skip
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and "power_pump" in prim:
+                pv = prim.get("power_pump", {})
+                if isinstance(pv, dict) and pv.get("duration") == "next_opp_turn_end":
+                    return False, "既 power_pump next_opp_turn_end あり"
+    # target 推定 (= power +/- の 直前 句)
+    before = text[: m_pw.start()]
+    before = re.sub(r"(は、|、)$", "", before)
+    last_delim = max(before.rfind("、"), before.rfind("："), before.rfind("。"))
+    target_clause = before[last_delim+1:] if last_delim >= 0 else before
+    if "このキャラ" in target_clause or "このリーダー" in target_clause:
+        target = "self"
+    elif "自分のキャラ" in target_clause:
+        target = "one_self_character_any"
+    elif "自分のリーダー" in target_clause:
+        target = "self_leader"
+    elif "相手のキャラ" in target_clause:
+        target = "one_opponent_character_any"
+    elif "相手のリーダー" in target_clause:
+        target = "one_opponent_leader"
+    else:
+        return False, f"target 推定 不可: ...{target_clause[-40:]}"
+    # 主 trigger entry
+    main_entry = None
+    for e in entries:
+        if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main", "counter", "on_attack"):
+            main_entry = e
+            break
+    if main_entry is None:
+        main_entry = entries[0]
+    new_prim = {"power_pump": {"target": target, "amount": amount, "duration": "next_opp_turn_end"}}
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に power_pump({target}, {amount:+d}, next_opp_turn_end) 追加"
+
+
 # ============================================================
 # handler 4: L8 (next_*_turn_end duration 変更)
 # ============================================================
@@ -328,19 +392,67 @@ def fix_l8_duration(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, "対応 primitive (power_pump duration=turn) なし"
 
 
-# L8 handler chain: まず duration 変更 を 試行、 駄目 なら missing primitive 追加 試行
+# L8 handler chain: 3 つ の handler を 順次 試行
 def fix_l8_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
-    ok, msg = fix_l8_duration(issue, overlay)
-    if ok:
-        return ok, msg
-    ok2, msg2 = fix_l8_missing_primitive(issue, overlay)
-    if ok2:
-        return ok2, msg2
-    return False, f"duration: {msg}; missing: {msg2}"
+    for handler, label in [
+        (fix_l8_duration, "duration"),
+        (fix_l8_missing_primitive, "missing_attack_disable"),
+        (fix_l8_missing_power_pump, "missing_power_pump"),
+    ]:
+        ok, msg = handler(issue, overlay)
+        if ok:
+            return ok, msg
+    return False, "全 L8 handler が skip"
+
+
+def fix_l4_to_multi(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L4: 「chara N 枚 まで」 で overlay の単一 target primitive を ko_multi 等 へ 変換。
+
+    対応 primitive: ko / return_to_hand / return_to_deck_bottom / rest
+    → それぞれ の _multi 版 に N 個 同 spec を 並べる。
+
+    安全 適用 条件:
+    - text に 「(コスト/パワー) N 以下のキャラ M 枚 まで」 (M ≥ 2) が ある
+    - overlay 単一 entry + 単一 primitive (= 上記 4 種 の どれか)
+    - primitive value が string spec (= dict spec は skip)
+    """
+    cid = issue["card_id"]
+    text = _get_card_text(cid)
+    # 「キャラ M 枚 まで」 抽出 (M >= 2)
+    m_count = re.search(r"キャラ(?:[^、。]{0,5})?([2-9]|10|11|12)\s*(枚|体)まで", text)
+    if not m_count:
+        return False, "「キャラ N 枚 まで」 pattern なし"
+    count = int(m_count.group(1))
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) != 1:
+        return False, f"単一 entry 限定 (現 {len(entries) if isinstance(entries,list) else '?'})"
+    e = entries[0]
+    if not isinstance(e, dict):
+        return False, "entry not dict"
+    do = e.get("do", [])
+    if not isinstance(do, list) or len(do) != 1:
+        return False, "do 1 件 のみ 対応"
+    prim = do[0]
+    if not isinstance(prim, dict) or len(prim) != 1:
+        return False, "primitive 1 件 のみ"
+    pk, pv = next(iter(prim.items()))
+    base_to_multi = {
+        "ko": "ko_multi",
+        "return_to_hand": "return_to_hand_multi",
+        "return_to_deck_bottom": "return_to_deck_bottom_multi",
+    }
+    if pk not in base_to_multi:
+        return False, f"primitive {pk} は multi 変換 非対応"
+    if not isinstance(pv, str):
+        return False, "string target spec のみ 対応"
+    new_pk = base_to_multi[pk]
+    do[0] = {new_pk: [pv] * count}
+    return True, f"{cid}[0]: {pk} → {new_pk} × {count}"
 
 
 HANDLERS = {
     "L1": fix_l1_optional,
+    "L4": fix_l4_to_multi,
     "L5": fix_l5_leader_feature,
     "L7": fix_l7_cost_le,
     "L8": fix_l8_combined,

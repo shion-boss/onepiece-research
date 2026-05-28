@@ -18395,7 +18395,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko_multi": [
+            "one_opponent_character_power_le_3000",
+            "one_opponent_character_power_le_3000"
+          ]
         }
       ]
     }
@@ -34242,7 +34245,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko_multi": [
+            "one_opponent_character_power_le_3000",
+            "one_opponent_character_power_le_3000"
+          ]
         }
       ]
     }
@@ -34253,7 +34259,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko_multi": [
+            "one_opponent_character_power_le_3000",
+            "one_opponent_character_power_le_3000"
+          ]
         }
       ]
     }
@@ -42621,7 +42630,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko_multi": [
+            "one_opponent_character_power_le_3000",
+            "one_opponent_character_power_le_3000"
+          ]
         }
       ]
     }
@@ -46863,7 +46875,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko_multi": [
+            "one_opponent_character_any",
+            "one_opponent_character_any"
+          ]
         }
       ]
     }
@@ -46874,7 +46889,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko_multi": [
+            "one_opponent_character_any",
+            "one_opponent_character_any"
+          ]
         }
       ]
     }
@@ -57464,6 +57482,13 @@
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -60186,6 +60211,13 @@
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -60238,7 +60270,10 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko_multi": [
+            "one_opponent_character_any",
+            "one_opponent_character_any"
+          ]
         }
       ]
     }
@@ -61560,6 +61595,13 @@
             "amount": -2000,
             "duration": "turn"
           }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -62604,6 +62646,13 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -65920,7 +65969,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko_multi": [
+            "one_opponent_character_any",
+            "one_opponent_character_any"
+          ]
         }
       ]
     }
@@ -65931,7 +65983,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko_multi": [
+            "one_opponent_character_any",
+            "one_opponent_character_any"
+          ]
         }
       ]
     }
@@ -74824,6 +74879,13 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "turn"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
           }
         }
       ]

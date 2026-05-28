@@ -1,22 +1,22 @@
 {
-  "generated_at": "2026-05-28T15:26:00.726385Z",
+  "generated_at": "2026-05-28T15:28:55.675021Z",
   "cards_scanned": 4518,
-  "issues_total": 179,
+  "issues_total": 165,
   "by_rule": {
-    "L4": 68,
+    "L4": 59,
     "L7": 34,
     "L3": 48,
-    "L8": 29
+    "L8": 24
   },
   "by_category": {
-    "count_limit_missing": 68,
+    "count_limit_missing": 59,
     "cost_le_missing": 34,
     "self_opp_reversal_suspect": 48,
-    "duration_next_turn_missing": 29
+    "duration_next_turn_missing": 24
   },
   "by_severity": {
-    "3": 68,
-    "4": 63,
+    "3": 59,
+    "4": 58,
     "2": 48
   },
   "issues": [
@@ -680,66 +680,6 @@
       }
     },
     {
-      "rule_id": "L4",
-      "card_id": "OP05-007",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを、パワーの合計が4000以下になるようにKOする。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-007",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP05-007_p1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを、パワーの合計が4000以下になるようにKOする。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-007_p1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP05-007_p2",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを、パワーの合計が4000以下になるようにKOする。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-007_p2",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP05-007_r1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを、パワーの合計が4000以下になるようにKOする。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-007_r1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP05-041",
       "severity": 2,
@@ -1327,21 +1267,6 @@
       }
     },
     {
-      "rule_id": "L8",
-      "card_id": "OP08-014",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…】相手のキャラ1枚までを、このターン中、パワー-2000。その後、このキャラは、次の相手のターン終了時まで、パワー+2000。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-014",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP08-018",
       "severity": 3,
@@ -1448,21 +1373,6 @@
     },
     {
       "rule_id": "L8",
-      "card_id": "OP08-103",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…回】自分のライフの上から1枚を手札に加えることができる：自分のキャラ1枚までを、次の相手のターン終了時まで、パワー+1000。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-103",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
       "card_id": "OP08-112",
       "severity": 4,
       "category": "duration_next_turn_missing",
@@ -1492,21 +1402,6 @@
       }
     },
     {
-      "rule_id": "L4",
-      "card_id": "OP08-118",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを選び、次の相手のターン終了時まで、1枚をパワー-3000し、残りをパワー-20…",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-118",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP08-118",
       "severity": 4,
@@ -1519,21 +1414,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP08-118",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP08-118_p1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを選び、次の相手のターン終了時まで、1枚をパワー-3000し、残りをパワー-20…",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-118_p1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
       }
     },
     {
@@ -1552,21 +1432,6 @@
       }
     },
     {
-      "rule_id": "L4",
-      "card_id": "OP08-118_p2",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを選び、次の相手のターン終了時まで、1枚をパワー-3000し、残りをパワー-20…",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-118_p2",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP08-118_p2",
       "severity": 4,
@@ -1582,21 +1447,6 @@
       }
     },
     {
-      "rule_id": "L4",
-      "card_id": "OP08-118_r1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のキャラ2枚までを選び、次の相手のターン終了時まで、1枚をパワー-3000し、残りをパワー-20…",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-118_r1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP08-118_r1",
       "severity": 4,
@@ -1609,66 +1459,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP08-118_r1",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-013",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+1000。【ドン‼×1】【アタック時】相手のキャラ1枚までを、このター…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-013",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-013_p1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+1000。【ドン‼×1】【アタック時】相手のキャラ1枚までを、このター…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-013_p1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-013_r1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+1000。【ドン‼×1】【アタック時】相手のキャラ1枚までを、このター…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-013_r1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP09-018",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【メイン】相手のキャラ2枚までを、パワーの合計が4000以下になるようにKOする。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-018",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
       }
     },
     {

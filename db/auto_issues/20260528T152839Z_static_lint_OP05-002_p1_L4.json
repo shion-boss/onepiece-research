@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L4",
+  "card_id": "OP05-002_p1",
+  "severity": 3,
+  "risk_tier": "low",
+  "message": "text に chara/leader 文脈 で 「キャラ3枚まで」 が 含まれる が overlay に count: 3 制限 なし",
+  "evidence": {
+    "text_excerpt": "…》を持つカード1枚を捨てることができる：自分の特徴《革命軍》か【トリガー】を持つキャラ3枚までを、このターン中、パワー+3000。",
+    "matched": "キャラ3枚まで"
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP05-002_p1",
+    "patch": "該当 effect に count: 3 (or limit: 3) を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T152839Z"
+}
