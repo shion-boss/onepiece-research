@@ -34,7 +34,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CARDS_PATH = REPO_ROOT / "db" / "cards.json"
 OVERLAY_PATH = REPO_ROOT / "db" / "card_effects.json"
-ACK_PATH = REPO_ROOT / "db" / "audit_acknowledged.json"
+ACK_PATH = REPO_ROOT / "db" / "static_audit_acknowledged.json"
 OUT_JSON = REPO_ROOT / "db" / "static_audit_report.json"
 OUT_MD = REPO_ROOT / "db" / "static_audit_report.md"
 
@@ -69,7 +69,15 @@ def _load_overlay() -> dict:
 
 
 def _load_ack() -> set[str]:
-    """audit_acknowledged.json に intrinsic 除外 listed の (card_id, rule_id) set。"""
+    """static_audit_acknowledged.json に intrinsic 除外 listed の (card_id, rule_id) set。
+
+    format:
+    {
+      "_comment": "...",
+      "OP10-118": ["L2"],   // この card は L2 を 除外
+      ...
+    }
+    """
     if not ACK_PATH.exists():
         return set()
     try:
@@ -77,10 +85,14 @@ def _load_ack() -> set[str]:
     except Exception:
         return set()
     out = set()
-    for entry in ack.get("entries", []) if isinstance(ack, dict) else []:
-        cid = entry.get("card_id")
-        rule = entry.get("rule_id")
-        if cid and rule:
+    if not isinstance(ack, dict):
+        return out
+    for cid, rules in ack.items():
+        if cid.startswith("_"):
+            continue
+        if not isinstance(rules, list):
+            continue
+        for rule in rules:
             out.add(f"{cid}:{rule}")
     return out
 
@@ -225,43 +237,34 @@ def _check_trigger_missing(cid: str, text: str, entries: list) -> list[dict]:
 
 
 def _check_leader_feature_missing(cid: str, text: str, entries: list) -> list[dict]:
-    """L5: 「自分のリーダーが特徴《X》を持つ(なら|場合)」 → entry の if.leader_feature: X。"""
+    """L5: 「自分のリーダーが特徴《X》を持つ(なら|場合)」 → 任意の場所 (if / conditions[] /
+    choice_effect.options[].if / nested) で leader_feature: X が 宣言 されている。
+    """
     issues = []
     if not entries:
         return issues
-    # 「自分のリーダーが特徴《X》を持つ なら/場合」 抽出
     m = re.search(r"自分のリーダーが特徴《([^》]+)》を持つ(なら|場合)", text)
     if not m:
         return issues
     feature = m.group(1)
-    # 少なくとも 1 entry の if.leader_feature が feature なら OK
+
+    # 再帰 全 走査 で leader_feature: feature を 探す
     has_feature = False
-    for e in entries if isinstance(entries, list) else []:
-        if not isinstance(e, dict):
-            continue
-        if_block = e.get("if", {})
-        if isinstance(if_block, dict):
-            lf = if_block.get("leader_feature")
-            if lf == feature or (isinstance(lf, list) and feature in lf):
-                has_feature = True
-                break
-        # choice_effect の option 別 if も 拾う
-        do_list = e.get("do", [])
-        for prim in do_list if isinstance(do_list, list) else []:
-            if isinstance(prim, dict) and "choice_effect" in prim:
-                opts = prim["choice_effect"].get("options", [])
-                for opt in opts:
-                    if isinstance(opt, dict):
-                        opt_if = opt.get("if", {})
-                        if isinstance(opt_if, dict):
-                            lf = opt_if.get("leader_feature")
-                            if lf == feature or (isinstance(lf, list) and feature in lf):
-                                has_feature = True
-                                break
-                if has_feature:
-                    break
+    def _walk(node):
+        nonlocal has_feature
         if has_feature:
-            break
+            return
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "leader_feature":
+                    if v == feature or (isinstance(v, list) and feature in v):
+                        has_feature = True
+                        return
+                _walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+    _walk(entries)
     if not has_feature:
         issues.append({
             "rule_id": "L5",
@@ -292,6 +295,246 @@ def _excerpt_around(text: str, tokens: tuple, span: int = 40) -> str:
     return text[:80]
 
 
+def _gather_target_specs(entries: list) -> list[str]:
+    """全 entry の target 風 string spec を 1 つ の list に 集める (= 再帰 走査)。
+
+    target / target_spec / 任意 nested dict["target"] を 拾う。
+    """
+    found: list[str] = []
+    def _walk(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k in ("target", "target_spec") and isinstance(v, str):
+                    found.append(v)
+                _walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+    _walk(entries)
+    return found
+
+
+def _check_count_limit_missing(cid: str, text: str, entries: list) -> list[dict]:
+    """L4: 「N枚まで」 chara/leader 文脈 で entry の count 制限 が 無い。
+
+    ドン / カード(手札) / ライフ は 別 文脈 (= ドン用 amount プリミティブ持ち、
+    手札 用 はカード手札枚数、 ライフ用 はライフ枚数) なので 除外。 chara/リーダー 文脈
+    のみ flag。 N≥2 限定 (N=1 は target spec の `one_*` で 自然 制限)。
+    """
+    issues = []
+    if not entries:
+        return issues
+    # chara/leader 文脈 + N >= 2 のみ
+    # "chara/リーダー/キャラ X 枚 まで" 抽出
+    pattern = r"(キャラ|リーダー)([^、。]{0,8}?)([2-9]|10|11|12)\s*(枚|体)まで"
+    matches = list(re.finditer(pattern, text))
+    if not matches:
+        return issues
+    # entries 内 で count or limit が 宣言 されている か
+    has_count_decl = False
+    def _walk_count(node):
+        nonlocal has_count_decl
+        if has_count_decl:
+            return
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k in ("count", "limit", "max", "max_count") and isinstance(v, int) and v >= 2:
+                    has_count_decl = True
+                    return
+                _walk_count(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk_count(item)
+    _walk_count(entries)
+    if has_count_decl:
+        return issues
+    matched_str = matches[0].group(0)
+    n_str = matches[0].group(3)
+    issues.append({
+        "rule_id": "L4",
+        "card_id": cid,
+        "severity": 3,
+        "category": "count_limit_missing",
+        "message": f"text に chara/leader 文脈 で 「{matched_str}」 が 含まれる が "
+                  f"overlay に count: {n_str} 制限 なし",
+        "evidence": {
+            "text_excerpt": _excerpt_around(text, (matched_str,)),
+            "matched": matched_str,
+        },
+        "suggested_fix": {
+            "path": f"db/card_effects.json:{cid}",
+            "patch": f"該当 effect に count: {n_str} (or limit: {n_str}) を 追加",
+        },
+    })
+    return issues
+
+
+def _check_cost_le_missing(cid: str, text: str, entries: list) -> list[dict]:
+    """L7: 「コスト N 以下のキャラ/リーダー」 含む text で overlay target に
+    target_cost_le: N が 無い。
+
+    「コスト N 以下 の カード」 (= 手札用) や 「コスト N 以下 の ドン」 は 対象 外。
+    """
+    issues = []
+    if not entries:
+        return issues
+    # chara/leader 文脈 限定
+    m = re.search(r"コスト\s*(\d+)\s*以下\s*の(キャラ|リーダー)", text)
+    if not m:
+        return issues
+    n = int(m.group(1))
+    # spec 内 で target_cost_le が 宣言 されている か (= cost_le も 受容)
+    found = False
+    def _walk_cost(node):
+        nonlocal found
+        if found:
+            return
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k in ("target_cost_le", "cost_le", "target_cost_ge", "cost_ge") and isinstance(v, int):
+                    found = True
+                    return
+                _walk_cost(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk_cost(item)
+        elif isinstance(node, str):
+            # target spec 文字列内 の "cost_le_N" / "cost_ge_N" も 受容
+            if "cost_le_" in node or "cost_ge_" in node:
+                found = True
+                return
+    _walk_cost(entries)
+    if found:
+        return issues
+    issues.append({
+        "rule_id": "L7",
+        "card_id": cid,
+        "severity": 4,
+        "category": "cost_le_missing",
+        "message": f"text に 「コスト {n} 以下」 が 含まれる が overlay に "
+                  f"target_cost_le / cost_le_N spec なし",
+        "evidence": {
+            "text_excerpt": _excerpt_around(text, (m.group(0),)),
+            "n": n,
+        },
+        "suggested_fix": {
+            "path": f"db/card_effects.json:{cid}",
+            "patch": f"target に target_cost_le: {n} を 追加 (or target_spec 文字列 を cost_le_{n} 系 へ)",
+        },
+    })
+    return issues
+
+
+def _check_duration_missing(cid: str, text: str, entries: list) -> list[dict]:
+    """L8: 「次の*ターン終了時まで」 系 の 非default duration が 宣言されているか。
+
+    「このターン中」 は engine の 多く の primitive で default なので除外 (= false-positive 多)。
+    「次のターン」 「次の相手のターン」 終了時まで は 明示宣言 必須 = flag 価値 高。
+    """
+    issues = []
+    if not entries:
+        return issues
+    duration_tokens = {
+        "次の相手のターン終了時まで": "next_opp_turn_end",
+        "次のターン終了時まで": "next_turn_end",
+        "次のターンの終了時まで": "next_turn_end",
+        "次の相手のターンの終了時まで": "next_opp_turn_end",
+        "次のターン中": "next_turn",
+    }
+    matched_tokens = [(t, exp) for t, exp in duration_tokens.items() if t in text]
+    if not matched_tokens:
+        return issues
+    # entries 内 で duration / next_*_turn_end フラグ を 探す
+    found_any = False
+    def _walk_dur(node):
+        nonlocal found_any
+        if found_any:
+            return
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "duration" and isinstance(v, str) and "next" in v:
+                    found_any = True
+                    return
+                # 静的 / next_opp_turn / static_until_turn 系 も 受容
+                if k in (
+                    "next_opp_turn_end", "next_turn_end",
+                    "next_refresh_kept_rested_don",
+                    "stay_rested_next_refresh", "set_base_power_timed",
+                    "set_base_cost_timed", "set_ko_immune_timed",
+                    "set_cannot_rest",  # set_cannot_rest 自体が next opp end 系
+                    "keep_opp_rested_don_next_refresh",
+                ):
+                    found_any = True
+                    return
+                _walk_dur(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk_dur(item)
+    _walk_dur(entries)
+    if found_any:
+        return issues
+    issues.append({
+        "rule_id": "L8",
+        "card_id": cid,
+        "severity": 4,
+        "category": "duration_next_turn_missing",
+        "message": f"text に 「{matched_tokens[0][0]}」 (= 次ターン 跨ぎ) が 含まれる が "
+                  f"overlay に 関連 next-turn duration 宣言 なし",
+        "evidence": {
+            "text_excerpt": _excerpt_around(text, (matched_tokens[0][0],)),
+            "expected": matched_tokens[0][1],
+        },
+        "suggested_fix": {
+            "path": f"db/card_effects.json:{cid}",
+            "patch": f"該当 primitive に duration: '{matched_tokens[0][1]}' を 追加",
+        },
+    })
+    return issues
+
+
+def _check_self_opp_reversal(cid: str, text: str, entries: list) -> list[dict]:
+    """L3: 「相手の X」 含む text で target spec が self_* (= 自他反転)。
+
+    実装 注意: text が 「相手のキャラ」 「相手のリーダー」 と 言ってる の に target が
+    self_leader / self_chara 系 だったら 反転 = bug 候補。
+    逆 (= 「自分の」 が opp_* に なる) も 同様。
+
+    ただし 「自分のリーダーが特徴《X》を持つ場合、 相手のキャラを KO」 のような
+    複合 文 は 後段 で target spec が opp_* / self 両方 含む の が 正解。 ここ は
+    「mention あり vs 該当 target spec ある か」 の 緩い 検出 に 留める。
+    """
+    issues = []
+    if not entries:
+        return issues
+    mention_opp = "相手の" in text and ("相手のキャラ" in text or "相手のリーダー" in text or "相手のドン" in text)
+    mention_self = "自分の" in text and ("自分のキャラ" in text or "自分のリーダー" in text or "自分のドン" in text)
+    target_specs = _gather_target_specs(entries)
+    if not target_specs:
+        return issues
+    text_joined = " ".join(target_specs)
+    has_opp_spec = "opp" in text_joined or "opponent" in text_joined
+    has_self_spec = "self" in text_joined
+
+    # 「相手のキャラ」 mention あり + target spec に opp_* が 全く ない → 怪しい
+    if mention_opp and not has_opp_spec and has_self_spec:
+        issues.append({
+            "rule_id": "L3",
+            "card_id": cid,
+            "severity": 3,
+            "category": "self_opp_reversal_suspect",
+            "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec "
+                      "に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+            "evidence": {
+                "target_specs": target_specs[:8],
+            },
+            "suggested_fix": {
+                "path": f"db/card_effects.json:{cid}",
+                "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)",
+            },
+        })
+    return issues
+
+
 def audit_card(cid: str, card: dict, overlay: dict) -> list[dict]:
     text = card.get("text", "") or ""
     entries = overlay.get(cid, [])
@@ -300,6 +543,10 @@ def audit_card(cid: str, card: dict, overlay: dict) -> list[dict]:
     issues += _check_once_per_turn(cid, text, entries)
     issues += _check_trigger_missing(cid, text, entries)
     issues += _check_leader_feature_missing(cid, text, entries)
+    issues += _check_count_limit_missing(cid, text, entries)
+    issues += _check_cost_le_missing(cid, text, entries)
+    issues += _check_duration_missing(cid, text, entries)
+    issues += _check_self_opp_reversal(cid, text, entries)
     return issues
 
 

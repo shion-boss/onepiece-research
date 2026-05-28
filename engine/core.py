@@ -650,6 +650,10 @@ class GameState:
     # action 単位の board_eval 履歴 (R64+ AI 行動品質評価用)。
     # apply_action 開始時 / 終了時に push される dict: {turn, player_idx, action, eval_before, eval_after, delta}
     action_evals: list = field(default_factory=list)
+    # Phase 2 audit (= engine/audit_invariants.py) で 検出 した 違反 list。
+    # env ONEPIECE_AUDIT_INVARIANTS=1 で 有効化、 default off で zero overhead。
+    # 各 element は AuditViolation.to_dict() 形式。
+    audit_violations: list = field(default_factory=list)
     # plan_search の cloned state では compute_score (eval_before/after) 記録を抑止して
     # 不要な eval 計算を削減する (= R70 高速化)。 default True で本番試合は従来通り記録。
     record_action_evals: bool = True

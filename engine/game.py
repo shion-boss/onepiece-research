@@ -891,6 +891,19 @@ def legal_actions(state: GameState) -> list[Action]:
                     actions.append(ActivateMain(source_iid=source.instance_id, effect_index=idx))
                     break
 
+    # Phase 2 audit hook (= env ONEPIECE_AUDIT_INVARIANTS=1 で 有効化、 default off)。
+    # legal_actions の 出力 が 公式 ルール 由来 の invariant に 違反 していないか 機械的 監査。
+    # 例: cannot_be_rested_buff の chara が attacker に 含まれる (= Bug 1) を catch。
+    from .audit_invariants import is_audit_enabled
+    if is_audit_enabled():
+        from .audit_invariants import check_legal_actions_invariants, check_state_invariants
+        for v in check_state_invariants(state):
+            state.audit_violations.append(v.to_dict())
+            state.push_log(f"  [AUDIT] {v.rule_id} sev{v.severity}: {v.message}")
+        for v in check_legal_actions_invariants(state, actions):
+            state.audit_violations.append(v.to_dict())
+            state.push_log(f"  [AUDIT] {v.rule_id} sev{v.severity}: {v.message}")
+
     return actions
 
 

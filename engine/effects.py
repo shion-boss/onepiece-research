@@ -51,6 +51,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
 from dataclasses import dataclass, field
@@ -1819,6 +1820,24 @@ def _resolve_target(
 # --------------------------------------------------------------------------- #
 # 効果実行
 # --------------------------------------------------------------------------- #
+def _audit_snapshot(state: "GameState") -> dict:
+    """Phase 2 effect_event log 用 の 軽量 state snapshot (= 比較用 集計値)。"""
+    out = {}
+    for i, p in enumerate(state.players):
+        out[f"P{i}"] = {
+            "hand": len(p.hand),
+            "deck": len(p.deck),
+            "life": len(p.life),
+            "trash": len(p.trash),
+            "characters": len(p.characters),
+            "don_active": p.don_active,
+            "don_rested": p.don_rested,
+            "leader_rested": p.leader.rested if p.leader else None,
+            "leader_power": p.leader.power if p.leader else None,
+        }
+    return out
+
+
 def execute_effect(
     spec: EffectSpec,
     state: GameState,
@@ -1832,7 +1851,43 @@ def execute_effect(
     公式 4-10 「場合」前文不実行 → 後文不実行 のために使う。
     解決不能の典型例: ko 対象が 0 枚だった、search 対象が見つからない 等。
     現実装ではすべて True 返却 (= 単純実装)。要拡張時に各プリミティブで判定可。
+
+    Phase 2 audit hook (= 2026-05-28、 ONEPIECE_AUDIT_INVARIANTS=1 で 有効化):
+      entry/exit で snapshot を 取り、 (card_id, primitive, before, after) を
+      state.effect_events に 蓄積。 default off で zero overhead。
     """
+    # Phase 2 audit hook (= entry)
+    _audit_on = os.environ.get("ONEPIECE_AUDIT_INVARIANTS", "0") in ("1", "true", "True")
+    _event = None
+    if _audit_on:
+        primitive_kind = next(iter(spec.keys())) if spec else "_empty"
+        _event = {
+            "turn": getattr(state, "turn_number", None),
+            "phase": getattr(state.phase, "name", None) if getattr(state, "phase", None) else None,
+            "source_card_id": self_inplay.card.card_id if self_inplay else None,
+            "primitive": primitive_kind,
+            "before": _audit_snapshot(state),
+        }
+        # state に effect_events 用 slot を 確保 (= 初期化、 既存 状態 と 共存)
+        if not hasattr(state, "_effect_events"):
+            state._effect_events = []
+
+    try:
+        return _execute_effect_body(spec, state, me, opp, self_inplay)
+    finally:
+        if _audit_on and _event is not None:
+            _event["after"] = _audit_snapshot(state)
+            state._effect_events.append(_event)
+
+
+def _execute_effect_body(
+    spec: EffectSpec,
+    state: GameState,
+    me: Player,
+    opp: Player,
+    self_inplay: Optional[InPlay] = None,
+) -> bool:
+    """execute_effect の 本体 (= audit hook を 外した 純粋 logic)。"""
     for k, v in spec.items():
         if k == "choice_effect":
             # 公式: 「以下から 1 つを選ぶ: ・効果A ・効果B」 等 の 分岐 効果。

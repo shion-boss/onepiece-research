@@ -73,6 +73,9 @@ class GameResult:
     action_evals: list[dict] = field(default_factory=list)  # R64+ AI 行動品質評価
     # bonus 学習 用 fire log (= enable_fire_logging=True 時 のみ) — [p0, p1] の entry_id → count
     fire_counts: list[dict] = field(default_factory=lambda: [{}, {}])
+    # Phase 2 audit (= ONEPIECE_AUDIT_INVARIANTS=1 時 のみ蓄積)
+    audit_violations: list[dict] = field(default_factory=list)
+    effect_events: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -381,6 +384,8 @@ def run_matchup(
             rule_violations=(list(referee.violations) if referee else []),
             action_evals=list(state.action_evals),
             fire_counts=fire_counts,
+            audit_violations=list(getattr(state, "audit_violations", []) or []),
+            effect_events=list(getattr(state, "_effect_events", []) or []),
         )
         report.games.append(result)
 

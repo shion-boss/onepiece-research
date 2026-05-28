@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-05-28T14:48:36.535194Z",
+  "config": {
+    "n_games": 50,
+    "deck_a": "cardrush_1342",
+    "deck_b": "cardrush_1342",
+    "ai_mode": "greedy",
+    "seed": 42
+  },
+  "summary": {
+    "total_violations": 0,
+    "total_effect_events": 1381,
+    "by_rule": {}
+  },
+  "violations": []
+}
