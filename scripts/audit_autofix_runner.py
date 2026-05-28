@@ -130,20 +130,17 @@ def fix_l7_cost_le(issue: dict, overlay: dict) -> tuple[bool, str]:
     # opp / self context 識別: 「コスト N 以下」 の 直前 文 を 見て 自/他 を 判定
     # 「自分の」 が 直近 で あれば self、 「相手の」 で あれば opp
     cost_pat = re.search(r"コスト\s*(\d+)\s*以下\s*の\s*(キャラ|リーダー)", text)
+    cost_context = "unknown"
     if cost_pat is not None:
         prefix = text[: cost_pat.start()]
-        # 直前 30 文字 で 直近 mention を 比較
-        recent = prefix[-30:]
-        last_self = recent.rfind("自分の")
-        last_opp = recent.rfind("相手の")
-        if last_self > last_opp and last_self >= 0:
+        # 「コスト N 以下のキャラ」 の 直前 ≤8 文字 のみ で 自/他 を 判定 (= 厳密化)。
+        # 8 文字 範囲 内 に 「自分の」 や 「相手の」 mention あれば そちら、
+        # 無ければ context = unknown (= primitive 側 任意 で 受容)。
+        recent = prefix[-8:]
+        if "自分の" in recent:
             cost_context = "self"
-        elif last_opp >= 0:
+        elif "相手の" in recent:
             cost_context = "opp"
-        else:
-            cost_context = "unknown"
-    else:
-        cost_context = "unknown"
 
     # 複数 entry の case: _text 内 に 「コスト N 以下」 を 含む entry を 選ぶ
     if len(entries) > 1:
@@ -723,14 +720,132 @@ def fix_l4_power_pump_self(issue: dict, overlay: dict) -> tuple[bool, str]:
     return True, f"{cid} に power_pump_multi(+{amount} x {count}) 追加"
 
 
+def fix_l4_attach_don_count(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L4: 「キャラ N 枚 まで に ドン M 枚 ずつ 付与」 / 「ドン N 枚 まで 付与」 count 追加。"""
+    cid = issue["card_id"]
+    text = _get_card_text(cid)
+    if "付与" not in text:
+        return False, "attach 関連 なし"
+    # 「キャラ N 枚 まで に レスト の ドン M ずつ」 = per_target = count=M target_count=N
+    m = re.search(r"キャラ\s*([2-9]|10)\s*枚まで.*?ドン.{0,5}?([1-9])\s*枚?\s*ずつ", text, flags=re.DOTALL)
+    if m:
+        target_count = int(m.group(1))
+        per_target = int(m.group(2))
+        entries = overlay.get(cid)
+        if not isinstance(entries, list) or len(entries) > 2:
+            return False, "entry 数 unsupported"
+        # 既 attach_*_don with per_target あれば skip
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            for prim in e.get("do", []) or []:
+                if isinstance(prim, dict):
+                    for pk in ("attach_don", "attach_rested_don", "attach_active_don"):
+                        if pk in prim:
+                            pv = prim.get(pk)
+                            if isinstance(pv, dict) and pv.get("per_target"):
+                                return False, f"既 {pk} per_target あり"
+        main_entry = None
+        for e in entries:
+            if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main"):
+                main_entry = e
+                break
+        if main_entry is None:
+            main_entry = entries[0]
+        # target_spec を text から 推定
+        if "自分のキャラ" in text:
+            target = "one_self_character_any"
+        else:
+            target = "all_self_team"
+        new_prim = {
+            "attach_rested_don": {
+                "target": target,
+                "count": per_target,
+                "per_target": True,
+                "max_targets": target_count,
+            }
+        }
+        do_list = main_entry.get("do")
+        if not isinstance(do_list, list):
+            main_entry["do"] = [new_prim]
+        else:
+            do_list.append(new_prim)
+        return True, f"{cid} に attach_rested_don(per_target, {target_count}x{per_target}) 追加"
+    # 「このキャラ に レスト の ドン N 枚 まで 付与」 = count=N
+    m = re.search(r"このキャラに.*?ドン.{0,5}?([2-9])\s*枚\s*まで", text, flags=re.DOTALL)
+    if m:
+        count = int(m.group(1))
+        entries = overlay.get(cid)
+        if not isinstance(entries, list) or len(entries) > 2:
+            return False, "entry 数 unsupported"
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            for prim in e.get("do", []) or []:
+                if isinstance(prim, dict) and any(k in prim for k in ("attach_don", "attach_rested_don")):
+                    pv = next(iter(prim.values()))
+                    if isinstance(pv, dict) and pv.get("count", 0) >= count:
+                        return False, "既 count 設定 あり"
+        main_entry = None
+        for e in entries:
+            if isinstance(e, dict) and e.get("when") in ("activate_main", "on_play", "main"):
+                main_entry = e
+                break
+        if main_entry is None:
+            main_entry = entries[0]
+        new_prim = {"attach_rested_don": {"target": "self", "count": count}}
+        do_list = main_entry.get("do")
+        if not isinstance(do_list, list):
+            main_entry["do"] = [new_prim]
+        else:
+            do_list.append(new_prim)
+        return True, f"{cid} に attach_rested_don(self, {count}) 追加"
+    return False, "attach pattern 認識 不可"
+
+
+def fix_l4_stay_rested_count(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L4: 「相手のレストの X N 枚 まで アクティブにならない」 count 追加 / 既 string spec 拡張。"""
+    cid = issue["card_id"]
+    text = _get_card_text(cid)
+    if "アクティブにならない" not in text:
+        return False, "stay_rested pattern なし"
+    m = re.search(r"([2-9]|10)\s*枚\s*まで", text)
+    if not m:
+        return False, "count なし"
+    count = int(m.group(1))
+    is_leader_and_chara = "リーダー" in text and "キャラ" in text
+    new_target = f"any_opp_rested_inplay_n_{count}" if is_leader_and_chara else f"any_opp_rested_chara_n_{count}"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list):
+        return False, "entries なし"
+    changed = False
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if not isinstance(prim, dict) or "stay_rested_next_refresh" not in prim:
+                continue
+            cur = prim["stay_rested_next_refresh"]
+            if isinstance(cur, str) and not re.search(r"_n_\d+", cur):
+                # 既 string spec に _n_N が ない → 置換
+                prim["stay_rested_next_refresh"] = new_target
+                changed = True
+    if changed:
+        return True, f"{cid} stay_rested_next_refresh → {new_target}"
+    return False, "対応 stay_rested 既存 なし"
+
+
 def fix_l4_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
-    ok, msg = fix_l4_to_multi(issue, overlay)
-    if ok:
-        return ok, msg
-    ok2, msg2 = fix_l4_power_pump_self(issue, overlay)
-    if ok2:
-        return ok2, msg2
-    return False, f"to_multi: {msg}; power_pump: {msg2}"
+    for handler, label in [
+        (fix_l4_to_multi, "to_multi"),
+        (fix_l4_power_pump_self, "power_pump"),
+        (fix_l4_attach_don_count, "attach_don"),
+        (fix_l4_stay_rested_count, "stay_rested"),
+    ]:
+        ok, msg = handler(issue, overlay)
+        if ok:
+            return ok, msg
+    return False, "全 L4 handler が skip"
 
 
 HANDLERS = {

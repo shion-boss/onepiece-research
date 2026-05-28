@@ -568,6 +568,20 @@ def _check_self_opp_reversal(cid: str, text: str, entries: list) -> list[dict]:
     has_opp_spec = "opp" in text_joined or "opponent" in text_joined
     has_self_spec = "self" in text_joined
 
+    # opp-conditional trigger entries は skip (= when 自体 が opp 連動、 do[] は self が 正解)
+    OPP_CONDITIONAL_WHENS = {
+        "on_opp_chara_ko", "on_opp_chara_played", "on_opp_blocker_use",
+        "on_opp_life_taken", "replace_ko", "replace_leave",
+        "opp_event_or_trigger_fired", "on_opp_attack", "opp_attack",
+        "opp_attack_on_leader", "opp_attack_on_chara",
+    }
+    entry_whens = {e.get("when") for e in entries if isinstance(e, dict)}
+    if entry_whens & OPP_CONDITIONAL_WHENS and not mention_self:
+        return issues
+    # 全 entry が opp-conditional → skip (= mention_self あっても trigger 由来 と 整合)
+    if entry_whens and entry_whens.issubset(OPP_CONDITIONAL_WHENS | {None}):
+        return issues
+
     # 「相手のキャラ」 mention あり + target spec に opp_* が 全く ない → 怪しい
     # 注意: severity 2 = 大半 が 「相手の chara X 時 → 自分 で Y する」 (= 条件 + 自陣 action)
     # type false-positive。 真 反転 検出 には より 細かい parsing が 必要 (= TODO)。

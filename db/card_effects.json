@@ -59,6 +59,12 @@
             "amount": 2000,
             "duration": "turn"
           }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
         }
       ]
     }
@@ -5278,7 +5284,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
         }
       ],
       "cost": {
@@ -12200,6 +12206,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "attach_rested_don": {
+            "target": "all_self_team",
+            "count": 1,
+            "per_target": true,
+            "max_targets": 3
+          }
         }
       ]
     }
@@ -13903,6 +13917,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "attach_rested_don": {
+            "target": "all_self_team",
+            "count": 1,
+            "per_target": true,
+            "max_targets": 3
+          }
         }
       ]
     }
@@ -13917,6 +13939,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "attach_rested_don": {
+            "target": "all_self_team",
+            "count": 1,
+            "per_target": true,
+            "max_targets": 3
+          }
         }
       ]
     }
@@ -16870,6 +16900,14 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "attach_rested_don": {
+            "target": "all_self_team",
+            "count": 1,
+            "per_target": true,
+            "max_targets": 3
+          }
         }
       ]
     }
@@ -36293,6 +36331,12 @@
             "amount": 2000,
             "duration": "turn"
           }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
         }
       ]
     }
@@ -37308,6 +37352,12 @@
             "target": "self",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
           }
         }
       ]
@@ -38854,7 +38904,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
         }
       ],
       "cost": {
@@ -39698,6 +39748,12 @@
             "target": "self",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
           }
         }
       ]
@@ -61900,7 +61956,7 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_5cost"
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
         }
       ],
       "if": {
@@ -64926,7 +64982,7 @@
       "when": "activate_main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ],
       "cost": {
@@ -64941,7 +64997,7 @@
       "when": "activate_main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ],
       "cost": {
@@ -66453,7 +66509,7 @@
       "when": "activate_main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ],
       "cost": {
@@ -67829,7 +67885,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
         }
       ]
     },
@@ -76450,7 +76506,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_4cost"
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
         }
       ],
       "if": {
@@ -82274,7 +82330,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_4cost"
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
         }
       ],
       "if": {
