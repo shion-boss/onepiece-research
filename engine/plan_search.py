@@ -363,6 +363,49 @@ def search_turn_plan(
             if me_deck_slug:
                 _me_target_spec = load_target_spec(me_deck_slug)
 
+    # === Phase 1.1 (= 2026-05-28): goal-PRUNED 化 (= 名前負け解消 [[project_goal_directed_real]]) ===
+    # 「目指す盤面に近づける手」 (= progressing action) を beam で 優先 + adaptive shrink。
+    # 旧 = goal-ranked (= target bonus を score に 加算 する だけ、 全 action 展開)。
+    # 新 = goal-pruned (= bonus_after > bonus_before の action を 優先 残し、 beam も 縮小)。
+    # ONEPIECE_GOAL_PRUNE=1 で 有効化 (default off で 旧挙動 維持 = 安全 A/B)。
+    # _USE_GOAL_TARGET が前提 (= target spec なしで pruning できない)。
+    _USE_GOAL_PRUNE = _USE_GOAL_TARGET and _os.environ.get("ONEPIECE_GOAL_PRUNE", "0") == "1"
+
+    # === Phase 2+3 (= 2026-05-28): 敵陣 target spec 妨害 + 双方バランス ===
+    # 敵 player の target spec も load → 「敵が 目指す 盤面 を 阻む 手」 に bonus 加算。
+    # progressing flag も 「自陣進捗 OR 敵陣妨害」 で 判定 (= 双方バランス)。
+    # ONEPIECE_OPP_DISRUPT_W で スケール (default 0 = 無効)、 ONEPIECE_GOAL_TARGET_W 必須。
+    _W_OPP_DISRUPT = float(_os.environ.get("ONEPIECE_OPP_DISRUPT_W", "0"))
+    _USE_OPP_DISRUPT = _W_OPP_DISRUPT > 0 and _USE_GOAL_TARGET
+    _opp_target_spec = None
+    if _USE_OPP_DISRUPT:
+        from .target_dsl import load_target_spec  # noqa: F401 (= 上 で import 済 だが scope 明示)
+        opp_player = state.players[opp_idx]
+        opp_deck_slug = getattr(opp_player, "deck_slug", None)
+        if opp_deck_slug:
+            try:
+                _opp_target_spec = load_target_spec(opp_deck_slug)
+            except Exception:
+                _opp_target_spec = None
+
+    # === 真 Phase 1.0 (= 2026-05-28、 ohtsuki さん ビジョン 正準実装) ===
+    # 「各 turn 開始時、 実現可能 な 最大 bonus entry を lookup → if 条件 を 満たす に
+    #  寄与 する 候補 action だけ で 探索」 = action 空間 pre-filter で 分岐爆発 を 構造的解消。
+    # ONEPIECE_GOAL_DERIVE=1 で 有効化 (default off)。 _USE_GOAL_TARGET 前提。
+    # 旧 Phase 1.1 (ranking-based) は env flag off で 残置、 A/B 比較 可能。
+    _USE_GOAL_DERIVE = _USE_GOAL_TARGET and _os.environ.get("ONEPIECE_GOAL_DERIVE", "0") == "1"
+    if _USE_GOAL_DERIVE:
+        from .target_action_derive import (
+            lookup_best_achievable_entry, derive_actions_for_goal,
+            derive_disrupt_actions,
+        )
+
+    # 真 Phase 2+3 (= 敵陣 lookup + 妨害 derive):
+    # 敵 target spec も lookup → 「敵 が 目指す entry」 を 知る → 我々の手番 で それを 阻む action
+    # を 妨害 candidate として 自陣 candidate と union → plan_search に渡す。
+    # ONEPIECE_OPP_DERIVE=1 で 有効化 (default off)。 _USE_GOAL_DERIVE 前提。
+    _USE_OPP_DERIVE = _USE_GOAL_DERIVE and _os.environ.get("ONEPIECE_OPP_DERIVE", "0") == "1"
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -379,8 +422,75 @@ def search_turn_plan(
                 completed.append((cur_state, plan))
                 continue
 
+            # === 真 Phase 1.0 + 2+3 pre-filter (= 2026-05-28) ===
+            # 「目指す盤面」 を 自陣 lookup → if 条件 に 寄与 action を candidate。
+            # 「敵が 目指す盤面」 も 敵 spec lookup → 妨害 action を candidate。
+            # 両 candidate の union で la を 絞り、 plan_search に 渡す。
+            # = 「自分を進める or 相手を止める」 良い手 だけ で 探索 (ohtsuki さん ビジョン)。
+            if _USE_GOAL_DERIVE and _me_target_spec is not None:
+                self_cand = la  # default: 全 la
+                opp_cand = []
+                try:
+                    best_entry = lookup_best_achievable_entry(
+                        cur_state, me_idx, _me_target_spec, plan=plan,
+                    )
+                    if best_entry is not None:
+                        self_cand = derive_actions_for_goal(
+                            cur_state, me_idx, best_entry["if"], plan, la,
+                        )
+                except Exception:
+                    pass
+                if _USE_OPP_DERIVE and _opp_target_spec is not None:
+                    try:
+                        opp_best = lookup_best_achievable_entry(
+                            cur_state, opp_idx, _opp_target_spec, plan=None,
+                        )
+                        if opp_best is not None:
+                            opp_cand = derive_disrupt_actions(
+                                cur_state, me_idx, opp_best["if"], plan, la,
+                            )
+                    except Exception:
+                        pass
+                # union (= 重複 排除、 順序 保持)
+                seen = set()
+                combined = []
+                for a in list(self_cand) + list(opp_cand):
+                    aid = id(a)
+                    if aid not in seen:
+                        seen.add(aid)
+                        combined.append(a)
+                if combined:
+                    la = combined
+                if not la:
+                    completed.append((cur_state, plan))
+                    continue
+
             # NN policy を 1 度だけ取得 (= 同 state なら同じ policy)
             policy_dict = compute_policy_nn(cur_state, me_idx) if _USE_POLICY else None
+
+            # Phase 1.1: goal-pruned mode 用 親 state の target bonus (= "現状の達成度")。
+            # ここからの action で bonus が増える = progressing、 同じ = neutral、 減る = regressing。
+            _bonus_before = 0
+            if _USE_GOAL_PRUNE and _me_target_spec is not None:
+                try:
+                    _bonus_before = compute_target_match_bonus(
+                        cur_state, me_idx, _me_target_spec, cur_state.turn_number,
+                        plan=plan,
+                    )
+                except Exception:
+                    _bonus_before = 0
+
+            # Phase 2+3: 敵陣 target bonus 親 state (= "敵が 目指す盤面に どれだけ 近いか")。
+            # 我々の action で 下がる = 妨害 成功 → score bonus + progressing flag に反映。
+            _opp_bonus_before = 0
+            if _USE_OPP_DISRUPT and _opp_target_spec is not None:
+                try:
+                    _opp_bonus_before = compute_target_match_bonus(
+                        cur_state, opp_idx, _opp_target_spec, cur_state.turn_number,
+                        plan=None,  # 敵 plan は 不明 (= 我々 の search から 引けない)
+                    )
+                except Exception:
+                    _opp_bonus_before = 0
 
             for action in la:
                 child = fast_clone(cur_state)
@@ -451,24 +561,73 @@ def search_turn_plan(
                 # Plan H: goal-directed target bonus (= 2026-05-19)
                 # Claude が 書いた target spec で 「ターン目標 達成 leaf」 に bonus 加算。
                 # target.bonus (= 500-2000) を W_GOAL_TARGET で スケール。
+                # Phase 1.1: 同じ bonus を progressing 判定にも 使う (= goal-pruned mode 用)。
+                _target_bonus_after = 0
                 if _USE_GOAL_TARGET and _me_target_spec:
                     try:
-                        target_bonus = compute_target_match_bonus(
+                        _target_bonus_after = compute_target_match_bonus(
                             child, me_idx, _me_target_spec, child.turn_number,
                             plan=plan + [action],
                         )
-                        if target_bonus > 0:
-                            score = score + _W_GOAL_TARGET * target_bonus
+                        if _target_bonus_after > 0:
+                            score = score + _W_GOAL_TARGET * _target_bonus_after
                     except Exception:
                         pass  # target match 失敗時は plan_search 止めない
 
-                next_frontier.append((child, plan + [action], score))
+                # Phase 2: 敵陣 target spec 妨害 (= "敵が 目指す盤面 を 阻む 手" に bonus)。
+                # opp_bonus_before - opp_bonus_after > 0 = 妨害 成功 → score 加算。
+                _opp_bonus_after = 0
+                _opp_disrupt = 0
+                if _USE_OPP_DISRUPT and _opp_target_spec is not None:
+                    try:
+                        _opp_bonus_after = compute_target_match_bonus(
+                            child, opp_idx, _opp_target_spec, child.turn_number,
+                            plan=None,
+                        )
+                        _opp_disrupt = _opp_bonus_before - _opp_bonus_after
+                        if _opp_disrupt > 0:
+                            score = score + _W_OPP_DISRUPT * _opp_disrupt
+                    except Exception:
+                        pass  # opp match 失敗時は plan_search 止めない
+
+                # Phase 1.1 + 3: progressing flag (= 2: progressing, 1: neutral, 0: regressing)
+                # 「自陣進捗 OR 敵陣妨害」 の どちらか で progressing と判定 (= ohtsuki さん ビジョン
+                # 「良い盤面に進める or 相手の良い盤面を妨害する」)。 goal_prune off で 常に 1。
+                _prog_score = 1
+                if _USE_GOAL_PRUNE:
+                    self_advance = _target_bonus_after > _bonus_before
+                    self_regress = _target_bonus_after < _bonus_before
+                    opp_disrupted = _opp_disrupt > 0  # 敵 bonus が 下がった
+                    opp_helped = _opp_disrupt < 0  # 敵 bonus が 上がった (= 我々 が 援護してしまった)
+                    if self_advance or opp_disrupted:
+                        _prog_score = 2  # 良い手 (= 自陣進捗 or 敵陣妨害)
+                    elif self_regress and opp_helped:
+                        _prog_score = 0  # 悪い手 (= 両方 マイナス)
+                    # else _prog_score = 1 (neutral)
+
+                next_frontier.append((child, plan + [action], score, _prog_score))
 
         if not next_frontier:
             break
-        # beam pruning: 中間 score の高い順に top-k
-        next_frontier.sort(key=lambda x: -x[2])
-        frontier = next_frontier[:beam_width]
+        # beam pruning:
+        # - 旧: 中間 score 高い順に top-k
+        # - Phase 1.1 (goal_prune): (progressing first, score second) で sort、 さらに
+        #   progressing が 多い 場合 は adaptive shrink (= iim 等 多分岐 deck の 計算量 削減)。
+        if _USE_GOAL_PRUNE:
+            # (-_prog_score, -score) で sort = progressing → neutral → regressing 順、 各 bucket 内 で score 降順
+            next_frontier.sort(key=lambda x: (-x[3], -x[2]))
+            progressing_count = sum(1 for x in next_frontier if x[3] == 2)
+            # 目指している盤面 が ある (= 親 で 何か match 中) 場合 のみ adaptive shrink。
+            # 探索 phase (= bonus_before == 0) では 従来 beam を 保持 (= 過 prune 防止)。
+            # progressing が 多発 deck (= iim) では 「progressing+1 (= variety 用)」 に shrink。
+            if progressing_count > 0:
+                eff_beam = min(beam_width, max(2, progressing_count + 1))
+            else:
+                eff_beam = beam_width
+            frontier = [(c, p, s) for c, p, s, _pg in next_frontier[:eff_beam]]
+        else:
+            next_frontier.sort(key=lambda x: -x[2])
+            frontier = [(c, p, s) for c, p, s, _pg in next_frontier[:beam_width]]
 
     # depth 上限到達分も完了扱い
     for cur_state, plan, _ in frontier:
