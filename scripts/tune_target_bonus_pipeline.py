@@ -62,6 +62,11 @@ def main() -> None:
     ap.add_argument("--skip-cross-gen", action="store_true", help="cross-leader 生成 を skip")
     ap.add_argument("--skip-eval", action="store_true", help="fire log 収集 を skip (= 既存使う)")
     ap.add_argument("--skip-tune", action="store_true", help="bonus 学習 を skip (= eval だけ)")
+    ap.add_argument("--reset-fire-log", action="store_true",
+                    help="fire log を 削除 してから eval (= AI 挙動 変更後 の 2 周目 で 推奨、"
+                         " 旧 fire data と 新 AI の混在を防ぐ)")
+    ap.add_argument("--diversify-entries", action="store_true",
+                    help="Step 2.5 で entries 多様化 module を 実行 (= resource-level 別 variation 自動生成)")
     args = ap.parse_args()
 
     print("=" * 70)
@@ -87,6 +92,29 @@ def main() -> None:
         if run(cmd, args.dry_run) != 0:
             print("ERROR: cross-leader gen 失敗、 中止", file=sys.stderr)
             sys.exit(1)
+
+    # 2.5. entries 多様化 (= 2026-05-28 追加、 resource-level 別 variation 自動生成)
+    if args.diversify_entries:
+        print("\n[Step 2.5/4] entries 多様化 (= resource-level 別 variation)")
+        cmd = [PY, "scripts/diversify_target_entries.py"]
+        if args.dry_run:
+            cmd.append("--dry-run")
+        if run(cmd, args.dry_run) != 0:
+            print("ERROR: diversify 失敗、 中止", file=sys.stderr)
+            sys.exit(1)
+
+    # 2.9. fire log reset (= 2026-05-28 追加、 旧 fire data と 新 AI の混在防止)
+    if args.reset_fire_log:
+        print("\n[Step 2.9/4] fire log reset (= 旧 data 削除)")
+        fire_log_path = REPO_ROOT / "db" / "target_fire_log.json"
+        if fire_log_path.exists():
+            if args.dry_run:
+                print(f"    [dry-run] would delete: {fire_log_path}")
+            else:
+                fire_log_path.unlink()
+                print(f"    deleted: {fire_log_path}")
+        else:
+            print(f"    skip (= file 不在): {fire_log_path}")
 
     # 3. fire log 収集
     if not args.skip_eval:
