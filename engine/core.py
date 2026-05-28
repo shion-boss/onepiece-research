@@ -515,6 +515,10 @@ class Player:
     play_cost_reductions_filtered: list = field(default_factory=list)
     # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
     block_chara_play_until_turn_end: bool = False
+    # 次の相手のターン終了時 まで、 自分が play する キャラ の on_play 効果 を 無効化
+    # (OP09-081 ティーチ等)。 trigger_on_play で 該当 player の フラグ 確認 → 効果 skip。
+    # disable_opp_on_play_through_opp_turn = True で 設定、 設定 player の 次 ターン 開始 時 reset。
+    opp_on_play_disabled_through_opp_turn: bool = False
     # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット
     block_self_draw_until_turn_end: bool = False
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。

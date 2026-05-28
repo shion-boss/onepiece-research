@@ -556,7 +556,8 @@ def fix_l8_cannot_attack_to_dict(issue: dict, overlay: dict) -> tuple[bool, str]
     if expected != "next_opp_turn_end":
         return False, "next_opp_turn_end 以外"
     text = _get_card_text(cid)
-    if "次の相手のターン終了時まで" not in text or "アタックできない" not in text:
+    has_next_end = ("次の相手のターン終了時まで" in text or "次の相手のエンドフェイズ終了時まで" in text)
+    if not has_next_end or "アタックできない" not in text:
         return False, "attack-disable pattern なし"
     entries = overlay.get(cid)
     if not isinstance(entries, list):

@@ -65,6 +65,18 @@
             "target": "self",
             "count": 2
           }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
         }
       ]
     }
@@ -5287,7 +5299,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
+          "stay_rested_next_refresh": "any_opp_rested_chara_cost_le_7_n_2"
         }
       ],
       "cost": {
@@ -6457,6 +6469,13 @@
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "cost_minus": {
+            "target": "self",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -7705,7 +7724,10 @@
           "draw": 1
         },
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_9cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_9cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -9977,10 +9999,16 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "count": 2
+          }
         },
         {
-          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "count": 2
+          }
         }
       ]
     },
@@ -10333,7 +10361,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -10342,7 +10373,10 @@
       "when": "on_ko",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -10710,7 +10744,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "rest": "one_opp_chara_or_don"
@@ -11900,6 +11937,18 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_self_character_any",
+              "one_self_character_any",
+              "one_self_character_any"
+            ],
+            "amount": 3000,
+            "duration": "turn",
+            "_label": "革命軍_or_trigger"
+          }
         }
       ]
     },
@@ -13900,7 +13949,7 @@
       },
       "do": [
         {
-          "draw": 1
+          "disable_opp_on_play_through_opp_turn": true
         }
       ]
     }
@@ -13915,7 +13964,7 @@
       },
       "do": [
         {
-          "draw": 1
+          "disable_opp_on_play_through_opp_turn": true
         }
       ]
     }
@@ -14586,6 +14635,18 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_self_character_any",
+              "one_self_character_any",
+              "one_self_character_any"
+            ],
+            "amount": 3000,
+            "duration": "turn",
+            "_label": "革命軍_or_trigger"
+          }
         }
       ]
     },
@@ -14609,6 +14670,18 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_self_character_any",
+              "one_self_character_any",
+              "one_self_character_any"
+            ],
+            "amount": 3000,
+            "duration": "turn",
+            "_label": "革命軍_or_trigger"
+          }
         }
       ]
     },
@@ -15710,7 +15783,7 @@
       },
       "do": [
         {
-          "draw": 1
+          "disable_opp_on_play_through_opp_turn": true
         }
       ]
     }
@@ -16996,7 +17069,7 @@
       },
       "do": [
         {
-          "draw": 1
+          "disable_opp_on_play_through_opp_turn": true
         }
       ]
     }
@@ -18505,6 +18578,16 @@
             "one_opponent_character_power_le_3000",
             "one_opponent_character_power_le_3000"
           ]
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_opponent_character_any",
+              "one_opponent_character_any"
+            ],
+            "amount": -2500,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -18754,7 +18837,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_any"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -27304,7 +27390,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_any"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -29043,7 +29132,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "rest": "one_opp_chara_or_don"
@@ -31520,10 +31612,16 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "count": 2
+          }
         },
         {
-          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "count": 2
+          }
         }
       ]
     },
@@ -31843,7 +31941,10 @@
       "when": "on_ko",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -31868,7 +31969,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -31915,7 +32019,10 @@
           "draw": 1
         },
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_9cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_9cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -33163,6 +33270,13 @@
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "cost_minus": {
+            "target": "self",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -34454,6 +34568,16 @@
             "one_opponent_character_power_le_3000",
             "one_opponent_character_power_le_3000"
           ]
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_opponent_character_any",
+              "one_opponent_character_any"
+            ],
+            "amount": -2500,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -34468,6 +34592,16 @@
             "one_opponent_character_power_le_3000",
             "one_opponent_character_power_le_3000"
           ]
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_opponent_character_any",
+              "one_opponent_character_any"
+            ],
+            "amount": -2500,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -34937,7 +35071,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "rest": "one_opp_chara_or_don"
@@ -36387,6 +36524,18 @@
             "target": "self",
             "count": 2
           }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
         }
       ]
     }
@@ -37402,6 +37551,18 @@
             "target": "self",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
           }
         },
         {
@@ -38954,7 +39115,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
+          "stay_rested_next_refresh": "any_opp_rested_chara_cost_le_7_n_2"
         }
       ],
       "cost": {
@@ -39101,10 +39262,16 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "count": 2
+          }
         },
         {
-          "set_cannot_rest": "one_opponent_character_cost_le_5cost"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "count": 2
+          }
         }
       ]
     },
@@ -39798,6 +39965,18 @@
             "target": "self",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
           }
         },
         {
@@ -42892,6 +43071,16 @@
             "one_opponent_character_power_le_3000",
             "one_opponent_character_power_le_3000"
           ]
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_opponent_character_any",
+              "one_opponent_character_any"
+            ],
+            "amount": -2500,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -47926,7 +48115,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "rest": "one_opp_chara_or_don"
@@ -54219,7 +54411,10 @@
       "when": "main",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_5cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -55280,6 +55475,13 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_9",
+            "count": 1,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -55307,6 +55509,13 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_9",
+            "count": 1,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -55333,6 +55542,13 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_9",
+            "count": 1,
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -56698,6 +56914,13 @@
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -62027,7 +62250,7 @@
       "when": "on_play",
       "do": [
         {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
+          "stay_rested_next_refresh": "any_opp_rested_chara_cost_le_5_n_2"
         }
       ],
       "if": {
@@ -70139,7 +70362,22 @@
         {
           "cost_minus": {
             "target": "one_opponent_character_any",
-            "amount": 2
+            "amount": 2,
+            "duration": "turn"
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
           }
         },
         {
@@ -76159,6 +76397,13 @@
               }
             ]
           }
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_4",
+            "count": 2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -76577,7 +76822,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
+          "stay_rested_next_refresh": "any_opp_rested_chara_cost_le_4_n_2"
         }
       ],
       "if": {
@@ -77048,6 +77293,13 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -82401,7 +82653,7 @@
       "when": "main",
       "do": [
         {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_2"
+          "stay_rested_next_refresh": "any_opp_rested_chara_cost_le_4_n_2"
         }
       ],
       "if": {

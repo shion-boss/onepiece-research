@@ -444,6 +444,8 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.turn_base_power_override = None
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
+        # OP09-081 effect: 自ターン 開始 で 「相手 on_play 無効」 flag reset (= 設定 player から 見て 1 周)
+        player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
         player.prevent_self_life_to_hand_until_turn_end = False
     # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン

@@ -4356,6 +4356,12 @@ def _execute_effect_body(
             state.push_log(
                 f"  効果: KO耐性 ({duration}) → {[t.card.name for t in targets]}"
             )
+        elif k == "disable_opp_on_play_through_opp_turn":
+            # OP09-081 ティーチ: 「次の相手のターン終了時 まで、 相手の【登場時】効果 は 無効になる」。
+            # 自陣 me ターン 中 に opp の フラグ を 立てる → opp が キャラ play する on_play で 効果 skip。
+            # me の 次 ターン 開始 時 (= 相手 ターン 終了 後 の REFRESH) で reset。
+            opp.opp_on_play_disabled_through_opp_turn = True
+            state.push_log(f"  効果: 次相手 end まで 相手 on_play 効果 無効")
         elif k == "set_ko_per_turn_immune":
             # 公式: 「このキャラは ターン に N 回、 相手の効果で KO されない」 (OP10-118 等)。
             # spec: int N | {"target": ..., "count": N}
@@ -6391,6 +6397,10 @@ def trigger_on_play(
     # 自陣営: 登場したカード自身の on_play
     bundle = effects_overlay.get(self_inplay.card.card_id)
     has_self_on_play = bundle is not None and any(e.get("when") == "on_play" for e in bundle.effects)
+    # OP09-081 effect: me が play する on_play は opp の flag で 無効化
+    if me.opp_on_play_disabled_through_opp_turn:
+        state.push_log(f"  on_play 効果 無効 (OP09-081 相手効果): {self_inplay.card.name}")
+        has_self_on_play = False
     if has_self_on_play:
         enqueue_event(
             state,
