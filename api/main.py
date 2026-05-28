@@ -12,6 +12,17 @@ Next.js 側からは fetch("http://localhost:8000/api/cards") のように叩く
 
 from __future__ import annotations
 
+# === 真 Phase 1.0 (= 2026-05-28、 ohtsuki さん 設計) を default-on ===
+# api 経由で 起動する AI (= Human Play 含む) で 新 architecture を 使う:
+# - GOAL_TARGET_W=1.0: target spec の bonus を 行動評価 に 反映
+# - GOAL_DERIVE=1: 自陣 lookup-driven action pre-filter (Fix 1.0)
+# - OPP_DERIVE=1: 敵陣 disrupt (Fix 2/3)
+# setdefault なので 外部 env で 明示 上書き 可能 (= tests / 評価 script は そのまま動く)。
+import os
+os.environ.setdefault("ONEPIECE_GOAL_TARGET_W", "1.0")
+os.environ.setdefault("ONEPIECE_GOAL_DERIVE", "1")
+os.environ.setdefault("ONEPIECE_OPP_DERIVE", "1")
+
 import json
 import re
 import sys

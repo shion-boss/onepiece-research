@@ -814,6 +814,9 @@ def legal_actions(state: GameState) -> list[Action]:
             and not me.leader.cannot_attack_until_turn_end
             and not me.leader.cannot_attack_static
             and not me.leader.cannot_attack_through_opp_turn
+            # 「レストにできない」 効果中はアタック禁止 (= 攻撃で rest 化する為、 cannot_be_rested と矛盾)
+            # 公式 set_cannot_rest (OP14-033 / OP14-069 ドフラ option 2 等)
+            and not me.leader.cannot_be_rested_buff
         ):
             attackers.append(me.leader)
         for ch in me.characters:
@@ -824,6 +827,9 @@ def legal_actions(state: GameState) -> list[Action]:
                 or ch.cannot_attack_static
                 or ch.cannot_attack_through_opp_turn
             ):
+                continue
+            # 「レストにできない」 効果中はアタック禁止 (= 攻撃で rest 化する為)
+            if ch.cannot_be_rested_buff:
                 continue
             if ch.summoning_sickness and not ch.is_rush_now:
                 # 召喚酔いでも 速攻:キャラ なら例外的に「キャラ攻撃のみ」可能

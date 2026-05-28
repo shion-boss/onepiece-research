@@ -7463,6 +7463,22 @@ def try_replace_ko(
             }
             if extra_cond and not eval_condition(extra_cond, state, owner, inplay):
                 continue
+            # optional gate (= 公式 「〜してもよい」 / 「〜することができる」)。
+            # owner が human の 場合 は 自動発火 ✗ (= 人間 判断 で 使う/使わない 選択 する 必要 がある)。
+            # 現状 は modal 未実装 ので 「skip (= 使わない)」 を default 動作 とする。
+            # 注意: 「使う」 を 選べる UI 拡張 は 別 task (= replace_ko_optional pending_choice flow)。
+            # 関連 bug: 2026-05-28 human play log の ヴェルゴ 自動 KO 置換 報告。
+            if eff.get("optional", False):
+                owner_idx = state.players.index(owner)
+                if (
+                    state.human_player_idx is not None
+                    and owner_idx == state.human_player_idx
+                ):
+                    state.push_log(
+                        f"  離脱置換 ({when}) skip: {inplay.card.name} の任意効果は"
+                        f"人間 modal 未実装 のため 不使用 → KO 続行 (TODO: replace_ko_optional UI)"
+                    )
+                    continue
             # cost フィールド対応 (任意): cost が払えない場合は置換不可。
             # spec: {"cost": [<primitive>...]} を payability check で消費する。
             cost_specs = eff.get("cost", [])

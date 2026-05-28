@@ -8801,7 +8801,8 @@
         {
           "return_self_don_to_deck": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "OP14-061 ヴェルゴ アタック時: ドン-1 → 相手キャラ1 -2000 turn",
@@ -31423,7 +31424,8 @@
         {
           "return_self_don_to_deck": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "OP14-061 ヴェルゴ アタック時: ドン-1 → 相手キャラ1 -2000 turn",
