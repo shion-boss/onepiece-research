@@ -1,0 +1,92 @@
+# 公式 Q&A 由来 oracle assertion seed (= 2026-05-28、 docs/AUTO_AUDIT_SYSTEM.md Layer 3)。
+#
+# 各 entry が overlay / engine の 特定 状態 に 対する 期待 を 表現。
+# scripts/audit_oracle_validate.py が 機械的 突合 を 行う。
+#
+# format:
+#   - id: <unique>
+#     source_q: <公式 Q 引用 短文>
+#     source_a: <公式 A 引用>
+#     scope: card | rule | engine
+#     # card scope
+#     card_id: <id>       # 特定 card 限定
+#     # 検証 内容
+#     assert:
+#       path: <jsonpath-like>  # 例: overlay.OP14-061[*].optional
+#       expected: <value>
+#       any: true               # any (= 1 つでも match) / all (= 全 entry match)
+#     # マッチ 失敗 時 の 修正ヒント
+#     suggested_fix: <人間 読み の メモ>
+
+assertions:
+  - id: bug2_op14_061_optional
+    source_q: "ヴェルゴの効果は使わないこともできますか?"
+    source_a: "はい、任意です (= 「戻すことができる」)"
+    scope: card
+    card_id: OP14-061
+    assert:
+      path: overlay.OP14-061
+      where: { when: replace_ko }
+      field: optional
+      expected: true
+    suggested_fix: "replace_ko entry に optional: true 追加"
+
+  - id: bug2_op14_061_p1_optional
+    source_q: "ヴェルゴ パラレル も 同 効果"
+    source_a: "はい、任意"
+    scope: card
+    card_id: OP14-061_p1
+    assert:
+      path: overlay.OP14-061_p1
+      where: { when: replace_ko }
+      field: optional
+      expected: true
+
+  - id: bug1_op14_069_set_cannot_rest
+    source_q: "set_cannot_rest 中 chara は アタック できますか?"
+    source_a: "いいえ (= アタック で REST 化、 cannot_be_rested と 矛盾)"
+    scope: rule
+    assert:
+      invariant: INV-cannot-rest-no-attack
+      coverage_required: true
+    suggested_fix: "engine/audit_invariants.py で invariant が 宣言 されている"
+
+  - id: op10_118_ko_per_turn_immune
+    source_q: "OP10-118 は 同 ターン に 2 回 相手効果 KO される か?"
+    source_a: "1 回 目 は 無効、 2 回 目 から KO"
+    scope: card
+    card_id: OP10-118
+    assert:
+      path: overlay.OP10-118
+      where: { when: on_play }
+      contains_primitive: set_ko_per_turn_immune
+
+  - id: op14_061_replace_ko_target_feature
+    source_q: "ヴェルゴ の 代替 効果 は ドンキホーテ海賊団 だけ?"
+    source_a: "はい、 特徴 限定"
+    scope: card
+    card_id: OP14-061
+    assert:
+      path: overlay.OP14-061
+      where: { when: replace_ko }
+      field_path: if.target_feature
+      expected: ドンキホーテ海賊団
+
+  - id: op04_031_stay_rested_overlay
+    source_q: "OP04-031 ドフラ 10 コス effect は 何 を 起動 する?"
+    source_a: "相手 レスト chara 3 枚 まで 次相手 リフレッシュで アクティブ にならない"
+    scope: card
+    card_id: OP04-031
+    assert:
+      path: overlay.OP04-031
+      where: { when: on_play }
+      contains_primitive: stay_rested_next_refresh
+
+  - id: op14_069_set_cannot_rest_option
+    source_q: "OP14-069 option 1 は コスト 7 以下 限定?"
+    source_a: "はい、 コスト 7 以下"
+    scope: card
+    card_id: OP14-069
+    assert:
+      path: overlay.OP14-069
+      contains_primitive_anywhere: set_cannot_rest

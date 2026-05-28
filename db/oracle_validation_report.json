@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-05-28T15:13:41.845029Z",
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0
+  },
+  "results": [
+    {
+      "id": "bug2_op14_061_optional",
+      "scope": "card",
+      "passed": true,
+      "message": "field optional=True OK",
+      "card_id": "OP14-061",
+      "source_q": "ヴェルゴの効果は使わないこともできますか?",
+      "source_a": "はい、任意です (= 「戻すことができる」)",
+      "suggested_fix": "replace_ko entry に optional: true 追加"
+    },
+    {
+      "id": "bug2_op14_061_p1_optional",
+      "scope": "card",
+      "passed": true,
+      "message": "field optional=True OK",
+      "card_id": "OP14-061_p1",
+      "source_q": "ヴェルゴ パラレル も 同 効果",
+      "source_a": "はい、任意",
+      "suggested_fix": null
+    },
+    {
+      "id": "bug1_op14_069_set_cannot_rest",
+      "scope": "rule",
+      "passed": true,
+      "message": "invariant INV-cannot-rest-no-attack 宣言 済",
+      "card_id": null,
+      "source_q": "set_cannot_rest 中 chara は アタック できますか?",
+      "source_a": "いいえ (= アタック で REST 化、 cannot_be_rested と 矛盾)",
+      "suggested_fix": "engine/audit_invariants.py で invariant が 宣言 されている"
+    },
+    {
+      "id": "op10_118_ko_per_turn_immune",
+      "scope": "card",
+      "passed": true,
+      "message": "contains_primitive set_ko_per_turn_immune OK",
+      "card_id": "OP10-118",
+      "source_q": "OP10-118 は 同 ターン に 2 回 相手効果 KO される か?",
+      "source_a": "1 回 目 は 無効、 2 回 目 から KO",
+      "suggested_fix": null
+    },
+    {
+      "id": "op14_061_replace_ko_target_feature",
+      "scope": "card",
+      "passed": true,
+      "message": "field_path if.target_feature=ドンキホーテ海賊団 OK",
+      "card_id": "OP14-061",
+      "source_q": "ヴェルゴ の 代替 効果 は ドンキホーテ海賊団 だけ?",
+      "source_a": "はい、 特徴 限定",
+      "suggested_fix": null
+    },
+    {
+      "id": "op04_031_stay_rested_overlay",
+      "scope": "card",
+      "passed": true,
+      "message": "contains_primitive stay_rested_next_refresh OK",
+      "card_id": "OP04-031",
+      "source_q": "OP04-031 ドフラ 10 コス effect は 何 を 起動 する?",
+      "source_a": "相手 レスト chara 3 枚 まで 次相手 リフレッシュで アクティブ にならない",
+      "suggested_fix": null
+    },
+    {
+      "id": "op14_069_set_cannot_rest_option",
+      "scope": "card",
+      "passed": true,
+      "message": "contains_primitive_anywhere set_cannot_rest OK",
+      "card_id": "OP14-069",
+      "source_q": "OP14-069 option 1 は コスト 7 以下 限定?",
+      "source_a": "はい、 コスト 7 以下",
+      "suggested_fix": null
+    }
+  ]
+}
