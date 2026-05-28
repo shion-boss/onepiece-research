@@ -1,23 +1,15 @@
 {
-  "generated_at": "2026-05-28T16:05:57.241997Z",
+  "generated_at": "2026-05-28T16:10:58.765486Z",
   "cards_scanned": 4518,
-  "issues_total": 75,
+  "issues_total": 41,
   "by_rule": {
-    "L3": 41,
-    "L4": 11,
-    "L7": 19,
-    "L8": 4
+    "L3": 41
   },
   "by_category": {
-    "self_opp_reversal_suspect": 41,
-    "count_limit_missing": 11,
-    "cost_le_missing": 19,
-    "duration_next_turn_missing": 4
+    "self_opp_reversal_suspect": 41
   },
   "by_severity": {
-    "2": 41,
-    "3": 11,
-    "4": 23
+    "2": 41
   },
   "issues": [
     {
@@ -197,21 +189,6 @@
       }
     },
     {
-      "rule_id": "L4",
-      "card_id": "OP03-095",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【メイン】相手のキャラ2枚までを、このターン中、コスト-2。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-095",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP05-041",
       "severity": 2,
@@ -289,66 +266,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP06-001_p2",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP06-071",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "…徴《FILM》を持つ場合、自分のトラッシュの特徴《FILM》を持つコスト4以下のキャラカード2枚までを、手札に加える。",
-        "matched": "キャラカード2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-071",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP06-071",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…のリーダーが特徴《FILM》を持つ場合、自分のトラッシュの特徴《FILM》を持つコスト4以下のキャラカード2枚までを、手札に加える。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-071",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP06-075",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラ2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "…のドン !!を指定の数ドン !!デッキに戻すことができる)：相手のコスト2以下のキャラ2枚までを、レストにする。",
-        "matched": "キャラ2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-075",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP06-096",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【カウンター】自分のライフの上から1枚を手札に加えることができる：自分のコスト7以下のキャラすべては、このターン中、バトルでKOされない。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-096",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
       }
     },
     {
@@ -499,261 +416,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP07-091",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【アタック時】相手のコスト2以下のキャラ1枚までをトラッシュに置く。その後、自分のトラッシュからコスト4以上のキャラカー…",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-091",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP07-091_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【アタック時】相手のコスト2以下のキャラ1枚までをトラッシュに置く。その後、自分のトラッシュからコスト4以上のキャラカー…",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-091_p1",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-069",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…ことができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。",
-        "n": 6
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-069",
-        "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-069_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…ことができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。",
-        "n": 6
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-069_p1",
-        "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-069_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…ことができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。",
-        "n": 6
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-069_p2",
-        "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-079",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の手札1枚を捨てる。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-079",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-079_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の手札1枚を捨てる。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-079_p1",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP09-036",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分のレストのキャラが2枚以上いる場合、相手のコスト6以下のキャラ1枚かドン‼1枚までを、レストにする。",
-        "n": 6
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-036",
-        "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-081",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…の【登場時】効果は無効になる。【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の【登場時】効果は無効になる。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-081_p1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…の【登場時】効果は無効になる。【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の【登場時】効果は無効になる。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081_p1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-081_p2",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…の【登場時】効果は無効になる。【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の【登場時】効果は無効になる。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081_p2",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP09-081_p3",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…の【登場時】効果は無効になる。【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の【登場時】効果は無効になる。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081_p3",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP09-101",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手のコスト3以下のキャラ1枚を、相手のライフの上か下に表向きで置く：相手は自身の手札1枚を捨てる。",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-101",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP10-058",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "…の後、自分の手札から、「レベッカ」以外の特徴《ドレスローザ》を持つコスト7以下のキャラカード2枚までを、公開する。公開したカードのうち1枚を登場させ、残りがコスト4以下ならレストで…",
-        "matched": "キャラカード2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-058",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP10-058",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…1枚を引く。その後、自分の手札から、「レベッカ」以外の特徴《ドレスローザ》を持つコスト7以下のキャラカード2枚までを、公開する。公開したカードのうち1枚を登場させ、残りがコスト4以…",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-058",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP10-058_p1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "…の後、自分の手札から、「レベッカ」以外の特徴《ドレスローザ》を持つコスト7以下のキャラカード2枚までを、公開する。公開したカードのうち1枚を登場させ、残りがコスト4以下ならレストで…",
-        "matched": "キャラカード2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-058_p1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP10-058_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…1枚を引く。その後、自分の手札から、「レベッカ」以外の特徴《ドレスローザ》を持つコスト7以下のキャラカード2枚までを、公開する。公開したカードのうち1枚を登場させ、残りがコスト4以…",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-058_p1",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP12-020",
       "severity": 2,
@@ -822,66 +484,6 @@
       }
     },
     {
-      "rule_id": "L4",
-      "card_id": "OP12-037",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラかドン‼合計2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【メイン】自分のドン‼3枚をレストにできる：相手の、キャラかドン‼合計2枚までを、レストにする。【カウンター】自分のリーダーを、このバトル中、パワー+3000…",
-        "matched": "キャラかドン‼合計2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP12-037",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP12-037_p1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラかドン‼合計2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "【メイン】自分のドン‼3枚をレストにできる：相手の、キャラかドン‼合計2枚までを、レストにする。【カウンター】自分のリーダーを、このバトル中、パワー+3000…",
-        "matched": "キャラかドン‼合計2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP12-037_p1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP12-051",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…メイン】このキャラをレストにし、自分の手札1枚を捨てることができる：相手の元々のコスト4以下のキャラ1枚までは、このターン中、【ブロッカー】を発動できない。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP12-051",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP12-051_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…メイン】このキャラをレストにし、自分の手札1枚を捨てることができる：相手の元々のコスト4以下のキャラ1枚までは、このターン中、【ブロッカー】を発動できない。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP12-051_p1",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP13-064",
       "severity": 2,
@@ -911,36 +513,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP13-064_p1",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP13-082",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード5枚まで」 が 含まれる が overlay に count: 5 制限 なし",
-      "evidence": {
-        "text_excerpt": "…に置き、自分のトラッシュからパワー5000のカード名の異なる特徴《五老星》を持つキャラカード5枚までを、登場させる。",
-        "matched": "キャラカード5枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-082",
-        "patch": "該当 effect に count: 5 (or limit: 5) を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "OP13-082_p1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード5枚まで」 が 含まれる が overlay に count: 5 制限 なし",
-      "evidence": {
-        "text_excerpt": "…に置き、自分のトラッシュからパワー5000のカード名の異なる特徴《五老星》を持つキャラカード5枚までを、登場させる。",
-        "matched": "キャラカード5枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-082_p1",
-        "patch": "該当 effect に count: 5 (or limit: 5) を 追加"
       }
     },
     {
@@ -1040,21 +612,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "P-062",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【起動メイン】【ターン1回】相手のコスト4以下のキャラ1枚までを、レストにし、このキャラは、このターン中、パワー＋1000。その後、自…",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:P-062",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "PRB02-006",
       "severity": 2,
@@ -1100,81 +657,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:PRB02-006_p2",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST09-015",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…を、このバトル中、パワー+4000。その後、自分のライフが2枚以下の場合、相手のコスト3以下のキャラ1枚までを、持ち主のライフの上か下に表向きで加える。",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST09-015",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST10-001",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…のパワー3000以下のキャラ1枚までを、持ち主のデッキの下に置き、自分の手札からコスト4以下のキャラカード1枚までを、登場させる。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST10-001",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST10-017",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】相手のコスト2以下のキャラ1枚までを、レストにし、ドン!!デッキからドン!!1枚までを、レストで追加する。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST10-017",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "ST13-003",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "…捨てることができる：自分のライフが0枚の場合、自分の手札かトラッシュのコスト5のキャラカード2枚までを、自分のライフの上に表向きで加える。",
-        "matched": "キャラカード2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST13-003",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L4",
-      "card_id": "ST13-003_p1",
-      "severity": 3,
-      "category": "count_limit_missing",
-      "message": "text に chara/leader 文脈 で 「キャラカード2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
-      "evidence": {
-        "text_excerpt": "…捨てることができる：自分のライフが0枚の場合、自分の手札かトラッシュのコスト5のキャラカード2枚までを、自分のライフの上に表向きで加える。",
-        "matched": "キャラカード2枚まで"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST13-003_p1",
-        "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
       }
     },
     {

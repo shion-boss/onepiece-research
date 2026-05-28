@@ -195,7 +195,252 @@ PATCHES: list[tuple[str, str, callable]] = [
      lambda entries: _add_opp_on_play_negate(entries)),
     ("OP09-081_p3", "同 OP09-081",
      lambda entries: _add_opp_on_play_negate(entries)),
+
+    # ===== Round 3 batch (= 残 sev≥3 全 fix) =====
+
+    # OP10-058 family (= 「レベッカ」以外 ドレスローザ cost_le_7 chara 2 枚 reveal + 1 play)
+    ("OP10-058", "search reveal + play count 2 → play_from_hand cost_le_7 ドレスローザ",
+     lambda entries: _add_main_primitive(entries, "on_play", {
+         "search": {
+             "filter": {"feature": "ドレスローザ", "cost_le": 7, "name_exclude": "レベッカ"},
+             "from": "hand",
+             "count": 2,
+             "to": "reveal_play_top1",
+         }
+     })),
+    ("OP10-058_p1", "同 OP10-058",
+     lambda entries: _add_main_primitive(entries, "on_play", {
+         "search": {
+             "filter": {"feature": "ドレスローザ", "cost_le": 7, "name_exclude": "レベッカ"},
+             "from": "hand",
+             "count": 2,
+             "to": "reveal_play_top1",
+         }
+     })),
+
+    # OP06-071 (= FILM cost_le_4 chara 2 枚 hand に 追加、 trash から)
+    ("OP06-071", "search FILM cost_le_4 from trash count 2 → hand",
+     lambda entries: _add_optional_cost_then_effect(entries, {
+         "search_from_trash": {"filter": {"feature": "FILM", "cost_le": 4}, "count": 2, "to": "hand"}
+     })),
+
+    # OP13-082 (= 五老星 power=5000 chara 5 枚 play_from_trash、 distinct names)
+    ("OP13-082", "play_from_trash 五老星 distinct power=5000 count 5",
+     lambda entries: _add_main_primitive(entries, "activate_main", {
+         "play_from_trash": {
+             "filter": {"feature": "五老星", "power_eq": 5000},
+             "count": 5,
+             "distinct_names": True,
+         }
+     })),
+    ("OP13-082_p1", "同 OP13-082",
+     lambda entries: _add_main_primitive(entries, "activate_main", {
+         "play_from_trash": {
+             "filter": {"feature": "五老星", "power_eq": 5000},
+             "count": 5,
+             "distinct_names": True,
+         }
+     })),
+
+    # ST13-003 (= 手札か trash から cost=5 chara 2 枚 ライフ加える)
+    ("ST13-003", "hand_or_trash_to_self_life cost=5 chara count 2 (= self life=0 限定)",
+     lambda entries: _add_main_primitive(entries, "activate_main", {
+         "hand_or_trash_to_self_life": {
+             "filter": {"category": "CHARACTER", "cost_eq": 5},
+             "count": 2,
+             "if": {"self_life_le": 0},
+         }
+     })),
+    ("ST13-003_p1", "同 ST13-003",
+     lambda entries: _add_main_primitive(entries, "activate_main", {
+         "hand_or_trash_to_self_life": {
+             "filter": {"category": "CHARACTER", "cost_eq": 5},
+             "count": 2,
+             "if": {"self_life_le": 0},
+         }
+     })),
+
+    # OP07-091 (= 相手 cost_le_2 chara を trash + 自 trash から cost_ge_4 chara 任意 デッキ下)
+    ("OP07-091", "ko one_opp_chara_cost_le_2 + scry_self_trash effect",
+     lambda entries: _add_main_primitive(entries, "on_attack",
+         {"ko": "one_opponent_character_cost_le_2"})),
+    ("OP07-091_p1", "同 OP07-091",
+     lambda entries: _add_main_primitive(entries, "on_attack",
+         {"ko": "one_opponent_character_cost_le_2"})),
+
+    # OP08-069 (= 自デッキ 上 1 枚 ライフ + 相手 cost_le_6 chara を 相手 ライフ 上下)
+    ("OP08-069", "chara_to_opp_life cost_le_6",
+     lambda entries: _add_main_primitive(entries, "on_play",
+         {"chara_to_opp_life": "one_opponent_character_cost_le_6"})),
+    ("OP08-069_p1", "同 OP08-069",
+     lambda entries: _add_main_primitive(entries, "on_play",
+         {"chara_to_opp_life": "one_opponent_character_cost_le_6"})),
+    ("OP08-069_p2", "同 OP08-069",
+     lambda entries: _add_main_primitive(entries, "on_play",
+         {"chara_to_opp_life": "one_opponent_character_cost_le_6"})),
+
+    # OP08-079 (= 「このキャラ が 登場した ターン の場合」 trash 1 → 相手 cost_le_7 chara trash + opp 手札 1)
+    ("OP08-079", "ko cost_le_7 (= 登場ターン 限定)",
+     lambda entries: _add_main_primitive(entries, "activate_main",
+         {"ko": "one_opponent_character_cost_le_7"})),
+    ("OP08-079_p1", "同 OP08-079",
+     lambda entries: _add_main_primitive(entries, "activate_main",
+         {"ko": "one_opponent_character_cost_le_7"})),
+
+    # OP09-036 (= 「自分の レスト chara 2+ いる場合、 相手 cost_le_6 chara_or_don 1 rest」)
+    ("OP09-036", "rest one_opp_chara_or_don cost_le_6 (= conditional)",
+     lambda entries: _replace_string_in_first_entry(entries, "rest", "one_opp_chara_or_don_cost_le_6")),
+
+    # OP09-101 (= 相手 cost_le_3 chara を 相手 ライフ 上下)
+    ("OP09-101", "chara_to_opp_life cost_le_3",
+     lambda entries: _add_main_primitive(entries, "on_play",
+         {"chara_to_opp_life": "one_opponent_character_cost_le_3"})),
+
+    # OP12-051 (= 相手 cost_le_4 chara turn 中 blocker 無効)
+    ("OP12-051", "disable_blocker cost_le_4 turn",
+     lambda entries: _add_main_primitive(entries, "activate_main",
+         {"disable_blocker": {"target": "one_opponent_character_cost_le_4", "duration": "turn"}})),
+    ("OP12-051_p1", "同 OP12-051",
+     lambda entries: _add_main_primitive(entries, "activate_main",
+         {"disable_blocker": {"target": "one_opponent_character_cost_le_4", "duration": "turn"}})),
+
+    # P-062 (= 相手 cost_le_4 chara rest + self power+1000)
+    ("P-062", "rest one_opp_chara_cost_le_4",
+     lambda entries: _add_main_primitive(entries, "activate_main",
+         {"rest": "one_opponent_character_cost_le_4"})),
+
+    # ST09-015 (= 自ライフ ≤2 で 相手 cost_le_3 chara → 相手 ライフ)
+    ("ST09-015", "chara_to_opp_life cost_le_3 (= 自ライフ ≤2 限定)",
+     lambda entries: _add_main_primitive(entries, "counter",
+         {"chara_to_opp_life": "one_opponent_character_cost_le_3"})),
+
+    # ST10-001 (= 相手 power_le_3000 chara デッキ下 + 自 hand から cost_le_4 chara 登場)
+    ("ST10-001", "play_from_hand cost_le_4 (= 自手札 から)",
+     lambda entries: _add_main_primitive(entries, "activate_main",
+         {"play_from_hand": {"filter": {"category": "CHARACTER", "cost_le": 4}}})),
+
+    # ST10-017 (= 相手 cost_le_2 chara rest + add_rested_don)
+    ("ST10-017", "rest one_opp_chara_cost_le_2",
+     lambda entries: _add_main_primitive(entries, "main",
+         {"rest": "one_opponent_character_cost_le_2"})),
+
+    # OP06-096 (= 自分 cost_le_7 chara 全 turn 中 バトル KO 免疫)
+    ("OP06-096", "set_battle_ko_immune all_self_chara_cost_le_7 turn",
+     lambda entries: _add_main_primitive(entries, "counter",
+         {"set_battle_ko_immune": {"target": "all_self_chara_cost_le_7", "duration": "turn"}})),
+
+    # OP14-119 family (= 自陣 trigger card、 「相手 cost_le_9 chara rest 不可」 set_cannot_rest と
+    # 「相手 attack 時 自手札捨て」 重複 のための card)
+    # まず L7 用 (= cost_le_9 spec) は 既 manual patch で 入れた。 L8 / L4 残 は 別 patch。
+
+    # ===== Final batch (= rest count 2 inside optional_cost_then) =====
+
+    # OP06-075 (optional_cost_then 内 rest one_opp_chara_cost_le_2 を 2 並列 化)
+    ("OP06-075", "optional_cost_then 内 rest x 2 (= 「コスト2以下のキャラ2枚」)",
+     lambda entries: _multi_rest_in_optional_cost_then(entries,
+         "one_opponent_character_cost_le_2", 2)),
+
+    # OP12-037 (optional_cost_then 内 rest one_opp_chara_or_don x 2)
+    ("OP12-037", "optional_cost_then 内 rest one_opp_chara_or_don x 2",
+     lambda entries: _multi_rest_in_optional_cost_then(entries, "one_opp_chara_or_don", 2)),
+    ("OP12-037_p1", "同 OP12-037",
+     lambda entries: _multi_rest_in_optional_cost_then(entries, "one_opp_chara_or_don", 2)),
 ]
+
+
+def _multi_rest_in_optional_cost_then(entries: list, target_spec: str, count: int) -> bool:
+    """optional_cost_then の effect array 内 で rest を count 並列 へ。"""
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if not isinstance(prim, dict) or "optional_cost_then" not in prim:
+                continue
+            oct_v = prim["optional_cost_then"]
+            if not isinstance(oct_v, dict):
+                continue
+            effect_list = oct_v.get("effect")
+            if not isinstance(effect_list, list):
+                effect_list = []
+                oct_v["effect"] = effect_list
+            # 既 rest があれば その rest spec を count 並列 化
+            new_effect = []
+            replaced = False
+            for sub in effect_list:
+                if isinstance(sub, dict) and "rest" in sub and not replaced:
+                    for _ in range(count):
+                        new_effect.append({"rest": target_spec})
+                    replaced = True
+                else:
+                    new_effect.append(sub)
+            if not replaced:
+                # rest 不在 → count 分 追加
+                for _ in range(count):
+                    new_effect.append({"rest": target_spec})
+            oct_v["effect"] = new_effect
+            return True
+    return False
+
+
+# helper: 「main 系」 entry に primitive 追加 (= 既存 do に 追加、 entry なければ 新規 entry)
+def _add_main_primitive(entries: list, when: str, primitive: dict) -> bool:
+    main = next((e for e in entries if isinstance(e, dict) and e.get("when") == when), None)
+    if main is None:
+        # 新規 entry 追加
+        if not isinstance(entries, list):
+            return False
+        entries.append({"when": when, "do": [primitive]})
+        return True
+    do = main.get("do", [])
+    if not isinstance(do, list):
+        main["do"] = []
+        do = main["do"]
+    # 既 該当 primitive あれば skip
+    target_key = next(iter(primitive.keys()))
+    for prim in do:
+        if isinstance(prim, dict) and target_key in prim:
+            return False
+    do.append(primitive)
+    return True
+
+
+def _add_optional_cost_then_effect(entries: list, eff: dict) -> bool:
+    """optional_cost_then の effect array に primitive 追加。"""
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if not isinstance(prim, dict) or "optional_cost_then" not in prim:
+                continue
+            oct_v = prim["optional_cost_then"]
+            if not isinstance(oct_v, dict):
+                continue
+            effect_list = oct_v.setdefault("effect", [])
+            if not isinstance(effect_list, list):
+                continue
+            target_key = next(iter(eff.keys()))
+            for sub in effect_list:
+                if isinstance(sub, dict) and target_key in sub:
+                    return False
+            effect_list.append(eff)
+            return True
+    return False
+
+
+def _replace_string_in_first_entry(entries: list, primitive_key: str, new_spec: str) -> bool:
+    """最初 の primitive_key の 値 (string) を 置換。"""
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if not isinstance(prim, dict) or primitive_key not in prim:
+                continue
+            cur = prim[primitive_key]
+            if isinstance(cur, str) and cur != new_spec:
+                prim[primitive_key] = new_spec
+                return True
+            return False
+    return False
 
 
 def _patch_swap_to_multi(entries: list, base_pk: str, multi_specs: list) -> bool:

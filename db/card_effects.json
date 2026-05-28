@@ -77,6 +77,24 @@
             "target": "self",
             "count": 2
           }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
         }
       ]
     }
@@ -7758,7 +7776,13 @@
             ],
             "effect": [
               {
-                "rest": "one_opponent_character_any"
+                "rest": "one_opp_chara_or_don"
+              },
+              {
+                "rest": "one_opp_chara_or_don"
+              },
+              {
+                "rest": "one_opp_chara_or_don"
               },
               {
                 "rest_opp_don": 1
@@ -9634,6 +9658,16 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "feature": "五老星",
+              "power_eq": 5000
+            },
+            "count": 5,
+            "distinct_names": true
+          }
         }
       ],
       "cost": {
@@ -10750,7 +10784,10 @@
           ]
         },
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "life_to_hand": 1
@@ -16192,6 +16229,18 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "hand_or_trash_to_self_life": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5
+            },
+            "count": 2,
+            "if": {
+              "self_life_le": 0
+            }
+          }
         }
       ]
     }
@@ -16207,6 +16256,18 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "hand_or_trash_to_self_life": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5
+            },
+            "count": 2,
+            "if": {
+              "self_life_le": 0
+            }
+          }
         }
       ]
     }
@@ -16325,6 +16386,14 @@
       "do": [
         {
           "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4
+            }
+          }
         }
       ]
     }
@@ -22175,6 +22244,18 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "search": {
+            "filter": {
+              "feature": "ドレスローザ",
+              "cost_le": 7,
+              "name_exclude": "レベッカ"
+            },
+            "from": "hand",
+            "count": 2,
+            "to": "reveal_play_top1"
+          }
         }
       ]
     }
@@ -24106,7 +24187,13 @@
             ],
             "effect": [
               {
-                "rest": "one_opponent_character_cost_le_2cost"
+                "rest": "one_opponent_character_cost_le_2"
+              },
+              {
+                "rest": "one_opponent_character_cost_le_2"
+              },
+              {
+                "rest": "one_opponent_character_cost_le_2"
               },
               {
                 "rest": "one_opponent_character_cost_le_2cost"
@@ -25961,6 +26048,9 @@
             "amount": 4000,
             "duration": "battle"
           }
+        },
+        {
+          "chara_to_opp_life": "one_opponent_character_cost_le_3"
         }
       ],
       "if": {
@@ -29138,7 +29228,10 @@
           ]
         },
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "life_to_hand": 1
@@ -32435,6 +32528,16 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "feature": "五老星",
+              "power_eq": 5000
+            },
+            "count": 5,
+            "distinct_names": true
+          }
         }
       ],
       "cost": {
@@ -33104,7 +33207,13 @@
             ],
             "effect": [
               {
-                "rest": "one_opponent_character_any"
+                "rest": "one_opp_chara_or_don"
+              },
+              {
+                "rest": "one_opp_chara_or_don"
+              },
+              {
+                "rest": "one_opp_chara_or_don"
               },
               {
                 "rest_opp_don": 1
@@ -33885,6 +33994,18 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "search": {
+            "filter": {
+              "feature": "ドレスローザ",
+              "cost_le": 7,
+              "name_exclude": "レベッカ"
+            },
+            "from": "hand",
+            "count": 2,
+            "to": "reveal_play_top1"
+          }
         }
       ]
     }
@@ -35077,7 +35198,10 @@
           ]
         },
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "life_to_hand": 1
@@ -36536,6 +36660,24 @@
             "target": "self",
             "count": 2
           }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
         }
       ]
     }
@@ -37551,6 +37693,24 @@
             "target": "self",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
           }
         },
         {
@@ -39965,6 +40125,24 @@
             "target": "self",
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": "self",
+            "count": 2
           }
         },
         {
@@ -48121,7 +48299,10 @@
           ]
         },
         {
-          "rest": "one_opp_chara_or_don"
+          "rest_multi": [
+            "one_opp_chara_or_don",
+            "one_opp_chara_or_don"
+          ]
         },
         {
           "life_to_hand": 1
@@ -57272,6 +57453,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "disable_blocker": {
+            "target": "one_opponent_character_cost_le_4",
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -60971,7 +61158,7 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opp_chara_or_don"
+          "rest": "one_opp_chara_or_don_cost_le_6"
         }
       ]
     }
@@ -61642,6 +61829,9 @@
       "do": [
         {
           "trash_opp_hand_random": 1
+        },
+        {
+          "chara_to_opp_life": "one_opponent_character_cost_le_3"
         }
       ]
     }
@@ -62646,6 +62836,9 @@
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "chara_to_opp_life": "one_opponent_character_cost_le_6"
         }
       ],
       "cost": {
@@ -62664,6 +62857,9 @@
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "chara_to_opp_life": "one_opponent_character_cost_le_6"
         }
       ],
       "cost": {
@@ -62893,6 +63089,9 @@
         },
         {
           "trash_opp_hand_random": 1
+        },
+        {
+          "ko": "one_opponent_character_cost_le_7"
         }
       ],
       "cost": {
@@ -62914,6 +63113,9 @@
         },
         {
           "trash_opp_hand_random": 1
+        },
+        {
+          "ko": "one_opponent_character_cost_le_7"
         }
       ],
       "cost": {
@@ -64628,6 +64830,9 @@
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "ko": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -65784,6 +65989,16 @@
                   },
                   "limit": 1
                 }
+              },
+              {
+                "search_from_trash": {
+                  "filter": {
+                    "feature": "FILM",
+                    "cost_le": 4
+                  },
+                  "count": 2,
+                  "to": "hand"
+                }
               }
             ]
           }
@@ -66129,6 +66344,12 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "set_battle_ko_immune": {
+            "target": "all_self_chara_cost_le_7",
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -70359,6 +70580,27 @@
       "_text": "OP03-095 main: 相手のキャラ2枚までを、このターン中、コスト-2。",
       "when": "main",
       "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
+        },
         {
           "cost_minus": {
             "target": "one_opponent_character_any",
@@ -78380,6 +78622,9 @@
       "do": [
         {
           "add_rested_don": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_2"
         }
       ]
     },
@@ -81460,6 +81705,9 @@
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "ko": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -82772,6 +83020,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_4"
         }
       ],
       "cost": {
@@ -84946,6 +85197,9 @@
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "chara_to_opp_life": "one_opponent_character_cost_le_6"
         }
       ],
       "cost": {
@@ -85176,6 +85430,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "disable_blocker": {
+            "target": "one_opponent_character_cost_le_4",
+            "duration": "turn"
+          }
         }
       ],
       "cost": {

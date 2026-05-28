@@ -359,6 +359,24 @@ def _check_count_limit_missing(cid: str, text: str, entries: list) -> list[dict]
     has_count_decl = False
     multi_primitives = {"ko_multi", "return_to_hand_multi", "return_to_deck_bottom_multi",
                         "rest_multi", "power_pump_multi"}
+    # 同 primitive を N 回 重複 do[] に 入れる pattern も count 表現 とみなす
+    # nested 構造 (optional_cost_then.effect[] / choice_effect.options[].do[] 等) も 走査
+    duplicatable_primitives = {"cost_minus", "rest", "ko", "return_to_hand", "return_to_deck_bottom",
+                               "power_pump", "attach_don", "attach_rested_don"}
+    prim_count: dict = {}
+    def _count_dup(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k in duplicatable_primitives:
+                    prim_count[k] = prim_count.get(k, 0) + 1
+                _count_dup(v)
+        elif isinstance(node, list):
+            for item in node:
+                _count_dup(item)
+    _count_dup(entries)
+    if any(c >= 2 for c in prim_count.values()):
+        has_count_decl = True
+
     def _walk_count(node):
         nonlocal has_count_decl
         if has_count_decl:
@@ -516,6 +534,7 @@ def _check_duration_missing(cid: str, text: str, entries: list) -> list[dict]:
                     "set_base_cost_timed", "set_ko_immune_timed",
                     "set_cannot_rest",  # set_cannot_rest 自体が next opp end 系
                     "keep_opp_rested_don_next_refresh",
+                    "disable_opp_on_play_through_opp_turn",  # OP09-081 系
                 ):
                     found_any = True
                     return
