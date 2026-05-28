@@ -1,0 +1,19 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L3",
+  "card_id": "EB04-044_p2",
+  "severity": 2,
+  "risk_tier": "high",
+  "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
+  "evidence": {
+    "target_specs": [
+      "self"
+    ]
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:EB04-044_p2",
+    "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T154956Z"
+}

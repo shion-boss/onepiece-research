@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L7",
+  "card_id": "OP08-069",
+  "severity": 4,
+  "risk_tier": "low",
+  "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
+  "evidence": {
+    "text_excerpt": "…ことができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの上か下に表向きで加える。",
+    "n": 6
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP08-069",
+    "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T154956Z"
+}

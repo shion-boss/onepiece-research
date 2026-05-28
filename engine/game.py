@@ -453,6 +453,7 @@ def _reset_turn_buff(state: GameState) -> None:
         ip.effect_disabled_through_opp_turn = False
         ip.cannot_attack_through_opp_turn = False
         ip.ko_immune_through_opp_turn = False
+        ip.cost_minus_through_opp_turn = 0
 
     # 次の(相手|自分)のターン終了時まで タイムドバフ系を applier-tracking でクリア。
     # 条件: applied_turn < state.turn_number (= 少なくとも 1 ターン経過)

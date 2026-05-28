@@ -223,8 +223,12 @@ def fix_l8_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
     if not isinstance(entries, list) or len(entries) == 0:
         return False, "entries なし"
     text = _get_card_text(cid)
-    # 「アタックできない」 の 該当 句 (= 直前 30 文字 を ターゲット 推定 に 使う)
-    m_dis = re.search(r"次の相手のターン終了時まで、?\s*アタックできない", text)
+    # 「アタックできない」 の 該当 句。 公式 表記 揺れ 吸収:
+    #   - 「次の相手のターン終了時まで」 (= 標準)
+    #   - 「次の相手のエンドフェイズ終了時まで」 (= 同 意味、 EB04-028 等)
+    m_dis = re.search(
+        r"次の相手の(?:ターン|エンドフェイズ)終了時まで、?\s*アタックできない", text
+    )
     if not m_dis:
         return False, "attack-disable pattern なし"
     # 直前 文 (= 「相手の…キャラ N 枚 まで は、 次相手 end まで attack できない」 の 「…」 部分)
@@ -291,7 +295,9 @@ def fix_l8_missing_power_pump(issue: dict, overlay: dict) -> tuple[bool, str]:
     if expected != "next_opp_turn_end":
         return False, "next_opp_turn_end 以外"
     text = _get_card_text(cid)
-    m_pw = re.search(r"次の相手のターン終了時まで、?\s*パワー([+-])(\d+)", text)
+    m_pw = re.search(
+        r"次の相手の(?:ターン|エンドフェイズ)終了時まで、?\s*パワー([+-])(\d+)", text
+    )
     if not m_pw:
         return False, "power +/- pattern なし"
     sign = m_pw.group(1)
@@ -392,6 +398,107 @@ def fix_l8_duration(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, "対応 primitive (power_pump duration=turn) なし"
 
 
+def fix_l8_missing_cost_plus(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8: 「次相手 end まで コスト+N」 missing → cost_minus 追加 (= cost_minus は 負 amount で cost+N)。
+
+    OPTCG official: 「コスト+N」 → opp が target を play する 時 N 多く 払う。
+    engine の cost_minus は cost を 減らす (= negative amount で 増やす)。
+    ただし target_cost_minus_until_turn_end は ターン中 のみ。 next_opp_turn_end は 別 flag。
+    """
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected != "next_opp_turn_end":
+        return False, "next_opp_turn_end 以外"
+    text = _get_card_text(cid)
+    m_cost = re.search(
+        r"次の相手の(?:ターン|エンドフェイズ)終了時まで、?\s*コスト([+-])(\d+)", text
+    )
+    if not m_cost:
+        return False, "cost +/- pattern なし"
+    sign = m_cost.group(1)
+    amount_abs = int(m_cost.group(2))
+    # 「コスト+N」 → cost_minus に 負 amount で 表現 する
+    amount = -amount_abs if sign == "+" else amount_abs
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) > 2 or len(entries) == 0:
+        return False, "entry 数 unsupported"
+    # 既 cost_minus next_opp_turn_end あれば skip
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and "cost_minus" in prim:
+                pv = prim.get("cost_minus", {})
+                if isinstance(pv, dict) and pv.get("duration") == "next_opp_turn_end":
+                    return False, "既 cost_minus next_opp_turn_end あり"
+    # target 推定
+    before = text[: m_cost.start()]
+    before = re.sub(r"(は、|、)$", "", before)
+    last_delim = max(before.rfind("、"), before.rfind("："), before.rfind("。"))
+    target_clause = before[last_delim+1:] if last_delim >= 0 else before
+    if "自分のキャラ" in target_clause:
+        target = "one_self_character_any"
+    elif "相手のキャラ" in target_clause:
+        target = "one_opponent_character_any"
+    else:
+        return False, f"target 推定 不可: ...{target_clause[-40:]}"
+    main_entry = None
+    for e in entries:
+        if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main", "counter"):
+            main_entry = e
+            break
+    if main_entry is None:
+        main_entry = entries[0]
+    new_prim = {"cost_minus": {"target": target, "amount": amount, "duration": "next_opp_turn_end"}}
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に cost_minus({target}, {amount:+d}, next_opp_turn_end) 追加"
+
+
+def fix_l8_missing_stay_rested(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8: 「次の相手のリフレッシュフェイズで アクティブにならない」 missing → stay_rested_next_refresh 追加。"""
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected != "next_refresh":
+        return False, "next_refresh 以外"
+    text = _get_card_text(cid)
+    if "アクティブにならない" not in text:
+        return False, "アクティブにならない pattern なし"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) > 2 or len(entries) == 0:
+        return False, "entry 数 unsupported"
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and "stay_rested_next_refresh" in prim:
+                return False, "既 stay_rested_next_refresh あり"
+    # target 推定 (= 「相手のレスト の chara N 枚」 / 「リーダー と キャラ 合計 N 枚」)
+    m_count = re.search(r"(\d+)\s*枚\s*まで", text)
+    n = int(m_count.group(1)) if m_count else 3
+    if "リーダー" in text and "キャラ" in text:
+        target_spec = f"any_opp_rested_inplay_n_{n}"
+    else:
+        target_spec = f"any_opp_rested_chara_n_{n}"
+    main_entry = None
+    for e in entries:
+        if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main"):
+            main_entry = e
+            break
+    if main_entry is None:
+        main_entry = entries[0]
+    new_prim = {"stay_rested_next_refresh": target_spec}
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に stay_rested_next_refresh({target_spec}) 追加"
+
+
 def fix_l8_cannot_attack_to_dict(issue: dict, overlay: dict) -> tuple[bool, str]:
     """L8: 既 set_cannot_attack が string spec (= duration=turn 扱い) で、 公式 text が
     next_opp_turn_end を 要求 する 場合、 dict spec へ 変換 + duration 追加。
@@ -429,13 +536,15 @@ def fix_l8_cannot_attack_to_dict(issue: dict, overlay: dict) -> tuple[bool, str]
     return False, "変換 対象 なし"
 
 
-# L8 handler chain: 4 つ の handler を 順次 試行
+# L8 handler chain: 6 つ の handler を 順次 試行
 def fix_l8_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
     for handler, label in [
         (fix_l8_duration, "duration"),
         (fix_l8_cannot_attack_to_dict, "cannot_attack_to_dict"),
         (fix_l8_missing_primitive, "missing_attack_disable"),
         (fix_l8_missing_power_pump, "missing_power_pump"),
+        (fix_l8_missing_cost_plus, "missing_cost_plus"),
+        (fix_l8_missing_stay_rested, "missing_stay_rested"),
     ]:
         ok, msg = handler(issue, overlay)
         if ok:
@@ -478,14 +587,20 @@ def fix_l4_to_multi(issue: dict, overlay: dict) -> tuple[bool, str]:
         "ko": "ko_multi",
         "return_to_hand": "return_to_hand_multi",
         "return_to_deck_bottom": "return_to_deck_bottom_multi",
+        "rest": "rest_multi",
     }
     if pk not in base_to_multi:
         return False, f"primitive {pk} は multi 変換 非対応"
-    if not isinstance(pv, str):
-        return False, "string target spec のみ 対応"
     new_pk = base_to_multi[pk]
-    do[0] = {new_pk: [pv] * count}
-    return True, f"{cid}[0]: {pk} → {new_pk} × {count}"
+    if isinstance(pv, str):
+        do[0] = {new_pk: [pv] * count}
+        return True, f"{cid}[0]: {pk}({pv}) → {new_pk} × {count}"
+    # dict form の case: {ko: {filter: {cost_le: N}, type: ...}}
+    # → ko_multi に 該当 spec を N 個 並べる (= filter を 保持)
+    if isinstance(pv, dict):
+        do[0] = {new_pk: [pv] * count}
+        return True, f"{cid}[0]: {pk}(dict) → {new_pk} × {count}"
+    return False, "string/dict target spec のみ 対応"
 
 
 def fix_l7_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
@@ -555,9 +670,72 @@ def fix_l7_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, f"cost_le: {msg}; missing: {msg2}"
 
 
+def fix_l4_power_pump_self(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L4: 「自分のキャラ N 枚 まで パワー+M」 で 該当 power_pump 不在 → 追加。"""
+    cid = issue["card_id"]
+    text = _get_card_text(cid)
+    m = re.search(
+        r"自分の(?:特徴《[^》]+》を持つ)?キャラ\s*([2-9]|10)\s*(?:枚|体)まで.*?パワー\+(\d+)",
+        text, flags=re.DOTALL,
+    )
+    if not m:
+        # 「リーダーとキャラ合計 N 枚 まで パワー+M」 も 拾う
+        m = re.search(
+            r"リーダー(?:と|か)キャラ(?:合計)?\s*([2-9]|10)\s*枚\s*まで.*?パワー\+(\d+)",
+            text, flags=re.DOTALL,
+        )
+        if not m:
+            return False, "power_pump multi self pattern なし"
+        target_spec = "all_self_team"
+    else:
+        target_spec = "one_self_character_any"
+    count = int(m.group(1))
+    amount = int(m.group(2))
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) == 0 or len(entries) > 2:
+        return False, "entry 数 unsupported"
+    # 既 power_pump_multi or 同 amount 設定 power_pump あれば skip
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and "power_pump_multi" in prim:
+                return False, "既 power_pump_multi あり"
+    main_entry = None
+    for e in entries:
+        if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main"):
+            main_entry = e
+            break
+    if main_entry is None:
+        main_entry = entries[0]
+    new_prim = {
+        "power_pump_multi": {
+            "target_specs": [target_spec] * count,
+            "amount": amount,
+            "duration": "turn",
+        }
+    }
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に power_pump_multi(+{amount} x {count}) 追加"
+
+
+def fix_l4_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
+    ok, msg = fix_l4_to_multi(issue, overlay)
+    if ok:
+        return ok, msg
+    ok2, msg2 = fix_l4_power_pump_self(issue, overlay)
+    if ok2:
+        return ok2, msg2
+    return False, f"to_multi: {msg}; power_pump: {msg2}"
+
+
 HANDLERS = {
     "L1": fix_l1_optional,
-    "L4": fix_l4_to_multi,
+    "L4": fix_l4_combined,
     "L5": fix_l5_leader_feature,
     "L7": fix_l7_combined,
     "L8": fix_l8_combined,

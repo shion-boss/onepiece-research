@@ -222,6 +222,8 @@ class InPlay:
     # ターン中の元々のコスト軽減 (cost_minus 効果)。Phase.END でクリア。
     # 「元々のコスト N 以下」判定にこの修正値を反映する (= cost - cost_minus_until_turn_end)
     cost_minus_until_turn_end: int = 0
+    # 次相手 end まで cost minus (= ST14-008 / ST14-016 系)
+    cost_minus_through_opp_turn: int = 0
     # 次のリフレッシュフェイズでアクティブにならない (stay_rested_next_refresh)
     # 該当プレイヤーのリフレッシュ時に消費 (rested 維持してフラグクリア)
     stay_rested_next_refresh: bool = False
@@ -421,7 +423,7 @@ class InPlay:
             if self.base_cost_override is not None
             else self.card.cost
         )
-        return max(0, raw - self.cost_minus_until_turn_end)
+        return max(0, raw - self.cost_minus_until_turn_end - self.cost_minus_through_opp_turn)
 
     @property
     def power(self):

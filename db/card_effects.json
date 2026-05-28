@@ -739,7 +739,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "any_opponent_character_cost_le_4cost"
+          "rest_multi": [
+            "any_opponent_character_cost_le_4cost",
+            "any_opponent_character_cost_le_4cost"
+          ]
         }
       ],
       "if": {
@@ -1820,6 +1823,9 @@
               }
             ]
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_1"
         }
       ],
       "cost": {
@@ -4830,7 +4836,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -6388,6 +6394,13 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -6487,6 +6500,13 @@
         },
         {
           "ko": "one_opponent_character_power_le_0"
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -8000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -8110,6 +8130,13 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -10039,6 +10066,13 @@
             "target": "self_leader",
             "count": 1
           }
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -10603,6 +10637,9 @@
               }
             ]
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_2"
         }
       ]
     }
@@ -11132,6 +11169,9 @@
               }
             }
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         }
       ]
     },
@@ -12073,6 +12113,9 @@
               }
             ]
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_1"
         }
       ],
       "cost": {
@@ -14142,6 +14185,9 @@
               }
             ]
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_inplay_n_1"
         }
       ],
       "cost": {
@@ -18678,6 +18724,13 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -3,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -19225,6 +19278,13 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_power_le_10000",
+            "duration": "next_opp_turn_end",
+            "count": 2
+          }
         }
       ],
       "cost": {
@@ -19476,6 +19536,17 @@
       "do": [
         {
           "ko": "one_opponent_character_power_le_3000"
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "all_self_team",
+              "all_self_team",
+              "all_self_team"
+            ],
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -27217,6 +27288,13 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -3,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -29605,6 +29683,13 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -30597,6 +30682,9 @@
               }
             ]
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_2"
         }
       ]
     }
@@ -32538,6 +32626,13 @@
             "target": "self_leader",
             "count": 1
           }
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -32554,6 +32649,13 @@
           "attach_don": {
             "target": "self_leader",
             "count": 1
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -32572,6 +32674,13 @@
             "target": "self_leader",
             "count": 1
           }
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -32588,6 +32697,13 @@
           "attach_don": {
             "target": "self_leader",
             "count": 1
+          }
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -35548,7 +35664,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "any_opponent_character_cost_le_4cost"
+          "rest_multi": [
+            "any_opponent_character_cost_le_4cost",
+            "any_opponent_character_cost_le_4cost"
+          ]
         }
       ],
       "if": {
@@ -37160,6 +37279,13 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -38838,6 +38964,13 @@
             "target": "self_leader",
             "count": 1
           }
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -39522,6 +39655,13 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_power_le_10000",
+            "duration": "next_opp_turn_end",
+            "count": 2
+          }
         }
       ],
       "cost": {
@@ -44548,6 +44688,13 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_self_character_any",
+            "amount": -3,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -51684,6 +51831,9 @@
       "do": [
         {
           "untap_don": 1
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         }
       ]
     }
@@ -51695,6 +51845,9 @@
       "do": [
         {
           "untap_don": 1
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         }
       ]
     }
@@ -53269,6 +53422,13 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "turn"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -55651,7 +55811,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -55669,7 +55829,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -56748,6 +56908,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -59777,6 +59943,17 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_self_character_any",
+              "one_self_character_any",
+              "one_self_character_any"
+            ],
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -61687,6 +61864,17 @@
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -2000,
+            "duration": "turn"
+          }
+        },
+        {
+          "power_pump_multi": {
+            "target_specs": [
+              "one_self_character_any",
+              "one_self_character_any",
+              "one_self_character_any"
+            ],
+            "amount": 1000,
             "duration": "turn"
           }
         }
@@ -74971,7 +75159,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -82802,7 +82990,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -88349,6 +88537,9 @@
             "amount": 0,
             "count": 1
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         }
       ]
     }
@@ -88448,6 +88639,9 @@
             "count": 1,
             "cost_le": 4
           }
+        },
+        {
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         }
       ]
     }

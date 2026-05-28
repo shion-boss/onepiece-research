@@ -1688,6 +1688,22 @@ def _resolve_target(
             cands.sort(key=lambda c: -c.power)
             return cands[:n]
 
+        # any_opp_rested_inplay_n_N (= 相手のレスト の リーダー と キャラ 合計 N 枚 まで)
+        m = re.match(r"any_opp_rested_inplay_n_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands: list[InPlay] = []
+            if opp.leader.rested:
+                cands.append(opp.leader)
+            cands.extend([c for c in opp.characters if c.rested])
+            if outer_kind and len(cands) > n and _maybe_request_target_pick(
+                state, cands, n, outer_kind, outer_value, self_inplay,
+                description=f"相手レスト リーダー/キャラ から {n} 枚 まで 選択",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
+            return cands[:n]
+
         # one_opponent_character_filtered_by_truly_power_le_N (= 元々のパワー N 以下、 1 体)
         # OP13-077 等 「相手の元々のパワー N 以下のキャラ 1 枚」。
         m = re.match(r"one_opponent_character_filtered_by_truly_power_le_(\d+)$", target_spec)
@@ -2112,6 +2128,65 @@ def _execute_effect_body(
             # 毎回 リセット → 再加算されるためログ noise になる。 値は正常 (= +amount 一定)。
             if duration != "static":
                 state.push_log(f"  効果: パワー{amount:+d} → {[t.card.name for t in targets]}")
+        elif k == "power_pump_multi":
+            # 「自分のキャラ N 枚 まで を、 このターン中、 パワー+M」 等。
+            # spec: {target_specs: [...], amount: M, duration: "turn"|"next_opp_turn_end"}
+            # 同 target を 二重 pump しない よう dedup。
+            if not isinstance(v, dict):
+                continue
+            target_specs = v.get("target_specs", [])
+            amount = int(v.get("amount", 0))
+            duration = v.get("duration", "turn")
+            if not isinstance(target_specs, list):
+                continue
+            already = set()
+            for spec in target_specs:
+                target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "self")
+                targets = _resolve_target(
+                    target_spec, state, me, opp, self_inplay,
+                    outer_kind="power_pump", outer_value=target_spec,
+                )
+                if state.pending_choice is not None:
+                    return True
+                for t in targets:
+                    if id(t) in already:
+                        continue
+                    if duration == "next_opp_turn_end":
+                        t.next_opp_turn_end_buff += amount
+                        me_idx = state.players.index(me)
+                        t.next_opp_turn_end_applier_idx = me_idx
+                        t.next_opp_turn_end_applied_turn = state.turn_number
+                    else:
+                        t.power_buff_until_turn_end += amount
+                    already.add(id(t))
+            state.push_log(
+                f"  効果: power+{amount} multi ({duration}) → "
+                f"{len(already)} 体"
+            )
+        elif k == "rest_multi":
+            # 「(範囲) のキャラ N 枚 まで を、 レストにする」 (= 公式 OP03-024 等)。
+            # spec: list[target_spec] — 各要素 が rest 対象 spec、 list 長 = 上限。
+            # 同 chara を 二重 rest しない よう dedup。
+            if not isinstance(v, list):
+                continue
+            already = set()
+            for sub in v:
+                target_spec = sub if isinstance(sub, str) else (sub or {}).get("target", "one_opponent_character_any")
+                targets = _resolve_target(
+                    target_spec, state, me, opp, self_inplay,
+                    outer_kind="rest", outer_value=target_spec,
+                )
+                if state.pending_choice is not None:
+                    return True
+                for t in targets:
+                    if id(t) in already:
+                        continue
+                    if t.cannot_be_rested_buff:
+                        state.push_log(f"  レスト不能保護: {t.card.name}")
+                        continue
+                    t.rested = True
+                    already.add(id(t))
+                    state.push_log(f"  効果: rest {t.card.name}")
         elif k == "rest":
             # 「相手のキャラかドン1枚までを、 レストにする」 用 特殊 target spec。
             # 通常の target spec で相手のドンは表現できないため (ドンは InPlay ではない)、
@@ -3424,15 +3499,21 @@ def _execute_effect_body(
                 t.stay_rested_next_refresh = True
             state.push_log(f"  効果: 次リフレッシュ非アクティブ → {[t.card.name for t in targets]}")
         elif k == "cost_minus":
-            # 「相手キャラ1枚のコスト-N」(ターン中)。base_cost 判定に反映される。
-            # spec: {"target": "one_opponent_character_any", "amount": 10}
+            # 「相手/自分 キャラ N 枚のコスト-N」 base_cost 判定 反映。
+            # spec: {target, amount, duration: "turn"|"next_opp_turn_end"}
+            # 「コスト+N」 は amount 負 で 表現 (= cost を 増やす)。
             spec = v if isinstance(v, dict) else {"target": "one_opponent_character_any", "amount": int(v)}
             target_spec = spec.get("target", "one_opponent_character_any")
             amount = int(spec.get("amount", 1))
+            duration = spec.get("duration", "turn")
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="cost_minus", outer_value=target_spec)
             for t in targets:
-                t.cost_minus_until_turn_end += amount
-            state.push_log(f"  効果: コスト-{amount} → {[t.card.name for t in targets]}")
+                if duration == "next_opp_turn_end":
+                    t.cost_minus_through_opp_turn += amount
+                else:
+                    t.cost_minus_until_turn_end += amount
+            label = f"コスト{amount:+d} ({duration})" if amount < 0 else f"コスト-{amount} ({duration})"
+            state.push_log(f"  効果: {label} → {[t.card.name for t in targets]}")
         elif k == "redirect_attack":
             # 「アタック対象変更」 primitive。 spec 形式:
             #   - 文字列: 単一 target_spec (例: "self_leader")

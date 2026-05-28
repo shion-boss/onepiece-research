@@ -357,7 +357,8 @@ def _check_count_limit_missing(cid: str, text: str, entries: list) -> list[dict]
     #   - primitive: ko_multi / return_to_hand_multi / return_to_deck_bottom_multi の
     #     list 要素数 (= N枚 targets を 表現)
     has_count_decl = False
-    multi_primitives = {"ko_multi", "return_to_hand_multi", "return_to_deck_bottom_multi"}
+    multi_primitives = {"ko_multi", "return_to_hand_multi", "return_to_deck_bottom_multi",
+                        "rest_multi", "power_pump_multi"}
     def _walk_count(node):
         nonlocal has_count_decl
         if has_count_decl:
@@ -367,14 +368,28 @@ def _check_count_limit_missing(cid: str, text: str, entries: list) -> list[dict]
                 if k in ("count", "limit", "max", "max_count") and isinstance(v, int) and v >= 2:
                     has_count_decl = True
                     return
+                if k == "per_target" and v:  # per_target=True で 多 target 表現
+                    has_count_decl = True
+                    return
                 # multi primitive: value list の 長さ >= 2 で 「N 枚 まで」 を 表現
                 if k in multi_primitives and isinstance(v, list) and len(v) >= 2:
                     has_count_decl = True
                     return
+                # power_pump_multi: target_specs list 長さ >= 2 で 表現
+                if k in multi_primitives and isinstance(v, dict):
+                    ts = v.get("target_specs", [])
+                    if isinstance(ts, list) and len(ts) >= 2:
+                        has_count_decl = True
+                        return
                 _walk_count(v)
         elif isinstance(node, list):
             for item in node:
                 _walk_count(item)
+        elif isinstance(node, str):
+            # string spec 内 「_n_N」 / 「_N_chara」 等 で count >= 2 を 表現
+            if re.search(r"_n_([2-9]|10|11|12)\b", node):
+                has_count_decl = True
+                return
     _walk_count(entries)
     if has_count_decl:
         return issues
@@ -471,10 +486,13 @@ def _check_duration_missing(cid: str, text: str, entries: list) -> list[dict]:
         return issues
     duration_tokens = {
         "次の相手のターン終了時まで": "next_opp_turn_end",
+        "次の相手のエンドフェイズ終了時まで": "next_opp_turn_end",  # 同 意味 別表記
         "次のターン終了時まで": "next_turn_end",
         "次のターンの終了時まで": "next_turn_end",
         "次の相手のターンの終了時まで": "next_opp_turn_end",
         "次のターン中": "next_turn",
+        "次の相手のリフレッシュフェイズまで": "next_refresh",
+        "次の相手のリフレッシュフェイズで": "next_refresh",
     }
     matched_tokens = [(t, exp) for t, exp in duration_tokens.items() if t in text]
     if not matched_tokens:
