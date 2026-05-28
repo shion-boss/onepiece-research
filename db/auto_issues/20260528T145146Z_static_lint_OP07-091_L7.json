@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L7",
+  "card_id": "OP07-091",
+  "severity": 4,
+  "risk_tier": "low",
+  "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
+  "evidence": {
+    "text_excerpt": "【アタック時】相手のコスト2以下のキャラ1枚までをトラッシュに置く。その後、自分のトラッシュからコスト4以上のキャラカー…",
+    "n": 2
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP07-091",
+    "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T145146Z"
+}

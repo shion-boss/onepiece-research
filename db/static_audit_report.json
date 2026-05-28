@@ -1,24 +1,24 @@
 {
-  "generated_at": "2026-05-28T14:41:07.676232Z",
+  "generated_at": "2026-05-28T14:54:09.662506Z",
   "cards_scanned": 4518,
-  "issues_total": 273,
+  "issues_total": 236,
   "by_rule": {
     "L4": 73,
     "L8": 57,
-    "L7": 78,
+    "L7": 41,
     "L3": 48,
     "L6": 17
   },
   "by_category": {
     "count_limit_missing": 73,
     "duration_next_turn_missing": 57,
-    "cost_le_missing": 78,
+    "cost_le_missing": 41,
     "self_opp_reversal_suspect": 48,
     "trigger_missing": 17
   },
   "by_severity": {
     "3": 121,
-    "4": 152
+    "4": 115
   },
   "issues": [
     {
@@ -94,21 +94,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:EB03-021",
         "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "EB03-022",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…ックの後、このカードをレストにし、アタックの対象をこのカードにできる)【登場時】コスト4以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:EB03-022",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
       }
     },
     {
@@ -325,81 +310,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP01-056",
         "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP01-070",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト7以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP01-070",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP01-070_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト7以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP01-070_p1",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP01-070_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト7以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP01-070_p2",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP01-070_p3",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト7以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP01-070_p3",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP01-070_r1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト7以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP01-070_r1",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
       }
     },
     {
@@ -1128,66 +1038,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP05-048",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【ドン!!×1】【アタック時】コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-048",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP05-051",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト4以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-051",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP05-051_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト4以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-051_p1",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP05-051_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 4 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト4以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 4
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP05-051_p2",
-        "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP06-001",
       "severity": 3,
@@ -1461,36 +1311,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP06-046",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-046",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP06-053",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【KO時】コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-053",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP06-058",
       "severity": 3,
@@ -1647,21 +1467,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP07-051",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP07-051",
       "severity": 4,
@@ -1674,21 +1479,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP07-051",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP07-051_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p1",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
       }
     },
     {
@@ -1707,21 +1497,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP07-051_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p2",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP07-051_p2",
       "severity": 4,
@@ -1734,21 +1509,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP07-051_p2",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP07-051_p3",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p3",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
       }
     },
     {
@@ -1767,21 +1527,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP07-051_p4",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p4",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP07-051_p4",
       "severity": 4,
@@ -1797,21 +1542,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP07-051_p5",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p5",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP07-051_p5",
       "severity": 4,
@@ -1824,21 +1554,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP07-051_p5",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP07-052",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…分の場に特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラが2枚以上いる場合、コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-052",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
       }
     },
     {
@@ -2085,81 +1800,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP08-022",
         "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-023",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】/【アタック時】相手のレストのコスト7以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-023",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-023_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】/【アタック時】相手のレストのコスト7以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-023_p1",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-023_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】/【アタック時】相手のレストのコスト7以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-023_p2",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-023_r1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 7 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】/【アタック時】相手のレストのコスト7以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
-        "n": 7
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-023_r1",
-        "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP08-055",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：コスト6以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 6
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-055",
-        "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
       }
     },
     {
@@ -2708,21 +2348,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP10-052",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…ックの後、このカードをレストにし、アタックの対象をこのカードにできる)【登場時】コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-052",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP10-058",
       "severity": 3,
@@ -3081,51 +2706,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP13-082_p1",
         "patch": "該当 effect に count: 5 (or limit: 5) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP13-091",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…【ブロッカー】を得る。【登場時】自分の手札1枚を捨てることができる：相手の元々のコスト5以下のキャラ1枚までを、KOする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-091",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP13-091_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…【ブロッカー】を得る。【登場時】自分の手札1枚を捨てることができる：相手の元々のコスト5以下のキャラ1枚までを、KOする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-091_p1",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP13-091_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…【ブロッカー】を得る。【登場時】自分の手札1枚を捨てることができる：相手の元々のコスト5以下のキャラ1枚までを、KOする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-091_p2",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
       }
     },
     {
@@ -3509,51 +3089,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "P-030",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【KO時】コスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:P-030",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "P-030_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【KO時】コスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:P-030_p2",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "P-030_r1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【KO時】コスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:P-030_r1",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "P-057",
       "severity": 3,
@@ -3734,21 +3269,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:PRB02-007_p1",
         "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST03-003_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…をレストにし、アタックの対象をこのカードにできる)【ドン!!×1】【ブロック時】コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST03-003_p2",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
       }
     },
     {
@@ -4079,81 +3599,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:ST14-016_r1",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST18-001",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の場のドン!!が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST18-001",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST18-001_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の場のドン!!が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST18-001_p1",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST18-001_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の場のドン‼が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST18-001_p2",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST18-001_p3",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の場のドン‼が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST18-001_p3",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST18-001_r1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の場のドン‼が8枚以上ある場合、相手のコスト5以下のキャラ1枚までを、レストにする。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST18-001_r1",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
       }
     },
     {

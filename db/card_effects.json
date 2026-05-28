@@ -8970,7 +8970,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_7"
         }
       ]
     }
@@ -9054,7 +9054,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -27737,7 +27737,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_7"
         }
       ]
     }
@@ -33984,7 +33984,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -34392,7 +34392,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -34403,7 +34403,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -36225,7 +36225,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_7"
         }
       ]
     }
@@ -37222,7 +37222,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_7"
         }
       ]
     }
@@ -40089,7 +40089,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -40100,7 +40100,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -45141,7 +45141,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_7"
         }
       ]
     }
@@ -50280,7 +50280,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
         }
       ]
     }
@@ -59189,7 +59189,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -61815,7 +61815,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_6"
         }
       ]
     }
@@ -63444,7 +63444,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ]
     }
@@ -64608,7 +64608,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ]
     }
@@ -64619,7 +64619,7 @@
       "when": "on_ko",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ]
     }
@@ -65739,7 +65739,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
         }
       ]
     }
@@ -66139,7 +66139,7 @@
       "when": "on_attack",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ]
     }
@@ -66150,7 +66150,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
         }
       ]
     }
@@ -66161,7 +66161,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
         }
       ]
     }
@@ -75966,7 +75966,7 @@
       "when": "on_ko",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_3"
         }
       ]
     }
@@ -81653,7 +81653,7 @@
       "when": "on_ko",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_3"
         }
       ]
     }
@@ -83167,7 +83167,7 @@
       "when": "on_block",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
       ]
     }
@@ -84520,7 +84520,7 @@
       "when": "on_ko",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_3"
         }
       ]
     }

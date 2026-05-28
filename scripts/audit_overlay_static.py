@@ -384,6 +384,10 @@ def _check_cost_le_missing(cid: str, text: str, entries: list) -> list[dict]:
         return issues
     n = int(m.group(1))
     # spec 内 で target_cost_le が 宣言 されている か (= cost_le も 受容)
+    # 認識 する 形式:
+    #   - field: target_cost_le / cost_le / target_cost_ge / cost_ge (int)
+    #   - string spec 内: "cost_le_N" / "cost_ge_N" 接尾
+    #   - string spec 内 旧形式: "le_Ncost" / "ge_Ncost" (= ST18-001 等)
     found = False
     def _walk_cost(node):
         nonlocal found
@@ -399,8 +403,9 @@ def _check_cost_le_missing(cid: str, text: str, entries: list) -> list[dict]:
             for item in node:
                 _walk_cost(item)
         elif isinstance(node, str):
-            # target spec 文字列内 の "cost_le_N" / "cost_ge_N" も 受容
-            if "cost_le_" in node or "cost_ge_" in node:
+            # target spec 文字列内 の "cost_le_N" / "cost_ge_N" or 旧 "le_Ncost" / "ge_Ncost" も 受容
+            if ("cost_le_" in node or "cost_ge_" in node
+                or re.search(r"_(le|ge)_\d+cost", node)):
                 found = True
                 return
     _walk_cost(entries)

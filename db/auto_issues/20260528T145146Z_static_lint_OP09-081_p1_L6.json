@@ -1,0 +1,23 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L6",
+  "card_id": "OP09-081_p1",
+  "severity": 4,
+  "risk_tier": "high",
+  "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+  "evidence": {
+    "tag": "【登場時】",
+    "expected_whens": [
+      "on_play"
+    ],
+    "actual_whens": [
+      "activate_main"
+    ]
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP09-081_p1",
+    "patch": "when: on_play の entry を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T145146Z"
+}

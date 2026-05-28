@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L8",
+  "card_id": "ST13-007_p2",
+  "severity": 4,
+  "risk_tier": "mid",
+  "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
+  "evidence": {
+    "text_excerpt": "…5の「サボ」の場合、登場させてもよい。登場させた場合、自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+2000。",
+    "expected": "next_opp_turn_end"
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:ST13-007_p2",
+    "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T145146Z"
+}

@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L4",
+  "card_id": "OP10-102",
+  "severity": 3,
+  "risk_tier": "mid",
+  "message": "text に chara/leader 文脈 で 「キャラ3枚まで」 が 含まれる が overlay に count: 3 制限 なし",
+  "evidence": {
+    "text_excerpt": "【起動メイン】【ターン1回】自分の特徴《革命軍》を持つキャラ3枚までを、このターン中、パワー+1000。その後、自分のライフの上から1枚を手札に加え…",
+    "matched": "キャラ3枚まで"
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP10-102",
+    "patch": "該当 effect に count: 3 (or limit: 3) を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T145146Z"
+}
