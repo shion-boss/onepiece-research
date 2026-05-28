@@ -1,4 +1,11 @@
 {
   "_comment": "static_audit (Layer 1) で 既知 false-positive / 別 phase 対応 として 一時 除外 する list。 format: {card_id: [rule_id, ...]}",
-  "_followups": {}
+  "_followups": {
+    "OP11-102": "L6 = 「【トリガー】を発動した時」 は 相手 が trigger 発動 した タイミング を 表現。 overlay は opp_event_or_trigger_fired で 正しく 実装 済",
+    "OP10-118": "L2 = 「ターンに1回 相手効果で KOされない」 の 「ターン1回」 は ko_per_turn_immune counter (= REFRESH reset) で 表現 済。 once_per_turn とは 別 意味",
+    "OP10-118_p1": "OP10-118 と 同じ"
+  },
+  "OP10-118": ["L2"],
+  "OP10-118_p1": ["L2"],
+  "OP11-102": ["L6"]
 }

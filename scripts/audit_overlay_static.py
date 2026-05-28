@@ -203,16 +203,37 @@ def _check_once_per_turn(cid: str, text: str, entries: list) -> list[dict]:
 
 
 def _check_trigger_missing(cid: str, text: str, entries: list) -> list[dict]:
-    """L6: 【XX時】 含む text で 該当 when の entry が 1 件 も 無い。
+    """L6: 【XX時】 宣言 含む text で 該当 when の entry が 1 件 も 無い。
 
-    expected_whens は tuple = どれか 1 つ あれば OK (= main/activate_main 等 の 同義語 吸収)。
+    expected_whens は tuple = どれか 1 つ あれば OK (= main/activate_main 等 同義語 吸収)。
+
+    宣言 vs reference 区別:
+    - 宣言 (= trigger): 「【XX時】 ...」 で 始まる ブロック
+    - reference (= filter): 「【XX時】を持つ」 / 「【XX時】効果」 / 「【XX時】能力」 /
+                           「【XX時】カード」 / 「【XX時】の」 等
+    reference は L6 対象 外 (= 単なる category 言及)。
     """
     issues = []
     if not entries:
-        return issues  # 効果 なし card は スキップ
+        return issues
     entry_whens = {e.get("when") for e in entries if isinstance(e, dict)}
+    # reference suffix の 直後 文字 (= 含まれていたら 宣言 でなく reference として skip)
+    REFERENCE_SUFFIXES = ("を持つ", "効果", "能力", "カード", "の", "に", "は")
     for tag, expected_whens in TRIGGER_MAP.items():
-        if tag not in text:
+        # tag 出現 全部 を 走査 して 「宣言」 が 1 つでも あれば flag 候補
+        is_declaration = False
+        idx = 0
+        while True:
+            i = text.find(tag, idx)
+            if i < 0:
+                break
+            after = text[i + len(tag): i + len(tag) + 6]
+            # reference suffix なら skip、 それ 以外 (= 動作 述語) は 宣言
+            if not any(after.startswith(suf) for suf in REFERENCE_SUFFIXES):
+                is_declaration = True
+                break
+            idx = i + len(tag)
+        if not is_declaration:
             continue
         if any(w in entry_whens for w in expected_whens):
             continue
@@ -221,7 +242,7 @@ def _check_trigger_missing(cid: str, text: str, entries: list) -> list[dict]:
             "card_id": cid,
             "severity": 4,
             "category": "trigger_missing",
-            "message": f"text に 「{tag}」 が 含まれる が overlay に when ∈ "
+            "message": f"text に 「{tag}」 宣言 が ある が overlay に when ∈ "
                       f"{list(expected_whens)} entry なし",
             "evidence": {
                 "tag": tag,
@@ -530,14 +551,16 @@ def _check_self_opp_reversal(cid: str, text: str, entries: list) -> list[dict]:
     has_self_spec = "self" in text_joined
 
     # 「相手のキャラ」 mention あり + target spec に opp_* が 全く ない → 怪しい
+    # 注意: severity 2 = 大半 が 「相手の chara X 時 → 自分 で Y する」 (= 条件 + 自陣 action)
+    # type false-positive。 真 反転 検出 には より 細かい parsing が 必要 (= TODO)。
     if mention_opp and not has_opp_spec and has_self_spec:
         issues.append({
             "rule_id": "L3",
             "card_id": cid,
-            "severity": 3,
+            "severity": 2,
             "category": "self_opp_reversal_suspect",
             "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec "
-                      "に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+                      "に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
             "evidence": {
                 "target_specs": target_specs[:8],
             },

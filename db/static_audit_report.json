@@ -1,26 +1,23 @@
 {
-  "generated_at": "2026-05-28T15:11:06.204078Z",
+  "generated_at": "2026-05-28T15:17:05.700838Z",
   "cards_scanned": 4518,
-  "issues_total": 216,
+  "issues_total": 197,
   "by_rule": {
     "L4": 68,
     "L7": 41,
     "L3": 48,
-    "L6": 17,
-    "L8": 40,
-    "L2": 2
+    "L8": 40
   },
   "by_category": {
     "count_limit_missing": 68,
     "cost_le_missing": 41,
     "self_opp_reversal_suspect": 48,
-    "trigger_missing": 17,
-    "duration_next_turn_missing": 40,
-    "once_per_turn_missing": 2
+    "duration_next_turn_missing": 40
   },
   "by_severity": {
-    "3": 116,
-    "4": 100
+    "3": 68,
+    "4": 81,
+    "2": 48
   },
   "issues": [
     {
@@ -86,9 +83,9 @@
     {
       "rule_id": "L3",
       "card_id": "EB04-040",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -102,9 +99,9 @@
     {
       "rule_id": "L3",
       "card_id": "EB04-044",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -118,9 +115,9 @@
     {
       "rule_id": "L3",
       "card_id": "EB04-044_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -134,9 +131,9 @@
     {
       "rule_id": "L3",
       "card_id": "EB04-044_p2",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -150,9 +147,9 @@
     {
       "rule_id": "L3",
       "card_id": "EB04-052",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -166,9 +163,9 @@
     {
       "rule_id": "L3",
       "card_id": "EB04-052_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -257,9 +254,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-013",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -273,9 +270,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-013_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -289,9 +286,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-013_p2",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -305,9 +302,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-013_p3",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -321,9 +318,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-013_p5",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -337,9 +334,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-013_r1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -443,9 +440,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-094",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -459,9 +456,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP02-112",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_inplay"
@@ -638,66 +635,6 @@
       }
     },
     {
-      "rule_id": "L6",
-      "card_id": "OP03-105",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "on_attack"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-105",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP03-115",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "on_play"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-115",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP03-115_r1",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "on_play"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-115_r1",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP04-031",
       "severity": 3,
@@ -770,46 +707,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP04-055",
         "patch": "target に target_cost_le: 4 を 追加 (or target_spec 文字列 を cost_le_4 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP04-105",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP04-105",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP04-105_p2",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP04-105_p2",
-        "patch": "when: trigger の entry を 追加"
       }
     },
     {
@@ -920,9 +817,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP05-041",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -936,9 +833,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP05-041_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -967,9 +864,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP06-001",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -983,9 +880,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP06-001_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -999,9 +896,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP06-001_p2",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -1330,9 +1227,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-029",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self",
@@ -1347,9 +1244,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-029_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self",
@@ -1364,9 +1261,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-029_r1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self",
@@ -1486,9 +1383,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-076",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_inplay"
@@ -1502,9 +1399,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-076_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_inplay"
@@ -1518,9 +1415,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-076_r1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_inplay"
@@ -1534,9 +1431,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-079",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -1550,9 +1447,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-079_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -1566,9 +1463,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP07-079_p2",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2075,26 +1972,6 @@
       }
     },
     {
-      "rule_id": "L6",
-      "card_id": "OP09-081",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
-      "evidence": {
-        "tag": "【登場時】",
-        "expected_whens": [
-          "on_play"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081",
-        "patch": "when: on_play の entry を 追加"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP09-081",
       "severity": 4,
@@ -2107,26 +1984,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP09-081",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP09-081_p1",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
-      "evidence": {
-        "tag": "【登場時】",
-        "expected_whens": [
-          "on_play"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081_p1",
-        "patch": "when: on_play の entry を 追加"
       }
     },
     {
@@ -2145,26 +2002,6 @@
       }
     },
     {
-      "rule_id": "L6",
-      "card_id": "OP09-081_p2",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
-      "evidence": {
-        "tag": "【登場時】",
-        "expected_whens": [
-          "on_play"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081_p2",
-        "patch": "when: on_play の entry を 追加"
-      }
-    },
-    {
       "rule_id": "L8",
       "card_id": "OP09-081_p2",
       "severity": 4,
@@ -2177,26 +2014,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP09-081_p2",
         "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP09-081_p3",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
-      "evidence": {
-        "tag": "【登場時】",
-        "expected_whens": [
-          "on_play"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP09-081_p3",
-        "patch": "when: on_play の entry を 追加"
       }
     },
     {
@@ -2320,41 +2137,11 @@
       }
     },
     {
-      "rule_id": "L2",
-      "card_id": "OP10-118",
-      "severity": 4,
-      "category": "once_per_turn_missing",
-      "message": "text に 「ターン1回」 が 含まれる が overlay entries の どれも once_per_turn を 持たない",
-      "evidence": {
-        "text_excerpt": "このキャラはターンに1回、相手の効果でKOされない。【アタック時】自分のトラッシュからカード3枚を好きな…",
-        "entry_count": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-118",
-        "patch": "該当 entry に once_per_turn: true (もしくは cost.once_per_turn: true) を 追加"
-      }
-    },
-    {
-      "rule_id": "L2",
-      "card_id": "OP10-118_p1",
-      "severity": 4,
-      "category": "once_per_turn_missing",
-      "message": "text に 「ターン1回」 が 含まれる が overlay entries の どれも once_per_turn を 持たない",
-      "evidence": {
-        "text_excerpt": "このキャラはターンに1回、相手の効果でKOされない。【アタック時】自分のトラッシュからカード3枚を好きな…",
-        "entry_count": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP10-118_p1",
-        "patch": "該当 entry に once_per_turn: true (もしくは cost.once_per_turn: true) を 追加"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP11-088",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -2366,31 +2153,11 @@
       }
     },
     {
-      "rule_id": "L6",
-      "card_id": "OP11-102",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "opp_event_or_trigger_fired"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP11-102",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP12-020",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader",
@@ -2405,9 +2172,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP12-020_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader",
@@ -2422,9 +2189,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP12-020_p2",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader",
@@ -2439,9 +2206,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP12-020_p3",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader",
@@ -2546,9 +2313,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP13-064",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2562,9 +2329,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP13-064_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2618,46 +2385,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP13-095",
         "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP13-110",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "on_play"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-110",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "OP13-110_p1",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "on_play"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP13-110_p1",
-        "patch": "when: trigger の entry を 追加"
       }
     },
     {
@@ -2753,9 +2480,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP14-020",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2769,9 +2496,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP14-020_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2830,9 +2557,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP14-070",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -2846,9 +2573,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP14-079",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -2907,9 +2634,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP15-003",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self",
@@ -2924,9 +2651,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP15-003_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_inplay_choice"
@@ -2940,9 +2667,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP15-017",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2956,9 +2683,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP15-020",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -2972,9 +2699,9 @@
     {
       "rule_id": "L3",
       "card_id": "OP15-024",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -3031,71 +2758,11 @@
       }
     },
     {
-      "rule_id": "L6",
-      "card_id": "P-118",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "on_play"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:P-118",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "PRB01-001",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
-      "evidence": {
-        "tag": "【登場時】",
-        "expected_whens": [
-          "on_play"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:PRB01-001",
-        "patch": "when: on_play の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "PRB01-001_p1",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
-      "evidence": {
-        "tag": "【登場時】",
-        "expected_whens": [
-          "on_play"
-        ],
-        "actual_whens": [
-          "activate_main"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:PRB01-001_p1",
-        "patch": "when: on_play の entry を 追加"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "PRB02-006",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -3109,9 +2776,9 @@
     {
       "rule_id": "L3",
       "card_id": "PRB02-006_p1",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -3125,9 +2792,9 @@
     {
       "rule_id": "L3",
       "card_id": "PRB02-006_p2",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self"
@@ -3336,9 +3003,9 @@
     {
       "rule_id": "L3",
       "card_id": "ST24-004",
-      "severity": 3,
+      "severity": 2,
       "category": "self_opp_reversal_suspect",
-      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い)",
+      "message": "text に 「相手のキャラ/リーダー/ドン」 mention が ある が target spec に opp_* 系 が 1 つ も 無い (= 自他反転 疑い、 多く は false-positive)",
       "evidence": {
         "target_specs": [
           "self_leader"
@@ -3362,48 +3029,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:ST26-002",
         "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "ST29-014",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "activate_main",
-          "on_attached_don"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST29-014",
-        "patch": "when: trigger の entry を 追加"
-      }
-    },
-    {
-      "rule_id": "L6",
-      "card_id": "ST29-014_p1",
-      "severity": 4,
-      "category": "trigger_missing",
-      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
-      "evidence": {
-        "tag": "【トリガー】",
-        "expected_whens": [
-          "trigger"
-        ],
-        "actual_whens": [
-          "activate_main",
-          "on_attached_don"
-        ]
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST29-014_p1",
-        "patch": "when: trigger の entry を 追加"
       }
     }
   ]
