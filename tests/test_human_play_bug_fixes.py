@@ -184,8 +184,15 @@ def test_mandatory_replace_ko_still_fires_for_human():
     """control: optional=False (= mandatory) の replace_ko は 人間 owner でも 自動 発火 する。
 
     既存 replace_ko (= optional flag 無し) の 後方互換 確認。
-    OP15-003 アルビダ は 強制 (= cost 払える なら 必ず 代替) → 人間 owner でも 自動発火 OK。
+    OP12-027 コウシロウ は 公式 text 「代わりに〜できる」 (= 「ことができる」 ではない) で
+    overlay 上 optional 無し = mandatory。 人間 owner でも 自動発火 OK。
+
+    注意 (= 2026-05-28 audit_overlay_static.py 適用後):
+      OP15-003 アルビダ 等 「ことができる」 含む 43 cards は optional: true mark 済 で
+      ここでは 不適切。 代わりに OP12-027 (= 既存 test_effects.py:test_replace_ko_other_chara
+      と 同 card) を control に 採用。
     """
+    import json as _json
     from engine.effects import execute_effect
 
     repo = _repo()
@@ -195,19 +202,30 @@ def test_mandatory_replace_ko_still_fires_for_human():
     opp = state.players[1]
     state.human_player_idx = 1  # opp が 人間
 
-    arvida = repo.get("OP15-003")
-    ip = InPlay.of(arvida, sickness=False)
-    opp.characters = [ip]
-    opp.hand = [repo.get("OP01-013")] * 2
-
-    initial_field = len(opp.characters)
-    initial_hand = len(opp.hand)
+    # OP12-027 は 「自分の 他 の コスト5以下 属性《斬》 chara が KO される 時 代替」 → victim 別途必要
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    def _ci(v):
+        if v in (None, "", "-"): return 0
+        try: return int(str(v).replace(",", ""))
+        except ValueError: return 0
+    target_cid = next(
+        c["card_id"] for c in cards
+        if c.get("attribute") == "斬"
+        and 1 <= _ci(c.get("cost")) <= 5
+        and c.get("category") == "CHARACTER"
+        and c["card_id"] != "OP12-027"
+    )
+    target_card = repo.get(target_cid)
+    target_ip = InPlay.of(target_card, sickness=False)
+    koushiro_ip = InPlay.of(repo.get("OP12-027"), sickness=False)
+    opp.characters = [target_ip, koushiro_ip]
 
     execute_effect({"ko": "all_opponent_characters"}, state, me, opp, None)
 
-    # OP15-003 は overlay 上 optional flag なし (= mandatory) → 自動 発火、
-    # アルビダ 生存 + 手札 1 枚 trash
-    assert len(opp.characters) == initial_field, (
-        "OP15-003 アルビダ は mandatory replace_ko → 人間 owner でも 発火 する"
+    # 期待: target は 代替 で 生存、 コウシロウ も 生存 (rest 化 する) →
+    # 「自分の他」 が KO される 時 protect なので target が 生存 する
+    survivors = {c.card.card_id for c in opp.characters}
+    assert target_cid in survivors, (
+        f"mandatory replace_ko は 人間 owner でも 発火 する はず: target={target_cid} "
+        f"survivors={survivors}"
     )
-    assert len(opp.hand) == initial_hand - 1, "コスト = 手札 1 枚 捨てる"

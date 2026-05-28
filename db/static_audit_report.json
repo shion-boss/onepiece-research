@@ -1,0 +1,438 @@
+{
+  "generated_at": "2026-05-28T14:31:03.425819Z",
+  "cards_scanned": 4518,
+  "issues_total": 22,
+  "by_rule": {
+    "L6": 17,
+    "L5": 3,
+    "L2": 2
+  },
+  "by_category": {
+    "trigger_missing": 17,
+    "leader_feature_missing": 3,
+    "once_per_turn_missing": 2
+  },
+  "by_severity": {
+    "4": 19,
+    "3": 3
+  },
+  "issues": [
+    {
+      "rule_id": "L6",
+      "card_id": "OP03-105",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "on_attack"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP03-105",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP03-115",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "on_play"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP03-115",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP03-115_r1",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "on_play"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP03-115_r1",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L5",
+      "card_id": "OP04-024",
+      "severity": 3,
+      "category": "leader_feature_missing",
+      "message": "text の 「自分のリーダーが特徴《ドンキホーテ海賊団》を持つ なら/場合」 に 対応 する if.leader_feature が overlay に なし",
+      "evidence": {
+        "feature": "ドンキホーテ海賊団",
+        "text_excerpt": "【相手のターン中】【ターン1回】相手がキャラを登場させた時、自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のキャラ1枚までを、レストにする。その後、このキャラをレストにす…"
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP04-024",
+        "patch": "該当 entry の if に leader_feature: 'ドンキホーテ海賊団' を 追加"
+      }
+    },
+    {
+      "rule_id": "L5",
+      "card_id": "OP04-024_p1",
+      "severity": 3,
+      "category": "leader_feature_missing",
+      "message": "text の 「自分のリーダーが特徴《ドンキホーテ海賊団》を持つ なら/場合」 に 対応 する if.leader_feature が overlay に なし",
+      "evidence": {
+        "feature": "ドンキホーテ海賊団",
+        "text_excerpt": "【相手のターン中】【ターン1回】相手がキャラを登場させた時、自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のキャラ1枚までを、レストにする。その後、このキャラをレストにす…"
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP04-024_p1",
+        "patch": "該当 entry の if に leader_feature: 'ドンキホーテ海賊団' を 追加"
+      }
+    },
+    {
+      "rule_id": "L5",
+      "card_id": "OP04-024_p2",
+      "severity": 3,
+      "category": "leader_feature_missing",
+      "message": "text の 「自分のリーダーが特徴《ドンキホーテ海賊団》を持つ なら/場合」 に 対応 する if.leader_feature が overlay に なし",
+      "evidence": {
+        "feature": "ドンキホーテ海賊団",
+        "text_excerpt": "【相手のターン中】【ターン1回】相手がキャラを登場させた時、自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のキャラ1枚までを、レストにする。その後、このキャラをレストにす…"
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP04-024_p2",
+        "patch": "該当 entry の if に leader_feature: 'ドンキホーテ海賊団' を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP04-105",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP04-105",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP04-105_p2",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP04-105_p2",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP09-081",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+      "evidence": {
+        "tag": "【登場時】",
+        "expected_whens": [
+          "on_play"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP09-081",
+        "patch": "when: on_play の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP09-081_p1",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+      "evidence": {
+        "tag": "【登場時】",
+        "expected_whens": [
+          "on_play"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP09-081_p1",
+        "patch": "when: on_play の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP09-081_p2",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+      "evidence": {
+        "tag": "【登場時】",
+        "expected_whens": [
+          "on_play"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP09-081_p2",
+        "patch": "when: on_play の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP09-081_p3",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+      "evidence": {
+        "tag": "【登場時】",
+        "expected_whens": [
+          "on_play"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP09-081_p3",
+        "patch": "when: on_play の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L2",
+      "card_id": "OP10-118",
+      "severity": 4,
+      "category": "once_per_turn_missing",
+      "message": "text に 「ターン1回」 が 含まれる が overlay entries の どれも once_per_turn を 持たない",
+      "evidence": {
+        "text_excerpt": "このキャラはターンに1回、相手の効果でKOされない。【アタック時】自分のトラッシュからカード3枚を好きな…",
+        "entry_count": 1
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP10-118",
+        "patch": "該当 entry に once_per_turn: true (もしくは cost.once_per_turn: true) を 追加"
+      }
+    },
+    {
+      "rule_id": "L2",
+      "card_id": "OP10-118_p1",
+      "severity": 4,
+      "category": "once_per_turn_missing",
+      "message": "text に 「ターン1回」 が 含まれる が overlay entries の どれも once_per_turn を 持たない",
+      "evidence": {
+        "text_excerpt": "このキャラはターンに1回、相手の効果でKOされない。【アタック時】自分のトラッシュからカード3枚を好きな…",
+        "entry_count": 1
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP10-118_p1",
+        "patch": "該当 entry に once_per_turn: true (もしくは cost.once_per_turn: true) を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP11-102",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "opp_event_or_trigger_fired"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP11-102",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP13-110",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "on_play"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP13-110",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "OP13-110_p1",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "on_play"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:OP13-110_p1",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "P-118",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "on_play"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:P-118",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "PRB01-001",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+      "evidence": {
+        "tag": "【登場時】",
+        "expected_whens": [
+          "on_play"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:PRB01-001",
+        "patch": "when: on_play の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "PRB01-001_p1",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【登場時】」 が 含まれる が overlay に when ∈ ['on_play'] entry なし",
+      "evidence": {
+        "tag": "【登場時】",
+        "expected_whens": [
+          "on_play"
+        ],
+        "actual_whens": [
+          "activate_main"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:PRB01-001_p1",
+        "patch": "when: on_play の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "ST29-014",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "activate_main",
+          "on_attached_don"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:ST29-014",
+        "patch": "when: trigger の entry を 追加"
+      }
+    },
+    {
+      "rule_id": "L6",
+      "card_id": "ST29-014_p1",
+      "severity": 4,
+      "category": "trigger_missing",
+      "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+      "evidence": {
+        "tag": "【トリガー】",
+        "expected_whens": [
+          "trigger"
+        ],
+        "actual_whens": [
+          "activate_main",
+          "on_attached_don"
+        ]
+      },
+      "suggested_fix": {
+        "path": "db/card_effects.json:ST29-014_p1",
+        "patch": "when: trigger の entry を 追加"
+      }
+    }
+  ]
+}

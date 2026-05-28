@@ -2545,7 +2545,8 @@
         {
           "life_to_hand": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "P-081": [
@@ -9203,7 +9204,8 @@
         {
           "return_to_deck_bottom": "one_self_character_any"
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP15-023": [
@@ -9676,7 +9678,8 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "EB04-044 on_opp_chara_ko (自ターン中): 相手キャラ KO 時 1 ドロー",
@@ -11314,7 +11317,8 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "OP15-003 アルビダ 起動メイン: ターン1回 自リーダー/キャラ1にレストドン1付与",
@@ -11346,7 +11350,8 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP10-011": [
@@ -17061,7 +17066,8 @@
         {
           "life_to_hand": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP13-003_p1": [
@@ -29451,7 +29457,8 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "EB04-044_p1 on_opp_chara_ko (自ターン中): 相手キャラ KO 時 1 ドロー",
@@ -29483,7 +29490,8 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "EB04-044_p2 on_opp_chara_ko (自ターン中): 相手キャラ KO 時 1 ドロー",
@@ -30454,7 +30462,8 @@
           }
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     },
     {
       "_text": "【起動メイン】【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
@@ -86715,7 +86724,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP05-030_r1": [
@@ -86731,7 +86741,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP05-097_p1": [
@@ -87797,7 +87808,8 @@
           }
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     }
   ],
   "EB01-024": [
@@ -88009,7 +88021,8 @@
         {
           "return_self_don_to_deck": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP15-070": [
@@ -88078,7 +88091,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP15-105": [
@@ -88094,7 +88108,8 @@
         {
           "life_to_hand": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP14-003": [
@@ -88338,7 +88353,8 @@
             "to": "bottom"
           }
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP13-008": [
@@ -88354,7 +88370,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP13-009": [
@@ -88427,7 +88444,8 @@
           }
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     }
   ],
   "OP13-047": [
@@ -88443,7 +88461,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP13-060": [
@@ -88459,7 +88478,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP13-078": [
@@ -88599,7 +88619,8 @@
         {
           "rest": "self"
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP12-053": [
@@ -88614,7 +88635,8 @@
           "discard_hand": 1
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     },
     {
       "_text": "【相手のターン中】自分のリーダーが特徴《海軍》を持つ場合、このキャラは【ブロッカー】を得て、パワー+1000。",
@@ -88691,7 +88713,8 @@
           "return_self_don_to_deck": 1
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     }
   ],
   "OP12-070_p1": [
@@ -88726,7 +88749,8 @@
           "return_self_don_to_deck": 1
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     }
   ],
   "OP12-072": [
@@ -89034,7 +89058,8 @@
         {
           "put_top_to_life": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP11-101_p1": [
@@ -89056,7 +89081,8 @@
         {
           "put_top_to_life": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP11-112": [
@@ -89109,7 +89135,8 @@
         {
           "life_to_hand": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP10-036": [
@@ -89167,7 +89194,8 @@
         {
           "return_self_to_hand": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP10-053": [
@@ -89292,7 +89320,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP09-025": [
@@ -89828,7 +89857,8 @@
             }
           }
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP07-069": [
@@ -90223,7 +90253,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP05-053": [
@@ -90456,7 +90487,8 @@
         {
           "mill_self_life_to_trash": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP05-100_p1": [
@@ -90472,7 +90504,8 @@
         {
           "mill_self_life_to_trash": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP05-107": [
@@ -90512,7 +90545,8 @@
         {
           "mill_self_life_to_trash": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP04-005": [
@@ -91093,7 +91127,8 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "ST30-009_p1": [
@@ -91114,7 +91149,8 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "ST30-011": [
@@ -91396,7 +91432,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "ST20-002": [
@@ -91416,7 +91453,8 @@
         {
           "mill_self_life_to_trash": 1
         }
-      ]
+      ],
+      "optional": true
     },
     {
       "_text": "trigger: 手札1捨て → 自身登場",
@@ -91683,7 +91721,8 @@
         {
           "mill_self_life_to_trash": 1
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "ST05-008": [
@@ -91905,7 +91944,8 @@
         {
           "return_self_to_hand": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP11-012_p1": [
@@ -92017,7 +92057,8 @@
           }
         }
       ],
-      "do": []
+      "do": [],
+      "optional": true
     }
   ],
   "P-027": [
@@ -92293,7 +92334,8 @@
         {
           "return_self_to_trash": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP10-049_p1": [
@@ -92315,7 +92357,8 @@
         {
           "return_self_to_hand": true
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP10-108_p2": [
