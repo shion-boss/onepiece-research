@@ -1,22 +1,22 @@
 {
-  "generated_at": "2026-05-28T15:17:05.700838Z",
+  "generated_at": "2026-05-28T15:26:00.726385Z",
   "cards_scanned": 4518,
-  "issues_total": 197,
+  "issues_total": 179,
   "by_rule": {
     "L4": 68,
-    "L7": 41,
+    "L7": 34,
     "L3": 48,
-    "L8": 40
+    "L8": 29
   },
   "by_category": {
     "count_limit_missing": 68,
-    "cost_le_missing": 41,
+    "cost_le_missing": 34,
     "self_opp_reversal_suspect": 48,
-    "duration_next_turn_missing": 40
+    "duration_next_turn_missing": 29
   },
   "by_severity": {
     "3": 68,
-    "4": 81,
+    "4": 63,
     "2": 48
   },
   "issues": [
@@ -545,81 +545,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP03-057",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】コスト5以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-057",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP03-057_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】コスト5以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-057_p1",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP03-057_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】コスト5以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-057_p2",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP03-057_p3",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】コスト5以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-057_p3",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP03-057_r1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 5 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】コスト5以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 5
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP03-057_r1",
-        "patch": "target に target_cost_le: 5 を 追加 (or target_spec 文字列 を cost_le_5 系 へ)"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP03-095",
       "severity": 3,
@@ -955,81 +880,6 @@
       }
     },
     {
-      "rule_id": "L8",
-      "card_id": "OP06-023",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-023",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP06-023_p1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-023_p1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP06-023_p2",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-023_p2",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP06-023_p3",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-023_p3",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP06-023_r1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-023_r1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP06-035",
       "severity": 3,
@@ -1273,96 +1123,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP07-029_r1",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-051",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-051_p1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-051_p2",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p2",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-051_p3",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p3",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-051_p4",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p4",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-051_p5",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】相手の「モンキー・D・ルフィ」以外のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。その後、コスト1以下のキャラ1枚までを、持ち主のデッキの下に…",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-051_p5",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
       }
     },
     {
@@ -2803,36 +2563,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:PRB02-006_p2",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "PRB02-007",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。【アタック時】コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:PRB02-007",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "PRB02-007_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。【アタック時】コスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:PRB02-007_p1",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
       }
     },
     {

@@ -108,12 +108,13 @@ def fix_l5_leader_feature(issue: dict, overlay: dict) -> tuple[bool, str]:
 def fix_l7_cost_le(issue: dict, overlay: dict) -> tuple[bool, str]:
     """L7: target spec 文字列 に cost_le_N 接尾 追加 (or target_cost_le field 追加)。
 
-    自動 fix 困難 (= target spec が dict / 複数 / nested) のため、
-    単一 entry + 単一 target string spec + text に コスト数 1 つ の case のみ。
+    対応 case:
+    - 単一 entry + 単一 target string spec + text に コスト数 1 つ
+    - 複数 entry の case では _text 内 に コスト N 以下 を 含む entry を 選んで 適用
 
-    厳密化 (= 2026-05-28): text に 「コスト N 以下」 + 「コスト M 以下」 N≠M で
-    複数 cost 制限 が ある 場合、 overlay primitive 1 件 に どれ を 付与 する か 不明 →
-    skip (= ST10-001 ロー の ような mis-fix 防止)。
+    厳密化 (= 2026-05-28):
+    - text に 複数 コスト 制限 (= N≠M) で どれ に 付与 か 不明 → 単一 entry skip
+    - cost_context (self/opp) vs primitive target side 不一致 で skip (= ST10-001 防止)
     """
     cid = issue["card_id"]
     n = issue["evidence"].get("n")
@@ -143,9 +144,22 @@ def fix_l7_cost_le(issue: dict, overlay: dict) -> tuple[bool, str]:
             cost_context = "unknown"
     else:
         cost_context = "unknown"
-    if len(entries) != 1:
-        return False, f"複数 entry ({len(entries)}) で 自動 適用 不可"
-    e = entries[0]
+
+    # 複数 entry の case: _text 内 に 「コスト N 以下」 を 含む entry を 選ぶ
+    if len(entries) > 1:
+        candidate_idx = None
+        for i, e in enumerate(entries):
+            if not isinstance(e, dict):
+                continue
+            etext = e.get("_text", "") or ""
+            if f"コスト{n}以下" in etext or f"コスト {n} 以下" in etext:
+                candidate_idx = i
+                break
+        if candidate_idx is None:
+            return False, f"複数 entry で コスト{n}以下 を 持つ entry が ない"
+        e = entries[candidate_idx]
+    else:
+        e = entries[0]
     if not isinstance(e, dict):
         return False, "entry not dict"
     do = e.get("do", [])
@@ -188,6 +202,82 @@ def fix_l7_cost_le(issue: dict, overlay: dict) -> tuple[bool, str]:
                 pv["target"] = new_t
                 return True, f"{cid}[0].{pk}.target: {t} → {new_t}"
     return False, "対応 target spec 形 が 検出 不可"
+
+
+# ============================================================
+# handler 4b: L8 missing primitive 追加 (= attack 不可 / コスト+N / power-N)
+# ============================================================
+def fix_l8_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8 残 cases で 「次相手 end まで X」 の X primitive 自体 が overlay に なく、
+    text の trigger 部分 と 一致 する 既存 entry に 追加 する。
+
+    現在 対応 pattern:
+    - 「相手の(X)キャラ N 枚 まで は、 次の相手のターン終了時まで、 アタックできない」
+      → set_cannot_attack {target: ..., duration: next_opp_turn_end} を 追加
+    """
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected != "next_opp_turn_end":
+        return False, "expected が next_opp_turn_end でない"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
+    text = _get_card_text(cid)
+    # 「アタックできない」 の 該当 句 (= 直前 30 文字 を ターゲット 推定 に 使う)
+    m_dis = re.search(r"次の相手のターン終了時まで、?\s*アタックできない", text)
+    if not m_dis:
+        return False, "attack-disable pattern なし"
+    # 直前 文 (= 「相手の…キャラ N 枚 まで は、 次相手 end まで attack できない」 の 「…」 部分)
+    before = text[: m_dis.start()]
+    # 末尾 の 「は、」 / 「、」 を 除去 (= 次相手end の 前置詞 を 取り 除いて 本来 の 句 を 取る)
+    before = re.sub(r"(は、|、)$", "", before)
+    # 「、」 or 「：」 or 「。」 で 区切られた 直前 句 のみ
+    last_delim = max(before.rfind("、"), before.rfind("："), before.rfind("。"))
+    target_clause = before[last_delim+1:] if last_delim >= 0 else before
+    # 単一 entry を 主 trigger と 仮定 (= 複数 entry の card は skip)
+    if len(entries) > 2:
+        return False, f"複数 entry ({len(entries)}) で 自動 適用 不可"
+    # 既 set_cannot_attack あれば skip
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and "set_cannot_attack" in prim:
+                return False, "既に set_cannot_attack あり"
+    # target spec を target_clause (= 直前 句 限定) から 推定
+    target = "one_opponent_character_any"
+    m_cost = re.search(r"コスト\s*(\d+)\s*以下\s*のキャラ", target_clause)
+    m_power = re.search(r"パワー\s*(\d+)\s*以下\s*のキャラ", target_clause)
+    is_leader = "リーダー" in target_clause and "キャラ" not in target_clause
+    if is_leader:
+        target = "one_opponent_leader"
+    elif m_cost:
+        target = f"one_opponent_character_cost_le_{m_cost.group(1)}"
+    elif m_power:
+        target = f"one_opponent_character_power_le_{m_power.group(1)}"
+    # 数 上限 (= 「N 枚 まで」、 target_clause 内 のみ)
+    m_count = re.search(r"キャラ\s*(\d+)\s*枚まで", target_clause)
+    if not m_count:
+        m_count = re.search(r"リーダー\s*(\d+)\s*枚まで", target_clause)
+    # 主 trigger entry を 選択 (= 最初 の on_play / activate_main / counter)
+    main_entry = None
+    for e in entries:
+        if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main", "counter"):
+            main_entry = e
+            break
+    if main_entry is None:
+        main_entry = entries[0]
+    # set_cannot_attack primitive を 構築
+    new_prim_spec = {"target": target, "duration": "next_opp_turn_end"}
+    if m_count and int(m_count.group(1)) >= 2:
+        new_prim_spec["count"] = int(m_count.group(1))
+    new_prim = {"set_cannot_attack": new_prim_spec}
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に set_cannot_attack({target}, next_opp_turn_end) 追加"
 
 
 # ============================================================
@@ -238,11 +328,22 @@ def fix_l8_duration(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, "対応 primitive (power_pump duration=turn) なし"
 
 
+# L8 handler chain: まず duration 変更 を 試行、 駄目 なら missing primitive 追加 試行
+def fix_l8_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
+    ok, msg = fix_l8_duration(issue, overlay)
+    if ok:
+        return ok, msg
+    ok2, msg2 = fix_l8_missing_primitive(issue, overlay)
+    if ok2:
+        return ok2, msg2
+    return False, f"duration: {msg}; missing: {msg2}"
+
+
 HANDLERS = {
     "L1": fix_l1_optional,
     "L5": fix_l5_leader_feature,
     "L7": fix_l7_cost_le,
-    "L8": fix_l8_duration,
+    "L8": fix_l8_combined,
 }
 
 

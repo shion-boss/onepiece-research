@@ -2645,7 +2645,7 @@
       "when": "on_attack",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -4468,6 +4468,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_leader",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -9055,6 +9061,12 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -26974,7 +26986,7 @@
       "when": "on_attack",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
         }
       ]
     }
@@ -28782,6 +28794,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_leader",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -28805,6 +28823,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_leader",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -28828,6 +28852,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_leader",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -33985,6 +34015,12 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -34393,6 +34429,12 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -34404,6 +34446,12 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -40090,6 +40138,12 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -40101,6 +40155,12 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_any",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -45846,7 +45906,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_5"
         }
       ]
     },
@@ -45866,7 +45926,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_5"
         }
       ]
     },
@@ -45886,7 +45946,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_5"
         }
       ]
     },
@@ -45906,7 +45966,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_5"
         }
       ]
     },
@@ -47543,6 +47603,12 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_leader",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -69212,7 +69278,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_any_cost_le_5"
         }
       ]
     },

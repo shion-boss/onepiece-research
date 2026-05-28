@@ -3398,12 +3398,23 @@ def _execute_effect_body(
                 t.ko_immune_until_turn_end = True
             state.push_log(f"  効果: KO 耐性 → {[t.card.name for t in targets]}")
         elif k == "set_cannot_attack":
-            # ターン終了時までアタック不可。target = "one_opponent_character_*" 等
-            target_spec = v if isinstance(v, str) else "one_opponent_character_any"
+            # アタック不可 効果。 spec:
+            #   - 文字列 target_spec (= 旧 形式、 duration=turn 固定)
+            #   - dict {"target": ..., "duration": "turn"|"next_opp_turn_end"}
+            # 公式: 「次の相手のターン終了時まで、 アタックできない」 (OP06-023 / OP07-051 等)
+            if isinstance(v, dict):
+                target_spec = v.get("target", "one_opponent_character_any")
+                duration = v.get("duration", "turn")
+            else:
+                target_spec = v
+                duration = "turn"
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_attack", outer_value=target_spec)
             for t in targets:
-                t.cannot_attack_until_turn_end = True
-            state.push_log(f"  効果: アタック不可 → {[t.card.name for t in targets]}")
+                if duration == "next_opp_turn_end":
+                    t.cannot_attack_through_opp_turn = True
+                else:
+                    t.cannot_attack_until_turn_end = True
+            state.push_log(f"  効果: アタック不可 ({duration}) → {[t.card.name for t in targets]}")
         elif k == "stay_rested_next_refresh":
             # 「次の (相手の) リフレッシュフェイズでアクティブにならない」
             # target = "one_opponent_character_*" など。多くは rest 効果と組み合わせる

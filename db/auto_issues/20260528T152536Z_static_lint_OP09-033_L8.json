@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L8",
+  "card_id": "OP09-033",
+  "severity": 4,
+  "risk_tier": "low",
+  "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
+  "evidence": {
+    "text_excerpt": "…上いる場合、自分の特徴《ODYSSEY》か《麦わらの一味》を持つキャラすべては、次の相手のターン終了時まで、効果でKOされない。",
+    "expected": "next_opp_turn_end"
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP09-033",
+    "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T152536Z"
+}
