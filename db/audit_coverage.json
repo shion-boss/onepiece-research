@@ -1,17 +1,15 @@
 {
-  "generated_at": "2026-05-28T14:57:33.043154Z",
+  "generated_at": "2026-05-28T16:12:39.912316Z",
   "summary": {
     "total_cards": 4518,
     "cards_with_overlay": 4518,
-    "static_issues_total": 236,
+    "static_issues_total": 0,
     "runtime_violations_total": 0,
-    "runtime_events_total": 1381,
+    "runtime_events_total": 494,
     "cardqa_total": 2514,
-    "primitive_distinct": 141,
+    "primitive_distinct": 148,
     "by_health": {
-      "ok": 4293,
-      "info": 114,
-      "warn": 111
+      "ok": 4518
     }
   },
   "cards": [
@@ -1543,19 +1541,13 @@
       "card_id": "EB02-007",
       "name": "刻蹄・桜吹雪",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB02-008",
@@ -1585,55 +1577,37 @@
       "card_id": "EB02-010",
       "name": "モンキー・D・ルフィ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "EB02-010_p1",
       "name": "モンキー・D・ルフィ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "EB02-010_p2",
       "name": "モンキー・D・ルフィ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "EB02-011",
@@ -2911,19 +2885,13 @@
       "card_id": "EB03-021",
       "name": "アルビダ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "EB03-022",
@@ -3205,19 +3173,13 @@
       "card_id": "EB03-036",
       "name": "ベビー５",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB03-037",
@@ -4135,37 +4097,25 @@
       "card_id": "EB04-028",
       "name": "アイスタイム",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-028_p1",
       "name": "アイスタイム",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-029",
@@ -4351,19 +4301,13 @@
       "card_id": "EB04-040",
       "name": "火龍大炬",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-041",
@@ -4417,55 +4361,37 @@
       "card_id": "EB04-044",
       "name": "コビー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-044_p1",
       "name": "コビー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-044_p2",
       "name": "コビー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-045",
@@ -4567,37 +4493,25 @@
       "card_id": "EB04-052",
       "name": "サンジ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-052_p1",
       "name": "サンジ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "EB04-053",
@@ -5095,73 +5009,49 @@
       "card_id": "OP01-013",
       "name": "サンジ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP01-013_p1",
       "name": "サンジ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP01-013_p2",
       "name": "サンジ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP01-013_p3",
       "name": "サンジ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP01-014",
@@ -6439,19 +6329,13 @@
       "card_id": "OP01-056",
       "name": "降魔の相",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP01-057",
@@ -7561,19 +7445,13 @@
       "card_id": "OP01-115",
       "name": "象の鼻息",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP01-116",
@@ -8107,109 +7985,73 @@
       "card_id": "OP02-013",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-013_p1",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-013_p2",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-013_p3",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-013_p5",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-013_r1",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-014",
@@ -9319,19 +9161,13 @@
       "card_id": "OP02-064",
       "name": "Mr.2・ボン・クレー(ベンサム)",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP02-065",
@@ -9733,91 +9569,61 @@
       "card_id": "OP02-089",
       "name": "地獄の審判",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-089_p1",
       "name": "地獄の審判",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-089_p2",
       "name": "地獄の審判",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-089_p3",
       "name": "地獄の審判",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-089_r1",
       "name": "地獄の審判",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-090",
@@ -9895,19 +9701,13 @@
       "card_id": "OP02-094",
       "name": "イスカ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-095",
@@ -10393,19 +10193,13 @@
       "card_id": "OP02-112",
       "name": "ベルメール",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP02-113",
@@ -11275,73 +11069,49 @@
       "card_id": "OP03-024",
       "name": "ギン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP03-024_p1",
       "name": "ギン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP03-025",
       "name": "クリーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP03-025_p1",
       "name": "クリーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP03-026",
@@ -11503,19 +11273,13 @@
       "card_id": "OP03-038",
       "name": "猛毒ガス弾『M・H・５』",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP03-039",
@@ -11965,91 +11729,61 @@
       "card_id": "OP03-057",
       "name": "三・千・世・界",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-057_p1",
       "name": "三・千・世・界",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-057_p2",
       "name": "三・千・世・界",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-057_p3",
       "name": "三・千・世・界",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-057_r1",
       "name": "三・千・世・界",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-058",
@@ -12871,19 +12605,13 @@
       "card_id": "OP03-095",
       "name": "石鹼羊",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP03-096",
@@ -13057,19 +12785,13 @@
       "card_id": "OP03-105",
       "name": "シャーロット・オーブン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-106",
@@ -13423,37 +13145,25 @@
       "card_id": "OP03-115",
       "name": "シュトロイゼン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-115_r1",
       "name": "シュトロイゼン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP03-116",
@@ -14311,73 +14021,49 @@
       "card_id": "OP04-031",
       "name": "ドンキホーテ・ドフラミンゴ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP04-031_p1",
       "name": "ドンキホーテ・ドフラミンゴ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP04-031_p2",
       "name": "ドンキホーテ・ドフラミンゴ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP04-031_r1",
       "name": "ドンキホーテ・ドフラミンゴ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP04-032",
@@ -14827,19 +14513,13 @@
       "card_id": "OP04-055",
       "name": "疫災弾",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP04-056",
@@ -15937,37 +15617,25 @@
       "card_id": "OP04-105",
       "name": "シャーロット・アマンド",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP04-105_p2",
       "name": "シャーロット・アマンド",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP04-106",
@@ -16261,55 +15929,37 @@
       "card_id": "OP05-002",
       "name": "ベロ・ベティ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-002_p1",
       "name": "ベロ・ベティ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-002_p2",
       "name": "ベロ・ベティ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-003",
@@ -16459,73 +16109,49 @@
       "card_id": "OP05-007",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-007_p1",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-007_p2",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-007_r1",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-008",
@@ -17275,37 +16901,25 @@
       "card_id": "OP05-041",
       "name": "サカズキ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-041_p1",
       "name": "サカズキ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP05-042",
@@ -17383,19 +16997,13 @@
       "card_id": "OP05-045",
       "name": "ステンレス",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP05-046",
@@ -19501,55 +19109,37 @@
       "card_id": "OP06-001",
       "name": "ウタ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-001_p1",
       "name": "ウタ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-001_p2",
       "name": "ウタ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-002",
@@ -19879,55 +19469,37 @@
       "card_id": "OP06-020",
       "name": "ホーディ・ジョーンズ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-020_p1",
       "name": "ホーディ・ジョーンズ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-020_p2",
       "name": "ホーディ・ジョーンズ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-021",
@@ -20041,91 +19613,61 @@
       "card_id": "OP06-023",
       "name": "アーロン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-023_p1",
       "name": "アーロン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-023_p2",
       "name": "アーロン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-023_p3",
       "name": "アーロン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-023_r1",
       "name": "アーロン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-024",
@@ -20287,73 +19829,49 @@
       "card_id": "OP06-035",
       "name": "ホーディ・ジョーンズ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-035_p1",
       "name": "ホーディ・ジョーンズ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-035_p2",
       "name": "ホーディ・ジョーンズ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-035_r1",
       "name": "ホーディ・ジョーンズ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-036",
@@ -20503,19 +20021,13 @@
       "card_id": "OP06-040",
       "name": "矢武鮫",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-041",
@@ -20569,37 +20081,25 @@
       "card_id": "OP06-043",
       "name": "アラマキ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-043_p1",
       "name": "アラマキ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-044",
@@ -20965,55 +20465,37 @@
       "card_id": "OP06-058",
       "name": "重力刀　猛虎",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-058_p1",
       "name": "重力刀　猛虎",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-058_r1",
       "name": "重力刀　猛虎",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-059",
@@ -21535,24 +21017,13 @@
       "card_id": "OP06-071",
       "name": "ギルド・テゾーロ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-072",
@@ -21618,19 +21089,13 @@
       "card_id": "OP06-075",
       "name": "バトラー伯爵",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP06-076",
@@ -22152,19 +21617,13 @@
       "card_id": "OP06-096",
       "name": "…なにも!!!な゛かった…!!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP06-097",
@@ -23526,55 +22985,37 @@
       "card_id": "OP07-029",
       "name": "バジル・ホーキンス",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-029_p1",
       "name": "バジル・ホーキンス",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-029_r1",
       "name": "バジル・ホーキンス",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-030",
@@ -24108,109 +23549,73 @@
       "card_id": "OP07-051",
       "name": "ボア・ハンコック",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-051_p1",
       "name": "ボア・ハンコック",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-051_p2",
       "name": "ボア・ハンコック",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-051_p3",
       "name": "ボア・ハンコック",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-051_p4",
       "name": "ボア・ハンコック",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-051_p5",
       "name": "ボア・ハンコック",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-052",
@@ -24456,19 +23861,13 @@
       "card_id": "OP07-063",
       "name": "カポーティ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-064",
@@ -24714,55 +24113,37 @@
       "card_id": "OP07-076",
       "name": "ノロノロビームソード",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-076_p1",
       "name": "ノロノロビームソード",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-076_r1",
       "name": "ノロノロビームソード",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-077",
@@ -24792,55 +24173,37 @@
       "card_id": "OP07-079",
       "name": "ロブ・ルッチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-079_p1",
       "name": "ロブ・ルッチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-079_p2",
       "name": "ロブ・ルッチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP07-080",
@@ -25014,37 +24377,25 @@
       "card_id": "OP07-091",
       "name": "モンキー・D・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-091_p1",
       "name": "モンキー・D・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP07-092",
@@ -25686,73 +25037,49 @@
       "card_id": "OP08-001",
       "name": "トニートニー・チョッパー",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-001_p1",
       "name": "トニートニー・チョッパー",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-001_p2",
       "name": "トニートニー・チョッパー",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-001_p3",
       "name": "トニートニー・チョッパー",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-002",
@@ -25950,19 +25277,13 @@
       "card_id": "OP08-014",
       "name": "ワポル",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-015",
@@ -26016,19 +25337,13 @@
       "card_id": "OP08-018",
       "name": "刻蹄『桜』",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-019",
@@ -26106,19 +25421,13 @@
       "card_id": "OP08-022",
       "name": "イヌアラシ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-023",
@@ -26880,55 +26189,37 @@
       "card_id": "OP08-069",
       "name": "シャーロット・リンリン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 20,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-069_p1",
       "name": "シャーロット・リンリン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 20,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-069_p2",
       "name": "シャーロット・リンリン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 20,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-070",
@@ -27090,19 +26381,13 @@
       "card_id": "OP08-077",
       "name": "覇海",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP08-078",
@@ -27120,37 +26405,25 @@
       "card_id": "OP08-079",
       "name": "カイドウ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-079_p1",
       "name": "カイドウ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-080",
@@ -27552,19 +26825,13 @@
       "card_id": "OP08-103",
       "name": "シャーロット・カスタード",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-104",
@@ -27774,37 +27041,25 @@
       "card_id": "OP08-112",
       "name": "S-スネーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-112_p1",
       "name": "S-スネーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-113",
@@ -27870,93 +27125,49 @@
       "card_id": "OP08-118",
       "name": "シルバーズ･レイリー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-118_p1",
       "name": "シルバーズ･レイリー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-118_p2",
       "name": "シルバーズ･レイリー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-118_r1",
       "name": "シルバーズ･レイリー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP08-119",
@@ -28430,55 +27641,37 @@
       "card_id": "OP09-013",
       "name": "ヤソップ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-013_p1",
       "name": "ヤソップ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-013_r1",
       "name": "ヤソップ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-014",
@@ -28604,19 +27797,13 @@
       "card_id": "OP09-018",
       "name": "失せろ",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP09-019",
@@ -28886,55 +28073,37 @@
       "card_id": "OP09-033",
       "name": "ニコ・ロビン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-033_p1",
       "name": "ニコ・ロビン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-033_r1",
       "name": "ニコ・ロビン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-034",
@@ -29000,19 +28169,13 @@
       "card_id": "OP09-036",
       "name": "モンキー・D・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-037",
@@ -30254,93 +29417,49 @@
       "card_id": "OP09-081",
       "name": "マーシャル・Ｄ・ティーチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-081_p1",
       "name": "マーシャル・Ｄ・ティーチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-081_p2",
       "name": "マーシャル・Ｄ・ティーチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-081_p3",
       "name": "マーシャル・Ｄ・ティーチ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        },
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-082",
@@ -30898,19 +30017,13 @@
       "card_id": "OP09-101",
       "name": "クザン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP09-102",
@@ -31696,19 +30809,13 @@
       "card_id": "OP10-023",
       "name": "イッショウ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP10-024",
@@ -32314,47 +31421,25 @@
       "card_id": "OP10-058",
       "name": "レベッカ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP10-058_p1",
       "name": "レベッカ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        },
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 2,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP10-059",
@@ -33044,19 +32129,13 @@
       "card_id": "OP10-102",
       "name": "エンポリオ・イワンコフ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP10-103",
@@ -33626,19 +32705,13 @@
       "card_id": "OP11-009",
       "name": "ニコ・ロビン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP11-010",
@@ -34856,19 +33929,13 @@
       "card_id": "OP11-088",
       "name": "シュウ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP11-089",
@@ -35078,19 +34145,13 @@
       "card_id": "OP11-102",
       "name": "ケイミー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP11-103",
@@ -35684,73 +34745,49 @@
       "card_id": "OP12-020",
       "name": "ロロノア・ゾロ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-020_p1",
       "name": "ロロノア・ゾロ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-020_p2",
       "name": "ロロノア・ゾロ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-020_p3",
       "name": "ロロノア・ゾロ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-021",
@@ -36056,55 +35093,37 @@
       "card_id": "OP12-037",
       "name": "鬼気 九刀流 阿修羅 抜剣 亡者戯",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-037_p1",
       "name": "鬼気 九刀流 阿修羅 抜剣 亡者戯",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-038",
       "name": "二刀流 居合 羅生門",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP12-039",
@@ -36290,37 +35309,25 @@
       "card_id": "OP12-051",
       "name": "ヒナ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP12-051_p1",
       "name": "ヒナ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP12-052",
@@ -38054,37 +37061,25 @@
       "card_id": "OP13-040",
       "name": "強ェとわかってんだから… 始めから全開だ!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-040_p1",
       "name": "強ェとわかってんだから… 始めから全開だ!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-041",
@@ -38462,37 +37457,25 @@
       "card_id": "OP13-064",
       "name": "ゴール・Ｄ・ロジャー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-064_p1",
       "name": "ゴール・Ｄ・ロジャー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-065",
@@ -38810,37 +37793,25 @@
       "card_id": "OP13-082",
       "name": "五老星",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-082_p1",
       "name": "五老星",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-083",
@@ -39122,19 +38093,13 @@
       "card_id": "OP13-095",
       "name": "ロズワード聖",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP13-096",
@@ -39344,37 +38309,25 @@
       "card_id": "OP13-110",
       "name": "ステューシー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-110_p1",
       "name": "ステューシー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-111",
@@ -39632,109 +38585,73 @@
       "card_id": "OP13-120",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-120_p1",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-120_p2",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-120_p3",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-120_p4",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP13-120_p5",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP14-001",
@@ -40028,37 +38945,25 @@
       "card_id": "OP14-020",
       "name": "ジュラキュール・ミホーク",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-020_p1",
       "name": "ジュラキュール・ミホーク",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-021",
@@ -40256,55 +39161,37 @@
       "card_id": "OP14-033",
       "name": "ペローナ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-033_p1",
       "name": "ペローナ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-033_p2",
       "name": "ペローナ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-034",
@@ -40838,19 +39725,13 @@
       "card_id": "OP14-070",
       "name": "バッファロー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-071",
@@ -40952,19 +39833,13 @@
       "card_id": "OP14-079",
       "name": "クロコダイル",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP14-079_p1",
@@ -41642,55 +40517,37 @@
       "card_id": "OP14-119",
       "name": "ジュラキュール・ミホーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP14-119_p1",
       "name": "ジュラキュール・ミホーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP14-119_p2",
       "name": "ジュラキュール・ミホーク",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "OP14-120",
@@ -41768,37 +40625,25 @@
       "card_id": "OP15-003",
       "name": "アルビダ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP15-003_p1",
       "name": "アルビダ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP15-004",
@@ -41984,19 +40829,13 @@
       "card_id": "OP15-017",
       "name": "モーガン",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP15-018",
@@ -42026,19 +40865,13 @@
       "card_id": "OP15-020",
       "name": "火拳",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP15-021",
@@ -42092,19 +40925,13 @@
       "card_id": "OP15-024",
       "name": "ウソップ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "OP15-025",
@@ -44774,37 +43601,25 @@
       "card_id": "P-057",
       "name": "ウタカタララバイ",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "P-057_p1",
       "name": "ウタカタララバイ",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "P-058",
@@ -44906,19 +43721,13 @@
       "card_id": "P-062",
       "name": "ホーディ＆ヒョウゾウ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "P-063",
@@ -46148,19 +44957,13 @@
       "card_id": "P-118",
       "name": "リリス",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "P-119",
@@ -46214,37 +45017,25 @@
       "card_id": "PRB01-001",
       "name": "サンジ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "PRB01-001_p1",
       "name": "サンジ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 18,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "PRB02-001",
@@ -46382,91 +45173,61 @@
       "card_id": "PRB02-006",
       "name": "ロロノア・ゾロ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "PRB02-006_p1",
       "name": "ロロノア・ゾロ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "PRB02-006_p2",
       "name": "ロロノア・ゾロ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "PRB02-007",
       "name": "ジンベエ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "PRB02-007_p1",
       "name": "ジンベエ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "PRB02-008",
@@ -49232,19 +47993,13 @@
       "card_id": "ST04-015",
       "name": "無頼男爆弾",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST04-016",
@@ -50846,37 +49601,25 @@
       "card_id": "ST09-015",
       "name": "雷鳴八卦",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST10-001",
       "name": "トラファルガー・ロー",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 12,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST10-002",
@@ -51254,19 +49997,13 @@
       "card_id": "ST10-017",
       "name": "磁気万力",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST11-001",
@@ -51776,37 +50513,25 @@
       "card_id": "ST13-003",
       "name": "モンキー・D・ルフィ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "ST13-003_p1",
       "name": "モンキー・D・ルフィ",
       "category": "LEADER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "ST13-004",
@@ -51908,73 +50633,49 @@
       "card_id": "ST13-007",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-007_p1",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-007_p2",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-007_r1",
       "name": "サボ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-008",
@@ -52028,73 +50729,49 @@
       "card_id": "ST13-010",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-010_p1",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-010_p2",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-010_r1",
       "name": "ポートガス・D・エース",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-011",
@@ -52196,73 +50873,49 @@
       "card_id": "ST13-014",
       "name": "モンキー・D・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-014_p1",
       "name": "モンキー・D・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 10,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-014_p2",
       "name": "モンキー・Ｄ・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 4,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-014_r1",
       "name": "モンキー・Ｄ・ルフィ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 4,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST13-015",
@@ -52520,19 +51173,13 @@
       "card_id": "ST14-008",
       "name": "ハレダス",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST14-009",
@@ -52682,55 +51329,37 @@
       "card_id": "ST14-016",
       "name": "仲間がいる゛よ!!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST14-016_p1",
       "name": "仲間がいる゛よ!!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST14-016_r1",
       "name": "仲間がいる゛よ!!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST14-017",
@@ -53420,19 +52049,13 @@
       "card_id": "ST19-001",
       "name": "スモーカー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L4",
-          "severity": 3,
-          "category": "count_limit_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 2,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "ST19-002",
@@ -54398,19 +53021,13 @@
       "card_id": "ST22-015",
       "name": "おれァ‘‘白ひげ‘‘だァア!!!!",
       "category": "EVENT",
-      "static_issues": [
-        {
-          "rule_id": "L8",
-          "severity": 4,
-          "category": "duration_next_turn_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST22-016",
@@ -54548,19 +53165,13 @@
       "card_id": "ST24-004",
       "name": "ロー＆ベポ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L3",
-          "severity": 3,
-          "category": "self_opp_reversal_suspect"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "info"
+      "health": "ok"
     },
     {
       "card_id": "ST24-005",
@@ -54650,19 +53261,13 @@
       "card_id": "ST26-002",
       "name": "トニートニー・チョッパー",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L7",
-          "severity": 4,
-          "category": "cost_le_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 0,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST26-003",
@@ -55160,37 +53765,25 @@
       "card_id": "ST29-014",
       "name": "ロロノア・ゾロ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST29-014_p1",
       "name": "ロロノア・ゾロ",
       "category": "CHARACTER",
-      "static_issues": [
-        {
-          "rule_id": "L6",
-          "severity": 4,
-          "category": "trigger_missing"
-        }
-      ],
-      "static_issue_count": 1,
+      "static_issues": [],
+      "static_issue_count": 0,
       "runtime_violations": [],
       "runtime_violation_count": 0,
       "cardqa_count": 6,
       "has_overlay": true,
-      "health": "warn"
+      "health": "ok"
     },
     {
       "card_id": "ST29-015",
@@ -55640,15 +54233,15 @@
   "primitives": [
     {
       "primitive": "power_pump",
-      "usage_count": 934
+      "usage_count": 947
     },
     {
       "primitive": "draw",
-      "usage_count": 529
+      "usage_count": 525
     },
     {
       "primitive": "ko",
-      "usage_count": 487
+      "usage_count": 481
     },
     {
       "primitive": "trash_self_hand_random",
@@ -55668,7 +54261,7 @@
     },
     {
       "primitive": "rest",
-      "usage_count": 269
+      "usage_count": 263
     },
     {
       "primitive": "play_self",
@@ -55676,7 +54269,7 @@
     },
     {
       "primitive": "play_from_hand",
-      "usage_count": 160
+      "usage_count": 161
     },
     {
       "primitive": "add_don",
@@ -55688,11 +54281,15 @@
     },
     {
       "primitive": "return_to_hand",
-      "usage_count": 130
+      "usage_count": 127
     },
     {
       "primitive": "untap_don",
       "usage_count": 127
+    },
+    {
+      "primitive": "cost_minus",
+      "usage_count": 119
     },
     {
       "primitive": "add_rested_don",
@@ -55703,16 +54300,12 @@
       "usage_count": 102
     },
     {
-      "primitive": "cost_minus",
-      "usage_count": 101
-    },
-    {
       "primitive": "put_top_to_life",
       "usage_count": 97
     },
     {
       "primitive": "return_to_deck_bottom",
-      "usage_count": 92
+      "usage_count": 94
     },
     {
       "primitive": "untap",
@@ -55720,7 +54313,7 @@
     },
     {
       "primitive": "play_from_trash",
-      "usage_count": 69
+      "usage_count": 71
     },
     {
       "primitive": "life_to_hand",
@@ -55735,8 +54328,16 @@
       "usage_count": 53
     },
     {
+      "primitive": "attach_rested_don",
+      "usage_count": 49
+    },
+    {
       "primitive": "set_ko_immune",
       "usage_count": 49
+    },
+    {
+      "primitive": "stay_rested_next_refresh",
+      "usage_count": 44
     },
     {
       "primitive": "choice_effect",
@@ -55744,6 +54345,10 @@
     },
     {
       "primitive": "mill_self_top",
+      "usage_count": 41
+    },
+    {
+      "primitive": "set_cannot_attack",
       "usage_count": 41
     },
     {
@@ -55755,16 +54360,12 @@
       "usage_count": 37
     },
     {
-      "primitive": "stay_rested_next_refresh",
-      "usage_count": 34
-    },
-    {
-      "primitive": "set_cannot_attack",
-      "usage_count": 26
-    },
-    {
       "primitive": "give_attack_active_chara",
       "usage_count": 26
+    },
+    {
+      "primitive": "ko_multi",
+      "usage_count": 25
     },
     {
       "primitive": "mill_self_life_to_trash",
@@ -55773,10 +54374,6 @@
     {
       "primitive": "disable_effect",
       "usage_count": 22
-    },
-    {
-      "primitive": "attach_rested_don",
-      "usage_count": 21
     },
     {
       "primitive": "mill_opp_life_to_trash",
@@ -55795,16 +54392,20 @@
       "usage_count": 15
     },
     {
-      "primitive": "play_from_hand_or_trash",
+      "primitive": "set_cannot_rest",
       "usage_count": 13
     },
     {
-      "primitive": "ko_multi",
+      "primitive": "play_from_hand_or_trash",
       "usage_count": 13
     },
     {
       "primitive": "give_ko_immune_through_opp_turn",
       "usage_count": 13
+    },
+    {
+      "primitive": "rest_multi",
+      "usage_count": 12
     },
     {
       "primitive": "opp_hand_to_deck_bottom",
@@ -55831,7 +54432,7 @@
       "usage_count": 10
     },
     {
-      "primitive": "set_cannot_rest",
+      "primitive": "power_pump_multi",
       "usage_count": 10
     },
     {
@@ -55863,7 +54464,15 @@
       "usage_count": 9
     },
     {
+      "primitive": "return_to_hand_multi",
+      "usage_count": 9
+    },
+    {
       "primitive": "set_base_cost_timed",
+      "usage_count": 9
+    },
+    {
+      "primitive": "search",
       "usage_count": 9
     },
     {
@@ -55931,7 +54540,7 @@
       "usage_count": 7
     },
     {
-      "primitive": "search",
+      "primitive": "chara_to_opp_life",
       "usage_count": 7
     },
     {
@@ -55940,10 +54549,6 @@
     },
     {
       "primitive": "summon_from_deck",
-      "usage_count": 6
-    },
-    {
-      "primitive": "return_to_hand_multi",
       "usage_count": 6
     },
     {
@@ -55971,6 +54576,10 @@
       "usage_count": 5
     },
     {
+      "primitive": "set_ko_immune_timed",
+      "usage_count": 5
+    },
+    {
       "primitive": "ko_all_others",
       "usage_count": 5
     },
@@ -55984,6 +54593,10 @@
     },
     {
       "primitive": "power_pump_per_target_attached_don",
+      "usage_count": 4
+    },
+    {
+      "primitive": "disable_opp_on_play_through_opp_turn",
       "usage_count": 4
     },
     {
@@ -56083,6 +54696,10 @@
       "usage_count": 2
     },
     {
+      "primitive": "hand_or_trash_to_self_life",
+      "usage_count": 2
+    },
+    {
       "primitive": "draw_per_self_hand_discarded",
       "usage_count": 2
     },
@@ -56095,15 +54712,15 @@
       "usage_count": 2
     },
     {
-      "primitive": "chara_to_opp_life",
-      "usage_count": 2
-    },
-    {
       "primitive": "block_chara_play_turn",
       "usage_count": 2
     },
     {
-      "primitive": "set_ko_immune_timed",
+      "primitive": "disable_blocker",
+      "usage_count": 2
+    },
+    {
+      "primitive": "set_ko_per_turn_immune",
       "usage_count": 2
     },
     {
@@ -56156,6 +54773,10 @@
     },
     {
       "primitive": "swap_opp_power",
+      "usage_count": 1
+    },
+    {
+      "primitive": "set_battle_ko_immune",
       "usage_count": 1
     },
     {
