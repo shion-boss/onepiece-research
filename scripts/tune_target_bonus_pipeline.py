@@ -32,6 +32,11 @@
 
 from __future__ import annotations
 
+# 真 Phase 1.0 (= GoalDirectedAI lookup-driven) を 必ず有効化
+# child subprocess (= scripts/eval_with_entry_firings.py 等) は env を inherit する。
+import os
+os.environ.setdefault("ONEPIECE_GOAL_DERIVE", "1")
+
 import argparse
 import subprocess
 import sys
@@ -67,6 +72,12 @@ def main() -> None:
                          " 旧 fire data と 新 AI の混在を防ぐ)")
     ap.add_argument("--diversify-entries", action="store_true",
                     help="Step 2.5 で entries 多様化 module を 実行 (= resource-level 別 variation 自動生成)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="Step 3 並列 worker 数 (default 1 = sequential、 推奨 8)")
+    ap.add_argument("--opponent", choices=["self", "greedy"], default="self",
+                    help="Step 3 opponent (= self/greedy、 greedy で stable baseline 学習)")
+    ap.add_argument("--seed", type=int, default=42,
+                    help="Step 3 base seed (= round 毎 変更 推奨 で 新 game state サンプリング)")
     args = ap.parse_args()
 
     print("=" * 70)
@@ -120,10 +131,13 @@ def main() -> None:
     if not args.skip_eval:
         print("\n[Step 3/4] fire log 収集 (= matrix eval + resume 対応)")
         cmd = [
-            PY, "scripts/eval_with_entry_firings.py",
+            PY, "-u", "scripts/eval_with_entry_firings.py",
             "--n-games", str(args.n_games),
             "--ai-mode", args.ai_mode,
             "--resume",
+            "--workers", str(args.workers),
+            "--opponent", args.opponent,
+            "--seed", str(args.seed),
         ]
         if args.limit_decks:
             cmd.extend(["--limit-decks", str(args.limit_decks)])

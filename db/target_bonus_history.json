@@ -569,6 +569,196 @@
           "lost": 25
         }
       ]
+    },
+    {
+      "date": "2026-05-28",
+      "meta_pool_iteration": 1,
+      "alpha": 0.15,
+      "min_fires": 5,
+      "n_games": 2560,
+      "n_entries_updated": 1789,
+      "sample_changes": [
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 1,
+          "old_bonus": 449,
+          "new_bonus": 432,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 2,
+          "old_bonus": 268,
+          "new_bonus": 258,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 1,
+          "old_bonus": 471,
+          "new_bonus": 454,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 1,
+          "old_bonus": 493,
+          "new_bonus": 475,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 1,
+          "old_bonus": 516,
+          "new_bonus": 497,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 1,
+          "old_bonus": 538,
+          "new_bonus": 518,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 1,
+          "old_bonus": 561,
+          "new_bonus": 540,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 2,
+          "old_bonus": 281,
+          "new_bonus": 270,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 2,
+          "old_bonus": 295,
+          "new_bonus": 284,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 2,
+          "old_bonus": 308,
+          "new_bonus": 297,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 2,
+          "old_bonus": 322,
+          "new_bonus": 310,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#176",
+          "priority": 2,
+          "old_bonus": 336,
+          "new_bonus": 324,
+          "delta": 0.964,
+          "won": 16,
+          "lost": 26
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 1,
+          "old_bonus": 707,
+          "new_bonus": 703,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 2,
+          "old_bonus": 404,
+          "new_bonus": 402,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 1,
+          "old_bonus": 742,
+          "new_bonus": 738,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 1,
+          "old_bonus": 777,
+          "new_bonus": 773,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 1,
+          "old_bonus": 813,
+          "new_bonus": 809,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 1,
+          "old_bonus": 848,
+          "new_bonus": 843,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 2,
+          "old_bonus": 423,
+          "new_bonus": 420,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        },
+        {
+          "entry_id": "cardrush_1342#157",
+          "priority": 2,
+          "old_bonus": 444,
+          "new_bonus": 441,
+          "delta": 0.995,
+          "won": 46,
+          "lost": 49
+        }
+      ]
     }
   ]
 }
