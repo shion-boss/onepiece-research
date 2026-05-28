@@ -406,6 +406,26 @@ def search_turn_plan(
     # ONEPIECE_OPP_DERIVE=1 で 有効化 (default off)。 _USE_GOAL_DERIVE 前提。
     _USE_OPP_DERIVE = _USE_GOAL_DERIVE and _os.environ.get("ONEPIECE_OPP_DERIVE", "0") == "1"
 
+    # Fix 2 (= 2026-05-28): turn-level の lookup は plan_search 入口 で 1 回 だけ 実施 → cache。
+    # 旧 = per cur_state (= 24 回/decision) で コスト爆発。 目標は turn 中変わらない 前提。
+    # derive は 各 cur_state で 実施 する (= legal_actions + plan は 変わる)。
+    _cached_self_entry = None
+    _cached_opp_entry = None
+    if _USE_GOAL_DERIVE and _me_target_spec is not None:
+        try:
+            _cached_self_entry = lookup_best_achievable_entry(
+                state, me_idx, _me_target_spec, plan=[],
+            )
+        except Exception:
+            _cached_self_entry = None
+    if _USE_OPP_DERIVE and _opp_target_spec is not None:
+        try:
+            _cached_opp_entry = lookup_best_achievable_entry(
+                state, opp_idx, _opp_target_spec, plan=None,
+            )
+        except Exception:
+            _cached_opp_entry = None
+
     for _depth in range(max_depth):
         next_frontier: list[tuple] = []
         for cur_state, plan, _prev_score in frontier:
@@ -422,45 +442,49 @@ def search_turn_plan(
                 completed.append((cur_state, plan))
                 continue
 
-            # === 真 Phase 1.0 + 2+3 pre-filter (= 2026-05-28) ===
-            # 「目指す盤面」 を 自陣 lookup → if 条件 に 寄与 action を candidate。
-            # 「敵が 目指す盤面」 も 敵 spec lookup → 妨害 action を candidate。
-            # 両 candidate の union で la を 絞り、 plan_search に 渡す。
-            # = 「自分を進める or 相手を止める」 良い手 だけ で 探索 (ohtsuki さん ビジョン)。
-            if _USE_GOAL_DERIVE and _me_target_spec is not None:
-                self_cand = la  # default: 全 la
+            # === 真 Phase 1.0 + 2+3 pre-filter (= Fix 5+6 hierarchy fallback、 2026-05-28) ===
+            # ohtsuki さん 決定木:
+            #   1. 自陣 entry を pursue (= derive_actions_for_goal)
+            #   2. 自陣 寄与 action ない → 敵陣 disrupt
+            #   3. 敵陣 disrupt も ない → EndPhase (= 「家に帰る」)
+            # derive は 「寄与なし」 を [] で 返す ように 修正済 (= Fix 6)。
+            if _USE_GOAL_DERIVE and _cached_self_entry is not None:
+                self_cand = []
                 opp_cand = []
                 try:
-                    best_entry = lookup_best_achievable_entry(
-                        cur_state, me_idx, _me_target_spec, plan=plan,
+                    self_cand = derive_actions_for_goal(
+                        cur_state, me_idx, _cached_self_entry["if"], plan, la,
                     )
-                    if best_entry is not None:
-                        self_cand = derive_actions_for_goal(
-                            cur_state, me_idx, best_entry["if"], plan, la,
-                        )
                 except Exception:
                     pass
-                if _USE_OPP_DERIVE and _opp_target_spec is not None:
+                if _USE_OPP_DERIVE and _cached_opp_entry is not None:
                     try:
-                        opp_best = lookup_best_achievable_entry(
-                            cur_state, opp_idx, _opp_target_spec, plan=None,
+                        opp_cand = derive_disrupt_actions(
+                            cur_state, me_idx, _cached_opp_entry["if"], plan, la,
                         )
-                        if opp_best is not None:
-                            opp_cand = derive_disrupt_actions(
-                                cur_state, me_idx, opp_best["if"], plan, la,
-                            )
                     except Exception:
                         pass
-                # union (= 重複 排除、 順序 保持)
-                seen = set()
-                combined = []
-                for a in list(self_cand) + list(opp_cand):
-                    aid = id(a)
-                    if aid not in seen:
-                        seen.add(aid)
-                        combined.append(a)
-                if combined:
+
+                # hierarchy fallback:
+                if self_cand and opp_cand:
+                    # 両方ある → union (= 「自分を進める or 相手を止める」)
+                    seen = set()
+                    combined = []
+                    for a in list(self_cand) + list(opp_cand):
+                        aid = id(a)
+                        if aid not in seen:
+                            seen.add(aid)
+                            combined.append(a)
                     la = combined
+                elif self_cand:
+                    la = self_cand
+                elif opp_cand:
+                    la = opp_cand
+                else:
+                    # 自陣 寄与 なし + 敵陣 妨害 なし → 帰る (= EndPhase 1 択)
+                    from .game import EndPhase as _EndPhase
+                    ep = next((a for a in la if isinstance(a, _EndPhase)), None)
+                    la = [ep] if ep is not None else la  # EndPhase 無ければ 元 la safety
                 if not la:
                     completed.append((cur_state, plan))
                     continue
@@ -562,8 +586,10 @@ def search_turn_plan(
                 # Claude が 書いた target spec で 「ターン目標 達成 leaf」 に bonus 加算。
                 # target.bonus (= 500-2000) を W_GOAL_TARGET で スケール。
                 # Phase 1.1: 同じ bonus を progressing 判定にも 使う (= goal-pruned mode 用)。
+                # Fix 3 (= 2026-05-28): GOAL_DERIVE=1 時は ranking 用 per-action 計算 を skip
+                # (= pre-filter で 目標駆動 既に成立、 ranking は 冗長 で コスト 倍増 の 元凶)。
                 _target_bonus_after = 0
-                if _USE_GOAL_TARGET and _me_target_spec:
+                if _USE_GOAL_TARGET and _me_target_spec and not _USE_GOAL_DERIVE:
                     try:
                         _target_bonus_after = compute_target_match_bonus(
                             child, me_idx, _me_target_spec, child.turn_number,

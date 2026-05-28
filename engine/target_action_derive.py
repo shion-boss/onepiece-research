@@ -229,7 +229,16 @@ def derive_actions_for_goal(state, me_idx: int, if_cond: dict, plan, legal_actio
             unsatisfied.append((key, target_val))
 
     if not unsatisfied:
-        # 全 条件 達成 済 → 全 action 残し (= 維持 のみ で 良い、 plan_search に 委ねる)
+        # Fix 4 (= 2026-05-28、 ohtsuki さん 喩え 「ゴール 着いたら ターン終了」):
+        # 全 条件 達成 済 → 旧 は full la fallback で AI が ActivateMain 連発 / DON 浪費 /
+        # 道草 攻撃 で 手札 / deck / 次ターン リソース を 燃やす → 探索 bloat も 復活。
+        # 新: target は ターン の 全体意図 を 表す 前提 で、 達成 = 即 EndPhase のみ。
+        # 「4 回攻撃 したい」 等 は target を そう 書くべき (= entries 質 の 問題)。
+        # AI は target を 忠実 に 実行 → 達成 → 帰る。
+        for a in legal_actions:
+            if isinstance(a, EndPhase):
+                return [a]  # 達成済 → EndPhase 1 択
+        # safety: EndPhase が legal で ない 異常 phase (= MAIN 以外) なら full la fallback
         return legal_actions
 
     # OR で候補 action 集合 構築
@@ -245,8 +254,10 @@ def derive_actions_for_goal(state, me_idx: int, if_cond: dict, plan, legal_actio
                 break
 
     filtered = [a for i, a in enumerate(legal_actions) if keep[i]]
+    # Fix 6 (= 2026-05-28): 何も 寄与しない 場合 [] を返す (= caller が hierarchy fallback)。
+    # 旧 = full la fallback で bloat 復活、 新 = caller が opp disrupt / EndPhase に 流す。
     if not filtered:
-        return legal_actions  # fallback: 何も 寄与しない なら 全 legal を 返す
+        return []
     return filtered
 
 
@@ -481,14 +492,48 @@ def lookup_best_achievable_entry(
                 candidates.append((score, tgt))
     candidates.sort(key=lambda x: -x[0])
 
-    # 上位 から achievable check
+    # 上位 から (a) achievable かつ (b) 未だ満たされていない target を探す。
+    # 既達成 target を 返してしまうと、 derive が pruning できず full la 返す → 無意味。
+    # 全 condition 達成済 → 「もう目指す対象 なし」 = None 返却 (= plan_search 自由探索 へ)。
+    me = state.players[me_idx]
+    fallback: Optional[tuple[float, dict, dict, int]] = None  # (score, if_cond, target, progress_count)
     for score, tgt in candidates:
         if_cond = tgt.get("if", {})
-        if is_achievable(state, me_idx, if_cond, plan):
+        # 既に全達成 なら skip (= 次の未達成 target に進む)
+        unsatisfied = []
+        for k, v in if_cond.items():
+            if not _primitive_currently_satisfied(state, me_idx, me, opp, k, v, plan):
+                unsatisfied.append((k, v))
+        if not unsatisfied:
+            continue
+        # Fix 5 (= 2026-05-28、 ohtsuki さん 「最も寄せられる entry」 設計):
+        # 完全 achievable なら 即返却。 そうでなくとも 「未達成 N 個中 K 個 achievable」 を
+        # 数えて、 完全 entry が 1 件も ない 場合 の fallback として 保持。
+        achievable_unsat = sum(
+            1 for k, v in unsatisfied
+            if _primitive_achievable(state, me_idx, me, opp, k, v, plan)
+        )
+        if achievable_unsat == len(unsatisfied):
+            # 完全 achievable + 未達成 → 最優先
             return {
                 "if": if_cond,
                 "bonus": int(tgt.get("bonus", 0)),
                 "score": score,
                 "description": tgt.get("description", ""),
             }
+        # 部分 achievable: fallback 候補 として 「achievable 数 × score」 で 最良 1 件 を 保持
+        if achievable_unsat > 0:
+            partial_score = score * (achievable_unsat / max(len(unsatisfied), 1))
+            if fallback is None or partial_score > fallback[0]:
+                fallback = (partial_score, if_cond, tgt, achievable_unsat)
+
+    # 完全 entry なし → 部分達成 fallback (= 「最も寄せられる」)
+    if fallback is not None:
+        _, if_cond, tgt, _ = fallback
+        return {
+            "if": if_cond,
+            "bonus": int(tgt.get("bonus", 0)),
+            "score": fallback[0],
+            "description": tgt.get("description", "") + " [部分達成]",
+        }
     return None

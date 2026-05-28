@@ -115,10 +115,15 @@ def test_lookup_no_spec_returns_none(state):
     assert lookup_best_achievable_entry(state, 0, {}, plan=None) is None
 
 
-def test_lookup_finds_best_achievable(state):
-    """bonus 降順 で 最初 の achievable entry を 返す。"""
+def test_lookup_finds_best_achievable_unsatisfied(state):
+    """bonus 降順 で (achievable かつ 未達成) な entry を 返す。
+
+    既に 満たされて いる target は skip (= 「目指す対象 が もう ない」)。
+    確実 に reachable な primitive (= self_leader_attached_don_ge) を使う:
+    DON 5 あれば leader に DON 5 attach 可能。
+    """
     from engine.target_action_derive import lookup_best_achievable_entry
-    # 簡易 spec: 2 entries、 高 bonus 不可能 + 低 bonus 可能
+    state.players[0].don_active = 5  # mid-turn 想定
     spec = {
         "entries": [
             {
@@ -127,7 +132,8 @@ def test_lookup_finds_best_achievable(state):
                 "opp_archetype": None,
                 "self_condition": "even",
                 "targets": [
-                    {"priority": 1, "if": {"self_chara_count_ge": 100}, "bonus": 9999,
+                    # 高 bonus だが unreachable (= leader DON は max 5、 100 は 不可能)
+                    {"priority": 1, "if": {"self_leader_attached_don_ge": 100}, "bonus": 9999,
                      "description": "unreachable high bonus"},
                 ],
             },
@@ -137,16 +143,39 @@ def test_lookup_finds_best_achievable(state):
                 "opp_archetype": None,
                 "self_condition": "even",
                 "targets": [
-                    {"priority": 1, "if": {"self_hand_ge": 1}, "bonus": 500,
-                     "description": "reachable low bonus"},
+                    # 中 bonus、 reachable + 未達成 (= DON 1 attach は DON 5 あれば 可能)
+                    {"priority": 1, "if": {"self_leader_attached_don_ge": 1}, "bonus": 700,
+                     "description": "reachable unsatisfied target"},
+                    # 低 bonus、 既達成 → skip 対象
+                    {"priority": 2, "if": {"self_hand_ge": 1}, "bonus": 300,
+                     "description": "already satisfied"},
                 ],
             },
         ],
     }
     best = lookup_best_achievable_entry(state, 0, spec, plan=None)
     assert best is not None
-    assert best["bonus"] == 500
-    assert "reachable" in best["description"]
+    assert best["bonus"] == 700
+    assert "unsatisfied" in best["description"]
+
+
+def test_lookup_returns_none_when_all_satisfied(state):
+    """全 target が 既達成 → 「目指す対象なし」 で None。 derive 側 で full la fallback。"""
+    from engine.target_action_derive import lookup_best_achievable_entry
+    spec = {
+        "entries": [{
+            "turn": state.turn_number,
+            "opp_leader_id": state.players[1].leader.card.card_id,
+            "opp_archetype": None,
+            "self_condition": "even",
+            "targets": [
+                {"priority": 1, "if": {"self_hand_ge": 1}, "bonus": 500,
+                 "description": "already satisfied (hand=5 at start)"},
+            ],
+        }],
+    }
+    best = lookup_best_achievable_entry(state, 0, spec, plan=None)
+    assert best is None
 
 
 # ===========================================================================
