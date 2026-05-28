@@ -586,16 +586,24 @@ def search_turn_plan(
                 # Claude が 書いた target spec で 「ターン目標 達成 leaf」 に bonus 加算。
                 # target.bonus (= 500-2000) を W_GOAL_TARGET で スケール。
                 # Phase 1.1: 同じ bonus を progressing 判定にも 使う (= goal-pruned mode 用)。
-                # Fix 3 (= 2026-05-28): GOAL_DERIVE=1 時は ranking 用 per-action 計算 を skip
-                # (= pre-filter で 目標駆動 既に成立、 ranking は 冗長 で コスト 倍増 の 元凶)。
+                # Fix 3 改 (= 2026-05-28 修正): compute_target_match_bonus は **必ず 呼ぶ**
+                # (= bonus 学習 fire log 集計 の hook が この 関数 内 に ある、 skip すると 学習不能)。
+                # score への 加算 だけ GOAL_DERIVE 時 skip (= pre-filter で 目標駆動 済)。
                 _target_bonus_after = 0
-                if _USE_GOAL_TARGET and _me_target_spec and not _USE_GOAL_DERIVE:
+                _need_fires = (
+                    getattr(cur_state, "_fired_target_counts", None) is not None
+                )
+                if _USE_GOAL_TARGET and _me_target_spec and (
+                    not _USE_GOAL_DERIVE or _need_fires
+                ):
                     try:
                         _target_bonus_after = compute_target_match_bonus(
                             child, me_idx, _me_target_spec, child.turn_number,
                             plan=plan + [action],
                         )
-                        if _target_bonus_after > 0:
+                        # score 加算 は ranking mode (= GOAL_DERIVE=0) のみ
+                        # GOAL_DERIVE=1 で fire logging だけ 必要 な ケースは score 不変
+                        if _target_bonus_after > 0 and not _USE_GOAL_DERIVE:
                             score = score + _W_GOAL_TARGET * _target_bonus_after
                     except Exception:
                         pass  # target match 失敗時は plan_search 止めない
