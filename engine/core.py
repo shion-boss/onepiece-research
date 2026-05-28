@@ -289,6 +289,11 @@ class InPlay:
     # 「次の相手のターン終了時まで、効果で KO されない」 (OP09-033 等)。
     # 所有者ターン終了時 (= 公式「次の相手ターン終了時」と一致) にクリア。
     ko_immune_through_opp_turn: bool = False
+    # 「このキャラはターンに 1 回、 相手の効果で KO されない」 (OP10-118 等)。
+    # ターン毎 に 1 回 だけ 相手効果 KO を 無効化。 自ターン 開始 時 (REFRESH) に reset。
+    # ko_per_turn_immune_remaining > 0 なら 相手効果 KO 試行 を 1 つ 無効化 + remaining -= 1。
+    ko_per_turn_immune_remaining: int = 0
+    ko_per_turn_immune_max: int = 0   # 補充 量 (= 通常 1)
     # 「次の相手のターン終了時まで、 パワー+N」 (= 自キャラ等を対象、 applier-tracking 必須)。
     # applier_idx と applied_turn を記録し、 _reset_timed_buffs で
     # 「applier 以外のターン終了 (= 1 回以上 turn_number 進行後)」 にクリア。

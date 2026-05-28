@@ -1999,6 +1999,10 @@ def _execute_effect_body(
                             f"  保護効果: {t.card.name} は相手の効果で離れない"
                         )
                         continue
+                    if t.ko_per_turn_immune_remaining > 0:
+                        t.ko_per_turn_immune_remaining -= 1
+                        state.push_log(f"  KO 耐性 (per-turn 残{t.ko_per_turn_immune_remaining+1}→{t.ko_per_turn_immune_remaining}): {t.card.name}")
+                        continue
                     if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
                         state.push_log(f"  KO 耐性: {t.card.name} は効果で KO されない")
                         continue
@@ -4260,6 +4264,25 @@ def _execute_effect_body(
             state.push_log(
                 f"  効果: KO耐性 ({duration}) → {[t.card.name for t in targets]}"
             )
+        elif k == "set_ko_per_turn_immune":
+            # 公式: 「このキャラは ターン に N 回、 相手の効果で KO されない」 (OP10-118 等)。
+            # spec: int N | {"target": ..., "count": N}
+            # 自ターン 開始 (REFRESH) で remaining が max に reset される。
+            spec_val = v if isinstance(v, dict) else {"target": "self", "count": int(v)}
+            target_spec = spec_val.get("target", "self")
+            n = int(spec_val.get("count", 1))
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="set_ko_per_turn_immune", outer_value=v,
+            )
+            for t in targets:
+                t.ko_per_turn_immune_max = max(t.ko_per_turn_immune_max, n)
+                # 直ちに remaining を 補充 (= 登場 直後 から 有効)
+                if t.ko_per_turn_immune_remaining < n:
+                    t.ko_per_turn_immune_remaining = n
+            state.push_log(
+                f"  効果: ターン{n}回 KO 耐性 → {[t.card.name for t in targets]}"
+            )
         elif k == "rest_self_cards_filtered":
             # 公式: 「自分の (filter) カード N 枚をレストにできる」 (cost 用簡略 primitive)。
             # spec: {"count": 2, "filter": {...}}
@@ -4396,6 +4419,10 @@ def _execute_effect_body(
             for owner, t in ko_targets:
                 # 自分のキャラ KO 経路 (= 自陣)
                 if owner is me:
+                    if t.ko_per_turn_immune_remaining > 0:
+                        t.ko_per_turn_immune_remaining -= 1
+                        state.push_log(f"  KO 耐性 (per-turn 残{t.ko_per_turn_immune_remaining+1}→{t.ko_per_turn_immune_remaining}): {t.card.name}")
+                        continue
                     if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
                         state.push_log(f"  KO 耐性: {t.card.name}")
                         continue
@@ -4418,6 +4445,10 @@ def _execute_effect_body(
                     # 相手キャラ KO 経路
                     if t.protect_from_opp_effect:
                         state.push_log(f"  保護効果: {t.card.name}")
+                        continue
+                    if t.ko_per_turn_immune_remaining > 0:
+                        t.ko_per_turn_immune_remaining -= 1
+                        state.push_log(f"  KO 耐性 (per-turn 残{t.ko_per_turn_immune_remaining+1}→{t.ko_per_turn_immune_remaining}): {t.card.name}")
                         continue
                     if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
                         state.push_log(f"  KO 耐性: {t.card.name}")
@@ -4463,6 +4494,10 @@ def _execute_effect_body(
                     if t in opp.characters:
                         if t.protect_from_opp_effect:
                             state.push_log(f"  保護効果: {t.card.name}")
+                            continue
+                        if t.ko_per_turn_immune_remaining > 0:
+                            t.ko_per_turn_immune_remaining -= 1
+                            state.push_log(f"  KO 耐性 (per-turn 残→{t.ko_per_turn_immune_remaining}): {t.card.name}")
                             continue
                         if t.ko_immune_until_turn_end or t.static_ko_immune or t.ko_immune_through_opp_turn:
                             state.push_log(f"  KO 耐性: {t.card.name}")

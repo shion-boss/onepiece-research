@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L4",
+  "card_id": "OP12-037_p1",
+  "severity": 3,
+  "risk_tier": "mid",
+  "message": "text に chara/leader 文脈 で 「キャラかドン‼合計2枚まで」 が 含まれる が overlay に count: 2 制限 なし",
+  "evidence": {
+    "text_excerpt": "【メイン】自分のドン‼3枚をレストにできる：相手の、キャラかドン‼合計2枚までを、レストにする。【カウンター】自分のリーダーを、このバトル中、パワー+3000…",
+    "matched": "キャラかドン‼合計2枚まで"
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:OP12-037_p1",
+    "patch": "該当 effect に count: 2 (or limit: 2) を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T150739Z"
+}

@@ -37,11 +37,11 @@ RISK_TIER_MAP = {
     "L1": "low",       # optional flag 追加 (= overlay edit、 既存挙動 onerous → 控えめ)
     "L2": "mid",       # once_per_turn 追加 (= overlay edit + engine 確認)
     "L3": "high",      # 自他反転 (= target spec 大幅変更)
-    "L4": "mid",       # count limit (= overlay edit)
+    "L4": "mid",       # count limit (= overlay edit、 多くは missing primitive)
     "L5": "low",       # leader_feature 追加 (= overlay edit)
     "L6": "high",      # trigger missing (= 新規 effect 実装)
     "L7": "low",       # cost_le 追加 (= overlay edit)
-    "L8": "mid",       # duration 追加
+    "L8": "low",       # duration 変更 (= 既 primitive の field 編集 のみ)
     # Layer 2 runtime invariant
     "INV-cannot-rest-no-attack": "high",   # engine fix 必要
     "INV-rested-no-attack": "high",

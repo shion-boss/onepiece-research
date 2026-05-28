@@ -1,0 +1,23 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L6",
+  "card_id": "P-118",
+  "severity": 4,
+  "risk_tier": "high",
+  "message": "text に 「【トリガー】」 が 含まれる が overlay に when ∈ ['trigger'] entry なし",
+  "evidence": {
+    "tag": "【トリガー】",
+    "expected_whens": [
+      "trigger"
+    ],
+    "actual_whens": [
+      "on_play"
+    ]
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:P-118",
+    "patch": "when: trigger の entry を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T150739Z"
+}

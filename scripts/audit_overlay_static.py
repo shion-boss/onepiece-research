@@ -330,8 +330,13 @@ def _check_count_limit_missing(cid: str, text: str, entries: list) -> list[dict]
     matches = list(re.finditer(pattern, text))
     if not matches:
         return issues
-    # entries 内 で count or limit が 宣言 されている か
+    # entries 内 で count or limit が 宣言 されている か。
+    # 認識 形式:
+    #   - field: count/limit/max/max_count (int >= 2)
+    #   - primitive: ko_multi / return_to_hand_multi / return_to_deck_bottom_multi の
+    #     list 要素数 (= N枚 targets を 表現)
     has_count_decl = False
+    multi_primitives = {"ko_multi", "return_to_hand_multi", "return_to_deck_bottom_multi"}
     def _walk_count(node):
         nonlocal has_count_decl
         if has_count_decl:
@@ -339,6 +344,10 @@ def _check_count_limit_missing(cid: str, text: str, entries: list) -> list[dict]
         if isinstance(node, dict):
             for k, v in node.items():
                 if k in ("count", "limit", "max", "max_count") and isinstance(v, int) and v >= 2:
+                    has_count_decl = True
+                    return
+                # multi primitive: value list の 長さ >= 2 で 「N 枚 まで」 を 表現
+                if k in multi_primitives and isinstance(v, list) and len(v) >= 2:
                     has_count_decl = True
                     return
                 _walk_count(v)

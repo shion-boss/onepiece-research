@@ -190,10 +190,59 @@ def fix_l7_cost_le(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, "対応 target spec 形 が 検出 不可"
 
 
+# ============================================================
+# handler 4: L8 (next_*_turn_end duration 変更)
+# ============================================================
+def fix_l8_duration(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8: 既 power_pump primitive の duration を turn → next_*_turn_end に 変更。
+
+    安全 適用 条件:
+    - 単一 entry
+    - 単一 do primitive で `power_pump` を 含む
+    - text に 「次の(相手の)ターン終了時まで」 が 一度 だけ あり、 「このターン中」 が 無い
+      (= duration 候補 が 一意 に 決まる)
+    """
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected not in ("next_opp_turn_end", "next_turn_end"):
+        return False, "expected duration が auto-fix 対象 外"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) != 1:
+        return False, f"複数 entry ({len(entries) if isinstance(entries,list) else '?'})"
+    e = entries[0]
+    if not isinstance(e, dict):
+        return False, "entry not dict"
+    text = _get_card_text(cid)
+    # text に 「このターン中」 と 両方 ある なら 曖昧 → skip
+    has_this_turn = "このターン中" in text
+    if has_this_turn:
+        return False, "text に 「このターン中」 と 「次の…ターン終了時」 両方 = 曖昧"
+    do = e.get("do", [])
+    changed_any = False
+    for prim in do if isinstance(do, list) else []:
+        if not isinstance(prim, dict):
+            continue
+        for k, v in list(prim.items()):
+            if k == "power_pump" and isinstance(v, dict):
+                cur = v.get("duration")
+                if cur == "turn":
+                    v["duration"] = expected
+                    changed_any = True
+            elif k == "set_base_power_timed" and isinstance(v, dict):
+                cur = v.get("duration")
+                if cur == "turn":
+                    v["duration"] = expected
+                    changed_any = True
+    if changed_any:
+        return True, f"{cid}[0] power_pump.duration → {expected}"
+    return False, "対応 primitive (power_pump duration=turn) なし"
+
+
 HANDLERS = {
     "L1": fix_l1_optional,
     "L5": fix_l5_leader_feature,
     "L7": fix_l7_cost_le,
+    "L8": fix_l8_duration,
 }
 
 

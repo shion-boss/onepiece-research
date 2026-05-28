@@ -538,6 +538,9 @@ def advance_phase(state: GameState) -> None:
                 me.leader.stay_rested_next_refresh = False
             else:
                 me.leader.rested = False
+            # ko_per_turn_immune 補充 (= OP10-118 等、 自ターン 開始 時 1 reset)
+            if me.leader.ko_per_turn_immune_max > 0:
+                me.leader.ko_per_turn_immune_remaining = me.leader.ko_per_turn_immune_max
             for c in me.characters:
                 if c.stay_rested_next_refresh:
                     c.stay_rested_next_refresh = False
@@ -545,6 +548,8 @@ def advance_phase(state: GameState) -> None:
                     c.rested = False
                 me.don_active += c.attached_dons
                 c.attached_dons = 0
+                if c.ko_per_turn_immune_max > 0:
+                    c.ko_per_turn_immune_remaining = c.ko_per_turn_immune_max
                 if hasattr(c, "_act_used"):
                     delattr(c, "_act_used")
                 # on_attack / opp_attack のターン1回フラグもクリア (任意 idx)

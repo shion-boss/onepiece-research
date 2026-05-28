@@ -1672,7 +1672,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -8272,7 +8272,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -11785,7 +11785,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -16584,7 +16584,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -44239,7 +44239,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -44257,7 +44257,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -44275,7 +44275,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -44293,7 +44293,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -44311,7 +44311,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -44329,7 +44329,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -57585,7 +57585,7 @@
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -59871,6 +59871,18 @@
   ],
   "OP10-118": [
     {
+      "_text": "OP10-118 登場時: このキャラは ターン1回 相手効果で KO されない (= on_play で counter set、 REFRESH で 補充)",
+      "when": "on_play",
+      "do": [
+        {
+          "set_ko_per_turn_immune": {
+            "target": "self",
+            "count": 1
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP10-118 on_attack: 自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。",
       "when": "on_attack",
       "do": [
@@ -59884,6 +59896,18 @@
     }
   ],
   "OP10-118_p1": [
+    {
+      "_text": "OP10-118_p1 登場時: このキャラは ターン1回 相手効果で KO されない (= on_play で counter set、 REFRESH で 補充)",
+      "when": "on_play",
+      "do": [
+        {
+          "set_ko_per_turn_immune": {
+            "target": "self",
+            "count": 1
+          }
+        }
+      ]
+    },
     {
       "_text": "OP10-118_p1 on_attack: 自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。",
       "when": "on_attack",
@@ -76774,7 +76798,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -76792,7 +76816,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -76838,7 +76862,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -76856,7 +76880,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -76956,7 +76980,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -76974,7 +76998,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
