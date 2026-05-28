@@ -1246,7 +1246,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "rest_multi": [
+            "one_opponent_character_cost_le_5cost",
+            "one_opponent_character_cost_le_5cost"
+          ]
         },
         {
           "rest": "one_opponent_character_cost_le_5cost"
@@ -8657,7 +8660,10 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_6"
+          "return_to_hand_multi": [
+            "one_opponent_character_cost_le_6",
+            "one_opponent_character_cost_le_6"
+          ]
         }
       ]
     },
@@ -10888,6 +10894,13 @@
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -20683,12 +20696,20 @@
           "trash_self_hand_random": 1
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 3
+          "ko_multi": [
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 3
+              }
+            },
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 3
+              }
             }
-          }
+          ]
         }
       ],
       "cost": {
@@ -24640,12 +24661,20 @@
           "trash_self_hand_random": 1
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 4
+          "ko_multi": [
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            },
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
             }
-          }
+          ]
         }
       ],
       "cost": {
@@ -24713,7 +24742,10 @@
       "when": "main",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_2cost"
+          "rest_multi": [
+            "one_opponent_character_cost_le_2cost",
+            "one_opponent_character_cost_le_2cost"
+          ]
         },
         {
           "rest": "one_opponent_character_cost_le_2cost"
@@ -26523,7 +26555,10 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_6"
+          "return_to_hand_multi": [
+            "one_opponent_character_cost_le_6",
+            "one_opponent_character_cost_le_6"
+          ]
         }
       ]
     },
@@ -33015,6 +33050,13 @@
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -35722,12 +35764,20 @@
           "trash_self_hand_random": 1
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 4
+          "ko_multi": [
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
+            },
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 4
+              }
             }
-          }
+          ]
         }
       ],
       "cost": {
@@ -42101,7 +42151,10 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_6"
+          "return_to_hand_multi": [
+            "one_opponent_character_cost_le_6",
+            "one_opponent_character_cost_le_6"
+          ]
         }
       ]
     },
@@ -43004,6 +43057,12 @@
               "feature": "麦わらの一味"
             }
           }
+        },
+        {
+          "set_ko_immune_timed": {
+            "target": "all_self_team",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -43028,6 +43087,12 @@
             "filter": {
               "feature": "麦わらの一味"
             }
+          }
+        },
+        {
+          "set_ko_immune_timed": {
+            "target": "all_self_team",
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -60663,6 +60728,12 @@
             "filter": {
               "feature": "麦わらの一味"
             }
+          }
+        },
+        {
+          "set_ko_immune_timed": {
+            "target": "all_self_team",
+            "duration": "next_opp_turn_end"
           }
         }
       ],

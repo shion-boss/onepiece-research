@@ -284,7 +284,9 @@ def fix_l8_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
 def fix_l8_missing_power_pump(issue: dict, overlay: dict) -> tuple[bool, str]:
     """L8: 「次相手 end まで パワー +N」 / 「-N」 missing primitive 追加。
 
-    text pattern: 「(対象)、 次の相手のターン終了時まで、 パワー[+-]N」
+    text pattern (= 順序 両方 受容):
+    - 「(対象)、 次の相手のターン終了時まで、 パワー[+-]N」 (= 標準)
+    - 「(対象)を、 次の相手のエンドフェイズ終了時まで、 パワー[+-]N」 (= EB / OP12-073 等)
     overlay に power_pump primitive ない場合 main entry に 追加。
     """
     cid = issue["card_id"]
@@ -293,17 +295,24 @@ def fix_l8_missing_power_pump(issue: dict, overlay: dict) -> tuple[bool, str]:
         return False, "next_opp_turn_end 以外"
     text = _get_card_text(cid)
     m_pw = re.search(
-        r"次の相手の(?:ターン|エンドフェイズ)終了時まで、?\s*パワー([+-])(\d+)", text
+        r"次の相手の(?:ターン|エンドフェイズ)終了時まで、?\s*パワー([+-]|＋|−|－)(\d+)", text
     )
     if not m_pw:
-        return False, "power +/- pattern なし"
+        # 反対 順 (= 「対象 すべて を、 次相手 end まで、 パワー+N」 の 「対象 を、」 → 「次相手 end まで、 パワー+N」)
+        m_pw = re.search(
+            r"を、?\s*次の相手の(?:ターン|エンドフェイズ)終了時まで、?\s*パワー([+-]|＋|−|－)(\d+)",
+            text,
+        )
+        if not m_pw:
+            return False, "power +/- pattern なし"
     sign = m_pw.group(1)
     amount_abs = int(m_pw.group(2))
-    amount = amount_abs if sign == "+" else -amount_abs
+    is_pos = sign in ("+", "＋")
+    amount = amount_abs if is_pos else -amount_abs
 
     entries = overlay.get(cid)
-    if not isinstance(entries, list) or len(entries) == 0 or len(entries) > 2:
-        return False, f"entry 数 unsupported ({len(entries) if isinstance(entries,list) else '?'})"
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
     # 既 power_pump duration next_opp_turn_end あれば skip
     for e in entries:
         if not isinstance(e, dict):
@@ -318,8 +327,12 @@ def fix_l8_missing_power_pump(issue: dict, overlay: dict) -> tuple[bool, str]:
     before = re.sub(r"(は、|、)$", "", before)
     last_delim = max(before.rfind("、"), before.rfind("："), before.rfind("。"))
     target_clause = before[last_delim+1:] if last_delim >= 0 else before
+    # 「すべて」 / 「全て」 は 文 全体 (= before) で 拾う (= 自分の が 「、」 で 切れる case 対策)
+    has_subete = "すべて" in target_clause or "全て" in target_clause
     if "このキャラ" in target_clause or "このリーダー" in target_clause:
         target = "self"
+    elif has_subete and ("自分の" in before[-100:]):
+        target = "all_self_team"
     elif "自分のキャラ" in target_clause:
         target = "one_self_character_any"
     elif "自分のリーダー" in target_clause:
@@ -395,6 +408,44 @@ def fix_l8_duration(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, "対応 primitive (power_pump duration=turn) なし"
 
 
+def fix_l8_missing_ko_immune(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8: 「(対象) すべて は 次相手 end まで 効果で KO されない」 → set_ko_immune_timed。"""
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected != "next_opp_turn_end":
+        return False, "next_opp_turn_end 以外"
+    text = _get_card_text(cid)
+    if not re.search(r"次の相手の(?:ターン|エンドフェイズ)終了時まで.*?(?:効果で)?KOされない", text, flags=re.DOTALL):
+        return False, "ko_immune pattern なし"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) > 2:
+        return False, "entries なし"
+    # 既 set_ko_immune_timed あれば skip
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and "set_ko_immune_timed" in prim:
+                return False, "既 set_ko_immune_timed あり"
+    # target 推定
+    if re.search(r"自分の.*?(?:キャラ|リーダー).*?すべて", text):
+        target = "all_self_team"
+    elif "このキャラ" in text:
+        target = "self"
+    else:
+        return False, "target 不明"
+    main_entry = entries[0] if isinstance(entries[0], dict) else None
+    if not main_entry:
+        return False, "main entry なし"
+    new_prim = {"set_ko_immune_timed": {"target": target, "duration": "next_opp_turn_end"}}
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に set_ko_immune_timed({target}, next_opp_turn_end) 追加"
+
+
 def fix_l8_missing_cost_plus(issue: dict, overlay: dict) -> tuple[bool, str]:
     """L8: 「次相手 end まで コスト+N」 missing → cost_minus 追加 (= cost_minus は 負 amount で cost+N)。
 
@@ -417,8 +468,8 @@ def fix_l8_missing_cost_plus(issue: dict, overlay: dict) -> tuple[bool, str]:
     # 「コスト+N」 → cost_minus に 負 amount で 表現 する
     amount = -amount_abs if sign == "+" else amount_abs
     entries = overlay.get(cid)
-    if not isinstance(entries, list) or len(entries) > 2 or len(entries) == 0:
-        return False, "entry 数 unsupported"
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
     # 既 cost_minus next_opp_turn_end あれば skip
     for e in entries:
         if not isinstance(e, dict):
@@ -465,8 +516,8 @@ def fix_l8_missing_stay_rested(issue: dict, overlay: dict) -> tuple[bool, str]:
     if "アクティブにならない" not in text:
         return False, "アクティブにならない pattern なし"
     entries = overlay.get(cid)
-    if not isinstance(entries, list) or len(entries) > 2 or len(entries) == 0:
-        return False, "entry 数 unsupported"
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
     for e in entries:
         if not isinstance(e, dict):
             continue
@@ -542,6 +593,7 @@ def fix_l8_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
         (fix_l8_missing_power_pump, "missing_power_pump"),
         (fix_l8_missing_cost_plus, "missing_cost_plus"),
         (fix_l8_missing_stay_rested, "missing_stay_rested"),
+        (fix_l8_missing_ko_immune, "missing_ko_immune"),
     ]:
         ok, msg = handler(issue, overlay)
         if ok:
@@ -568,35 +620,46 @@ def fix_l4_to_multi(issue: dict, overlay: dict) -> tuple[bool, str]:
         return False, "「キャラ N 枚 まで」 pattern なし"
     count = int(m_count.group(1))
     entries = overlay.get(cid)
-    if not isinstance(entries, list) or len(entries) != 1:
-        return False, f"単一 entry 限定 (現 {len(entries) if isinstance(entries,list) else '?'})"
-    e = entries[0]
-    if not isinstance(e, dict):
-        return False, "entry not dict"
-    do = e.get("do", [])
-    if not isinstance(do, list) or len(do) != 1:
-        return False, "do 1 件 のみ 対応"
-    prim = do[0]
-    if not isinstance(prim, dict) or len(prim) != 1:
-        return False, "primitive 1 件 のみ"
-    pk, pv = next(iter(prim.items()))
-    base_to_multi = {
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
+    base_to_multi_map = {
         "ko": "ko_multi",
         "return_to_hand": "return_to_hand_multi",
         "return_to_deck_bottom": "return_to_deck_bottom_multi",
         "rest": "rest_multi",
     }
-    if pk not in base_to_multi:
-        return False, f"primitive {pk} は multi 変換 非対応"
-    new_pk = base_to_multi[pk]
+    # 複数 entry の case: do[] に base primitive を 持つ entry を 選ぶ
+    target_e = None
+    target_prim_idx = None
+    for ei, e in enumerate(entries):
+        if not isinstance(e, dict):
+            continue
+        do = e.get("do", [])
+        if not isinstance(do, list):
+            continue
+        for pi, prim in enumerate(do):
+            if not isinstance(prim, dict) or len(prim) != 1:
+                continue
+            pk = next(iter(prim.keys()))
+            if pk in base_to_multi_map:
+                target_e = e
+                target_prim_idx = pi
+                break
+        if target_e is not None:
+            break
+    if target_e is None:
+        return False, "base primitive (ko/return/rest) を 持つ entry なし"
+    e = target_e
+    do = e.get("do", [])
+    prim = do[target_prim_idx]
+    pk, pv = next(iter(prim.items()))
+    new_pk = base_to_multi_map[pk]
     if isinstance(pv, str):
-        do[0] = {new_pk: [pv] * count}
-        return True, f"{cid}[0]: {pk}({pv}) → {new_pk} × {count}"
-    # dict form の case: {ko: {filter: {cost_le: N}, type: ...}}
-    # → ko_multi に 該当 spec を N 個 並べる (= filter を 保持)
+        do[target_prim_idx] = {new_pk: [pv] * count}
+        return True, f"{cid}: {pk}({pv}) → {new_pk} × {count}"
     if isinstance(pv, dict):
-        do[0] = {new_pk: [pv] * count}
-        return True, f"{cid}[0]: {pk}(dict) → {new_pk} × {count}"
+        do[target_prim_idx] = {new_pk: [pv] * count}
+        return True, f"{cid}: {pk}(dict) → {new_pk} × {count}"
     return False, "string/dict target spec のみ 対応"
 
 
@@ -656,15 +719,26 @@ def fix_l7_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
     return True, f"{cid} に {detected_action}({target_spec}) 追加"
 
 
+def fix_l7_stay_rested_upgrade(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L7: stay_rested_next_refresh の target spec が 「相手のレスト の chara N 枚 まで」
+    式 (= any_opp_rested_chara_n_N) で cost_le 不在 → 「コスト N 以下 」 を text に
+    含む なら cost-aware variant に。 ただし engine が cost_le_M_n_N variant を サポート
+    しない 場合 は 単に そのまま (= 「コスト N 以下」 は filter として 別途 必要)。
+
+    現在 engine は any_opp_rested_chara_n_N のみ。 cost_le 込み の variant は無い。
+    → 「コスト N 以下」 mention を 持つ stay_rested overlay は 工数 大 (= engine 拡張 必要)。
+    skip。
+    """
+    return False, "engine 拡張 必要 (cost_le 込み any_opp_rested_chara_n_N variant 不在)"
+
+
 def fix_l7_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
     """L7 handler chain: cost_le 追加 / missing primitive 追加 順 で 試行。"""
-    ok, msg = fix_l7_cost_le(issue, overlay)
-    if ok:
-        return ok, msg
-    ok2, msg2 = fix_l7_missing_primitive(issue, overlay)
-    if ok2:
-        return ok2, msg2
-    return False, f"cost_le: {msg}; missing: {msg2}"
+    for handler in (fix_l7_cost_le, fix_l7_missing_primitive, fix_l7_stay_rested_upgrade):
+        ok, msg = handler(issue, overlay)
+        if ok:
+            return ok, msg
+    return False, "全 L7 handler skip"
 
 
 def fix_l4_power_pump_self(issue: dict, overlay: dict) -> tuple[bool, str]:
@@ -689,8 +763,8 @@ def fix_l4_power_pump_self(issue: dict, overlay: dict) -> tuple[bool, str]:
     count = int(m.group(1))
     amount = int(m.group(2))
     entries = overlay.get(cid)
-    if not isinstance(entries, list) or len(entries) == 0 or len(entries) > 2:
-        return False, "entry 数 unsupported"
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
     # 既 power_pump_multi or 同 amount 設定 power_pump あれば skip
     for e in entries:
         if not isinstance(e, dict):
@@ -733,7 +807,7 @@ def fix_l4_attach_don_count(issue: dict, overlay: dict) -> tuple[bool, str]:
         per_target = int(m.group(2))
         entries = overlay.get(cid)
         if not isinstance(entries, list) or len(entries) > 2:
-            return False, "entry 数 unsupported"
+            return False, "entries なし"
         # 既 attach_*_don with per_target あれば skip
         for e in entries:
             if not isinstance(e, dict):
@@ -777,7 +851,7 @@ def fix_l4_attach_don_count(issue: dict, overlay: dict) -> tuple[bool, str]:
         count = int(m.group(1))
         entries = overlay.get(cid)
         if not isinstance(entries, list) or len(entries) > 2:
-            return False, "entry 数 unsupported"
+            return False, "entries なし"
         for e in entries:
             if not isinstance(e, dict):
                 continue

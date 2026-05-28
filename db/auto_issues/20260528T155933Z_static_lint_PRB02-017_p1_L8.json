@@ -1,0 +1,18 @@
+{
+  "layer": "static_lint",
+  "rule_id": "L8",
+  "card_id": "PRB02-017_p1",
+  "severity": 4,
+  "risk_tier": "low",
+  "message": "text に 「次の相手のエンドフェイズ終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
+  "evidence": {
+    "text_excerpt": "…相手のレストのリーダーか、「モンキー・Ｄ・ルフィ」以外の相手のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+    "expected": "next_opp_turn_end"
+  },
+  "suggested_fix": {
+    "path": "db/card_effects.json:PRB02-017_p1",
+    "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
+  },
+  "source": "scripts/audit_overlay_static.py",
+  "created_at": "20260528T155933Z"
+}
