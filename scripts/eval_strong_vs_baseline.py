@@ -69,18 +69,34 @@ def _load_deck(repo: CardRepository, slug: str) -> DeckList:
 def _run_pair(
     deck_a: DeckList, deck_b: DeckList, n_games: int, seed: int,
     a_strong: bool, b_strong: bool,
+    on_game=None,
 ) -> dict:
-    """deck_a (ai_factory_1) vs deck_b (ai_factory_2)。 strong=True で 強化後 AI。"""
+    """deck_a (ai_factory_1) vs deck_b (ai_factory_2)。 strong=True で 強化後 AI。
+
+    n_games を 1 試合ずつ run_matchup(n_games=1) で 回し、 game 単位 で 進捗 を 出す
+    (= on_game callback)。 各 game の seed は seed+g で deterministic。
+    """
     f_a = _default_ai_factory if a_strong else _baseline_ai_factory
     f_b = _default_ai_factory if b_strong else _baseline_ai_factory
+    a_wins = b_wins = draws = violations = 0
     t0 = time.time()
-    report = run_matchup(
-        deck_a, deck_b, n_games=n_games, seed=seed,
-        ai_factory_1=f_a, ai_factory_2=f_b,
-        keep_logs=False, enforce_rules=True,
-    )
+    for g in range(n_games):
+        gt0 = time.time()
+        report = run_matchup(
+            deck_a, deck_b, n_games=1, seed=seed + g,
+            ai_factory_1=f_a, ai_factory_2=f_b,
+            keep_logs=False, enforce_rules=True,
+        )
+        a_wins += report.deck1_wins
+        b_wins += report.deck2_wins
+        draws += report.draws
+        gviol = sum(len(gm.rule_violations) for gm in report.games)
+        violations += gviol
+        if on_game is not None:
+            on_game(g + 1, n_games, report.deck1_wins, report.deck2_wins,
+                    gviol, time.time() - gt0, a_wins, b_wins)
     elapsed = time.time() - t0
-    violations = sum(len(g.rule_violations) for g in report.games)
+    total = a_wins + b_wins + draws
     return {
         "deck_a": deck_a.slug or deck_a.name,
         "deck_b": deck_b.slug or deck_b.name,
@@ -88,10 +104,10 @@ def _run_pair(
         "seed": seed,
         "a_strong": a_strong,
         "b_strong": b_strong,
-        "a_wins": report.deck1_wins,
-        "b_wins": report.deck2_wins,
-        "draws": report.draws,
-        "a_winrate": report.deck1_winrate,
+        "a_wins": a_wins,
+        "b_wins": b_wins,
+        "draws": draws,
+        "a_winrate": (a_wins / total) if total else 0.0,
         "violations": violations,
         "elapsed_s": elapsed,
     }
@@ -108,7 +124,19 @@ def mode_mirror(decks: list[str], n_games: int, seed: int, output: Path) -> None
         d1 = _load_deck(repo, slug)
         d2 = _load_deck(repo, slug)
         print(f"[{i+1}/{len(decks)}] {slug} (strong vs baseline)... ", flush=True)
-        row = _run_pair(d1, d2, n_games, seed, a_strong=True, b_strong=False)
+
+        def _on_game(g, n, ga, gb, gviol, gsec, cum_a, cum_b):
+            res = "strong" if ga > gb else ("baseline" if gb > ga else "draw")
+            print(f"    game {g}/{n}: {res} win  (cum {cum_a}-{cum_b})  [{gsec:.0f}s, viol={gviol}]", flush=True)
+            # game 単位 で 部分結果 を save (= kill 損失 を 1 game に 抑える)
+            output.write_text(json.dumps(
+                {"mode": "mirror", "n_games": n_games,
+                 "results": results + [{"deck_a": slug, "deck_b": slug,
+                                        "partial": True, "g_done": g, "g_total": n,
+                                        "cum_a_wins": cum_a, "cum_b_wins": cum_b}]},
+                ensure_ascii=False, indent=2))
+
+        row = _run_pair(d1, d2, n_games, seed, a_strong=True, b_strong=False, on_game=_on_game)
         results.append(row)
         wr = row["a_winrate"] * 100
         verdict = "WIN" if row["a_wins"] > row["b_wins"] else ("TIE" if row["a_wins"] == row["b_wins"] else "LOSE")

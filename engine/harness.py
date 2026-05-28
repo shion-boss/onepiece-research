@@ -145,6 +145,38 @@ def _construct_ai(factory, rng, deck_analysis):
         return factory(rng)
 
 
+def _apply_time_limit_tiebreak(state, rng: random.Random, effective_cap: int) -> None:
+    """公式 floor_rule II. の 追加ターン後 勝敗判定: ① life 多い方 ② deck 多い方 ③ random。
+
+    どれでも 同数 なら じゃんけん相当 (= rng で random 選択)。 引き分け表現は しない
+    (= 公式 は じゃんけん 1 回勝負 で 必ず 勝者 決定)。
+    """
+    p0_life = len(state.players[0].life)
+    p1_life = len(state.players[1].life)
+    if p0_life != p1_life:
+        winner = 0 if p0_life > p1_life else 1
+        state.declare_winner(
+            winner,
+            f"公式 floor_rule II. 時間切れ tiebreak ①life: P0={p0_life} P1={p1_life} (cap={effective_cap})",
+        )
+        return
+    p0_deck = len(state.players[0].deck)
+    p1_deck = len(state.players[1].deck)
+    if p0_deck != p1_deck:
+        winner = 0 if p0_deck > p1_deck else 1
+        state.declare_winner(
+            winner,
+            f"公式 floor_rule II. 時間切れ tiebreak ②deck: P0={p0_deck} P1={p1_deck} (cap={effective_cap})",
+        )
+        return
+    # ③ じゃんけん 1 回勝負 (= random)
+    winner = rng.randrange(2)
+    state.declare_winner(
+        winner,
+        f"公式 floor_rule II. 時間切れ tiebreak ③random: life/deck同数 (cap={effective_cap})",
+    )
+
+
 def run_matchup(
     deck1: DeckList,
     deck2: DeckList,
@@ -165,6 +197,8 @@ def run_matchup(
     record_replays: bool = False,
     replays_db_path: Optional[Path] = None,
     enable_fire_logging: bool = False,
+    time_limit_turns: Optional[int] = 40,
+    time_limit_mode: str = "both_lose",
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
@@ -178,7 +212,18 @@ def run_matchup(
     record_replays=True で各試合を db/match_replays.sqlite に永続化 (= 学習データ蓄積)。
     keep_logs/record_snapshots は自動的に True 扱い。 replays_db_path を指定すれば
     別 sqlite ファイルに保存 (= テスト用)。
+
+    time_limit_turns / time_limit_mode: 公式 floor_rule.pdf II.「時間切れに関して」 準拠
+    (= 1対戦30分 推奨 の turn-based proxy)。 default = 40 turn (= 約 20 turn/player、
+    通常 game は自然 に これ未満 で 終わる)。 None で 無制限 (= 旧 挙動)。
+    - "both_lose" (default、 公認大会 原則): turn cap 到達 で 勝敗判定 行わず 両者敗北
+      (= state.winner=None → harness 上 draw 扱い)
+    - "extra_turns" (公式 決勝/トーナメント): 進行中ターンを 0 として 先攻時 +3 / 後攻時 +2
+      の 追加ターン、 それでも 未決 なら ① ライフ枚数多い方 ② デッキ枚数多い方
+      ③ random (= じゃんけん) で 勝敗 判定
     """
+    if time_limit_mode not in ("both_lose", "extra_turns"):
+        raise ValueError(f"time_limit_mode must be 'both_lose' or 'extra_turns', got {time_limit_mode!r}")
 
     if effects_overlay is None:
         effects_overlay = load_effect_overlay(_DEFAULT_OVERLAY_PATH)
@@ -257,6 +302,9 @@ def run_matchup(
             )
 
         actions = 0
+        # 公式 floor_rule II. 時間切れ proxy: time_limit_turns 到達後の effective cap
+        # (= "both_lose" は cap で即 break、 "extra_turns" は cap 後 追加 3/2 ターン まで 継続)。
+        effective_cap: Optional[int] = None
         while not state.game_over and actions < max_actions_per_game:
             me = state.turn_player_idx
             opp = 1 - me
@@ -268,6 +316,26 @@ def run_matchup(
                 state.declare_winner(opp, f"engine error: {e}")
                 break
             actions += 1
+            # 公式 floor_rule II. 時間切れ判定 (= turn-based proxy)。
+            if time_limit_turns is not None and not state.game_over:
+                if effective_cap is None and state.turn_number > time_limit_turns:
+                    # 「時間切れ」 を 検出 した 瞬間 = 直前の turn (= time_limit_turns) が
+                    # 「進行中ターン」 として 完了 した 直後。
+                    if time_limit_mode == "both_lose":
+                        state.declare_winner(
+                            None,
+                            f"公式 floor_rule II. 時間切れ: 両者敗北 (turn={time_limit_turns})",
+                        )
+                        break
+                    else:  # "extra_turns"
+                        # 進行中ターン (= time_limit_turns) が 先攻 (= 奇数) なら +3、 後攻 (= 偶数) なら +2。
+                        interrupted = time_limit_turns
+                        extra = 3 if (interrupted % 2 == 1) else 2
+                        effective_cap = time_limit_turns + extra
+                elif effective_cap is not None and state.turn_number > effective_cap:
+                    # 追加 ターン 終了 → ① life ② deck ③ random で 勝敗判定。
+                    _apply_time_limit_tiebreak(state, rng, effective_cap)
+                    break
 
         # state.winner は state.players のインデックス(0=先攻)
         # それを deck1/deck2 のどちらが勝ったかに変換

@@ -1,0 +1,43 @@
+{
+  "mode": "mirror",
+  "n_games": 4,
+  "results": [
+    {
+      "deck_a": "cardrush_1342",
+      "deck_b": "cardrush_1342",
+      "n_games": 4,
+      "seed": 42,
+      "a_strong": true,
+      "b_strong": false,
+      "a_wins": 3,
+      "b_wins": 1,
+      "draws": 0,
+      "a_winrate": 0.75,
+      "violations": 0,
+      "elapsed_s": 1952.9763858318329
+    },
+    {
+      "deck_a": "cardrush_1385",
+      "deck_b": "cardrush_1385",
+      "n_games": 4,
+      "seed": 42,
+      "a_strong": true,
+      "b_strong": false,
+      "a_wins": 4,
+      "b_wins": 0,
+      "draws": 0,
+      "a_winrate": 1.0,
+      "violations": 0,
+      "elapsed_s": 2746.259237766266
+    },
+    {
+      "deck_a": "cardrush_1392",
+      "deck_b": "cardrush_1392",
+      "partial": true,
+      "g_done": 2,
+      "g_total": 4,
+      "cum_a_wins": 1,
+      "cum_b_wins": 1
+    }
+  ]
+}

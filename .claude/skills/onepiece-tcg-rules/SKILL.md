@@ -285,6 +285,34 @@ sources:
 > 空打ち break、敗北宣言は damage loop の **直前** に life=0 チェックで行うこと。
 > ループ内の毎回 `declare_winner` だと Q36 違反になる (= ライフ 1 + DA で敗北判定してしまう)。
 
+### 時間切れ (大会フロアルール II.)
+
+> ソース: `db/rules/` には scrape されてない (= 総合ルールではなく **floor_rule.pdf** = 公式大会フロアルール)。
+> 一次情報 URL: https://www.onepiece-cardgame.com/pdf/floor_rule.pdf
+
+**制限時間: 1対戦30分推奨** (公認大会)。 時間切れ時の扱いは大会種別で分かれる:
+
+| 大会種別 | 時間切れ時の処理 |
+|---|---|
+| **公認大会 (原則)** | 勝敗判定せず **両者敗北** (= 両プレイヤーがそのゲームに負ける) |
+| **特定イベント** (公式大会決勝ラウンド / トーナメント戦) | 追加ターン + tiebreak (下記) |
+
+**追加ターン (特定イベント)**:
+- 進行中ターンを **0ターン目** として:
+  - **先攻のターン中**に時間切れ → **追加3ターン** (= opp / me / opp)
+  - **後攻のターン中**に時間切れ → **追加2ターン** (= me / opp)
+- 結果として両プレイヤーのターン数が揃う
+
+**追加ターンでも未決着の場合 (tiebreak)**:
+1. **ライフの枚数が多い方が勝利** (同数なら次へ)
+2. **デッキの残り枚数が多い方が勝利** (同数なら次へ)
+3. **じゃんけん1回勝負** で勝った方
+
+> engine 実装: `run_matchup(time_limit_turns=40, time_limit_mode="both_lose"|"extra_turns")`。
+> 壁時計は simulate しないので **turn 上限を 30分 proxy** とする (default 40 turn = 約 20 turn/player)。
+> `both_lose` (default) は `state.winner=None` で draw 扱い、 `extra_turns` は `_apply_time_limit_tiebreak`
+> で ①life ②deck ③random の順に決着。 詳細: `engine/harness.py:run_matchup` + `tests/test_time_limit.py`。
+
 ## 14. デッキ構築 (5-1-2)
 
 - リーダー 1 枚ちょうど

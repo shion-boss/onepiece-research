@@ -119,6 +119,10 @@ onepiece_research/
   - **静的解析**: `decks/<slug>.analysis.json` の `mulligan_keep_card_ids` / `ai_hint_signals` を全 AI で参照
   - **RuleReferee**: AI vs AI 対戦中のルール違反監視。 matchup matrix 計算で違反ゼロ
   - **AI 行動品質評価**: `engine/eval.py` 15 指標 board_eval + `state.action_evals` delta 記録 + `scripts/report_bad_moves.py`
+  - **公式 floor_rule II. 時間切れ準拠** (2026-05-28 追加): `run_matchup(time_limit_turns=40, time_limit_mode="both_lose")` が default。
+    壁時計の 30 分推奨を turn 上限 proxy 化 (= 40 turn ≈ 20 turn/player)、 cap 到達で **両者敗北 (= draw)**。
+    `extra_turns` mode で 公式決勝/トーナメントの 追加3/2ターン + ①life ②deck ③random tiebreak 可能。
+    一次情報: `db/rules/floor_rule_20240913.pdf` + rules skill `13. ルール処理 > 時間切れ`
 - [x] **Phase 4 完了**: メタデッキ DB **16 デッキ** (`decks/cardrush_*.json` 15 件 + テストデッキ 1)。
   cardrush.media の大会上位入賞 (優勝/準優勝) を `scripts/scrape_cardrush_decks.py` で取得 →
   アーキタイプ毎に最新優勝を `select_cardrush_representatives.py` で代表選出 →
