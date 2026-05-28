@@ -392,10 +392,48 @@ def fix_l8_duration(issue: dict, overlay: dict) -> tuple[bool, str]:
     return False, "対応 primitive (power_pump duration=turn) なし"
 
 
-# L8 handler chain: 3 つ の handler を 順次 試行
+def fix_l8_cannot_attack_to_dict(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L8: 既 set_cannot_attack が string spec (= duration=turn 扱い) で、 公式 text が
+    next_opp_turn_end を 要求 する 場合、 dict spec へ 変換 + duration 追加。
+    """
+    cid = issue["card_id"]
+    expected = issue["evidence"].get("expected")
+    if expected != "next_opp_turn_end":
+        return False, "next_opp_turn_end 以外"
+    text = _get_card_text(cid)
+    if "次の相手のターン終了時まで" not in text or "アタックできない" not in text:
+        return False, "attack-disable pattern なし"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list):
+        return False, "entries なし"
+    changed = False
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if not isinstance(prim, dict) or "set_cannot_attack" not in prim:
+                continue
+            v = prim["set_cannot_attack"]
+            if isinstance(v, str):
+                # string → dict 変換
+                prim["set_cannot_attack"] = {
+                    "target": v,
+                    "duration": "next_opp_turn_end",
+                }
+                changed = True
+            elif isinstance(v, dict) and v.get("duration") != "next_opp_turn_end":
+                v["duration"] = "next_opp_turn_end"
+                changed = True
+    if changed:
+        return True, f"{cid} set_cannot_attack → next_opp_turn_end"
+    return False, "変換 対象 なし"
+
+
+# L8 handler chain: 4 つ の handler を 順次 試行
 def fix_l8_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
     for handler, label in [
         (fix_l8_duration, "duration"),
+        (fix_l8_cannot_attack_to_dict, "cannot_attack_to_dict"),
         (fix_l8_missing_primitive, "missing_attack_disable"),
         (fix_l8_missing_power_pump, "missing_power_pump"),
     ]:
@@ -450,11 +488,78 @@ def fix_l4_to_multi(issue: dict, overlay: dict) -> tuple[bool, str]:
     return True, f"{cid}[0]: {pk} → {new_pk} × {count}"
 
 
+def fix_l7_missing_primitive(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L7: text 「コスト N 以下のキャラ … を、 (KO/手札に戻す/デッキ下)」 で 該当 primitive
+    が overlay に 無い → 単一 entry に 追加。
+    """
+    cid = issue["card_id"]
+    n = issue["evidence"].get("n")
+    if not n:
+        return False, "n なし"
+    text = _get_card_text(cid)
+    cost_nums = re.findall(r"コスト\s*(\d+)\s*以下", text)
+    if len(set(cost_nums)) > 1:
+        return False, f"複数 コスト 制限 ({set(cost_nums)}) → skip"
+    # text 内 で 「コスト N 以下のキャラ ... する」 動作 検出
+    actions = [
+        ("、\s*KO", "ko"),
+        ("、\s*持ち主の手札に戻す", "return_to_hand"),
+        ("、\s*持ち主のデッキの下に置く", "return_to_deck_bottom"),
+        ("、\s*レストにする", "rest"),
+    ]
+    detected_action = None
+    for pat, prim_name in actions:
+        if re.search(f"コスト\\s*{n}\\s*以下\\s*のキャラ.*?{pat}", text, flags=re.DOTALL):
+            detected_action = prim_name
+            break
+    if not detected_action:
+        return False, f"対応 action pattern なし (KO/戻す/デッキ下/レスト)"
+    entries = overlay.get(cid)
+    if not isinstance(entries, list) or len(entries) == 0:
+        return False, "entries なし"
+    # 既 該当 primitive あれば skip
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        for prim in e.get("do", []) or []:
+            if isinstance(prim, dict) and detected_action in prim:
+                return False, f"既 {detected_action} あり"
+    # 単一 entry を 主 trigger と 仮定
+    if len(entries) > 2:
+        return False, f"複数 entry ({len(entries)})"
+    main_entry = None
+    for e in entries:
+        if isinstance(e, dict) and e.get("when") in ("on_play", "activate_main", "main", "counter"):
+            main_entry = e
+            break
+    if main_entry is None:
+        main_entry = entries[0]
+    target_spec = f"one_opponent_character_cost_le_{n}"
+    new_prim = {detected_action: target_spec}
+    do_list = main_entry.get("do")
+    if not isinstance(do_list, list):
+        main_entry["do"] = [new_prim]
+    else:
+        do_list.append(new_prim)
+    return True, f"{cid} に {detected_action}({target_spec}) 追加"
+
+
+def fix_l7_combined(issue: dict, overlay: dict) -> tuple[bool, str]:
+    """L7 handler chain: cost_le 追加 / missing primitive 追加 順 で 試行。"""
+    ok, msg = fix_l7_cost_le(issue, overlay)
+    if ok:
+        return ok, msg
+    ok2, msg2 = fix_l7_missing_primitive(issue, overlay)
+    if ok2:
+        return ok2, msg2
+    return False, f"cost_le: {msg}; missing: {msg2}"
+
+
 HANDLERS = {
     "L1": fix_l1_optional,
     "L4": fix_l4_to_multi,
     "L5": fix_l5_leader_feature,
-    "L7": fix_l7_cost_le,
+    "L7": fix_l7_combined,
     "L8": fix_l8_combined,
 }
 

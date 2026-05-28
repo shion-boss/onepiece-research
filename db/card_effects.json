@@ -11929,6 +11929,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_3"
         }
       ]
     }
@@ -14269,6 +14272,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_3"
         }
       ]
     }
@@ -14284,6 +14290,9 @@
       "do": [
         {
           "life_to_hand": 1
+        },
+        {
+          "rest": "one_opponent_character_cost_le_3"
         }
       ]
     }
@@ -50351,6 +50360,9 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_deck_bottom": "one_opponent_character_cost_le_3"
         }
       ],
       "cost": {
@@ -62862,7 +62874,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -62884,7 +62899,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     },
@@ -63652,7 +63670,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_6cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -70963,6 +70984,9 @@
       "do": [
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "return_to_deck_bottom": "one_opponent_character_cost_le_2"
         }
       ],
       "cost": {
@@ -73007,6 +73031,9 @@
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "ko": "one_opponent_character_cost_le_2"
         }
       ]
     },
@@ -74410,6 +74437,9 @@
               }
             ]
           }
+        },
+        {
+          "rest": "one_opponent_character_cost_le_1"
         }
       ],
       "cost": {
@@ -78800,6 +78830,9 @@
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "ko": "one_opponent_character_cost_le_6"
         }
       ]
     },

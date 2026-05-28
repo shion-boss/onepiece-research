@@ -1,23 +1,23 @@
 {
-  "generated_at": "2026-05-28T15:28:55.675021Z",
+  "generated_at": "2026-05-28T15:31:09.575562Z",
   "cards_scanned": 4518,
-  "issues_total": 165,
+  "issues_total": 154,
   "by_rule": {
     "L4": 59,
-    "L7": 34,
     "L3": 48,
-    "L8": 24
+    "L7": 26,
+    "L8": 21
   },
   "by_category": {
     "count_limit_missing": 59,
-    "cost_le_missing": 34,
     "self_opp_reversal_suspect": 48,
-    "duration_next_turn_missing": 24
+    "cost_le_missing": 26,
+    "duration_next_turn_missing": 21
   },
   "by_severity": {
     "3": 59,
-    "4": 58,
-    "2": 48
+    "2": 48,
+    "4": 47
   },
   "issues": [
     {
@@ -33,21 +33,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:EB02-007",
         "patch": "該当 effect に count: 3 (or limit: 3) を 追加"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "EB03-021",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…手札1枚を捨てることができる：相手の元々の、パワー4000以下のキャラ1枚までとコスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:EB03-021",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
       }
     },
     {
@@ -237,21 +222,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP01-115",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】相手のコスト2以下のキャラ1枚までを、KOし、ドン‼デッキからドン‼1枚までをアクティブで追加する。",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP01-115",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
-      }
-    },
-    {
       "rule_id": "L3",
       "card_id": "OP02-013",
       "severity": 2,
@@ -345,21 +315,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP02-013_r1",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP02-064",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 2 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【ドン‼×1】【アタック時】自分の手札1枚を捨てることができる：コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。その後、このバトル終了時、このキャラを持ち…",
-        "n": 2
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP02-064",
-        "patch": "target に target_cost_le: 2 を 追加 (or target_spec 文字列 を cost_le_2 系 へ)"
       }
     },
     {
@@ -775,51 +730,6 @@
       }
     },
     {
-      "rule_id": "L7",
-      "card_id": "OP06-020",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン !!1枚までを、レストにする。その後、自分は、このターン中、自分の効果で…",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-020",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP06-020_p1",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン !!1枚までを、レストにする。その後、自分は、このターン中、自分の効果で…",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-020_p1",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "OP06-020_p2",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 3 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン‼1枚までを、レストにする。その後、自分は、このターン中、自分の効果でライ…",
-        "n": 3
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP06-020_p2",
-        "patch": "target に target_cost_le: 3 を 追加 (or target_spec 文字列 を cost_le_3 系 へ)"
-      }
-    },
-    {
       "rule_id": "L4",
       "card_id": "OP06-035",
       "severity": 3,
@@ -1063,21 +973,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP07-029_r1",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP07-063",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "…ダーが特徴《フォクシー海賊団》を持つ場合、相手のコスト6以下のキャラ1枚までは、次の相手のターン終了時までアタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP07-063",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
       }
     },
     {
@@ -1369,36 +1264,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:OP08-079_p1",
         "patch": "target に target_cost_le: 7 を 追加 (or target_spec 文字列 を cost_le_7 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP08-112",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】「モンキー・D・ルフィ」以外の相手のコスト6以下のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-112",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
-      }
-    },
-    {
-      "rule_id": "L8",
-      "card_id": "OP08-112_p1",
-      "severity": 4,
-      "category": "duration_next_turn_missing",
-      "message": "text に 「次の相手のターン終了時まで」 (= 次ターン 跨ぎ) が 含まれる が overlay に 関連 next-turn duration 宣言 なし",
-      "evidence": {
-        "text_excerpt": "【登場時】「モンキー・D・ルフィ」以外の相手のコスト6以下のキャラ1枚までは、次の相手のターン終了時まで、アタックできない。",
-        "expected": "next_opp_turn_end"
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:OP08-112_p1",
-        "patch": "該当 primitive に duration: 'next_opp_turn_end' を 追加"
       }
     },
     {
@@ -2357,21 +2222,6 @@
     },
     {
       "rule_id": "L7",
-      "card_id": "ST04-015",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 6 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "【メイン】相手のコスト6以下のキャラ1枚までを、KOし、ドン!!デッキからドン!!1枚までをアクティブで追加する。",
-        "n": 6
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST04-015",
-        "patch": "target に target_cost_le: 6 を 追加 (or target_spec 文字列 を cost_le_6 系 へ)"
-      }
-    },
-    {
-      "rule_id": "L7",
       "card_id": "ST09-015",
       "severity": 4,
       "category": "cost_le_missing",
@@ -2534,21 +2384,6 @@
       "suggested_fix": {
         "path": "db/card_effects.json:ST24-004",
         "patch": "該当 target を opp_* spec へ 変更 (要 手動 確認)"
-      }
-    },
-    {
-      "rule_id": "L7",
-      "card_id": "ST26-002",
-      "severity": 4,
-      "category": "cost_le_missing",
-      "message": "text に 「コスト 1 以下」 が 含まれる が overlay に target_cost_le / cost_le_N spec なし",
-      "evidence": {
-        "text_excerpt": "…ドン‼-2(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：相手の、コスト1以下のキャラかドン‼1枚までを、レストにする。",
-        "n": 1
-      },
-      "suggested_fix": {
-        "path": "db/card_effects.json:ST26-002",
-        "patch": "target に target_cost_le: 1 を 追加 (or target_spec 文字列 を cost_le_1 系 へ)"
       }
     }
   ]
