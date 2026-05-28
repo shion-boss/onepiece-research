@@ -190,6 +190,39 @@ def meta_matrix():
 
 
 # --------------------------------------------------------------------------- #
+# 徹底改善 system endpoints (= docs/AUTO_AUDIT_SYSTEM.md、 2026-05-28 追加)
+# --------------------------------------------------------------------------- #
+_AUDIT_COVERAGE_PATH = ROOT / "db" / "audit_coverage.json"
+_STATIC_AUDIT_PATH = ROOT / "db" / "static_audit_report.json"
+_RUNTIME_AUDIT_PATH = ROOT / "db" / "runtime_audit_report.json"
+
+
+@app.get("/api/audit/coverage")
+def audit_coverage():
+    """全 card 健全性 + per-primitive 統計 dashboard data。
+    `scripts/audit_coverage_report.py` で更新。"""
+    if not _AUDIT_COVERAGE_PATH.exists():
+        raise HTTPException(404, "db/audit_coverage.json が無い: scripts/audit_coverage_report.py を実行してください")
+    return json.loads(_AUDIT_COVERAGE_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/api/audit/static")
+def audit_static():
+    """Layer 1 静的 lint report。"""
+    if not _STATIC_AUDIT_PATH.exists():
+        raise HTTPException(404, "static_audit_report.json が無い")
+    return json.loads(_STATIC_AUDIT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/api/audit/runtime")
+def audit_runtime():
+    """Layer 2 runtime invariant report。"""
+    if not _RUNTIME_AUDIT_PATH.exists():
+        raise HTTPException(404, "runtime_audit_report.json が無い")
+    return json.loads(_RUNTIME_AUDIT_PATH.read_text(encoding="utf-8"))
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: matrix 走行中の progress (= UI で polling)
 # --------------------------------------------------------------------------- #
 _MATRIX_LOG_PATH = ROOT / "db" / "matrix_run_log.ndjson"

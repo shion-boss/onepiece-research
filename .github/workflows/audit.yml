@@ -1,0 +1,136 @@
+name: Audit System (Layer 1-4)
+
+# 徹底改善 system の 自動 監査 (= docs/AUTO_AUDIT_SYSTEM.md)
+# - push 毎: Layer 1 静的 lint (= 秒単位)
+# - PR 毎  : Layer 2 軽量 runtime audit (= 数 分)
+# - nightly : Layer 2 大規模 runtime audit (= 数 十 分)
+# - weekly  : Layer 3 cardqa 再 tagging
+# Layer 4 (= auto-fix) は dry-run report のみ (= human review queue 出力)。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'db/cards.json'
+      - 'db/card_effects.json'
+      - 'engine/**'
+      - 'scripts/audit_*.py'
+  pull_request:
+    paths:
+      - 'db/cards.json'
+      - 'db/card_effects.json'
+      - 'engine/**'
+      - 'scripts/audit_*.py'
+  schedule:
+    - cron: '0 18 * * *'  # nightly 03:00 JST
+    - cron: '0 18 * * 0'  # weekly Sun 03:00 JST (= Phase 3)
+  workflow_dispatch: {}
+
+jobs:
+  static-lint:
+    name: Layer 1 静的 lint (= 秒単位)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+      - name: Run static audit
+        run: .venv/bin/python scripts/audit_overlay_static.py
+      - name: Generate issue files
+        run: .venv/bin/python scripts/audit_issue_generator.py --layer 1 --clear
+      - name: Auto-fix L1 / L5 / L7 low-risk (= dry-run on PR、 commit on main push)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          .venv/bin/python scripts/audit_autofix_runner.py --risk low --no-pytest
+          if [ -n "$(git status --porcelain db/card_effects.json)" ]; then
+            git config user.name "audit-bot"
+            git config user.email "audit-bot@noreply"
+            git add db/card_effects.json db/auto_issues/
+            git commit -m "auto: Layer 4 low-risk auto-fix (= audit_autofix_runner.py)"
+            git push
+          fi
+      - name: Auto-fix dry-run (= PR)
+        if: github.event_name == 'pull_request'
+        run: .venv/bin/python scripts/audit_autofix_runner.py --risk low --dry-run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: static-audit-report
+          path: |
+            db/static_audit_report.json
+            db/static_audit_report.md
+            db/auto_issues/
+
+  runtime-audit-light:
+    name: Layer 2 runtime audit (= PR 用 軽量、 数 分)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+      - name: Run runtime audit (10 games)
+        env:
+          ONEPIECE_AUDIT_INVARIANTS: '1'
+        run: .venv/bin/python scripts/audit_runtime_invariants.py --n-games 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-audit-light
+          path: |
+            db/runtime_audit_report.json
+            db/runtime_audit_report.md
+
+  runtime-audit-nightly:
+    name: Layer 2 nightly (= 全 16 deck、 数 十 分)
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 18 * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+      - name: Run runtime audit (100 games, default deck)
+        env:
+          ONEPIECE_AUDIT_INVARIANTS: '1'
+        run: .venv/bin/python scripts/audit_runtime_invariants.py --n-games 100
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-audit-nightly
+          path: |
+            db/runtime_audit_report.json
+            db/runtime_audit_report.md
+
+  cardqa-retag:
+    name: Layer 3 weekly cardqa re-tag
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 18 * * 0' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+      - name: Re-tag cardqa
+        run: .venv/bin/python scripts/audit_cardqa_tag.py
+      - name: Commit if changed
+        run: |
+          if [ -n "$(git status --porcelain db/cardqa_tagged.json)" ]; then
+            git config user.name "audit-bot"
+            git config user.email "audit-bot@noreply"
+            git add db/cardqa_tagged.json
+            git commit -m "auto: Layer 3 weekly cardqa re-tag"
+            git push
+          fi

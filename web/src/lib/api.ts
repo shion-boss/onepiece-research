@@ -946,3 +946,39 @@ export async function unagreeSpectateComment(
   if (!res.ok) throw new Error(`unagreeSpectateComment failed: ${res.status}`);
 }
 
+// === Audit System (= docs/AUTO_AUDIT_SYSTEM.md、 2026-05-28) ===
+
+export interface AuditCardHealth {
+  card_id: string;
+  name: string;
+  category: string;
+  static_issue_count: number;
+  runtime_violation_count: number;
+  cardqa_count: number;
+  has_overlay: boolean;
+  health: "ok" | "info" | "warn" | "error";
+  static_issues: Array<{ rule_id: string; severity: number; category: string }>;
+  runtime_violations: Array<{ rule_id: string; severity: number }>;
+}
+
+export interface AuditCoverage {
+  generated_at: string;
+  summary: {
+    total_cards: number;
+    cards_with_overlay: number;
+    static_issues_total: number;
+    runtime_violations_total: number;
+    runtime_events_total: number;
+    cardqa_total: number;
+    primitive_distinct: number;
+    by_health: Record<string, number>;
+  };
+  cards: AuditCardHealth[];
+  primitives: Array<{ primitive: string; usage_count: number }>;
+}
+
+export async function fetchAuditCoverage(): Promise<AuditCoverage> {
+  const res = await fetch(`${API}/api/audit/coverage`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchAuditCoverage failed: ${res.status}`);
+  return res.json();
+}
