@@ -79,11 +79,18 @@ def _run_one_game(deck_a_slug: str, deck_b_slug: str,
     deck_a = DeckList.from_json(REPO_ROOT / "decks" / f"{deck_a_slug}.json", repo)
     deck_b = DeckList.from_json(REPO_ROOT / "decks" / f"{deck_b_slug}.json", repo)
 
+    # ONEPIECE_PURE_LOOKUP=1 で online + pure lookup 統 合 (= 2026-05-30)
+    import os
+    _pure = os.environ.get("ONEPIECE_PURE_LOOKUP", "0") == "1"
     def factory_a(rng, deck_analysis=None):
+        if _pure:
+            os.environ["ONEPIECE_PURE_LOOKUP"] = "1"
         return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis,
                                beam_width=2, max_depth=4,
                                target_spec=spec_a)
     def factory_b(rng, deck_analysis=None):
+        if _pure:
+            os.environ["ONEPIECE_PURE_LOOKUP"] = "1"
         return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis,
                                beam_width=2, max_depth=4,
                                target_spec=spec_b)
