@@ -455,7 +455,7 @@ def run_matchup(
                     print(f"  [game {g}] error: {e}")
                 state.declare_winner(opp, f"engine error: {e}")
                 break
-            # corpus: 適用 後 に 事前 snap + chosen action を 記録
+            # corpus: 適用 後 に 事前 snap + chosen action を 記録 (= card_id 解決 は mining/learning 側 で 行う)
             if corpus_builder is not None and state_before_snap is not None and chosen_action is not None:
                 try:
                     corpus_builder.record_action_with_snap(

@@ -122,29 +122,85 @@ def snapshot_state(state: Any) -> dict:
 # ===========================================================================
 
 
-def snapshot_action(action: Any) -> dict:
-    """Action の dump。 kind + 主要 field (= card_id / target index)。"""
+def snapshot_action(action: Any, state: Any = None) -> dict:
+    """Action の dump。 kind + dataclass field 全て + (state 渡せば) hand_idx → card_id 解決。
+
+    state を 渡すと PlayCharacter/PlayEvent/PlayStage の hand_idx を card_id に 変換 して
+    "card_id" key で 同 dump (= 学習 時 に PlayCharacter どの card か 区別 可能)。
+
+    AttachDonToCharacter / ActivateMain / Attack* の *_iid も InPlay → card_id 解決。
+    """
     d: dict[str, Any] = {"kind": action.__class__.__name__}
-    # dataclass field を 抜き出し (= AttachDon の amount, AttackLeader の target 等)
+    # 実際 の Action dataclass field を 列挙 (= engine/game.py の class 定義 と 一致)
     for attr in (
-        "card_id",
-        "from_idx",
-        "target_idx",
-        "attacker_idx",
-        "defender_idx",
-        "amount",
-        "char_idx",
-        "stage_idx",
-        "counter_idxs",
-        "blocker_idx",
-        "choice",
+        "hand_idx",
+        "sacrifice_iid",
+        "target_iid",
+        "attacker_iid",
+        "blocker_iid",
+        "counter_card_idxs",
+        "counter_event_idxs",
+        "source_iid",
+        "effect_index",
+        "n",
     ):
         val = getattr(action, attr, None)
         if val is not None and not callable(val):
-            # tuple → list 化 (= JSON 化)
             if isinstance(val, tuple):
                 val = list(val)
             d[attr] = val
+
+    # card_id 解決 (= state 渡された 場合 のみ、 学習 で 「どの card か」 区別 用)
+    if state is not None:
+        try:
+            active_p = state.players[state.turn_player_idx]
+            opp_p = state.players[1 - state.turn_player_idx]
+            # PlayCharacter / PlayEvent / PlayStage: hand_idx → card_id
+            hand_idx = getattr(action, "hand_idx", None)
+            if hand_idx is not None and 0 <= hand_idx < len(active_p.hand):
+                d["card_id"] = active_p.hand[hand_idx].card.card_id
+            # attacker_iid → card_id (= 自陣)
+            attacker_iid = getattr(action, "attacker_iid", None)
+            if attacker_iid is not None:
+                if active_p.leader.instance_id == attacker_iid:
+                    d["attacker_card_id"] = active_p.leader.card.card_id
+                else:
+                    for ip in active_p.characters:
+                        if ip.instance_id == attacker_iid:
+                            d["attacker_card_id"] = ip.card.card_id
+                            break
+            # target_iid / sacrifice_iid → card_id (= 相手 場 or 自陣 場)
+            for iid_attr, label in (("target_iid", "target_card_id"),
+                                     ("sacrifice_iid", "sacrifice_card_id")):
+                iid = getattr(action, iid_attr, None)
+                if iid is None:
+                    continue
+                # 自陣 + 相手 場 両方 search
+                for p in (active_p, opp_p):
+                    if p.leader.instance_id == iid:
+                        d[label] = p.leader.card.card_id
+                        break
+                    found = False
+                    for ip in p.characters:
+                        if ip.instance_id == iid:
+                            d[label] = ip.card.card_id
+                            found = True
+                            break
+                    if found:
+                        break
+            # source_iid (ActivateMain) → card_id
+            source_iid = getattr(action, "source_iid", None)
+            if source_iid is not None:
+                if active_p.leader.instance_id == source_iid:
+                    d["source_card_id"] = active_p.leader.card.card_id
+                else:
+                    for ip in active_p.characters:
+                        if ip.instance_id == source_iid:
+                            d["source_card_id"] = ip.card.card_id
+                            break
+        except Exception:
+            pass  # 解決 失敗 は silent (= corpus 主目的 = 軸 dump、 card_id は + α)
+
     return d
 
 
@@ -180,10 +236,12 @@ class GameCorpusBuilder:
 
     def record_action_with_snap(
         self, state_before_snap: dict, action: Any, ai_class: str,
+        state: Any = None,
     ) -> None:
         """事前 snapshot 済 state + 選択 action を 記録 (= harness 高速 path)。
 
         state_before_snap は snapshot_state(state) を play_one_action 前 に 呼んだ 結果。
+        state を 渡せば action snapshot に hand_idx → card_id 解決 が 入る。
         """
         self.actions.append({
             "turn_number": state_before_snap.get("turn_number", -1),
@@ -191,7 +249,7 @@ class GameCorpusBuilder:
             "phase": state_before_snap.get("phase", ""),
             "ai_class": ai_class,
             "state_before": state_before_snap,
-            "action": snapshot_action(action),
+            "action": snapshot_action(action, state=state),
         })
 
     def record_action(self, state: Any, action: Any, ai_class: str) -> None:

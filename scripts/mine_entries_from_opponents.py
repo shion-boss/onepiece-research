@@ -106,12 +106,28 @@ def axes_to_dict(axes_tuple: tuple) -> dict:
     }
 
 
-def action_to_key(action_dict: dict) -> tuple:
-    """action JSON → hashable key (= 集計 用)。"""
+def resolve_card_id(action_dict: dict, actor_p: dict) -> str | None:
+    """hand_idx → card_id 解決 (= 新 corpus は dump 済、 旧 round_1_quick 互換 fallback)。"""
+    if action_dict.get("card_id"):
+        return action_dict["card_id"]
+    hand_idx = action_dict.get("hand_idx")
+    if hand_idx is None:
+        return None
+    hand = actor_p.get("hand_card_ids", [])
+    if 0 <= hand_idx < len(hand):
+        return hand[hand_idx]
+    return None
+
+
+def action_to_key(action_dict: dict, actor_p: dict | None = None) -> tuple:
+    """action JSON → hashable key (= 集計 用、 card_id 解決 込み)。"""
+    card_id = action_dict.get("card_id")
+    if not card_id and actor_p is not None:
+        card_id = resolve_card_id(action_dict, actor_p)
     return (
         action_dict.get("kind", "?"),
-        action_dict.get("card_id"),
-        action_dict.get("from_idx"),
+        card_id,
+        action_dict.get("hand_idx"),  # = 旧 from_idx よりも 一般 的、 PlayCharacter/Event/Stage 共通
     )
 
 
@@ -161,7 +177,9 @@ def mine_corpus(corpus_dir: Path, min_count: int = 5) -> list[dict]:
                 axes = extract_axes(sb, side_b_idx, side_a_idx)
             except Exception:
                 continue
-            action_key = action_to_key(action.get("action", {}))
+            # actor (= side B) の 視点 で card_id 解決
+            actor_p = (sb.get("players") or [{}, {}])[side_b_idx]
+            action_key = action_to_key(action.get("action", {}), actor_p)
             clusters[axes].append((action_key, weight, opp_ai_class))
             n_opp_actions += 1
 

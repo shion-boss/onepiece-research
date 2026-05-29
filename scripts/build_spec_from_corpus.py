@@ -45,7 +45,11 @@ sys.path.insert(0, str(REPO_ROOT))
 
 
 def build_leader_maps() -> tuple[dict, dict, dict]:
-    """戻り値: (leader_id → deck_slug, deck_slug → archetype, deck_slug → leader_id)。"""
+    """戻り値: (leader_id → deck_slug, deck_slug → archetype_EN, deck_slug → leader_id)。
+
+    archetype は analysis.json の JP を EN 正規 化 (= 'コントロール' → 'control' 等)、
+    既存 target_v1 spec の EN 表記 と 整合 を 取る。
+    """
     leader_to_deck = {}
     deck_to_leader = {}
     deck_to_archetype = {}
@@ -67,14 +71,16 @@ def build_leader_maps() -> tuple[dict, dict, dict]:
         if leader:
             leader_to_deck[leader] = slug
             deck_to_leader[slug] = leader
-        # archetype from .analysis.json
+        # archetype from .analysis.json (= JP) → EN 正規 化
         ana_path = decks_dir / f"{slug}.analysis.json"
+        raw_arch = "midrange"
         if ana_path.exists():
             try:
                 ana = json.loads(ana_path.read_text(encoding="utf-8"))
-                deck_to_archetype[slug] = ana.get("archetype", "midrange")
+                raw_arch = ana.get("archetype", "midrange")
             except Exception:
-                deck_to_archetype[slug] = "midrange"
+                pass
+        deck_to_archetype[slug] = _normalize_archetype(raw_arch)
     return leader_to_deck, deck_to_archetype, deck_to_leader
 
 
@@ -103,26 +109,76 @@ def _field_bucket(n: int) -> str:
     return "full"
 
 
-def _self_condition(actor_life_bucket: str, target_life_bucket: str,
-                    actor_field_bucket: str, target_field_bucket: str) -> str:
-    """corpus 軸 → v1 schema の self_condition (= advantage/even/behind) に 写像。"""
-    life_order = {"dead": 0, "lethal": 1, "low": 2, "mid": 3, "full": 4}
-    al = life_order.get(actor_life_bucket, 3)
-    tl = life_order.get(target_life_bucket, 3)
-    field_order = {"empty": 0, "mid": 1, "full": 2}
-    af = field_order.get(actor_field_bucket, 1)
-    tf = field_order.get(target_field_bucket, 1)
-    score = (al - tl) + (af - tf)
-    if score >= 2:
+def _self_condition_from_snapshot(actor: dict, target: dict) -> str:
+    """engine/target_dsl.py:compute_self_condition と **完全 同 logic** で 計算。
+
+    score = (me_life - opp_life) * 2 + (me_field - opp_field) + hand_diff_sign
+    threshold: ±3 (= 公式 engine 仕様)
+
+    snapshot 値 を 使う が、 出力 は engine と 同じ {"advantage","even","behind"}。
+    """
+    me_life = actor.get("life_count", 0)
+    opp_life = target.get("life_count", 0)
+    me_field = actor.get("field_count", 0)
+    opp_field = target.get("field_count", 0)
+    me_hand = actor.get("hand_count", 0)
+    opp_hand = target.get("hand_count", 0)
+
+    score = (me_life - opp_life) * 2 + (me_field - opp_field)
+    hand_diff = me_hand - opp_hand
+    if hand_diff >= 3:
+        score += 1
+    elif hand_diff <= -3:
+        score -= 1
+
+    if score >= 3:
         return "advantage"
-    if score <= -2:
+    if score <= -3:
         return "behind"
     return "even"
+
+
+# archetype: JP → EN mapping (= 既存 spec が 'midrange'/'control'/'aggro' を 使う ので 整合)
+_ARCHETYPE_JP_TO_EN = {
+    "コントロール": "control",
+    "アグロ": "aggro",
+    "ミッドレンジ": "midrange",
+    "ランプ": "ramp",
+    "control": "control",
+    "aggro": "aggro",
+    "midrange": "midrange",
+    "ramp": "ramp",
+}
+
+
+def _normalize_archetype(arch: str | None) -> str:
+    """analysis.json の JP → EN 正規 化。 未知 値 は 'midrange' fallback。"""
+    if not arch:
+        return "midrange"
+    return _ARCHETYPE_JP_TO_EN.get(arch, "midrange")
 
 
 # ===========================================================================
 # action → if 条件 (= 雑 だが 「最低 限 実行 可能」 を 保証)
 # ===========================================================================
+
+
+def resolve_card_id(action_dict: dict, actor_p: dict) -> str | None:
+    """action.hand_idx + actor.hand_card_ids → card_id 解決。
+
+    PlayCharacter / PlayEvent / PlayStage が hand_idx を 持つ。 corpus dump で
+    hand_idx は ある が card_id は ない 場合 (= 旧 round_1_quick) は ここで 解決。
+    新 round_2_full は snapshot_action 側 で 既に card_id が 入って る ので fallback として 動く。
+    """
+    if action_dict.get("card_id"):
+        return action_dict["card_id"]
+    hand_idx = action_dict.get("hand_idx")
+    if hand_idx is None:
+        return None
+    hand = actor_p.get("hand_card_ids", [])
+    if 0 <= hand_idx < len(hand):
+        return hand[hand_idx]
+    return None
 
 
 def derive_if_condition(action_kind: str, card_id: str | None) -> dict:
@@ -204,23 +260,21 @@ def scan_corpus(corpus_dir: Path) -> dict:
             if not actor_deck:
                 continue  # 我々 が 管理 しない deck
 
-            # v1 axes (= side actor 視点)
+            # v1 axes (= side actor 視点、 engine と 完全 同 logic で 計算)
             turn = sb.get("turn_number", 0)
-            actor_life_b = _life_bucket(actor_p.get("life_count", 0))
-            target_life_b = _life_bucket(opp_p.get("life_count", 0))
-            actor_field_b = _field_bucket(actor_p.get("field_count", 0))
-            target_field_b = _field_bucket(opp_p.get("field_count", 0))
-            self_cond = _self_condition(actor_life_b, target_life_b,
-                                         actor_field_b, target_field_b)
-            opp_archetype = "midrange"
+            self_cond = _self_condition_from_snapshot(actor_p, opp_p)
             opp_deck = leader_to_deck.get(opp_leader)
-            if opp_deck:
-                opp_archetype = deck_to_archetype.get(opp_deck, "midrange")
+            opp_archetype = _normalize_archetype(
+                deck_to_archetype.get(opp_deck) if opp_deck else None
+            )
 
             v1_key = (turn, opp_leader, opp_archetype, self_cond)
             action_dict = action.get("action", {})
-            action_key = (action_dict.get("kind", "?"), action_dict.get("card_id"))
-            if action_key[0] == "EndPhase":
+            action_kind = action_dict.get("kind", "?")
+            # card_id 解決 (= hand_idx → actor の hand_card_ids、 旧 corpus 互換)
+            card_id = resolve_card_id(action_dict, actor_p)
+            action_key = (action_kind, card_id)
+            if action_kind == "EndPhase":
                 continue  # 「何 も しない」 は target に しない
 
             full_key = (actor_deck, v1_key, action_key)
@@ -320,6 +374,7 @@ def write_specs(deck_to_entries: dict[str, list[dict]], output_dir: Path,
     # deck_to_leader 逆引き
     deck_to_leader = {v: k for k, v in leader_to_deck.items()}
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     n_written = 0
     for slug, entries in deck_to_entries.items():
         if not entries:
