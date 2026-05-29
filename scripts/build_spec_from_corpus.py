@@ -182,23 +182,30 @@ def resolve_card_id(action_dict: dict, actor_p: dict) -> str | None:
 
 
 def derive_if_condition(action_kind: str, card_id: str | None) -> dict:
-    """action 種別 から 雑 if 条件 を 生成。 V1 は シンプル。"""
+    """action-specific if 条件 を 生成 (= 2026-05-29 修正、 plan history を 見る)。
+
+    plan 内 で **その action を 取った 後** だけ 真 に なる 条件 → bonus が 特定 action
+    の leaf でしか 加算 されない → AI 行動 差別 化 が 機能 する。
+
+    旧 雑 if (= self_hand_ge:1 等) は ほぼ 常 真 で 全 action leaf に bonus 加算 →
+    定数 化 → bonus 効果 ゼロ という bug を 修正。
+    """
     if action_kind == "PlayCharacter":
-        return {"self_hand_ge": 1}
+        return {"min_play_chara_this_turn_ge": 1}
     if action_kind == "PlayEvent":
-        return {"self_hand_ge": 1}
+        return {"min_play_event_this_turn_ge": 1}
     if action_kind == "PlayStage":
-        return {"self_hand_ge": 1}
+        return {"min_play_stage_this_turn_ge": 1}
     if action_kind == "AttachDonToLeader":
-        return {}  # always feasible if don active >= 1 (= 自動 filter)
+        return {"min_attach_don_leader_this_turn_ge": 1}
     if action_kind == "AttachDonToCharacter":
-        return {"self_chara_count_ge": 1}
+        return {"min_attach_don_chara_this_turn_ge": 1}
     if action_kind == "ActivateMain":
-        return {"self_chara_count_ge": 1}
+        return {"min_activate_main_this_turn_ge": 1}
     if action_kind == "AttackLeader":
-        return {}  # leader attack も 可
+        return {"min_leader_attacks_this_turn_ge": 1}
     if action_kind == "AttackCharacter":
-        return {}
+        return {"min_attack_chara_this_turn_ge": 1}
     return {}
 
 

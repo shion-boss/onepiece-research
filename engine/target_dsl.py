@@ -70,6 +70,14 @@ _EXTENDED_KEYS = {
     "self_finisher_on_field_ge",
     "min_attacks_this_turn_ge",
     "min_leader_attacks_this_turn_ge",
+    # action-specific (= 2026-05-29, action 差別 化 用)
+    "min_play_chara_this_turn_ge",
+    "min_play_event_this_turn_ge",
+    "min_play_stage_this_turn_ge",
+    "min_activate_main_this_turn_ge",
+    "min_attach_don_leader_this_turn_ge",
+    "min_attach_don_chara_this_turn_ge",
+    "min_attack_chara_this_turn_ge",
     "opp_field_total_power_le",
     "opp_active_chara_count_le",
     "opp_chara_count_le",
@@ -107,6 +115,13 @@ def _count_attacks_in_plan(plan, leader_only: bool = False) -> int:
     if leader_only:
         return sum(1 for a in plan if isinstance(a, AttackLeader))
     return sum(1 for a in plan if isinstance(a, (AttackLeader, AttackCharacter)))
+
+
+def _count_action_type_in_plan(plan, action_class_name: str) -> int:
+    """plan 内 で 特定 action class が 何 回 取られた か (= 2026-05-29、 action-specific if 条件 用)。"""
+    if not plan:
+        return 0
+    return sum(1 for a in plan if a.__class__.__name__ == action_class_name)
 
 
 def _extended_eval(cond: dict[str, Any], state: GameState, me, plan=None) -> bool:
@@ -169,6 +184,28 @@ def _extended_eval(cond: dict[str, Any], state: GameState, me, plan=None) -> boo
                 return False
         elif k == "min_leader_attacks_this_turn_ge":
             if _count_attacks_in_plan(plan, leader_only=True) < int(v):
+                return False
+        # === action-specific if 条件 (= 2026-05-29、 bonus が action 差別 化 を 担う ため) ===
+        elif k == "min_play_chara_this_turn_ge":
+            if _count_action_type_in_plan(plan, "PlayCharacter") < int(v):
+                return False
+        elif k == "min_play_event_this_turn_ge":
+            if _count_action_type_in_plan(plan, "PlayEvent") < int(v):
+                return False
+        elif k == "min_play_stage_this_turn_ge":
+            if _count_action_type_in_plan(plan, "PlayStage") < int(v):
+                return False
+        elif k == "min_activate_main_this_turn_ge":
+            if _count_action_type_in_plan(plan, "ActivateMain") < int(v):
+                return False
+        elif k == "min_attach_don_leader_this_turn_ge":
+            if _count_action_type_in_plan(plan, "AttachDonToLeader") < int(v):
+                return False
+        elif k == "min_attach_don_chara_this_turn_ge":
+            if _count_action_type_in_plan(plan, "AttachDonToCharacter") < int(v):
+                return False
+        elif k == "min_attack_chara_this_turn_ge":
+            if _count_action_type_in_plan(plan, "AttackCharacter") < int(v):
                 return False
         elif k == "opp_field_total_power_le":
             if opp is None:
