@@ -65,6 +65,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         spec_version: str = "v1",
         recursion_depth: int = 0,
         strong: bool = False,
+        exploration_eps: float = 0.0,
         **kwargs,
     ):
         """
@@ -97,6 +98,11 @@ class GoalDirectedAI(_NoNNPlanningBase):
         self._deck_slug = deck_slug
         self._spec_version = spec_version
         self.recursion_depth = recursion_depth
+        # ε-greedy exploration (= 2026-05-29、 [[project_corpus_methodology_dead_end]])
+        # 0.0 = 通常 (= argmax)、 0.05-0.10 = corpus 収集 中 の 探索 用。
+        # base_eval が 推さない 行動 を ε で 試行 → corpus に 多様 性 注入 →
+        # build_spec が 「base_eval-conflicting winning action」 を 学習 可能 に なる。
+        self._exploration_eps = float(exploration_eps)
 
     # _compute_adaptive_params override は 削除 (= 2026-05-28)。
     # strong mode で beam+1 すると mid/late 計算量 倍以上 で 実用 不能。
@@ -164,7 +170,19 @@ class GoalDirectedAI(_NoNNPlanningBase):
             state._goal_target_spec = target_spec  # type: ignore[attr-defined]
             attached = True
         try:
-            return super().choose_action(state)
+            action = super().choose_action(state)
+            # === ε-greedy exploration (= corpus 多様 化 用、 推論 時 は eps=0) ===
+            if (self._exploration_eps > 0 and self.recursion_depth == 0
+                    and self.rng.random() < self._exploration_eps):
+                from .game import legal_actions
+                try:
+                    legal = legal_actions(state)
+                    alts = [a for a in legal if a != action]
+                    if alts:
+                        action = self.rng.choice(alts)
+                except Exception:
+                    pass  # 探索 失敗 = 元 action を 使う
+            return action
         finally:
             if saved is None:
                 os.environ.pop("ONEPIECE_GOAL_TARGET_W", None)

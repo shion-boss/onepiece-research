@@ -91,9 +91,11 @@ def _make_ai_factory(kind: str):
         return factory
     if kind == "mirror":
         from engine.goal_directed_ai import GoalDirectedAI
+        _eps = float(os.environ.get("ONEPIECE_EXPLORATION_EPS", "0"))
         def factory(rng, deck_analysis=None):
             return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis,
-                                   beam_width=2, max_depth=4)
+                                   beam_width=2, max_depth=4,
+                                   exploration_eps=_eps)
         factory.__name__ = "GoalDirectedAI_factory_mirror"
         factory._corpus_ai_class = "GoalDirectedAI"
         return factory
@@ -101,11 +103,16 @@ def _make_ai_factory(kind: str):
 
 
 def _make_goal_factory():
-    """side A 固定 = GoalDirectedAI (= 現 spec follow)。"""
+    """side A 固定 = GoalDirectedAI (= 現 spec follow + 任意 ε-greedy)。
+
+    ONEPIECE_EXPLORATION_EPS 環境変数 で 探索 率 を 制御。 default 0 = 通常 argmax。
+    """
     from engine.goal_directed_ai import GoalDirectedAI
+    _eps = float(os.environ.get("ONEPIECE_EXPLORATION_EPS", "0"))
     def factory(rng, deck_analysis=None):
         return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis,
-                               beam_width=2, max_depth=4)
+                               beam_width=2, max_depth=4,
+                               exploration_eps=_eps)
     factory.__name__ = "GoalDirectedAI_factory_main"
     factory._corpus_ai_class = "GoalDirectedAI"
     return factory
