@@ -193,7 +193,6 @@ class GoalDirectedAI(_NoNNPlanningBase):
                 for tgt in entry.get("targets", []):
                     if tgt.get("action_kind") != action_kind:
                         continue
-                    # action_card_id 一 致 を 優 先 (= 細 粒 度 一 致 で bonus 高)
                     tgt_cid = tgt.get("action_card_id")
                     act_cid = getattr(action, "card_id", None) or self._resolve_action_card_id(action, state, me_idx)
                     if tgt_cid and act_cid and tgt_cid != act_cid:
@@ -203,9 +202,16 @@ class GoalDirectedAI(_NoNNPlanningBase):
                         best = contribution
             return best
 
-        # argmax(bonus)、 同 値 なら rng 選 択
         action_scores = [(a, _action_bonus(a)) for a in legal]
         max_score = max(s for _, s in action_scores)
+
+        # === fallback: spec 不 足 で 全 bonus=0 なら GreedyAI に 委 譲 (= 2026-05-30) ===
+        # pure_lookup mode で 「spec coverage 不 足」 = 全 entry mismatch or 全 bonus 0
+        # → 完 全 ランダム play で 大 敗、 GreedyAI heuristic に fallback で 妥 当 化。
+        if max_score == 0:
+            from .ai import GreedyAI
+            return GreedyAI.choose_action(self, state)
+
         best_actions = [a for a, s in action_scores if s == max_score]
         if len(best_actions) == 1:
             return best_actions[0]

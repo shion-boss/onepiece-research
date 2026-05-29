@@ -162,10 +162,18 @@ def compute_axes_from_state(state: Any, me_idx: int,
         c.power for c in opp.characters if not c.rested
     )
 
+    # 旧 self_condition も 計 算 (= v1 entries との backward compat 用)
+    try:
+        from .target_dsl import compute_self_condition
+        self_cond = compute_self_condition(state, me_idx)
+    except Exception:
+        self_cond = "even"
+
     return {
         "turn": state.turn_number,
         "opp_leader_id": opp.leader.card.card_id,
         "opp_archetype": opp_archetype,
+        "self_condition": self_cond,  # = v1 軸 backward compat
         "opp_life_bucket": life_bucket(len(opp.life)),
         "opp_hand_bucket": hand_bucket(len(opp.hand)),
         "opp_field_bucket": field_bucket(len(opp.characters)),
@@ -226,11 +234,10 @@ def axes_match(entry_axes: dict, state_axes: dict,
             continue
         e_val = entry_axes.get(key)
         if e_val is None:
-            continue  # wildcard
+            continue  # entry 側 wildcard
         s_val = state_axes.get(key)
         if s_val is None:
-            # state 側 で 計 算 されて ない 軸 = match 失 敗 扱い (= 安 全 側)
-            return False, 0.0
+            continue  # state 側 で 計 算 漏れ も wildcard 扱い (= 寛容、 backward compat)
         if e_val != s_val:
             return False, 0.0
 
