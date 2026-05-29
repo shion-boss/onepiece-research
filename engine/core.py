@@ -545,6 +545,9 @@ class Player:
     cards_played_count: int = 0     # PlayCharacter / PlayEvent / PlayStage 各分岐で +1
     dons_used_count: int = 0        # AttachDon 分岐で attach 数分加算 = 累積 DON 使用
     dons_unused_at_end_count: int = 0  # EndPhase 分岐で don_active 残数加算 = 累積機会損失
+    # マリガン 履歴 (= 2026-05-29、 corpus 軸 用)。 setup_game で True / False が set される。
+    # AI belief 推定 で 「opp が マリガン した = 初手 5 が 悪かった = 現 手札 は 二択 後」 軸 用。
+    did_mulligan: bool = False
 
     MAX_CHARACTERS = 5
     MAX_STAGES = 1     # 公式 3-8-5

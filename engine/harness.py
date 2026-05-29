@@ -240,6 +240,29 @@ def _construct_ai(factory, rng, deck_analysis):
         return factory(rng)
 
 
+def _classify_ai(factory) -> str:
+    """AI factory → 代表 class name 文字列 (= corpus meta data 用、 2026-05-29)。
+
+    factory は 通常 lambda or function (= 内部 で AI class を 構築)。
+    factory.__qualname__ や factory(dummy_rng) の class を 試す。 失敗 時 は "Unknown"。
+    """
+    # まず 属性 で 試す
+    name = getattr(factory, "_corpus_ai_class", None)
+    if name:
+        return str(name)
+    name = getattr(factory, "__name__", "")
+    # 典型 default factory 名 (= "_default_ai_factory") は GoalDirectedAI 扱い
+    if "default" in name.lower():
+        return "GoalDirectedAI"
+    # dummy 呼び出し で class 取得
+    try:
+        import random as _r
+        instance = factory(_r.Random(0))
+        return instance.__class__.__name__
+    except Exception:
+        return name or "Unknown"
+
+
 def _apply_time_limit_tiebreak(state, rng: random.Random, effective_cap: int) -> None:
     """公式 floor_rule II. の 追加ターン後 勝敗判定: ① life 多い方 ② deck 多い方 ③ random。
 
@@ -294,6 +317,8 @@ def run_matchup(
     enable_fire_logging: bool = False,
     time_limit_turns: Optional[int] = 40,
     time_limit_mode: str = "both_lose",
+    corpus_dump_dir: Optional[Path] = None,
+    corpus_behavior_policy: str = "default",
 ) -> MatchupReport:
     """deck1 vs deck2 を n_games 回対戦させる。先攻後攻は均等。
 
@@ -400,16 +425,45 @@ def run_matchup(
         # 公式 floor_rule II. 時間切れ proxy: time_limit_turns 到達後の effective cap
         # (= "both_lose" は cap で即 break、 "extra_turns" は cap 後 追加 3/2 ターン まで 継続)。
         effective_cap: Optional[int] = None
+        # corpus dump builder (= 2026-05-29、 [[feedback_corpus_methodology]])
+        corpus_builder = None
+        if corpus_dump_dir is not None:
+            from .game_corpus import GameCorpusBuilder, snapshot_state, snapshot_action
+            # deck slug: DeckList.slug があれば 使う、 なければ name
+            deck_a_slug = getattr(deck1, "slug", None) or deck1.name
+            deck_b_slug = getattr(deck2, "slug", None) or deck2.name
+            corpus_builder = GameCorpusBuilder(
+                deck_a_slug=deck_a_slug,
+                deck_b_slug=deck_b_slug,
+                seed=seed * 10000 + g,  # = run seed + game index で 一意
+                first_player=first_player,
+                ai_a_class=_classify_ai(ai_factory_1),
+                ai_b_class=_classify_ai(ai_factory_2),
+                behavior_policy=corpus_behavior_policy,
+            )
         while not state.game_over and actions < max_actions_per_game:
             me = state.turn_player_idx
             opp = 1 - me
+            # corpus: action 適用 前 の state を snapshot (= [[feedback_corpus_methodology]])
+            state_before_snap = None
+            if corpus_builder is not None:
+                state_before_snap = snapshot_state(state)
             try:
-                play_one_action(state, ais[me], ais[opp], referee=referee)
+                chosen_action = play_one_action(state, ais[me], ais[opp], referee=referee)
             except Exception as e:
                 if verbose:
                     print(f"  [game {g}] error: {e}")
                 state.declare_winner(opp, f"engine error: {e}")
                 break
+            # corpus: 適用 後 に 事前 snap + chosen action を 記録
+            if corpus_builder is not None and state_before_snap is not None and chosen_action is not None:
+                try:
+                    corpus_builder.record_action_with_snap(
+                        state_before_snap, chosen_action, ais[me].__class__.__name__,
+                    )
+                except Exception as _e:
+                    if verbose:
+                        print(f"  [game {g}] corpus record failed: {_e}")
             actions += 1
             # 公式 floor_rule II. 時間切れ判定 (= turn-based proxy)。
             if time_limit_turns is not None and not state.game_over:
@@ -480,6 +534,26 @@ def run_matchup(
             effect_events=list(getattr(state, "_effect_events", []) or []),
         )
         report.games.append(result)
+
+        # corpus dump (= 2026-05-29、 [[feedback_corpus_methodology]]): finalize + write JSON
+        if corpus_builder is not None:
+            try:
+                reason = ""
+                if state.winner is None:
+                    reason = "draw_or_timeout"
+                else:
+                    reason = "life_zero"  # default、 詳細 reason は declare_winner の msg 由来 (= log 末尾)
+                    if state.log:
+                        for entry in reversed(state.log[-5:]):
+                            if "勝利" in entry or "winner" in entry.lower():
+                                reason = entry[:120]
+                                break
+                corpus_builder.finalize(winner_for_deck, state.turn_number, reason)
+                out_path = Path(corpus_dump_dir) / f"game_{corpus_builder.seed}.json"
+                corpus_builder.write(out_path)
+            except Exception as _e:
+                if verbose:
+                    print(f"  [game {g}] corpus write failed: {_e}")
 
         # 2026-05-29: runtime violation を db/auto_issues/ に 自動 file 化 (= 学習 ついで に 検出 → 修正待ち queue へ)。
         # ONEPIECE_AUDIT_AUTO_ISSUE=0 で 無効化 可。 default ON (= AUDIT_INVARIANTS ON の 時)。

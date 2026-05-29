@@ -172,3 +172,12 @@ db/mcts_rollout_by_deck.tar.gz
 
 # Human Play 対戦 log (= Vercel Blob から sync した personal data、 commit しない)
 db/human_play_log/
+
+# =========================================================================
+# Runtime data (= 2026-05-29、 [[feedback_corpus_methodology]])
+# =========================================================================
+# corpus は raw、 derived/ は 派生物。 large + 再生成 可能 なので git 除外。
+db/game_corpus/
+db/derived/
+# runtime violation queue (= rotation するので 古い ものは _archive へ、 commit しない)
+db/auto_issues/

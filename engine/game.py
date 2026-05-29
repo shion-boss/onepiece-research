@@ -168,8 +168,10 @@ def setup_game(
                 p.hand = []
                 p.shuffle_deck(rng)
                 p.draw(5)
+                p.did_mulligan = True  # corpus 軸 用 (= 2026-05-29)
                 state.push_log(f"  マリガン: {p.name} (AI) 手札 引き直し")
             else:
+                p.did_mulligan = False
                 state.push_log(f"  マリガン: {p.name} (AI) 引き直さない (keep)")
     else:
         # マリガン skip path: state を 「pre-mulligan」 で 返す。
@@ -259,8 +261,10 @@ def finalize_setup_after_mulligan(
             p.hand = []
             p.shuffle_deck(rng)
             p.draw(5)
+            p.did_mulligan = True  # corpus 軸 用 (= 2026-05-29)
             state.push_log(f"  マリガン: {p.name} ({actor}) 手札 引き直し")
         else:
+            p.did_mulligan = False
             state.push_log(f"  マリガン: {p.name} ({actor}) 引き直さない (keep)")
     p0, p1 = state.players[0], state.players[1]
     state.push_log(
