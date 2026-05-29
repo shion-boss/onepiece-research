@@ -23,6 +23,98 @@ from .game import GameState, setup_game, play_until_main, Phase
 from .ai import GreedyAI, PlanningAI, RandomAI, play_one_action
 
 
+def _dump_runtime_violations_as_issues(
+    result: "GameResult",
+    deck_a_slug: str,
+    deck_b_slug: str,
+    game_idx: int,
+) -> None:
+    """audit_violations + rule_violations を db/auto_issues/runtime_*.json に file 化。
+
+    Layer 4 auto-fix runner が consume できる format に 合わせる。 dedup は file_name で 保証
+    (= 同 rule + cid + msg なら 同 file、 上書き ok)。
+    """
+    import json as _json
+    import re as _re
+    from datetime import datetime, timezone
+    from pathlib import Path as _Path
+
+    repo_root = _Path(__file__).resolve().parent.parent
+    issues_dir = repo_root / "db" / "auto_issues"
+    issues_dir.mkdir(parents=True, exist_ok=True)
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+    def _safe(s: str) -> str:
+        return _re.sub(r"[^a-zA-Z0-9_\-]", "_", str(s))[:60]
+
+    # audit_violations (= state-level INV-* + chara-level INV-*)
+    seen_keys: set[str] = set()
+    for v in result.audit_violations:
+        rule_id = v.get("rule_id", "INV-unknown")
+        evidence = v.get("evidence", {}) or {}
+        cid = evidence.get("card_id", "_state_level")
+        msg = v.get("message", "")
+        key = f"{rule_id}::{cid}::{msg[:80]}"
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        fname = f"runtime_{ts}_{_safe(rule_id)}_{_safe(cid)}.json"
+        out = {
+            "layer": "runtime_invariant",
+            "rule_id": rule_id,
+            "card_id": cid,
+            "severity": v.get("severity", 4),
+            "risk_tier": "high",  # runtime 違反 は 通常 engine fix 必要
+            "message": msg,
+            "evidence": evidence,
+            "suggested_fix": {"patch": "engine 修正 が 必要 (= 観測 違反、 invariant 由来)"},
+            "source": "engine/audit_invariants.py",
+            "turn": v.get("turn"),
+            "phase": v.get("phase"),
+            "game_context": {
+                "deck_a": deck_a_slug,
+                "deck_b": deck_b_slug,
+                "game_idx": game_idx,
+            },
+            "created_at": ts,
+        }
+        (issues_dir / fname).write_text(
+            _json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    # RuleReferee violations (= 公式 ルール 違反、 string)
+    for i, rv in enumerate(result.rule_violations):
+        # rule_violations は 文字列 が多い (= referee log)。 「card_id」 を 抽出 する 試み
+        cid_match = _re.search(r"([A-Z]+\d+-\d+(?:_[pr]\d+)?)", rv)
+        cid = cid_match.group(1) if cid_match else "_referee"
+        key = f"REFEREE::{cid}::{rv[:80]}"
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        fname = f"runtime_{ts}_REFEREE_{_safe(cid)}_{i:02d}.json"
+        out = {
+            "layer": "runtime_referee",
+            "rule_id": "REFEREE-rule-violation",
+            "card_id": cid,
+            "severity": 5,
+            "risk_tier": "high",
+            "message": rv,
+            "evidence": {"raw": rv},
+            "suggested_fix": {"patch": "公式 ルール 違反、 engine 修正 必須"},
+            "source": "engine/referee.py",
+            "game_context": {
+                "deck_a": deck_a_slug,
+                "deck_b": deck_b_slug,
+                "game_idx": game_idx,
+            },
+            "created_at": ts,
+        }
+        (issues_dir / fname).write_text(
+            _json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+
 def _default_ai_factory(rng, deck_analysis=None):
     """harness の new default AI (= 2026-05-28 v2): GoalDirectedAI(strong=True、 v1 spec、 adaptive=True)。
 
@@ -388,6 +480,22 @@ def run_matchup(
             effect_events=list(getattr(state, "_effect_events", []) or []),
         )
         report.games.append(result)
+
+        # 2026-05-29: runtime violation を db/auto_issues/ に 自動 file 化 (= 学習 ついで に 検出 → 修正待ち queue へ)。
+        # ONEPIECE_AUDIT_AUTO_ISSUE=0 で 無効化 可。 default ON (= AUDIT_INVARIANTS ON の 時)。
+        import os as _os
+        if (_os.environ.get("ONEPIECE_AUDIT_AUTO_ISSUE", "1") in ("1", "true", "True")
+                and (result.audit_violations or result.rule_violations)):
+            try:
+                _dump_runtime_violations_as_issues(
+                    result,
+                    deck_a_slug=getattr(deck1, "slug", None) or deck1.name,
+                    deck_b_slug=getattr(deck2, "slug", None) or deck2.name,
+                    game_idx=g,
+                )
+            except Exception as _e:
+                # auto-issue dump で 学習 失敗 させない (= log のみ)
+                print(f"[harness] auto-issue dump failed: {_e}", file=__import__("sys").stderr)
 
         if record_replays:
             from .replay_recorder import save_replay

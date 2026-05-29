@@ -36,6 +36,10 @@ from __future__ import annotations
 # child subprocess (= scripts/eval_with_entry_firings.py 等) は env を inherit する。
 import os
 os.environ.setdefault("ONEPIECE_GOAL_DERIVE", "1")
+# 2026-05-29: 学習 pipeline で AUDIT を default ON (= 学習 ついで に runtime violation 検出)。
+# 各 試合 末尾 で state.audit_violations + effect_events が GameResult に 蓄積、
+# 後 で db/auto_issues/runtime_*.json に 自動 file 化 する。 perf 影響 軽微。
+os.environ.setdefault("ONEPIECE_AUDIT_INVARIANTS", "1")
 
 import argparse
 import subprocess

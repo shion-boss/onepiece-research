@@ -40,6 +40,8 @@ jobs:
           .venv/bin/pip install -r requirements.txt
       - name: Run static audit
         run: .venv/bin/python scripts/audit_overlay_static.py
+      - name: Run primitive coverage lint (= overlay vs engine 整合)
+        run: .venv/bin/python scripts/audit_primitive_coverage.py
       - name: Generate issue files
         run: .venv/bin/python scripts/audit_issue_generator.py --layer 1 --clear
       - name: Auto-fix L1 / L5 / L7 low-risk (= dry-run on PR、 commit on main push)

@@ -48,6 +48,8 @@ from __future__ import annotations
 # 必ず 他 import より 上 で set すること (= fork 後の env 変更は反映されない)。
 import os
 os.environ.setdefault("ONEPIECE_GOAL_DERIVE", "1")
+# 2026-05-29: 学習 で AUDIT default ON (= violations + effect_events 自動 蓄積)
+os.environ.setdefault("ONEPIECE_AUDIT_INVARIANTS", "1")
 
 import argparse
 import json
@@ -109,6 +111,7 @@ def _cell_worker(task: dict) -> dict:
     # 環境 setup (= fork 後 でも spawn でも 動くよう defensive set)
     import os
     os.environ.setdefault("ONEPIECE_GOAL_DERIVE", "1")
+    os.environ.setdefault("ONEPIECE_AUDIT_INVARIANTS", "1")
     import traceback
     try:
         # lazy import (= worker 起動 時 import で env を 確実 反映)

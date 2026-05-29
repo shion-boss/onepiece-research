@@ -12,6 +12,10 @@ API ( /api/meta/matrix ) はこのファイルを読むだけで O(1)。
 
 from __future__ import annotations
 
+# 2026-05-29: matrix 計算 で AUDIT default ON (= 学習 + 検証 統合)
+import os
+os.environ.setdefault("ONEPIECE_AUDIT_INVARIANTS", "1")
+
 import argparse
 import json
 import sys
