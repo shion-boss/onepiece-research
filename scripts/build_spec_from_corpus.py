@@ -308,8 +308,19 @@ def build_specs(
     max_targets_per_entry: int,
     bonus_clamp_min: int,
     bonus_clamp_max: int,
+    tier3_min_opp_count: int = 8,
+    tier3_min_winrate: float = 0.5,
+    tier3_baseline_factor: float = 0.5,
 ) -> dict[str, list[dict]]:
-    """deck_slug → entries list。"""
+    """deck_slug → entries list (= Tier 1 + Tier 3)。
+
+    Tier 1: (deck_slug, turn, opp_leader, opp_archetype, self_cond) per cell。
+    Tier 3: (deck_slug, turn, self_cond) per cell、 cross-opp consistency 高 action のみ。
+
+    Tier 3 condition: action が **≥ tier3_min_opp_count 個 の 異 opp_leader** で
+                       win_rate ≥ tier3_min_winrate (= 50%) を 達成 (= 「自 deck 強み」 sign)。
+                       bonus は tier3_baseline_factor (= 0.5) で 下げる (= Tier 1 より 弱)。
+    """
     stats = scan_result["stats"]
     # 集約: (deck_slug, v1_key) → list of {action_key, win_rate, n_total, bonus}
     by_entry: dict[tuple, list[dict]] = defaultdict(list)
@@ -358,10 +369,87 @@ def build_specs(
             "targets": targets,
         })
 
-    # entry を turn → opp_leader → self_cond 順 で sort
+    # === Tier 3 entries (= 自 deck 強み fallback、 [[feedback_tier_strategy]]) ===
+    # 各 (deck_slug, turn, self_cond) で、 異 opp_leader 間 を 横断 集計 して
+    # consistency 高い action のみ 採用。
+    # tier1_stats[(deck, turn, self_cond, action_key)][opp_leader] = (n_total, n_won)
+    tier1_by_action: dict[tuple, dict] = defaultdict(lambda: {"per_opp": {}})
+    for (deck_slug, v1_key, action_key), s in stats.items():
+        if s["n_total"] < min_count:
+            continue
+        turn, opp_leader, _, self_cond = v1_key
+        key3 = (deck_slug, turn, self_cond, action_key)
+        wr = s["n_won"] / s["n_total"]
+        tier1_by_action[key3]["per_opp"][opp_leader] = (s["n_total"], s["n_won"], wr)
+
+    tier3_entries_by_deck: dict[str, dict[tuple, list[dict]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for (deck_slug, turn, self_cond, action_key), info in tier1_by_action.items():
+        per_opp = info["per_opp"]
+        # consistency: win_rate >= tier3_min_winrate を 達成 した opp_leader 数
+        consistent_opps = [
+            (opp, n, w, wr) for opp, (n, w, wr) in per_opp.items()
+            if wr >= tier3_min_winrate
+        ]
+        if len(consistent_opps) < tier3_min_opp_count:
+            continue  # consistency 不足 → 「deck 強み」 と は 言えない
+        # cross-opp 集計
+        total_n = sum(n for _, n, _, _ in consistent_opps)
+        total_w = sum(w for _, _, w, _ in consistent_opps)
+        if total_n < min_count:
+            continue
+        cross_wr = total_w / total_n
+        ratio = max(cross_wr, 0.05) / 0.5
+        bonus = round(baseline * tier3_baseline_factor * (ratio ** scale))
+        bonus = max(bonus_clamp_min, min(bonus_clamp_max, bonus))
+        tier3_entries_by_deck[deck_slug][(turn, self_cond)].append({
+            "action_kind": action_key[0],
+            "action_card_id": action_key[1],
+            "n_total": total_n,
+            "n_won": total_w,
+            "win_rate": round(cross_wr, 3),
+            "bonus": bonus,
+            "consistency_opp_count": len(consistent_opps),
+        })
+
+    # Tier 3 entries を deck_to_entries に append
+    for deck_slug, by_t3_key in tier3_entries_by_deck.items():
+        for (turn, self_cond), actions in by_t3_key.items():
+            actions.sort(key=lambda x: -x["bonus"])
+            targets = []
+            for i, a in enumerate(actions[:max_targets_per_entry]):
+                targets.append({
+                    "priority": i + 1,
+                    "if": derive_if_condition(a["action_kind"], a["action_card_id"]),
+                    "bonus": a["bonus"],
+                    "description": (
+                        f"{a['action_kind']}"
+                        f"{(' ' + a['action_card_id']) if a['action_card_id'] else ''} "
+                        f"(= 自 deck 強み: {a['consistency_opp_count']}/16 opp で win_rate "
+                        f"≥{tier3_min_winrate:.0%}、 cross-opp wr={a['win_rate']:.0%}, "
+                        f"n={a['n_total']})"
+                    ),
+                    "source": "corpus_off_policy_v1_tier3",
+                    "evidence": {
+                        "n_total": a["n_total"],
+                        "win_rate": a["win_rate"],
+                        "consistency_opp_count": a["consistency_opp_count"],
+                    },
+                })
+            deck_to_entries[deck_slug].append({
+                "turn": turn,
+                "opp_leader_id": None,         # Tier 3: opp 不問
+                "opp_deck_slug": None,
+                "opp_archetype": None,
+                "self_condition": self_cond,
+                "targets": targets,
+            })
+
+    # entry を turn → opp_leader → self_cond 順 で sort (= None は 末尾)
     for slug in deck_to_entries:
         deck_to_entries[slug].sort(key=lambda e: (
-            e["turn"], e["opp_leader_id"], e["self_condition"],
+            e["turn"], e["opp_leader_id"] or "ZZZ", e["self_condition"],
         ))
     return deck_to_entries
 
@@ -417,6 +505,12 @@ def main() -> None:
     ap.add_argument("--max-targets-per-entry", type=int, default=4)
     ap.add_argument("--bonus-clamp-min", type=int, default=250)
     ap.add_argument("--bonus-clamp-max", type=int, default=3000)
+    ap.add_argument("--tier3-min-opp-count", type=int, default=8,
+                    help="Tier 3 採用 閾値: action が 何 個 の opp_leader で 過半勝率 を 達成 した か")
+    ap.add_argument("--tier3-min-winrate", type=float, default=0.5,
+                    help="Tier 3 採用 閾値: 各 opp_leader での 最低 win_rate")
+    ap.add_argument("--tier3-baseline-factor", type=float, default=0.5,
+                    help="Tier 3 bonus baseline 倍率 (= Tier 1 の 何 % で 弱める か)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -440,6 +534,9 @@ def main() -> None:
         max_targets_per_entry=args.max_targets_per_entry,
         bonus_clamp_min=args.bonus_clamp_min,
         bonus_clamp_max=args.bonus_clamp_max,
+        tier3_min_opp_count=args.tier3_min_opp_count,
+        tier3_min_winrate=args.tier3_min_winrate,
+        tier3_baseline_factor=args.tier3_baseline_factor,
     )
     print(f"[build_spec] decks with entries: {len(deck_to_entries)}", flush=True)
     for slug, entries in sorted(deck_to_entries.items()):
