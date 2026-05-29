@@ -4356,6 +4356,82 @@ def _execute_effect_body(
             state.push_log(
                 f"  効果: KO耐性 ({duration}) → {[t.card.name for t in targets]}"
             )
+        elif k == "disable_blocker":
+            # OP12-051 ヴェルゴ等。 「相手の(filter)キャラ X 枚 まで は、 このターン中、
+            # 【ブロッカー】 を 発動 できない」。 spec: {"target": ..., "duration": "turn"}
+            spec_val = v if isinstance(v, dict) else {"target": v}
+            target_spec = spec_val.get("target", "one_opponent_character_any")
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="disable_blocker", outer_value=v,
+            )
+            for t in targets:
+                t.blocker_disabled_until_turn_end = True
+            state.push_log(f"  効果: ブロッカー無効 → {[t.card.name for t in targets]}")
+        elif k == "hand_or_trash_to_self_life":
+            # ST13-003 ペル等。 「自分の手札か トラッシュ の (filter) chara N 枚 まで を、
+            # 自分のライフ の 上 に 表向き で 加える」。 spec: {"filter": ..., "count": N, "if": {...}}
+            spec_val = v if isinstance(v, dict) else {}
+            if_block = spec_val.get("if", {})
+            if if_block and not eval_condition(if_block, state, me, self_inplay):
+                continue
+            filt = spec_val.get("filter", {})
+            count = int(spec_val.get("count", 1))
+            # 手札 + trash の マッチ する card を 集める
+            hand_cands = [(i, c) for i, c in enumerate(me.hand) if _matches_filter(c, filt)]
+            trash_cands = [(i, c) for i, c in enumerate(me.trash) if _matches_filter(c, filt)]
+            n_added = 0
+            # 簡略: 手札 先 → trash 後 で count 分 ライフ 上 に 加える
+            for idx, c in hand_cands[:count]:
+                me.life.insert(0, c)
+                n_added += 1
+            if n_added < count:
+                need = count - n_added
+                for idx, c in trash_cands[:need]:
+                    me.life.insert(0, c)
+                    n_added += 1
+            # 元 zone から 削除 (逆順 で pop)
+            for idx, c in sorted(hand_cands[:count], key=lambda x: -x[0]):
+                if idx < len(me.hand):
+                    me.hand.pop(idx)
+            for idx, c in sorted(trash_cands[:max(0, count - len(hand_cands[:count]))],
+                                  key=lambda x: -x[0]):
+                if idx < len(me.trash):
+                    me.trash.pop(idx)
+            state.push_log(f"  効果: 手札/trash から chara {n_added} 枚 をライフへ")
+        elif k == "set_battle_ko_immune":
+            # OP06-096 サンジ等。 「自分の (target) は、 このターン中、 バトル で KO されない」。
+            # spec: {"target": ..., "duration": "turn"|"static"}
+            spec_val = v if isinstance(v, dict) else {"target": v}
+            target_spec = spec_val.get("target", "self")
+            duration = spec_val.get("duration", "turn")
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="set_battle_ko_immune", outer_value=v,
+            )
+            for t in targets:
+                if duration == "static":
+                    t.battle_ko_immune_static = True
+                else:
+                    t.battle_ko_immune_until_turn_end = True
+            state.push_log(
+                f"  効果: バトル KO 耐性 ({duration}) → {[t.card.name for t in targets]}"
+            )
+        elif k == "search_from_trash":
+            # OP06-071 等。 「自分の トラッシュ の (filter) カード N 枚 まで を、 手札 に 加える」。
+            # spec: {"filter": ..., "count": N, "to": "hand"}
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            count = int(spec_val.get("count", 1))
+            cands = [(i, c) for i, c in enumerate(me.trash) if _matches_filter(c, filt)]
+            picks = cands[:count]
+            added_names = []
+            for idx, c in sorted(picks, key=lambda x: -x[0]):
+                if idx < len(me.trash):
+                    me.trash.pop(idx)
+                    me.add_to_hand_publicly(c)
+                    added_names.append(c.name)
+            state.push_log(f"  効果: trash から {len(added_names)} 枚 手札へ → {added_names}")
         elif k == "disable_opp_on_play_through_opp_turn":
             # OP09-081 ティーチ: 「次の相手のターン終了時 まで、 相手の【登場時】効果 は 無効になる」。
             # 自陣 me ターン 中 に opp の フラグ を 立てる → opp が キャラ play する on_play で 効果 skip。

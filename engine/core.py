@@ -215,6 +215,10 @@ class InPlay:
     # 「このキャラはバトルで KO されない」 (= 効果による KO は通る)。 OP10-104 / OP10-035 等。
     # 静的効果でセット、 evaluate_static_effects でリセット。
     battle_ko_immune_static: bool = False
+    # 「このターン中、バトルでKO されない」 (= turn 限定、 turn end で reset)
+    battle_ko_immune_until_turn_end: bool = False
+    # ブロッカー 効果 を 無効化 (turn 中、 OP12-051 等)。 _reset_turn_buff で False。
+    blocker_disabled_until_turn_end: bool = False
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア

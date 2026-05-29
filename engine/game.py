@@ -406,7 +406,7 @@ def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
     P-052 ミホーク 「属性(斬)を持つカードとのバトルで KO されない」 等。
     """
     atk_attr = attacker.card.attribute or ""
-    if defender.battle_ko_immune_static:
+    if defender.battle_ko_immune_static or defender.battle_ko_immune_until_turn_end:
         return True
     if atk_attr and atk_attr in defender.ko_immune_battle_attributes_in:
         return True
@@ -437,6 +437,8 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.turn_buff = 0
             ip.granted_keywords = set()
             ip.ko_immune_until_turn_end = False
+            ip.battle_ko_immune_until_turn_end = False
+            ip.blocker_disabled_until_turn_end = False
             ip.cannot_attack_until_turn_end = False
             ip.cost_minus_until_turn_end = 0
             ip.attacker_prevents_blocker_until_turn_end = False
@@ -1391,6 +1393,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 blocker.rested
                 or not blocker.is_blocker_now
                 or blocker.summoning_sickness
+                or blocker.blocker_disabled_until_turn_end
             ):
                 state.push_log(
                     f"  ブロッカー無効: {blocker.card.name} (rested/sickness/blocker特性なし)"
@@ -1611,6 +1614,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 blocker.rested
                 or not blocker.is_blocker_now
                 or blocker.summoning_sickness
+                or blocker.blocker_disabled_until_turn_end
             ):
                 # 不正ブロッカーは無視 (KO してきた可能性等)
                 state.push_log(
