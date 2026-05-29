@@ -418,6 +418,36 @@ def find_matching_entries(
     return per_deck_matches + external_matches
 
 
+def find_matching_entries_v2(
+    target_spec: dict,
+    state_axes: dict,
+) -> list[tuple[dict, float]]:
+    """v2 rich axes 対応 find_matching_entries (= 2026-05-30 拡張)。
+
+    state_axes は engine.axis_compute.compute_axes_from_state の 出力 dict。
+    entry に 書かれた rich axes (= opp_life_bucket 等) と state_axes を 比較、
+    全 軸 match で 採用、 weight = leader_tier × turn_weight。
+
+    旧 4 軸 entries (= rich axes なし) との backward compat:
+      - entry に rich axes が ない → wildcard で match (= 旧 logic 通り)
+      - entry に rich axes あり → 厳 密 一 致 必須
+    """
+    if not target_spec:
+        return []
+    entries = target_spec.get("entries", [])
+    if not entries:
+        return []
+
+    from .axis_compute import axes_match
+
+    matches: list[tuple[dict, float]] = []
+    for entry in entries:
+        ok, weight = axes_match(entry, state_axes, turn_tolerance=1)
+        if ok and weight > 0:
+            matches.append((entry, weight))
+    return matches
+
+
 def find_target_entry(
     target_spec: dict,
     turn_number: int,

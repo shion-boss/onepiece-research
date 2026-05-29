@@ -275,7 +275,35 @@ def scan_corpus(corpus_dir: Path) -> dict:
                 deck_to_archetype.get(opp_deck) if opp_deck else None
             )
 
-            v1_key = (turn, opp_leader, opp_archetype, self_cond)
+            # === rich axes (= 2026-05-30 拡 張、 [[project_corpus_methodology_dead_end]] 後) ===
+            from engine.axis_compute import compute_axes_from_snapshot
+            rich_axes = compute_axes_from_snapshot(sb, side_b_idx, side_a_idx, opp_archetype) \
+                if action.get("active_player") == side_b_idx else \
+                compute_axes_from_snapshot(sb, side_a_idx, side_b_idx, opp_archetype)
+            # 注: 上 は side B 視 点 と side A 視 点 で 軸 が opp_/self_ 逆 転 する
+            # actor_idx と target_idx の 関 係 で 計 算 必 要
+            from engine.axis_compute import compute_axes_from_snapshot as _ax
+            # actor の view (= 我々 spec 主)、 opp は target
+            actor_idx_for_axes = action.get("active_player", 0)
+            target_idx_for_axes = 1 - actor_idx_for_axes
+            rich_axes = _ax(sb, actor_idx_for_axes, target_idx_for_axes, opp_archetype)
+
+            # === v2 axes (= 2026-05-30 拡 張): rich 12 軸 で entry 細 分 化 ===
+            # 旧 v1 = (turn, opp_leader, opp_archetype, self_cond) の 4 軸
+            # 新 v2 = + opp_life/hand/field/threat + self_life/hand/field/don の 12 軸
+            # rich_axes は 既 上 で 計 算 済 み
+            v2_key = (
+                turn, opp_leader, opp_archetype, self_cond,
+                rich_axes.get("opp_life_bucket", "full"),
+                rich_axes.get("opp_hand_bucket", "mid"),
+                rich_axes.get("opp_field_bucket", "empty"),
+                rich_axes.get("opp_threat_bucket", "low"),
+                rich_axes.get("self_life_bucket", "full"),
+                rich_axes.get("self_hand_bucket", "mid"),
+                rich_axes.get("self_field_bucket", "empty"),
+                rich_axes.get("self_don_bucket", "tight"),
+            )
+            v1_key = v2_key  # build_specs 後 段 と 整 合
             action_dict = action.get("action", {})
             action_kind = action_dict.get("kind", "?")
             # card_id 解決 (= hand_idx → actor の hand_card_ids、 旧 corpus 互換)
@@ -364,11 +392,26 @@ def build_specs(
                 "source": "corpus_off_policy_v1",
                 "evidence": {"n_total": a["n_total"], "win_rate": a["win_rate"]},
             })
-        turn, opp_leader, opp_archetype, self_cond = v1_key
+        # v2_key 形 式: (turn, opp_leader, opp_archetype, self_cond,
+        #               opp_life_b, opp_hand_b, opp_field_b, opp_threat_b,
+        #               self_life_b, self_hand_b, self_field_b, self_don_b)
+        (turn, opp_leader, opp_archetype, self_cond,
+         opp_life_b, opp_hand_b, opp_field_b, opp_threat_b,
+         self_life_b, self_hand_b, self_field_b, self_don_b) = v1_key
         # opp_deck_slug from leader_to_deck
         opp_deck = scan_result["leader_to_deck"].get(opp_leader)
         deck_to_entries[deck_slug].append({
             "turn": turn,
+            # === v2 rich axes ===
+            "opp_life_bucket": opp_life_b,
+            "opp_hand_bucket": opp_hand_b,
+            "opp_field_bucket": opp_field_b,
+            "opp_threat_bucket": opp_threat_b,
+            "self_life_bucket": self_life_b,
+            "self_hand_bucket": self_hand_b,
+            "self_field_bucket": self_field_b,
+            "self_don_bucket": self_don_b,
+            # === v1 互 換 軸 ===
             "opp_leader_id": opp_leader,
             "opp_deck_slug": opp_deck,
             "opp_archetype": opp_archetype,
@@ -384,7 +427,10 @@ def build_specs(
     for (deck_slug, v1_key, action_key), s in stats.items():
         if s["n_total"] < min_count:
             continue
-        turn, opp_leader, _, self_cond = v1_key
+        # v1_key は 今 v2 形 式 (= 12 要 素)、 turn と self_cond だけ 抽 出
+        turn = v1_key[0]
+        opp_leader = v1_key[1]
+        self_cond = v1_key[3]
         key3 = (deck_slug, turn, self_cond, action_key)
         wr = s["n_won"] / s["n_total"]
         tier1_by_action[key3]["per_opp"][opp_leader] = (s["n_total"], s["n_won"], wr)
