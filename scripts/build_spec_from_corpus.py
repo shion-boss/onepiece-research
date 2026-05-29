@@ -395,8 +395,12 @@ def main() -> None:
         print(f"[build_spec] DRY RUN (= no file written)", flush=True)
         return
 
+    try:
+        corpus_str = str(args.corpus_dir.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        corpus_str = str(args.corpus_dir)
     args_summary = {
-        "corpus_dir": str(args.corpus_dir.relative_to(REPO_ROOT)),
+        "corpus_dir": corpus_str,
         "min_count": args.min_count,
         "baseline": args.baseline,
         "scale": args.scale,

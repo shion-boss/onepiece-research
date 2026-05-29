@@ -181,3 +181,5 @@ db/game_corpus/
 db/derived/
 # runtime violation queue (= rotation するので 古い ものは _archive へ、 commit しない)
 db/auto_issues/
+db/spec_backups/
+  (= round_pipeline.py の build_spec 前 退避、 復元 用 一時 file)
