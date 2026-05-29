@@ -163,28 +163,43 @@ def main():
     for pair_idx, (a, b) in enumerate(pairs):
         for game_idx in range(args.n_games):
             seed = args.seed_base + pair_idx * 10000 + game_idx
+            # 2026-05-30 fix: first_player 交 互 化 (= 偶 数 game = A 先 攻、 奇 数 = B 先 攻)
+            # run_matchup の n_games=1 だと first_player=0 固定 になる ため swap で 解消。
+            swap_sides = (game_idx % 2 == 1)
             try:
-                g, traj_a, traj_b = _run_one_game(a, b, specs[a], specs[b], seed)
+                if swap_sides:
+                    g, traj_b, traj_a = _run_one_game(b, a, specs[b], specs[a], seed)
+                    # swap 後 g.winner = 「side A=元 B」 が 勝った か。 A/B 判定 反 転 必要
+                    if g.winner == 0:
+                        a_won, b_won = False, True
+                    elif g.winner == 1:
+                        a_won, b_won = True, False
+                    else:
+                        a_won, b_won = False, False
+                else:
+                    g, traj_a, traj_b = _run_one_game(a, b, specs[a], specs[b], seed)
+                    a_won = (g.winner == 0)
+                    b_won = (g.winner == 1)
             except Exception as e:
                 print(f"  [{completed+1}/{total_games}] ERROR {a} vs {b} seed={seed}: {e}",
                       flush=True)
                 completed += 1
                 continue
-
-            a_won = (g.winner == 0)
-            b_won = (g.winner == 1)
             if a_won:
                 wins_a_total += 1
 
-            if traj_a:
+            # 2026-05-30 fix: winner-only update (= loser ノイズ 除 去)
+            # 負 けた 側 は 「ダ メ な 戦 略」 だけ で は な く ライフ trigger / draw 運 の
+            # 不 運 も 含 む。 勝った 側 のみ 強化 で 信号 純化。
+            if a_won and traj_a:
                 stats_a = update_spec_from_trajectory(
-                    specs[a], traj_a, won=a_won, alpha=args.alpha,
+                    specs[a], traj_a, won=True, alpha=args.alpha,
                     clamp_min=args.clamp_min, clamp_max=args.clamp_max,
                 )
                 total_actions_updated += stats_a["n_actions"]
-            if traj_b:
+            if b_won and traj_b:
                 stats_b = update_spec_from_trajectory(
-                    specs[b], traj_b, won=b_won, alpha=args.alpha,
+                    specs[b], traj_b, won=True, alpha=args.alpha,
                     clamp_min=args.clamp_min, clamp_max=args.clamp_max,
                 )
                 total_actions_updated += stats_b["n_actions"]
