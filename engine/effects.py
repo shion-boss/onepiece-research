@@ -5850,6 +5850,77 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         resume_pending_attack_hit(state, use_trigger)
         return
 
+    if kind == "replace_ko_optional":
+        # ヴェルゴ 等 「もよい」 系 replace_ko / replace_leave の 人間 選択。
+        # picks[0] = 1 → 「使う」 (= cost 払って do 実行、 KO/離脱 canceled)
+        # picks[0] = 0 / picks=[] → 「使わない」 (= victim を 通常 KO/離脱)
+        use_replace = bool(picks and picks[0] == 1)
+        victim_iid = choice.get("victim_iid")
+        holder_iid = choice.get("holder_iid")
+        owner_idx = int(choice.get("owner_idx", 0))
+        when_key = str(choice.get("when") or "replace_ko")
+        do_spec = choice.get("do_spec", []) or []
+        cost_specs = choice.get("cost_specs", []) or []
+        leave_kind = str(choice.get("leave_kind") or "ko")
+        state.pending_choice = None
+        owner = state.players[owner_idx]
+        # holder / victim を iid で 復元
+        all_inplay = [owner.leader, *owner.characters, *owner.stages]
+        holder = next((ip for ip in all_inplay if ip.instance_id == holder_iid), None)
+        victim = next((ip for ip in all_inplay if ip.instance_id == victim_iid), None)
+        if victim is None:
+            state.push_log(f"  replace_ko_optional resume: victim 既に 不在 → skip")
+            return
+        if use_replace and holder is not None:
+            # cost 払う + do 実行 → KO は cancel された (= victim 場 に 残る)
+            holder_cid = holder.card.card_id
+            if cost_specs:
+                _pay_replace_cost(state, owner, cost_specs, holder_cid)
+            state.push_log(
+                f"  離脱置換 ({when_key}): {victim.card.name} → {holder.card.name} の効果で代替"
+            )
+            prev_replace_victim = getattr(state, "last_replace_victim", None)
+            state.last_replace_victim = victim
+            try:
+                opp_player = state.players[1 - owner_idx]
+                for prim in do_spec:
+                    execute_effect(prim, state, owner, opp_player, holder)
+            finally:
+                state.last_replace_victim = prev_replace_victim
+            return
+        # 「使わない」 → 通常 KO/離脱 を 実施 + 同 victim を declined set に
+        if not hasattr(state, "_replace_ko_declined_iids"):
+            state._replace_ko_declined_iids = set()
+        state._replace_ko_declined_iids.add(victim.instance_id)
+        state.push_log(f"  離脱置換 ({when_key}) 不使用 → {victim.card.name} を 通常 KO/離脱")
+        # KO 系 のみ inline で 実施 (= return_to_hand/deck は 元 caller が 処理)
+        # leave_kind に 応じて zone を 移動
+        opp_player = state.players[1 - owner_idx]
+        if victim in owner.characters:
+            owner.characters.remove(victim)
+        elif victim is owner.leader:
+            # leader は 通常 trash されない (= ゲーム 終了 でない 限り)。 ここで は no-op
+            return
+        if leave_kind == "ko":
+            owner.trash.append(victim.card)
+            if victim.attached_dons > 0:
+                owner.don_rested += victim.attached_dons
+            state.push_log(f"  効果: KO {victim.card.name} (= replace 不使用 経路)")
+            if state.effects_overlay:
+                trigger_on_ko(state, owner, opp_player, victim.card,
+                              state.effects_overlay, by_opp_effect=bool(choice.get("by_opp_effect")))
+                trigger_on_opp_chara_ko(state, opp_player, owner, state.effects_overlay)
+                trigger_on_self_chara_ko(state, owner, opp_player, state.effects_overlay)
+        elif leave_kind == "return_to_hand":
+            owner.add_to_hand_publicly(victim.card)
+            if victim.attached_dons > 0:
+                owner.don_rested += victim.attached_dons
+        elif leave_kind == "return_to_deck_bottom":
+            owner.deck.append(victim.card)
+            if victim.attached_dons > 0:
+                owner.don_rested += victim.attached_dons
+        return
+
     if kind == "on_opp_attack_optional":
         # picks[0] = 1 → 使う、 0 → skip
         # on_opp_attack 効果 source は 「defender」 = 1 - turn_player_idx 側
@@ -7732,21 +7803,46 @@ def try_replace_ko(
             if extra_cond and not eval_condition(extra_cond, state, owner, inplay):
                 continue
             # optional gate (= 公式 「〜してもよい」 / 「〜することができる」)。
-            # owner が human の 場合 は 自動発火 ✗ (= 人間 判断 で 使う/使わない 選択 する 必要 がある)。
-            # 現状 は modal 未実装 ので 「skip (= 使わない)」 を default 動作 とする。
-            # 注意: 「使う」 を 選べる UI 拡張 は 別 task (= replace_ko_optional pending_choice flow)。
-            # 関連 bug: 2026-05-28 human play log の ヴェルゴ 自動 KO 置換 報告。
+            # owner が human の 場合 は pending_choice modal を 立てて 人間 判断 を 待つ。
+            # 既 declined (= 同 victim を 「使わない」 と 答えた) なら 再 prompt しない。
             if eff.get("optional", False):
                 owner_idx = state.players.index(owner)
                 if (
                     state.human_player_idx is not None
                     and owner_idx == state.human_player_idx
+                    and state.pending_choice is None
                 ):
+                    declined = getattr(state, "_replace_ko_declined_iids", set())
+                    if victim.instance_id in declined:
+                        # 同 victim を 既 skip 選択 済 → 通常 KO 続行
+                        continue
+                    # cost 払える か 事前 check (= 払えないなら そもそも 選択 modal 出さない)
+                    cost_specs_pre = eff.get("cost", [])
+                    holder_card_id_pre = inplay.card.card_id
+                    if cost_specs_pre and not _can_pay_replace_cost(
+                        state, owner, cost_specs_pre, holder_card_id_pre
+                    ):
+                        continue
+                    # do_spec / cost_specs を シリアライズ して pending_choice に 退避
+                    state.pending_choice = {
+                        "kind": "replace_ko_optional",
+                        "victim_iid": victim.instance_id,
+                        "victim_name": victim.card.name,
+                        "holder_iid": inplay.instance_id,
+                        "holder_name": inplay.card.name,
+                        "owner_idx": owner_idx,
+                        "when": when,
+                        "do_spec": eff.get("do", []),
+                        "cost_specs": cost_specs_pre,
+                        "leave_kind": leave_kind,
+                        "by_opp_effect": by_opp_effect,
+                    }
                     state.push_log(
-                        f"  離脱置換 ({when}) skip: {inplay.card.name} の任意効果は"
-                        f"人間 modal 未実装 のため 不使用 → KO 続行 (TODO: replace_ko_optional UI)"
+                        f"  離脱置換 確認 待ち: {inplay.card.name} の 効果 で "
+                        f"{victim.card.name} の {leave_kind} を 代替 する?"
                     )
-                    continue
+                    # halt — caller 側 で pending_choice 検出 → KO は skip (= 再開 時 解決)
+                    return True
             # cost フィールド対応 (任意): cost が払えない場合は置換不可。
             # spec: {"cost": [<primitive>...]} を payability check で消費する。
             cost_specs = eff.get("cost", [])

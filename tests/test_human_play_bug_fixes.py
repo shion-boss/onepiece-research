@@ -166,18 +166,85 @@ def test_optional_replace_ko_skipped_when_owner_is_human():
 
     initial_field = len(opp.characters)
 
-    # me (= AI) が KO 効果 で ドフラ を ターゲット
-    execute_effect({"ko": "all_opponent_characters"}, state, me, opp, None)
+    # me (= AI) が KO 効果 で ドフラ のみ を ターゲット (= vergo は 場 に 残り 保護役 を 担う)
+    execute_effect({"ko": "one_opponent_character_any"}, state, me, opp, None)
 
-    # 期待 (= bug fix): optional 効果 は 人間 owner では skip → ドフラ は KO される、
-    # opp の don は 減らない (= cost 払われていない)
+    # 期待 (= 2026-05-29 task #26): optional 効果 で pending_choice が 立つ (= human 判断 待ち)。
+    # ドフラ は まだ 場 に いて、 KO 続行 か 代替 か は 人間 picks で 解決。
+    assert state.pending_choice is not None, (
+        "optional + 人間 owner で pending_choice (modal) が 立つ べき"
+    )
+    assert state.pending_choice.get("kind") == "replace_ko_optional"
+    assert state.pending_choice.get("victim_iid") == doflamingo.instance_id
+    assert state.pending_choice.get("holder_iid") == vergo.instance_id
+    # ドフラ は まだ 場 に いる (= KO halted)
     survivors_iids = [c.instance_id for c in opp.characters]
-    assert doflamingo.instance_id not in survivors_iids, (
-        "optional replace_ko は 人間 owner では skip → ドフラ は 通常通り KO されるべき"
+    assert doflamingo.instance_id in survivors_iids, (
+        "pending_choice 中 は ドフラ は KO されず modal 待ち"
     )
-    assert opp.don_active + opp.don_rested == initial_don_total, (
-        "skip された ので cost (return_self_don) は 払われない"
+
+
+def test_replace_ko_optional_user_picks_use():
+    """task #26: pending_choice 「使う」 で 代替 効果 発動 + ドフラ 生存 + don 減る。"""
+    from engine.effects import execute_effect, resolve_pending_choice
+
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    state.human_player_idx = 1
+
+    vergo = InPlay.of(repo.get("OP14-061"), sickness=False)
+    doflamingo = InPlay.of(repo.get("OP04-031"), sickness=False)
+    opp.characters = [vergo, doflamingo]
+    opp.don_active = 3
+    initial_don_total = opp.don_active + opp.don_rested
+
+    execute_effect({"ko": "one_opponent_character_any"}, state, me, opp, None)
+    assert state.pending_choice is not None
+    # 人間 「使う」
+    resolve_pending_choice(state, [1])
+    # ドフラ 生存
+    survivors = {c.instance_id for c in opp.characters}
+    assert doflamingo.instance_id in survivors
+    # don 1 減った (= return_self_don_to_deck 1 cost)
+    assert opp.don_active + opp.don_rested == initial_don_total - 1, (
+        "cost (return_self_don_to_deck 1) 払われた"
     )
+    # pending クリア
+    assert state.pending_choice is None
+
+
+def test_replace_ko_optional_user_picks_skip():
+    """task #26: pending_choice 「使わない」 で 通常 KO + don 減らない + declined set 登録。"""
+    from engine.effects import execute_effect, resolve_pending_choice
+
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    state.human_player_idx = 1
+
+    vergo = InPlay.of(repo.get("OP14-061"), sickness=False)
+    doflamingo = InPlay.of(repo.get("OP04-031"), sickness=False)
+    opp.characters = [vergo, doflamingo]
+    opp.don_active = 3
+    initial_don_total = opp.don_active + opp.don_rested
+
+    execute_effect({"ko": "one_opponent_character_any"}, state, me, opp, None)
+    assert state.pending_choice is not None
+    # 人間 「使わない」
+    resolve_pending_choice(state, [0])
+    # ドフラ KO
+    survivors = {c.instance_id for c in opp.characters}
+    assert doflamingo.instance_id not in survivors
+    # don 減らない
+    assert opp.don_active + opp.don_rested == initial_don_total
+    # declined set 登録 (= 再 prompt 防止)
+    declined = getattr(state, "_replace_ko_declined_iids", set())
+    assert doflamingo.instance_id in declined
 
 
 def test_mandatory_replace_ko_still_fires_for_human():

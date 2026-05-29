@@ -1849,6 +1849,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
               busy={busy}
             />
           ) : null
+        ) : state.pending_payload.kind === "replace_ko_optional" ? (
+          <ReplaceKoOptionalModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "on_attack_optional" ? (
           <OnAttackOptionalModal
             payload={state.pending_payload}
@@ -4825,6 +4831,80 @@ function EndOfTurnOptionalModal({
             className="flex-1 rounded bg-amber-500 px-4 py-3 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
           >
             {picked.size === 0 ? "確定 (全 skip)" : `確定 (${picked.size}件 発動)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// ReplaceKoOptionalModal: 自陣 「もよい」 系 replace_ko / replace_leave 確認
+// = 「ヴェルゴ の 効果 で 代替 する?」 等。 「使う」 で cost 払って 効果 発動、
+//   「使わない」 で 通常 KO/離脱 が 続行。
+// ========================================================================== //
+
+function ReplaceKoOptionalModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const victimName = String(payload.victim_name ?? "");
+  const holderName = String(payload.holder_name ?? "");
+  const when = String(payload.when ?? "replace_ko");
+  const leaveLabel =
+    String(payload.leave_kind ?? "ko") === "ko"
+      ? "KO"
+      : String(payload.leave_kind ?? "ko") === "return_to_hand"
+        ? "手札 戻し"
+        : "デッキ下";
+  const whenLabel = when === "replace_leave" ? "場 離れ 置換" : "KO 置換";
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-3 text-lg font-bold text-amber-200">
+          {whenLabel}: {holderName} の 効果 を 使う?
+        </h3>
+        <div className="mb-3 rounded bg-zinc-800 p-3 text-sm leading-relaxed text-zinc-200">
+          <p>
+            <span className="font-semibold text-amber-300">{victimName}</span>{" "}
+            が {leaveLabel} される 直前 です。
+          </p>
+          <p className="mt-2 text-xs text-zinc-400">
+            「使う」 で {holderName} の 代替 効果 を 発動 (= cost を 払って
+            {victimName} を 救う)。 「使わない」 で 通常 {leaveLabel} を 続行。
+          </p>
+        </div>
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-zinc-700 px-4 py-3 text-sm font-bold text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            使わない
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([1]);
+            }}
+            disabled={busy}
+            className="flex-1 rounded bg-amber-500 px-4 py-3 text-base font-bold text-zinc-900 shadow hover:bg-amber-400 disabled:opacity-50"
+          >
+            使う
           </button>
         </div>
       </div>
