@@ -133,6 +133,10 @@ def main():
                     default=REPO_ROOT / "db" / "spec_online" / "round_1")
     ap.add_argument("--seed-base", type=int, default=42)
     ap.add_argument("--mirror-only", action="store_true")
+    ap.add_argument("--no-add-entries", action="store_true",
+                    help="Phase B mode: 既 存 entries のみ 更 新、 新 規 追加 抑 制 (= 2026-05-30)")
+    ap.add_argument("--use-advantage", action="store_true",
+                    help="advantage normalization 適 用 (= 平均 win rate 超 過 分 だけ 強化)")
     args = ap.parse_args()
 
     if args.decks == ["all"]:
@@ -188,21 +192,47 @@ def main():
             if a_won:
                 wins_a_total += 1
 
-            # 2026-05-30 fix: winner-only update (= loser ノイズ 除 去)
-            # 負 けた 側 は 「ダ メ な 戦 略」 だけ で は な く ライフ trigger / draw 運 の
-            # 不 運 も 含 む。 勝った 側 のみ 強化 で 信号 純化。
-            if a_won and traj_a:
-                stats_a = update_spec_from_trajectory(
-                    specs[a], traj_a, won=True, alpha=args.alpha,
-                    clamp_min=args.clamp_min, clamp_max=args.clamp_max,
-                )
-                total_actions_updated += stats_a["n_actions"]
-            if b_won and traj_b:
-                stats_b = update_spec_from_trajectory(
-                    specs[b], traj_b, won=True, alpha=args.alpha,
-                    clamp_min=args.clamp_min, clamp_max=args.clamp_max,
-                )
-                total_actions_updated += stats_b["n_actions"]
+            # 2026-05-30: --use-advantage で advantage normalization 適用
+            # rolling avg win rate を 維持、 advantage = won - avg で 正/負 信号 算出
+            adv_a = adv_b = None
+            if args.use_advantage:
+                # 簡 易 advantage: 試 行 中 の rolling A 勝率 を 基準 に
+                avg_win = wins_a_total / max(1, completed)
+                adv_a = (1.0 if a_won else 0.0) - avg_win        # A 視点
+                adv_b = (1.0 if b_won else 0.0) - (1.0 - avg_win) # B 視点
+
+            # 旧 winner-only update (= advantage 使わ ない 時)
+            if not args.use_advantage:
+                if a_won and traj_a:
+                    stats_a = update_spec_from_trajectory(
+                        specs[a], traj_a, won=True, alpha=args.alpha,
+                        clamp_min=args.clamp_min, clamp_max=args.clamp_max,
+                        no_add_entries=args.no_add_entries,
+                    )
+                    total_actions_updated += stats_a["n_actions"]
+                if b_won and traj_b:
+                    stats_b = update_spec_from_trajectory(
+                        specs[b], traj_b, won=True, alpha=args.alpha,
+                        clamp_min=args.clamp_min, clamp_max=args.clamp_max,
+                        no_add_entries=args.no_add_entries,
+                    )
+                    total_actions_updated += stats_b["n_actions"]
+            else:
+                # advantage mode: 勝敗 関係 なく advantage で 強 弱 を 連 続 制 御
+                if traj_a:
+                    stats_a = update_spec_from_trajectory(
+                        specs[a], traj_a, won=a_won, alpha=args.alpha,
+                        clamp_min=args.clamp_min, clamp_max=args.clamp_max,
+                        no_add_entries=args.no_add_entries, advantage=adv_a,
+                    )
+                    total_actions_updated += stats_a["n_actions"]
+                if traj_b:
+                    stats_b = update_spec_from_trajectory(
+                        specs[b], traj_b, won=b_won, alpha=args.alpha,
+                        clamp_min=args.clamp_min, clamp_max=args.clamp_max,
+                        no_add_entries=args.no_add_entries, advantage=adv_b,
+                    )
+                    total_actions_updated += stats_b["n_actions"]
 
             completed += 1
             if completed % 20 == 0 or completed == total_games:

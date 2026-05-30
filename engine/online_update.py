@@ -72,6 +72,28 @@ def _find_or_create_entry(spec: dict, axes: tuple) -> dict:
     return new_entry
 
 
+def _find_existing_entry(spec: dict, axes: tuple) -> dict | None:
+    """既 存 entry を 厳 密 一致 で 検索、 なければ None (= no_add_entries mode 用)。"""
+    turn, opp_leader_id, opp_archetype, self_condition = axes
+    for e in spec.get("entries", []):
+        if (e.get("turn") == turn
+                and e.get("opp_leader_id") == opp_leader_id
+                and e.get("opp_archetype") == opp_archetype
+                and e.get("self_condition") == self_condition):
+            return e
+    return None
+
+
+def _find_existing_target(entry: dict, action_kind: str,
+                          action_card_id: str | None = None) -> dict | None:
+    """既 存 target を 検 索、 なければ None。"""
+    for t in entry.get("targets", []):
+        if (t.get("action_kind") == action_kind
+                and t.get("action_card_id") == action_card_id):
+            return t
+    return None
+
+
 def _find_or_create_target(entry: dict, action_kind: str,
                             action_card_id: str | None = None,
                             init_bonus: int = 1500) -> dict:
@@ -123,6 +145,8 @@ def update_spec_from_trajectory(
     alpha: float = 0.05,
     clamp_min: int = 100,
     clamp_max: int = 5000,
+    no_add_entries: bool = False,
+    advantage: float | None = None,
 ) -> dict:
     """spec を 1 game 分 の trajectory で micro-update。
 
@@ -133,9 +157,18 @@ def update_spec_from_trajectory(
     won = True → 取った action を boost (= bonus *= 1+alpha)
     won = False → 取った action を decay (= bonus *= 1-alpha)
 
+    no_add_entries: True なら 新 entry/target 追加 を skip (= Phase B 用)。
+    advantage: None なら 単純 win/loss、 値 指定 で advantage normalization:
+       factor = 1 + alpha × advantage (= 「期待 勝率 超過 分 を 強化」)。
+
     return: 更新 統計 (= {n_targets_touched, n_entries_created, ...})。
     """
-    factor = (1.0 + alpha) if won else (1.0 - alpha)
+    if advantage is not None:
+        # advantage normalization (= 2026-05-30 追加、 noise drift 抑制)
+        factor = 1.0 + alpha * advantage  # advantage ∈ [-1, +1] 想定
+        factor = max(0.5, min(2.0, factor))  # 暴走 防止
+    else:
+        factor = (1.0 + alpha) if won else (1.0 - alpha)
     stats = {"n_actions": 0, "n_targets_touched": 0,
              "n_entries_created": 0, "n_targets_created": 0}
     pre_n_entries = len(spec.get("entries", []))
@@ -151,8 +184,17 @@ def update_spec_from_trajectory(
 
         pre_n_targets = sum(len(e.get("targets", []))
                             for e in spec.get("entries", []))
-        entry = _find_or_create_entry(spec, axes_key)
-        target = _find_or_create_target(entry, action_kind, action_card_id)
+        if no_add_entries:
+            # Phase B mode: 既 存 entries のみ 更新、 新 規 追加 抑 制
+            entry = _find_existing_entry(spec, axes_key)
+            if entry is None:
+                continue  # match なし → skip (= 既 存 entries 軸 と 違う → 学習 対象 外)
+            target = _find_existing_target(entry, action_kind, action_card_id)
+            if target is None:
+                continue
+        else:
+            entry = _find_or_create_entry(spec, axes_key)
+            target = _find_or_create_target(entry, action_kind, action_card_id)
         post_n_targets = sum(len(e.get("targets", []))
                              for e in spec.get("entries", []))
         if post_n_targets > pre_n_targets:
