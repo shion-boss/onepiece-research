@@ -487,16 +487,6 @@ export function PlayedCardOverlay({
                   className="h-72 w-auto rounded-lg"
                 />
               </div>
-              <div
-                className={
-                  "absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-bold text-white shadow " +
-                  (it.side === "me"
-                    ? "bg-emerald-600"
-                    : "bg-rose-600")
-                }
-              >
-                {it.side === "me" ? "YOU 使用" : "AI 使用"}
-              </div>
             </motion.div>
           );
         })}
