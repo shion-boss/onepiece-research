@@ -5894,16 +5894,6 @@
       "when": "main",
       "do": [
         {
-          "prevent_blocker_for_attacker": {
-            "target": {
-              "type": "one_self_chara_or_leader_filtered",
-              "filter": {
-                "feature": "王下七武海"
-              }
-            }
-          }
-        },
-        {
           "power_pump": {
             "target": {
               "type": "one_self_chara_or_leader_filtered",
@@ -5913,6 +5903,16 @@
             },
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "prevent_blocker_for_attacker": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "王下七武海"
+              }
+            }
           }
         }
       ]
@@ -11004,9 +11004,6 @@
       "when": "end_of_turn",
       "do": [
         {
-          "add_rested_don": 1
-        },
-        {
           "untap_chara": {
             "target": {
               "type": "self_chara_filtered",
@@ -11017,6 +11014,9 @@
             },
             "count": 2
           }
+        },
+        {
+          "add_rested_don": 1
         }
       ]
     }

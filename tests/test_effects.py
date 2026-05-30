@@ -3102,3 +3102,234 @@ def test_op14_061_op15_069_replace_leave_not_ko():
         assert "replace_ko" not in whens, (
             f"{cid} 旧 replace_ko が 残存 (= 公式 「場を離れる場合」 違反)"
         )
+
+
+# ============================================================================
+# 2026-05-31 Bonney/Corazon/Coby regression tests (= batch 2)
+# ============================================================================
+
+def test_eb03_053_nami_opp_life_gate_separated():
+    """EB03-053 ナミ on_play: opp_life_ge:3 gate が 別 entry 化 されている (= 旧 _if_clause string 解釈不能 を 修復)。"""
+    overlay = _overlay()
+    bundle = overlay.get("EB03-053")
+    on_play_entries = [e for e in bundle.effects if e.get("when") == "on_play"]
+    assert len(on_play_entries) >= 2, f"on_play entry が 2 つ ない: {len(on_play_entries)}"
+    # mill_opp_life_to_hand を 持つ entry が opp_life_ge:3 で gate
+    mill_entries = [
+        e for e in on_play_entries
+        if any("mill_opp_life_to_hand" in d for d in e.get("do", []))
+    ]
+    assert len(mill_entries) == 1, "mill_opp_life_to_hand 持つ entry が 1 つ で ない"
+    if_b = mill_entries[0].get("if") or {}
+    assert if_b.get("opp_life_ge") == 3, f"opp_life_ge:3 不在: {if_b}"
+    # _if_clause が どこにも 残っていない こと
+    for e in bundle.effects:
+        for d in e.get("do", []):
+            assert "_if_clause" not in d, f"_if_clause が overlay に 残存: {d}"
+
+
+def test_st29_015_counter_split():
+    """ST29-015 温度レアァ counter: top-level if 削除、 self pump は 無条件、 opp debuff は life≤1 限定 (= 旧 全 gate bug regression 防止)。"""
+    overlay = _overlay()
+    bundle = overlay.get("ST29-015")
+    counter_entries = [e for e in bundle.effects if e.get("when") == "counter"]
+    # 自 pump (= self_inplay) は 無条件
+    self_pump_entries = [
+        e for e in counter_entries
+        if any(d.get("power_pump", {}).get("target") == "self_inplay" for d in e.get("do", []))
+    ]
+    for e in self_pump_entries:
+        if_b = e.get("if") or {}
+        assert "self_life_le" not in if_b, f"自 pump entry に self_life_le が gate 残存: {if_b}"
+    # 相手 debuff は self_life_le:1 で gate
+    opp_pump_entries = [
+        e for e in counter_entries
+        if any(d.get("power_pump", {}).get("target") == "one_opponent_inplay_any" for d in e.get("do", []))
+    ]
+    for e in opp_pump_entries:
+        if_b = e.get("if") or {}
+        assert if_b.get("self_life_le") == 1, f"相手 debuff の self_life_le:1 gate 不在: {if_b}"
+
+
+def test_eb04_007_zoro_activate_has_opp_chara_condition():
+    """EB04-007 ゾロ activate_main: 公式 「相手の power 8000+ キャラ がいる場合」 if が 追加 され、
+    速攻：キャラ を give_keyword + give_attack_active_chara で 適切 に 実装。"""
+    overlay = _overlay()
+    bundle = overlay.get("EB04-007")
+    actmain = next(e for e in bundle.effects if e.get("when") == "activate_main")
+    if_b = actmain.get("if") or {}
+    cond = if_b.get("opp_chara_filtered_count_ge")
+    assert isinstance(cond, dict), f"opp_chara_filtered_count_ge dict 不在: {cond}"
+    assert cond.get("filter", {}).get("power_ge") == 8000, f"power_ge:8000 不在: {cond}"
+    do_keys = [list(d.keys())[0] for d in actmain.get("do", [])]
+    assert "give_attack_active_chara" in do_keys, f"give_attack_active_chara 不在: {do_keys}"
+
+
+def test_op11_013_grus_uses_disable_blocker():
+    """OP11-013 プリンス・グルス: 公式 「相手 power 2000以下 ブロッカー封じ」
+    が disable_blocker primitive で 正しく 実装 (= 旧 set_attack_cost_discard_hand 誤実装 regression 防止)。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP11-013")
+    on_attack = next(e for e in bundle.effects if e.get("when") == "on_attack")
+    do_keys = [list(d.keys())[0] for d in on_attack.get("do", [])]
+    assert "disable_blocker" in do_keys, f"disable_blocker 不在: {do_keys}"
+    assert "set_attack_cost_discard_hand" not in do_keys, (
+        f"旧 set_attack_cost_discard_hand 残存 (= wrong primitive regression)"
+    )
+
+
+def test_prb02_001_coby_condition_key_normalized():
+    """PRB02-001 コビー: condition key 'self_hand_le' (= engine 未認識) → 'self_hand_count_le' (= 正)。
+    eval_condition が 認識 する key で draw 効果 が 発火 する こと の 保証。"""
+    overlay = _overlay()
+    bundle = overlay.get("PRB02-001")
+    on_attack = next(e for e in bundle.effects if e.get("when") == "on_attack")
+    for d in on_attack.get("do", []):
+        if isinstance(d, dict) and "_condition" in d:
+            cond = d.get("_condition", {})
+            assert "self_hand_le" not in cond, f"旧 self_hand_le 残存: {cond}"
+
+
+def test_op12_073_law_target_chara_only():
+    """OP12-073 ロー(7) on_play: power_pump target が all_self_team (= leader 含む) → all_self_chara_filtered
+    (= leader 除外、 or filter ロシナンテ/ハート海賊団) に 修正済。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP12-073")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    if_b = on_play.get("if") or {}
+    assert if_b.get("don_diff_le") == 0, f"don_diff_le:0 gate 不在: {if_b}"
+    for d in on_play.get("do", []):
+        if "power_pump" in d:
+            t = d["power_pump"].get("target")
+            assert t != "all_self_team", "all_self_team 残存 (= leader 含む 旧 bug)"
+            if isinstance(t, dict):
+                assert t.get("type") == "all_self_chara_filtered", f"target type 違 い: {t}"
+
+
+def test_op11_092_helmeppo_full_effect():
+    """OP11-092 ヘルメッポ on_play: 公式 「1捨て cost → draw 1 + 自trash から SWORD cost≤8 (本人除く) 1 登場」
+    の core が 実装 (= 旧 trash_self_hand_random だけ の 切り捨て regression 防止)。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP11-092")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    do_keys = [list(d.keys())[0] for d in on_play.get("do", [])]
+    assert "draw" in do_keys, f"draw 1 不在: {do_keys}"
+    assert "play_from_trash" in do_keys, f"play_from_trash 不在: {do_keys}"
+    # cost に discard_hand:1 が ある (= 公式 「1捨てで」)
+    cost = on_play.get("cost", {})
+    assert cost.get("discard_hand") == 1, f"cost.discard_hand:1 不在: {cost}"
+
+
+def test_op11_004_search_rest_remain_bottom():
+    """OP11-004 孔雀 on_play: 公式 「残りを 好きな順番 で デッキの下」 = rest_remain:'bottom'
+    (= 旧 'trash' regression 防止)、 重複 look_top_reorder 削除済。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP11-004")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    search_spec = next(d["search_top_n"] for d in on_play["do"] if "search_top_n" in d)
+    assert search_spec.get("rest_remain") == "bottom", (
+        f"rest_remain 'bottom' で ない: {search_spec.get('rest_remain')}"
+    )
+    # search_top_n 1 件 のみ (= 重複 look_top_reorder 削除済)
+    look_reorder_count = sum(
+        1 for d in on_play.get("do", []) if "look_top_reorder" in d
+    )
+    assert look_reorder_count == 0, f"重複 look_top_reorder 残存: {look_reorder_count}"
+
+
+def test_eb04_002_bonney_search_feature_in_and_exclude():
+    """EB04-002 ボニー on_play search: feature_in [エッグヘッド,麦わらの一味] + exclude_name 'ジュエリー・ボニー'。"""
+    overlay = _overlay()
+    bundle = overlay.get("EB04-002")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    search = next(d["search_top_n"] for d in on_play["do"] if "search_top_n" in d)
+    filt = search.get("filter") or {}
+    feats = filt.get("feature_in")
+    assert isinstance(feats, list) and set(feats) == {"エッグヘッド", "麦わらの一味"}, (
+        f"feature_in 不正: {feats}"
+    )
+    assert filt.get("exclude_name") == "ジュエリー・ボニー", (
+        f"exclude_name 不在: {filt.get('exclude_name')}"
+    )
+
+
+def test_op12_112_baby5_trigger_leader_multicolor():
+    """OP12-112 ベビー5 trigger: 公式 「自分のリーダーが多色 の場合」 leader_multicolor:true が 追加済。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP12-112")
+    trig = next(e for e in bundle.effects if e.get("when") == "trigger")
+    if_b = trig.get("if") or {}
+    assert if_b.get("leader_multicolor") is True, f"leader_multicolor:true 不在: {if_b}"
+
+
+def test_search_top_n_filter_features_or():
+    """OP13-012 ビビ + OP09-069 ロー + EB04-002 ボニー で 公式 「《X》か《Y》」 の OR 条件 が
+    search filter feature_in で 正しく 表現 されている こと の 包括 regression。"""
+    overlay = _overlay()
+    cases = [
+        ("OP13-012", {"アラバスタ王国", "麦わらの一味"}, 2),  # cost_ge:2
+        ("OP09-069", {"麦わらの一味", "ハートの海賊団"}, 2),
+        ("EB04-002", {"エッグヘッド", "麦わらの一味"}, None),
+    ]
+    for cid, expected_feats, expected_cost_ge in cases:
+        bundle = overlay.get(cid)
+        on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+        search = next(d["search_top_n"] for d in on_play["do"] if "search_top_n" in d)
+        filt = search.get("filter") or {}
+        feats = set(filt.get("feature_in") or [])
+        assert feats == expected_feats, f"{cid} feature_in 不正: {feats} vs {expected_feats}"
+        if expected_cost_ge is not None:
+            assert filt.get("cost_ge") == expected_cost_ge, f"{cid} cost_ge 不正: {filt.get('cost_ge')}"
+
+
+def test_search_human_pick_branch():
+    """search primitive で 人間 acting + 候補 > limit なら pending_choice 'search_pick' が 立つ。"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    # 人間 mode を 強制 (= state.human_player_idx)
+    state.human_player_idx = 0
+    me = state.players[0]
+    opp = state.players[1]
+    # me.deck に 5 枚 matching を 仕込む
+    nami = repo.get("OP01-016")
+    me.deck = [nami] * 5 + [repo.get("OP01-013")] * 20
+    execute_effect(
+        {"search": {"filter": {"name": "ナミ"}, "limit": 1}},
+        state, me, opp, None,
+    )
+    assert state.pending_choice is not None, "pending_choice が 立たない (= 人間 modal 不在)"
+    assert state.pending_choice.get("kind") == "search_pick", (
+        f"kind が search_pick で ない: {state.pending_choice.get('kind')}"
+    )
+    assert len(state.pending_choice.get("candidates", [])) == 5, "候補 5 枚 揃わない"
+
+
+def test_play_from_hand_or_trash_human_pick_branch():
+    """play_from_hand_or_trash で 人間 acting + 候補 > limit なら
+    pending_choice 'play_from_hand_or_trash_pick' が 立つ。"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    state.human_player_idx = 0
+    me = state.players[0]
+    opp = state.players[1]
+    chara = repo.get("OP01-013")  # コスト 2 chara
+    me.hand = [chara, chara]
+    me.trash = [chara, chara]
+    execute_effect(
+        {"play_from_hand_or_trash": {"filter": {"category": "CHARACTER"}, "limit": 1}},
+        state, me, opp, None,
+    )
+    assert state.pending_choice is not None, "pending_choice が 立たない"
+    assert state.pending_choice.get("kind") == "play_from_hand_or_trash_pick", (
+        f"kind 不一致: {state.pending_choice.get('kind')}"
+    )
+    cands = state.pending_choice.get("candidates", [])
+    assert len(cands) == 4, f"全 候補 4 枚 揃わない: {len(cands)}"
+    # source 別 内訳
+    hand_count = sum(1 for c in cands if c.get("source") == "hand")
+    trash_count = sum(1 for c in cands if c.get("source") == "trash")
+    assert hand_count == 2 and trash_count == 2, f"source 内訳 不一致 (h={hand_count}, t={trash_count})"

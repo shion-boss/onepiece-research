@@ -1897,6 +1897,33 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "self_hand_discard_pick" ? (
+          // 効果 do 側 「自分の手札 N 枚 を 捨てる」 の 人間 選択
+          // (= 旧 random discard を 廃止 → ohtsuki さん 要望)
+          <SelfHandDiscardPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "search_from_trash_pick" ? (
+          // トラッシュ サーチ 人間 選択 (= 候補 > N で modal halt)
+          <PlayFromTrashPickModal
+            payload={{ ...state.pending_payload, _source_zone: "trash_search" }}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "search_pick" ? (
+          // デッキ 全 サーチ 人間 選択 (= 候補 > N で modal halt)。
+          // candidates は {idx, card_id, name, cost, power} 形式 で PlayFromTrashPickModal
+          // の deck_idx schema と 互換 化 する ため _source_zone:deck_search で wrap。
+          <SearchPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "mulligan_confirm" ? (
           // 「先攻/後攻」 banner 完了 を 待ってから 表示 (= 順序 制御)
           initialBannerDone ? (
@@ -4874,6 +4901,251 @@ function PlayFromHandOrTrashPickModal({
             }}
             disabled={busy || picked.length === 0}
             className="ml-2 rounded bg-cyan-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-cyan-400 disabled:opacity-50"
+          >
+            確定 ({picked.length}枚)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// SelfHandDiscardPickModal: 効果 do の 「自分の手札 N 枚 を 捨てる」 の 人間 選択。
+// 旧 random discard を 廃止 し プレイヤー が 捨てる カード を 選べる ように した。
+// ========================================================================== //
+
+function SelfHandDiscardPickModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const candidates =
+    (payload.candidates as
+      | {
+          hand_idx: number;
+          card_id: string;
+          name: string;
+          cost: number;
+          power: number;
+        }[]
+      | undefined) ?? [];
+  const limit = Number(payload.limit ?? 1);
+  const [picked, setPicked] = useState<number[]>([]);
+
+  function togglePick(idx: number) {
+    if (picked.includes(idx)) {
+      setPicked(picked.filter((x) => x !== idx));
+      return;
+    }
+    if (picked.length < limit) {
+      setPicked([...picked, idx]);
+      return;
+    }
+    if (limit === 1) {
+      setPicked([idx]);
+    } else {
+      setPicked([...picked.slice(1), idx]);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-rose-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-rose-200">
+            手札 {limit} 枚 を トラッシュ
+          </h3>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {picked.length} / {limit}
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {candidates.map((c, idx) => {
+            const isSelected = picked.includes(idx);
+            return (
+              <button
+                key={`${c.hand_idx}-${c.card_id}-${idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePick(idx);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                className={
+                  "relative rounded transition " +
+                  (isSelected
+                    ? "ring-4 ring-amber-400 -translate-y-2"
+                    : "ring-2 ring-rose-400 hover:ring-rose-300")
+                }
+                title={`${c.name} (cost=${c.cost}, P=${c.power})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-56 w-auto rounded shadow-xl"
+                />
+                <span className="absolute top-0 left-0 rounded-br bg-rose-600 px-1.5 text-xs font-bold text-white">
+                  c{c.cost}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            捨てる {limit} 枚 を 選択 (= 「~枚 まで」 の 任意 効果 でない 場合 0 不可)
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(picked);
+            }}
+            disabled={busy || picked.length !== limit}
+            className="ml-auto rounded bg-rose-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-rose-400 disabled:opacity-50"
+          >
+            確定 ({picked.length}/{limit})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// SearchPickModal: search primitive (= デッキ 全 サーチ) 人間 選択。
+// ========================================================================== //
+// candidates は {idx, card_id, name, cost, power} 形式 (= me.deck の 元 index)。
+
+function SearchPickModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const candidates =
+    (payload.candidates as
+      | {
+          idx: number;
+          card_id: string;
+          name: string;
+          cost: number;
+          power: number;
+        }[]
+      | undefined) ?? [];
+  const limit = Number(payload.limit ?? 1);
+  const destination = String(payload.destination ?? "hand");
+  const [picked, setPicked] = useState<number[]>([]);
+
+  function togglePick(idx: number) {
+    if (picked.includes(idx)) {
+      setPicked(picked.filter((x) => x !== idx));
+      return;
+    }
+    if (picked.length < limit) {
+      setPicked([...picked, idx]);
+      return;
+    }
+    if (limit === 1) {
+      setPicked([idx]);
+    } else {
+      setPicked([...picked.slice(1), idx]);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-amber-200">
+            デッキ サーチ ({destination === "play" ? "場に登場" : "手札へ"})
+          </h3>
+          <span className="text-sm text-zinc-300">候補 {candidates.length} 枚 (= 公開)</span>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {picked.length} / {limit}
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {candidates.map((c, listIdx) => {
+            const isSelected = picked.includes(listIdx);
+            return (
+              <button
+                key={`${c.idx}-${c.card_id}-${listIdx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePick(listIdx);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                className={
+                  "relative rounded transition " +
+                  (isSelected
+                    ? "ring-4 ring-amber-400 -translate-y-2"
+                    : "ring-2 ring-emerald-400 hover:ring-emerald-300")
+                }
+                title={`${c.name} (cost=${c.cost}, P=${c.power})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-56 w-auto rounded shadow-xl"
+                />
+                <span className="absolute top-0 left-0 rounded-br bg-emerald-600 px-1.5 text-xs font-bold text-white">
+                  c{c.cost}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            最大 {limit} 枚。 0 枚 でも 確定 (= 「~まで」 規定)。 サーチ 後 デッキシャッフル。
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([]);
+            }}
+            disabled={busy}
+            className="rounded border border-zinc-500 bg-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
+          >
+            skip (0 枚)
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(picked);
+            }}
+            disabled={busy || picked.length === 0}
+            className="ml-2 rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
           >
             確定 ({picked.length}枚)
           </button>

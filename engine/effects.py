@@ -1981,15 +1981,54 @@ def _execute_effect_body(
             # 2026-05-31 fix: card name 漏 洩 防 止 (= 同 上、 隠 ぺい 情 報 保 護)
             state.push_log(f"  効果: 動的ドロー {n}")
         elif k == "trash_self_hand_random":
-            n = int(v)
+            # 公式: 「自分の手札 N 枚を捨てる」 = プレイヤー が 選んで 捨てる
+            # (= 公式 ルール 「捨てる」 の 通常 意味。 「ランダム」 表記 なし)。
+            # 2026-05-31: 人間 acting + 候補 > N で modal halt → 人間 が pick。
+            # AI / 候補 <= N は 旧 「random」 挙動 (= 簡略、 ただし 候補 全部 捨てる ので 影響 軽微)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            picks_idx = None
+            if isinstance(v, dict) and "_picked_hand_idxs" in v:
+                picks_idx = list(v["_picked_hand_idxs"])
+            if picks_idx is None and _should_human_pick(state) and len(me.hand) > n and n > 0:
+                state.pending_choice = {
+                    "kind": "self_hand_discard_pick",
+                    "primitive_kind": "trash_self_hand_random",
+                    "primitive_value": v,
+                    "candidates": [
+                        {
+                            "hand_idx": i,
+                            "card_id": c.card_id,
+                            "name": c.name,
+                            "cost": int(c.cost) if c.cost is not None else 0,
+                            "power": int(c.power) if c.power is not None else 0,
+                        }
+                        for i, c in enumerate(me.hand)
+                    ],
+                    "limit": n,
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: 自手札 {n} 枚 トラッシュ → 人間 選択 待ち "
+                    f"(候補 {len(me.hand)} 枚)"
+                )
+                return True
             actually_discarded = 0
-            for _ in range(n):
-                if not me.hand:
-                    break
-                idx = state.rng.randrange(len(me.hand))
-                me.trash.append(me.hand.pop(idx))
-                actually_discarded += 1
-            state.push_log(f"  効果: 自手札 {n} 枚 トラッシュ")
+            if picks_idx is not None:
+                # 人間 modal で 選 ば れ た hand index を 使う (= 降順 で pop)
+                idxs = sorted(set(int(i) for i in picks_idx if 0 <= int(i) < len(me.hand)),
+                              reverse=True)
+                for hi in idxs[:n]:
+                    me.trash.append(me.hand.pop(hi))
+                    actually_discarded += 1
+            else:
+                # AI / 候補 <= n: 旧 random 挙動 (= 候補 全捨て に 等しい 場合 が ほとんど)
+                for _ in range(n):
+                    if not me.hand:
+                        break
+                    idx = state.rng.randrange(len(me.hand))
+                    me.trash.append(me.hand.pop(idx))
+                    actually_discarded += 1
+            state.push_log(f"  効果: 自手札 {actually_discarded} 枚 トラッシュ")
             if actually_discarded > 0 and state.effects_overlay:
                 trigger_on_self_hand_discarded(
                     state, me, opp, self_inplay, actually_discarded, state.effects_overlay
@@ -6083,6 +6122,45 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             f"  効果: 人間選択 → {zone_label} から 登場 {len(zone_idxs)} 枚"
         )
         execute_effect({target_primitive: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "self_hand_discard_pick":
+        # trash_self_hand_random 人間 pick: picks = candidates idx list。
+        # candidates[i]["hand_idx"] = me.hand 内 の 実 index。
+        candidates = choice.get("candidates", [])
+        primitive_value = choice.get("primitive_value") or {}
+        source_iid = choice.get("source_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
+        state.pending_choice = None
+        if not hand_idxs:
+            # 公式 「N 枚 捨てる」 は 強制 (= 拒否 不可)、 ただし 「~枚 まで」 なら 0 OK。
+            # ここ で 0 を 許す と 「~枚 捨てる」 強制 でも スキップ できて しまう。
+            # しかし limit=N で N 枚 強制 か N 枚 まで か は overlay spec で 区別 不可能。
+            # 安全 策: AI fallback で 既 完了 した の と 同 結 果 を 出す ため、
+            # 候補 数 が limit 以上 ある なら 残り は random で 補完 する。
+            limit = int(choice.get("limit", 1))
+            for _ in range(limit):
+                if not me.hand:
+                    break
+                idx = state.rng.randrange(len(me.hand))
+                me.trash.append(me.hand.pop(idx))
+            state.push_log(f"  効果: 自手札 {limit} 枚 トラッシュ (= 人間 skip 後 random fallback)")
+            return
+        if isinstance(primitive_value, dict):
+            new_spec = dict(primitive_value)
+        else:
+            new_spec = {"amount": int(choice.get("limit", 1))}
+        new_spec["_picked_hand_idxs"] = hand_idxs
+        state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 トラッシュ")
+        execute_effect({"trash_self_hand_random": new_spec}, state, me, opp, self_inplay)
         return
 
     if kind == "search_pick":
