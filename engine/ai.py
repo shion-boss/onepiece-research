@@ -380,21 +380,32 @@ def _is_attack_confirmed_fail_no_effect(
 def prune_mechanical_waste(state: GameState, actions: list) -> list:
     """機械的悪手を action リストから除外。 副作用なし。
 
-    現在排除する手:
-    - PlayEvent: 過剰除去判定 (_is_event_overkill が True)
-    - AttachDonToLeader / AttachDonToCharacter: 今ターン attack 不可な target への attach
-    - AttackLeader / AttackCharacter: 確定失敗 + on_attack 効果なし の空打ち attack
-    - EndPhase: 他に 「やる事」 がある時 (= 2026-05-27、 bad_moves で DON 余 / 攻撃可能 で
-      EndPhase が AI 悪手の 主犯 と判明、 prune 後の 他 actions は 全て 価値ありと前提)
+    2026-05-31 改 訂 (= [[project_priority_v2_cascade_done]] 後、 ohtsuki さん 指 摘
+    「entries 増 やし た から 規 制 不 要、 bonus 信 号 が 機 能 し て な い」):
+    旧 logic は attack / attach に も prune を 入 れて い た が、 entries dense 化 +
+    cascade fallback (= 12 軸 + L0-L4) で **bonus signal が attack の 価 値 を 正 確 に
+    出 す よ う に な っ た**。 prune 側 の 「確 定 失 敗」 判 定 (= デリンジャー 2000 →
+    leader 5000 は 「失 敗」 と み なし 削 除) が 真 因 で attack 機 会 取 り こぼし →
+    EndPhase 大 損 が log で 多 発 (= 23:02 試 合 で 5 turn 連 続)。
 
-    全 action が剪定されたら元リストを返す (= AI を破綻させない safety)。
+    現 在 排 除 する 手 (= 縮 退 版):
+    - PlayEvent: 過剰除去判定 (_is_event_overkill が True、 bonus で は 防 げ ず)
+    - PlayEvent: 主効果 unfirable (= 同 上)
+    - EndPhase: 他 に 「やる事」 が ある 時 (= 早 期 end 抑制、 bonus 信 号 だ け で は
+      EndPhase が 0 bonus で 選 ば れ や す い ため 維 持)
+
+    撤 去:
+    - AttachDonToLeader / AttachDonToCharacter prune (= bonus に 任 す)
+    - AttackLeader / AttackCharacter prune (= 真 因 だ っ た、 bonus に 任 す)
+
+    全 action が 剪 定 さ れ た ら 元 リスト を 返 す (= AI を 破 綻 さ せ な い safety)。
     """
     if not actions:
         return actions
     me = state.turn_player
     opp = state.opponent
     overlay = state.effects_overlay or {}
-    # Pass 1: 非 EndPhase actions を prune (= 既存 PlayEvent / AttachDon / Attack ルール)
+    # Pass 1: 非 EndPhase actions を prune (= PlayEvent overkill / unfirable のみ)
     non_end_pruned = []
     end_actions = []
     for a in actions:
@@ -408,12 +419,7 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
                     continue
                 if _is_event_main_effect_unfirable(state, me, opp, card, overlay):
                     continue
-        elif isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
-            if _is_attach_don_wasteful(state, a):
-                continue
-        elif isinstance(a, (AttackLeader, AttackCharacter)):
-            if _is_attack_confirmed_fail_no_effect(state, a, overlay):
-                continue
+        # AttachDon / Attack の prune は 撤 去 (= bonus 信 号 に 任 せ る)
         non_end_pruned.append(a)
     # Pass 2: 非 EndPhase が 1 つ でも 残れば EndPhase 排除 (= 早期 end 抑制)。
     # 全 prune されたら EndPhase だけでも 返す (= safety、 AI 動作維持)。
