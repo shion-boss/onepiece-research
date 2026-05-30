@@ -5,7 +5,7 @@
       "runtime": "@vercel/python@6.41.0",
       "maxDuration": 300,
       "memory": 2048,
-      "includeFiles": "{engine,api}/** decks/*.json db/cards.json db/cards.sqlite db/card_effects.json db/deck_archetypes.json db/target_generic.json db/matchup_matrix.json db/banlist/** db/faq/**"
+      "includeFiles": "{engine,db,decks,api}/**"
     }
   },
   "rewrites": [

@@ -56,6 +56,13 @@ db/game_corpus/
 db/snapshots_*
 db/self_play_snapshots*
 db/twoturn_snapshots*
+db/twoturn_snapshots_*
+db/snapshots_threeturn*
+db/mcts_rollout*
+db/online_snapshots*
+db/*.jsonl
+db/*.jsonl.gz
+db/*.iter*
 
 # bonus learning artifact
 db/bonus_rounds/
@@ -96,3 +103,34 @@ images/
 
 # scraper 中 間 (= 開 発 only)
 scraper/
+
+# logs (= 走 行 ログ、 完 全 dev artifact、 166MB)
+logs/
+
+# docs (= プロジェクト 文 書、 runtime 不 要)
+docs/
+
+# 評 価 結 果 (= eval CLI 出 力、 runtime 不 要)
+eval_results/
+
+# Next.js 関 連 (= 別 project)
+node_modules/
+
+# scripts (= CLI 開 発 用、 runtime API か ら 呼 ば な い)
+scripts/
+
+# 旧 / 退 避 deck (= _archive、 production 配 信 対 象 外)
+decks/_archive/
+
+# spec backup / 過 去 round (decks 配 下 にも 場 合 あ り)
+decks/_backups/
+decks/*.bak
+
+# Claude / agent 設 定 (= 開 発 only)
+.claude/
+agents/
+
+# pytest / mypy cache (再 列 挙)
+.coverage
+.coverage.*
+htmlcov/
