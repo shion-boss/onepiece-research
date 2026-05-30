@@ -65,6 +65,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         spec_version: str = "v1",
         recursion_depth: int = 0,
         strong: bool = False,
+        exploration_eps: float = 0.0,
         **kwargs,
     ):
         """
@@ -97,6 +98,11 @@ class GoalDirectedAI(_NoNNPlanningBase):
         self._deck_slug = deck_slug
         self._spec_version = spec_version
         self.recursion_depth = recursion_depth
+        # ε-greedy exploration (= 2026-05-29、 [[project_corpus_methodology_dead_end]])
+        # 0.0 = 通常 (= argmax)、 0.05-0.10 = corpus 収集 中 の 探索 用。
+        # base_eval が 推さない 行動 を ε で 試行 → corpus に 多様 性 注入 →
+        # build_spec が 「base_eval-conflicting winning action」 を 学習 可能 に なる。
+        self._exploration_eps = float(exploration_eps)
 
     # _compute_adaptive_params override は 削除 (= 2026-05-28)。
     # strong mode で beam+1 すると mid/late 計算量 倍以上 で 実用 不能。
@@ -135,10 +141,103 @@ class GoalDirectedAI(_NoNNPlanningBase):
             pass
         return None
 
+    def _choose_action_pure_lookup(self, state: GameState):
+        """pure lookup mode (= 2026-05-30、 ohtsuki さん 提 案):
+
+        beam search 完 全 bypass、 spec の bonus argmax のみ で action 決 定。
+        ONEPIECE_PURE_LOOKUP=1 で 有 効化。
+
+        - rich axes (= 12 軸) で entry 絞 込 み
+        - 各 legal action の matched target bonus を 計 算
+        - argmax(bonus) で 採 用
+        - ε-greedy exploration で 探 索
+        - 推 論 ~50ms/decision (= beam の 100x 高 速)
+        """
+        from .game import legal_actions, EndPhase
+        from .axis_compute import compute_axes_from_state
+        from .target_dsl import find_matching_entries_v2
+
+        me_idx = state.turn_player_idx
+
+        # state axes 計 算
+        try:
+            # opp_archetype は deck_analysis から
+            opp_arch = "midrange"
+            opp_player = state.players[1 - me_idx]
+            if hasattr(opp_player, "deck_analysis") and isinstance(opp_player.deck_analysis, dict):
+                opp_arch = opp_player.deck_analysis.get("archetype", "midrange")
+            state_axes = compute_axes_from_state(state, me_idx, opp_arch)
+        except Exception:
+            state_axes = {}
+
+        # spec から match entries
+        spec = self._resolve_target_spec(state) or {}
+        entries = find_matching_entries_v2(spec, state_axes) if state_axes else []
+
+        # legal_actions
+        legal = legal_actions(state)
+        if not legal:
+            return EndPhase()
+        if len(legal) == 1:
+            return legal[0]
+
+        # ε-greedy 探 索
+        if self._exploration_eps > 0 and self.rng.random() < self._exploration_eps:
+            return self.rng.choice(legal)
+
+        # 各 action の bonus 計 算 (= matched targets の MAX)
+        def _action_bonus(action) -> int:
+            action_kind = action.__class__.__name__
+            best = 0
+            for entry, weight in entries:
+                for tgt in entry.get("targets", []):
+                    if tgt.get("action_kind") != action_kind:
+                        continue
+                    tgt_cid = tgt.get("action_card_id")
+                    act_cid = getattr(action, "card_id", None) or self._resolve_action_card_id(action, state, me_idx)
+                    if tgt_cid and act_cid and tgt_cid != act_cid:
+                        continue
+                    contribution = int(tgt.get("bonus", 0) * weight)
+                    if contribution > best:
+                        best = contribution
+            return best
+
+        action_scores = [(a, _action_bonus(a)) for a in legal]
+        max_score = max(s for _, s in action_scores)
+
+        # === fallback: spec 不 足 で 全 bonus=0 なら GreedyAI に 委 譲 (= 2026-05-30) ===
+        # pure_lookup mode で 「spec coverage 不 足」 = 全 entry mismatch or 全 bonus 0
+        # → 完 全 ランダム play で 大 敗、 GreedyAI heuristic に fallback で 妥 当 化。
+        if max_score == 0:
+            from .ai import GreedyAI
+            return GreedyAI.choose_action(self, state)
+
+        best_actions = [a for a, s in action_scores if s == max_score]
+        if len(best_actions) == 1:
+            return best_actions[0]
+        return self.rng.choice(best_actions)
+
+    def _resolve_action_card_id(self, action, state, me_idx):
+        """action に card_id が ない (= hand_idx のみ) 場合 解 決。"""
+        hand_idx = getattr(action, "hand_idx", None)
+        if hand_idx is None:
+            return None
+        me = state.players[me_idx]
+        if 0 <= hand_idx < len(me.hand):
+            return me.hand[hand_idx].card.card_id
+        return None
+
     def choose_action(self, state: GameState):
         if self.recursion_depth >= 2:
             from .ai import GreedyAI
             return GreedyAI.choose_action(self, state)
+        # pure lookup mode (= 2026-05-30): beam search bypass
+        if os.environ.get("ONEPIECE_PURE_LOOKUP", "0") == "1":
+            try:
+                return self._choose_action_pure_lookup(state)
+            except Exception as e:
+                # 失 敗 時 は beam に fallback (= 安 全)
+                pass
         saved = os.environ.get("ONEPIECE_GOAL_TARGET_W")
         os.environ["ONEPIECE_GOAL_TARGET_W"] = str(self._goal_target_w)
         # v3: Phase H-3 NN value 加算 path (= 2026-05-20)
@@ -164,7 +263,19 @@ class GoalDirectedAI(_NoNNPlanningBase):
             state._goal_target_spec = target_spec  # type: ignore[attr-defined]
             attached = True
         try:
-            return super().choose_action(state)
+            action = super().choose_action(state)
+            # === ε-greedy exploration (= corpus 多様 化 用、 推論 時 は eps=0) ===
+            if (self._exploration_eps > 0 and self.recursion_depth == 0
+                    and self.rng.random() < self._exploration_eps):
+                from .game import legal_actions
+                try:
+                    legal = legal_actions(state)
+                    alts = [a for a in legal if a != action]
+                    if alts:
+                        action = self.rng.choice(alts)
+                except Exception:
+                    pass  # 探索 失敗 = 元 action を 使う
+            return action
         finally:
             if saved is None:
                 os.environ.pop("ONEPIECE_GOAL_TARGET_W", None)

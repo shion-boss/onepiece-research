@@ -70,6 +70,14 @@ _EXTENDED_KEYS = {
     "self_finisher_on_field_ge",
     "min_attacks_this_turn_ge",
     "min_leader_attacks_this_turn_ge",
+    # action-specific (= 2026-05-29, action 差別 化 用)
+    "min_play_chara_this_turn_ge",
+    "min_play_event_this_turn_ge",
+    "min_play_stage_this_turn_ge",
+    "min_activate_main_this_turn_ge",
+    "min_attach_don_leader_this_turn_ge",
+    "min_attach_don_chara_this_turn_ge",
+    "min_attack_chara_this_turn_ge",
     "opp_field_total_power_le",
     "opp_active_chara_count_le",
     "opp_chara_count_le",
@@ -107,6 +115,13 @@ def _count_attacks_in_plan(plan, leader_only: bool = False) -> int:
     if leader_only:
         return sum(1 for a in plan if isinstance(a, AttackLeader))
     return sum(1 for a in plan if isinstance(a, (AttackLeader, AttackCharacter)))
+
+
+def _count_action_type_in_plan(plan, action_class_name: str) -> int:
+    """plan 内 で 特定 action class が 何 回 取られた か (= 2026-05-29、 action-specific if 条件 用)。"""
+    if not plan:
+        return 0
+    return sum(1 for a in plan if a.__class__.__name__ == action_class_name)
 
 
 def _extended_eval(cond: dict[str, Any], state: GameState, me, plan=None) -> bool:
@@ -169,6 +184,28 @@ def _extended_eval(cond: dict[str, Any], state: GameState, me, plan=None) -> boo
                 return False
         elif k == "min_leader_attacks_this_turn_ge":
             if _count_attacks_in_plan(plan, leader_only=True) < int(v):
+                return False
+        # === action-specific if 条件 (= 2026-05-29、 bonus が action 差別 化 を 担う ため) ===
+        elif k == "min_play_chara_this_turn_ge":
+            if _count_action_type_in_plan(plan, "PlayCharacter") < int(v):
+                return False
+        elif k == "min_play_event_this_turn_ge":
+            if _count_action_type_in_plan(plan, "PlayEvent") < int(v):
+                return False
+        elif k == "min_play_stage_this_turn_ge":
+            if _count_action_type_in_plan(plan, "PlayStage") < int(v):
+                return False
+        elif k == "min_activate_main_this_turn_ge":
+            if _count_action_type_in_plan(plan, "ActivateMain") < int(v):
+                return False
+        elif k == "min_attach_don_leader_this_turn_ge":
+            if _count_action_type_in_plan(plan, "AttachDonToLeader") < int(v):
+                return False
+        elif k == "min_attach_don_chara_this_turn_ge":
+            if _count_action_type_in_plan(plan, "AttachDonToCharacter") < int(v):
+                return False
+        elif k == "min_attack_chara_this_turn_ge":
+            if _count_action_type_in_plan(plan, "AttackCharacter") < int(v):
                 return False
         elif k == "opp_field_total_power_le":
             if opp is None:
@@ -381,6 +418,103 @@ def find_matching_entries(
     return per_deck_matches + external_matches
 
 
+def find_matching_entries_v2(
+    target_spec: dict,
+    state_axes: dict,
+) -> list[tuple[dict, float]]:
+    """v2 rich axes 対応 find_matching_entries (= 2026-05-30 拡張)。
+
+    state_axes は engine.axis_compute.compute_axes_from_state の 出力 dict。
+    entry に 書かれた rich axes (= opp_life_bucket 等) と state_axes を 比較、
+    全 軸 match で 採用、 weight = leader_tier × turn_weight。
+
+    旧 4 軸 entries (= rich axes なし) との backward compat:
+      - entry に rich axes が ない → wildcard で match (= 旧 logic 通り)
+      - entry に rich axes あり → 厳 密 一 致 必須
+    """
+    if not target_spec:
+        return []
+    entries = target_spec.get("entries", [])
+    if not entries:
+        return []
+
+    from .axis_compute import axes_match
+
+    matches: list[tuple[dict, float]] = []
+    for entry in entries:
+        ok, weight = axes_match(entry, state_axes, turn_tolerance=1)
+        if ok and weight > 0:
+            matches.append((entry, weight))
+    return matches
+
+
+# ===========================================================================
+# cascade fallback (= 2026-05-30 追加、 学 習 coverage 不 足 対 応)
+# ===========================================================================
+#
+# 12 軸 strict match で 0 件 だ と GreedyAI fallback = 学 習 効 果 ゼ ロ。
+# 段 階 的 に 「優 先 度 低 軸」 を 落 と し て 何 か し ら の entry に hit さ せ る。
+# 戦 略 重 要 度 順 (= 残 す べ き 軸):
+#   1. turn (= ゲ ー ム 進 行)
+#   2. opp_leader_id (= matchup 根 本)
+#   3. self_life_bucket / opp_life_bucket (= lethal 圏 判 断)
+#   4. self_field_bucket / opp_field_bucket (= 盤 面 状 況)
+#   5. opp_threat_bucket (= 脅 威 評 価)
+#   6. self_don_bucket / self_hand_bucket / opp_hand_bucket (= リソース)
+#   7. opp_active_chara_bucket (= field と overlap)
+#   8. opp_archetype / self_condition (= 他 軸 か ら derive 可)
+#
+# 各 level の drop = state_axes の key を 削 除 (= wildcard 扱 い 化)。
+
+CASCADE_DROP_LEVELS: tuple[set[str], ...] = (
+    set(),  # L0: drop なし (= 12 軸 strict)
+    # L1: derivable / overlap (= 他 軸 か ら 復 元 可 + 冗 長)
+    {"self_condition", "opp_archetype", "opp_active_chara_bucket"},
+    # L2: + リソース 軸 (= hand / don、 戦 略 重 要 度 中)
+    {"self_condition", "opp_archetype", "opp_active_chara_bucket",
+     "self_hand_bucket", "opp_hand_bucket", "self_don_bucket"},
+    # L3: + 盤 面 軸 (= field / threat、 残 る は life + matchup core)
+    {"self_condition", "opp_archetype", "opp_active_chara_bucket",
+     "self_hand_bucket", "opp_hand_bucket", "self_don_bucket",
+     "opp_threat_bucket", "opp_field_bucket", "self_field_bucket"},
+    # L4: + life 軸 (= turn + opp_leader_id の 2 軸 のみ、 旧 4 軸 相 当)
+    {"self_condition", "opp_archetype", "opp_active_chara_bucket",
+     "self_hand_bucket", "opp_hand_bucket", "self_don_bucket",
+     "opp_threat_bucket", "opp_field_bucket", "self_field_bucket",
+     "opp_life_bucket", "self_life_bucket"},
+)
+
+# cascade level に 応 じ た weight 減 衰 (= 深 い ほ ど 信 頼 度 落 ち る)
+CASCADE_LEVEL_DECAY: tuple[float, ...] = (1.0, 0.85, 0.70, 0.55, 0.40)
+
+
+def find_matching_entries_cascade(
+    target_spec: dict,
+    state_axes: dict,
+) -> tuple[list[tuple[dict, float]], int]:
+    """cascade fallback で match を 探 す。 strict (L0) → 段 階 的 緩 和 → L4。
+
+    Returns:
+      (matches, level_used): 最 初 に hit し た level の matches + その level 番 号。
+      全 miss なら ([], -1)。 weight は level decay 適 用 済。
+    """
+    if not target_spec:
+        return [], -1
+
+    for level, drop_keys in enumerate(CASCADE_DROP_LEVELS):
+        if drop_keys:
+            relaxed_axes = {k: v for k, v in state_axes.items() if k not in drop_keys}
+        else:
+            relaxed_axes = state_axes
+        matches = find_matching_entries_v2(target_spec, relaxed_axes)
+        if matches:
+            decay = CASCADE_LEVEL_DECAY[level] if level < len(CASCADE_LEVEL_DECAY) else 0.3
+            decayed = [(e, w * decay) for e, w in matches]
+            return decayed, level
+
+    return [], -1
+
+
 def find_target_entry(
     target_spec: dict,
     turn_number: int,
@@ -464,21 +598,24 @@ def compute_target_match_bonus(
     cap: int = 3000,
     plan=None,
 ) -> int:
-    """plan_search の leaf eval で 呼ばれる bonus 計算 (= MAX 版、 2026-05-26 更新)。
+    """plan_search の leaf eval で 呼ばれる bonus 計算 (= argmax 版、 2026-05-30 更新)。
 
     現 state の (turn, opp_leader_id, opp_archetype, self_condition) で **match する 全 entries** を
-    探し、 各 entry で priority 順 に targets を 評価 → 最初 match の bonus を 取得 →
-    `weight × importance × bonus` の **最大値** を 返す (= leaf 選択 を 駆動 する のは 最良 target 1 件)。
+    探し、 各 entry で **全 if-satisfying targets** を 評価 → `weight × importance × bonus` の
+    **最大値** を 返す (= argmax(Q-value) policy、 priority chain 廃止)。
 
-    旧 SUM 版 では 7200 cross-leader entries 投入 後 cap=3000 飽和 で leaf 差別化 が
-    消失していた (= どの leaf も 同じ bonus に 潰れる)。 MAX 化 で 「ターン目標 = 1 つ の 明確 ゴール」
-    という 本来 設計 に 寄せる。
+    旧 設計 では priority 順 で 「最初 if 満たす target」 で break して い た が、 bonus 最適化
+    路 線 で は priority が 嘘 を つ く 問題 (= 学習 後 priority 1 の bonus が priority 2 より
+    下 が る ケース で 動 作 が dead lock) が 発生。 argmax 化 で 価値 関数 と し て の 整 合 性 を 確 保。
+
+    旧 SUM 版 (= 7200 cross-leader entries で cap 飽和) → MAX 版 (= 2026-05-26 旧)
+    → argmax 版 (= 2026-05-30 現)。
 
     weight = leader_tier × turn_weight × cond_weight (= find_matching_entries 由来、 [0, 1])
     importance = entry.get("importance", 1.0) (= 戦略的重要度、 default 1.0)
     cap = 暴走防止 (= default 3000、 単一 entry の bonus は 500-2000 範囲 なので 通常 cap 未満)
 
-    全 entry miss / no priority match → 0。
+    全 entry miss / if 満たす target 0 → 0。
     """
     if not target_spec:
         return 0
@@ -500,12 +637,23 @@ def compute_target_match_bonus(
         opp_slug = None
     opp_archetype = get_archetype_by_slug(opp_slug)
 
-    self_cond = compute_self_condition(state, me_idx)
-    matches = find_matching_entries(
-        target_spec, turn_number, opp_leader_id, self_cond, opp_archetype
-    )
+    # 2026-05-30 v2 化 + cascade fallback:
+    # L0 (= 12 軸 strict) で hit すれば weight 1.0、 miss なら L1-L4 で 段 階 緩 和。
+    # 全 miss なら 0 を 返 す (= caller が GreedyAI fallback)。
+    # 学 習 coverage 不 足 deck (= op11_luffy 系) で の miss を 救 済、
+    # cardrush_1456 系 (= coverage 十 分) で は L0 hit で 高 bonus 維 持。
+    from .axis_compute import compute_axes_from_state
+    state_axes = compute_axes_from_state(state, me_idx, opp_archetype or "midrange")
+    state_axes["turn"] = turn_number  # 明 示 反 映
+    matches, cascade_level = find_matching_entries_cascade(target_spec, state_axes)
     if not matches:
+        # cascade L0-L4 全 miss = spec ゼ ロ 寄 与 = AI が GreedyAI 同 等 で プレイ。
+        # ENV 変 数 で 設 定 さ れ た log path に state_axes + deck_slug を 記 録 (= 後 で
+        # entry 提 案 + spec 補 強 用)。
+        _log_cascade_fallback(state_axes, opp_slug, me_idx)
         return 0
+    # cascade level も per-state 記 録 (= L0 hit 率 / L4 救 済 率 を 集 計 用)
+    _log_cascade_hit(cascade_level)
 
     best_bonus = 0.0
     best_entry_id: Optional[str] = None
@@ -514,8 +662,10 @@ def compute_target_match_bonus(
         targets = entry.get("targets", [])
         if not targets:
             continue
-        sorted_targets = sorted(targets, key=lambda t: t.get("priority", 999))
-        for tgt in sorted_targets:
+        # 2026-05-30 argmax 化: priority sort + break 廃止、 全 if-satisfying targets を 評価
+        # して MAX bonus を 採用。 bonus 最適化 と の 整 合 性 (= 学 習 後 priority が 嘘 を つ く
+        # 問題 を 根本 解消)、 Q(s,a) 価値 関数 path と 整合。
+        for tgt in targets:
             if_cond = tgt.get("if", {})
             if evaluate_target_condition(if_cond, state, me_idx, plan):
                 target_bonus = int(tgt.get("bonus", 0))
@@ -523,7 +673,6 @@ def compute_target_match_bonus(
                 if contribution > best_bonus:
                     best_bonus = contribution
                     best_entry_id = entry.get("_entry_id")
-                break  # priority chain で 1 つ 採用、 次 entry へ
     # fire logging hook (= state._fired_target_counts[me_idx] が dict なら 集計)
     # bonus 学習 で 「どの entry が 何回 driving した か」 を per-player track する。
     # default off (= 通常 plan_search では 無効)、 eval_with_entry_firings.py が opt-in。
@@ -532,6 +681,104 @@ def compute_target_match_bonus(
         if counts is not None and me_idx < len(counts):
             counts[me_idx][best_entry_id] = counts[me_idx].get(best_entry_id, 0) + 1
     return int(min(best_bonus, cap))
+
+
+# ===========================================================================
+# cascade fallback logger (= 2026-05-30 追加、 spec 補 強 用)
+# ===========================================================================
+#
+# cascade L0-L4 全 miss を 記 録 (= AI が GreedyAI 同 等 で プレイ せ ざ る を 得 な い state)。
+# 後 で analyze script (scripts/analyze_cascade_fallback.py) で 頻 出 patterns を 抽 出
+# し て、 該 当 state へ 最 適 entry を 追 加 する 用。
+#
+# ENV var で 有 効 化:
+#   ONEPIECE_CASCADE_LOG=/path/to/fallback.json  (= JSON 出 力 path)
+# atexit hook で プロセス 終 了 時 に dump (= per-game 等 で 重 複 集 計)。
+
+import atexit as _atexit
+import os as _os
+
+_CASCADE_FALLBACK_LOG_PATH: Optional[str] = _os.environ.get("ONEPIECE_CASCADE_LOG", "") or None
+# state_axes hash → count + 代 表 axes sample
+_CASCADE_FALLBACK_COUNTER: dict[tuple, dict] = {}
+# cascade level hit 数 集 計 (= L0 hit / L1 hit / ... / miss)
+_CASCADE_HIT_LEVEL_COUNTER: dict[int, int] = {}
+
+
+def _log_cascade_fallback(state_axes: dict, deck_slug: Optional[str],
+                          me_idx: int) -> None:
+    """cascade 全 miss を 記 録。 ENV var 未 設 定 なら no-op。"""
+    if not _CASCADE_FALLBACK_LOG_PATH:
+        return
+    key = (
+        state_axes.get("turn"),
+        state_axes.get("opp_leader_id"),
+        state_axes.get("self_life_bucket"),
+        state_axes.get("opp_life_bucket"),
+        state_axes.get("self_field_bucket"),
+        state_axes.get("opp_field_bucket"),
+        state_axes.get("opp_threat_bucket"),
+        deck_slug,
+    )
+    entry = _CASCADE_FALLBACK_COUNTER.get(key)
+    if entry is None:
+        # 初 回 = sample axes 保 存 (= full 12 軸)
+        _CASCADE_FALLBACK_COUNTER[key] = {
+            "count": 1,
+            "sample_axes": dict(state_axes),
+            "deck_slug": deck_slug,
+        }
+    else:
+        entry["count"] += 1
+
+
+def _log_cascade_hit(level: int) -> None:
+    """cascade hit level を 集 計。 ENV var 未 設 定 なら no-op。"""
+    if not _CASCADE_FALLBACK_LOG_PATH:
+        return
+    _CASCADE_HIT_LEVEL_COUNTER[level] = _CASCADE_HIT_LEVEL_COUNTER.get(level, 0) + 1
+
+
+def _save_cascade_fallback_log() -> None:
+    """atexit で 呼 ば れ、 fallback log を JSON dump。"""
+    if not _CASCADE_FALLBACK_LOG_PATH:
+        return
+    if not _CASCADE_FALLBACK_COUNTER and not _CASCADE_HIT_LEVEL_COUNTER:
+        return
+    # 既 存 file あれ ば merge (= per-process append 想 定)
+    existing: dict = {"fallbacks": [], "hit_levels": {}}
+    p = Path(_CASCADE_FALLBACK_LOG_PATH)
+    if p.exists():
+        try:
+            existing = json.loads(p.read_text(encoding="utf-8"))
+            if "fallbacks" not in existing:
+                existing["fallbacks"] = []
+            if "hit_levels" not in existing:
+                existing["hit_levels"] = {}
+        except Exception:
+            existing = {"fallbacks": [], "hit_levels": {}}
+    # 既 存 と 同 key を 統 合 (= count 加 算)
+    existing_by_key: dict = {}
+    for fb in existing["fallbacks"]:
+        ax = fb["sample_axes"]
+        k = (ax.get("turn"), ax.get("opp_leader_id"),
+             ax.get("self_life_bucket"), ax.get("opp_life_bucket"),
+             ax.get("self_field_bucket"), ax.get("opp_field_bucket"),
+             ax.get("opp_threat_bucket"), fb.get("deck_slug"))
+        existing_by_key[k] = fb
+    for k, v in _CASCADE_FALLBACK_COUNTER.items():
+        if k in existing_by_key:
+            existing_by_key[k]["count"] += v["count"]
+        else:
+            existing["fallbacks"].append(v)
+    for lvl, c in _CASCADE_HIT_LEVEL_COUNTER.items():
+        existing["hit_levels"][str(lvl)] = existing["hit_levels"].get(str(lvl), 0) + c
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+if _CASCADE_FALLBACK_LOG_PATH:
+    _atexit.register(_save_cascade_fallback_log)
 
 
 # ===========================================================================
