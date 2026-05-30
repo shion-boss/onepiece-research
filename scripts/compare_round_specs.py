@@ -76,7 +76,17 @@ def _run_mirror_eval(deck_slugs: list[str], n_games: int, workers: int, seed: in
             "--n-games", str(n_games),
             "--seeds", str(seed),
         ]
-        r = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
+        # per-deck timeout = 5 分 (= [[project_long_game_pathology]] 対策)
+        try:
+            r = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            print(f"      ⚠ {slug} ({label}): timeout 300s → skip", flush=True)
+            results[slug] = {
+                "wins": 0, "losses": 0, "draws": 0,
+                "total": 0, "win_rate_pt": 0.0, "delta_pt": 0.0,
+                "timeout": True,
+            }
+            continue
         # eval_goal_directed_mirror.py 出力 format:
         # 「seed=N DONE: WW-LL (draws=D) winrate=0.XXX delta=+X.Xpt [Xs total]」
         wins, losses, draws = 0, 0, 0
@@ -106,8 +116,8 @@ def _run_mirror_eval(deck_slugs: list[str], n_games: int, workers: int, seed: in
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--round-a", type=int, required=True, help="baseline round number")
-    ap.add_argument("--round-b", type=int, required=True, help="comparison round number")
+    ap.add_argument("--round-a", type=str, required=True, help="baseline round name (= int or '5_after' 等)")
+    ap.add_argument("--round-b", type=str, required=True, help="comparison round name")
     ap.add_argument("--n-games", type=int, default=20)
     ap.add_argument("--workers", type=int, default=8, help="(現状 未使用、 1 deck per subprocess)")
     ap.add_argument("--seed", type=int, default=42)
