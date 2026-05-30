@@ -6944,15 +6944,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "trigger: 自身の【メイン】効果 発動",
-      "when": "trigger",
-      "do": [
-        {
-          "fire_self_main": true
-        }
-      ]
     }
   ],
   "OP13-098": [
@@ -10494,6 +10485,32 @@
         },
         {
           "self_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "OP13-084 シェパード 自ターン中 + trash10+ で 自 五老星 全 元 々 power 7000",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_trash_count_ge": 10
+        },
+        {
+          "self_turn": true
+        }
+      ],
+      "do": [
+        {
+          "set_base_power": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "五老星"
+              }
+            },
+            "amount": 7000
+          }
         }
       ]
     }
