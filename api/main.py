@@ -3046,6 +3046,12 @@ class HumanUseCounterEventIn(BaseModel):
     prior_actions: Optional[list[HumanActionLog]] = None
 
 
+class HumanSaveResultIn(BaseModel):
+    """save_result body (= 2026-05-31 追加、 Vercel serverless で cache miss 時 reconstruction)。"""
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
+
+
 class HumanLogCommentIn(BaseModel):
     log_index: int
     comment: str
@@ -3361,7 +3367,7 @@ _SAVED_BLOB_URLS: dict[str, str] = {}
 
 
 @app.post("/api/human_match/{sid}/save_result")
-def human_match_save_result(sid: str):
+def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
     """試合終了後 (= game_over=true or 人間 manual end) に full データ を Vercel Blob に upload。
 
     AI vs Human の 全 試合 を Blob に 蓄積 → ohtsuki さん依頼時に sync して解析。
@@ -3370,11 +3376,15 @@ def human_match_save_result(sid: str):
 
     2026-05-30 fix: 人間 が 「対戦 終了」 ボタン で 中断 し た 試合 (= game_over=False)
     でも log_comments を 残せ る よ う 制 限 撤 廃。 winner_tag に "abandoned" を 使 う。
+
+    2026-05-31 fix: Vercel serverless で 別 instance に 振 ら れ た 時 cache miss で
+    404 silent fail し て log メ モ が 消 え る bug。 session_spec + prior_actions を
+    body で 受 け 取 り _resume_or_reconstruct_session で reconstruct。
     """
-    cached = _HUMAN_SESSIONS.get(sid)
-    if cached is None:
-        raise HTTPException(404, "session not found")
-    session, _log = cached
+    spec = req.session_spec if req else None
+    prior_actions = req.prior_actions if req else None
+    # cache hit なら そ の ま ま、 miss なら spec + prior_actions か ら reconstruct (= 404 回避)
+    session, _log = _resume_or_reconstruct_session(sid, spec, prior_actions)
 
     # game_over じゃ な く て も 保 存 を 許 す (= 中 断 試 合 で も log_comments 保 持)。
     # winner_tag は 後 で "abandoned" を 立 て る。

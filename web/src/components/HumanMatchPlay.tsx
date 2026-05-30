@@ -606,7 +606,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       if (savedResultRef.current !== sessionId) {
         savedResultRef.current = sessionId;
         try {
-          const res = await saveHumanMatchResult(sessionId);
+          const res = await saveHumanMatchResult(sessionId, buildResume());
           console.log(
             `[human_play] abandoned match saved (${res.destination ?? "blob"}): ${res.url}`,
           );
@@ -642,7 +642,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     if (!state?.game_over) return;
     if (savedResultRef.current === sessionId) return;
     savedResultRef.current = sessionId;
-    saveHumanMatchResult(sessionId)
+    saveHumanMatchResult(sessionId, buildResume())
       .then((res) => {
         console.log(
           `[human_play] result saved (${res.destination ?? "blob"}): ${res.url}`,

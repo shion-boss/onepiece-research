@@ -753,10 +753,16 @@ export async function endHumanMatch(sid: string): Promise<void> {
 
 export async function saveHumanMatchResult(
   sid: string,
+  resume?: { session_spec?: HumanSessionSpec; prior_actions?: HumanActionLog[] },
 ): Promise<{ url: string; cached: boolean; destination?: string }> {
+  // 2026-05-31 fix: Vercel serverless で cache miss 時 404 silent fail し て
+  // log メモ が 消 え る bug 修 復。 buildResume() で session_spec + prior_actions
+  // を 送 信 し て endpoint 側 で reconstruct 可 能 化。
   const res = await fetch(`${API}/api/human_match/${sid}/save_result`, {
     method: "POST",
     cache: "no-store",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(resume ?? {}),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
