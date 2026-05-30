@@ -43,3 +43,56 @@ db/spectate_comments.json.tmp
 # 大規模 replay history (= ローカル走行用、 本番 API には不要)
 db/match_replays.sqlite
 db/match_replays.sqlite-journal
+
+# =========================================================================
+# 学習 / 検証 dev artifact (= 本番 API は spec + cards + overlay の み 必要)
+# 2026-05-30 追加: bundle size 爆発 修正 (= db/ 全体 128GB だった)
+# =========================================================================
+
+# corpus dump (= self-play game collection、 build_spec 用 = 本番 不 要)
+db/game_corpus/
+
+# snapshot dumps (= 教師 label 用、 ローカル 学習 only)
+db/snapshots_*
+db/self_play_snapshots*
+db/twoturn_snapshots*
+
+# bonus learning artifact
+db/bonus_rounds/
+db/spec_backups/
+db/target_bonus_history.json
+db/target_fire_log.json
+db/target_fire_log_errors.ndjson
+
+# AI param backup / experiments
+db/ai_params_decks*
+db/ai_params*.bak
+db/*.bak
+
+# human play log (= Blob で 取 得 + import_human_play_to_spec.py で spec へ。
+# 本番 API は spec を 直 参 照 すれば 充 分、 raw log 不 要)
+db/human_play_log/
+
+# audit artifact
+db/audit_log/
+db/audit_inbox/
+db/overlay_audit*
+db/overlay_when_missing.json
+db/cascade_fallback.json
+
+# corpus 派 生 derived data
+db/derived/
+
+# その他 大規 模 デー タ
+db/cards.sqlite-journal
+db/*.tmp
+db/*.cache
+
+# 公式 PDF (= ル ー ル 参 照 用、 runtime API は 読 ま な い、 skill 経 由)
+db/rules/
+
+# 画像 (= web public で 別 配 信、 API bundle 不 要)
+images/
+
+# scraper 中 間 (= 開 発 only)
+scraper/
