@@ -120,8 +120,11 @@ def check_concept_missing(text: str, rendered: str, entries: list, cid: str) -> 
             issues.append({"kind": "missing_add_don_concept", "severity": 5})
     # 「レストにする」 — rest 系 primitive 認識
     if re.search(r"相手の.{0,20}レストにする", text):
-        rest_keys = ('"rest"', "rest_opp_don", "rest_self_cards", "keep_opp_rested",
-                     "set_cannot_rest", "stay_rested_next_refresh", "rest_opp_chara")
+        # 2026-05-31 fix: rest_multi が 欠 落 し て OP03-024 / OP06-035 系 6 件 が
+        # 偽 陽 性 検 出 さ れ て い た (= overlay 自 体 は rest_multi で 正 し く 動 作)。
+        rest_keys = ('"rest"', "rest_multi", "rest_opp_don", "rest_self_cards",
+                     "keep_opp_rested", "set_cannot_rest", "stay_rested_next_refresh",
+                     "rest_opp_chara")
         if not any(k in flat_entries for k in rest_keys):
             issues.append({"kind": "missing_rest_concept", "severity": 5})
     # 「アクティブにする」 — untap 系 primitive 認識
