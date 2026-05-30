@@ -5737,6 +5737,29 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
     me = state.players[state.turn_player_idx]
     opp = state.opponent
 
+    if kind == "search_top_n_bottom_reorder":
+        # picks: 残り remaining cards を ど の 順 で deck 底 に 戻 す か の index list。
+        # 2026-05-31 追加: ohtsuki さん 要望 「人 間 が 並 び 順 を 指 定 で きる」。
+        # state.search_top_n_pending_remaining に 退 避 した CardDef list を 順 序 通 り に
+        # deck.extend する。
+        remaining = getattr(state, "search_top_n_pending_remaining", None) or []
+        candidates = choice.get("candidates", [])
+        # picks (= candidates idx list 順) で remaining を 並 び 替 え
+        # 空 picks or 不 正 idx は ID 順 fallback (= 旧 動 作 相 当)
+        valid_picks = [i for i in picks if 0 <= i < len(remaining)]
+        if len(valid_picks) != len(remaining):
+            # 一 部 だ け 指 定 → 残 り を 末 尾 に
+            missing = [i for i in range(len(remaining)) if i not in valid_picks]
+            valid_picks = valid_picks + missing
+        ordered = [remaining[i] for i in valid_picks]
+        me.deck.extend(ordered)
+        state.search_top_n_pending_remaining = None
+        state.pending_choice = None
+        state.push_log(
+            f"  効果: search_top_n 残り{len(ordered)}枚 → デッキ底 (人 間 指 定 順)"
+        )
+        return
+
     if kind == "field_full_select_trash":
         # 場 5 体 差替 え 人 間 選 択 (= 公 式 3-7-6-1)。 picks[0] = candidates index。
         # 既 場 に は 新 chara が append 済 で 6 体 状 態。 picked chara を trash → 5 体 に。
@@ -6466,14 +6489,41 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
                 trigger_on_play(state, me, state.opponent, ip, state.effects_overlay)
         else:  # hand
             me.hand.append(c)
-            state.push_log(f"  効果: 人間選択 → 手札 {c.name}")
+            # 隠 ぺい 情 報 保 護 (= card name は 自 player のみ 知 る)
+            state.push_log(f"  効果: 人間選択 → 手札")
+    # 残 り 処 理: trash は 一 括 / bottom は 人 間 + 2 枚 以 上 で reorder modal
     if rest_remain == "trash":
         me.trash.extend(remaining)
         state.push_log(
             f"  効果: search_top_n 残り{len(remaining)}枚 → トラッシュ"
         )
-    else:
-        me.deck.extend(remaining)
+        state.pending_choice = None
+        return
+    # bottom 戻し: 人 間 + 2 枚 以上 残 れば reorder modal halt、 1 枚 以下 なら 即 deck 底
+    if remaining and len(remaining) >= 2 and _should_human_pick(state):
+        state.pending_choice = {
+            "kind": "search_top_n_bottom_reorder",
+            "candidates": [
+                {
+                    "card_id": c.card_id,
+                    "name": c.name,
+                    "cost": int(getattr(c, "cost", 0) or 0),
+                    "power": int(getattr(c, "power", 0) or 0),
+                }
+                for c in remaining
+            ],
+            # 元 cards を 順 序 で 引 け る よ う card_id list で 保 持
+            "_card_ids_in_order": [c.card_id for c in remaining],
+            # remaining 自 体 を 直 接 持 つ (= reorder で 該当 idx 順 に deck.extend)
+        }
+        # remaining は state に も 退 避 (= JSON 化 不可 な ら 別 storage)
+        state.search_top_n_pending_remaining = remaining
+        state.push_log(
+            f"  効果: search_top_n 残り{len(remaining)}枚 → デッキ底 戻 す 順 を 人 間 選 択 待 ち"
+        )
+        return
+    # AI / 1 枚 以 下: 即 deck 底 (= 旧 動 作 維 持、 AI は 並 び 順 へ の こ だ わ り 少)
+    me.deck.extend(remaining)
     state.pending_choice = None
 
 

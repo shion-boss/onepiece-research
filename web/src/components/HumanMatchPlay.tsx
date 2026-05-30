@@ -1809,6 +1809,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "search_top_n_bottom_reorder" ? (
+          // search_top_n で 残 り を デッキ 底 に 戻 す 順 番 選 択 (= 2026-05-31 ohtsuki さん 要望)。
+          // 既 ScryDeckReorderModal を 流 用 (= candidates 並 び 替 え UI)。
+          <ScryDeckReorderModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "view_life_top_choose_position" ? (
           <ViewLifeTopChoosePositionModal
             payload={state.pending_payload}
