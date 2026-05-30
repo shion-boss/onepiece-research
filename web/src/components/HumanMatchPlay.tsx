@@ -3736,6 +3736,7 @@ function ActionButtonGrid({
     groups = [
       { kinds: ["AttachDonToLeader"], label: "ドン付与" },
       { kinds: ["AttackLeader", "AttackCharacter"], label: "Attack" },
+      { kinds: ["ActivateMain"], label: "起動メイン" },
     ];
   } else if (selection.kind === "self_chara") {
     groups = [
