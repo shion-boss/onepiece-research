@@ -183,3 +183,58 @@ db/derived/
 db/auto_issues/
 db/spec_backups/
   (= round_pipeline.py の build_spec 前 退避、 復元 用 一時 file)
+
+# === dev / 学 習 artifact (= 2026-05-30 追加) ===
+# bonus 学習 round artifact (= compute_matchup 走 行 中 に 自動 蓄積)
+db/bonus_rounds/
+db/spec_backups/
+db/target_bonus_history.json
+db/target_fire_log.json
+db/target_fire_log_errors.ndjson
+
+# audit 中 間 artifact
+db/audit_log/
+db/audit_inbox/
+db/overlay_audit.md
+db/overlay_audit.json
+db/overlay_when_missing.json
+db/cascade_fallback.json
+db/effect_smoke_test.md
+db/effect_smoke_test.json
+
+# corpus dump (= self-play game collection)
+db/game_corpus/
+db/derived/
+
+# NN 学 習 (= 過去 dead-end)
+db/value_nn_per_deck*
+db/nn_*
+db/*.npz
+db/*.pkl
+db/*.pt
+db/*.pth
+
+# snapshot dumps (= 教師 label 用、 ローカル 学習 only)
+db/snapshots_*
+db/twoturn_snapshots*
+db/mcts_rollout*
+db/online_snapshots*
+db/*.jsonl
+db/*.iter*
+
+# human play log の local mirror (= Blob が 真、 local sync は dev 用)
+db/human_play_log/
+
+# 探 索 中 間
+db/imitation_patterns.json
+db/exploration_results*
+db/exploration_summary*
+db/exploration_decks*
+db/explorer_*
+db/run_meta_*
+
+# logs (= 走 行 log)
+logs/
+
+# 評 価 結 果
+eval_results/
