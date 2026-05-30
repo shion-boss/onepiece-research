@@ -600,6 +600,21 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 
   async function handleEnd() {
     if (sessionId) {
+      // 2026-05-30 fix: 中 断 試 合 で も log_comments を Blob に 保 存。
+      // 旧 logic は game_over 判 定 が 通ら ない と save_result 呼ばれず ohtsuki さん の
+      // log メ モ が 消 え る bug。 endHumanMatch (= session 削 除) 前 に 必 ず save。
+      if (savedResultRef.current !== sessionId) {
+        savedResultRef.current = sessionId;
+        try {
+          const res = await saveHumanMatchResult(sessionId);
+          console.log(
+            `[human_play] abandoned match saved (${res.destination ?? "blob"}): ${res.url}`,
+          );
+        } catch (err) {
+          console.warn("[human_play] save_result on abandon failed:", err);
+          savedResultRef.current = null;
+        }
+      }
       try {
         await endHumanMatch(sessionId);
       } catch {
@@ -1835,6 +1850,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             busy={busy}
           />
         ) : state.pending_payload.kind === "counter_discard_pick" ? (
+          <PlayFromHandPickModal
+            payload={{ ...state.pending_payload, _destination: "discard" }}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "activate_main_discard_pick" ? (
+          // 起 動 メイン cost = discard_hand の 手 札 選 択 (= イム OP13-079 等)。
+          // 2026-05-30 fix: 既 PlayFromHandPickModal を 流 用 し て 手 札 一 覧 か ら 選 ば せる。
           <PlayFromHandPickModal
             payload={{ ...state.pending_payload, _destination: "discard" }}
             onSubmit={handleChoiceSubmit}

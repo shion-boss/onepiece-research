@@ -3362,19 +3362,22 @@ _SAVED_BLOB_URLS: dict[str, str] = {}
 
 @app.post("/api/human_match/{sid}/save_result")
 def human_match_save_result(sid: str):
-    """試合終了後 (= game_over=true) に full データ を Vercel Blob に upload。
+    """試合終了後 (= game_over=true or 人間 manual end) に full データ を Vercel Blob に upload。
 
     AI vs Human の 全 試合 を Blob に 蓄積 → ohtsuki さん依頼時に sync して解析。
     BLOB_READ_WRITE_TOKEN env が無い ローカル 環境 では fallback で
     db/human_play_log/ に file 書き出し。
+
+    2026-05-30 fix: 人間 が 「対戦 終了」 ボタン で 中断 し た 試合 (= game_over=False)
+    でも log_comments を 残せ る よ う 制 限 撤 廃。 winner_tag に "abandoned" を 使 う。
     """
     cached = _HUMAN_SESSIONS.get(sid)
     if cached is None:
         raise HTTPException(404, "session not found")
     session, _log = cached
 
-    if not session.state.game_over:
-        raise HTTPException(400, "game not over")
+    # game_over じゃ な く て も 保 存 を 許 す (= 中 断 試 合 で も log_comments 保 持)。
+    # winner_tag は 後 で "abandoned" を 立 て る。
 
     # 同 session で 既に upload 済 なら 同 URL を 返す (= idempotent)
     if sid in _SAVED_BLOB_URLS:
@@ -3391,7 +3394,11 @@ def human_match_save_result(sid: str):
     deck_human = (payload["metadata"]["deck_human_slug"] or "human").replace("/", "_")
     deck_ai = (payload["metadata"]["deck_ai_slug"] or "ai").replace("/", "_")
     winner = payload["result"]["winner_for_human"]
-    winner_tag = "humanW" if winner == 1 else "aiW" if winner == 0 else "draw"
+    # game_over=False (= 中 断) なら winner は None、 winner_tag = "abandoned"。
+    if not session.state.game_over:
+        winner_tag = "abandoned"
+    else:
+        winner_tag = "humanW" if winner == 1 else "aiW" if winner == 0 else "draw"
     pathname = f"human_play/{ts}_{deck_human}_vs_{deck_ai}_{winner_tag}_{sid[:8]}.json"
 
     from api.blob_storage import put_json, is_configured

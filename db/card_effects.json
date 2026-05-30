@@ -6479,14 +6479,11 @@
   ],
   "OP12-119": [
     {
-      "_text": "OP12-119 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、このキャラは、次の相手のエンドフェイズ終了時まで、コスト+2。",
+      "_text": "OP12-119 on_play (cost: 手札1捨): 自デッキ上1枚→ライフ + 自cost+2 (= 次opp turn 終 ま で)",
       "when": "on_play",
       "do": [
         {
           "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 1
         },
         {
           "cost_minus": {
@@ -6498,12 +6495,7 @@
       ],
       "cost": {
         "discard_hand": 1
-      },
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ]
+      }
     },
     {
       "_text": "OP12-119 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",

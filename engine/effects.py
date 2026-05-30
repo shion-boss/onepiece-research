@@ -6361,6 +6361,41 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             )
         return
 
+    if kind == "activate_main_discard_pick":
+        # picks: 人 間 が 選 ん だ hand index list (= 通 常 1 個、 limit 個 ま で)。
+        # 2026-05-30 追加 (= イム OP13-079 起動 メイン bug 修 復)。 fire_activate_main に
+        # cost_picks={"discard_idxs": [...]} 付 き で 再 呼 出 し て random discard を 上 書 き。
+        candidates = choice.get("candidates", [])
+        source_iid = choice.get("source_iid")
+        effect_index = choice.get("effect_index")
+        limit = int(choice.get("limit", 1))
+        prior_picks = dict(choice.get("prior_picks") or {})
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)][:limit]
+        if not valid_picks:
+            state.pending_choice = None
+            state.push_log("  起動メインコスト: 手札 捨て 選択 なし → 中止")
+            return
+        # picks (= candidates index) → hand_idx へ
+        discard_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
+        prior_picks["discard_idxs"] = discard_idxs
+        # source inplay 復元
+        inplay = None
+        for ip in [*me.characters, me.leader, *me.stages]:
+            if ip.instance_id == source_iid:
+                inplay = ip
+                break
+        if inplay is None or effect_index is None:
+            state.pending_choice = None
+            return
+        bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
+        if bundle is None or effect_index >= len(bundle.effects):
+            state.pending_choice = None
+            return
+        eff = bundle.effects[effect_index]
+        state.pending_choice = None
+        fire_activate_main(state, me, opp, inplay, eff, cost_picks=prior_picks)
+        return
+
     if kind == "activate_main_cost_pick":
         # picks: candidates[] の index list (= 通常 1 個)。 空 = skip 不可 (= cost 必須)。
         candidates = choice.get("candidates", [])
@@ -8773,14 +8808,55 @@ def fire_activate_main(
                 me.don_rested += inplay.attached_dons
                 inplay.attached_dons = 0
             state.push_log(f"  起動メインコスト: 自 → 手札 {inplay.card.name}")
-        # discard_hand N: 手札N枚ランダム捨て (簡略: 末尾から)
+        # discard_hand N: 手札 N 枚 捨 て。 人 間 acting なら modal で 選 ば せ る、
+        # AI / その他 は random (= 簡 略)。
+        # 2026-05-30 fix: 旧 logic は AI / 人間 関係 なく random、 イム (= OP13-079) や
+        # 同 系 の 起 動 メイン で 人 間 が 捨 て 対 象 を 選 べ ず bug 報 告。
         discard_n = int(cost.get("discard_hand", 0))
-        for _ in range(discard_n):
-            if not me.hand:
-                break
-            idx = state.rng.randrange(len(me.hand))
-            me.trash.append(me.hand.pop(idx))
-            state.push_log(f"  起動メインコスト: 手札1捨て")
+        if discard_n > 0 and me.hand:
+            actual_n = min(discard_n, len(me.hand))
+            # resume 経 由 (= cost_picks に discard_idxs あり) なら そ ち ら 使 う
+            picked_idxs = cost_picks.get("discard_idxs") if isinstance(cost_picks, dict) else None
+            if picked_idxs is not None:
+                # 人 間 modal で 選 ば れ た hand index を 使 う、 降 順 で pop (= index ずれ 防止)
+                idxs = sorted(set(int(i) for i in picked_idxs if 0 <= int(i) < len(me.hand)),
+                              reverse=True)
+                for hi in idxs[:actual_n]:
+                    me.trash.append(me.hand.pop(hi))
+                    state.push_log(f"  起動メインコスト: 手札1捨て (人間選択)")
+            elif _should_human_pick(state):
+                # 人 間 が picking 必要 = pending_choice で halt、 resume で 再 呼出
+                eff_idx = _find_effect_index(state, inplay, eff)
+                cand_list = [
+                    {
+                        "hand_idx": i,
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": int(c.power) if c.power is not None else 0,
+                    }
+                    for i, c in enumerate(me.hand)
+                ]
+                state.pending_choice = {
+                    "kind": "activate_main_discard_pick",
+                    "source_iid": inplay.instance_id,
+                    "effect_index": eff_idx,
+                    "candidates": cand_list,
+                    "limit": actual_n,
+                    "prior_picks": dict(cost_picks) if cost_picks else {},
+                }
+                state.push_log(
+                    f"  起動メインコスト: 手札 {actual_n} 枚 捨て る 対象 を 選 択 待ち"
+                )
+                return
+            else:
+                # AI / pending 不要: random で 自動 捨 て (= 旧 logic 維 持)
+                for _ in range(actual_n):
+                    if not me.hand:
+                        break
+                    idx = state.rng.randrange(len(me.hand))
+                    me.trash.append(me.hand.pop(idx))
+                    state.push_log(f"  起動メインコスト: 手札1捨て")
         # filter 付き discard cost (= 「自分の手札から特徴X を持つカード N 枚を捨てる」)
         discard_filter_spec = cost.get("discard_hand_with_filter")
         if discard_filter_spec:
