@@ -1939,11 +1939,32 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
-        ) : (
+        ) : state.pending_payload.kind === "field_full_select_trash" ? (
+          // 効果 で 場 5 体 に 6 体 目 を 配 置 し た 時 の トラッシュ 対 象 選 択
+          // (= 公式 3-7-6-1)。 engine core.py:trash_weakest_chara_for_field_full
+          // が 人間 owner 時 に 設 定。 SacrificePickerModal と は 別 で、 既 場 から
+          // 1 体 を 選 ぶ。
+          <FieldFullSelectTrashModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
+        ) : state.pending_payload.kind === "search_top_n" ? (
+          // デッキ 上 N 枚 公 開 → 候 補 から limit 枚 を 選 ぶ (= 初 回 step)。
+          // 残 り は 後 続 で search_top_n_bottom_reorder に 引 き 継 ぐ。
           <SearchChoiceModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}
             onHover={setHovered}
+            busy={busy}
+          />
+        ) : (
+          // 想 定 外 kind は debug 表示 で fail-safe (= 旧 SearchChoiceModal fallback は
+          // schema mismatch で 沈 黙 bug を 起 こ し た た め 廃 止)。
+          <UnknownPendingChoiceModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
             busy={busy}
           />
         )
@@ -4117,6 +4138,140 @@ function SacrificePickerModal({
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// FieldFullSelectTrashModal: 効果 で 場 5 体 に 6 体 目 が 置 か れ た 時 の
+// トラッシュ 対 象 選 択 (= 公式 3-7-6-1、 KO で は な い ルール 処理)
+// ========================================================================== //
+// engine/core.py:trash_weakest_chara_for_field_full が pending_choice
+// {kind:"field_full_select_trash", owner_idx, candidates:[{iid, card_id,
+// name, power, cost, attached_dons}]} を 設 定 する。 picks[0] = 選 ん だ
+// candidate の index を 返 す と engine 側 で 該 当 chara が trash さ れ る。
+
+function FieldFullSelectTrashModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const candidates =
+    (payload.candidates as
+      | {
+          iid: number;
+          card_id: string;
+          name: string;
+          power: number;
+          cost: number;
+          attached_dons: number;
+        }[]
+      | undefined) ?? [];
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-amber-200">
+            場 5 体 超 過: ト ラ ッ シュ す る キャラ を 選 択
+          </h3>
+          <span className="text-sm text-zinc-300">
+            (公 式 3-7-6-1: 効 果 で 配 置 → ルール 処 理 で 1 体 トラッシュ、 【KO 時】 不 発)
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {candidates.map((c, idx) => (
+            <button
+              key={c.iid}
+              type="button"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmit([idx]);
+              }}
+              onMouseEnter={() => onHover({ kind: "hand", cardId: c.card_id })}
+              onMouseLeave={() => onHover(null)}
+              className={
+                "relative rounded transition " +
+                (busy
+                  ? "opacity-40 cursor-not-allowed ring-2 ring-zinc-700"
+                  : "ring-2 ring-rose-400 hover:ring-amber-300 hover:-translate-y-2")
+              }
+              title={`${c.name} (P=${c.power}, cost=${c.cost}${c.attached_dons > 0 ? `, +${c.attached_dons}d` : ""})`}
+            >
+              <CardImage
+                cardId={c.card_id}
+                alt={c.name}
+                className="h-56 w-auto rounded shadow-xl"
+              />
+              <span className="absolute right-1 bottom-1 rounded bg-rose-900/90 px-1.5 py-0.5 text-xs font-bold text-rose-100">
+                P {c.power}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// UnknownPendingChoiceModal: 想 定 外 kind を 即 通 知 し て 沈 黙 bug を 防 ぐ
+// ========================================================================== //
+// 過 去 「else 節 で SearchChoiceModal を 描 画」 し て い た が、 schema mismatch
+// の kind が 来 る と 何 も 表 示 さ れ ず 操 作 不 可 に な っ た。 今 後 engine 側 で
+// 新 kind を 追 加 し た ら 即 visible に 失 敗 さ せ て 修 復 を 促 す。
+
+function UnknownPendingChoiceModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const kind = String(payload.kind ?? "unknown");
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-w-2xl flex-col rounded-lg border-2 border-rose-500 bg-zinc-900 p-6 shadow-2xl">
+        <h3 className="mb-2 text-lg font-bold text-rose-300">
+          未 実 装 の 人 間 選 択 が 発 生 (kind = {kind})
+        </h3>
+        <p className="mb-3 text-sm text-zinc-300">
+          UI で 未 対 応 の pending_choice が engine か ら 来 ま し た。
+          以 下 の payload を 開 発 者 に 共 有 し て く だ さ い。 「skip」 を
+          押 す と 空 picks で 進 行 を 試 み ま す。
+        </p>
+        <pre className="mb-3 max-h-64 overflow-y-auto rounded bg-zinc-950 p-3 text-xs text-zinc-300">
+          {JSON.stringify(payload, null, 2)}
+        </pre>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSubmit([]);
+          }}
+          className="self-end rounded bg-rose-700 px-4 py-2 text-sm font-bold text-white hover:bg-rose-600 disabled:opacity-40"
+        >
+          skip (= 空 picks で 進 行)
+        </button>
       </div>
     </div>
   );

@@ -2794,3 +2794,311 @@ def test_once_per_turn_no_source_iid_fallback_card_id():
     assert _check_and_set_once_per_turn(
         state, me, eff, "TEST-002", 0
     ) is False
+
+
+# ============================================================================
+# 2026-05-31 イム deck 修復 regression テスト (= LLM sub-agent audit 由来)
+# ============================================================================
+
+def test_op13_091_ko_target_regex_correct():
+    """OP13-091 マーカス・マーズ 登場時 KO: 公式 「相手の元々のコスト5以下のキャラ1枚までを、KOする」
+    target spec が `one_opponent_character_cost_le_5` (= regex 一致) で 不発 しない こと。"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # 相手場 に cost 3 chara
+    victim = repo.get("OP01-013")
+    ip = InPlay.of(victim, sickness=False)
+    opp.characters = [ip]
+    me.hand = [repo.get("OP01-013")]  # cost (discard_hand:1) 用
+    src_card = repo.get("OP13-091")
+    src_ip = InPlay.of(src_card, sickness=True)
+    me.characters = [src_ip]
+    # 当該 entry の do (= ko) 単体 fire
+    bundle = overlay.get("OP13-091")
+    on_play_eff = next(e for e in bundle.effects if e.get("when") == "on_play")
+    ko_spec = next(p for p in on_play_eff["do"] if "ko" in p)
+    execute_effect(ko_spec, state, me, opp, src_ip)
+    assert len(opp.characters) == 0, (
+        f"OP13-091 KO 効果 が 不発 (= target regex 不一致 の regression)。 "
+        f"残 opp chara={len(opp.characters)}"
+    )
+
+
+def test_op13_086_search_top_n_rest_remain_trash():
+    """OP13-086 シャルリア宮 登場時: 公式 「残りをトラッシュに置く」 が overlay で
+    rest_remain='trash' に なっている (= 旧 bug = 'bottom' の regression 防止)。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP13-086")
+    on_play_eff = next(e for e in bundle.effects if e.get("when") == "on_play")
+    search_spec = next(p["search_top_n"] for p in on_play_eff["do"] if "search_top_n" in p)
+    assert search_spec.get("rest_remain") == "trash", (
+        f"OP13-086 search_top_n.rest_remain が 公式 通り 'trash' で ない: "
+        f"{search_spec.get('rest_remain')}"
+    )
+
+
+def test_op13_084_leave_immune_no_self_turn():
+    """OP13-084 シェパード: 公式 「自分のトラッシュが7枚以上ある場合、 このキャラは相手の効果で
+    場を離れない」 = 自ターン限定 で は ない。 overlay の conditions に self_turn:true が
+    無い こと (= 旧 bug regression 防止)。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP13-084")
+    leave_immune_eff = next(
+        e for e in bundle.effects
+        if any("set_ko_immune" in p for p in e.get("do", []))
+    )
+    conds = leave_immune_eff.get("conditions") or []
+    if isinstance(conds, dict):
+        conds = [conds]
+    keys = [k for c in conds if isinstance(c, dict) for k in c.keys()]
+    assert "self_turn" not in keys, (
+        f"OP13-084 leave-immune に self_turn が 残存 (= 旧 bug regression)。 keys={keys}"
+    )
+
+
+def test_op13_082_uses_trash_all_self_chara_and_correct_keys():
+    """OP13-082 五老星 起動メイン: overlay が 新 primitive trash_all_self_chara を 使い、
+    play_from_trash で `limit:5` + `unique_name:true` (= engine が 認識 する key) になっている。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP13-082")
+    actmain = next(e for e in bundle.effects if e.get("when") == "activate_main")
+    do_list = actmain.get("do") or []
+    keys_used = [list(d.keys())[0] for d in do_list if isinstance(d, dict)]
+    assert "trash_all_self_chara" in keys_used, (
+        f"OP13-082 do に trash_all_self_chara 無し (= 公式 「自分のキャラすべてをトラッシュに置く」 抜け)。 keys={keys_used}"
+    )
+    pft = next((d["play_from_trash"] for d in do_list if "play_from_trash" in d), None)
+    assert pft is not None, "OP13-082 do に play_from_trash 無し"
+    assert pft.get("limit") == 5, f"OP13-082 play_from_trash.limit が 5 で ない: {pft.get('limit')}"
+    assert pft.get("unique_name") is True, (
+        f"OP13-082 play_from_trash.unique_name が True で ない: {pft.get('unique_name')} "
+        f"(= 旧 'distinct_names' は engine 未認識)"
+    )
+
+
+def test_op13_082_trash_all_self_chara_primitive_works():
+    """trash_all_self_chara primitive: 自陣 chara 全部 が trash に 移送 + 付与ドン が
+    rested に 戻る。 leader / stage は 影響 を 受けない。"""
+    from engine.effects import execute_effect
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    c1 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    c1.attached_dons = 2
+    c2 = InPlay.of(repo.get("OP01-016"), sickness=False)
+    c2.attached_dons = 1
+    me.characters = [c1, c2]
+    me.don_rested = 0
+    initial_trash = len(me.trash)
+    initial_leader = me.leader
+    execute_effect({"trash_all_self_chara": True}, state, me, opp, None)
+    assert me.characters == [], "trash_all_self_chara 後 自場 chara が 残存"
+    assert len(me.trash) == initial_trash + 2, f"trash 数 不一致 (期待 +2、 実 +{len(me.trash) - initial_trash})"
+    assert me.don_rested == 3, f"付与 ドン 戻し 不正 (期待 3、 実 {me.don_rested})"
+    assert me.leader is initial_leader, "leader が 影響 を 受けた (= 想定外)"
+
+
+def test_op13_099_uses_play_from_hand_with_dynamic_cost():
+    """OP13-099 虚の玉座 起動メイン: 公式 「自分の手札から自分の場のドン!!の枚数以下のコストを持つ
+    黒の特徴《五老星》を持つキャラカード1枚までを、登場させる」。 overlay が play_from_hand
+    + cost_le_dynamic:self_don_total + color:黒 を 使っている (= 旧 bug regression 防止)。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP13-099")
+    actmain = next(e for e in bundle.effects if e.get("when") == "activate_main")
+    do = actmain.get("do") or []
+    pfh = next((d.get("play_from_hand") for d in do if "play_from_hand" in d), None)
+    assert pfh is not None, "OP13-099 do に play_from_hand が 無い (= 旧: play_from_trash で 誤り)"
+    filt = pfh.get("filter") or {}
+    assert filt.get("color") == "黒", f"color フィルタ 黒 で ない: {filt.get('color')}"
+    assert filt.get("cost_le_dynamic") == "self_don_total", (
+        f"動的 cost cap (= 場のドン枚数) が cost_le_dynamic:self_don_total で ない: "
+        f"{filt.get('cost_le_dynamic')}"
+    )
+    assert filt.get("feature") == "五老星", f"feature 五老星 で ない: {filt.get('feature')}"
+
+
+def test_cost_le_dynamic_self_don_total_resolution():
+    """_resolve_dynamic_filter の `self_don_total` source: me.don_active + me.don_rested
+    + 付与 ドン の 合計 で cost_le を 静的化。"""
+    from engine.effects import _resolve_dynamic_filter
+    repo = _repo()
+    state = _make_state(repo, "OP01-001")
+    me = state.players[0]
+    opp = state.players[1]
+    me.don_active = 3
+    me.don_rested = 2
+    me.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]
+    me.characters[0].attached_dons = 1
+    resolved = _resolve_dynamic_filter(
+        {"cost_le_dynamic": "self_don_total", "feature": "五老星"},
+        state, me, opp,
+    )
+    # 期待: cost_le = 3 + 2 + 1 = 6
+    assert resolved.get("cost_le") == 6, f"動的 cost cap 不一致: {resolved.get('cost_le')}"
+    assert resolved.get("feature") == "五老星", "他 filter key が 失われた"
+    assert "cost_le_dynamic" not in resolved, "cost_le_dynamic が 残存"
+
+
+def test_op13_091_overlay_target_spec_string():
+    """OP13-091 overlay の ko target spec が 正しい regex 一致 文字列 で ある こと
+    (= 旧 'one_opponent_character_le_5cost' regression 防止)。"""
+    import re
+    overlay = _overlay()
+    bundle = overlay.get("OP13-091")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    ko_target = next(p["ko"] for p in on_play["do"] if "ko" in p)
+    assert isinstance(ko_target, str), f"ko target が str で ない: {type(ko_target)}"
+    # engine regex を inline 検証
+    pat = re.compile(r"one_opponent_character_cost_le_(\d+)(?:cost)?$")
+    m = pat.match(ko_target)
+    assert m is not None, (
+        f"OP13-091 ko target '{ko_target}' が engine regex に 一致 しない "
+        f"(= 旧 'one_opponent_character_le_5cost' は 'cost_' 抜け で 不発)"
+    )
+    assert m.group(1) == "5", f"cost cap が 5 で ない: {m.group(1)}"
+
+
+# ============================================================================
+# 2026-05-31 Hancock deck 修復 regression テスト
+# ============================================================================
+
+def test_op14_107_shakuyaku_no_cost_no_self_life_condition():
+    """OP14-107 シャクヤク: 公式 「相手のライフが3枚以下の場合、 カード2枚を引き、 自分の手札2枚を捨てる」。
+    cost ブロック なし、 if に self_life_le なし、 do に draw 2 + trash_self_hand_random 2。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP14-107")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    assert "cost" not in on_play, "OP14-107 cost block が 残存 (= 旧 bug)"
+    if_block = on_play.get("if") or {}
+    assert if_block.get("opp_life_le") == 3, f"opp_life_le:3 不在: {if_block}"
+    assert "self_life_le" not in if_block, f"self_life_le が 公式 に ない の に 残存: {if_block}"
+    do_keys = [list(d.keys())[0] for d in on_play.get("do", [])]
+    assert "draw" in do_keys, f"draw 効果 欠落: {do_keys}"
+    assert "trash_self_hand_random" in do_keys, f"trash_self_hand_random 欠落: {do_keys}"
+
+
+def test_op14_113_margaret_feature_in():
+    """OP14-113 マーガレット 登場時 search_top_n: filter が feature_in で
+    《アマゾン・リリー》 か 《九蛇海賊団》 両方 を 候補 に 含む こと。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP14-113")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    search = next(d["search_top_n"] for d in on_play["do"] if "search_top_n" in d)
+    filt = search.get("filter") or {}
+    feats = filt.get("feature_in")
+    assert isinstance(feats, list) and "アマゾン・リリー" in feats and "九蛇海賊団" in feats, (
+        f"feature_in に 両 特徴 が ない: {feats}"
+    )
+
+
+def test_op14_102_kumacy_trigger_rested():
+    """OP14-102 クマシー トリガー: 公式 「レストで登場させる」 → rested:true。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP14-102")
+    trig = next(e for e in bundle.effects if e.get("when") == "trigger")
+    pft = next(d["play_from_trash"] for d in trig["do"] if "play_from_trash" in d)
+    assert pft.get("rested") is True, f"rested:true 不在: {pft}"
+
+
+def test_op12_119_kuma_no_unconditional_on_ko():
+    """OP12-119 くま: on_ko (= 無条件) entry が 削除済 で on_self_chara_ko +
+    opp_turn のみ 残っている。 公式 【相手のターン中】【KO時】 厳密。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP12-119")
+    unconditional_on_ko = [
+        e for e in bundle.effects
+        if e.get("when") == "on_ko" and not e.get("conditions") and not e.get("if")
+    ]
+    assert len(unconditional_on_ko) == 0, (
+        f"OP12-119 無条件 on_ko entry が 残存 (= 旧 bug、 自ターン KO で 不当 発火)"
+    )
+    correct = [
+        e for e in bundle.effects
+        if e.get("when") == "on_self_chara_ko"
+        and any(
+            isinstance(c, dict) and c.get("opp_turn") is True
+            for c in (e.get("conditions") or [])
+        )
+    ]
+    assert len(correct) >= 1, "OP12-119 on_self_chara_ko + opp_turn entry 不在"
+
+
+def test_st17_004_hancock_4c_attach_don_added():
+    """ST17-004 ハンコック(4c) 登場時: 公式 「その後 王下七武海 リーダー/キャラ 1 に レストドン1付与」
+    が 追加 されている。"""
+    overlay = _overlay()
+    bundle = overlay.get("ST17-004")
+    on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
+    has_attach = any("attach_rested_don" in d for d in on_play.get("do", []))
+    assert has_attach, f"ST17-004 attach_rested_don 不在: {on_play.get('do')}"
+
+
+# ============================================================================
+# 2026-05-31 ドフラ deck 修復 regression テスト
+# ============================================================================
+
+def test_st18_001_usohachi_rest_target_regex():
+    """ST18-001 ウソ八: rest target spec が 正しい regex 一致 (旧 le_5cost regression 防止)。"""
+    import re
+    overlay = _overlay()
+    bundle = overlay.get("ST18-001")
+    found = None
+    for entry in bundle.effects:
+        for d in entry.get("do", []):
+            if "rest" in d and isinstance(d["rest"], str):
+                found = d["rest"]
+                break
+    assert found is not None, "ST18-001 rest 効果 が ない"
+    pat = re.compile(r"one_opponent_character_cost_le_(\d+)(?:cost)?$")
+    assert pat.match(found) is not None, f"ST18-001 rest target が regex 不一致: {found}"
+
+
+def test_op14_063_sugar_uses_play_from_hand_with_opp_don_cond():
+    """OP14-063 シュガー KO時: 公式 「相手の場のドン6+ で 自手札 から ドンキ海賊団 cost5以下 1 体登場」。
+    play_from_hand + opp_don_ge:6 条件。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP14-063")
+    on_ko = next(e for e in bundle.effects if e.get("when") == "on_ko")
+    do = on_ko.get("do", [])
+    has_pfh = any("play_from_hand" in d for d in do)
+    has_pft = any("play_from_trash" in d for d in do)
+    assert has_pfh and not has_pft, (
+        f"OP14-063 on_ko: play_from_hand であるべき (= 公式 手札 から)、 旧 play_from_trash 残存 {do}"
+    )
+    if_block = on_ko.get("if") or {}
+    assert if_block.get("opp_don_ge") == 6, (
+        f"OP14-063 on_ko 条件 opp_don_ge:6 不在: {if_block}"
+    )
+
+
+def test_op14_074_mone_on_ko_full_sequence():
+    """OP14-074 モネ KO時: 公式 「カード2枚引く + 手札1捨てる + ドン2レスト追加」 の 3 段 + add_rested_don。"""
+    overlay = _overlay()
+    bundle = overlay.get("OP14-074")
+    on_ko = next(e for e in bundle.effects if e.get("when") == "on_ko")
+    do_keys = [list(d.keys())[0] for d in on_ko.get("do", [])]
+    assert "draw" in do_keys, f"draw 欠落: {do_keys}"
+    assert ("trash_self_hand_random" in do_keys
+            or "discard_hand" in do_keys), f"discard 効果 欠落: {do_keys}"
+    assert "add_rested_don" in do_keys, f"add_rested_don 欠落 (= 旧 add_don は active 追加 で 公式違反): {do_keys}"
+    assert "add_don" not in do_keys, f"旧 add_don が 残存: {do_keys}"
+
+
+def test_op14_061_op15_069_replace_leave_not_ko():
+    """OP14-061 ヴェルゴ + OP15-069 ノラ: 公式 「場を離れる場合」 = replace_leave (= KO+bounce+deck含む)。
+    旧 replace_ko (= KO限定) regression 防止。"""
+    overlay = _overlay()
+    for cid in ["OP14-061", "OP15-069"]:
+        bundle = overlay.get(cid)
+        assert bundle is not None, f"{cid} bundle 不在"
+        whens = [e.get("when") for e in bundle.effects]
+        assert "replace_leave" in whens, f"{cid} replace_leave 不在: {whens}"
+        assert "replace_ko" not in whens, (
+            f"{cid} 旧 replace_ko が 残存 (= 公式 「場を離れる場合」 違反)"
+        )

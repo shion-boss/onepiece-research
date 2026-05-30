@@ -2003,6 +2003,28 @@ def _execute_effect_body(
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
             state.push_log(f"  効果: 相手手札 {n} 枚 トラッシュ")
+        elif k == "trash_all_self_chara":
+            # OP13-082 五老星 等。 公式: 「自分のキャラすべてをトラッシュに置く」。
+            # 全 自陣 キャラ を trash へ 移送 + 付与 ドン は レスト で コスト エリア に 戻す
+            # (= 公式 6-5-5-4)。 これは ルール 処理 で あり 【KO 時】 は 発火 しない
+            # (= 公式 3-7-6-1-1 と 同 趣旨、 「自分 で 主動 的 に 場 を 離れさ せ た」
+            # 効果 起点)。 ただし 「自分 の 効果 で 場 を 離れ た」 系 trigger
+            # (= trigger_on_self_chara_leave_by_self_effect) は 発火 する。
+            removed_any = False
+            for chara in list(me.characters):
+                me.characters.remove(chara)
+                me.trash.append(chara.card)
+                if chara.attached_dons > 0:
+                    me.don_rested += chara.attached_dons
+                removed_any = True
+            if removed_any:
+                state.push_log(
+                    f"  効果: 自分のキャラすべてをトラッシュに置く ({state.players.index(me)} 側)"
+                )
+                if state.effects_overlay:
+                    trigger_on_self_chara_leave_by_self_effect(
+                        state, me, opp, state.effects_overlay
+                    )
         elif k == "ko":
             targets = _resolve_target(
                 v, state, me, opp, self_inplay,
@@ -2702,18 +2724,60 @@ def _execute_effect_body(
                     me.deck.append(revealed)
         elif k == "search":
             # {"filter": {"category": "CHARACTER", "cost_le": 4}, "limit": 1}
+            # 公式: 「自分のデッキから (filter) のカード N 枚 まで を 探し、 手札 に
+            # 加える。 その後 デッキ を シャッフル する」。 候補 が 限度 を 超える 場合、
+            # プレイヤー が 任意 で 選ぶ (= 公式 ルール 「探す」 の 基本 挙動)。
+            # 2026-05-31 fix: 人間 操作 中 + 候補 > limit なら pending_choice
+            # "search_pick" を 立てて 待機。 AI / 候補 ≤ limit は 旧 自動 pick。
             filt = v.get("filter", {})
             limit = int(v.get("limit", 1))
-            found = 0
-            picked: list[CardDef] = []
-            remaining: list[CardDef] = []
-            for c in me.deck:
-                if found < limit and _matches_filter(c, filt):
-                    picked.append(c)
-                    found += 1
-                else:
-                    remaining.append(c)
-            me.deck = remaining
+            # 既 resolved picks (= resolve_pending_choice 経由) bypass
+            picks_idx = v.get("_picked_deck_idxs")
+            # 解決前 = 全 deck から filter マッチ idx を 列挙
+            matching_idxs = [i for i, c in enumerate(me.deck) if _matches_filter(c, filt)]
+            if picks_idx is None and _should_human_pick(state) and len(matching_idxs) > limit:
+                # 人間 + 候補 多数 → 選択 modal halt
+                state.pending_choice = {
+                    "kind": "search_pick",
+                    "primitive_kind": "search",
+                    "primitive_value": v,
+                    "candidates": [
+                        {
+                            "idx": i,
+                            "card_id": me.deck[i].card_id,
+                            "name": me.deck[i].name,
+                            "cost": int(getattr(me.deck[i], "cost", 0) or 0),
+                            "power": int(getattr(me.deck[i], "power", 0) or 0),
+                        }
+                        for i in matching_idxs
+                    ],
+                    "limit": limit,
+                    "destination": "hand",
+                }
+                state.push_log(
+                    f"  効果: サーチ デッキ全体 → 人間 選 択 待 ち "
+                    f"({len(matching_idxs)} 候 補 から {limit} 枚)"
+                )
+                return True
+            # picks_idx 指定時 = 人間 選 択 解 決 後 の 再実行
+            if picks_idx is not None:
+                picked_idxs = sorted(set(picks_idx), reverse=True)
+                picked: list[CardDef] = []
+                for i in picked_idxs:
+                    if 0 <= i < len(me.deck):
+                        picked.append(me.deck.pop(i))
+            else:
+                # AI / 候補 ≤ limit: 旧 自動 pick (= filter マッチ 先頭 N 枚)
+                found = 0
+                picked = []
+                remaining: list[CardDef] = []
+                for c in me.deck:
+                    if found < limit and _matches_filter(c, filt):
+                        picked.append(c)
+                        found += 1
+                    else:
+                        remaining.append(c)
+                me.deck = remaining
             # Phase 7I: search 経路は公開して手札に加える (opp に見える)
             for c in picked:
                 me.add_to_hand_publicly(c)
@@ -2928,18 +2992,27 @@ def _execute_effect_body(
             # play_multi_from_trash は alias (= 公式 「~まで」 N 枚指定の意図を明示)。
             # unique_name=true で カード名が重複しないように複数体登場 (OP06-062 ジャッジ)。
             # 人間 acting + 候補 > limit なら modal で 選ばせる。
+            # 2026-05-31: filter の cost_le_dynamic も 静的化 (= 動的 cost cap 対応)。
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
-            filt = spec.get("filter", {})
+            filt = _resolve_dynamic_filter(spec.get("filter", {}), state, me, opp)
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             unique_name = bool(spec.get("unique_name", False))
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
                 picks_idx = list(v["_picks_idx"])
-            # 候補 抽出 (= trash idx + CardDef)
+            # 2026-05-31 拡張: filter.category が STAGE なら ステージ として 登場 (= OP13-092 等)。
+            # filter.category 未指定 / CHARACTER → 従来挙動 (= キャラ として 登場)。
+            # 公式 「登場させる」 は カテゴリ に 応じて 適切 な zone (= chara / stage) に 配置。
+            target_category_str = filt.get("category", "CHARACTER")
+            try:
+                target_category = Category[target_category_str] if isinstance(target_category_str, str) else Category.CHARACTER
+            except KeyError:
+                target_category = Category.CHARACTER
+            # 候補 抽出 (= trash idx + CardDef)。 category は filter 指定 を 優先。
             candidates: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.trash)
-                if c.category == Category.CHARACTER and _matches_filter(c, filt)
+                if c.category == target_category and _matches_filter(c, filt)
             ]
             # 人間 acting + 候補 > limit + picks 未指定 → modal
             if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
@@ -2979,16 +3052,30 @@ def _execute_effect_body(
                 played_count = 0
                 for i in chosen_indexes[:limit]:
                     card = me.trash[i]
-                    if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
-                    me.trash.pop(i)
-                    ip = InPlay.of(card, rested=rested, sickness=True)
-                    me.characters.append(ip)
-                    played_count += 1
-                    label = "レストで" if rested else ""
-                    state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
-                    if state.effects_overlay:
-                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                    if target_category == Category.STAGE:
+                        # 既 ステージ ある なら 入れ替え (= 公式 上限 1)。
+                        if me.stages:
+                            old = me.stages.pop(0)
+                            me.trash.append(old.card)
+                            if old.attached_dons > 0:
+                                me.don_rested += old.attached_dons
+                            state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
+                        me.trash.pop(i)
+                        ip = InPlay.of(card, rested=False, sickness=False)
+                        me.stages.append(ip)
+                        played_count += 1
+                        state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
+                    else:
+                        if not me.can_play_character():
+                            me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+                        me.trash.pop(i)
+                        ip = InPlay.of(card, rested=rested, sickness=True)
+                        me.characters.append(ip)
+                        played_count += 1
+                        label = "レストで" if rested else ""
+                        state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 if played_count == 0:
                     return False
                 continue
@@ -2997,9 +3084,22 @@ def _execute_effect_body(
             seen_names: set[str] = set()
             new_trash = []
             for card in me.trash:
-                if found < limit and card.category == Category.CHARACTER and _matches_filter(card, filt):
+                if found < limit and card.category == target_category and _matches_filter(card, filt):
                     if unique_name and card.name in seen_names:
                         new_trash.append(card)
+                        continue
+                    if target_category == Category.STAGE:
+                        if me.stages:
+                            old = me.stages.pop(0)
+                            me.trash.append(old.card)
+                            if old.attached_dons > 0:
+                                me.don_rested += old.attached_dons
+                            state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
+                        ip = InPlay.of(card, rested=False, sickness=False)
+                        me.stages.append(ip)
+                        found += 1
+                        seen_names.add(card.name)
+                        state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
                         continue
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
@@ -3020,8 +3120,10 @@ def _execute_effect_body(
             # 通常の PlayCharacter と異なり、 コスト無視 (= 効果代替の登場)。
             # 人間 acting + 複数候補 + 0 < limit < 候補数 なら modal 選択 (= 2026-05-23 修正、
             # ohtsuki さん 指摘: OP10-071 ドフラ 登場時 で 勝手 に 選ばれる)。
+            # 2026-05-31 追加: filter の cost_le_dynamic (= self_don_total 等) を 静的化
+            # (= OP13-099 虚の玉座 「場のドン!!の枚数以下のコスト」)。
             spec = v if isinstance(v, dict) else {"filter": {}, "limit": 1}
-            filt = spec.get("filter", {})
+            filt = _resolve_dynamic_filter(spec.get("filter", {}), state, me, opp)
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             # 既 解決 picks (= resolve_pending_choice 経由) の場合 は直接実行
@@ -6551,6 +6653,19 @@ def _resolve_dynamic_filter(
     src = out.pop("cost_le_dynamic", None)
     if src == "sum_both_life_count":
         out["cost_le"] = len(me.life) + len(opp.life)
+    elif src == "self_don_total":
+        # OP13-099 虚の玉座 等。 公式: 「自分の場のドン!!の枚数以下のコストを持つ ~ カードカード」
+        # = active + rested + attached (= 場 上 の 自陣 ドン 全 体)。 attached は
+        # 各 InPlay の attached_dons の 合計 で 算出。
+        attached_total = sum(
+            getattr(ip, "attached_dons", 0)
+            for ip in [me.leader, *me.characters, *me.stages]
+            if ip is not None
+        )
+        out["cost_le"] = me.don_active + me.don_rested + attached_total
+    elif src == "self_don_active":
+        # 「自分のアクティブのドン!!の枚数以下のコスト」 想定 (= 派生)
+        out["cost_le"] = me.don_active
     elif src is not None:
         # 未知 source は 防御的 に 大値 (= 制限 ない と 同義) で 通す
         out["cost_le"] = 99

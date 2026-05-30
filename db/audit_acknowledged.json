@@ -4,6 +4,10 @@
     "faq_attention_10",
     "faq_negation"
   ],
+  "OP12-119": [
+    "missing_on_ko"
+  ],
+  "_acknowledge_note_op12_119": "2026-05-31 acknowledged: 公式 「【相手のターン中】【KO時】」 は engine 上 では on_self_chara_ko + opp_turn:true 条件 で 厳密 表現 する (= on_ko 無条件 entry は 自ターン KO で も 不当 発火 する ため 削除済)。 audit script の keyword 検出 は on_ko を 期待 する が、 これ は false positive。",
   "OP01-094": [
     "faq_attention_10",
     "faq_negation"

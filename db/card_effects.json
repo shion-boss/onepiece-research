@@ -5280,7 +5280,7 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_le_5cost"
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -6498,15 +6498,6 @@
       }
     },
     {
-      "_text": "OP12-119 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
-      "when": "on_ko",
-      "do": [
-        {
-          "put_top_to_life": 1
-        }
-      ]
-    },
-    {
       "_text": "OP12-119 くま 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
       "when": "on_self_chara_ko",
       "conditions": [
@@ -6842,7 +6833,7 @@
   ],
   "OP13-086": [
     {
-      "_text": "OP13-086 登場時: デッキ上3を見て 天竜人 (除く自身) 1を手札 残trash + 1捨て",
+      "_text": "OP13-086 シャルリア宮 登場時: デッキ上3を見て 天竜人 (除く自身) 1を手札に加える、 その後 残りをトラッシュに置き 手札1捨て (= 公式: 残りはトラッシュ、 デッキ底ではない)",
       "when": "on_play",
       "do": [
         {
@@ -6854,7 +6845,7 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "bottom"
+            "rest_remain": "trash"
           }
         },
         {
@@ -6921,7 +6912,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5cost"
+          "ko": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -7406,27 +7397,27 @@
   ],
   "OP14-113": [
     {
-      "_text": "OP14-113 on_play: 自分のデッキの上から5枚を見て、特徴《アマゾン・リリー》か《九蛇海賊団》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、",
+      "_text": "OP14-113 マーガレット 登場時: デッキ上 5 を 見て 《アマゾン・リリー》 か 《九蛇海賊団》 1 枚 を 手札へ、 残りを 好きな順番 でデッキ底、 その後 手札 1 捨て (= 公式: feature_in で 2 特徴 OR、 discard は 効果 do 内)",
       "when": "on_play",
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
         {
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "アマゾン・リリー"
+              "feature_in": [
+                "アマゾン・リリー",
+                "九蛇海賊団"
+              ]
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        },
+        {
+          "trash_self_hand_random": 1
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP14-113 trigger: 自分のリーダーが特徴《九蛇海賊団》を持つ場合、このカードを登場させる。",
@@ -8056,13 +8047,24 @@
   ],
   "ST17-004": [
     {
-      "_text": "ST17-004 on_play: 自分のデッキの上から3枚を見て、好きな順番に並び替え、デッキの上か下に置く。その後、自分の特徴《王下七武海》を持つ、リーダーかキャラ1枚にレストのドン‼1枚まで",
+      "_text": "ST17-004 ハンコック 登場時: デッキ上3並び替え 上/下 + その後 自 王下七武海 リーダー/キャラ 1 に レストドン1付与",
       "when": "on_play",
       "do": [
         {
           "look_top_reorder": {
             "depth": 3,
             "to": "choice"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "王下七武海"
+              }
+            },
+            "count": 1
           }
         }
       ]
@@ -8861,7 +8863,7 @@
   "OP14-061": [
     {
       "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "cost": [
         {
           "once_per_turn": true
@@ -8976,19 +8978,18 @@
   ],
   "OP14-107": [
     {
-      "_text": "OP14-107 on_play: 相手のライフが3枚以下の場合、カード2枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP14-107 シャクヤク 登場時: 相手のライフが3枚以下の場合、 カード2枚を引き、 自分の手札2枚を捨てる (= 公式: 引く+捨てる は 共に 効果 do、 自ライフ 条件 は 公式 に ない)",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 2
         }
       ],
-      "cost": {
-        "discard_hand": 2
-      },
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     },
     {
@@ -9636,20 +9637,21 @@
   ],
   "OP13-082": [
     {
-      "_text": "OP13-082 activate_main: 自分のリーダーが「イム」の場合、自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：自分のキャラすべてをトラッシュに置き、自分のトラッシュからパワ",
+      "_text": "OP13-082 五老星 起動メイン: リーダー「イム」の場合、 ドン1レスト + 手札1捨て を コスト として、 自分のキャラすべてをトラッシュに置き、 自分のトラッシュからパワー5000のカード名の異なる特徴《五老星》を持つキャラカード5枚まで を登場させる",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "trash_all_self_chara": true
         },
         {
           "play_from_trash": {
             "filter": {
               "feature": "五老星",
-              "power_eq": 5000
+              "power_eq": 5000,
+              "category": "CHARACTER"
             },
-            "count": 5,
-            "distinct_names": true
+            "limit": 5,
+            "unique_name": true
           }
         }
       ],
@@ -10072,7 +10074,7 @@
       "when": "on_ko",
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
               "feature": "ドンキホーテ海賊団",
@@ -10081,7 +10083,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "if": {
+        "opp_don_ge": 6
+      }
     }
   ],
   "OP14-074": [
@@ -10105,7 +10110,10 @@
           "draw": 2
         },
         {
-          "add_don": 2
+          "trash_self_hand_random": 1
+        },
+        {
+          "add_rested_don": 2
         }
       ]
     }
@@ -10312,7 +10320,8 @@
               "feature": "スリラーバーク海賊団",
               "cost_le": 4
             },
-            "limit": 1
+            "limit": 1,
+            "rested": true
           }
         }
       ]
@@ -10471,7 +10480,7 @@
   ],
   "OP13-084": [
     {
-      "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
+      "_text": "OP13-084 シェパード 常在: 自trash7+で相手の効果で場を離れない (= 公式: 自分のターン中 限定 ではない、 相手 ターン中 も 不滅)",
       "when": "on_attached_don",
       "n": 0,
       "do": [
@@ -10482,9 +10491,6 @@
       "conditions": [
         {
           "self_trash_count_ge": 7
-        },
-        {
-          "self_turn": true
         }
       ]
     },
@@ -11048,7 +11054,7 @@
       ]
     },
     {
-      "_text": "虚の玉座 activate_main: 五老星トラッシュから登場",
+      "_text": "OP13-099 虚の玉座 起動メイン: このカード+ドン3 rest を コスト として、 自分の手札から 場のドン!!枚数以下のコストを持つ 黒 の 特徴《五老星》 を 持つキャラ 1 枚 まで を 登場 (= 公式: 手札から、 トラッシュ ではない)",
       "when": "activate_main",
       "cost": {
         "rest_self": true,
@@ -11057,11 +11063,12 @@
       },
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "feature": "五老星",
               "category": "CHARACTER",
-              "cost_le": 10
+              "color": "黒",
+              "cost_le_dynamic": "self_don_total"
             },
             "limit": 1
           }
@@ -89011,7 +89018,7 @@
   "OP15-069": [
     {
       "_text": "OP15-069 ノラ 置換: 自元々パワー7000以下キャラが相手効果で場離れる時、 ドン1ドンデッキへ戻すと代替",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "other_self_chara",
         "target_base_power_le": 7000,
