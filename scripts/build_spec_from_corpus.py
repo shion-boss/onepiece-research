@@ -346,6 +346,7 @@ def build_specs(
     tier3_min_opp_count: int = 8,
     tier3_min_winrate: float = 0.5,
     tier3_baseline_factor: float = 0.5,
+    min_winrate: float = 0.0,
 ) -> dict[str, list[dict]]:
     """deck_slug → entries list (= Tier 1 + Tier 3)。
 
@@ -363,6 +364,8 @@ def build_specs(
         if s["n_total"] < min_count:
             continue
         win_rate = s["n_won"] / s["n_total"]
+        if win_rate < min_winrate:
+            continue  # 敗 北 action の spec 化 を 防 ぐ (= 2026-05-30)
         ratio = max(win_rate, 0.05) / 0.5
         bonus = round(baseline * (ratio ** scale))
         bonus = max(bonus_clamp_min, min(bonus_clamp_max, bonus))
@@ -558,6 +561,8 @@ def main() -> None:
     ap.add_argument("--max-targets-per-entry", type=int, default=4)
     ap.add_argument("--bonus-clamp-min", type=int, default=250)
     ap.add_argument("--bonus-clamp-max", type=int, default=3000)
+    ap.add_argument("--min-winrate", type=float, default=0.0,
+                    help="(state, action) の win_rate が この 値 未満 なら entry に 入れない (= 敗 北 行 動 除外)")
     ap.add_argument("--tier3-min-opp-count", type=int, default=8,
                     help="Tier 3 採用 閾値: action が 何 個 の opp_leader で 過半勝率 を 達成 した か")
     ap.add_argument("--tier3-min-winrate", type=float, default=0.5,
@@ -590,6 +595,7 @@ def main() -> None:
         tier3_min_opp_count=args.tier3_min_opp_count,
         tier3_min_winrate=args.tier3_min_winrate,
         tier3_baseline_factor=args.tier3_baseline_factor,
+        min_winrate=args.min_winrate,
     )
     print(f"[build_spec] decks with entries: {len(deck_to_entries)}", flush=True)
     for slug, entries in sorted(deck_to_entries.items()):
