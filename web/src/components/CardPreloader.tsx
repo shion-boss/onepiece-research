@@ -143,11 +143,8 @@ export function CardPreloader({
       )}
 
       <div className="w-full max-w-md">
-        <div className="mb-1 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
-          <span>カード 画像 を 読み込み中</span>
-          <span className="font-mono">
-            {loaded} / {total} 枚 ({pct}%)
-          </span>
+        <div className="mb-1 text-xs text-zinc-600 dark:text-zinc-400">
+          カード 画像 を 読み込み中
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div
