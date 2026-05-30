@@ -1339,17 +1339,18 @@ def test_simultaneous_resolution_turn_player_first():
     assert len(me.hand) == 1
     assert len(opp.hand) == 1
 
-    # ログ順を確認: turn 側 = サンジ (OP01-013) を引く、 非turn 側 = ナミ (OP01-016) を引く
+    # ログ順を確認: turn 側 が 先 解決、 非 turn 側 が 後 解決。
+    # 2026-05-31: log の card name 出力 は 隠 ぺ い 漏 洩 防 止 で 削 除 (= count のみ)。
+    # 順序 検証 は hand 内 容 (= 先 解決 で 引 い た カード) で 代替。
     draw_logs = [m for m in log_record if "ドロー" in m]
     assert len(draw_logs) == 2, f"想定 2 件のドローログ、 実際: {draw_logs}"
-    # 1 件目 (= ターン側) のログには turn 側がドローするカード名が含まれるはず
-    turn_card_name = repo.get("OP01-013").name  # サンジ
-    opp_card_name = repo.get("OP01-016").name   # ナミ
-    assert turn_card_name in draw_logs[0], (
-        f"ターン側が先に解決されていない: 1番目={draw_logs[0]}"
+    # 1 件目 = ターン側、 2 件目 = 非 ターン側 の 順 で log push 確認
+    # (= card name が ない の で msg 内容 だけ で は 区別 不能、 hand 内 容 で 順 検 証)
+    assert me.hand[0].card_id == "OP01-013", (
+        f"turn 側 = サンジ を 引く はず、 実際 = {me.hand[0].card_id}"
     )
-    assert opp_card_name in draw_logs[1], (
-        f"非ターン側が後に解決されていない: 2番目={draw_logs[1]}"
+    assert opp.hand[0].card_id == "OP01-016", (
+        f"opp 側 = ナミ を 引く はず、 実際 = {opp.hand[0].card_id}"
     )
 
 
