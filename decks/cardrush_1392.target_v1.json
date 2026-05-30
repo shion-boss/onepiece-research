@@ -93765,6 +93765,265 @@
           }
         }
       ]
+    },
+    {
+      "opp_active_chara_bucket": "some",
+      "opp_archetype": "midrange",
+      "opp_field_bucket": "some",
+      "opp_hand_bucket": "mid",
+      "opp_leader_id": "OP14-060",
+      "opp_life_bucket": "full",
+      "opp_threat_bucket": "low",
+      "self_condition": "behind",
+      "self_don_bucket": "tight",
+      "self_field_bucket": "empty",
+      "self_hand_bucket": "mid",
+      "self_life_bucket": "full",
+      "turn": 2,
+      "importance": 1.0,
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "min_play_event_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "PlayEvent (= human play n=1, card=OP13-096)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 2,
+          "if": {
+            "min_play_chara_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "PlayCharacter (= human play n=1, card=OP13-086)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "opp_active_chara_bucket": "some",
+      "opp_archetype": "midrange",
+      "opp_field_bucket": "some",
+      "opp_hand_bucket": "mid",
+      "opp_leader_id": "OP14-060",
+      "opp_life_bucket": "full",
+      "opp_threat_bucket": "mid",
+      "self_condition": "behind",
+      "self_don_bucket": "ok",
+      "self_field_bucket": "some",
+      "self_hand_bucket": "mid",
+      "self_life_bucket": "full",
+      "turn": 4,
+      "importance": 1.0,
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttackLeader (= human play n=1)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 2,
+          "if": {
+            "min_play_chara_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "PlayCharacter (= human play n=1, card=OP13-083)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "opp_active_chara_bucket": "many",
+      "opp_archetype": "midrange",
+      "opp_field_bucket": "many",
+      "opp_hand_bucket": "mid",
+      "opp_leader_id": "OP14-060",
+      "opp_life_bucket": "full",
+      "opp_threat_bucket": "high",
+      "self_condition": "behind",
+      "self_don_bucket": "ok",
+      "self_field_bucket": "some",
+      "self_hand_bucket": "many",
+      "self_life_bucket": "mid",
+      "turn": 6,
+      "importance": 1.0,
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "min_attach_don_chara_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttachDonToCharacter (= human play n=1)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 2,
+          "if": {
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttackLeader (= human play n=2)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 2,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 3,
+          "if": {
+            "min_attach_don_leader_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttachDonToLeader (= human play n=4)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 4,
+            "win_rate": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "opp_active_chara_bucket": "many",
+      "opp_archetype": "midrange",
+      "opp_field_bucket": "many",
+      "opp_hand_bucket": "mid",
+      "opp_leader_id": "OP14-060",
+      "opp_life_bucket": "mid",
+      "opp_threat_bucket": "high",
+      "self_condition": "behind",
+      "self_don_bucket": "ok",
+      "self_field_bucket": "some",
+      "self_hand_bucket": "many",
+      "self_life_bucket": "low",
+      "turn": 8,
+      "importance": 1.0,
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "min_attach_don_chara_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttachDonToCharacter (= human play n=4)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 4,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 2,
+          "if": {
+            "min_play_event_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "PlayEvent (= human play n=1, card=OP14-096)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 3,
+          "if": {
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttackLeader (= human play n=2)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 2,
+            "win_rate": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "opp_active_chara_bucket": "many",
+      "opp_archetype": "midrange",
+      "opp_field_bucket": "many",
+      "opp_hand_bucket": "mid",
+      "opp_leader_id": "OP14-060",
+      "opp_life_bucket": "low",
+      "opp_threat_bucket": "high",
+      "self_condition": "even",
+      "self_don_bucket": "tight",
+      "self_field_bucket": "many",
+      "self_hand_bucket": "mid",
+      "self_life_bucket": "low",
+      "turn": 10,
+      "importance": 1.0,
+      "targets": [
+        {
+          "priority": 1,
+          "if": {
+            "min_play_chara_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "PlayCharacter (= human play n=1, card=OP13-082)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 2,
+          "if": {
+            "min_leader_attacks_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "AttackLeader (= human play n=2)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 2,
+            "win_rate": 1.0
+          }
+        },
+        {
+          "priority": 3,
+          "if": {
+            "min_activate_main_this_turn_ge": 1
+          },
+          "bonus": 2700,
+          "description": "ActivateMain (= human play n=1)",
+          "source": "human_play_import",
+          "evidence": {
+            "n_total": 1,
+            "win_rate": 1.0
+          }
+        }
+      ]
     }
   ]
 }
