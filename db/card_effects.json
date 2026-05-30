@@ -3329,7 +3329,11 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "エッグヘッド"
+              "feature_in": [
+                "エッグヘッド",
+                "麦わらの一味"
+              ],
+              "exclude_name": "ジュエリー・ボニー"
             },
             "limit": 1,
             "destination": "hand",
@@ -4578,13 +4582,13 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "next_opp_end_phase"
+            "duration": "next_opp_turn_end"
           }
         }
       ]
     },
     {
-      "_text": "EB04-007 activate_main: 【ターン1回】相手のパワー8000以上のキャラがいる場合、このキャラは、このターン中、【速攻：キャラ】を得る",
+      "_text": "EB04-007 起動メイン: 相手power8000+ キャラ存在で 速攻 + アクティブキャラアタック可",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -4593,15 +4597,26 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻：キャラ"
+            "keyword": "速攻"
           }
+        },
+        {
+          "give_attack_active_chara": "self"
         }
-      ]
+      ],
+      "if": {
+        "opp_chara_filtered_count_ge": {
+          "filter": {
+            "power_ge": 8000
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "EB03-053": [
     {
-      "_text": "EB03-053 ナミ 登場時: 自リーダーに rested ドン1付与, その後 相手life≥3 で 相手ライフ1を相手手札に",
+      "_text": "EB03-053 ナミ 登場時 1/2: 自リーダーに rested ドン1付与",
       "when": "on_play",
       "do": [
         {
@@ -4610,24 +4625,44 @@
             "count": 1,
             "rested": true
           }
-        },
-        {
-          "mill_opp_life_to_hand": 1,
-          "_if_clause": "opp_life_ge=3"
         }
       ]
     },
     {
-      "_text": "EB03-053 ナミ KO時: 自ライフ表向き (任意) → 自手札 power6000以下のキャラ登場",
+      "_text": "EB03-053 ナミ KO時: 自ライフ上1表向き(任意cost) → 自手札 power6000以下 キャラ1 登場",
       "when": "on_ko",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "power_le": 6000
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "power_le": 6000,
+                    "category": "CHARACTER"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053 ナミ 登場時 2/2: 相手ライフ3+ の 場合、 相手ライフ上1枚 を 相手 手札 へ",
+      "when": "on_play",
+      "if": {
+        "opp_life_ge": 3
+      },
+      "do": [
+        {
+          "mill_opp_life_to_hand": 1
         }
       ]
     }
@@ -5370,7 +5405,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP09-078": [
@@ -5781,7 +5819,10 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP12-108": [
@@ -6415,7 +6456,7 @@
       ]
     },
     {
-      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + self ブロッカー獲得 (turn)",
+      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + ブロッカー (next_opp_turn_end 統一)",
       "when": "on_play",
       "cost": {
         "discard_hand": 1
@@ -6425,19 +6466,13 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         },
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "ブロッカー"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
+            "keyword": "ブロッカー",
             "duration": "next_opp_turn_end"
           }
         }
@@ -6681,7 +6716,7 @@
   ],
   "ST29-015": [
     {
-      "_text": "ST29-015 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが1枚以下の場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-",
+      "_text": "ST29-015 カウンター 1/2: 自リーダー or キャラ +2000 (無条件)",
       "when": "counter",
       "do": [
         {
@@ -6690,7 +6725,16 @@
             "amount": 2000,
             "duration": "battle"
           }
-        },
+        }
+      ]
+    },
+    {
+      "_text": "ST29-015 カウンター 2/2: 自ライフ1以下 で 相手 -2000 turn",
+      "when": "counter",
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
         {
           "power_pump": {
             "target": "one_opponent_inplay_any",
@@ -6698,10 +6742,7 @@
             "duration": "turn"
           }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     },
     {
       "_text": "ST29-015 trigger: カード1枚を引く。",
@@ -7078,13 +7119,7 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "bottom"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7165,7 +7200,7 @@
           "draw": 1,
           "_chain": "always",
           "_condition": {
-            "self_hand_le": 6
+            "self_hand_count_le": 6
           }
         }
       ]
@@ -7452,7 +7487,11 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "アラバスタ王国"
+              "feature_in": [
+                "アラバスタ王国",
+                "麦わらの一味"
+              ],
+              "cost_ge": 2
             },
             "limit": 1,
             "destination": "hand",
@@ -7911,7 +7950,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_6000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -7940,11 +7979,14 @@
           "draw": 2
         }
       ],
-      "conditions": [
-        {
-          "opp_turn": true
+      "cost": {
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "海軍"
+          },
+          "count": 1
         }
-      ]
+      }
     },
     {
       "_text": "EB03-041 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",
@@ -8110,7 +8152,11 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "麦わらの一味"
+              "feature_in": [
+                "麦わらの一味",
+                "ハートの海賊団"
+              ],
+              "cost_ge": 2
             },
             "limit": 1,
             "destination": "hand",
@@ -8762,9 +8808,6 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -6000,
@@ -9260,7 +9303,7 @@
         {
           "prevent_blocker_for_attacker": {
             "target": {
-              "type": "one_self_chara_or_leader_filtered",
+              "type": "one_self_chara_filtered",
               "filter": {
                 "category": "CHARACTER",
                 "power_ge": 6000,
@@ -9756,7 +9799,7 @@
   "EB04-044": [
     {
       "_text": "EB04-044 replace_ko (海軍リーダー + ターン1回): 場を離れる代わりに手札1枚捨て",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "self",
         "leader_feature": "海軍"
@@ -9972,19 +10015,30 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "trash_self": true
-      }
+      ]
     }
   ],
   "OP11-092": [
     {
-      "_text": "OP11-092 on_play: 自分の手札1枚を捨てることができる：カード1枚を引き、自分のトラッシュから「ヘルメッポ」以外のコスト8以下の特徴《SWORD》を持つキャラカード1枚までを、登場",
+      "_text": "OP11-092 ヘルメッポ 登場時: 1 捨て cost → draw 1 + SWORD trash 登場 (+ ターン終了時 デッキ底 = 部分実装)",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "draw": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "SWORD",
+              "cost_le": 8,
+              "exclude_name": "ヘルメッポ"
+            },
+            "limit": 1
+          }
+        },
+        {
+          "_unimplemented": "ターン終了時、 この効果で登場させたキャラ1枚を持ち主のデッキ下 (= tracked_played_chara primitive 未実装)"
         }
       ],
       "cost": {
@@ -10612,9 +10666,19 @@
   ],
   "OP11-082": [
     {
-      "_text": "OP11-082 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《海軍》を持つ場合、自分の特徴《海軍》を持つキャラ1枚までは、このターン中、アクティブのキャラにも",
+      "_text": "OP11-082 アラマキ 起動メイン: 自KO cost → 自海軍 1 に アクティブキャラアタック可 + デッキ上2 trash",
       "when": "activate_main",
       "do": [
+        {
+          "give_attack_active_chara": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "海軍"
+              }
+            }
+          }
+        },
         {
           "mill_self_top": 2
         }
@@ -10986,12 +11050,27 @@
         },
         {
           "power_pump": {
-            "target": "all_self_team",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "or": [
+                  {
+                    "name": "ドンキホーテ・ロシナンテ"
+                  },
+                  {
+                    "feature": "ハートの海賊団"
+                  }
+                ]
+              }
+            },
             "amount": 1000,
             "duration": "next_opp_turn_end"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP12-094": [
@@ -58117,7 +58196,7 @@
   ],
   "OP12-115": [
     {
-      "_text": "OP12-115 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、自分のトラッシュから「トラファルガー・ロー」1枚までを、",
+      "_text": "OP12-115 カウンター 1/2: 自リーダー or キャラ +2000 battle (無条件)",
       "when": "counter",
       "do": [
         {
@@ -58127,10 +58206,25 @@
             "duration": "battle"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP12-115 カウンター 2/2: 自ライフ2以下 で トラッシュ から 「トラファルガー・ロー」 1 を 手札 へ",
+      "when": "counter",
       "if": {
         "self_life_le": 2
-      }
+      },
+      "do": [
+        {
+          "search_from_trash": {
+            "filter": {
+              "name": "トラファルガー・ロー",
+              "category": "CHARACTER"
+            },
+            "count": 1
+          }
+        }
+      ]
     }
   ],
   "OP12-117": [
@@ -58443,22 +58537,17 @@
   ],
   "OP11-013": [
     {
-      "_text": "OP11-013 on_attack: 相手のパワー2000以下のキャラすべては、このターン中、【ブロッカー】を発動できない。",
+      "_text": "OP11-013 プリンス・グルス アタック時: 相手 power 2000 以下 キャラすべて は このターン中【ブロッカー】 使用不能",
       "when": "on_attack",
       "do": [
         {
-          "power_pump_per_target_attached_don": {
+          "disable_blocker": {
             "target": {
-              "type": "all_opponent_characters"
+              "type": "all_opponent_chara_filtered",
+              "filter": {
+                "power_le": 2000
+              }
             },
-            "amount_per_don": 0,
-            "duration": "turn"
-          }
-        },
-        {
-          "set_attack_cost_discard_hand": {
-            "target": "all_opp_chara_blocker_filtered",
-            "n": 999,
             "duration": "turn"
           }
         }
