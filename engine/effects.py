@@ -1965,7 +1965,9 @@ def _execute_effect_body(
                 state.push_log(f"  効果: ドロー {n} (このターン中ドロー禁止のため不発)")
                 continue
             drawn = me.draw(n)
-            state.push_log(f"  効果: ドロー {n} → {[c.name for c in drawn]}")
+            # 2026-05-31 fix: card name を log に 出 力 す る と 相 手 view で も 見 え る
+            # (= state.log は public)。 count のみ で 隠 ぺ い 情 報 保 護。
+            state.push_log(f"  効果: ドロー {n}")
         elif k == "draw_per_self_hand_discarded":
             # OP12-040 クザン等: 「捨てた枚数分カードを引く」 動的 N ドロー。
             # state.last_discard_count を読み取る。 trigger_on_self_hand_discarded で設定済み。
@@ -1976,7 +1978,8 @@ def _execute_effect_body(
                 state.push_log(f"  効果: 動的ドロー {n} 不発 (ドロー禁止)")
                 continue
             drawn = me.draw(n)
-            state.push_log(f"  効果: 動的ドロー {n} → {[c.name for c in drawn]}")
+            # 2026-05-31 fix: card name 漏 洩 防 止 (= 同 上、 隠 ぺい 情 報 保 護)
+            state.push_log(f"  効果: 動的ドロー {n}")
         elif k == "trash_self_hand_random":
             n = int(v)
             actually_discarded = 0
@@ -2588,7 +2591,8 @@ def _execute_effect_body(
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 else:  # hand
                     me.hand.append(c)
-                    state.push_log(f"  効果: search_top_n → 手札 {c.name}")
+                    # 隠 ぺい 情 報: 手 札 入 り は card name を log に 出 さ ない (= 相 手 view 漏 洩 防 止)
+                    state.push_log(f"  効果: search_top_n → 手札")
             # 残り処理
             if rest_remain == "trash":
                 me.trash.extend(remaining)
