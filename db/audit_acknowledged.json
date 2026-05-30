@@ -125,5 +125,8 @@
   "ST01-007": [
     "don_count_condition_unmodeled",
     "faq_negation"
+  ],
+  "ST10-014": [
+    "don_count_condition_unmodeled"
   ]
 }
