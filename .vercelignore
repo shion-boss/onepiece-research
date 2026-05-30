@@ -134,3 +134,22 @@ agents/
 .coverage
 .coverage.*
 htmlcov/
+
+# NN value 学 習 (= 過去 dead-end、 [[project_plan_d_results]] 確 定 撤退)
+db/value_nn_per_deck*
+db/nn_*
+db/*.npz
+db/*.pkl
+db/*.pt
+db/*.pth
+
+# ル ー ル 互 換 が 必要 な ら 別 化 で
+
+# その 他 大 量 git tracked 中 で 不要
+db/imitation_patterns.json
+db/exploration_results*
+db/exploration_summary*
+db/exploration_decks*
+db/explorer_*
+db/run_meta_*
+
