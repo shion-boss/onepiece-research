@@ -2471,7 +2471,7 @@ def _execute_effect_body(
                 for i in chosen_indexes[:limit]:
                     card = me.deck[i]
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     me.deck.pop(i)
                     ip = InPlay.of(card, rested=rested, sickness=sickness)
                     me.characters.append(ip)
@@ -2494,7 +2494,7 @@ def _execute_effect_body(
                     and _matches_filter(c, filt)
                 ):
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(c, rested=rested, sickness=sickness)
                     me.characters.append(ip)
                     picked.append(c)
@@ -2580,7 +2580,7 @@ def _execute_effect_body(
                         me.hand.append(c)
                         continue
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(c, rested=rested_flag, sickness=True)
                     me.characters.append(ip)
                     state.push_log(f"  効果: search_top_n → 登場 {c.name}")
@@ -2684,7 +2684,7 @@ def _execute_effect_body(
             if matched:
                 # AI 簡易: マッチなら必ず登場 (公式テキストでは任意だが期待値プラス)
                 if not me.can_play_character():
-                    me.trash_weakest_chara_for_field_full(state)
+                    me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                 ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
                 me.characters.append(ip)
                 if state.effects_overlay:
@@ -2976,7 +2976,7 @@ def _execute_effect_body(
                 for i in chosen_indexes[:limit]:
                     card = me.trash[i]
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     me.trash.pop(i)
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
@@ -2998,7 +2998,7 @@ def _execute_effect_body(
                         new_trash.append(card)
                         continue
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
                     found += 1
@@ -3076,7 +3076,7 @@ def _execute_effect_body(
                     chosen_cards.append(me.hand.pop(idx))
                 for card in chosen_cards:
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
                     label = "レストで" if rested else ""
@@ -3152,7 +3152,7 @@ def _execute_effect_body(
                 chosen_cards.append(me.hand.pop(i))
             for card in chosen_cards:
                 if not me.can_play_character():
-                    me.trash_weakest_chara_for_field_full(state)
+                    me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                 ip = InPlay.of(card, rested=rested, sickness=True)
                 me.characters.append(ip)
                 label = "レストで" if rested else ""
@@ -3181,7 +3181,7 @@ def _execute_effect_body(
                 if card.cost < cost_ge or card.cost > cost_le:
                     continue
                 if not me.can_play_character():
-                    me.trash_weakest_chara_for_field_full(state)
+                    me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                 ip = InPlay.of(card, rested=False, sickness=True)
                 me.characters.append(ip)
                 me.hand.pop(i)
@@ -3220,7 +3220,7 @@ def _execute_effect_body(
                     if not _matches_filter(card, extra_filt):
                         continue
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     me.characters.append(ip)
                     consumed_indexes.add(i)
@@ -3898,7 +3898,7 @@ def _execute_effect_body(
             if not found_card:
                 continue
             if not me.can_play_character():
-                me.trash_weakest_chara_for_field_full(state)
+                me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
             ip = InPlay.of(found_card, rested=False, sickness=True)
             me.characters.append(ip)
             if state.effects_overlay:
@@ -4942,7 +4942,7 @@ def _execute_effect_body(
                     and _matches_filter(card, filt)
                 ):
                     if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state)
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested_flag, sickness=True)
                     me.characters.append(ip)
                     found += 1
@@ -4962,7 +4962,7 @@ def _execute_effect_body(
                         and _matches_filter(card, filt)
                     ):
                         if not me.can_play_character():
-                            me.trash_weakest_chara_for_field_full(state)
+                            me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                         ip = InPlay.of(card, rested=rested_flag, sickness=True)
                         me.characters.append(ip)
                         found += 1
@@ -5733,6 +5733,36 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
     me = state.players[state.turn_player_idx]
     opp = state.opponent
 
+    if kind == "field_full_select_trash":
+        # 場 5 体 差替 え 人 間 選 択 (= 公 式 3-7-6-1)。 picks[0] = candidates index。
+        # 既 場 に は 新 chara が append 済 で 6 体 状 態。 picked chara を trash → 5 体 に。
+        candidates = choice.get("candidates", [])
+        owner_idx = choice.get("owner_idx", state.turn_player_idx)
+        owner = state.players[owner_idx]
+        pick_idx = picks[0] if picks else 0
+        if not (0 <= pick_idx < len(candidates)):
+            pick_idx = 0
+        sacrifice_iid = candidates[pick_idx]["iid"]
+        sacrifice = next(
+            (c for c in owner.characters if c.instance_id == sacrifice_iid),
+            None,
+        )
+        state.pending_choice = None
+        if sacrifice is None:
+            state.push_log(
+                f"  差替 (3-7-6-1) skip: target iid={sacrifice_iid} 不 在"
+            )
+            return
+        owner.characters.remove(sacrifice)
+        owner.trash.append(sacrifice.card)
+        if sacrifice.attached_dons > 0:
+            owner.don_rested += sacrifice.attached_dons
+        state.push_log(
+            f"  差替 (3-7-6-1): {sacrifice.card.name} をトラッシュへ "
+            f"(KO ではないため【KO時】不発動)"
+        )
+        return
+
     if kind == "target_pick":
         # target_pick: choices[i] → 該当 iid を 抜き出し、 _iid_picks を 渡して 再実行
         candidates = choice.get("candidates", [])
@@ -6315,7 +6345,7 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             return
         if do_play:
             if not me.can_play_character():
-                me.trash_weakest_chara_for_field_full(state)
+                me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
             ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
             me.characters.append(ip)
             state.push_log(f"  効果: 人間選択 → 登場 {revealed.name}")
@@ -6389,7 +6419,7 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
                 me.hand.append(c)
                 continue
             if not me.can_play_character():
-                me.trash_weakest_chara_for_field_full(state)
+                me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
             ip = InPlay.of(c, rested=rested_flag, sickness=True)
             me.characters.append(ip)
             state.push_log(f"  効果: 人間選択 → 登場 {c.name}")

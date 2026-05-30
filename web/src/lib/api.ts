@@ -535,6 +535,7 @@ export type HumanLegalAction = {
   source_iid?: number;
   effect_index?: number;
   n?: number;
+  sacrifice_iid?: number;  // 場 5 体 差替 え 時 の trash 対 象 (= 公 式 3-7-6-1)
 };
 
 export type HumanSessionSpec = {

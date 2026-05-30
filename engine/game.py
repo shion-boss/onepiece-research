@@ -774,22 +774,35 @@ def legal_actions(state: GameState) -> list[Action]:
                 actions.append(PlayCharacter(hand_idx=i))
     elif not chara_play_blocked:
         # 場 5 枚埋まり: 既存 1 枚を sacrifice して登場 (3-7-6-1)
-        # 手札の playable × 既存最弱を 1 候補のみ生成 (爆発を抑える)
+        # AI 用 = 最 弱 1 候 補 (= 爆 発 抑 制)、 人 間 用 = 5 candidates × hand cards 全 展 開。
+        # 人 間 か どうか は state.human_player_idx で 判 定 (= None なら AI eval mode、 turn_player と
+        # 一致 す れ ば 人 間 の legal options 表 示 中)。
+        is_human_turn = (
+            getattr(state, "human_player_idx", None) is not None
+            and state.human_player_idx == state.turn_player_idx
+        )
         for i, c in enumerate(me.hand):
             if c.category != Category.CHARACTER:
                 continue
             if _eff_cost(c) > me.don_active:
                 continue
-            # 最弱 (パワー低 → コスト低) を犠牲にする
             if not me.characters:
                 continue
-            sacrifice = min(
-                me.characters,
-                key=lambda ip: (ip.power, ip.card.cost),
-            )
-            actions.append(
-                PlayCharacter(hand_idx=i, sacrifice_iid=sacrifice.instance_id)
-            )
+            if is_human_turn:
+                # 人 間: 全 5 chara を sacrifice 候 補 と し て 個 別 action 生 成
+                for ip in me.characters:
+                    actions.append(
+                        PlayCharacter(hand_idx=i, sacrifice_iid=ip.instance_id)
+                    )
+            else:
+                # AI: 最 弱 1 候 補 の み (= plan_search 爆 発 抑 制)
+                sacrifice = min(
+                    me.characters,
+                    key=lambda ip: (ip.power, ip.card.cost),
+                )
+                actions.append(
+                    PlayCharacter(hand_idx=i, sacrifice_iid=sacrifice.instance_id)
+                )
 
     # 【メイン】イベントカード: コスト払えるなら発動可能
     for i, c in enumerate(me.hand):

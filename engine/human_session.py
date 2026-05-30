@@ -780,6 +780,7 @@ def _action_to_dict(action, idx: int) -> dict:
         "to_iid",
         "n",
         "card_id",
+        "sacrifice_iid",  # 場 5 体 差 替 え 時 の trash 対 象 (= 3-7-6-1)
     ):
         if hasattr(action, f):
             v = getattr(action, f)
@@ -793,6 +794,9 @@ def _action_to_dict(action, idx: int) -> dict:
 def _action_label(action) -> str:
     cls = type(action).__name__
     if cls == "PlayCharacter":
+        sac = getattr(action, "sacrifice_iid", None)
+        if sac is not None:
+            return f"キャラ登場: hand[{action.hand_idx}] (差替 iid={sac})"
         return f"キャラ登場: hand[{action.hand_idx}]"
     if cls == "PlayEvent":
         return f"イベント発動: hand[{action.hand_idx}]"

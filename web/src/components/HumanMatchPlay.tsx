@@ -128,6 +128,13 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [hovered, setHovered] = useState<HoverInfo>(null);
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [trashViewer, setTrashViewer] = useState<"me" | "opp" | null>(null);
+  // 場 5 体時 の キャラ 登場 で sacrifice 対象 選択 modal (= 3-7-6-1 準拠)。
+  // legal_actions に hand_idx 同 で sacrifice_iid 違 い の PlayCharacter が 複数 含 まれる
+  // 時、 user に ど の chara を ト ラ ッ シュ す る か 選 ば せる。 null = modal 閉。
+  const [sacrificePicker, setSacrificePicker] = useState<{
+    handIdx: number;
+    options: HumanLegalAction[];
+  } | null>(null);
   // 試合開始 後 「先攻/後攻」 banner (= ~1.5 秒) が 完了する まで mulligan modal を 抑制。
   // 順序: 先攻/後攻 banner → mulligan modal → 解消後 ○○のターン banner
   const [initialBannerDone, setInitialBannerDone] = useState(false);
@@ -1041,6 +1048,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         target.kind === "self_leader" ||
         target.kind === "self_chara"
       ) {
+        // 場 5 体 差替 検 出: PlayCharacter が 複 数 (= sacrifice_iid 違 い) なら
+        // sacrifice 選 択 modal を 出 し て user に 委 ね る (= 公 式 3-7-6-1)。
+        const playCharaActs = acts.filter((a) => a.kind === "PlayCharacter");
+        if (playCharaActs.length > 1) {
+          setSacrificePicker({ handIdx: drag.handIdx, options: playCharaActs });
+          setDrag(null);
+          return;
+        }
         action =
           acts.find((a) => a.kind === "PlayCharacter") ??
           acts.find((a) => a.kind === "PlayStage") ??
@@ -1219,6 +1234,23 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         attackerIid: sa.action.attacker_iid,
       });
       return;
+    }
+    // 場 5 体 差 替 検 出: PlayCharacter 候 補 が 複 数 (= sacrifice_iid 違 い) なら
+    // sacrifice 選 択 modal を 出 す。 sa.action は最 初 の 1 件 し か 持たな い ので
+    // actionsByHand か ら 全 候 補 再 取 得。
+    if (
+      sa.action.kind === "PlayCharacter" &&
+      sa.action.hand_idx !== undefined
+    ) {
+      const acts = actionsByHand.get(sa.action.hand_idx) ?? [];
+      const playCharaActs = acts.filter((a) => a.kind === "PlayCharacter");
+      if (playCharaActs.length > 1) {
+        setSacrificePicker({
+          handIdx: sa.action.hand_idx,
+          options: playCharaActs,
+        });
+        return;
+      }
     }
     // DON 付与 系 は 連続 付与 し やすい よう selection を 維持
     const keepSelection =
@@ -1891,6 +1923,23 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           cards={trashViewer === "me" ? me.trash : opp.trash}
           onClose={() => setTrashViewer(null)}
           onHover={setHovered}
+        />
+      )}
+
+      {/* 場 5 体 差替 sacrifice 選択 modal (= 公 式 3-7-6-1)。 client side で legal_actions
+          か ら 検 出、 user に 自 場 chara か ら trash 対 象 を 選 ば せ る。 */}
+      {sacrificePicker && (
+        <SacrificePickerModal
+          handCardId={me.hand[sacrificePicker.handIdx]}
+          options={sacrificePicker.options}
+          fieldCharas={me.characters}
+          onPick={(action) => {
+            setSacrificePicker(null);
+            applyAction(action);
+          }}
+          onCancel={() => setSacrificePicker(null)}
+          onHover={setHovered}
+          busy={busy}
         />
       )}
     </div>
@@ -3938,6 +3987,107 @@ function SearchChoiceModal({
 }
 
 // ========================================================================== //
+// 場 5 体 差替え 時 の sacrifice 選択 modal (= 公 式 3-7-6-1)
+// ========================================================================== //
+
+function SacrificePickerModal({
+  handCardId,
+  options,
+  fieldCharas,
+  onPick,
+  onCancel,
+  onHover,
+  busy,
+}: {
+  handCardId: string;
+  options: HumanLegalAction[];
+  fieldCharas: CharSnapshot[];
+  onPick: (action: HumanLegalAction) => void;
+  onCancel: () => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  // 各 option は sacrifice_iid を 持 つ。 対 応 す る fieldCharas を 引 い て 表 示。
+  const optionByIid = new Map<number, HumanLegalAction>();
+  for (const a of options) {
+    if (typeof a.sacrifice_iid === "number") {
+      optionByIid.set(a.sacrifice_iid, a);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-amber-200">
+            場 5 体: ト ラ ッ シュ す る キャラ を 選 択
+          </h3>
+          <span className="text-sm text-zinc-300">
+            (公 式 3-7-6-1: ル ー ル 処 理、 【KO 時】 は 不 発)
+          </span>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="ml-auto rounded border border-zinc-600 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800"
+          >
+            キャンセル
+          </button>
+        </div>
+        <div className="mb-3 flex items-center gap-3 rounded bg-zinc-800 p-2">
+          <span className="text-sm text-zinc-300">登 場 する カード:</span>
+          <CardImage
+            cardId={handCardId}
+            alt="incoming"
+            className="h-32 w-auto rounded shadow"
+          />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {fieldCharas.map((c) => {
+            const action = optionByIid.get(c.instance_id);
+            const disabled = !action || busy;
+            return (
+              <button
+                key={c.instance_id}
+                type="button"
+                disabled={disabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (action) onPick(action);
+                }}
+                onMouseEnter={() =>
+                  onHover({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover(null)}
+                className={
+                  "relative rounded transition " +
+                  (disabled
+                    ? "opacity-40 cursor-not-allowed ring-2 ring-zinc-700"
+                    : "ring-2 ring-rose-400 hover:ring-amber-300 hover:-translate-y-2")
+                }
+                title={`${c.name} (P=${c.power}${c.attached_dons > 0 ? `, +${c.attached_dons}d` : ""})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className={`h-56 w-auto rounded shadow-xl ${c.rested ? "rotate-90" : ""}`}
+                />
+                <span className="absolute right-1 bottom-1 rounded bg-rose-900/90 px-1.5 py-0.5 text-xs font-bold text-rose-100">
+                  P {c.power}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 人間 interactive 対象選択 modal (= ko / return_to_hand / power_pump 等)
 // ========================================================================== //
 

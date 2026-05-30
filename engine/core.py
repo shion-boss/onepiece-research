@@ -576,16 +576,45 @@ class Player:
     def can_play_character(self):
         return self.field_count() < self.MAX_CHARACTERS
 
-    def trash_weakest_chara_for_field_full(self, state=None):
+    def trash_weakest_chara_for_field_full(self, state=None, owner_idx=None):
         """場 5 枚状態で新規登場時、 最弱キャラを 1 枚トラッシュへ送る (公式 3-7-6-1)。
 
         これは ルール処理 であり KO ではないので 【KO 時】 トリガーは発火しない (3-7-6-1-1)。
         付与ドンはレストでコストエリアに戻る (6-5-5-4 と同様)。
-        選択基準: パワー低 → コスト低 (= 最弱) を自動選択 (将来 AI 判断置換可)。
-        戻り値: trash したキャラ (いなければ None)。
+
+        owner_idx (= 2026-05-30 追加): 配置 先 player の index。 state.human_player_idx と
+        一致 する 場合 は **自動 trash を skip** し て pending_choice = "field_full_select_trash"
+        を 設定 (= 人間 が UI で 選 ぶ ま で 留 保)。 caller は そ の ま ま 新 chara を append
+        し て 6 体 一時 状態 に な る が、 人間 choice で 該 当 chara を trash す れ ば 5 体 に 戻 る。
+
+        AI / owner_idx 未 指 定 / human_player_idx 未 設 定 時 は 旧 logic (= 最 弱 自 動 trash)。
+
+        戻り値: trash したキャラ (いなければ None)、 pending 設 定 した 場 合 は "PENDING_HUMAN"。
         """
         if self.field_count() < self.MAX_CHARACTERS:
             return None
+        # 人間 owner なら pending_choice 設定 して 自動 trash skip
+        if (state is not None and owner_idx is not None
+                and getattr(state, "human_player_idx", None) is not None
+                and owner_idx == state.human_player_idx):
+            state.pending_choice = {
+                "kind": "field_full_select_trash",
+                "owner_idx": owner_idx,
+                "candidates": [
+                    {
+                        "iid": c.instance_id,
+                        "card_id": c.card.card_id,
+                        "name": c.card.name,
+                        "power": c.power,
+                        "cost": c.card.cost,
+                        "attached_dons": c.attached_dons,
+                    }
+                    for c in self.characters
+                ],
+            }
+            state.push_log("  差 替 (3-7-6-1) 待 ち: 人間 が ト ラ ッ シュ 対 象 を 選 択 中")
+            return "PENDING_HUMAN"
+        # AI / 旧 logic: 自動 最 弱 trash
         sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
         self.characters.remove(sacrifice)
         self.trash.append(sacrifice.card)
