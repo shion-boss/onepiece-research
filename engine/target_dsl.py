@@ -833,14 +833,28 @@ def load_target_spec(
     if base_dir is None:
         base_dir = Path(__file__).resolve().parent.parent / "decks"
 
-    # per-deck spec を 読む (= 既存 path)
-    path = base_dir / f"{deck_slug}.target_{version}.json"
+    # runtime 上書き path 確認 (= 2026-05-30 追加、 Vercel Blob か ら fetched spec を /tmp/specs に
+    # sync する pattern。 ONEPIECE_SPEC_RUNTIME_DIR env で 場 所 override 可、 default /tmp/specs)。
+    # runtime path に file が あ れ ば そ ち ら 優 先 (= Blob 永 続 化 さ れ た 最 新)、 な け れ ば
+    # bundle (= base_dir) 読 込 で 既 動 作 維 持。
+    import os as _os_for_spec
+    runtime_dir = Path(_os_for_spec.environ.get("ONEPIECE_SPEC_RUNTIME_DIR", "/tmp/specs"))
+    runtime_path = runtime_dir / f"{deck_slug}.target_{version}.json"
     per_deck_spec: Optional[dict] = None
-    if path.exists():
+    if runtime_path.exists() and runtime_path.stat().st_size > 0:
         try:
-            per_deck_spec = json.loads(path.read_text(encoding="utf-8"))
+            per_deck_spec = json.loads(runtime_path.read_text(encoding="utf-8"))
         except Exception:
             per_deck_spec = None
+
+    # per-deck spec を 読む (= 既存 bundle path、 runtime に な か っ た 場 合 の fallback)
+    if per_deck_spec is None:
+        path = base_dir / f"{deck_slug}.target_{version}.json"
+        if path.exists():
+            try:
+                per_deck_spec = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                per_deck_spec = None
 
     # generic spec を 読む (= 全 deck 共通 fallback)
     generic_spec = _load_generic_spec(base_dir)

@@ -680,10 +680,15 @@ def _list_deck_files() -> list[Path]:
 
 
 def _load_deck_json(slug: str) -> dict:
-    path = DECKS_DIR / f"{slug}.json"
-    if not path.exists():
+    """deck recipe を 読 み込 む。 Vercel = Blob 優先 → /tmp/specs に sync → bundle fallback。
+    local = bundle 直 接 (= 既 動 作)。
+    """
+    from api.spec_persistence import ensure_deck_recipe_loaded
+
+    p = ensure_deck_recipe_loaded(slug)
+    if p is None:
         raise HTTPException(404, f"deck not found: {slug}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 @app.get("/api/decks", response_model=list[DeckSummary])
@@ -829,12 +834,13 @@ def create_deck(req: CreateDeckRequest):
     deck_dict["source"] = "user"
     deck_dict["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    DECKS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        json.dumps(deck_dict, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    # Vercel Blob 永 続 化 (= 2026-05-30 追加)。 BLOB_READ_WRITE_TOKEN 設 定 時 は Blob upload、
+    # 未 設 定 (= local dev) で は bundle に 直接 write (= 既 動 作)。
+    from api.spec_persistence import save_deck_recipe
+
+    storage_url = save_deck_recipe(slug, deck_dict)
     return CreateDeckResponse(
-        slug=slug, path=str(out_path.relative_to(ROOT)), warnings=[]
+        slug=slug, path=storage_url, warnings=[]
     )
 
 
@@ -3075,6 +3081,13 @@ def _build_default_ai_factory(deck_slug: str):
 def _build_human_session(spec: HumanSessionSpec):
     """spec から HumanSession を construct (= 初期 state、 mulligan pending)。"""
     from engine.human_session import HumanSession  # lazy import
+    from api.spec_persistence import ensure_spec_loaded
+
+    # Vercel Blob か ら 最 新 spec を /tmp/specs に pre-fetch (= 後 続 GoalDirectedAI が
+    # engine/target_dsl.py:load_target_spec で runtime path 優 先 で 読 む)。 local dev は
+    # Blob 未 設 定 で no-op、 bundle 直 接 で 動 作。
+    ensure_spec_loaded(spec.deck_a_slug)
+    ensure_spec_loaded(spec.deck_b_slug)
 
     deck_a = _load_deck_by_slug(spec.deck_a_slug)
     deck_b = _load_deck_by_slug(spec.deck_b_slug)
