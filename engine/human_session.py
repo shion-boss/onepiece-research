@@ -613,7 +613,7 @@ class HumanSession:
             self.pending_payload["available_opp_attack_effects"] = list(self.state._available_opp_attack_effects)
 
     def serialize_for_log(self) -> dict:
-        """試合終了後 の full データ を 1 dict に まとめる (= Blob upload 用)。
+        """試合終了後 or 中断 試合 の full データ を 1 dict に まとめる (= Blob upload 用)。
 
         含むもの:
         - metadata: timestamp / deck slugs / seed / human_first / winner / turns
@@ -621,13 +621,15 @@ class HumanSession:
         - snapshots: 全 snapshot (= 中間 state、 frontend 再生 と同じ)
         - action_evals: 全 action の eval_before/after/delta (= 人間 + AI 両方、
           player_idx で 分離可能。 「AI 悪手」 + 「人間 良手」 両方の 解析素材)
-        - winner_for_human: 1=人間勝利、 0=AI勝利、 -1=引き分け/時間切れ
+        - winner_for_human: 1=人間勝利、 0=AI勝利、 -1=引き分け/時間切れ/中断
 
-        Raises:
-            ValueError: game_over=False の場合
+        2026-05-31 fix: 旧 logic は game_over=True 必須 で 中 断 試合 (= 「対 戦 終了」
+        ボタン) で 500 error → ohtsuki さん の log メモ が 消 失。 #67 で API endpoint
+        の game_over check は 撤 廃 し た が、 こ こ で の check が 残 留 し て て 真因 だ っ た。
+        中 断 試合 で も serialize 可 能 化、 winner_for_human=-1 (= 引き分け/中断)。
         """
-        if not self.state.game_over:
-            raise ValueError("serialize_for_log は 試合終了後のみ呼び出せます")
+        # game_over check 撤 廃 (= 中 断 試合 で も serialize)。 winner=-1 で 「中断」 を
+        # 表 現 (= 既 「-1=引き分け/時間切れ」 と 同 値)。
 
         from datetime import datetime, timezone
 
