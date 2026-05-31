@@ -5727,7 +5727,7 @@
       }
     },
     {
-      "_text": "OP15-078 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+1000。その後、自分の場のドン‼が6枚以下の場合、カード1枚を引く。",
+      "_text": "OP15-078 カウンター:自リーダーかキャラ+1000、その後自場ドン6以下ならドロー",
       "when": "counter",
       "do": [
         {
@@ -5738,17 +5738,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_don_le": 6
+            },
+            "do": [
               {
-                "if": {
-                  "self_don_le": 6
-                },
-                "do": [
-                  {
-                    "draw": 1
-                  }
-                ]
+                "draw": 1
               }
             ]
           }
@@ -7784,7 +7780,7 @@
   ],
   "OP14-120": [
     {
-      "_text": "OP14-120 on_play: 相手のコスト9以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。その後、相手のコスト0か8以上のキャラがいる場合、カード1枚を引く。",
+      "_text": "OP14-120 登場時:相手cost9以下1枚 次相手end までアタック不可、その後相手cost0か8以上キャラがいればドロー",
       "when": "on_play",
       "do": [
         {
@@ -7794,17 +7790,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "exists_chara_cost_0_or_ge_8": true
+            },
+            "do": [
               {
-                "if": {
-                  "exists_chara_cost_0_or_ge_8": true
-                },
-                "do": [
-                  {
-                    "draw": 1
-                  }
-                ]
+                "draw": 1
               }
             ]
           }
@@ -12890,15 +12882,27 @@
   ],
   "OP15-022": [
     {
-      "_text": "OP15-022 【起動メイン】【ターン1回】自分のデッキの上から4枚をトラッシュに置く。その後、自分のデッキが0枚の場合、自分のキャラ1枚までを、アクティブにする。",
+      "_text": "OP15-022 起動メイン(ターン1):デッキ上4枚トラッシュ、その後デッキ0枚なら自キャラ1枚アクティブ",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "untap_chara": {
-            "count": 1
+          "mill_self_top": 4
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_deck_count_le": 0
+            },
+            "do": [
+              {
+                "untap_chara": {
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -12906,15 +12910,27 @@
   ],
   "OP15-022_p1": [
     {
-      "_text": "OP15-022_p1 【起動メイン】【ターン1回】自分のデッキの上から4枚をトラッシュに置く。その後、自分のデッキが0枚の場合、自分のキャラ1枚までを、アクティブにする。",
+      "_text": "OP15-022 起動メイン(ターン1):デッキ上4枚トラッシュ、その後デッキ0枚なら自キャラ1枚アクティブ",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "untap_chara": {
-            "count": 1
+          "mill_self_top": 4
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_deck_count_le": 0
+            },
+            "do": [
+              {
+                "untap_chara": {
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -31672,7 +31688,7 @@
       }
     },
     {
-      "_text": "OP15-078_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+1000。その後、自分の場のドン‼が6枚以下の場合、カード1枚を引く。",
+      "_text": "OP15-078 カウンター:自リーダーかキャラ+1000、その後自場ドン6以下ならドロー",
       "when": "counter",
       "do": [
         {
@@ -31683,17 +31699,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_don_le": 6
+            },
+            "do": [
               {
-                "if": {
-                  "self_don_le": 6
-                },
-                "do": [
-                  {
-                    "draw": 1
-                  }
-                ]
+                "draw": 1
               }
             ]
           }
@@ -32618,7 +32630,7 @@
   ],
   "OP14-120_p1": [
     {
-      "_text": "OP14-120_p1 on_play: 相手のコスト9以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。その後、相手のコスト0か8以上のキャラがいる場合、カード1枚を引く。",
+      "_text": "OP14-120 登場時:相手cost9以下1枚 次相手end までアタック不可、その後相手cost0か8以上キャラがいればドロー",
       "when": "on_play",
       "do": [
         {
@@ -32628,17 +32640,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "exists_chara_cost_0_or_ge_8": true
+            },
+            "do": [
               {
-                "if": {
-                  "exists_chara_cost_0_or_ge_8": true
-                },
-                "do": [
-                  {
-                    "draw": 1
-                  }
-                ]
+                "draw": 1
               }
             ]
           }
@@ -54137,7 +54145,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_leader_power_le": 0
+      }
     }
   ],
   "OP15-005": [
@@ -54152,7 +54163,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "opp_attached_don_ge": 1
+      }
     }
   ],
   "OP15-010": [
@@ -54425,11 +54439,22 @@
   ],
   "OP15-065": [
     {
-      "_text": "OP15-065 on_play: 自分のデッキの上から1枚を公開する。公開したカードがコスト2以下の場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_text": "OP15-065 登場時:デッキ上1公開、cost2以下ならドン1レスト追加",
       "when": "on_play",
       "do": [
         {
-          "add_rested_don": 1
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "cost_le": 2
+            },
+            "then": [
+              {
+                "add_rested_don": 1
+              }
+            ],
+            "rest_remain": "top"
+          }
         }
       ]
     }
@@ -55751,7 +55776,10 @@
             "duration": "next_opp_turn_end"
           }
         }
-      ]
+      ],
+      "if": {
+        "exists_chara_cost_0_or_ge_8": true
+      }
     },
     {
       "_text": "OP14-098 counter: 自分のリーダーを、このバトル中、パワー+3000。",

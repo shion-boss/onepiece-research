@@ -682,6 +682,14 @@ def eval_condition(
             # 自ライフ枚数 ≤ 相手ライフ枚数 (= OP10-114 ドレーク「自ライフが相手以下」)。
             if opp is None or len(me.life) > len(opp.life):
                 return False
+        elif k == "opp_attached_don_ge":
+            # 相手の場の付与ドン合計が N 以上か (= OP15-005 カバジ「相手の付与されているドンがある」)。
+            if opp is None:
+                return False
+            total = sum(getattr(c, "attached_dons", 0)
+                        for c in [opp.leader, *opp.characters] if c is not None)
+            if total < int(v):
+                return False
         elif k == "total_life_ge":
             # お互いのライフ合計が N 枚以上 (= OP11-114「両ライフ合計5以上」)。
             if opp is None or (len(me.life) + len(opp.life)) < int(v):
