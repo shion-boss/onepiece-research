@@ -8086,7 +8086,7 @@
   ],
   "OP12-098": [
     {
-      "_text": "OP12-098 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のコスト8以上の特徴《革命軍》を持つキャラがいる場合、そのカードを、このバトル中、",
+      "_text": "OP12-098 カウンター:自リーダーかキャラ+2000、自コスト8以上革命軍キャラがいればそのカード更に+2000",
       "when": "counter",
       "do": [
         {
@@ -8094,6 +8094,28 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "feature": "革命軍",
+                  "cost_ge": 8
+                },
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -21185,7 +21207,10 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     },
     {
       "_text": "OP13-062 on_attack: 相手の元々のパワー3000以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -21501,14 +21526,22 @@
   ],
   "OP12-062": [
     {
-      "_text": "OP12-062 on_play: 自分のリーダーが「サンジ」で、自分の場のドン‼が相手の場のドン‼の枚数以下の場合、ドン‼デッキからドン‼1枚までを、レストで追加する。その後、カード1枚を引く。",
+      "_text": "OP12-062 登場時:リーダーサンジ&自場ドン≤相手の場合、ドン1レスト追加、その後1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 1
         },
         {
-          "add_rested_don": 1
+          "draw": 1
+        }
+      ],
+      "conditions": [
+        {
+          "leader_name": "サンジ"
+        },
+        {
+          "don_diff_le": 0
         }
       ]
     }
@@ -33730,7 +33763,10 @@
             "duration": "next_opp_turn_end"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP12-086_p1": [
@@ -39607,14 +39643,22 @@
   ],
   "OP12-062_p1": [
     {
-      "_text": "OP12-062_p1 on_play: 自分のリーダーが「サンジ」で、自分の場のドン‼が相手の場のドン‼の枚数以下の場合、ドン‼デッキからドン‼1枚までを、レストで追加する。その後、カード1枚を引く。",
+      "_text": "OP12-062 登場時:リーダーサンジ&自場ドン≤相手の場合、ドン1レスト追加、その後1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 1
         },
         {
-          "add_rested_don": 1
+          "draw": 1
+        }
+      ],
+      "conditions": [
+        {
+          "leader_name": "サンジ"
+        },
+        {
+          "don_diff_le": 0
         }
       ]
     }
@@ -41523,7 +41567,7 @@
   ],
   "OP12-098_p1": [
     {
-      "_text": "OP12-098_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のコスト8以上の特徴《革命軍》を持つキャラがいる場合、そのカードを、このバトル中、",
+      "_text": "OP12-098 カウンター:自リーダーかキャラ+2000、自コスト8以上革命軍キャラがいればそのカード更に+2000",
       "when": "counter",
       "do": [
         {
@@ -41531,6 +41575,28 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "feature": "革命軍",
+                  "cost_ge": 8
+                },
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -56460,7 +56526,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     }
   ],
   "OP13-064": [
@@ -57818,7 +57887,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP12-079": [
@@ -85442,7 +85514,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     }
   ],
   "OP14-014_p1": [
