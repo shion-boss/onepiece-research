@@ -156,7 +156,9 @@ def _make_overlay_bundle(card_id, effects):
 
 
 def test_once_per_turn_blocks_second_fire():
-    """once_per_turn=True の効果は同一ターン中、 同一カードで 2 回目発火しない。"""
+    """once_per_turn=True は instance 単位で 1 回 (= 公式 SKILL 7-5-3 / 10-2-13-4
+    「同名カードが複数枚あっても各 1 回」)。 同一 instance の 2 回目は blocked、
+    別個体 (= 別 instance) は 独立して 各 1 回 発動可。"""
     from engine.effects import trigger_on_play
     repo = _repo()
     overlay = {
@@ -171,16 +173,19 @@ def test_once_per_turn_blocks_second_fire():
     me = state.players[0]
     opp = state.players[1]
     hand_before = len(me.hand)
-    # 1 体目: 発動
+    # instance A: 発動
     ip1 = InPlay.of(repo.get("OP01-013"), sickness=True)
     me.characters.append(ip1)
     trigger_on_play(state, me, opp, ip1, overlay)
     assert len(me.hand) == hand_before + 1
-    # 2 体目 (同 card_id): once_per_turn でブロック
+    # 同一 instance A の 2 回目: once_per_turn でブロック
+    trigger_on_play(state, me, opp, ip1, overlay)
+    assert len(me.hand) == hand_before + 1, "同一 instance の 2 回目は blocked"
+    # 別個体 instance B (同 card_id): 公式「各 1 回」 で 独立 発動可
     ip2 = InPlay.of(repo.get("OP01-013"), sickness=True)
     me.characters.append(ip2)
     trigger_on_play(state, me, opp, ip2, overlay)
-    assert len(me.hand) == hand_before + 1, "2 体目は once_per_turn でスキップ"
+    assert len(me.hand) == hand_before + 2, "別個体は独立して 各 1 回 発動可 (公式 7-5-3)"
 
 
 def test_once_per_turn_explicit_key_shared():
@@ -258,21 +263,19 @@ def test_once_per_turn_per_player_isolated():
     opp = state.players[1]
     me_hand_before = len(me.hand)
     opp_hand_before = len(opp.hand)
-    # me 側で発動
+    # me 側 instance で発動
     ip_me = InPlay.of(repo.get("OP01-013"), sickness=True)
     me.characters.append(ip_me)
     trigger_on_play(state, me, opp, ip_me, overlay)
     assert len(me.hand) == me_hand_before + 1
-    # opp 側でも同カードを発動 (相手プレイヤーの set は独立)
+    # opp 側でも同カードを発動 (相手プレイヤーの instance は独立)
     ip_opp = InPlay.of(repo.get("OP01-013"), sickness=True)
     opp.characters.append(ip_opp)
     trigger_on_play(state, opp, me, ip_opp, overlay)
     assert len(opp.hand) == opp_hand_before + 1
-    # me 側はそのまま再発動できない (使用済み)
-    ip_me2 = InPlay.of(repo.get("OP01-013"), sickness=True)
-    me.characters.append(ip_me2)
-    trigger_on_play(state, me, opp, ip_me2, overlay)
-    assert len(me.hand) == me_hand_before + 1, "me 側は使用済みのまま"
+    # 同一 instance ip_me の 2 回目は blocked (= per-instance 1 回)
+    trigger_on_play(state, me, opp, ip_me, overlay)
+    assert len(me.hand) == me_hand_before + 1, "同一 instance は使用済みのまま"
 
 
 # --------------------------------------------------------------------------- #
