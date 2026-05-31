@@ -1042,18 +1042,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -1115,9 +1104,6 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_4"
-        },
-        {
           "return_to_hand": {
             "type": "one_opponent_character_filtered",
             "filter": {
@@ -1125,7 +1111,15 @@
             }
           }
         }
-      ]
+      ],
+      "cost": {
+        "reveal_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 2
+        }
+      }
     }
   ],
   "OP08-041": [
@@ -1427,6 +1421,13 @@
       "do": [
         {
           "draw": 2
+        },
+        {
+          "attach_don": {
+            "target": "self_leader",
+            "count": 1,
+            "rested": true
+          }
         }
       ]
     }
@@ -1964,41 +1965,6 @@
   ],
   "OP11-041": [
     {
-      "_text": "青黄ナミ ドン1+ 相手ターン中 自リーダー +2000",
-      "when": "on_attached_don",
-      "n": 1,
-      "if": {
-        "opp_turn": true
-      },
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "static"
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "青黄ナミ アタック時 1ドロー (ライフ離れた時の代替)",
-      "when": "on_attack",
-      "if": {
-        "self_hand_count_le": 7
-      },
-      "do": [
-        {
-          "draw": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
       "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
       "when": "on_self_life_taken",
       "if": {
@@ -2358,7 +2324,7 @@
       ]
     },
     {
-      "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 5000以下KO + 2ミル",
+      "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
@@ -2368,7 +2334,11 @@
       },
       "do": [
         {
-          "ko": "all_opponent_characters"
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 10,
+            "duration": "turn"
+          }
         },
         {
           "mill": {
@@ -3596,26 +3566,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 3
+            },
+            "limit": 1
           }
         }
       ],
@@ -4607,7 +4563,10 @@
         {
           "ko": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "cost": {
+        "life_top_or_bottom_to_hand": 1
+      }
     }
   ],
   "OP13-042": [
@@ -4720,18 +4679,7 @@
       "when": "opp_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "untap_don": 1
-              }
-            ]
-          }
+          "untap_don": 1
         }
       ],
       "cost": {
@@ -5039,12 +4987,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
-              "feature": "白ひげ海賊団"
+              "feature": "白ひげ海賊団",
+              "exclude_card_id": "ST22-002"
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5054,21 +5002,10 @@
       "when": "opp_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "draw": 1
-              },
-              {
-                "self_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "draw": 1
+        },
+        {
+          "self_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -5091,23 +5028,11 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
         "leader_feature": "麦わらの一味"
       }
-    },
-    {
-      "_text": "EB03-055 on_ko: 相手に1ダメージを与えてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "deal_opp_leader_damage": 1
-        }
-      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -5767,7 +5692,7 @@
   ],
   "OP14-069": [
     {
-      "_text": "OP14-069 【登場時】ドン‼-3：以下から1つを選ぶ。・自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のコスト8以下のキャラ1枚までを、KOする。・相手のコスト7以下のキャラ3枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
+      "_text": "OP14-069 (top-if削除: option2はleader非依存) 【登場時】ドン‼-3：以下から1つを選ぶ。・自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、相手のコスト8以下のキャラ1枚までを、KOする。・相手のコスト7以下のキャラ3枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
       "when": "on_play",
       "cost": {
         "pay_don": 3
@@ -5803,10 +5728,7 @@
             ]
           }
         }
-      ],
-      "if": {
-        "leader_feature": "ドンキホーテ海賊団"
-      }
+      ]
     }
   ],
   "OP07-057": [
@@ -6473,13 +6395,24 @@
           }
         },
         {
-          "ko": "one_opponent_character_power_le_0"
-        },
-        {
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -8000,
             "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand": 2
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_power_le_0"
+              }
+            ]
           }
         }
       ]
@@ -7025,21 +6958,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_character_any",
-                  "amount": 1000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ],
@@ -8526,18 +8448,28 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_0",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
         },
         {
-          "ko": "one_opponent_character_power_le_0"
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_life_le": 2
+                },
+                "do": [
+                  {
+                    "ko": "one_opponent_character_power_le_0"
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP05-019 trigger: このカードの【メイン】効果を発動する。",
@@ -9192,11 +9124,11 @@
   "OP15-052": [
     {
       "_text": "OP15-052 replace_ko: 自分の元々のパワー7000以下のキャラが相手の効果で場を離れる場合、代わりに自分のキャラ1枚を持ち主のデッキの下に置くことができる。",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
-        "target_power_le": 7000,
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_base_power_le": 7000
       },
       "do": [
         {
@@ -9421,7 +9353,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_power_le_6000"
+          "return_to_deck_bottom": "one_opponent_character_power_le_6000"
         }
       ]
     },
@@ -10381,21 +10313,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_opponent_character_cost_le_0cost",
-                  "amount": -3000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_opponent_character_cost_le_0cost",
+            "amount": -3000,
+            "duration": "turn"
           }
         }
       ],
@@ -10710,6 +10631,16 @@
             "target": "one_opponent_character_any",
             "amount": 3
           }
+        },
+        {
+          "keep_opp_rested_chara_next_refresh": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 0
+              }
+            }
+          }
         }
       ]
     },
@@ -10717,6 +10648,9 @@
       "_text": "OP05-094 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -11161,7 +11095,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_trash_count_ge": 4
+        "self_trash_event_count_ge": 4
       },
       "do": [
         {
@@ -11189,20 +11123,9 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": "one_self_character_cost_le_8cost",
-                  "limit": 1
-                }
-              }
-            ]
+          "untap_chara": {
+            "target": "one_self_character_cost_le_8cost",
+            "limit": 1
           }
         }
       ],
@@ -11260,7 +11183,8 @@
         {
           "give_keyword": {
             "target": "one_self_character_any",
-            "keyword": "ブロック不可"
+            "keyword": "ブロック不可",
+            "duration": "turn"
           }
         }
       ]
@@ -12833,7 +12757,7 @@
   ],
   "OP14-079_p1": [
     {
-      "_text": "黒クロコダイル 起動メイン: BWキャラ1KO → 相手キャラコスト-10 + 2ミル + 5000以下KO",
+      "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
@@ -12845,7 +12769,8 @@
         {
           "cost_minus": {
             "target": "one_opponent_character_any",
-            "amount": 10
+            "amount": 10,
+            "duration": "turn"
           }
         },
         {
@@ -12853,9 +12778,6 @@
             "target": "self",
             "count": 2
           }
-        },
-        {
-          "ko": "all_opponent_characters"
         }
       ]
     }
@@ -18405,7 +18327,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 1000,
             "duration": "battle"
           }
@@ -26936,24 +26858,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "feature": "クロスギルド"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "feature": "クロスギルド"
+            },
+            "limit": 1
           }
         }
       ],
@@ -29735,7 +29646,10 @@
         {
           "ko": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "cost": {
+        "life_top_or_bottom_to_hand": 1
+      }
     }
   ],
   "PRB02-006_p2": [
@@ -29990,23 +29904,11 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
         "leader_feature": "麦わらの一味"
       }
-    },
-    {
-      "_text": "EB03-055_p1 on_ko: 相手に1ダメージを与えてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "deal_opp_leader_damage": 1
-        }
-      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -30154,23 +30056,11 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
         "leader_feature": "麦わらの一味"
       }
-    },
-    {
-      "_text": "EB03-055_p2 on_ko: 相手に1ダメージを与えてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "deal_opp_leader_damage": 1
-        }
-      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -30726,20 +30616,9 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": "one_self_character_cost_le_8cost",
-                  "limit": 1
-                }
-              }
-            ]
+          "untap_chara": {
+            "target": "one_self_character_cost_le_8cost",
+            "limit": 1
           }
         }
       ],
@@ -30777,7 +30656,8 @@
         {
           "give_keyword": {
             "target": "one_self_character_any",
-            "keyword": "ブロック不可"
+            "keyword": "ブロック不可",
+            "duration": "turn"
           }
         }
       ]
@@ -31638,10 +31518,7 @@
             ]
           }
         }
-      ],
-      "if": {
-        "leader_feature": "ドンキホーテ海賊団"
-      }
+      ]
     }
   ],
   "OP14-084_p1": [
@@ -33268,21 +33145,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_character_any",
-                  "amount": 1000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ],
@@ -33572,7 +33438,10 @@
         {
           "ko": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "cost": {
+        "life_top_or_bottom_to_hand": 1
+      }
     }
   ],
   "OP11-118_p1": [
@@ -34590,18 +34459,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -36804,12 +36662,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
-              "feature": "白ひげ海賊団"
+              "feature": "白ひげ海賊団",
+              "exclude_card_id": "ST22-002"
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36967,26 +36825,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 3
+            },
+            "limit": 1
           }
         }
       ],
@@ -37659,26 +37503,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 3
+            },
+            "limit": 1
           }
         }
       ],
@@ -38353,18 +38183,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -39151,21 +38970,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_opponent_character_cost_le_0cost",
-                  "amount": -3000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_opponent_character_cost_le_0cost",
+            "amount": -3000,
+            "duration": "turn"
           }
         }
       ],
@@ -39396,24 +39204,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "feature": "クロスギルド"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "feature": "クロスギルド"
+            },
+            "limit": 1
           }
         }
       ],
@@ -40213,18 +40010,28 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_0",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
         },
         {
-          "ko": "one_opponent_character_power_le_0"
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_life_le": 2
+                },
+                "do": [
+                  {
+                    "ko": "one_opponent_character_power_le_0"
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP05-019_p1 trigger: このカードの【メイン】効果を発動する。",
@@ -40412,18 +40219,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -40640,6 +40436,14 @@
         "leader_features_any": [
           "白ひげ海賊団"
         ]
+      },
+      "cost": {
+        "reveal_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 2
+        }
       }
     }
   ],
@@ -44124,24 +43928,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "feature": "クロスギルド"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "feature": "クロスギルド"
+            },
+            "limit": 1
           }
         }
       ],
@@ -47456,12 +47249,9 @@
   ],
   "OP05-082_p1": [
     {
-      "_text": "OP05-082_p1 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
       "when": "activate_main",
       "do": [
-        {
-          "trash_opp_hand_random": 1
-        },
         {
           "trash_opp_hand_random": 1
         }
@@ -47471,18 +47261,15 @@
       },
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "trash_to_deck": 2
       }
     }
   ],
   "OP05-082_p2": [
     {
-      "_text": "OP05-082_p2 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
       "when": "activate_main",
       "do": [
-        {
-          "trash_opp_hand_random": 1
-        },
         {
           "trash_opp_hand_random": 1
         }
@@ -47492,18 +47279,15 @@
       },
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "trash_to_deck": 2
       }
     }
   ],
   "OP05-082_p3": [
     {
-      "_text": "OP05-082_p3 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
       "when": "activate_main",
       "do": [
-        {
-          "trash_opp_hand_random": 1
-        },
         {
           "trash_opp_hand_random": 1
         }
@@ -47513,18 +47297,15 @@
       },
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "trash_to_deck": 2
       }
     }
   ],
   "OP05-082_r1": [
     {
-      "_text": "OP05-082_r1 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
       "when": "activate_main",
       "do": [
-        {
-          "trash_opp_hand_random": 1
-        },
         {
           "trash_opp_hand_random": 1
         }
@@ -47534,7 +47315,7 @@
       },
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "trash_to_deck": 2
       }
     }
   ],
@@ -66409,12 +66190,9 @@
   ],
   "OP05-082": [
     {
-      "_text": "OP05-082 activate_main: このキャラをレストにし、自分のトラッシュのカード2枚を好きな順番でデッキの下に置くことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
       "when": "activate_main",
       "do": [
-        {
-          "trash_opp_hand_random": 1
-        },
         {
           "trash_opp_hand_random": 1
         }
@@ -66424,7 +66202,7 @@
       },
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "trash_to_deck": 2
       }
     }
   ],
@@ -68310,30 +68088,14 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "ko_self_with_filter": {
-                  "feature": "ホーミーズ"
-                }
-              },
-              {
-                "rest_self": true
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "シャーロット・リンリン"
               }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "name": "シャーロット・リンリン"
-                    }
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+            },
+            "limit": 1
           }
         }
       ],

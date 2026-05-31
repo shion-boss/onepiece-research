@@ -27,6 +27,9 @@ ROOT = Path(__file__).resolve().parent.parent
 REAL_COST_KEYS = {
     "rest_self_don", "discard_hand", "rest_self", "rest", "trash_self_hand_random",
     "pay_don", "return_self_don_to_deck", "return_self_don", "trash_self",
+    # 2026-05-31 追加: inline 監査で trash_self + return_self_to_trash 系の二重 (16 entry) が
+    # 旧 REAL set から漏れていた (OP14-083 / ST22-002 等)。 同義 self-cost spelling を網羅。
+    "return_self_to_trash", "return_self_to_hand",
 }
 # 意図的に残す例外: rest_self の冪等重複のみで実害なし (ホーミーズ犠牲 cost は oct で 1 回)
 ALLOWLIST = {"OP04-111"}
