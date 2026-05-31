@@ -1388,7 +1388,10 @@
         {
           "rest": "one_opponent_character_cost_le_6cost"
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 3
+      }
     }
   ],
   "OP12-046": [
@@ -19127,6 +19130,9 @@
       ],
       "cost": {
         "rest_self": true
+      },
+      "if": {
+        "self_life_le_opp": true
       }
     }
   ],
@@ -22686,6 +22692,9 @@
       ],
       "cost": {
         "trash_self": true
+      },
+      "if": {
+        "don_diff_le": 0
       }
     }
   ],
@@ -23399,7 +23408,10 @@
         {
           "ko": "one_opponent_character_power_le_2000"
         }
-      ]
+      ],
+      "if": {
+        "total_life_le": 5
+      }
     },
     {
       "_text": "OP09-114 trigger: お互いのライフの合計枚数が5枚以下の場合、このカードを登場させる。",
@@ -23408,7 +23420,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "total_life_le": 5
+      }
     }
   ],
   "OP09-115": [
@@ -27436,6 +27451,9 @@
       ],
       "cost": {
         "rest_self": true
+      },
+      "if": {
+        "self_life_le_opp": true
       }
     }
   ],
@@ -27450,6 +27468,9 @@
       ],
       "cost": {
         "rest_self": true
+      },
+      "if": {
+        "self_life_le_opp": true
       }
     }
   ],
@@ -44637,6 +44658,9 @@
       ],
       "cost": {
         "rest_self": true
+      },
+      "if": {
+        "self_life_le_opp": true
       }
     }
   ],
@@ -59287,6 +59311,9 @@
       ],
       "cost": {
         "rest_self_don": 3
+      },
+      "if": {
+        "total_life_ge": 5
       }
     },
     {
@@ -59314,6 +59341,9 @@
       ],
       "cost": {
         "rest_self_don": 3
+      },
+      "if": {
+        "total_life_ge": 5
       }
     },
     {
@@ -60699,17 +60729,26 @@
   ],
   "OP10-115": [
     {
-      "_text": "OP10-115 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分のライフが0枚の場合、カード1枚を引く。",
+      "_text": "OP10-115 カウンター:自リーダーかキャラ+4000、その後自ライフ0なら1ドロー",
       "when": "counter",
       "do": [
-        {
-          "draw": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 0
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]

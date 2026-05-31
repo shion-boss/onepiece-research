@@ -678,6 +678,14 @@ def eval_condition(
             # 自リーダーの現在パワーが N 以上か (= OP09-017 ワイヤー「リーダーがパワー7000以上」)。
             if me.leader is None or me.leader.power < int(v):
                 return False
+        elif k == "self_life_le_opp":
+            # 自ライフ枚数 ≤ 相手ライフ枚数 (= OP10-114 ドレーク「自ライフが相手以下」)。
+            if opp is None or len(me.life) > len(opp.life):
+                return False
+        elif k == "total_life_ge":
+            # お互いのライフ合計が N 枚以上 (= OP11-114「両ライフ合計5以上」)。
+            if opp is None or (len(me.life) + len(opp.life)) < int(v):
+                return False
         elif k == "self_hand_diff_le":
             # 自手札枚数 - 相手手札枚数 が N 以下か (= OP09-092「自手札が相手より3枚以上少ない」= -3)。
             if opp is None or (len(me.hand) - len(opp.hand)) > int(v):
