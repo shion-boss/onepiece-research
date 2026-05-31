@@ -16528,21 +16528,38 @@
   ],
   "ST14-001": [
     {
-      "_text": "on_attached_don n=1: 自分のキャラすべてを、コスト+1。自分のコスト8以上のキャラがいる場合、このリーダーのパワー+1000",
+      "_text": "ST14-001 ドン×1静的:自キャラすべてコスト+1",
       "when": "on_attached_don",
       "n": 1,
+      "do": [
+        {
+          "set_base_cost_timed": {
+            "target": "all_self_characters",
+            "delta": 1,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST14-001 ドン×1静的:自cost8以上キャラがいればリーダー+1000",
+      "when": "on_attached_don",
+      "n": 1,
+      "conditions": [
+        {
+          "self_chara_filtered_count_ge": {
+            "filter": {
+              "cost_ge": 8
+            },
+            "count": 1
+          }
+        }
+      ],
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "static"
-          }
-        },
-        {
-          "set_base_cost_timed": {
-            "target": "all_self_characters",
-            "delta": 1,
             "duration": "static"
           }
         }
@@ -22978,7 +22995,15 @@
         {
           "ko": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 6
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP09-019": [
@@ -26389,7 +26414,15 @@
         {
           "ko": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "ST14-006": [
@@ -26408,7 +26441,7 @@
   ],
   "ST14-015": [
     {
-      "_text": "ST14-015 main: 自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。その後、自分のコスト8以上のキャラがいる場合、相手のコスト2以下のキャラ1枚までを、KOする。",
+      "_text": "ST14-015 メイン:自リーダーかキャラ+3000、その後自cost8以上キャラがいれば相手cost2以下を1KO",
       "when": "main",
       "do": [
         {
@@ -26419,7 +26452,21 @@
           }
         },
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "conditional": {
+            "if": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 8
+                },
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -26430,7 +26477,15 @@
         {
           "ko": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "ST13-008": [
@@ -34721,7 +34776,15 @@
         {
           "ko": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 6
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "ST15-002_p1": [
@@ -45833,7 +45896,15 @@
             "amount": 5
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     },
     {
       "_text": "ST14-007_p1 on_play: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
@@ -45845,7 +45916,15 @@
             "amount": 5
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "ST14-007_r1": [
@@ -45859,7 +45938,15 @@
             "amount": 5
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     },
     {
       "_text": "ST14-007_r1 on_play: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
@@ -45871,7 +45958,15 @@
             "amount": 5
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "ST14-016_r1": [
@@ -77708,7 +77803,15 @@
             "amount": 5
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     },
     {
       "_text": "ST14-007 on_play: 自分のコスト8以上のキャラがいる場合、相手のキャラ1枚までを、このターン中、コスト-5。",
@@ -77720,27 +77823,57 @@
             "amount": 5
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "ST14-008": [
     {
-      "_text": "ST14-008 activate_main: このキャラをレストにできる：自分の黒の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。その後、自分のコスト8以上のキャラがい",
+      "_text": "ST14-008 起動メイン(自レスト):自黒麦わら1枚コスト+2、その後自cost8以上キャラがいれば1引き1捨て",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
           "cost_minus": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "one_self_character_filtered",
+              "filter": {
+                "color": "黒",
+                "feature": "麦わらの一味"
+              }
+            },
             "amount": -2,
             "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 8
+                },
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "draw": 1
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "discard_hand": 1,
         "rest_self": true
       }
     }
@@ -77796,19 +77929,25 @@
   ],
   "ST14-014": [
     {
-      "_text": "ST14-014 counter: コスト8以上のキャラがいる場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "ST14-014 カウンター:自cost8以上キャラがいれば自リーダーかキャラ+3000",
       "when": "counter",
       "do": [
         {
-          "trash_to_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_le": 2
-            },
-            "limit": 1
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 3000,
+            "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     },
     {
       "_text": "ST14-014 trigger: 自分のトラッシュからコスト2以下のキャラカード1枚までを、手札に加える。",
