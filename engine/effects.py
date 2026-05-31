@@ -1409,6 +1409,9 @@ def _resolve_target(
         return [me.leader]
     if target_spec in ("all_opponent_characters", "all_opp_characters"):
         return list(opp.characters)
+    if target_spec == "all_opponent_characters_power_le_0":
+        # 「相手のパワー0以下のキャラすべて」 (= OP15-114 ワイパー 等)。 現在 power で判定。
+        return [c for c in opp.characters if c.power <= 0]
     if target_spec == "any_self_chara":
         # 「自分のキャラ 1 枚」 を 表す 別名 (= 25 overlay 使用)。
         # 公式 「自分のキャラ 1 枚を、 〜」 系。 one_self_character_any と 同 semantics。

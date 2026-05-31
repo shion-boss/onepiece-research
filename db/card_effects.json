@@ -9196,7 +9196,7 @@
                 }
               },
               {
-                "ko": "one_opponent_character_power_le_0"
+                "ko": "all_opponent_characters_power_le_0"
               }
             ]
           }
@@ -31230,7 +31230,7 @@
                 }
               },
               {
-                "ko": "one_opponent_character_power_le_0"
+                "ko": "all_opponent_characters_power_le_0"
               }
             ]
           }
