@@ -6972,7 +6972,16 @@
         {
           "put_top_to_life": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "シャンドラの戦士",
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "カルガラ"
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP08-110": [
@@ -7008,14 +7017,17 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "シャンドラの戦士",
-              "name": "モンブラン・ノーランド"
+              "or_clauses": [
+                {
+                  "name": "モンブラン・ノーランド"
+                },
+                {
+                  "feature": "シャンドラの戦士"
+                }
+              ]
             },
             "limit": 2,
             "destination": "hand",
@@ -7820,6 +7832,14 @@
             "amount": 3000,
             "duration": "battle"
           }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "アッパーヤード"
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -7830,6 +7850,9 @@
       "_text": "OP08-115 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
