@@ -1772,6 +1772,22 @@
             "amount": -1000,
             "duration": "turn"
           }
+        },
+        {
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_life_ge": 2
+                },
+                "do": [
+                  {
+                    "life_to_hand": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -5478,7 +5494,8 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻"
+            "keyword": "速攻",
+            "duration": "turn"
           }
         },
         {
@@ -32665,7 +32682,8 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻"
+            "keyword": "速攻",
+            "duration": "turn"
           }
         },
         {
@@ -39109,7 +39127,8 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻"
+            "keyword": "速攻",
+            "duration": "turn"
           }
         },
         {
