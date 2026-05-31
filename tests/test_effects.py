@@ -3018,15 +3018,17 @@ def test_op12_119_kuma_no_unconditional_on_ko():
     assert len(unconditional_on_ko) == 0, (
         f"OP12-119 無条件 on_ko entry が 残存 (= 旧 bug、 自ターン KO で 不当 発火)"
     )
+    # 「自身の KO」 は on_ko (= KO 本人の reaction) が正。 旧 on_self_chara_ko+victim_iid_eq_self は
+    # victim が broadcast 前に場から除去され dead だったため on_ko + opp_turn へ移行 (2026-05-31)。
     correct = [
         e for e in bundle.effects
-        if e.get("when") == "on_self_chara_ko"
+        if e.get("when") == "on_ko"
         and any(
             isinstance(c, dict) and c.get("opp_turn") is True
             for c in (e.get("conditions") or [])
         )
     ]
-    assert len(correct) >= 1, "OP12-119 on_self_chara_ko + opp_turn entry 不在"
+    assert len(correct) >= 1, "OP12-119 on_ko + opp_turn entry 不在"
 
 
 def test_st17_004_hancock_4c_attach_don_added():

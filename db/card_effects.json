@@ -5102,13 +5102,10 @@
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
@@ -6466,13 +6463,10 @@
     },
     {
       "_text": "OP12-119 くま 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
@@ -30181,13 +30175,10 @@
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
@@ -30342,13 +30333,10 @@
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
@@ -33321,23 +33309,6 @@
     {
       "_text": "OP12-119_p1 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_ko",
-      "do": [
-        {
-          "put_top_to_life": 1
-        }
-      ]
-    },
-    {
-      "_text": "OP12-119 くま 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
       "do": [
         {
           "put_top_to_life": 1
@@ -50932,37 +50903,6 @@
           "in_hand_cost_plus": 4
         }
       ]
-    },
-    {
-      "_text": "EB03-042 コアラ 相手ターン中 自KO時: コアラ以外 革命軍cost6以下 or ロビン 1 枚 hand/trash から 登場",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "do": [
-        {
-          "play_from_hand_or_trash": {
-            "filter": {
-              "exclude_name": "コアラ",
-              "or": [
-                {
-                  "feature": "革命軍",
-                  "cost_le": 6
-                },
-                {
-                  "name": "ニコ・ロビン"
-                }
-              ]
-            },
-            "count": 1
-          }
-        }
-      ]
     }
   ],
   "EB03-042_p1": [
@@ -51004,37 +50944,6 @@
       "do": [
         {
           "in_hand_cost_plus": 4
-        }
-      ]
-    },
-    {
-      "_text": "EB03-042 コアラ 相手ターン中 自KO時: コアラ以外 革命軍cost6以下 or ロビン 1 枚 hand/trash から 登場",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "do": [
-        {
-          "play_from_hand_or_trash": {
-            "filter": {
-              "exclude_name": "コアラ",
-              "or": [
-                {
-                  "feature": "革命軍",
-                  "cost_le": 6
-                },
-                {
-                  "name": "ニコ・ロビン"
-                }
-              ]
-            },
-            "count": 1
-          }
         }
       ]
     }
@@ -51522,37 +51431,6 @@
       "do": [
         {
           "in_hand_cost_plus": 4
-        }
-      ]
-    },
-    {
-      "_text": "EB03-042 コアラ 相手ターン中 自KO時: コアラ以外 革命軍cost6以下 or ロビン 1 枚 hand/trash から 登場",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "do": [
-        {
-          "play_from_hand_or_trash": {
-            "filter": {
-              "exclude_name": "コアラ",
-              "or": [
-                {
-                  "feature": "革命軍",
-                  "cost_le": 6
-                },
-                {
-                  "name": "ニコ・ロビン"
-                }
-              ]
-            },
-            "count": 1
-          }
         }
       ]
     }
@@ -54913,6 +54791,9 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "mill_self_life_to_trash": 1
         }
       ],
       "conditions": [
@@ -54932,26 +54813,6 @@
       "if": {
         "leader_feature": "九蛇海賊団"
       }
-    },
-    {
-      "_text": "OP14-115 リンドウ 相手ターン中 自KO時: 自デッキ→ライフ + 自身 1 ダメージ",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "do": [
-        {
-          "put_top_to_life": 1
-        },
-        {
-          "mill_self_life_to_trash": 1
-        }
-      ]
     }
   ],
   "OP14-117": [
@@ -57427,23 +57288,6 @@
             "target": "self",
             "keyword": "速攻"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP12-107 ドフラ 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "do": [
-        {
-          "put_top_to_life": 1
         }
       ]
     }
@@ -62208,6 +62052,15 @@
       "when": "on_ko",
       "do": [
         {
+          "summon_from_deck": {
+            "filter": {
+              "name": "タマゴ男爵",
+              "cost_le": 4
+            },
+            "count": 1
+          }
+        },
+        {
           "shuffle_self_deck": true
         }
       ],
@@ -62217,32 +62070,6 @@
       "conditions": [
         {
           "opp_turn": true
-        }
-      ]
-    },
-    {
-      "_text": "OP08-071 ニワトリ伯爵 相手ターン中 自KO時 [DON-1]: デッキから タマゴ男爵 cost4以下 1 枚 登場",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "summon_from_deck": {
-            "filter": {
-              "name": "タマゴ男爵",
-              "cost_le": 4
-            },
-            "count": 1
-          }
         }
       ]
     }
@@ -62253,6 +62080,15 @@
       "when": "on_ko",
       "do": [
         {
+          "summon_from_deck": {
+            "filter": {
+              "name": "ニワトリ伯爵",
+              "cost_le": 6
+            },
+            "count": 1
+          }
+        },
+        {
           "shuffle_self_deck": true
         }
       ],
@@ -62262,32 +62098,6 @@
       "conditions": [
         {
           "opp_turn": true
-        }
-      ]
-    },
-    {
-      "_text": "OP08-073 ヒヨコ子爵 相手ターン中 自KO時 [DON-1]: デッキから ニワトリ伯爵 cost6以下 1 枚 登場",
-      "when": "on_self_chara_ko",
-      "conditions": [
-        {
-          "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "summon_from_deck": {
-            "filter": {
-              "name": "ニワトリ伯爵",
-              "cost_le": 6
-            },
-            "count": 1
-          }
         }
       ]
     }
@@ -68711,13 +68521,10 @@
     },
     {
       "_text": "OP02-085 マゼラン 相手ターン中 自KO時: 相手 DON 2 ドンデッキへ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
@@ -70969,13 +70776,10 @@
     },
     {
       "_text": "OP02-085 マゼラン 相手ターン中 自KO時: 相手 DON 2 ドンデッキへ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
@@ -71005,13 +70809,10 @@
     },
     {
       "_text": "OP02-085 マゼラン 相手ターン中 自KO時: 相手 DON 2 ドンデッキへ",
-      "when": "on_self_chara_ko",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
-        },
-        {
-          "victim_iid_eq_self": true
         }
       ],
       "do": [
