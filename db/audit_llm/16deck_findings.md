@@ -113,3 +113,27 @@ inline 監査で確定した bug 類型のうち programmatic 検出可能なも
 - returned_don_count_ge (4) / target_truly_original_power_eq (2) / opp_attacker_attribute (1):
   各 trigger の payload context 保存が必要。
 - + 16deck findings の deck固有 primitive (all_opp_power_le_0 / reveal-life-pump / cost0・8+ 等)。
+
+## ★ 横展開 第2弾 完遂: victim_iid_eq_self + 未handled condition 全解消 (2026-05-31、 main c0fd76a)
+
+KO-sequence 調査から派生し、 silently-ignored condition を DB全体で 0 にした:
+
+- **victim_iid_eq_self (15 entry / 8 card)**: KO-sequence 調査の結論 = trigger_on_self_chara_ko は
+  victim を場から除去した後に victim_owner の場へ broadcast するため、 「自身の KO」 を表す
+  on_self_chara_ko + victim_iid_eq_self は **dead** (= victim bundle が enqueue されない) だった。
+  正は on_ko (trigger_on_ko が victim card_id で発火、 source_iid=None)。
+  → Group1 (on_ko不在 3card) は変換、 Group2 (on_ko既存 5card) は dead entry の do を on_ko に統合。
+  runtime 実証: OP12-119 くま 相手ターンKO→ライフ+1 / 自ターン→不発。
+- **未handled condition 全実装/remap**: eval_condition に 16種実装 (self_hand_eq/total_life_le/
+  self_don_count_ge/self_leader_active/opp_attacker_attribute/returned_don_count_ge 等) +
+  spelling remap (self_hand_le→self_hand_count_le 等、 nested 含む再帰) + replace matcher に
+  target_truly_original_power_eq。 returned_don_count_ge は trigger に count 引数を全6呼出元で配線。
+  - **自分の regression 是正**: target_base_power_le/ge→target_power_le/ge (replace matcher は
+    target_power_le で既に元々パワーを見ていた。 [[feedback_verify_overlay_key_handled]])。
+- → **overlay の condition文脈で engine 未handled な key は DB全体 0**。 full suite green。
+
+## 残 (task#11、 deck固有 新 primitive)
+
+all_opp_power_le_0 KO target (複数card "すべて") / reveal-life-pump (OP15-119) /
+クロコダイル cost-0 architecture (base_cost vs card.cost) / cost0・8+ condition (OP14-090/094/120) /
+OP08-098 動的cost登場 / OP15-002 cost3+event条件 等。
