@@ -659,6 +659,16 @@ def eval_condition(
             n = int(v)
             if opp is None or not any(getattr(c, "base_cost", 99) <= n for c in opp.characters):
                 return False
+        elif k == "exists_chara_cost_le":
+            # どちらかの場にコスト N 以下のキャラがいるか (= OP02-093/101/102/113「コスト0のキャラがいる場合」)。
+            n = int(v)
+            allc = list(me.characters) + (list(opp.characters) if opp else [])
+            if not any(getattr(c, "base_cost", 99) <= n for c in allc):
+                return False
+        elif k == "opp_rested_chara_count_ge":
+            # 相手のレストのキャラが N 枚以上いるか (= OP01-032 アシュラ童子)。
+            if opp is None or sum(1 for c in opp.characters if c.rested) < int(v):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
@@ -4072,6 +4082,15 @@ def _execute_effect_body(
                     # 「登場させた場合」 の後続効果 (= leader +2000 等)。 source context は self_inplay。
                     for prim in then:
                         execute_effect(prim, state, me, opp, self_inplay)
+        elif k == "conditional":
+            # 「その後、 <if> の場合、 <do>」 を 1 do-item で表す (= 1 entry 内の後続条件分岐)。
+            # entry を分割できない activate_main (= 1 entry = 1 起動能力) 等で使う。
+            # if は spec 内にネストするので dead-gate invariant (= do-item 直下の if) には該当しない。
+            spec_val = v if isinstance(v, dict) else {}
+            cond = spec_val.get("if", {})
+            if eval_condition(cond, state, me, self_inplay):
+                for prim in spec_val.get("do", []):
+                    execute_effect(prim, state, me, opp, self_inplay)
         elif k == "set_base_cost_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
             # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}

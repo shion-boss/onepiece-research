@@ -3607,7 +3607,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP01-108": [
@@ -15657,28 +15660,66 @@
   ],
   "OP02-093": [
     {
-      "_text": "OP02-093 【起動メイン】【ターン1回】相手のキャラ1枚までを、このターン中、コスト-1。その後、コスト0のキャラがいる場合、このリーダーは、このターン中、パワー+1000。",
+      "_text": "OP02-093 起動メイン(ターン1):相手キャラ1枚 cost-1、その後コスト0のキャラがいる場合リーダー+1000(このターン) (旧draw誤実装)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "draw": 1
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 1
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "exists_chara_cost_le": 0
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP02-093_p1": [
     {
-      "_text": "OP02-093_p1 【起動メイン】【ターン1回】相手のキャラ1枚までを、このターン中、コスト-1。その後、コスト0のキャラがいる場合、このリーダーは、このターン中、パワー+1000。",
+      "_text": "OP02-093 起動メイン(ターン1):相手キャラ1枚 cost-1、その後コスト0のキャラがいる場合リーダー+1000(このターン) (旧draw誤実装)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "draw": 1
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 1
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "exists_chara_cost_le": 0
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -16171,14 +16212,33 @@
   ],
   "OP02-093_p2": [
     {
-      "_text": "OP02-093_p2 【起動メイン】【ターン1回】相手のキャラ1枚までを、このターン中、コスト-1。その後、コスト0のキャラがいる場合、このリーダーは、このターン中、パワー+1000。",
+      "_text": "OP02-093 起動メイン(ターン1):相手キャラ1枚 cost-1、その後コスト0のキャラがいる場合リーダー+1000(このターン) (旧draw誤実装)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "draw": 1
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 1
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "exists_chara_cost_le": 0
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -25199,16 +25259,28 @@
   ],
   "OP03-066": [
     {
-      "_text": "OP03-066 on_play: ➁(コストエリアのドン!!を指定の数レストにできる)：ドン!!デッキからドン!!1枚までを、アクティブで追加する。その後、自分の場にドン!!が8枚以上ある場合、",
+      "_text": "OP03-066 登場時(ドン2レスト):ドン1アクティブ追加、その後自場ドン8以上なら相手cost4以下を1KO",
       "when": "on_play",
       "do": [
         {
           "add_don": 1
         },
         {
-          "ko": "one_opponent_character_cost_le_4cost"
+          "conditional": {
+            "if": {
+              "self_don_ge": 8
+            },
+            "do": [
+              {
+                "ko": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     }
   ],
   "OP03-083": [
@@ -36301,16 +36373,28 @@
   ],
   "OP03-066_p1": [
     {
-      "_text": "OP03-066_p1 on_play: ➁(コストエリアのドン!!を指定の数レストにできる)：ドン!!デッキからドン!!1枚までを、アクティブで追加する。その後、自分の場にドン!!が8枚以上ある場合、",
+      "_text": "OP03-066 登場時(ドン2レスト):ドン1アクティブ追加、その後自場ドン8以上なら相手cost4以下を1KO",
       "when": "on_play",
       "do": [
         {
           "add_don": 1
         },
         {
-          "ko": "one_opponent_character_cost_le_4cost"
+          "conditional": {
+            "if": {
+              "self_don_ge": 8
+            },
+            "do": [
+              {
+                "ko": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     }
   ],
   "OP03-080_p1": [
@@ -70451,7 +70535,10 @@
         {
           "ko": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "if": {
+        "self_life_lt_opp": true
+      }
     },
     {
       "_text": "OP03-119 trigger: 自分の手札からコスト4以下の【トリガー】を持つキャラカード1枚までを、登場させる。",
@@ -71614,7 +71701,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "exists_chara_cost_le": 0
+      }
     }
   ],
   "OP02-102": [
@@ -71629,7 +71719,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "exists_chara_cost_le": 0
+      }
     }
   ],
   "OP02-103": [
@@ -71734,20 +71827,29 @@
   ],
   "OP02-113": [
     {
-      "_text": "OP02-113 on_attack: 相手のキャラ1枚までを、このターン中、コスト-2。その後、コスト0のキャラがいる場合、このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP02-113 アタック時:相手キャラ1枚 cost-2、その後コスト0のキャラがいる場合このキャラ+2000",
       "when": "on_attack",
       "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        },
         {
           "cost_minus": {
             "target": "one_opponent_character_any",
             "amount": 2
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "exists_chara_cost_le": 0
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -72208,6 +72310,11 @@
             "amount": 2000,
             "duration": "static"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "opp_rested_chara_count_ge": 2
         }
       ]
     }
@@ -75922,20 +76029,29 @@
   ],
   "OP02-113_r1": [
     {
-      "_text": "OP02-113_r1 on_attack: 相手のキャラ1枚までを、このターン中、コスト-2。その後、コスト0のキャラがいる場合、このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP02-113 アタック時:相手キャラ1枚 cost-2、その後コスト0のキャラがいる場合このキャラ+2000",
       "when": "on_attack",
       "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        },
         {
           "cost_minus": {
             "target": "one_opponent_character_any",
             "amount": 2
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "exists_chara_cost_le": 0
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]

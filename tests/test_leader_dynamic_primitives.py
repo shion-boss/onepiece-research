@@ -122,6 +122,25 @@ def test_op15_002_activate_main_draw_gated_real_path():
     assert _lucy_activate_draw(0) == 0, "イベント未使用なら ドローしない"
 
 
+def test_conditional_primitive_gates_inner_do():
+    """conditional primitive: if が真の時だけ内側 do を実行 (= 1 entry 内の後続条件分岐)。"""
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                   effects_overlay=overlay)
+    prim = {"conditional": {"if": {"self_don_ge": 5},
+                            "do": [{"power_pump": {"target": "self_leader", "amount": 1000,
+                                                   "duration": "turn"}}]}}
+    p1.don_active = 6
+    execute_effect(prim, st, p1, p2, p1.leader)
+    assert p1.leader.turn_buff == 1000, "条件成立で内側 do が実行されるべき"
+    p1.don_active = 2
+    execute_effect(prim, st, p1, p2, p1.leader)
+    assert p1.leader.turn_buff == 1000, "条件不成立では内側 do を実行しない (buff 据置)"
+
+
 def test_reveal_life_top_play_matched_plays_and_runs_then():
     """ST13-007 サボ: ライフ上が cost5 サボ なら 登場 (life-1) + then で leader +2000。"""
     import json as _json
