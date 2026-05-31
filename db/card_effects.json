@@ -4664,12 +4664,11 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
               "feature": "超新星"
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -4785,6 +4784,14 @@
       "do": [
         {
           "rest": "one_opponent_character_any"
+        },
+        {
+          "stay_rested_next_refresh": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": true
+            }
+          }
         },
         {
           "power_pump": {
@@ -7592,12 +7599,6 @@
         },
         {
           "rest": "one_opp_chara_or_don"
-        },
-        {
-          "rest": "one_opp_chara_or_don"
-        },
-        {
-          "rest_opp_don": 1
         }
       ],
       "cost": {
@@ -9878,13 +9879,8 @@
         {
           "set_cannot_rest": {
             "target": "one_opponent_character_cost_le_5cost",
-            "count": 2
-          }
-        },
-        {
-          "set_cannot_rest": {
-            "target": "one_opponent_character_cost_le_5cost",
-            "count": 2
+            "count": 2,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -31351,13 +31347,8 @@
         {
           "set_cannot_rest": {
             "target": "one_opponent_character_cost_le_5cost",
-            "count": 2
-          }
-        },
-        {
-          "set_cannot_rest": {
-            "target": "one_opponent_character_cost_le_5cost",
-            "count": 2
+            "count": 2,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -32822,12 +32813,6 @@
         },
         {
           "rest": "one_opp_chara_or_don"
-        },
-        {
-          "rest": "one_opp_chara_or_don"
-        },
-        {
-          "rest_opp_don": 1
         }
       ],
       "cost": {
@@ -38925,13 +38910,8 @@
         {
           "set_cannot_rest": {
             "target": "one_opponent_character_cost_le_5cost",
-            "count": 2
-          }
-        },
-        {
-          "set_cannot_rest": {
-            "target": "one_opponent_character_cost_le_5cost",
-            "count": 2
+            "count": 2,
+            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -54724,19 +54704,12 @@
   ],
   "OP14-119": [
     {
-      "_text": "OP14-119 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
-      "when": "opp_attack",
+      "_text": "OP14-119 自ターン中 このキャラ rest時: 相手cost9以下 1 を 次相手end まで rest不可",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        },
         {
           "set_cannot_rest": {
             "target": "one_opponent_character_cost_le_9",
@@ -54744,33 +54717,34 @@
             "duration": "next_opp_turn_end"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP14-119 相手アタック時 [ターン1回 手札1捨て]: 自リーダー/キャラ +2000 battle",
+      "when": "opp_attack",
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
       },
-      "conditions": [
+      "do": [
         {
-          "self_turn": true
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
         }
       ]
     }
   ],
   "OP14-119_p1": [
     {
-      "_text": "OP14-119_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
-      "when": "opp_attack",
+      "_text": "OP14-119 自ターン中 このキャラ rest時: 相手cost9以下 1 を 次相手end まで rest不可",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        },
         {
           "set_cannot_rest": {
             "target": "one_opponent_character_cost_le_9",
@@ -54778,33 +54752,34 @@
             "duration": "next_opp_turn_end"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP14-119 相手アタック時 [ターン1回 手札1捨て]: 自リーダー/キャラ +2000 battle",
+      "when": "opp_attack",
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
       },
-      "conditions": [
+      "do": [
         {
-          "self_turn": true
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
         }
       ]
     }
   ],
   "OP14-119_p2": [
     {
-      "_text": "OP14-119_p2 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
-      "when": "opp_attack",
+      "_text": "OP14-119 自ターン中 このキャラ rest時: 相手cost9以下 1 を 次相手end まで rest不可",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        },
         {
           "set_cannot_rest": {
             "target": "one_opponent_character_cost_le_9",
@@ -54812,14 +54787,22 @@
             "duration": "next_opp_turn_end"
           }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP14-119 相手アタック時 [ターン1回 手札1捨て]: 自リーダー/キャラ +2000 battle",
+      "when": "opp_attack",
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
       },
-      "conditions": [
+      "do": [
         {
-          "self_turn": true
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
         }
       ]
     }
