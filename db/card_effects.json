@@ -1409,18 +1409,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": "one_opponent_character_cost_le_5"
-              }
-            ]
-          }
+          "return_to_hand": "one_opponent_character_cost_le_5"
         }
       ],
       "cost": {
@@ -1848,23 +1837,9 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 3
-              }
-            ],
-            "effect": [
-              {
-                "keep_opp_rested_inplay_next_refresh": {
-                  "target_rest": "one_opp_chara_or_leader"
-                }
-              }
-            ]
+          "keep_opp_rested_inplay_next_refresh": {
+            "target_rest": "one_opp_chara_or_leader"
           }
-        },
-        {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_1"
         }
       ],
       "cost": {
@@ -2107,18 +2082,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "reduce_play_cost": 2
-              }
-            ]
-          }
+          "reduce_play_cost": 2
         }
       ],
       "cost": {
@@ -2435,18 +2399,7 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 3
-              }
-            ],
-            "effect": [
-              {
-                "put_top_to_life": 1
-              }
-            ]
-          }
+          "put_top_to_life": 1
         }
       ],
       "cost": {
@@ -3021,32 +2974,6 @@
       "_text": "EB02-025 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ドンキホーテ・ロシナンテ」の場合、自分のデッキの上から5枚を見て、コスト2以下のキャラカード1枚",
       "when": "activate_main",
       "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "search": {
-                  "source": "deck",
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 2
-                  },
-                  "limit": 1,
-                  "destination": "hand",
-                  "depth": 5
-                }
-              }
-            ]
-          }
-        },
         {
           "search_top_n": {
             "depth": 5,
@@ -5527,20 +5454,9 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "disable_effect": {
-                  "target": "one_opponent_character_cost_le_5cost",
-                  "duration": "turn"
-                }
-              }
-            ]
+          "disable_effect": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "duration": "turn"
           }
         }
       ],
@@ -5955,21 +5871,10 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "draw": 2
-              },
-              {
-                "return_to_hand": "one_opponent_character_cost_le_7cost"
-              }
-            ]
-          }
+          "draw": 2
+        },
+        {
+          "return_to_hand": "one_opponent_character_cost_le_7cost"
         }
       ],
       "cost": {
@@ -6760,36 +6665,22 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "search_top_n": {
-                  "depth": 5,
-                  "filter": {
-                    "or_clauses": [
-                      {
-                        "attribute": "斬"
-                      },
-                      {
-                        "category": "EVENT",
-                        "color": "緑"
-                      }
-                    ]
-                  },
-                  "limit": 1,
-                  "destination": "hand",
-                  "rest_remain": "bottom"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "or_clauses": [
+                {
+                  "attribute": "斬"
+                },
+                {
+                  "category": "EVENT",
+                  "color": "緑"
                 }
-              }
-            ]
+              ]
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -7530,22 +7421,11 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "attach_rested_don": {
-                  "target": "one_opponent_character_any",
-                  "count": 1,
-                  "rested": true,
-                  "to_opp": true
-                }
-              }
-            ]
+          "attach_rested_don": {
+            "target": "one_opponent_character_any",
+            "count": 1,
+            "rested": true,
+            "to_opp": true
           }
         }
       ],
@@ -7781,27 +7661,16 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 3
-              }
-            ],
-            "effect": [
-              {
-                "rest": "one_opp_chara_or_don"
-              },
-              {
-                "rest": "one_opp_chara_or_don"
-              },
-              {
-                "rest": "one_opp_chara_or_don"
-              },
-              {
-                "rest_opp_don": 1
-              }
-            ]
-          }
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest_opp_don": 1
         }
       ],
       "cost": {
@@ -11476,21 +11345,10 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "attach_don": {
-                  "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
-                }
-              }
-            ]
+          "attach_don": {
+            "target": "self_inplay_choice",
+            "count": 1,
+            "rested": true
           }
         }
       ]
@@ -12299,23 +12157,9 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 3
-              }
-            ],
-            "effect": [
-              {
-                "keep_opp_rested_inplay_next_refresh": {
-                  "target_rest": "one_opp_chara_or_leader"
-                }
-              }
-            ]
+          "keep_opp_rested_inplay_next_refresh": {
+            "target_rest": "one_opp_chara_or_leader"
           }
-        },
-        {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_1"
         }
       ],
       "cost": {
@@ -13038,18 +12882,7 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 3
-              }
-            ],
-            "effect": [
-              {
-                "put_top_to_life": 1
-              }
-            ]
-          }
+          "put_top_to_life": 1
         }
       ],
       "cost": {
@@ -13288,18 +13121,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "reduce_play_cost": 2
-              }
-            ]
-          }
+          "reduce_play_cost": 2
         }
       ],
       "cost": {
@@ -14395,23 +14217,9 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 3
-              }
-            ],
-            "effect": [
-              {
-                "keep_opp_rested_inplay_next_refresh": {
-                  "target_rest": "one_opp_chara_or_leader"
-                }
-              }
-            ]
+          "keep_opp_rested_inplay_next_refresh": {
+            "target_rest": "one_opp_chara_or_leader"
           }
-        },
-        {
-          "stay_rested_next_refresh": "any_opp_rested_inplay_n_1"
         }
       ],
       "cost": {
@@ -18463,18 +18271,7 @@
       "when": "counter",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "redirect_attack": "one_self_character_any"
-              }
-            ]
-          }
+          "redirect_attack": "one_self_character_any"
         }
       ],
       "cost": {
@@ -19626,18 +19423,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "add_rested_don": 1
-              }
-            ]
-          }
+          "add_rested_don": 1
         }
       ]
     }
@@ -20192,21 +19978,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 2
-              },
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "rest": "one_opponent_character_le_5000"
-              }
-            ]
-          }
+          "rest": "one_opponent_character_le_5000"
         }
       ],
       "cost": {
@@ -20612,29 +20384,18 @@
       "when": "on_ko",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "choice": {
-                  "options": [
-                    [
-                      {
-                        "ko": "one_opponent_character_filtered_by_truly_power_le_6000"
-                      }
-                    ],
-                    [
-                      {
-                        "rest": "one_opponent_character_filtered_by_truly_power_le_6000"
-                      }
-                    ]
-                  ]
+          "choice": {
+            "options": [
+              [
+                {
+                  "ko": "one_opponent_character_filtered_by_truly_power_le_6000"
                 }
-              }
+              ],
+              [
+                {
+                  "rest": "one_opponent_character_filtered_by_truly_power_le_6000"
+                }
+              ]
             ]
           }
         }
@@ -21097,21 +20858,10 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "attach_don": {
-                  "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
-                }
-              }
-            ]
+          "attach_don": {
+            "target": "self_inplay_choice",
+            "count": 1,
+            "rested": true
           }
         }
       ]
@@ -21831,25 +21581,12 @@
     {
       "_text": "OP11-070 activate_main: ドン‼-1,このキャラをレストにできる：相手のデッキの上から1枚を見る。",
       "when": "activate_main",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": []
-          }
-        }
-      ],
+      "do": [],
       "cost": {
         "pay_don": 1,
         "rest_self": true
-      }
+      },
+      "_missing_effect": "相手のデッキの上から1枚を見る (= peek_opp_deck_top 未実装。 cost二重のみ修復済)"
     }
   ],
   "OP11-075": [
@@ -23889,28 +23626,14 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              },
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": {
-                  "type": "one_self_chara_filtered",
-                  "filter": {
-                    "feature_in": [
-                      "アマゾン・リリー",
-                      "九蛇海賊団"
-                    ]
-                  }
-                }
-              }
-            ]
+          "return_to_hand": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "feature_in": [
+                "アマゾン・リリー",
+                "九蛇海賊団"
+              ]
+            }
           }
         }
       ],
@@ -23918,7 +23641,8 @@
         "leader_feature": "九蛇海賊団"
       },
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -25320,24 +25044,13 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 2
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": "one_inplay_cost_le_4"
-              },
-              {
-                "give_keyword": {
-                  "target": "self",
-                  "keyword": "ダブルアタック",
-                  "duration": "turn"
-                }
-              }
-            ]
+          "return_to_hand": "one_inplay_cost_le_4"
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ダブルアタック",
+            "duration": "turn"
           }
         }
       ],
@@ -26649,18 +26362,7 @@
       "when": "counter",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "redirect_attack": "one_self_character_any"
-              }
-            ]
-          }
+          "redirect_attack": "one_self_character_any"
         }
       ],
       "cost": {
@@ -26954,18 +26656,7 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": "one_opponent_character_cost_le_2cost"
-              }
-            ]
-          }
+          "return_to_hand": "one_opponent_character_cost_le_2cost"
         }
       ],
       "cost": {
@@ -26979,18 +26670,7 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": "one_opponent_character_cost_le_2cost"
-              }
-            ]
-          }
+          "return_to_hand": "one_opponent_character_cost_le_2cost"
         }
       ],
       "cost": {
@@ -31847,21 +31527,10 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "draw": 2
-              },
-              {
-                "return_to_hand": "one_opponent_character_cost_le_7cost"
-              }
-            ]
-          }
+          "draw": 2
+        },
+        {
+          "return_to_hand": "one_opponent_character_cost_le_7cost"
         }
       ],
       "cost": {
@@ -32031,20 +31700,9 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "disable_effect": {
-                  "target": "one_opponent_character_cost_le_5cost",
-                  "duration": "turn"
-                }
-              }
-            ]
+          "disable_effect": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "duration": "turn"
           }
         }
       ],
@@ -33272,27 +32930,16 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 3
-              }
-            ],
-            "effect": [
-              {
-                "rest": "one_opp_chara_or_don"
-              },
-              {
-                "rest": "one_opp_chara_or_don"
-              },
-              {
-                "rest": "one_opp_chara_or_don"
-              },
-              {
-                "rest_opp_don": 1
-              }
-            ]
-          }
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest": "one_opp_chara_or_don"
+        },
+        {
+          "rest_opp_don": 1
         }
       ],
       "cost": {
@@ -33843,25 +33490,12 @@
     {
       "_text": "OP11-070_p1 activate_main: ドン‼-1,このキャラをレストにできる：相手のデッキの上から1枚を見る。",
       "when": "activate_main",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": []
-          }
-        }
-      ],
+      "do": [],
       "cost": {
         "pay_don": 1,
         "rest_self": true
-      }
+      },
+      "_missing_effect": "相手のデッキの上から1枚を見る (= peek_opp_deck_top 未実装。 cost二重のみ修復済)"
     }
   ],
   "OP11-080_p1": [
@@ -36575,24 +36209,13 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 2
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": "one_inplay_cost_le_4"
-              },
-              {
-                "give_keyword": {
-                  "target": "self",
-                  "keyword": "ダブルアタック",
-                  "duration": "turn"
-                }
-              }
-            ]
+          "return_to_hand": "one_inplay_cost_le_4"
+        },
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ダブルアタック",
+            "duration": "turn"
           }
         }
       ],
@@ -39133,36 +38756,22 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "search_top_n": {
-                  "depth": 5,
-                  "filter": {
-                    "or_clauses": [
-                      {
-                        "attribute": "斬"
-                      },
-                      {
-                        "category": "EVENT",
-                        "color": "緑"
-                      }
-                    ]
-                  },
-                  "limit": 1,
-                  "destination": "hand",
-                  "rest_remain": "bottom"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "or_clauses": [
+                {
+                  "attribute": "斬"
+                },
+                {
+                  "category": "EVENT",
+                  "color": "緑"
                 }
-              }
-            ]
+              ]
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -39181,36 +38790,22 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "search_top_n": {
-                  "depth": 5,
-                  "filter": {
-                    "or_clauses": [
-                      {
-                        "attribute": "斬"
-                      },
-                      {
-                        "category": "EVENT",
-                        "color": "緑"
-                      }
-                    ]
-                  },
-                  "limit": 1,
-                  "destination": "hand",
-                  "rest_remain": "bottom"
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "or_clauses": [
+                {
+                  "attribute": "斬"
+                },
+                {
+                  "category": "EVENT",
+                  "color": "緑"
                 }
-              }
-            ]
+              ]
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -41726,18 +41321,7 @@
       "when": "counter",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "redirect_attack": "one_self_character_any"
-              }
-            ]
-          }
+          "redirect_attack": "one_self_character_any"
         }
       ],
       "cost": {
@@ -42781,18 +42365,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "untap": "self"
-              }
-            ]
-          }
+          "untap": "self"
         }
       ]
     },
@@ -42805,18 +42378,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "untap": "self"
-              }
-            ]
-          }
+          "untap": "self"
         }
       ]
     }
@@ -42998,18 +42560,7 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand": "one_opponent_character_cost_le_2cost"
-              }
-            ]
-          }
+          "return_to_hand": "one_opponent_character_cost_le_2cost"
         }
       ],
       "cost": {
@@ -48508,27 +48059,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 7,
-                    "name": "ヴィンスモーク・イチジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 7,
+              "name": "ヴィンスモーク・イチジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48547,27 +48084,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 7,
-                    "name": "ヴィンスモーク・イチジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 7,
+              "name": "ヴィンスモーク・イチジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48586,27 +48109,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 7,
-                    "name": "ヴィンスモーク・イチジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 7,
+              "name": "ヴィンスモーク・イチジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48625,27 +48134,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "name": "ヴィンスモーク・ニジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "name": "ヴィンスモーク・ニジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48664,27 +48159,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "name": "ヴィンスモーク・ニジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "name": "ヴィンスモーク・ニジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48703,27 +48184,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "name": "ヴィンスモーク・ニジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "name": "ヴィンスモーク・ニジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48776,27 +48243,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・ヨンジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・ヨンジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48815,27 +48268,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・ヨンジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・ヨンジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48854,27 +48293,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・ヨンジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・ヨンジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48893,27 +48318,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・レイジュ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・レイジュ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48932,27 +48343,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・レイジュ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・レイジュ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -48971,27 +48368,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・レイジュ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・レイジュ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -50839,21 +50222,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_chara_no_effect",
-                  "amount": 2000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_self_chara_no_effect",
+            "amount": 2000,
+            "duration": "turn"
           }
         }
       ],
@@ -50868,26 +50240,15 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "rest": {
-                  "type": "one_opponent_character_filtered",
-                  "filter": {
-                    "cost_le": 3,
-                    "feature_in": [
-                      "動物",
-                      "SMILE"
-                    ]
-                  }
-                }
-              }
-            ]
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "feature_in": [
+                "動物",
+                "SMILE"
+              ]
+            }
           }
         }
       ],
@@ -51153,26 +50514,15 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 4
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 6,
-                    "feature_in": [
-                      "アマゾン・リリー",
-                      "九蛇海賊団"
-                    ]
-                  }
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 6,
+              "feature_in": [
+                "アマゾン・リリー",
+                "九蛇海賊団"
+              ]
+            }
           }
         }
       ],
@@ -51206,22 +50556,11 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_event_from_hand": {
-                  "filter": {
-                    "category": "EVENT",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
+          "play_event_from_hand": {
+            "filter": {
+              "category": "EVENT",
+              "cost_le": 7
+            }
           }
         }
       ],
@@ -51264,22 +50603,11 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_event_from_hand": {
-                  "filter": {
-                    "category": "EVENT",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
+          "play_event_from_hand": {
+            "filter": {
+              "category": "EVENT",
+              "cost_le": 7
+            }
           }
         }
       ],
@@ -51594,23 +50922,12 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 7
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "feature": "スリラーバーク海賊団",
-                    "cost_le": 6
-                  },
-                  "limit": 2
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "feature": "スリラーバーク海賊団",
+              "cost_le": 6
+            },
+            "limit": 2
           }
         }
       ],
@@ -52002,22 +51319,11 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_event_from_hand": {
-                  "filter": {
-                    "category": "EVENT",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
+          "play_event_from_hand": {
+            "filter": {
+              "category": "EVENT",
+              "cost_le": 7
+            }
           }
         }
       ],
@@ -52713,28 +52019,14 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              },
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "feature_contains": "CP",
-                    "cost_le": 5,
-                    "exclude_name": "ブルーノ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature_contains": "CP",
+              "cost_le": 5,
+              "exclude_name": "ブルーノ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -53062,21 +52354,10 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_opponent_inplay_any",
-                  "amount": -2000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_opponent_inplay_any",
+            "amount": -2000,
+            "duration": "turn"
           }
         }
       ]
@@ -53360,23 +52641,12 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "trash_to_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 4
-                  },
-                  "limit": 2
-                }
-              }
-            ]
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4
+            },
+            "limit": 2
           }
         }
       ],
@@ -53394,23 +52664,12 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "trash_to_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 4
-                  },
-                  "limit": 2
-                }
-              }
-            ]
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 4
+            },
+            "limit": 2
           }
         }
       ],
@@ -53428,24 +52687,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "feature": "W7",
-                    "exclude_name": "ブルーノ",
-                    "cost_le": 6
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "feature": "W7",
+              "exclude_name": "ブルーノ",
+              "cost_le": 6
+            },
+            "limit": 1
           }
         }
       ],
@@ -54365,23 +53613,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_trash": {
-                  "filter": {
-                    "feature": "麦わらの一味",
-                    "exclude_name": "トニートニー・チョッパー"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_trash": {
+            "filter": {
+              "feature": "麦わらの一味",
+              "exclude_name": "トニートニー・チョッパー"
+            },
+            "limit": 1
           }
         }
       ],
@@ -54537,25 +53774,14 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "モンキー・Ｄ・ルフィ"
               }
-            ],
-            "effect": [
-              {
-                "give_keyword": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "name": "モンキー・Ｄ・ルフィ"
-                    }
-                  },
-                  "keyword": "速攻：キャラ"
-                }
-              }
-            ]
+            },
+            "keyword": "速攻：キャラ"
           }
         }
       ],
@@ -54573,29 +53799,15 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
+          "power_pump": {
+            "target": {
+              "type": "one_self_team_any",
+              "filter": {
+                "feature": "麦わらの一味"
               }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": {
-                    "type": "one_self_team_any",
-                    "filter": {
-                      "feature": "麦わらの一味"
-                    }
-                  },
-                  "amount": 3000,
-                  "duration": "turn"
-                }
-              }
-            ],
-            "if_extra": {
-              "self_trash_count_ge": 15
-            }
+            },
+            "amount": 3000,
+            "duration": "turn"
           }
         }
       ],
@@ -56122,21 +55334,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "self",
-                  "amount": 2000,
-                  "duration": "next_opp_turn_end"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -56345,19 +55546,8 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "prevent_blocker_for_attacker": {
-                  "target": "self_leader"
-                }
-              }
-            ]
+          "prevent_blocker_for_attacker": {
+            "target": "self_leader"
           }
         }
       ],
@@ -56472,25 +55662,14 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 3
-              }
-            ],
-            "effect": [
-              {
-                "ko_multi": [
-                  {
-                    "target": "one_opponent_character_filtered_by_truly_power_le_4000"
-                  },
-                  {
-                    "target": "one_opponent_character_filtered_by_truly_power_le_3000"
-                  }
-                ]
-              }
-            ]
-          }
+          "ko_multi": [
+            {
+              "target": "one_opponent_character_filtered_by_truly_power_le_4000"
+            },
+            {
+              "target": "one_opponent_character_filtered_by_truly_power_le_3000"
+            }
+          ]
         }
       ],
       "cost": {
@@ -57435,25 +56614,14 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "ko_multi": [
-                  {
-                    "target": "one_opponent_rested_character_cost_le_4"
-                  },
-                  {
-                    "target": "one_opponent_rested_character_cost_le_4"
-                  }
-                ]
-              }
-            ]
-          }
+          "ko_multi": [
+            {
+              "target": "one_opponent_rested_character_cost_le_4"
+            },
+            {
+              "target": "one_opponent_rested_character_cost_le_4"
+            }
+          ]
         }
       ],
       "cost": {
@@ -58057,22 +57225,11 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "self_leader",
-                  "amount": 1000,
-                  "duration": "next_opp_turn_end",
-                  "feature": "超新星"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "next_opp_turn_end",
+            "feature": "超新星"
           }
         }
       ],
@@ -58233,18 +57390,7 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 5
-              }
-            ],
-            "effect": [
-              {
-                "chara_to_opp_life": "one_opponent_character_cost_le_9"
-              }
-            ]
-          }
+          "chara_to_opp_life": "one_opponent_character_cost_le_9"
         }
       ],
       "if": {
@@ -58648,18 +57794,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "set_cannot_rest": "one_opponent_character_cost_le_3"
-              }
-            ]
-          }
+          "set_cannot_rest": "one_opponent_character_cost_le_3"
         }
       ],
       "cost": {
@@ -59144,23 +58279,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_trash": {
-                  "filter": {
-                    "name": "カリブー",
-                    "cost_le": 4
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_trash": {
+            "filter": {
+              "name": "カリブー",
+              "cost_le": 4
+            },
+            "limit": 1
           }
         }
       ],
@@ -59586,24 +58710,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "color": "紫",
-                    "feature": "麦わらの一味",
-                    "cost_le": 5
-                  }
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "紫",
+              "feature": "麦わらの一味",
+              "cost_le": 5
+            }
           }
         }
       ],
@@ -60391,26 +59504,15 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
+          "set_base_cost_timed": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "color": "黒"
               }
-            ],
-            "effect": [
-              {
-                "set_base_cost_timed": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "color": "黒"
-                    }
-                  },
-                  "delta": 3,
-                  "duration": "next_opp_turn_end"
-                }
-              }
-            ]
+            },
+            "delta": 3,
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -62118,24 +61220,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "color": "緑"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "color": "緑"
+            },
+            "limit": 1
           }
         }
       ],
@@ -62781,22 +61872,11 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "name": "キング",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "name": "キング",
+              "cost_le": 7
+            }
           }
         }
       ],
@@ -63119,33 +62199,10 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 2
-              }
-            ],
-            "effect": [
-              {
-                "return_to_hand_multi": [
-                  {
-                    "target": "one_opponent_character_cost_le_6"
-                  },
-                  {
-                    "target": "one_opponent_character_cost_le_6"
-                  }
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 6
-            }
-          }
+          "ko_multi": [
+            "one_opponent_character_cost_le_6",
+            "one_opponent_character_cost_le_6"
+          ]
         }
       ],
       "cost": {
@@ -65690,27 +64747,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 7,
-                    "name": "ヴィンスモーク・イチジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 7,
+              "name": "ヴィンスモーク・イチジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -65805,28 +64848,14 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              },
-              {
-                "trash_self_hand_random": 2
-              }
-            ],
-            "effect": [
-              {
-                "play_multi_from_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "feature": "ジェルマ66",
-                    "power_le": 4000
-                  },
-                  "limit": 4,
-                  "unique_name": true
-                }
-              }
-            ]
+          "play_multi_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "ジェルマ66",
+              "power_le": 4000
+            },
+            "limit": 4,
+            "unique_name": true
           }
         }
       ],
@@ -65844,18 +64873,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "rest_opp_don": 1
-              }
-            ]
-          }
+          "rest_opp_don": 1
         }
       ]
     }
@@ -65866,28 +64884,14 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              },
-              {
-                "trash_self_hand_random": 2
-              }
-            ],
-            "effect": [
-              {
-                "play_multi_from_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "feature": "ジェルマ66",
-                    "power_le": 4000
-                  },
-                  "limit": 4,
-                  "unique_name": true
-                }
-              }
-            ]
+          "play_multi_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "ジェルマ66",
+              "power_le": 4000
+            },
+            "limit": 4,
+            "unique_name": true
           }
         }
       ],
@@ -65905,18 +64909,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "rest_opp_don": 1
-              }
-            ]
-          }
+          "rest_opp_don": 1
         }
       ]
     }
@@ -65941,27 +64934,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "name": "ヴィンスモーク・ニジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "name": "ヴィンスモーク・ニジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -65980,27 +64959,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・ヨンジ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・ヨンジ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -66019,27 +64984,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 1
-              },
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 4,
-                    "name": "ヴィンスモーク・レイジュ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 4,
+              "name": "ヴィンスモーク・レイジュ"
+            },
+            "limit": 1
           }
         }
       ],
@@ -66058,32 +65009,21 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_trash": {
-                  "filter": {
-                    "feature": "FILM"
-                  },
-                  "limit": 1
-                }
-              },
-              {
-                "search_from_trash": {
-                  "filter": {
-                    "feature": "FILM",
-                    "cost_le": 4
-                  },
-                  "count": 2,
-                  "to": "hand"
-                }
-              }
-            ]
+          "play_from_trash": {
+            "filter": {
+              "feature": "FILM"
+            },
+            "limit": 1
+          }
+        },
+        {
+          "search_from_trash": {
+            "filter": {
+              "feature": "FILM",
+              "cost_le": 4
+            },
+            "count": 2,
+            "to": "hand"
           }
         }
       ],
@@ -67337,26 +66277,15 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
+          "power_pump": {
+            "target": {
+              "type": "one_self_team_filtered",
+              "filter": {
+                "feature": "キッド海賊団"
               }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": {
-                    "type": "one_self_team_filtered",
-                    "filter": {
-                      "feature": "キッド海賊団"
-                    }
-                  },
-                  "amount": 5000,
-                  "duration": "turn"
-                }
-              }
-            ]
+            },
+            "amount": 5000,
+            "duration": "turn"
           }
         }
       ],
@@ -68059,26 +66988,15 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
+          "attach_rested_don": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "アラバスタ王国"
               }
-            ],
-            "effect": [
-              {
-                "attach_rested_don": {
-                  "target": {
-                    "type": "all_self_chara_filtered",
-                    "filter": {
-                      "feature": "アラバスタ王国"
-                    }
-                  },
-                  "count": 1,
-                  "per_target": true
-                }
-              }
-            ]
+            },
+            "count": 1,
+            "per_target": true
           }
         }
       ],
@@ -68533,18 +67451,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 2
-              }
-            ],
-            "effect": [
-              {
-                "put_top_to_life": 1
-              }
-            ]
-          }
+          "put_top_to_life": 1
         }
       ],
       "cost": {
@@ -68560,21 +67467,10 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "draw": 1
-              },
-              {
-                "trash_self_hand_random": 1
-              }
-            ]
-          }
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -68588,18 +67484,7 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 2
-              }
-            ],
-            "effect": [
-              {
-                "put_top_to_life": 1
-              }
-            ]
-          }
+          "put_top_to_life": 1
         }
       ],
       "cost": {
@@ -68615,21 +67500,10 @@
       },
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "draw": 1
-              },
-              {
-                "trash_self_hand_random": 1
-              }
-            ]
-          }
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -68721,21 +67595,10 @@
       "when": "opp_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "set_base_power_copy": {
-                  "from_target": "opponent_attacker",
-                  "to_target": "self",
-                  "duration": "turn"
-                }
-              }
-            ]
+          "set_base_power_copy": {
+            "from_target": "opponent_attacker",
+            "to_target": "self",
+            "duration": "turn"
           }
         }
       ],
@@ -68782,27 +67645,16 @@
       "n": 0,
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "give_keyword": {
-                  "target": "self",
-                  "keyword": "ブロッカー"
-                }
-              },
-              {
-                "power_pump": {
-                  "target": "self",
-                  "amount": 10000,
-                  "duration": "battle"
-                }
-              }
-            ]
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 10000,
+            "duration": "battle"
           }
         }
       ],
@@ -69586,24 +68438,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "color": "緑"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "color": "緑"
+            },
+            "limit": 1
           }
         }
       ],
@@ -69643,24 +68484,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest": "self"
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "color": "緑"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "color": "緑"
+            },
+            "limit": 1
           }
         }
       ],
@@ -70216,20 +69046,9 @@
       "when": "on_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "give_keyword": {
-                  "target": "self",
-                  "keyword": "バニッシュ"
-                }
-              }
-            ]
+          "give_keyword": {
+            "target": "self",
+            "keyword": "バニッシュ"
           }
         }
       ],
@@ -71966,24 +70785,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 2
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "feature": "SMILE",
-                    "cost_le": 3,
-                    "exclude_name": "ダイフゴー"
-                  }
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "SMILE",
+              "cost_le": 3,
+              "exclude_name": "ダイフゴー"
+            }
           }
         }
       ],
@@ -72430,21 +71238,10 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "all_self_team",
-                  "amount": 1000,
-                  "duration": "next_self_turn_start"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
           }
         }
       ],
@@ -72459,21 +71256,10 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "all_self_team",
-                  "amount": 1000,
-                  "duration": "next_self_turn_start"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
           }
         }
       ],
@@ -73198,18 +71984,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "reveal_opp_hand_and_if_event_mill_life": 1
-              }
-            ]
-          }
+          "reveal_opp_hand_and_if_event_mill_life": 1
         }
       ],
       "if": {
@@ -73224,18 +71999,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "reveal_opp_hand_and_if_event_mill_life": 1
-              }
-            ]
-          }
+          "reveal_opp_hand_and_if_event_mill_life": 1
         }
       ],
       "cost": {
@@ -74269,27 +73033,16 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "attach_rested_don": {
-                  "target": {
-                    "type": "all_self_chara_filtered",
-                    "filter": {
-                      "power_eq": 6000
-                    },
-                    "limit": 2
-                  },
-                  "count": 2,
-                  "per_target": true
-                }
-              }
-            ]
+          "attach_rested_don": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "power_eq": 6000
+              },
+              "limit": 2
+            },
+            "count": 2,
+            "per_target": true
           }
         }
       ],
@@ -74304,27 +73057,16 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "attach_rested_don": {
-                  "target": {
-                    "type": "all_self_chara_filtered",
-                    "filter": {
-                      "power_eq": 6000
-                    },
-                    "limit": 2
-                  },
-                  "count": 2,
-                  "per_target": true
-                }
-              }
-            ]
+          "attach_rested_don": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "power_eq": 6000
+              },
+              "limit": 2
+            },
+            "count": 2,
+            "per_target": true
           }
         }
       ],
@@ -75303,21 +74045,10 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 2
-              }
-            ],
-            "effect": [
-              {
-                "rest": "one_opp_chara_or_don"
-              }
-            ]
+          "rest": {
+            "type": "one_opp_chara_or_don",
+            "cost_le": 1
           }
-        },
-        {
-          "rest": "one_opponent_character_cost_le_1"
         }
       ],
       "cost": {
@@ -76944,24 +75675,13 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "color": "紫",
-                    "feature": "麦わらの一味",
-                    "cost_le": 5
-                  }
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "紫",
+              "feature": "麦わらの一味",
+              "cost_le": 5
+            }
           }
         }
       ],
@@ -77664,27 +76384,16 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
+          "set_base_cost_timed": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "color": "黒",
+                "feature": "麦わらの一味"
               }
-            ],
-            "effect": [
-              {
-                "set_base_cost_timed": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "color": "黒",
-                      "feature": "麦わらの一味"
-                    }
-                  },
-                  "delta": 2,
-                  "duration": "next_opp_turn_end"
-                }
-              }
-            ]
+            },
+            "delta": 2,
+            "duration": "next_opp_turn_end"
           }
         }
       ],
@@ -82264,19 +80973,8 @@
       "when": "main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "prevent_blocker_for_attacker": {
-                  "target": "self_leader"
-                }
-              }
-            ]
+          "prevent_blocker_for_attacker": {
+            "target": "self_leader"
           }
         }
       ],
@@ -83297,24 +81995,13 @@
       "when": "on_ko",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_named_with_dynamic_cost": {
-                  "name_filter": {
-                    "feature": "ビッグ・マム海賊団",
-                    "exclude_name": "シャーロット・スムージー"
-                  },
-                  "cost_ge": 0,
-                  "cost_le_source": "opp_don_total"
-                }
-              }
-            ]
+          "play_from_hand_named_with_dynamic_cost": {
+            "name_filter": {
+              "feature": "ビッグ・マム海賊団",
+              "exclude_name": "シャーロット・スムージー"
+            },
+            "cost_ge": 0,
+            "cost_le_source": "opp_don_total"
           }
         }
       ],
@@ -85025,21 +83712,10 @@
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "pay_don": 2
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "all_self_team",
-                  "amount": 1000,
-                  "duration": "next_self_turn_start"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "next_self_turn_start"
           }
         }
       ],

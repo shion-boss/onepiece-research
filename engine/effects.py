@@ -2265,6 +2265,14 @@ def _execute_effect_body(
                 if isinstance(v, dict) and "_iid_picks" in v:
                     iid_picks = v["_iid_picks"]
                 active_charas = [c for c in opp.characters if not c.rested and not c.cannot_be_rested_buff]
+                # cost_le 制約 (= ST26-002 「コスト1以下のキャラかドン1枚」 等)。 dict spec のみ、
+                # string form は 後方互換で 無制約のまま。 DON 側は cost 概念なしで常に対象。
+                _cost_le = v.get("cost_le") if isinstance(v, dict) else None
+                if _cost_le is not None:
+                    active_charas = [
+                        c for c in active_charas
+                        if int(getattr(c.card, "cost", 0) or 0) <= int(_cost_le)
+                    ]
                 # 人間 acting + active chara 候補あり (= 複数 chara or chara + DON 両方 可能)
                 # → chara から 選ばせる modal を 出す。
                 # 選ばない (= 空 picks) なら DON 側 へ fallback。
