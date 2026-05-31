@@ -1867,6 +1867,12 @@
       ],
       "cost": {
         "pay_don": 3
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "フォクシー海賊団",
+          "count": 3
+        }
       }
     }
   ],
@@ -12353,6 +12359,12 @@
       ],
       "cost": {
         "pay_don": 3
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "フォクシー海賊団",
+          "count": 3
+        }
       }
     }
   ],
@@ -14522,6 +14534,12 @@
       ],
       "cost": {
         "pay_don": 3
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "フォクシー海賊団",
+          "count": 3
+        }
       }
     }
   ],
@@ -24158,7 +24176,10 @@
             }
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP07-072": [
@@ -42943,16 +42964,16 @@
   ],
   "OP06-073_p1": [
     {
-      "_text": "OP06-073_p1 on_play: 自分の場のドン‼が8枚以上ある場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP06-073 登場時:自場ドン8以上の場合、1ドロー1捨て",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "self_don_ge": 8
       }
@@ -42960,16 +42981,16 @@
   ],
   "OP06-073_r1": [
     {
-      "_text": "OP06-073_r1 on_play: 自分の場のドン‼が8枚以上ある場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP06-073 登場時:自場ドン8以上の場合、1ドロー1捨て",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "self_don_ge": 8
       }
@@ -64345,6 +64366,14 @@
         {
           "add_don": 1
         }
+      ],
+      "conditions": [
+        {
+          "leader_feature": "フォクシー海賊団"
+        },
+        {
+          "don_diff_le": 0
+        }
       ]
     }
   ],
@@ -64356,7 +64385,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP07-068": [
@@ -65825,15 +65857,18 @@
   ],
   "OP06-073": [
     {
-      "_text": "OP06-073 on_play: 自分の場のドン !!が8枚以上ある場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP06-073 登場時:自場ドン8以上の場合、1ドロー1捨て",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
+      "if": {
+        "self_don_ge": 8
       }
     }
   ],
@@ -65867,7 +65902,10 @@
         {
           "return_to_deck_bottom": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     },
     {
       "_text": "OP06-077 trigger: 相手のコスト4以下のキャラ1枚までを、持ち主のデッキの下に置く。",
@@ -81420,7 +81458,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP07-073_p1": [
