@@ -4409,7 +4409,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-063": [
@@ -4420,7 +4423,10 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-101": [
@@ -19596,7 +19602,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": -1
+      }
     }
   ],
   "OP05-118": [
@@ -24600,7 +24609,10 @@
         {
           "ko": "any_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 10
+      }
     }
   ],
   "OP05-049": [
@@ -35951,7 +35963,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": -1
+      }
     }
   ],
   "OP05-069_p2": [
@@ -35970,7 +35985,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": -1
+      }
     }
   ],
   "OP05-093_p1": [
@@ -42867,11 +42885,26 @@
   ],
   "OP06-063_p2": [
     {
-      "_text": "OP06-063_p2 on_play: 自分の手札1枚を捨てることができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分のトラッシュのパワー4000以下の特徴《ヴィンスモーク家》を持つキャ",
+      "_text": "OP06-063 登場時(手札1捨て):自場ドン≤相手の場合、トラッシュからヴィンスモーク家 power4000以下1枚を手札へ",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "conditional": {
+            "if": {
+              "don_diff_le": 0
+            },
+            "do": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "feature": "ヴィンスモーク家",
+                    "power_le": 4000
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -42881,11 +42914,26 @@
   ],
   "OP06-063_r1": [
     {
-      "_text": "OP06-063_r1 on_play: 自分の手札1枚を捨てることができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分のトラッシュのパワー4000以下の特徴《ヴィンスモーク家》を持つキャ",
+      "_text": "OP06-063 登場時(手札1捨て):自場ドン≤相手の場合、トラッシュからヴィンスモーク家 power4000以下1枚を手札へ",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "conditional": {
+            "if": {
+              "don_diff_le": 0
+            },
+            "do": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "feature": "ヴィンスモーク家",
+                    "power_le": 4000
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -48018,7 +48066,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": -1
+      }
     }
   ],
   "OP05-073_p1": [
@@ -65638,11 +65689,26 @@
   ],
   "OP06-063": [
     {
-      "_text": "OP06-063 on_play: 自分の手札1枚を捨てることができる：自分の場のドン !!が相手の場のドン !!の枚数以下の場合、自分のトラッシュのパワー4000以下の特徴《ヴィンスモーク家》を",
+      "_text": "OP06-063 登場時(手札1捨て):自場ドン≤相手の場合、トラッシュからヴィンスモーク家 power4000以下1枚を手札へ",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "conditional": {
+            "if": {
+              "don_diff_le": 0
+            },
+            "do": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "feature": "ヴィンスモーク家",
+                    "power_le": 4000
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -66931,7 +66997,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": -1
+      }
     }
   ],
   "OP05-072": [
@@ -66950,7 +67019,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-073": [
@@ -76369,7 +76441,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-063_r1": [
@@ -76380,7 +76455,10 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "OP05-067_r1": [
@@ -76455,7 +76533,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_don_ge": 8
+      }
     }
   ],
   "ST18-003": [
@@ -81195,11 +81276,26 @@
   ],
   "OP06-063_p1": [
     {
-      "_text": "OP06-063_p1 on_play: 自分の手札1枚を捨てることができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分のトラッシュのパワー4000以下の特徴《ヴィンスモーク家》を持つキャ",
+      "_text": "OP06-063 登場時(手札1捨て):自場ドン≤相手の場合、トラッシュからヴィンスモーク家 power4000以下1枚を手札へ",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "conditional": {
+            "if": {
+              "don_diff_le": 0
+            },
+            "do": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "feature": "ヴィンスモーク家",
+                    "power_le": 4000
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
