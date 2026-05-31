@@ -5313,12 +5313,18 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 5
-        },
-        {
           "rest": {
             "target": "one_opponent_character_cost_le_8",
             "count": 2
+          }
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 5
+              }
+            ]
           }
         }
       ]
@@ -6873,13 +6879,24 @@
       "when": "counter",
       "do": [
         {
-          "untap_don": 3
-        },
-        {
           "power_pump": {
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap_don": 3
+              }
+            ]
           }
         }
       ]
@@ -9199,7 +9216,10 @@
         {
           "untap_don": 4
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP10-045": [
@@ -31392,12 +31412,18 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 5
-        },
-        {
           "rest": {
             "target": "one_opponent_character_cost_le_8",
             "count": 2
+          }
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 5
+              }
+            ]
           }
         }
       ]
@@ -32534,7 +32560,10 @@
         {
           "untap_don": 4
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-118_p2": [
@@ -32545,7 +32574,10 @@
         {
           "untap_don": 4
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-118_p3": [
@@ -32556,7 +32588,10 @@
         {
           "untap_don": 4
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-118_p4": [
@@ -32567,7 +32602,10 @@
         {
           "untap_don": 4
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-120_p1": [
@@ -38922,7 +38960,10 @@
         {
           "untap_don": 4
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-120_p5": [
@@ -87552,11 +87593,11 @@
   "OP15-035": [
     {
       "_text": "OP15-035 replace_ko: 自分の元々のパワー7000以下のキャラが相手の効果で場を離れる場合、代わりに自分のカード2枚をレストにできる。",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
-        "target_power_le": 7000,
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_base_power_le": 7000
       },
       "do": [
         {
