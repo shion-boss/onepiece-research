@@ -9563,15 +9563,20 @@
   ],
   "OP15-119": [
     {
-      "_text": "OP15-119 on_attached_don n=6: 自ドン6+で 自身に速攻 (static)",
+      "_text": "OP15-119 静的:自場ドン6以上ならこのキャラ速攻",
       "when": "on_attached_don",
-      "n": 6,
+      "n": 0,
       "do": [
         {
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
           }
+        }
+      ],
+      "conditions": [
+        {
+          "self_don_ge": 6
         }
       ]
     },
@@ -10036,20 +10041,26 @@
   ],
   "P-078": [
     {
-      "_text": "アディオ ODYSSEY 2枚以上で +1000 → 動的計算: chara_feature 2毎に+1000",
+      "_text": "P-078 静的:自レストODYSSEY2枚以上ならこのキャラ+1000",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
           "power_pump": {
             "target": "self",
-            "duration": "static",
-            "amount_per": {
-              "source": "self_chara_feature_count",
-              "feature": "ODYSSEY",
-              "multiplier": 1000,
-              "divisor": 2
-            }
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "self_chara_filtered_count_ge": {
+            "filter": {
+              "feature": "ODYSSEY"
+            },
+            "count": 2,
+            "rested_required": true
           }
         }
       ]
@@ -27620,20 +27631,26 @@
   ],
   "P-078_p2": [
     {
-      "_text": "アディオ ODYSSEY 2枚以上で +1000 → 動的計算: chara_feature 2毎に+1000",
+      "_text": "P-078 静的:自レストODYSSEY2枚以上ならこのキャラ+1000",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
           "power_pump": {
             "target": "self",
-            "duration": "static",
-            "amount_per": {
-              "source": "self_chara_feature_count",
-              "feature": "ODYSSEY",
-              "multiplier": 1000,
-              "divisor": 2
-            }
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "self_chara_filtered_count_ge": {
+            "filter": {
+              "feature": "ODYSSEY"
+            },
+            "count": 2,
+            "rested_required": true
           }
         }
       ]
@@ -31981,14 +31998,30 @@
   ],
   "OP15-119_p1": [
     {
-      "_text": "OP15-119_p1 on_attached_don (パターン未一致): 自分の場のドン‼が6枚以上ある場合、このキャラは【速攻】を得る。相手がイベントか【ブロッカー】を発動した時、自分のライフの上から1枚までを公開する。公開したカー",
+      "_text": "OP15-119 静的:自場ドン6以上ならこのキャラ速攻",
       "when": "on_attached_don",
       "n": 0,
+      "conditions": [
+        {
+          "self_don_ge": 6
+        }
+      ],
       "do": [
         {
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP15-119 相手イベント/ブロッカー発動時:自ライフ上1公開、コスト1につき+1000",
+      "when": "opp_event_or_trigger_fired",
+      "do": [
+        {
+          "reveal_self_life_top_pump_per_cost": {
+            "per_cost": 1000
           }
         }
       ]
@@ -40221,20 +40254,26 @@
   ],
   "P-078_p1": [
     {
-      "_text": "アディオ ODYSSEY 2枚以上で +1000 → 動的計算: chara_feature 2毎に+1000",
+      "_text": "P-078 静的:自レストODYSSEY2枚以上ならこのキャラ+1000",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
           "power_pump": {
             "target": "self",
-            "duration": "static",
-            "amount_per": {
-              "source": "self_chara_feature_count",
-              "feature": "ODYSSEY",
-              "multiplier": 1000,
-              "divisor": 2
-            }
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "self_chara_filtered_count_ge": {
+            "filter": {
+              "feature": "ODYSSEY"
+            },
+            "count": 2,
+            "rested_required": true
           }
         }
       ]
@@ -44975,15 +45014,23 @@
       ]
     },
     {
-      "_text": "P-075_p2 on_attack: 自分の場にコスト8以上のキャラがいる場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "P-075 アタック時:自場にコスト8以上キャラがいる場合、1引き1捨て",
       "when": "on_attack",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -45002,15 +45049,23 @@
       ]
     },
     {
-      "_text": "P-075_r1 on_attack: 自分の場にコスト8以上のキャラがいる場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "P-075 アタック時:自場にコスト8以上キャラがいる場合、1引き1捨て",
       "when": "on_attack",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -45022,7 +45077,16 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ODYSSEY"
+          },
+          "count": 2,
+          "rested_required": true
+        }
+      }
     }
   ],
   "P-079_r1": [
@@ -45033,7 +45097,16 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ODYSSEY"
+          },
+          "count": 2,
+          "rested_required": true
+        }
+      }
     }
   ],
   "P-081_r1": [
@@ -45121,6 +45194,14 @@
         {
           "to_opp_life": "one_opponent_character_cost_le_4cost"
         }
+      ],
+      "conditions": [
+        {
+          "leader_feature": "超新星"
+        },
+        {
+          "self_life_le_opp": true
+        }
       ]
     }
   ],
@@ -45131,6 +45212,14 @@
       "do": [
         {
           "to_opp_life": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "conditions": [
+        {
+          "leader_feature": "超新星"
+        },
+        {
+          "self_life_le_opp": true
         }
       ]
     }
@@ -54945,21 +55034,27 @@
   ],
   "OP15-104": [
     {
-      "_text": "OP15-104 on_play: 自分のライフの枚数が相手より少ない場合、カード2枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP15-104 登場時:自ライフが相手より少ない場合、2枚引き2枚捨てる",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 2
         }
       ],
-      "cost": {
-        "discard_hand": 2
+      "if": {
+        "self_life_lt_opp": true
       }
     },
     {
       "_text": "OP15-104 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -83193,7 +83288,10 @@
             "duration": "next_self_turn_start"
           }
         }
-      ]
+      ],
+      "if": {
+        "exists_opp_chara_cost_le": 0
+      }
     }
   ],
   "P-069": [
@@ -83281,15 +83379,23 @@
       ]
     },
     {
-      "_text": "P-075 on_attack: 自分の場にコスト8以上のキャラがいる場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "P-075 アタック時:自場にコスト8以上キャラがいる場合、1引き1捨て",
       "when": "on_attack",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -83301,7 +83407,16 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ODYSSEY"
+          },
+          "count": 2,
+          "rested_required": true
+        }
+      }
     }
   ],
   "P-079_p1": [
@@ -83312,7 +83427,16 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ODYSSEY"
+          },
+          "count": 2,
+          "rested_required": true
+        }
+      }
     }
   ],
   "P-082_p1": [
@@ -83355,6 +83479,14 @@
       "do": [
         {
           "to_opp_life": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "conditions": [
+        {
+          "leader_feature": "超新星"
+        },
+        {
+          "self_life_le_opp": true
         }
       ]
     }
@@ -83471,7 +83603,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "P-095": [
@@ -85818,15 +85953,23 @@
       ]
     },
     {
-      "_text": "P-075_p1 on_attack: 自分の場にコスト8以上のキャラがいる場合、カード1枚を引き、自分の手札1枚を捨てる。",
+      "_text": "P-075 アタック時:自場にコスト8以上キャラがいる場合、1引き1捨て",
       "when": "on_attack",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
-      "cost": {
-        "discard_hand": 1
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -86392,20 +86535,26 @@
   ],
   "P-078_r1": [
     {
-      "_text": "アディオ ODYSSEY 2枚以上で +1000 → 動的計算: chara_feature 2毎に+1000",
+      "_text": "P-078 静的:自レストODYSSEY2枚以上ならこのキャラ+1000",
       "when": "on_attached_don",
       "n": 0,
       "do": [
         {
           "power_pump": {
             "target": "self",
-            "duration": "static",
-            "amount_per": {
-              "source": "self_chara_feature_count",
-              "feature": "ODYSSEY",
-              "multiplier": 1000,
-              "divisor": 2
-            }
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "self_chara_filtered_count_ge": {
+            "filter": {
+              "feature": "ODYSSEY"
+            },
+            "count": 2,
+            "rested_required": true
           }
         }
       ]
