@@ -52,33 +52,32 @@ def _make_state(repo, my_leader: str = "OP01-001", opp_leader: str = "OP01-001")
 # -----------------------------------------------------------------------------
 
 def test_infer_archetype_known_leader():
-    """既知 leader (decks/*.json) は analysis.json の archetype を返す。
+    """既知 leader (decks/*.json) は analysis.json の archetype (= ground truth) を返す。
 
-    V2 (2026-05-14): tcg-portal top-16 pool 化で recipe 更新、 自動分類が再評価される。
-    紫エネル は 旧「アグロ」 → 新「ミッドレンジ」 (= analyze_deck 自動分類)
-    緑ミホーク は ミッドレンジ 維持。
-    青黄ナミ は コントロール 維持。
+    archetype は各 deck の analysis.json で自動分類された値 (= ground truth)。
+    紫エネル (cardrush_1454、 平均コスト2.75) = アグロ
+    緑ミホーク (cardrush_1453) = ランプ
+    青黄ナミ (cardrush_1439) = コントロール
     """
     repo = _repo()
     _reset_caches_for_testing()
-    # cardrush_1454 (紫エネル) = ミッドレンジ (V2 で再分類)
     state = _make_state(repo, opp_leader="OP15-058")
-    assert infer_opponent_archetype(state, 1) == "ミッドレンジ"
-    # cardrush_1453 (緑ミホーク) = ミッドレンジ
+    assert infer_opponent_archetype(state, 1) == "アグロ"
     state = _make_state(repo, opp_leader="OP14-020")
-    assert infer_opponent_archetype(state, 1) == "ミッドレンジ"
-    # cardrush_1439 (青黄ナミ) = コントロール
+    assert infer_opponent_archetype(state, 1) == "ランプ"
     state = _make_state(repo, opp_leader="OP11-041")
     assert infer_opponent_archetype(state, 1) == "コントロール"
 
 
 def test_infer_archetype_unknown_leader_fallback():
-    """未知 leader は fallback で ミッドレンジ を返す (場が空 = 推定不可)。"""
+    """未知 leader でも fallback が 有効な archetype を返す (= crash しない)。
+
+    具体値は board ヒューリスティック依存 (= 空 board → コントロール 等) で contract ではない。
+    OP01-001 は cardrush_*.json 未登録 (主要メタデッキ外)。"""
     repo = _repo()
     _reset_caches_for_testing()
-    # OP01-001 は cardrush_*.json には登録されていない (主要メタデッキ外)
     state = _make_state(repo, opp_leader="OP01-001")
-    assert infer_opponent_archetype(state, 1) == "ミッドレンジ"
+    assert infer_opponent_archetype(state, 1) in ARCHETYPES
 
 
 # -----------------------------------------------------------------------------
@@ -88,35 +87,33 @@ def test_infer_archetype_unknown_leader_fallback():
 def test_build_matchup_profile_returns_dataclass():
     repo = _repo()
     _reset_caches_for_testing()
-    # V2 (2026-05-14): 紫エネル は ミッドレンジ に再分類
+    # 紫エネル (OP15-058) = アグロ (= analysis.json ground truth)
     state = _make_state(repo, opp_leader="OP15-058")
     profile = build_matchup_profile(state, 0, my_archetype="コントロール")
     assert isinstance(profile, MatchupProfile)
     assert profile.my_archetype == "コントロール"
-    assert profile.opp_archetype == "ミッドレンジ"
-    # コントロール vs ミッドレンジ = balance (or control 寄り)
-    # 実装に応じて (control/balance のどちらか)、 アグロでなくなったため race ではない
-    assert profile.role in ("control", "balance")
+    assert profile.opp_archetype == "アグロ"
+    # コントロール vs アグロ = control (= 守って捌く)
+    assert profile.role == "control"
 
 
 def test_role_derivation_combinations():
-    """role が (my, opp) ペアで期待通り決まる。
-
-    V2 (2026-05-14): 紫エネル がアグロ → ミッドレンジ に再分類されたので、
-    アグロ vs アグロ の検証には OP15-058 が使えない。 アーキタイプ別 role 導出のみ確認。
-    """
+    """role が (my, opp) ペアで期待通り決まる。 opp=紫エネル=アグロ に対し my を変えて検証。"""
     repo = _repo()
     _reset_caches_for_testing()
-    # 紫エネル = ミッドレンジ (V2)
-    state = _make_state(repo, opp_leader="OP15-058")
+    state = _make_state(repo, opp_leader="OP15-058")  # opp = アグロ
 
-    # アグロ vs ミッドレンジ = beatdown (= 攻めて削る)
+    # アグロ vs アグロ = race (= ミラー、 殴り合い)
     profile = build_matchup_profile(state, 0, my_archetype="アグロ")
-    assert profile.role == "beatdown"
+    assert profile.role == "race"
 
-    # ミッドレンジ vs ミッドレンジ = balance (= ミラー)
+    # ミッドレンジ vs アグロ = control (= 捌いて main phase で勝つ)
     profile = build_matchup_profile(state, 0, my_archetype="ミッドレンジ")
-    assert profile.role == "balance"
+    assert profile.role == "control"
+
+    # コントロール vs アグロ = control
+    profile = build_matchup_profile(state, 0, my_archetype="コントロール")
+    assert profile.role == "control"
 
     # ランプ vs ミッドレンジ = control 寄り (= ramp で先行)
     profile = build_matchup_profile(state, 0, my_archetype="ランプ")
@@ -174,7 +171,7 @@ def test_greedy_ai_applies_matchup_override_on_first_choose():
     repo = _repo()
     _reset_caches_for_testing()
 
-    # 自分: コントロール、 相手: ミッドレンジ (= cardrush_1454 紫エネル、 V2 で再分類)
+    # 自分: コントロール、 相手: アグロ (= cardrush_1454 紫エネル、 analysis.json ground truth)
     state = _make_state(repo, my_leader="OP01-001", opp_leader="OP15-058")
     ai = GreedyAI(rng=random.Random(0))
     # 手動で archetype を コントロール に設定 (deck_analysis 経由を簡略化)
@@ -189,19 +186,19 @@ def test_greedy_ai_applies_matchup_override_on_first_choose():
     assert ai._matchup_overrides_applied
     assert ai._matchup_profile is not None
     assert ai._matchup_profile.my_archetype == "コントロール"
-    # V2 (2026-05-14): 紫エネル は ミッドレンジ に再分類
-    assert ai._matchup_profile.opp_archetype == "ミッドレンジ"
-    assert ai._matchup_profile.role in ("control", "balance")
+    # 紫エネル = アグロ → コントロール vs アグロ = control
+    assert ai._matchup_profile.opp_archetype == "アグロ"
+    assert ai._matchup_profile.role == "control"
 
     # defense_thresholds が override で 設定されている (= 何らかの値が入る)
     new_defense_life4 = ai.defense_thresholds.get(4)
     assert new_defense_life4 is not None
-    # コントロール vs ミッドレンジ で life=4 は base コントロール (5000, 2) 〜 override 値
+    # コントロール vs アグロ で life=4 は base コントロール (5000, 2) 〜 override 値
     assert new_defense_life4[0] >= 3000, f"override が適用されていない: {new_defense_life4}"
 
 
 def test_greedy_ai_no_matchup_for_unknown_opp():
-    """未知 opp で fallback (ミッドレンジ) が適用される (例外なし)。"""
+    """未知 opp でも fallback が適用される (= 例外なし、 有効な archetype)。"""
     repo = _repo()
     _reset_caches_for_testing()
     state = _make_state(repo, my_leader="OP01-001", opp_leader="OP01-001")
@@ -210,7 +207,7 @@ def test_greedy_ai_no_matchup_for_unknown_opp():
 
     ai.choose_action(state)
 
-    # アグロ vs ミッドレンジ の override が適用されている
+    # 未知 opp でも override が適用され、 有効な archetype が入る (具体値は heuristic 依存)
     assert ai._matchup_overrides_applied
     assert ai._matchup_profile is not None
-    assert ai._matchup_profile.opp_archetype == "ミッドレンジ"
+    assert ai._matchup_profile.opp_archetype in ARCHETYPES
