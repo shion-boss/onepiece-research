@@ -122,6 +122,46 @@ def test_op15_002_activate_main_draw_gated_real_path():
     assert _lucy_activate_draw(0) == 0, "イベント未使用なら ドローしない"
 
 
+def test_reveal_life_top_play_matched_plays_and_runs_then():
+    """ST13-007 サボ: ライフ上が cost5 サボ なら 登場 (life-1) + then で leader +2000。"""
+    import json as _json
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    allc = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    sabo5 = next(repo.get(c["card_id"]) for c in allc
+                 if c["name"] == "サボ" and str(c.get("cost")) == "5"
+                 and c.get("category") == "CHARACTER")
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1.life = [sabo5, repo.get("OP01-013")]
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                   effects_overlay=overlay)
+    pw0 = p1.leader.power
+    execute_effect({"reveal_life_top_play": {
+        "filter": {"name": "サボ", "cost_eq": 5},
+        "then": [{"power_pump": {"target": "self_leader", "amount": 2000,
+                                 "duration": "next_opp_turn_end"}}]}},
+        st, p1, p2, p1.characters[0] if p1.characters else p1.leader)
+    assert any(ip.card.card_id == sabo5.card_id for ip in p1.characters), "cost5 サボ が登場するべき"
+    assert len(p1.life) == 1, "登場で ライフ -1"
+    assert p1.leader.power == pw0 + 2000, "then の leader +2000 が適用されるべき"
+
+
+def test_reveal_life_top_play_no_match_is_noop():
+    """ライフ上が非マッチなら 登場せず ライフ枚数不変 (= 「場合」 前文不成立)。"""
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1.life = [repo.get("OP01-013"), repo.get("OP01-013")]  # 非サボ
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                   effects_overlay=overlay)
+    execute_effect({"reveal_life_top_play": {"filter": {"name": "サボ", "cost_eq": 5}}},
+                   st, p1, p2, p1.leader)
+    assert len(p1.life) == 2, "非マッチなら ライフ不変"
+    assert len(p1.characters) == 0, "非マッチなら 登場しない"
+
+
 def test_no_effect_filter_discriminates_vanilla_vs_effect():
     """play_from_hand の filter no_effect:true が「元々効果のないキャラ」 だけを候補にする (= EB03-003 等)。"""
     import json as _json

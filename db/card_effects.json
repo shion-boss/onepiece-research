@@ -13769,46 +13769,58 @@
   ],
   "OP10-022": [
     {
-      "_text": "OP10-022 【起動メイン】【ターン1回】自分のキャラのコストの合計が5以上の場合、自分のキャラ1枚を、持ち主の手札に戻すことができる：自分のライフの上から1枚を公開し、そのカードがコスト5以下の特徴《超新星》を持つキャラカードの場合、登場させてもよい。",
+      "_text": "OP10-022 起動メイン(ターン1):自キャラcost合計5以上の場合、自キャラ1枚を手札へ戻し、ライフ上1公開し超新星cost5以下なら登場",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
           "return_to_hand": {
             "type": "one_self_chara_filtered",
+            "filter": {}
+          }
+        },
+        {
+          "reveal_life_top_play": {
             "filter": {
+              "feature": "超新星",
               "cost_le": 5
             }
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_cost_sum_ge": 5
+      }
     }
   ],
   "OP10-022_p1": [
     {
-      "_text": "OP10-022_p1 【起動メイン】【ターン1回】自分のキャラのコストの合計が5以上の場合、自分のキャラ1枚を、持ち主の手札に戻すことができる：自分のライフの上から1枚を公開し、そのカードがコスト5以下の特徴《超新星》を持つキャラカードの場合、登場させてもよい。",
+      "_text": "OP10-022 起動メイン(ターン1):自キャラcost合計5以上の場合、自キャラ1枚を手札へ戻し、ライフ上1公開し超新星cost5以下なら登場",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
           "return_to_hand": {
             "type": "one_self_chara_filtered",
+            "filter": {}
+          }
+        },
+        {
+          "reveal_life_top_play": {
             "filter": {
+              "feature": "超新星",
               "cost_le": 5
             }
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_cost_sum_ge": 5
+      }
     }
   ],
   "OP10-099": [
@@ -45027,14 +45039,24 @@
   ],
   "ST13-007_p2": [
     {
-      "_text": "ST13-007_p2 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「サボ」の場合、登場させてもよい。登場させた場合、自分のリーダ",
+      "_text": "ST13-007 起動メイン(自トラッシュ):ライフ上1公開しcost5サボなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name": "サボ",
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -45045,14 +45067,24 @@
   ],
   "ST13-007_r1": [
     {
-      "_text": "ST13-007_r1 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「サボ」の場合、登場させてもよい。登場させた場合、自分のリーダ",
+      "_text": "ST13-007 起動メイン(自トラッシュ):ライフ上1公開しcost5サボなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name": "サボ",
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -45063,14 +45095,27 @@
   ],
   "ST13-010_p2": [
     {
-      "_text": "ST13-010_p2 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「ポートガス・D・エース」の場合、登場させてもよい。登場させた",
+      "_text": "ST13-010 起動メイン(自トラッシュ):ライフ上1公開しcost5エースなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "ポートガス・D・エース",
+                "ポートガス・Ｄ・エース"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -45081,14 +45126,27 @@
   ],
   "ST13-010_r1": [
     {
-      "_text": "ST13-010_r1 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「ポートガス・D・エース」の場合、登場させてもよい。登場させた",
+      "_text": "ST13-010 起動メイン(自トラッシュ):ライフ上1公開しcost5エースなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "ポートガス・D・エース",
+                "ポートガス・Ｄ・エース"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -77007,14 +77065,24 @@
   ],
   "ST13-007": [
     {
-      "_text": "ST13-007 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「サボ」の場合、登場させてもよい。登場させた場合、自分のリーダ",
+      "_text": "ST13-007 起動メイン(自トラッシュ):ライフ上1公開しcost5サボなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name": "サボ",
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -77025,14 +77093,24 @@
   ],
   "ST13-007_p1": [
     {
-      "_text": "ST13-007_p1 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「サボ」の場合、登場させてもよい。登場させた場合、自分のリーダ",
+      "_text": "ST13-007 起動メイン(自トラッシュ):ライフ上1公開しcost5サボなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name": "サボ",
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -77071,14 +77149,27 @@
   ],
   "ST13-010": [
     {
-      "_text": "ST13-010 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「ポートガス・D・エース」の場合、登場させてもよい。登場させた",
+      "_text": "ST13-010 起動メイン(自トラッシュ):ライフ上1公開しcost5エースなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "ポートガス・D・エース",
+                "ポートガス・Ｄ・エース"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -77089,14 +77180,27 @@
   ],
   "ST13-010_p1": [
     {
-      "_text": "ST13-010_p1 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「ポートガス・D・エース」の場合、登場させてもよい。登場させた",
+      "_text": "ST13-010 起動メイン(自トラッシュ):ライフ上1公開しcost5エースなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "ポートガス・D・エース",
+                "ポートガス・Ｄ・エース"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],

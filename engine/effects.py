@@ -649,6 +649,11 @@ def eval_condition(
             # いない場合」 / OP03-027「自分のブチがいない場合」)。
             if any(c.card.name == v for c in me.characters):
                 return False
+        elif k == "self_chara_cost_sum_ge":
+            # 自分のキャラ (leader 除く) の現在コスト合計が N 以上か (= OP10-022 ロー)。
+            total = sum(getattr(c, "base_cost", 0) for c in me.characters)
+            if total < int(v):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
@@ -4028,6 +4033,40 @@ def _execute_effect_body(
             state.push_log(f"  効果: トラッシュから自身 {card.name} を登場")
             if state.effects_overlay:
                 trigger_on_play(state, me, opp, ip, state.effects_overlay)
+        elif k == "reveal_life_top_play":
+            # 公式: 「自分のライフの上から1枚を公開し、 そのカードが <filter> の場合、 登場させてもよい。
+            #   登場させた場合、 <then>」 (= OP10-022 ロー / ST13-007 サボ / ST13-010 エース)。
+            # 公開のみ (= 場所変えず)。 マッチ + 登場 した時だけ life から除去 + then 実行。
+            # 非マッチ / 未登場 なら life はそのまま (= ライフ枚数不変)。
+            # AI 簡易: マッチなら登場 (公式は「してもよい」 任意だが ライフからの無償登場は期待値プラス)。
+            # TODO: 人間 acting 時は modal で「登場/skip」 を委ねる (= reveal_top_play 同様)。
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            rested_flag = bool(spec_val.get("rested", False))
+            then = spec_val.get("then", []) or []
+            if not me.life:
+                state.push_log(f"  効果: ライフ公開 → ライフ空 (不発)")
+            else:
+                revealed = me.life[0]
+                matched = (
+                    revealed.category == Category.CHARACTER
+                    and _matches_filter(revealed, filt)
+                )
+                state.push_log(
+                    f"  効果: ライフ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"
+                )
+                if matched:
+                    me.life.pop(0)
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+                    ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
+                    me.characters.append(ip)
+                    state.push_log(f"  効果: ライフから登場 → {revealed.name}")
+                    if state.effects_overlay:
+                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                    # 「登場させた場合」 の後続効果 (= leader +2000 等)。 source context は self_inplay。
+                    for prim in then:
+                        execute_effect(prim, state, me, opp, self_inplay)
         elif k == "set_base_cost_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
             # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}
