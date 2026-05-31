@@ -12172,7 +12172,7 @@
   ],
   "OP05-060_p4": [
     {
-      "_text": "OP05-060_p4 【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：自分の場のドン‼が0枚か、3枚以上ある場合、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -12182,22 +12182,13 @@
           "life_to_hand": 1
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_field_don_zero_or_ge_3": true
+            },
+            "do": [
               {
-                "if": {
-                  "self_don_count_eq": 0,
-                  "_or": [
-                    {
-                      "self_don_count_ge": 3
-                    }
-                  ]
-                },
-                "do": [
-                  {
-                    "add_don": 1
-                  }
-                ]
+                "add_don": 1
               }
             ]
           }
@@ -15070,7 +15061,7 @@
   ],
   "OP05-060": [
     {
-      "_text": "OP05-060 【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：自分の場のドン!!が0枚か、3枚以上ある場合、ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
+      "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -15080,14 +15071,23 @@
           "life_to_hand": 1
         },
         {
-          "add_don": 1
+          "conditional": {
+            "if": {
+              "self_field_don_zero_or_ge_3": true
+            },
+            "do": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP05-060_p1": [
     {
-      "_text": "OP05-060_p1 【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：自分の場のドン!!が0枚か、3枚以上ある場合、ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
+      "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -15097,7 +15097,16 @@
           "life_to_hand": 1
         },
         {
-          "add_don": 1
+          "conditional": {
+            "if": {
+              "self_field_don_zero_or_ge_3": true
+            },
+            "do": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -16306,7 +16315,7 @@
   ],
   "OP05-060_p3": [
     {
-      "_text": "OP05-060_p3 【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：自分の場のドン‼が0枚か、3枚以上ある場合、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -16316,22 +16325,13 @@
           "life_to_hand": 1
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_field_don_zero_or_ge_3": true
+            },
+            "do": [
               {
-                "if": {
-                  "self_don_count_eq": 0,
-                  "_or": [
-                    {
-                      "self_don_count_ge": 3
-                    }
-                  ]
-                },
-                "do": [
-                  {
-                    "add_don": 1
-                  }
-                ]
+                "add_don": 1
               }
             ]
           }
@@ -16965,7 +16965,7 @@
   ],
   "OP05-060_p2": [
     {
-      "_text": "OP05-060_p2 【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：自分の場のドン!!が0枚か、3枚以上ある場合、ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
+      "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -16975,7 +16975,16 @@
           "life_to_hand": 1
         },
         {
-          "add_don": 1
+          "conditional": {
+            "if": {
+              "self_field_don_zero_or_ge_3": true
+            },
+            "do": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }

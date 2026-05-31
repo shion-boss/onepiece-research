@@ -669,6 +669,11 @@ def eval_condition(
             # 相手のレストのキャラが N 枚以上いるか (= OP01-032 アシュラ童子)。
             if opp is None or sum(1 for c in opp.characters if c.rested) < int(v):
                 return False
+        elif k == "self_field_don_zero_or_ge_3":
+            # 自分の場のドン!! が 0 枚 か 3 枚以上 (= OP05-060 ルフィ)。 場のドン = active + rested。
+            fd = me.don_active + me.don_rested
+            if not (fd == 0 or fd >= 3):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
