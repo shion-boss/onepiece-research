@@ -2208,18 +2208,22 @@
       ]
     },
     {
-      "_text": "黒イム 起動メイン: 手札1捨て → 1ドロー (= 公式 天竜人キャラtrash 選択肢 は未実装、 _fidelity_note 参照)",
+      "_text": "黒イム 起動メイン: 天竜人キャラ か 手札1枚 を トラッシュ (選択) → 1ドロー",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "discard_hand": 1
+        "discard_hand_or_trash_filtered_chara": {
+          "filter": {
+            "feature": "天竜人"
+          },
+          "n": 1
+        }
       },
       "do": [
         {
           "draw": 1
         }
-      ],
-      "_fidelity_note": "公式 cost は 「特徴《天竜人》を持つキャラ か 手札1枚 を トラッシュ」 の 選択。 現状 discard_hand:1 のみ実装 (= 天竜人キャラtrash 選択肢 を 略)。 影響: 手札空 + 天竜人キャラ在場 時に 起動不可 になる edge (mill deck で稀)。 要: char-or-hand 複合 choice cost primitive + 人間 modal (= 次タスク)"
+      ]
     }
   ],
   "OP14-020": [
@@ -12961,18 +12965,22 @@
       ]
     },
     {
-      "_text": "黒イム 起動メイン: 手札1捨て → 1ドロー (= 公式 天竜人キャラtrash 選択肢 は未実装、 _fidelity_note 参照)",
+      "_text": "黒イム 起動メイン: 天竜人キャラ か 手札1枚 を トラッシュ (選択) → 1ドロー",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "discard_hand": 1
+        "discard_hand_or_trash_filtered_chara": {
+          "filter": {
+            "feature": "天竜人"
+          },
+          "n": 1
+        }
       },
       "do": [
         {
           "draw": 1
         }
-      ],
-      "_fidelity_note": "公式 cost は 「特徴《天竜人》を持つキャラ か 手札1枚 を トラッシュ」 の 選択。 現状 discard_hand:1 のみ実装 (= 天竜人キャラtrash 選択肢 を 略)。 影響: 手札空 + 天竜人キャラ在場 時に 起動不可 になる edge (mill deck で稀)。 要: char-or-hand 複合 choice cost primitive + 人間 modal (= 次タスク)"
+      ]
     }
   ],
   "OP13-100": [
