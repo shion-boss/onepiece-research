@@ -23141,7 +23141,10 @@
         {
           "ko": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": -1
+      }
     }
   ],
   "OP09-083": [
@@ -23804,7 +23807,15 @@
         {
           "ko": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP08-091": [
@@ -55871,22 +55882,46 @@
   ],
   "OP09-051_p5": [
     {
-      "_text": "OP09-051_p5 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
   ],
   "OP09-051_p6": [
     {
-      "_text": "OP09-051_p6 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
@@ -61010,6 +61045,14 @@
             "keyword": "速攻"
           }
         }
+      ],
+      "conditions": [
+        {
+          "leader_power_ge": 7000
+        },
+        {
+          "leader_feature": "キッド海賊団"
+        }
       ]
     }
   ],
@@ -61307,33 +61350,69 @@
   ],
   "OP09-051": [
     {
-      "_text": "OP09-051 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
   ],
   "OP09-051_p1": [
     {
-      "_text": "OP09-051_p1 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
   ],
   "OP09-051_p2": [
     {
-      "_text": "OP09-051_p2 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
@@ -61665,16 +61744,21 @@
   ],
   "OP09-092": [
     {
-      "_text": "OP09-092 activate_main: このキャラをレストにできる：自分の手札が相手の手札より3枚以上少ない場合、カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP09-092 起動メイン(自レスト):自手札が相手より3枚以上少ない場合、カード2枚引き手札1枚捨てる",
       "when": "activate_main",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
       ],
       "cost": {
-        "discard_hand": 1,
         "rest_self": true
+      },
+      "if": {
+        "self_hand_diff_le": -3
       }
     }
   ],
@@ -62164,11 +62248,23 @@
   ],
   "OP09-051_p3": [
     {
-      "_text": "OP09-051_p3 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
@@ -62777,6 +62873,9 @@
       ],
       "cost": {
         "pay_don": 1
+      },
+      "if": {
+        "opp_don_count_ge": 5
       }
     }
   ],
@@ -63146,15 +63245,18 @@
   ],
   "OP08-086": [
     {
-      "_text": "OP08-086 on_play: 相手のコスト0のキャラがいる場合、カード2枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP08-086 登場時:相手cost0キャラがいる場合、カード2枚引き手札2枚捨てる",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 2
         }
       ],
-      "cost": {
-        "discard_hand": 2
+      "if": {
+        "exists_opp_chara_cost_le": 0
       }
     }
   ],
@@ -75137,11 +75239,23 @@
   ],
   "OP09-051_r1": [
     {
-      "_text": "OP09-051_r1 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }
@@ -85124,11 +85238,23 @@
   ],
   "OP09-051_p4": [
     {
-      "_text": "OP09-051_p4 on_play: 相手のキャラ1枚までを、持ち主のデッキの下に置く。その後、自分のコスト5以上のキャラが5枚いない場合、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP09-051 登場時:相手キャラ1枚デッキ下、その後自コスト5以上が5枚いない場合このキャラをデッキ下",
       "when": "on_play",
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any"
+        },
+        {
+          "return_self_to_deck_bottom_if_condition": {
+            "if_not": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 5
+                },
+                "count": 5
+              }
+            }
+          }
         }
       ]
     }

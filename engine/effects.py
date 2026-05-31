@@ -674,6 +674,14 @@ def eval_condition(
             fd = me.don_active + me.don_rested
             if not (fd == 0 or fd >= 3):
                 return False
+        elif k == "leader_power_ge":
+            # 自リーダーの現在パワーが N 以上か (= OP09-017 ワイヤー「リーダーがパワー7000以上」)。
+            if me.leader is None or me.leader.power < int(v):
+                return False
+        elif k == "self_hand_diff_le":
+            # 自手札枚数 - 相手手札枚数 が N 以下か (= OP09-092「自手札が相手より3枚以上少ない」= -3)。
+            if opp is None or (len(me.hand) - len(opp.hand)) > int(v):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
