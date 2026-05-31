@@ -183,7 +183,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "exists_chara_cost_0_or_ge_8": true
+      }
     },
     {
       "_text": "EB03-046 on_ko: 自分のデッキの上から2枚をトラッシュに置く。",
@@ -3380,7 +3383,13 @@
         {
           "rest": "one_opponent_character_cost_le_8cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "海王類",
+          "count": 3
+        }
+      }
     }
   ],
   "EB04-033": [
@@ -29997,7 +30006,10 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "EB04-044_p1": [
@@ -50301,12 +50313,9 @@
   ],
   "EB04-034": [
     {
-      "_text": "EB04-034 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：自分のトラッシュにイベントが4枚以上ある場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000",
+      "_text": "EB04-034 相手アタック時(ターン1,手札1捨て):トラッシュにイベント4枚以上ある場合、自リーダーかキャラ+2000",
       "when": "opp_attack",
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
@@ -50318,6 +50327,9 @@
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
+      },
+      "if": {
+        "self_trash_event_count_ge": 4
       }
     }
   ],
