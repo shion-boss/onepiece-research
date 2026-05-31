@@ -819,7 +819,10 @@
         {
           "ko": "one_opponent_rested_character_cost_le_3cost"
         }
-      ]
+      ],
+      "if": {
+        "self_don_active_ge": 3
+      }
     }
   ],
   "OP04-046": [
@@ -8248,7 +8251,7 @@
   ],
   "OP04-112": [
     {
-      "_text": "【登場時】お互いライフ合計コスト以下の相手キャラ1枚KO + 自ライフ1以下で put_top_to_life 1",
+      "_text": "OP04-112 登場時:両ライフ合計以下コストの相手キャラ1枚KO、その後自ライフ1以下ならデッキ上1枚をライフ上へ",
       "when": "on_play",
       "do": [
         {
@@ -8260,17 +8263,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
               {
-                "if": {
-                  "self_life_le": 1
-                },
-                "do": [
-                  {
-                    "put_top_to_life": 1
-                  }
-                ]
+                "put_top_to_life": 1
               }
             ]
           }
@@ -8653,7 +8652,7 @@
   ],
   "OP05-019": [
     {
-      "_text": "OP05-019 main: 相手のキャラ1枚までを、このターン中、パワー-4000。その後、自分のライフが2枚以下の場合、相手のパワー0以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-019 メイン:相手キャラ1枚 cost-4000(turn)、その後自ライフ2以下なら相手power0以下を1KO",
       "when": "main",
       "do": [
         {
@@ -8664,17 +8663,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
               {
-                "if": {
-                  "self_life_le": 2
-                },
-                "do": [
-                  {
-                    "ko": "one_opponent_character_power_le_0"
-                  }
-                ]
+                "ko": "one_opponent_character_power_le_0"
               }
             ]
           }
@@ -12136,7 +12131,10 @@
         {
           "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP05-060_p4": [
@@ -14937,7 +14935,10 @@
         {
           "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP05-022_p1": [
@@ -14948,7 +14949,10 @@
         {
           "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP05-041": [
@@ -15177,15 +15181,12 @@
   ],
   "OP04-039": [
     {
-      "_text": "OP04-039 【起動メイン】【ターン1回】➀(コストエリアのドン!!を指定の数レストにできる)：自分の手札が6枚以下の場合、自分のデッキの上から2枚を見て、特徴《ドレスローザ》を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置く。",
+      "_text": "OP04-039 起動メイン(ターン1,ドン1レスト):手札6枚以下の場合、デッキ上2枚見てドレスローザ1枚を手札へ、残りトラッシュ (旧余分draw除去)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
-        {
-          "draw": 1
-        },
         {
           "search_top_n": {
             "depth": 2,
@@ -15194,23 +15195,23 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "bottom"
+            "rest_remain": "trash"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP04-039_p1": [
     {
-      "_text": "OP04-039_p1 【起動メイン】【ターン1回】➀(コストエリアのドン!!を指定の数レストにできる)：自分の手札が6枚以下の場合、自分のデッキの上から2枚を見て、特徴《ドレスローザ》を持つカード1枚までを公開し、手札に加える。その後、残りをトラッシュに置く。",
+      "_text": "OP04-039 起動メイン(ターン1,ドン1レスト):手札6枚以下の場合、デッキ上2枚見てドレスローザ1枚を手札へ、残りトラッシュ (旧余分draw除去)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
-        {
-          "draw": 1
-        },
         {
           "search_top_n": {
             "depth": 2,
@@ -15219,10 +15220,13 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "bottom"
+            "rest_remain": "trash"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_hand_count_le": 6
+      }
     }
   ],
   "OP04-040": [
@@ -24528,14 +24532,23 @@
   ],
   "OP04-064": [
     {
-      "_text": "OP04-064 on_play: ドン!!デッキからドン!!1枚までを、レストで追加する。その後、自分の場にドン!!が6枚以上ある場合、カード1枚を引く。",
+      "_text": "OP04-064 登場時:ドン1レスト追加、その後自場ドン6以上なら1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 1
         },
         {
-          "add_rested_don": 1
+          "conditional": {
+            "if": {
+              "self_don_ge": 6
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -24960,7 +24973,7 @@
   ],
   "OP04-116": [
     {
-      "_text": "OP04-116 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+6000。その後、お互いのライフの合計枚数が4枚以下の場合、相手のコスト2以下のキャラ1枚までを、KOす",
+      "_text": "OP04-116 カウンター:自リーダーかキャラ+6000、その後両ライフ合計4以下なら相手cost2以下を1KO",
       "when": "counter",
       "do": [
         {
@@ -24971,7 +24984,16 @@
           }
         },
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "conditional": {
+            "if": {
+              "total_life_le": 4
+            },
+            "do": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -28977,16 +28999,27 @@
   ],
   "OP04-112_p3": [
     {
-      "_text": "OP04-112_p3 on_play: お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。その後、自分のライフが1枚以下の場合、自分のデッキの上から1枚までを、ライフの上に加",
+      "_text": "OP04-112 登場時:両ライフ合計以下コストの相手キャラ1枚KO、その後自ライフ1以下ならデッキ上1枚をライフ上へ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
           "ko": {
             "type": "one_opponent_character_filtered",
-            "filter": {}
+            "filter": {
+              "cost_le_self_plus_opp_life": true
+            }
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ],
@@ -35778,11 +35811,23 @@
   ],
   "OP04-064_p2": [
     {
-      "_text": "OP04-064_p2 on_play: ドン !!デッキからドン !!1枚までを、レストで追加する。その後、自分の場にドン !!が6枚以上ある場合、カード1枚を引く。",
+      "_text": "OP04-064 登場時:ドン1レスト追加、その後自場ドン6以上なら1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_don_ge": 6
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -36114,14 +36159,23 @@
   ],
   "OP04-064_p1": [
     {
-      "_text": "OP04-064_p1 on_play: ドン!!デッキからドン!!1枚までを、レストで追加する。その後、自分の場にドン!!が6枚以上ある場合、カード1枚を引く。",
+      "_text": "OP04-064 登場時:ドン1レスト追加、その後自場ドン6以上なら1ドロー",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "add_rested_don": 1
         },
         {
-          "add_rested_don": 1
+          "conditional": {
+            "if": {
+              "self_don_ge": 6
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -36165,16 +36219,27 @@
   ],
   "OP04-112_p1": [
     {
-      "_text": "OP04-112_p1 on_play: お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。その後、自分のライフが1枚以下の場合、自分のデッキの上から1枚までを、ライフの上に加",
+      "_text": "OP04-112 登場時:両ライフ合計以下コストの相手キャラ1枚KO、その後自ライフ1以下ならデッキ上1枚をライフ上へ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
           "ko": {
             "type": "one_opponent_character_filtered",
-            "filter": {}
+            "filter": {
+              "cost_le_self_plus_opp_life": true
+            }
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ],
@@ -38630,16 +38695,27 @@
   ],
   "OP04-112_p2": [
     {
-      "_text": "OP04-112_p2 on_play: お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。その後、自分のライフが1枚以下の場合、自分のデッキの上から1枚までを、ライフの上に加",
+      "_text": "OP04-112 登場時:両ライフ合計以下コストの相手キャラ1枚KO、その後自ライフ1以下ならデッキ上1枚をライフ上へ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
           "ko": {
             "type": "one_opponent_character_filtered",
-            "filter": {}
+            "filter": {
+              "cost_le_self_plus_opp_life": true
+            }
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ],
@@ -40758,7 +40834,7 @@
   ],
   "OP05-019_p1": [
     {
-      "_text": "OP05-019_p1 main: 相手のキャラ1枚までを、このターン中、パワー-4000。その後、自分のライフが2枚以下の場合、相手のパワー0以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-019 メイン:相手キャラ1枚 cost-4000(turn)、その後自ライフ2以下なら相手power0以下を1KO",
       "when": "main",
       "do": [
         {
@@ -40769,17 +40845,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
               {
-                "if": {
-                  "self_life_le": 2
-                },
-                "do": [
-                  {
-                    "ko": "one_opponent_character_power_le_0"
-                  }
-                ]
+                "ko": "one_opponent_character_power_le_0"
               }
             ]
           }
@@ -47736,16 +47808,27 @@
   ],
   "OP04-112_r1": [
     {
-      "_text": "OP04-112_r1 on_play: お互いのライフの合計枚数以下のコストを持つ相手のキャラ1枚までを、KOする。その後、自分のライフが1枚以下の場合、自分のデッキの上から1枚までを、ライフの上に加",
+      "_text": "OP04-112 登場時:両ライフ合計以下コストの相手キャラ1枚KO、その後自ライフ1以下ならデッキ上1枚をライフ上へ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
           "ko": {
             "type": "one_opponent_character_filtered",
-            "filter": {}
+            "filter": {
+              "cost_le_self_plus_opp_life": true
+            }
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
           }
         }
       ],
@@ -67883,7 +67966,10 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "if": {
+        "self_don_active_ge": 2
+      }
     }
   ],
   "OP04-028_p1": [
@@ -67894,7 +67980,10 @@
         {
           "untap": "self"
         }
-      ]
+      ],
+      "if": {
+        "self_don_active_ge": 2
+      }
     }
   ],
   "OP04-035": [
@@ -68889,11 +68978,33 @@
   ],
   "OP04-106": [
     {
-      "_text": "OP04-106 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
-      "when": "trigger",
+      "_text": "OP04-106 ドン×1:自ライフが相手より少ない場合このキャラ+1000",
+      "when": "on_attached_don",
+      "n": 1,
+      "conditions": [
+        {
+          "self_life_lt_opp": true
+        }
+      ],
       "do": [
         {
-          "trash_self_hand_random": 1
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP04-106 トリガー:手札1枚を捨てて このカードを登場",
+      "when": "trigger",
+      "cost": {
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "play_self": true
         }
       ]
     }
