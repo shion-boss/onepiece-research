@@ -63,8 +63,28 @@ effect 未実装 (peek_opp_deck_top) を `_missing_effect` で注記。
     優先走行し、 メタ被覆カードから 潰すのが費用対効果 高。
 - 期待: 真 ~95% → ~98% へ (systematic bug 類型を 全 DB で 掃討)。 真 100% は理論上不可を維持認識。
 
-## 残タスク (本 prototype 由来)
+## 残タスク (本 prototype 由来) — 全完遂 (2026-05-31 後半セッション)
 
-1. OP13-079 leader: char-or-hand 複合 choice cost primitive + 人間 modal (`_fidelity_note` 参照)
-2. OP11-070: peek_opp_deck_top primitive 実装 (`_missing_effect` 参照)
-3. 全 4,518 枚 (or 16 deck pool 優先) で 本手法を 横展開
+1. ✓ OP13-079 leader: `discard_hand_or_trash_filtered_chara` 複合 choice cost 実装
+   (payability + AI heuristic + 人間 modal は既存2種 reuse)。 `_fidelity_note` 解除。
+2. ✓ OP11-070: `peek_opp_deck_top` primitive 実装 (私的情報記録 + 隠ぺい log)。 `_missing_effect` 解除。
+3. ✓ 横展開 = 構造検出器 `scripts/audit_structural_detectors.py` で DB-wide 走行。
+
+## 横展開 (構造検出器) 結果 — 新規 systematic bug は無し
+
+二重コスト以外の 4 類型 (action 欠落/誤 primitive / 空 effect / 残存 marker) を DB-wide 検出:
+- **A (action keyword 欠落): 288 件 = ほぼ false positive**。 KO-in-cost (OP14-080)、
+  `ko_opp_stage` (OP13-098/OP14-088)、 family 未網羅の summon/return primitive 等。 triage で実バグ無し。
+- **B (空 effect): 8 件 = 全て正当**。 replace_ko/replace_leave の do空 は 「cost を払って離脱/KO を
+  防ぐ」 正しい表現 (OP13-046/OP14-016/OP12-053/OP12-070/OP15-003 等)。
+- **C (残存 marker): 1 件 = OP11-092** (実バグ)。
+- **副産物 (dead 機構): `schedule_at_self_turn_end` が flush されず dead** (OP15-025 クロ、 予約効果消失)。
+
+確定 bug 2 件 (= いずれも単発 low-meta) を修復:
+- **OP11-092 ヘルメッポ**: 一時登場キャラの ターン終了時デッキ下返却 を実装
+  (`play_from_trash.return_to_deck_bottom_at_turn_end` + InPlay フラグ + turn-end 処理)。
+- **OP15-025 クロ**: `schedule_at_self_turn_end` の flush を `trigger_end_of_turn` に実装。
+- → **DB全体 `_unimplemented`=0 / `_missing_effect`=0 達成** (CLAUDE.md の主張を実態化)。
+
+**結論**: 双理コスト級の 大規模 systematic bug は 他に無いことを DB-wide 構造検出で確認。
+overlay は (二重コスト掃討後) おおむね健全。 残るは 個別カードの 解釈精度 (= 全枚 inline LLM 監査の領域)。
