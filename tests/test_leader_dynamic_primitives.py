@@ -122,6 +122,36 @@ def test_op15_002_activate_main_draw_gated_real_path():
     assert _lucy_activate_draw(0) == 0, "イベント未使用なら ドローしない"
 
 
+def test_no_effect_filter_discriminates_vanilla_vs_effect():
+    """play_from_hand の filter no_effect:true が「元々効果のないキャラ」 だけを候補にする (= EB03-003 等)。"""
+    import json as _json
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    allc = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+
+    def _pw(c):
+        try:
+            return int(c.get("power"))
+        except (ValueError, TypeError):
+            return -1
+    vanilla = next(repo.get(c["card_id"]) for c in allc
+                   if c["card_id"] in overlay and len(overlay[c["card_id"]].effects) == 0
+                   and c.get("category") == "CHARACTER" and 0 <= _pw(c) <= 6000)
+    effcard = next(repo.get(c["card_id"]) for c in allc
+                   if c["card_id"] in overlay and len(overlay[c["card_id"]].effects) > 0
+                   and c.get("category") == "CHARACTER" and 0 <= _pw(c) <= 6000)
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1.hand = [vanilla, effcard]
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                   effects_overlay=overlay)
+    execute_effect({"play_from_hand": {"filter": {"power_le": 6000, "no_effect": True}, "limit": 1}},
+                   st, p1, p2, p1.leader)
+    played = [ip.card.card_id for ip in p1.characters]
+    assert vanilla.card_id in played, "元々効果なしキャラは登場候補になるべき"
+    assert effcard.card_id not in played, "効果ありキャラは no_effect filter で除外されるべき"
+
+
 def test_eb03_053_nami_on_play_mill_gated_by_opp_life():
     """EB03-053 ナミ 登場時: 相手ライフ≥3 の場合のみ 相手ライフ上1を相手手札へ (= 旧 _if_clause dead bug)。"""
     repo, ov, st0, p0, p0o = _setup("OP01-001")

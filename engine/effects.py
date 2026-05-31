@@ -3245,7 +3245,9 @@ def _execute_effect_body(
             seen_names: set[str] = set()
             new_trash = []
             for card in me.trash:
-                if found < limit and card.category == target_category and _matches_filter(card, filt):
+                if (found < limit and card.category == target_category
+                        and _matches_filter(card, filt)
+                        and not (filt.get("no_effect") and not _card_has_no_effect(card, state))):
                     if unique_name and card.name in seen_names:
                         new_trash.append(card)
                         continue
@@ -3298,6 +3300,8 @@ def _execute_effect_body(
                 if card.category != Category.CHARACTER:
                     continue
                 if not _matches_filter(card, filt):
+                    continue
+                if filt.get("no_effect") and not _card_has_no_effect(card, state):
                     continue
                 candidates.append((i, card))
             if not candidates:
@@ -7132,6 +7136,14 @@ def _resolve_dynamic_filter(
     if "or" in out and isinstance(out["or"], list):
         out["or"] = [_resolve_dynamic_filter(sub, state, me, opp) for sub in out["or"]]
     return out
+
+
+def _card_has_no_effect(card: CardDef, state: GameState) -> bool:
+    """「元々の効果のないキャラ」 判定 = overlay に効果 entry が無い (= [] or 未登録)。
+    one_self_chara_no_effect target と同一基準 (= バニラ)。 filter no_effect:true 用。"""
+    overlay_map = state.effects_overlay or {}
+    bundle = overlay_map.get(card.card_id)
+    return bundle is None or len(getattr(bundle, "effects", [])) == 0
 
 
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
