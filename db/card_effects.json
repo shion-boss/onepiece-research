@@ -6474,13 +6474,24 @@
           }
         },
         {
-          "ko": "one_opponent_character_power_le_0"
-        },
-        {
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -8000,
             "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand": 2
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_power_le_0"
+              }
+            ]
           }
         }
       ]
@@ -8527,18 +8538,28 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_0",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
         },
         {
-          "ko": "one_opponent_character_power_le_0"
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_life_le": 2
+                },
+                "do": [
+                  {
+                    "ko": "one_opponent_character_power_le_0"
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP05-019 trigger: このカードの【メイン】効果を発動する。",
@@ -9193,11 +9214,11 @@
   "OP15-052": [
     {
       "_text": "OP15-052 replace_ko: 自分の元々のパワー7000以下のキャラが相手の効果で場を離れる場合、代わりに自分のキャラ1枚を持ち主のデッキの下に置くことができる。",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
-        "target_power_le": 7000,
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_base_power_le": 7000
       },
       "do": [
         {
@@ -9422,7 +9443,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_power_le_6000"
+          "return_to_deck_bottom": "one_opponent_character_power_le_6000"
         }
       ]
     },
@@ -11164,7 +11185,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_trash_count_ge": 4
+        "self_trash_event_count_ge": 4
       },
       "do": [
         {
@@ -40200,18 +40221,28 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_0",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
         },
         {
-          "ko": "one_opponent_character_power_le_0"
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_life_le": 2
+                },
+                "do": [
+                  {
+                    "ko": "one_opponent_character_power_le_0"
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP05-019_p1 trigger: このカードの【メイン】効果を発動する。",
