@@ -50,12 +50,13 @@ def _make_state(repo, opp_leader_id="OP15-058", turn=1):
 
 
 def test_infer_archetype_uses_classifier_path():
-    """classifier 経由で archetype 推定 (= 紫エネル → ミッドレンジ)。"""
+    """classifier 経由で archetype 推定 (= 紫エネル → アグロ。 cardrush_1454 の
+    analysis.json archetype=アグロ / 平均コスト2.75 が ground truth、 V2 で再分類済)。"""
     repo = _repo()
     _reset_caches_for_testing()
     state = _make_state(repo, opp_leader_id="OP15-058")
     arche = infer_opponent_archetype(state, opp_idx=1, use_classifier=True)
-    assert arche == "ミッドレンジ", f"紫エネル は ミッドレンジ のはず ({arche})"
+    assert arche == "アグロ", f"紫エネル は アグロ のはず ({arche})"
 
 
 def test_infer_archetype_classifier_fallback_to_static():
@@ -75,7 +76,7 @@ def test_infer_archetype_use_classifier_false_uses_static():
     _reset_caches_for_testing()
     state = _make_state(repo, opp_leader_id="OP15-058")
     arche = infer_opponent_archetype(state, opp_idx=1, use_classifier=False)
-    assert arche == "ミッドレンジ"
+    assert arche == "アグロ"
 
 
 # ─────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ def test_archetype_with_confidence_high_for_known_leader():
     _reset_caches_for_testing()
     state = _make_state(repo, opp_leader_id="OP15-058")
     arche, conf = infer_opponent_archetype_with_confidence(state, opp_idx=1)
-    assert arche == "ミッドレンジ"
+    assert arche == "アグロ"
     assert conf > 0.9, f"既知 leader での信頼度は ≥ 0.9 のはず ({conf})"
 
 
