@@ -644,6 +644,39 @@ def eval_condition(
         elif k == "self_chara_count_ge":
             if len(me.characters) < int(v):
                 return False
+        # --- 2026-05-31 横展開: silently-ignored だった未handled condition を実装 ---
+        elif k == "self_hand_eq":
+            if len(me.hand) != int(v):
+                return False
+        elif k == "self_not_rested":
+            if self_inplay is None or self_inplay.rested:
+                return False
+        elif k == "self_rested_chara_count_ge":
+            if sum(1 for c in me.characters if c.rested) < int(v):
+                return False
+        elif k == "self_don_rested_ge":
+            if me.don_rested < int(v):
+                return False
+        elif k == "self_leader_power_le":
+            if me.leader is None or me.leader.power > int(v):
+                return False
+        elif k == "self_leader_attached_don_ge":
+            if me.leader is None or me.leader.attached_dons < int(v):
+                return False
+        elif k == "self_life_plus_hand_le":
+            if (len(me.life) + len(me.hand)) > int(v):
+                return False
+        elif k == "total_life_le":
+            opp_life = len(opp.life) if opp is not None else 0
+            if (len(me.life) + opp_life) > int(v):
+                return False
+        elif k == "self_all_chara_feature":
+            # 自分のキャラすべてが特徴 v を持つ (= 空なら vacuously True)
+            if not all(str(v) in (c.card.features or "") for c in me.characters):
+                return False
+        elif k == "either_player_don_total_eq_10":
+            if not any((p.don_active + p.don_rested) == 10 for p in state.players):
+                return False
         elif k == "self_chara_feature_count_ge":
             spec = v if isinstance(v, dict) else {}
             feature = spec.get("feature", "")
