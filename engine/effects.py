@@ -654,6 +654,11 @@ def eval_condition(
             total = sum(getattr(c, "base_cost", 0) for c in me.characters)
             if total < int(v):
                 return False
+        elif k == "exists_opp_chara_cost_le":
+            # 相手の場にコスト N 以下のキャラがいるか (= EB01-045「相手のコスト0のキャラがいる場合」)。
+            n = int(v)
+            if opp is None or not any(getattr(c, "base_cost", 99) <= n for c in opp.characters):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):

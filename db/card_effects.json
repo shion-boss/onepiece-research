@@ -11957,17 +11957,26 @@
   ],
   "EB01-001_p2": [
     {
-      "_text": "EB01-001_p2 【アタック時】自分のコスト5以上の特徴《ワノ国》を持つキャラがいる場合、このリーダーは、次の自分のターン開始時まで、パワー+1000。",
+      "_text": "EB01-001 アタック時:自ワノ国cost5以上キャラがいる場合、リーダー+1000(次自ターン開始まで)",
       "when": "on_attack",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "battle"
+            "duration": "next_self_turn_start"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ワノ国",
+            "cost_ge": 5
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "EB01-021_p2": [
@@ -12537,32 +12546,50 @@
   ],
   "EB01-001": [
     {
-      "_text": "EB01-001 【アタック時】自分のコスト5以上の特徴《ワノ国》を持つキャラがいる場合、このリーダーは、次の自分のターン開始時まで、パワー+1000。",
+      "_text": "EB01-001 アタック時:自ワノ国cost5以上キャラがいる場合、リーダー+1000(次自ターン開始まで)",
       "when": "on_attack",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "battle"
+            "duration": "next_self_turn_start"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ワノ国",
+            "cost_ge": 5
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "EB01-001_p1": [
     {
-      "_text": "EB01-001_p1 【アタック時】自分のコスト5以上の特徴《ワノ国》を持つキャラがいる場合、このリーダーは、次の自分のターン開始時まで、パワー+1000。",
+      "_text": "EB01-001 アタック時:自ワノ国cost5以上キャラがいる場合、リーダー+1000(次自ターン開始まで)",
       "when": "on_attack",
       "do": [
         {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "battle"
+            "duration": "next_self_turn_start"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ワノ国",
+            "cost_ge": 5
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "EB01-021": [
@@ -50943,8 +50970,27 @@
   ],
   "EB03-020": [
     {
-      "_text": "EB03-020 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分の特徴《FILM》を持つキャラが2枚以上いる場合、そのカードを、このバトル中、パワ",
+      "_text": "EB03-020 カウンター:自リーダーかキャラ1枚 このバトル+2000",
       "when": "counter",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB03-020 その後:自FILMキャラ2枚以上いる場合、そのカード更にこのバトル+2000",
+      "when": "counter",
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "FILM",
+          "count": 2
+        }
+      },
       "do": [
         {
           "power_pump": {
@@ -51261,7 +51307,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "EB03-038": [
@@ -53055,30 +53104,30 @@
   ],
   "EB01-027": [
     {
-      "_text": "EB01-027 on_play: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB01-027 登場時:カード2枚を引き、手札1枚を捨てる",
       "when": "on_play",
       "do": [
         {
+          "draw": 2
+        },
+        {
           "trash_self_hand_random": 1
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB01-027_p1": [
     {
-      "_text": "EB01-027_p1 on_play: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB01-027 登場時:カード2枚を引き、手札1枚を捨てる",
       "when": "on_play",
       "do": [
         {
+          "draw": 2
+        },
+        {
           "trash_self_hand_random": 1
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB01-028": [
@@ -53405,7 +53454,10 @@
             "keyword": "速攻"
           }
         }
-      ]
+      ],
+      "if": {
+        "exists_opp_chara_cost_le": 0
+      }
     }
   ],
   "EB01-048": [
