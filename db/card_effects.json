@@ -1965,41 +1965,6 @@
   ],
   "OP11-041": [
     {
-      "_text": "青黄ナミ ドン1+ 相手ターン中 自リーダー +2000",
-      "when": "on_attached_don",
-      "n": 1,
-      "if": {
-        "opp_turn": true
-      },
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "static"
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "青黄ナミ アタック時 1ドロー (ライフ離れた時の代替)",
-      "when": "on_attack",
-      "if": {
-        "self_hand_count_le": 7
-      },
-      "do": [
-        {
-          "draw": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
       "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
       "when": "on_self_life_taken",
       "if": {
@@ -4598,7 +4563,10 @@
         {
           "ko": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "cost": {
+        "life_top_or_bottom_to_hand": 1
+      }
     }
   ],
   "OP13-042": [
@@ -5060,23 +5028,11 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
         "leader_feature": "麦わらの一味"
       }
-    },
-    {
-      "_text": "EB03-055 on_ko: 相手に1ダメージを与えてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "deal_opp_leader_damage": 1
-        }
-      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -11227,7 +11183,8 @@
         {
           "give_keyword": {
             "target": "one_self_character_any",
-            "keyword": "ブロック不可"
+            "keyword": "ブロック不可",
+            "duration": "turn"
           }
         }
       ]
@@ -18370,7 +18327,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 1000,
             "duration": "battle"
           }
@@ -29689,7 +29646,10 @@
         {
           "ko": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "cost": {
+        "life_top_or_bottom_to_hand": 1
+      }
     }
   ],
   "PRB02-006_p2": [
@@ -29944,23 +29904,11 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
         "leader_feature": "麦わらの一味"
       }
-    },
-    {
-      "_text": "EB03-055_p1 on_ko: 相手に1ダメージを与えてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "deal_opp_leader_damage": 1
-        }
-      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -30108,23 +30056,11 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
         "leader_feature": "麦わらの一味"
       }
-    },
-    {
-      "_text": "EB03-055_p2 on_ko: 相手に1ダメージを与えてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "deal_opp_leader_damage": 1
-        }
-      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -30720,7 +30656,8 @@
         {
           "give_keyword": {
             "target": "one_self_character_any",
-            "keyword": "ブロック不可"
+            "keyword": "ブロック不可",
+            "duration": "turn"
           }
         }
       ]
@@ -33501,7 +33438,10 @@
         {
           "ko": "one_opponent_character_cost_le_5"
         }
-      ]
+      ],
+      "cost": {
+        "life_top_or_bottom_to_hand": 1
+      }
     }
   ],
   "OP11-118_p1": [
