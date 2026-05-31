@@ -1939,6 +1939,12 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "ミンク族",
+          "count": 1
+        }
       }
     }
   ],
@@ -8848,6 +8854,21 @@
   ],
   "OP07-098": [
     {
+      "_text": "OP07-098 静的:自ライフが相手より少ない場合このキャラはバトルでKOされない",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_life_lt_opp": true
+        }
+      ],
+      "do": [
+        {
+          "set_ko_immune_battle_only": true
+        }
+      ]
+    },
+    {
       "_text": "OP07-098 trigger: 自分のリーダーが「ベガパンク」の場合、このカードを登場させる。",
       "when": "trigger",
       "do": [
@@ -12482,6 +12503,12 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "ミンク族",
+          "count": 1
+        }
       }
     }
   ],
@@ -14309,6 +14336,12 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_chara_feature_count_ge": {
+          "feature": "ミンク族",
+          "count": 1
+        }
       }
     }
   ],
@@ -62710,7 +62743,15 @@
       ],
       "cost": {
         "trash_self": true
-      }
+      },
+      "conditions": [
+        {
+          "leader_feature": "百獣海賊団"
+        },
+        {
+          "self_don_ge": 10
+        }
+      ]
     }
   ],
   "OP08-060": [
@@ -64399,7 +64440,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP07-070": [
@@ -64415,7 +64459,10 @@
             }
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     }
   ],
   "OP07-071": [
@@ -64607,7 +64654,10 @@
             "limit": 1
           }
         }
-      ]
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
     },
     {
       "_text": "OP07-078 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
