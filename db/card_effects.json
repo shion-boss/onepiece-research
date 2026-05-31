@@ -2500,6 +2500,13 @@
         },
         {
           "add_rested_don": 4
+        },
+        {
+          "attach_don": {
+            "target": "one_self_character_any",
+            "count": 4,
+            "rested": true
+          }
         }
       ]
     }
@@ -5581,19 +5588,29 @@
       "when": "counter",
       "do": [
         {
-          "draw": 1
-        },
-        {
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
             "duration": "battle"
           }
+        },
+        {
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_don_le": 6
+                },
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_don_le": 6
-      }
+      ]
     }
   ],
   "OP10-072": [
@@ -10829,7 +10846,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_trash_count_ge": 4
+        "self_trash_event_count_ge": 4
       },
       "do": [
         {
@@ -10837,6 +10854,12 @@
             "target": "self",
             "amount": 2000,
             "duration": "static"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 5
           }
         }
       ]
@@ -18537,9 +18560,6 @@
       "do": [
         {
           "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
         }
       ],
       "cost": {
@@ -30816,19 +30836,29 @@
       "when": "counter",
       "do": [
         {
-          "draw": 1
-        },
-        {
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
             "duration": "battle"
           }
+        },
+        {
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_don_le": 6
+                },
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_don_le": 6
-      }
+      ]
     }
   ],
   "OP15-092_p1": [
@@ -32839,7 +32869,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_trash_count_ge": 4
+        "self_trash_event_count_ge": 4
       },
       "do": [
         {
@@ -32847,6 +32877,12 @@
             "target": "self",
             "amount": 2000,
             "duration": "static"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 5
           }
         }
       ]
@@ -33953,9 +33989,6 @@
       "do": [
         {
           "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
         }
       ],
       "cost": {
@@ -43043,9 +43076,6 @@
       "do": [
         {
           "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
         }
       ],
       "cost": {
@@ -59011,6 +59041,18 @@
       "when": "on_play",
       "do": [
         {
+          "search": {
+            "source": "trash",
+            "filter": {
+              "category": "EVENT",
+              "color": "紫",
+              "cost_le": 5
+            },
+            "limit": 1,
+            "destination": "hand"
+          }
+        },
+        {
           "untap_don": 1
         }
       ],
@@ -59024,6 +59066,18 @@
       "_text": "OP10-067_p1 on_play: ドン‼-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：自分のトラッシュからコスト5以下の紫のイベント1枚までを、手札に加える。その後、自分",
       "when": "on_play",
       "do": [
+        {
+          "search": {
+            "source": "trash",
+            "filter": {
+              "category": "EVENT",
+              "color": "紫",
+              "cost_le": 5
+            },
+            "limit": 1,
+            "destination": "hand"
+          }
+        },
         {
           "untap_don": 1
         }
