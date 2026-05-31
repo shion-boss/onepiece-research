@@ -2072,6 +2072,25 @@
         "once_per_turn": true,
         "pay_don": 1
       }
+    },
+    {
+      "_text": "OP12-061 ロシナンテ ターン1回 replace_ko: 自「トラファルガー・ロー」KO の代わりにライフ上1を手札",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_name": "トラファルガー・ロー"
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ],
+      "optional": true
     }
   ],
   "OP13-001": [
@@ -5701,6 +5720,15 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "トラファルガー・ロー",
+              "cost_le": 7
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -13160,6 +13188,25 @@
         "once_per_turn": true,
         "pay_don": 1
       }
+    },
+    {
+      "_text": "OP12-061 ロシナンテ ターン1回 replace_ko: 自「トラファルガー・ロー」KO の代わりにライフ上1を手札",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_name": "トラファルガー・ロー"
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "life_to_hand": 1
+        }
+      ],
+      "optional": true
     }
   ],
   "OP11-021": [
@@ -19756,6 +19803,14 @@
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "ガレーラカンパニー"
+            },
+            "limit": 1
           }
         }
       ],
@@ -30082,6 +30137,15 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "name": "トラファルガー・ロー",
+              "cost_le": 7
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
