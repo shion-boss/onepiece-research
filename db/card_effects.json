@@ -2514,12 +2514,12 @@
   "OP15-098": [
     {
       "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
         "target_feature": "空島",
-        "target_power_ge": 6000,
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_base_power_ge": 6000
       },
       "do": [
         {
@@ -9059,14 +9059,25 @@
       "when": "on_play",
       "do": [
         {
-          "power_pump": {
-            "target": "all_opponent_characters",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "all_opponent_characters",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "ko": "one_opponent_character_power_le_0"
+              }
+            ]
           }
-        },
-        {
-          "ko": "one_opponent_character_power_le_0"
         }
       ]
     },
@@ -9080,7 +9091,8 @@
         {
           "attach_don": {
             "target": "self_leader",
-            "count": 1
+            "count": 1,
+            "rested": true
           }
         }
       ]
@@ -9577,7 +9589,7 @@
   "OP12-099": [
     {
       "_text": "OP12-099 カルガラ 自ターン中ライフ離れた時: 1ドロー, ターン中 自効果ドロー禁止",
-      "when": "on_self_life_lost",
+      "when": "on_self_life_taken",
       "if": {
         "self_turn": true
       },
@@ -17150,12 +17162,12 @@
   "OP15-098_p1": [
     {
       "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
         "target_feature": "空島",
-        "target_power_ge": 6000,
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_base_power_ge": 6000
       },
       "do": [
         {
@@ -19540,7 +19552,18 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -30965,14 +30988,25 @@
       "when": "on_play",
       "do": [
         {
-          "power_pump": {
-            "target": "all_opponent_characters",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "all_opponent_characters",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "ko": "one_opponent_character_power_le_0"
+              }
+            ]
           }
-        },
-        {
-          "ko": "one_opponent_character_power_le_0"
         }
       ]
     },
