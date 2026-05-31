@@ -21530,11 +21530,22 @@
   ],
   "OP10-082": [
     {
-      "_text": "OP10-082 activate_main: このキャラをトラッシュに置くことができる：カード1枚を引く。その後、自分のトラッシュから「クザン」以外のコスト5以下の特徴《黒ひげ海賊団》を持つキャラカード1枚",
+      "_text": "OP10-082 起動メイン(自トラッシュ):1ドロー、その後トラッシュから黒ひげ海賊団cost5以下(クザン以外)1枚を登場",
       "when": "activate_main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "黒ひげ海賊団",
+              "cost_le": 5,
+              "exclude_name": "クザン"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -33606,11 +33617,22 @@
   ],
   "OP10-082_p2": [
     {
-      "_text": "OP10-082_p2 activate_main: このキャラをトラッシュに置くことができる：カード1枚を引く。その後、自分のトラッシュから「クザン」以外のコスト5以下の特徴《黒ひげ海賊団》を持つキャラカード1枚",
+      "_text": "OP10-082 起動メイン(自トラッシュ):1ドロー、その後トラッシュから黒ひげ海賊団cost5以下(クザン以外)1枚を登場",
       "when": "activate_main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "黒ひげ海賊団",
+              "cost_le": 5,
+              "exclude_name": "クザン"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -33930,11 +33952,23 @@
   ],
   "OP11-092_p1": [
     {
-      "_text": "OP11-092_p1 on_play: 自分の手札1枚を捨てることができる：カード1枚を引き、自分のトラッシュから「ヘルメッポ」以外のコスト8以下の特徴《SWORD》を持つキャラカード1枚までを、登場",
+      "_text": "OP11-092 登場時(手札1捨て):1ドロー + トラッシュからSWORD cost8以下(ヘルメッポ以外)1枚を一時登場(ターン終了時デッキ底)",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "draw": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "SWORD",
+              "cost_le": 8,
+              "exclude_name": "ヘルメッポ"
+            },
+            "limit": 1,
+            "return_to_deck_bottom_at_turn_end": true
+          }
         }
       ],
       "cost": {
@@ -34192,11 +34226,22 @@
   ],
   "OP10-082_p1": [
     {
-      "_text": "OP10-082_p1 activate_main: このキャラをトラッシュに置くことができる：カード1枚を引く。その後、自分のトラッシュから「クザン」以外のコスト5以下の特徴《黒ひげ海賊団》を持つキャラカード1枚",
+      "_text": "OP10-082 起動メイン(自トラッシュ):1ドロー、その後トラッシュから黒ひげ海賊団cost5以下(クザン以外)1枚を登場",
       "when": "activate_main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "黒ひげ海賊団",
+              "cost_le": 5,
+              "exclude_name": "クザン"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -57033,11 +57078,19 @@
   ],
   "OP12-056": [
     {
-      "_text": "OP12-056 on_play: 自分の手札1枚を捨てることができる：自分の手札から「モンキー・Ｄ・ガープ」以外のパワー8000以下の青の特徴《海軍》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP12-056 登場時(手札1捨て):手札から青の海軍 power8000以下(ガープ以外)1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "play_from_hand": {
+            "filter": {
+              "color": "青",
+              "feature": "海軍",
+              "power_le": 8000,
+              "exclude_name": "モンキー・Ｄ・ガープ"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
@@ -57047,11 +57100,19 @@
   ],
   "OP12-056_p1": [
     {
-      "_text": "OP12-056_p1 on_play: 自分の手札1枚を捨てることができる：自分の手札から「モンキー・Ｄ・ガープ」以外のパワー8000以下の青の特徴《海軍》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP12-056 登場時(手札1捨て):手札から青の海軍 power8000以下(ガープ以外)1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "play_from_hand": {
+            "filter": {
+              "color": "青",
+              "feature": "海軍",
+              "power_le": 8000,
+              "exclude_name": "モンキー・Ｄ・ガープ"
+            },
+            "limit": 1
+          }
         }
       ],
       "cost": {
