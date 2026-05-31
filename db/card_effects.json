@@ -2532,7 +2532,7 @@
           "draw": 1
         }
       ],
-      "condition": {
+      "if": {
         "self_event_cost_used_ge": 3
       }
     }
@@ -12735,7 +12735,7 @@
           "draw": 1
         }
       ],
-      "condition": {
+      "if": {
         "self_event_cost_used_ge": 3
       }
     }
@@ -30183,10 +30183,18 @@
             "count": 1,
             "rested": true
           }
-        },
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053 ナミ 登場時 その後: 相手life≥3 の場合のみ 相手ライフ上1を相手手札へ",
+      "when": "on_play",
+      "if": {
+        "opp_life_ge": 3
+      },
+      "do": [
         {
-          "mill_opp_life_to_hand": 1,
-          "_if_clause": "opp_life_ge=3"
+          "mill_opp_life_to_hand": 1
         }
       ]
     },
@@ -30341,10 +30349,18 @@
             "count": 1,
             "rested": true
           }
-        },
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053 ナミ 登場時 その後: 相手life≥3 の場合のみ 相手ライフ上1を相手手札へ",
+      "when": "on_play",
+      "if": {
+        "opp_life_ge": 3
+      },
+      "do": [
         {
-          "mill_opp_life_to_hand": 1,
-          "_if_clause": "opp_life_ge=3"
+          "mill_opp_life_to_hand": 1
         }
       ]
     },
