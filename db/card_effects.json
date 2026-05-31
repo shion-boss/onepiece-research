@@ -9907,13 +9907,16 @@
   ],
   "ST10-008": [
     {
-      "_text": "シャチ&ペンギン 登場時 (ドン3以下): ドン2レスト追加",
+      "_text": "ST10-008 登場時:自場ドン3以下の場合、ドン2レスト追加",
       "when": "on_play",
       "do": [
         {
-          "add_don": 2
+          "add_rested_don": 2
         }
-      ]
+      ],
+      "if": {
+        "self_don_le": 3
+      }
     }
   ],
   "EB04-044": [
@@ -16644,16 +16647,13 @@
   ],
   "ST13-003": [
     {
-      "_text": "ST13-003 【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のライフが0枚の場合、自分の手札かトラッシュのコスト5のキャラカード2枚までを、自分のライフの上に表向きで加える。",
+      "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
       },
       "do": [
-        {
-          "life_to_hand": 1
-        },
         {
           "hand_or_trash_to_self_life": {
             "filter": {
@@ -16671,16 +16671,13 @@
   ],
   "ST13-003_p1": [
     {
-      "_text": "ST13-003_p1 【起動メイン】【ターン1回】自分の手札1枚を捨てることができる：自分のライフが0枚の場合、自分の手札かトラッシュのコスト5のキャラカード2枚までを、自分のライフの上に表向きで加える。",
+      "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
         "discard_hand": 1
       },
       "do": [
-        {
-          "life_to_hand": 1
-        },
         {
           "hand_or_trash_to_self_life": {
             "filter": {
@@ -16833,7 +16830,10 @@
         {
           "add_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_field_don_zero_or_ge_8": true
+      }
     }
   ],
   "ST10-003": [
@@ -26611,7 +26611,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "exists_chara_cost_le": 0
+      }
     }
   ],
   "ST08-015": [
@@ -28021,13 +28024,16 @@
   ],
   "ST10-008_p2": [
     {
-      "_text": "シャチ&ペンギン 登場時 (ドン3以下): ドン2レスト追加",
+      "_text": "ST10-008 登場時:自場ドン3以下の場合、ドン2レスト追加",
       "when": "on_play",
       "do": [
         {
-          "add_don": 2
+          "add_rested_don": 2
         }
-      ]
+      ],
+      "if": {
+        "self_don_le": 3
+      }
     }
   ],
   "ST14-016_p1": [
@@ -40491,13 +40497,16 @@
   ],
   "ST10-008_p1": [
     {
-      "_text": "シャチ&ペンギン 登場時 (ドン3以下): ドン2レスト追加",
+      "_text": "ST10-008 登場時:自場ドン3以下の場合、ドン2レスト追加",
       "when": "on_play",
       "do": [
         {
-          "add_don": 2
+          "add_rested_don": 2
         }
-      ]
+      ],
+      "if": {
+        "self_don_le": 3
+      }
     }
   ],
   "ST12-003_p1": [
@@ -45509,7 +45518,7 @@
   ],
   "ST10-008_r1": [
     {
-      "_text": "ST10-008_r1 on_play: 自分の場のドン‼が3枚以下の場合、ドン‼デッキからドン‼2枚までを、レストで追加する。",
+      "_text": "ST10-008 登場時:自場ドン3以下の場合、ドン2レスト追加",
       "when": "on_play",
       "do": [
         {
@@ -78197,11 +78206,30 @@
   ],
   "ST13-015": [
     {
-      "_text": "ST13-015 activate_main: 【ターン1回】このキャラは、次の自分のターン開始時まで、パワー+2000。その後、自分のライフが1枚以上ある場合、カード1枚を引き、自分のライフの上から1枚をト",
+      "_text": "ST13-015 起動メイン(ターン1):このキャラ+2000(次自ターン開始まで)、自ライフ1以上なら1ドロー+ライフ上1トラッシュ",
       "when": "activate_main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_ge": 1
+            },
+            "do": [
+              {
+                "draw": 1
+              },
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -78211,11 +78239,30 @@
   ],
   "ST13-015_p1": [
     {
-      "_text": "ST13-015_p1 activate_main: 【ターン1回】このキャラは、次の自分のターン開始時まで、パワー+2000。その後、自分のライフが1枚以上ある場合、カード1枚を引き、自分のライフの上から1枚をト",
+      "_text": "ST13-015 起動メイン(ターン1):このキャラ+2000(次自ターン開始まで)、自ライフ1以上なら1ドロー+ライフ上1トラッシュ",
       "when": "activate_main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_ge": 1
+            },
+            "do": [
+              {
+                "draw": 1
+              },
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -78282,17 +78329,26 @@
   ],
   "ST13-018": [
     {
-      "_text": "ST13-018 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが0枚の場合、カード1枚を引く。",
+      "_text": "ST13-018 カウンター:自リーダーかキャラ+2000、その後自ライフ0なら1ドロー",
       "when": "counter",
       "do": [
-        {
-          "draw": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 0
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]
@@ -79141,7 +79197,10 @@
             "keyword": "速攻"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_life_lt_opp": true
+      }
     }
   ],
   "ST07-004": [
@@ -79478,6 +79537,11 @@
             "keyword": "ダブルアタック"
           }
         }
+      ],
+      "conditions": [
+        {
+          "exists_chara_cost_le": 0
+        }
       ]
     }
   ],
@@ -79649,7 +79713,7 @@
   ],
   "ST05-005": [
     {
-      "_text": "ST05-005 activate_main: 【ターン1回】このキャラをレストにする，自分の手札の特徴《FILM》を持つカード1枚をトラッシュに置くことができる：相手の場のドン‼の枚数が自分の場のドン‼の枚",
+      "_text": "ST05-005 起動メイン(ターン1,自レスト,手札FILM1捨て):相手場ドン>自場ドンの場合、ドン2レスト追加",
       "when": "activate_main",
       "do": [
         {
@@ -79659,7 +79723,15 @@
       "cost": {
         "once_per_turn": true,
         "rest_self": true,
-        "trash_self": true
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "FILM"
+          },
+          "count": 1
+        }
+      },
+      "if": {
+        "don_diff_le": -1
       }
     }
   ],
@@ -80962,7 +81034,7 @@
   ],
   "ST05-005_r1": [
     {
-      "_text": "ST05-005_r1 activate_main: 【ターン1回】このキャラをレストにする，自分の手札の特徴《FILM》を持つカード1枚をトラッシュに置くことができる：相手の場のドン‼の枚数が自分の場のドン‼の枚",
+      "_text": "ST05-005 起動メイン(ターン1,自レスト,手札FILM1捨て):相手場ドン>自場ドンの場合、ドン2レスト追加",
       "when": "activate_main",
       "do": [
         {
@@ -80972,7 +81044,15 @@
       "cost": {
         "once_per_turn": true,
         "rest_self": true,
-        "trash_self": true
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "FILM"
+          },
+          "count": 1
+        }
+      },
+      "if": {
+        "don_diff_le": -1
       }
     }
   ],
@@ -86358,11 +86438,30 @@
   ],
   "ST13-015_p2": [
     {
-      "_text": "ST13-015_p2 activate_main: 【ターン1回】このキャラは、次の自分のターン開始時まで、パワー+2000。その後、自分のライフが1枚以上ある場合、カード1枚を引き、自分のライフの上から1枚をト",
+      "_text": "ST13-015 起動メイン(ターン1):このキャラ+2000(次自ターン開始まで)、自ライフ1以上なら1ドロー+ライフ上1トラッシュ",
       "when": "activate_main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_ge": 1
+            },
+            "do": [
+              {
+                "draw": 1
+              },
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {

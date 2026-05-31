@@ -674,6 +674,11 @@ def eval_condition(
             fd = me.don_active + me.don_rested
             if not (fd == 0 or fd >= 3):
                 return False
+        elif k == "self_field_don_zero_or_ge_8":
+            # 自分の場のドン!! が 0 枚 か 8 枚以上 (= ST10-002 ルフィ)。 場のドン = active + rested。
+            fd = me.don_active + me.don_rested
+            if not (fd == 0 or fd >= 8):
+                return False
         elif k == "leader_power_ge":
             # 自リーダーの現在パワーが N 以上か (= OP09-017 ワイヤー「リーダーがパワー7000以上」)。
             if me.leader is None or me.leader.power < int(v):
