@@ -3852,6 +3852,21 @@ def _execute_effect_body(
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             peeked = me.life[:n]
             state.push_log(f"  効果: ライフ上 {n} 枚を表向き → {[c.name for c in peeked]}")
+        elif k == "peek_opp_deck_top":
+            # 公式: 「相手のデッキの上から N 枚を見る」 (OP11-070 プリン等)。
+            # 「見る」 = acting player の私的情報。 状態変化なし、 カードは相手デッキ上に残る。
+            # public log (= state.log は両者可視) には カード名を出さない (= draw と同じ隠ぺい保護)。
+            # acting player の私的知識として state.last_peeked_opp_deck_top に記録 (= AI/UI が利用可)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            peeked = opp.deck[:n]
+            state.last_peeked_opp_deck_top = {
+                "viewer_idx": state.players.index(me),
+                "card_ids": [c.card_id for c in peeked],
+            }
+            if not peeked:
+                state.push_log(f"  効果: 相手デッキ上を確認 → デッキ空")
+            else:
+                state.push_log(f"  効果: 相手デッキ上 {len(peeked)} 枚を確認 (私的情報)")
         elif k == "set_base_cost_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
             # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}

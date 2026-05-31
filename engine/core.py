@@ -684,6 +684,9 @@ class GameState:
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
     last_discard_source_inplay: Optional[object] = None
     last_discard_count: int = 0
+    # 直近の「相手のデッキ上を見た」 私的情報 (= peek_opp_deck_top primitive、 OP11-070 等)。
+    # {"viewer_idx": int, "card_ids": [str]}。 public log には出さず ここに記録 (= AI/UI が利用可)。
+    last_peeked_opp_deck_top: Optional[dict] = None
     # 直近の「自分のキャラが KO された」 イベントの victim カード (= payload-aware 条件用)。
     # OP14-041 ハンコック 「元々のパワー5000以上 + 特徴《アマゾン・リリー》《九蛇海賊団》」 等。
     last_chara_ko_victim_card: Optional[object] = None

@@ -21581,14 +21581,17 @@
       ]
     },
     {
-      "_text": "OP11-070 activate_main: ドン‼-1,このキャラをレストにできる：相手のデッキの上から1枚を見る。",
+      "_text": "OP11-070 プリン activate_main: ドン‼-1 + 自レスト → 相手デッキ上1枚を見る (= 私的情報)",
       "when": "activate_main",
-      "do": [],
+      "do": [
+        {
+          "peek_opp_deck_top": 1
+        }
+      ],
       "cost": {
         "pay_don": 1,
         "rest_self": true
-      },
-      "_missing_effect": "相手のデッキの上から1枚を見る (= peek_opp_deck_top 未実装。 cost二重のみ修復済)"
+      }
     }
   ],
   "OP11-075": [
@@ -33490,14 +33493,17 @@
       ]
     },
     {
-      "_text": "OP11-070_p1 activate_main: ドン‼-1,このキャラをレストにできる：相手のデッキの上から1枚を見る。",
+      "_text": "OP11-070 プリン activate_main: ドン‼-1 + 自レスト → 相手デッキ上1枚を見る (= 私的情報)",
       "when": "activate_main",
-      "do": [],
+      "do": [
+        {
+          "peek_opp_deck_top": 1
+        }
+      ],
       "cost": {
         "pay_don": 1,
         "rest_self": true
-      },
-      "_missing_effect": "相手のデッキの上から1枚を見る (= peek_opp_deck_top 未実装。 cost二重のみ修復済)"
+      }
     }
   ],
   "OP11-080_p1": [
