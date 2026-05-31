@@ -4989,23 +4989,29 @@
   ],
   "OP13-067": [
     {
-      "_text": "ギャバン (紫 cost6) 【登場時】(ロジャー海賊団) 2ドロー1捨て",
+      "_text": "OP13-067 登場時:リーダーがロジャー海賊団含む場合、2ドロー1捨て、その後ドン1レスト追加",
       "when": "on_play",
       "do": [
         {
           "draw": 2
         },
         {
+          "trash_self_hand_random": 1
+        },
+        {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_feature_contains": "ロジャー海賊団"
+      }
     }
   ],
   "OP13-068": [
     {
-      "_text": "バレット (紫 cost3) 【ドン8以上】常在 +2000 + 【登場時】ロジャーリーダーでドン1追加",
+      "_text": "OP13-068 静的:自場ドン8以上ならこのキャラ+2000",
       "when": "on_attached_don",
-      "n": 8,
+      "n": 0,
       "do": [
         {
           "power_pump": {
@@ -5014,16 +5020,24 @@
             "duration": "static"
           }
         }
+      ],
+      "conditions": [
+        {
+          "self_don_ge": 8
+        }
       ]
     },
     {
-      "_text": "バレット 登場時 ロジャーリーダー条件で 1ドン追加",
+      "_text": "OP13-068 登場時:リーダーがロジャー海賊団含む場合、ドン1レスト追加",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_feature_contains": "ロジャー海賊団"
+      }
     }
   ],
   "OP13-072": [
@@ -5045,16 +5059,24 @@
   ],
   "OP13-075": [
     {
-      "_text": "(紫 イベ cost1) 【メイン】(ドン1レスト) 1ドン追加",
+      "_text": "OP13-075 メイン(ドン1レスト):リーダーロジャー&付与ドンある場合、ドン1レスト追加",
       "when": "main",
       "do": [
         {
-          "add_don": 1
+          "add_rested_don": 1
         }
       ],
       "cost": {
         "rest_self_don": 1
-      }
+      },
+      "conditions": [
+        {
+          "leader_name": "ゴール・Ｄ・ロジャー"
+        },
+        {
+          "self_attached_don_ge": 1
+        }
+      ]
     },
     {
       "_text": "【カウンター】自リーダー +3000",
@@ -7914,16 +7936,19 @@
   ],
   "OP13-066": [
     {
-      "_text": "OP13-066 on_play: 自分の付与されているドン‼がある場合、相手のコスト5以下のキャラ1枚までを、レストにする。その後、このターン終了時、ドン‼デッキからドン‼1枚までを、アクティブ",
+      "_text": "OP13-066 登場時:自付与ドンある場合、相手cost5以下1枚レスト、その後(ターン終了時相当)ドン1追加",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "add_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     }
   ],
   "OP08-115": [
@@ -8414,6 +8439,9 @@
       ],
       "cost": {
         "rest_self_don": 5
+      },
+      "if": {
+        "self_all_chara_feature": "天竜人"
       }
     },
     {
@@ -8464,6 +8492,9 @@
       ],
       "cost": {
         "trash_self": true
+      },
+      "if": {
+        "self_life_le_opp": true
       }
     },
     {
@@ -20906,6 +20937,14 @@
         {
           "draw": 2
         }
+      ],
+      "conditions": [
+        {
+          "leader_name": "ジンベエ"
+        },
+        {
+          "self_hand_count_le": 2
+        }
       ]
     },
     {
@@ -21238,12 +21277,9 @@
   ],
   "OP13-095": [
     {
-      "_text": "OP13-095 on_play: 自分の手札1枚を捨てることができる：自分のキャラが、特徴《天竜人》を持つキャラのみの場合、相手の元々のコスト3以下のキャラ2枚までを、KOする。",
+      "_text": "OP13-095 登場時(手札1捨て):自キャラが天竜人のみの場合、相手元々cost3以下2枚KO",
       "when": "on_play",
       "do": [
-        {
-          "trash_self_hand_random": 1
-        },
         {
           "ko_multi": [
             {
@@ -21263,6 +21299,9 @@
       ],
       "cost": {
         "discard_hand": 1
+      },
+      "if": {
+        "self_all_chara_feature": "天竜人"
       }
     }
   ],
@@ -32885,16 +32924,19 @@
   ],
   "OP13-066_p1": [
     {
-      "_text": "OP13-066_p1 on_play: 自分の付与されているドン‼がある場合、相手のコスト5以下のキャラ1枚までを、レストにする。その後、このターン終了時、ドン‼デッキからドン‼1枚までを、アクティブ",
+      "_text": "OP13-066 登場時:自付与ドンある場合、相手cost5以下1枚レスト、その後(ターン終了時相当)ドン1追加",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "add_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
     }
   ],
   "OP13-076_p1": [
@@ -39786,16 +39828,22 @@
   ],
   "OP13-067_p1": [
     {
-      "_text": "ギャバン (紫 cost6) 【登場時】(ロジャー海賊団) 2ドロー1捨て",
+      "_text": "OP13-067 登場時:リーダーがロジャー海賊団含む場合、2ドロー1捨て、その後ドン1レスト追加",
       "when": "on_play",
       "do": [
         {
           "draw": 2
         },
         {
+          "trash_self_hand_random": 1
+        },
+        {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_feature_contains": "ロジャー海賊団"
+      }
     }
   ],
   "OP13-071_p1": [
@@ -56623,6 +56671,9 @@
       ],
       "cost": {
         "rest_self_don": 3
+      },
+      "if": {
+        "self_attached_don_ge": 1
       }
     },
     {
