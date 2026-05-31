@@ -1932,11 +1932,18 @@
   ],
   "OP08-098": [
     {
-      "_text": "OP08-098 on_attack: 自分の手札から自分の場のドン‼の枚数以下のコストを持ち、特徴《シャンドラの戦士》を持つキャラカード1枚までを、登場させる。登場させた場合、自分のライフの上から1",
+      "_text": "OP08-098 カルガラ on_attack: 手札から場のドン枚数以下コストの《シャンドラの戦士》1枚を登場、 登場した場合ライフ上1枚を手札へ",
       "when": "on_attack",
       "do": [
         {
-          "life_to_hand": 1
+          "play_from_hand": {
+            "filter": {
+              "feature": "シャンドラの戦士",
+              "cost_le_dynamic": "self_don_total"
+            },
+            "limit": 1,
+            "then_life_to_hand": 1
+          }
         }
       ]
     }
@@ -2515,7 +2522,7 @@
       ]
     },
     {
-      "_text": "赤青ルーシー 起動メイン: 1ドロー",
+      "_text": "赤青ルーシー 起動メイン(ターン1): このターン中コスト3以上のイベントを使用していた場合1ドロー",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -2524,7 +2531,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "condition": {
+        "self_event_cost_used_ge": 3
+      }
     }
   ],
   "OP15-058": [
@@ -12490,11 +12500,18 @@
   ],
   "OP08-098_p2": [
     {
-      "_text": "OP08-098_p2 on_attack: 自分の手札から自分の場のドン‼の枚数以下のコストを持ち、特徴《シャンドラの戦士》を持つキャラカード1枚までを、登場させる。登場させた場合、自分のライフの上から1",
+      "_text": "OP08-098 カルガラ on_attack: 手札から場のドン枚数以下コストの《シャンドラの戦士》1枚を登場、 登場した場合ライフ上1枚を手札へ",
       "when": "on_attack",
       "do": [
         {
-          "life_to_hand": 1
+          "play_from_hand": {
+            "filter": {
+              "feature": "シャンドラの戦士",
+              "cost_le_dynamic": "self_don_total"
+            },
+            "limit": 1,
+            "then_life_to_hand": 1
+          }
         }
       ]
     }
@@ -12708,7 +12725,7 @@
       ]
     },
     {
-      "_text": "OP15-002_p1: 赤青ルーシー 起動メイン: 1ドロー",
+      "_text": "赤青ルーシー 起動メイン(ターン1): このターン中コスト3以上のイベントを使用していた場合1ドロー",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -12717,7 +12734,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "condition": {
+        "self_event_cost_used_ge": 3
+      }
     }
   ],
   "OP15-022": [
@@ -14306,11 +14326,18 @@
   ],
   "OP08-098_p1": [
     {
-      "_text": "OP08-098_p1 on_attack: 自分の手札から自分の場のドン‼の枚数以下のコストを持ち、特徴《シャンドラの戦士》を持つキャラカード1枚までを、登場させる。登場させた場合、自分のライフの上から1",
+      "_text": "OP08-098 カルガラ on_attack: 手札から場のドン枚数以下コストの《シャンドラの戦士》1枚を登場、 登場した場合ライフ上1枚を手札へ",
       "when": "on_attack",
       "do": [
         {
-          "life_to_hand": 1
+          "play_from_hand": {
+            "filter": {
+              "feature": "シャンドラの戦士",
+              "cost_le_dynamic": "self_don_total"
+            },
+            "limit": 1,
+            "then_life_to_hand": 1
+          }
         }
       ]
     }

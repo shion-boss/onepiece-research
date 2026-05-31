@@ -547,6 +547,9 @@ class Player:
     # 試合開始時 0、 game.py の各 action 分岐で increment。 game_over まで保持。
     cards_drawn_count: int = 0      # Player.draw() で加算 = 累積ドロー数
     cards_played_count: int = 0     # PlayCharacter / PlayEvent / PlayStage 各分岐で +1
+    # このターン中に自分が使用したイベントの最大コスト (= OP15-002 ルーシー 「コスト3以上の
+    # イベントを使用していた場合」 等の per-turn 条件用)。 ターン境界 _reset_turn_buff で 0 戻し。
+    max_event_cost_this_turn: int = 0
     dons_used_count: int = 0        # AttachDon 分岐で attach 数分加算 = 累積 DON 使用
     dons_unused_at_end_count: int = 0  # EndPhase 分岐で don_active 残数加算 = 累積機会損失
     # マリガン 履歴 (= 2026-05-29、 corpus 軸 用)。 setup_game で True / False が set される。

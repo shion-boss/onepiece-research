@@ -628,6 +628,10 @@ def eval_condition(
         elif k == "self_trash_count_ge":
             if len(me.trash) < int(v):
                 return False
+        elif k == "self_event_cost_used_ge":
+            # このターン中に自分がコスト N 以上のイベントを使用していたか (= OP15-002 ルーシー)。
+            if getattr(me, "max_event_cost_this_turn", 0) < int(v):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
@@ -3335,6 +3339,17 @@ def _execute_effect_body(
                     state.push_log(f"  効果: 手札から{label}登場 → {card.name}")
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                # 「登場させた場合」 の後続 (= OP08-098 カルガラ: 登場できた時のみライフ上 N 枚を手札へ)。
+                # 登場 0 枚 (= 該当手札なし) なら不発 = 公式「場合」 前文不成立。
+                if chosen_cards and isinstance(v, dict) and v.get("then_life_to_hand"):
+                    if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
+                        state.push_log(f"  効果: ライフ→手札 禁止 (登場後ライフ獲得 不発)")
+                    else:
+                        n_life = int(v.get("then_life_to_hand"))
+                        for _ in range(n_life):
+                            if me.life:
+                                me.hand.append(me.life.pop(0))
+                        state.push_log(f"  効果: 登場に伴いライフ上{n_life}枚を手札へ ({len(me.life)} 残)")
         elif k == "play_from_hand_choice":
             # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
             # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
@@ -3961,6 +3976,7 @@ def _execute_effect_body(
                 cost = int(getattr(revealed, "cost", 0) or 0)
                 self_inplay.turn_buff += per * cost
                 state.push_log(f"  効果: ライフ上公開 (コスト{cost}) → 自身 +{per*cost} turn")
+        elif k == "peek_opp_deck_top":
             # 公式: 「相手のデッキの上から N 枚を見る」 (OP11-070 プリン等)。
             # 「見る」 = acting player の私的情報。 状態変化なし、 カードは相手デッキ上に残る。
             # public log (= state.log は両者可視) には カード名を出さない (= draw と同じ隠ぺい保護)。

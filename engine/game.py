@@ -454,6 +454,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
         player.prevent_self_life_to_hand_until_turn_end = False
+        player.max_event_cost_this_turn = 0
     # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン
     # 終了時にクリア (= 自分が相手ターン中に解除される動きを実現)。
     # ターン主のキャラ/リーダーのみクリア対象とする。
@@ -1219,6 +1220,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
         me.trash.append(card)
         me.cards_played_count += 1
+        # per-turn イベント最大コスト (= OP15-002 等「このターン中コストN以上のイベント使用」)。
+        # 公式コスト (= 軽減前の card.cost) で判定する。
+        me.max_event_cost_this_turn = max(me.max_event_cost_this_turn, int(card.cost or 0))
         state.push_log(f"event: {card.name} (cost {card.cost} pay {eff_cost})")
         if state.effects_overlay:
             from .effects import trigger_main_event
