@@ -1934,10 +1934,28 @@
         {
           "static_swords_attack_chara": true
         }
+      ]
+    },
+    {
+      "_text": "OP11-001 コビー ターン1回 replace_leave: 海軍base power7000以下が相手効果で離れる代わりに trashから3枚をデッキ下",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_base_power_le": 7000,
+        "target_feature": "海軍",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
       ],
-      "cost": {
-        "once_per_turn": true
-      }
+      "do": [
+        {
+          "trash_to_deck": 3
+        }
+      ],
+      "optional": true
     }
   ],
   "OP11-040": [
@@ -7063,10 +7081,19 @@
           }
         },
         {
-          "draw": 1,
-          "_chain": "always",
-          "_condition": {
-            "self_hand_count_le": 6
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_hand_count_le": 6
+                },
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -9703,7 +9730,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB03-008": [
@@ -17258,10 +17288,28 @@
         {
           "static_swords_attack_chara": true
         }
+      ]
+    },
+    {
+      "_text": "OP11-001 コビー ターン1回 replace_leave: 海軍base power7000以下が相手効果で離れる代わりに trashから3枚をデッキ下",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_base_power_le": 7000,
+        "target_feature": "海軍",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
       ],
-      "cost": {
-        "once_per_turn": true
-      }
+      "do": [
+        {
+          "trash_to_deck": 3
+        }
+      ],
+      "optional": true
     }
   ],
   "OP11-040_p1": [
@@ -29616,7 +29664,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB04-044_p2": [
@@ -29649,7 +29700,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "EB04-048_p1": [
