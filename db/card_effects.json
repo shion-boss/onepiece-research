@@ -45781,14 +45781,27 @@
   ],
   "ST13-014_p2": [
     {
-      "_text": "ST13-014_p2 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「モンキー・Ｄ・ルフィ」の場合、登場させてもよい。登場させた場",
+      "_text": "ST13-014 起動メイン(自トラッシュ):ライフ上1公開しcost5ルフィなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "モンキー・D・ルフィ",
+                "モンキー・Ｄ・ルフィ"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -45799,14 +45812,27 @@
   ],
   "ST13-014_r1": [
     {
-      "_text": "ST13-014_r1 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「モンキー・Ｄ・ルフィ」の場合、登場させてもよい。登場させた場",
+      "_text": "ST13-014 起動メイン(自トラッシュ):ライフ上1公開しcost5ルフィなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "モンキー・D・ルフィ",
+                "モンキー・Ｄ・ルフィ"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -78309,14 +78335,27 @@
   ],
   "ST13-014": [
     {
-      "_text": "ST13-014 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「モンキー・D・ルフィ」の場合、登場させてもよい。登場させた場",
+      "_text": "ST13-014 起動メイン(自トラッシュ):ライフ上1公開しcost5ルフィなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "モンキー・D・ルフィ",
+                "モンキー・Ｄ・ルフィ"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -78327,14 +78366,27 @@
   ],
   "ST13-014_p1": [
     {
-      "_text": "ST13-014_p1 activate_main: このキャラをトラッシュに置くことができる：自分のライフの上から1枚を公開し、そのカードがコスト5の「モンキー・D・ルフィ」の場合、登場させてもよい。登場させた場",
+      "_text": "ST13-014 起動メイン(自トラッシュ):ライフ上1公開しcost5ルフィなら登場、登場時リーダー+2000(次相手T終了まで)",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "reveal_life_top_play": {
+            "filter": {
+              "name_in": [
+                "モンキー・D・ルフィ",
+                "モンキー・Ｄ・ルフィ"
+              ],
+              "cost_eq": 5
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
