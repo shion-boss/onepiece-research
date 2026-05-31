@@ -3067,7 +3067,7 @@
               {
                 "label": "相手手札5以上 なら 1 枚 捨て",
                 "if": {
-                  "opp_hand_ge": 5
+                  "opp_hand_count_ge": 5
                 },
                 "do": [
                   {
@@ -12409,7 +12409,7 @@
               {
                 "label": "手札5以下 なら 1 ドロー",
                 "if": {
-                  "self_hand_le": 5
+                  "self_hand_count_le": 5
                 },
                 "do": [
                   {
@@ -14156,7 +14156,7 @@
               {
                 "label": "手札5以下 なら 1 ドロー",
                 "if": {
-                  "self_hand_le": 5
+                  "self_hand_count_le": 5
                 },
                 "do": [
                   {
@@ -14198,7 +14198,7 @@
               {
                 "label": "手札5以下 なら 1 ドロー",
                 "if": {
-                  "self_hand_le": 5
+                  "self_hand_count_le": 5
                 },
                 "do": [
                   {
@@ -30460,7 +30460,7 @@
               {
                 "label": "相手手札5以上 なら 1 枚 捨て",
                 "if": {
-                  "opp_hand_ge": 5
+                  "opp_hand_count_ge": 5
                 },
                 "do": [
                   {
@@ -56773,7 +56773,7 @@
               {
                 "label": "手札6以下 なら 2 ドロー",
                 "if": {
-                  "self_hand_le": 6
+                  "self_hand_count_le": 6
                 },
                 "do": [
                   {
@@ -56810,7 +56810,7 @@
               {
                 "label": "手札6以下 なら 2 ドロー",
                 "if": {
-                  "self_hand_le": 6
+                  "self_hand_count_le": 6
                 },
                 "do": [
                   {
