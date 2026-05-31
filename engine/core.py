@@ -223,6 +223,10 @@ class InPlay:
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
     cannot_attack_until_turn_end: bool = False
+    # 「このターン終了時、 このキャラを持ち主のデッキの下に置く」 (= OP11-092 ヘルメッポ の
+    # 一時登場)。 play_from_trash の return_to_deck_bottom_at_turn_end で True、
+    # trigger_end_of_turn で デッキ底へ戻して消費。
+    return_to_deck_bottom_at_turn_end: bool = False
     # ターン中の元々のコスト軽減 (cost_minus 効果)。Phase.END でクリア。
     # 「元々のコスト N 以下」判定にこの修正値を反映する (= cost - cost_minus_until_turn_end)
     cost_minus_until_turn_end: int = 0

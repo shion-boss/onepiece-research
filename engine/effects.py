@@ -3045,6 +3045,8 @@ def _execute_effect_body(
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             unique_name = bool(spec.get("unique_name", False))
+            # 一時登場: このターン終了時にデッキ下へ戻す (= OP11-092 ヘルメッポ)
+            want_return_eot = bool(spec.get("return_to_deck_bottom_at_turn_end", False))
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
                 picks_idx = list(v["_picks_idx"])
@@ -3117,6 +3119,7 @@ def _execute_effect_body(
                             me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                         me.trash.pop(i)
                         ip = InPlay.of(card, rested=rested, sickness=True)
+                        ip.return_to_deck_bottom_at_turn_end = want_return_eot
                         me.characters.append(ip)
                         played_count += 1
                         label = "レストで" if rested else ""
@@ -3151,6 +3154,7 @@ def _execute_effect_body(
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)
+                    ip.return_to_deck_bottom_at_turn_end = want_return_eot
                     me.characters.append(ip)
                     found += 1
                     seen_names.add(card.name)
@@ -7707,6 +7711,25 @@ def trigger_end_of_turn(
     opp = state.opponent
     me_idx = state.players.index(me)
     opp_idx = 1 - me_idx
+
+    # === このターン終了時の delayed 処理 (= turn player 視点) ===
+    # 1. schedule_at_self_turn_end で予約された効果を flush (= OP15-025 クロ。 従来 append のみで
+    #    一度も実行されない dead 状態だった bug 修復)。
+    scheduled = list(getattr(me, "scheduled_at_self_turn_end", None) or [])
+    if scheduled:
+        me.scheduled_at_self_turn_end = []
+        for spec in scheduled:
+            for prim in (spec.get("do", []) if isinstance(spec, dict) else []):
+                execute_effect(prim, state, me, opp, None)
+    # 2. 一時登場キャラ を 持ち主のデッキの下へ戻す (= OP11-092 ヘルメッポ)。
+    for ip in [c for c in list(me.characters)
+               if getattr(c, "return_to_deck_bottom_at_turn_end", False)]:
+        me.characters.remove(ip)
+        me.deck.append(ip.card)
+        if ip.attached_dons > 0:
+            me.don_rested += ip.attached_dons
+            ip.attached_dons = 0
+        state.push_log(f"  ターン終了時: {ip.card.name} を デッキの下に置く")
 
     human_optionals: list[dict] = []
 

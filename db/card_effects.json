@@ -9894,7 +9894,7 @@
   ],
   "OP11-092": [
     {
-      "_text": "OP11-092 ヘルメッポ 登場時: 1 捨て cost → draw 1 + SWORD trash 登場 (+ ターン終了時 デッキ底 = 部分実装)",
+      "_text": "OP11-092 ヘルメッポ 登場時: 1捨て → draw1 + SWORDキャラtrash一時登場 (ターン終了時デッキ底へ)",
       "when": "on_play",
       "do": [
         {
@@ -9908,11 +9908,9 @@
               "cost_le": 8,
               "exclude_name": "ヘルメッポ"
             },
-            "limit": 1
+            "limit": 1,
+            "return_to_deck_bottom_at_turn_end": true
           }
-        },
-        {
-          "_unimplemented": "ターン終了時、 この効果で登場させたキャラ1枚を持ち主のデッキ下 (= tracked_played_chara primitive 未実装)"
         }
       ],
       "cost": {
