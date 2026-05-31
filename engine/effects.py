@@ -716,6 +716,13 @@ def eval_condition(
                     if ip is not None and ip.truly_original_power >= 6000)
             if n < int(v):
                 return False
+        elif k == "exists_chara_cost_0_or_ge_8":
+            # 「コスト0か8以上のキャラがいる場合」 (= クロコダイル OP14-090/094/120)。
+            # 現在コスト (base_cost = cost_minus 反映) で 両者の場のキャラ を判定。 v=True 要求。
+            all_chara = list(me.characters) + (list(opp.characters) if opp else [])
+            found = any(c.base_cost == 0 or c.base_cost >= 8 for c in all_chara)
+            if bool(v) != found:
+                return False
         elif k == "self_chara_feature_count_ge":
             spec = v if isinstance(v, dict) else {}
             feature = spec.get("feature", "")
@@ -1566,6 +1573,19 @@ def _resolve_target(
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手キャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            cands.sort(key=lambda c: -_opp_value(c))
+            return cands[:1]
+        # 現在コスト (= base_cost、 cost_minus 反映) 版。 クロコダイル「コスト0」 系 (= leader が
+        # cost-10 して 作った コスト0 を 拾う)。 通常の cost_le_N は「元々のコスト」 (card.cost) のまま。
+        m = re.match(r"one_opponent_character_current_cost_le_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands = [c for c in opp.characters if c.base_cost <= n]
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"相手キャラ から 1 枚 選択 (現在コスト≤{n})",
             ):
                 return []
             cands.sort(key=lambda c: -_opp_value(c))
@@ -3946,6 +3966,22 @@ def _execute_effect_body(
                 state.push_log(f"  効果: 相手デッキ上を確認 → デッキ空")
             else:
                 state.push_log(f"  効果: 相手デッキ上 {len(peeked)} 枚を確認 (私的情報)")
+        elif k == "play_self_from_trash":
+            # 「このキャラカードをトラッシュから登場させる」 (= OP14-120 クロコダイル on_ko)。
+            # on_ko は self_inplay=None だが state.current_source_card_id に この card_id がある。
+            src_cid = getattr(state, "current_source_card_id", None)
+            card = next((c for c in me.trash if c.card_id == src_cid), None)
+            if card is None:
+                state.push_log(f"  効果: play_self_from_trash 対象なし (trash に {src_cid} なし)")
+                return False
+            if not me.can_play_character():
+                me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+            me.trash.remove(card)
+            ip = InPlay.of(card, rested=False, sickness=True)
+            me.characters.append(ip)
+            state.push_log(f"  効果: トラッシュから自身 {card.name} を登場")
+            if state.effects_overlay:
+                trigger_on_play(state, me, opp, ip, state.effects_overlay)
         elif k == "set_base_cost_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
             # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}
