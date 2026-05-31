@@ -691,6 +691,31 @@ def eval_condition(
             # don 返却 primitive が state.last_returned_don_count に保存。
             if int(getattr(state, "last_returned_don_count", 0) or 0) < int(v):
                 return False
+        elif k == "self_deck_count_le":
+            if len(me.deck) > int(v):
+                return False
+        elif k == "self_don_active_eq":
+            if me.don_active != int(v):
+                return False
+        elif k == "self_don_count_eq":
+            # 「自分の場のドン (= don area: active+rested) が N 枚」 (OP05-060 の「0枚」 等)
+            if (me.don_active + me.don_rested) != int(v):
+                return False
+        elif k == "self_don_count_ge":
+            if (me.don_active + me.don_rested) < int(v):
+                return False
+        elif k == "self_leader_active":
+            is_active = me.leader is not None and not me.leader.rested
+            if is_active != bool(v):
+                return False
+        elif k == "opp_inplay_truly_original_power_ge_6000_count_ge":
+            # 相手の元々パワー6000以上の リーダーかキャラ が N 体以上 (= OP06-012 ベアキング)
+            if opp is None:
+                return False
+            n = sum(1 for ip in [opp.leader, *opp.characters]
+                    if ip is not None and ip.truly_original_power >= 6000)
+            if n < int(v):
+                return False
         elif k == "self_chara_feature_count_ge":
             spec = v if isinstance(v, dict) else {}
             feature = spec.get("feature", "")
