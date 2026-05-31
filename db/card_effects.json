@@ -1042,18 +1042,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -1115,9 +1104,6 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_4"
-        },
-        {
           "return_to_hand": {
             "type": "one_opponent_character_filtered",
             "filter": {
@@ -1125,7 +1111,15 @@
             }
           }
         }
-      ]
+      ],
+      "cost": {
+        "reveal_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 2
+        }
+      }
     }
   ],
   "OP08-041": [
@@ -1427,6 +1421,13 @@
       "do": [
         {
           "draw": 2
+        },
+        {
+          "attach_don": {
+            "target": "self_leader",
+            "count": 1,
+            "rested": true
+          }
         }
       ]
     }
@@ -3600,26 +3601,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 3
+            },
+            "limit": 1
           }
         }
       ],
@@ -4724,18 +4711,7 @@
       "when": "opp_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "untap_don": 1
-              }
-            ]
-          }
+          "untap_don": 1
         }
       ],
       "cost": {
@@ -5043,12 +5019,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
-              "feature": "白ひげ海賊団"
+              "feature": "白ひげ海賊団",
+              "exclude_card_id": "ST22-002"
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -5058,21 +5034,10 @@
       "when": "opp_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "draw": 1
-              },
-              {
-                "self_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "draw": 1
+        },
+        {
+          "self_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -7037,21 +7002,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_character_any",
-                  "amount": 1000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ],
@@ -11213,20 +11167,9 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": "one_self_character_cost_le_8cost",
-                  "limit": 1
-                }
-              }
-            ]
+          "untap_chara": {
+            "target": "one_self_character_cost_le_8cost",
+            "limit": 1
           }
         }
       ],
@@ -26958,24 +26901,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "feature": "クロスギルド"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "feature": "クロスギルド"
+            },
+            "limit": 1
           }
         }
       ],
@@ -30748,20 +30680,9 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": "one_self_character_cost_le_8cost",
-                  "limit": 1
-                }
-              }
-            ]
+          "untap_chara": {
+            "target": "one_self_character_cost_le_8cost",
+            "limit": 1
           }
         }
       ],
@@ -33287,21 +33208,10 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_trash": true
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_character_any",
-                  "amount": 1000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ],
@@ -34609,18 +34519,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -36823,12 +36722,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
-              "feature": "白ひげ海賊団"
+              "feature": "白ひげ海賊団",
+              "exclude_card_id": "ST22-002"
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36986,26 +36885,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 3
+            },
+            "limit": 1
           }
         }
       ],
@@ -37678,26 +37563,12 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 3
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 3
+            },
+            "limit": 1
           }
         }
       ],
@@ -38372,18 +38243,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -39404,24 +39264,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "feature": "クロスギルド"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "feature": "クロスギルド"
+            },
+            "limit": 1
           }
         }
       ],
@@ -40430,18 +40279,7 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "opp_hand_to_deck_bottom": 1
-              }
-            ]
-          }
+          "opp_hand_to_deck_bottom": 1
         }
       ],
       "cost": {
@@ -40658,6 +40496,14 @@
         "leader_features_any": [
           "白ひげ海賊団"
         ]
+      },
+      "cost": {
+        "reveal_hand_with_filter": {
+          "filter": {
+            "feature": "白ひげ海賊団"
+          },
+          "count": 2
+        }
       }
     }
   ],
@@ -44142,24 +43988,13 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_to_hand": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_eq": 5,
-                    "feature": "クロスギルド"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 5,
+              "feature": "クロスギルド"
+            },
+            "limit": 1
           }
         }
       ],
@@ -68313,30 +68148,14 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "ko_self_with_filter": {
-                  "feature": "ホーミーズ"
-                }
-              },
-              {
-                "rest_self": true
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "シャーロット・リンリン"
               }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "name": "シャーロット・リンリン"
-                    }
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+            },
+            "limit": 1
           }
         }
       ],
