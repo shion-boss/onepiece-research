@@ -1942,9 +1942,8 @@
   ],
   "OP11-040": [
     {
-      "_text": "OP11-040 on_attached_don (パターン未一致): 自分のターン開始時、発動できる。自分の場のドン‼が8枚以上ある場合、自分のデッキの上から5枚を見て、特徴《麦わらの一味》を持つカード1枚までを公開し、手札に加え",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP11-040 ルフィ ターン開始時: 自ドン8+で デッキ上5見て麦わら1手札 残り上下",
+      "when": "on_turn_start",
       "do": [
         {
           "search_top_n": {
@@ -5627,7 +5626,15 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand_with_filter": {
+          "filter": {
+            "category": "EVENT"
+          },
+          "count": 1
+        }
+      }
     },
     {
       "_text": "OP10-072 end_of_turn: 自分の場のドン‼が7枚以上ある場合、自分のドン‼2枚までを、アクティブにする。",
@@ -9368,10 +9375,24 @@
           "add_don": 1
         },
         {
-          "add_don": 1,
-          "_chain": "if_prev_succeeded",
-          "_condition": {
-            "opp_chara_power_ge": 6000
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "opp_chara_filtered_count_ge": {
+                    "filter": {
+                      "power_ge": 6000
+                    },
+                    "count": 1
+                  }
+                },
+                "do": [
+                  {
+                    "add_don": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -17245,9 +17266,8 @@
   ],
   "OP11-040_p1": [
     {
-      "_text": "OP11-040_p1 on_attached_don (パターン未一致): 自分のターン開始時、発動できる。自分の場のドン‼が8枚以上ある場合、自分のデッキの上から5枚を見て、特徴《麦わらの一味》を持つカード1枚までを公開し、手札に加え",
-      "when": "on_attached_don",
-      "n": 0,
+      "_text": "OP11-040 ルフィ ターン開始時: 自ドン8+で デッキ上5見て麦わら1手札 残り上下",
+      "when": "on_turn_start",
       "do": [
         {
           "search_top_n": {
@@ -26738,10 +26758,24 @@
           "add_don": 1
         },
         {
-          "add_don": 1,
-          "_chain": "if_prev_succeeded",
-          "_condition": {
-            "opp_chara_power_ge": 6000
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "opp_chara_filtered_count_ge": {
+                    "filter": {
+                      "power_ge": 6000
+                    },
+                    "count": 1
+                  }
+                },
+                "do": [
+                  {
+                    "add_don": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -33734,7 +33768,15 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "cost": {
+        "discard_hand_with_filter": {
+          "filter": {
+            "category": "EVENT"
+          },
+          "count": 1
+        }
+      }
     },
     {
       "_text": "OP10-072_p1 end_of_turn: 自分の場のドン‼が7枚以上ある場合、自分のドン‼2枚までを、アクティブにする。",
@@ -42717,10 +42759,24 @@
           "add_don": 1
         },
         {
-          "add_don": 1,
-          "_chain": "if_prev_succeeded",
-          "_condition": {
-            "opp_chara_power_ge": 6000
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "opp_chara_filtered_count_ge": {
+                    "filter": {
+                      "power_ge": 6000
+                    },
+                    "count": 1
+                  }
+                },
+                "do": [
+                  {
+                    "add_don": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
