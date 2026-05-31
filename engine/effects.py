@@ -459,7 +459,7 @@ def _pay_counter_cost(
         me.don_remaining_in_deck += rest_more
         state.push_log(f"  counter コスト: ドン-{pay_don}")
         if (from_active + rest_more) > 0 and state.effects_overlay:
-            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=from_active + rest_more)
     rest_don = int(cost.get("rest_self_don", 0))
     if rest_don > 0:
         actual = min(rest_don, me.don_active)
@@ -676,6 +676,20 @@ def eval_condition(
                 return False
         elif k == "either_player_don_total_eq_10":
             if not any((p.don_active + p.don_rested) == 10 for p in state.players):
+                return False
+        elif k == "opp_attacker_attribute":
+            # opp_attack 系で「アタックしてきた相手キャラの属性が v か」 (= OP11-088 シュウ)。
+            atk_iid = getattr(state, "current_attacker_iid", None)
+            atk = None
+            if atk_iid is not None and opp is not None:
+                atk = next((ip for ip in [opp.leader, *opp.characters]
+                            if ip.instance_id == atk_iid), None)
+            if atk is None or str(v) not in (atk.card.attribute or ""):
+                return False
+        elif k == "returned_don_count_ge":
+            # on_self_don_returned_to_deck で「一度に N 枚以上 戻された」 (= EB02-035 / P-077)。
+            # don 返却 primitive が state.last_returned_don_count に保存。
+            if int(getattr(state, "last_returned_don_count", 0) or 0) < int(v):
                 return False
         elif k == "self_chara_feature_count_ge":
             spec = v if isinstance(v, dict) else {}
@@ -2914,7 +2928,7 @@ def _execute_effect_body(
                 removed += more
             state.push_log(f"  効果: 自ドン -{removed} (ドンデッキへ)")
             if removed > 0 and state.effects_overlay:
-                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=removed)
         elif k == "untap":
             # 対象を rested=False に。target = self / self_leader / all_self_characters
             target_spec = v if isinstance(v, str) else "self"
@@ -3466,7 +3480,7 @@ def _execute_effect_body(
             me.don_remaining_in_deck += from_rested
             state.push_log(f"  効果: 自ドン {n} 枚をドンデッキに戻す")
             if (from_active + from_rested) > 0 and state.effects_overlay:
-                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=from_active + from_rested)
         elif k == "rest_self_don":
             # 自分のアクティブドン N 枚をレストにする (= 起動メイン代替コスト)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -4152,7 +4166,7 @@ def _execute_effect_body(
             state.push_log(f"  効果: 相手 ドン {removed} 枚 ドンデッキ へ")
             if removed > 0 and state.effects_overlay:
                 # 相手 視点 の 「自分のドン が ドンデッキ に 戻った時」 trigger
-                trigger_on_self_don_returned_to_deck(state, opp, me, state.effects_overlay)
+                trigger_on_self_don_returned_to_deck(state, opp, me, state.effects_overlay, count=removed)
         elif k == "hand_to_deck_bottom":
             # 「自分の手札 N 枚を デッキの下 に 置く」 (= self_hand_to_deck_bottom の typo / alias、
             # ST22-002_p1 イゾウ 1 card)。 簡易: 先頭 から N 枚 (= UI 上 random 同等)。
@@ -7584,7 +7598,7 @@ def _pay_end_of_turn_cost(
         me.don_remaining_in_deck += rest_more
         state.push_log(f"  ターン終了コスト: ドン-{pay_don}")
         if (taken + rest_more) > 0 and state.effects_overlay:
-            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=taken + rest_more)
     # rest_self_don
     rest_don = int(cost.get("rest_self_don", 0))
     if rest_don > 0:
@@ -8276,12 +8290,14 @@ def trigger_on_self_don_returned_to_deck(
     owner: Player,
     opp: Player,
     effects_overlay: dict[str, CardEffectBundle],
+    count: int = 1,
 ) -> None:
     """「自分の場のドンがドンデッキに戻された時」 (on_self_don_returned_to_deck)。
     OP06-042 / OP06-076 / OP04-058 / OP12-040 等が登録する場の効果を発火。
     pay_don / return_self_don_to_deck 等の直後に呼ぶ。"""
     if not effects_overlay:
         return
+    state.last_returned_don_count = int(count)
     _enqueue_field_when(state, owner, "on_self_don_returned_to_deck", effects_overlay)
     _maybe_resolve(state)
 
@@ -8650,6 +8666,9 @@ def _replace_ko_match(
     if "target_power_le" in cond:
         # 公式 4-9: 「元々のパワー X 以下」は永続効果で変更されない CardDef オリジナル値で判定
         if victim.truly_original_power > int(cond["target_power_le"]):
+            return False
+    if "target_truly_original_power_eq" in cond:
+        if victim.truly_original_power != int(cond["target_truly_original_power_eq"]):
             return False
     if "target_power_ge" in cond:
         # 公式 4-9: 「元々のパワー X 以上」も同様
@@ -9335,7 +9354,7 @@ def fire_activate_main(
             me.don_remaining_in_deck += rest_more
             state.push_log(f"  起動メインコスト: ドン-{pay_don}")
             if (taken + rest_more) > 0 and state.effects_overlay:
-                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay)
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=taken + rest_more)
         # rest_self_don N: アクティブドン N 枚を rested に
         rest_self_don = int(cost.get("rest_self_don", 0))
         if rest_self_don > 0:
