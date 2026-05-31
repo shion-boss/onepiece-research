@@ -644,6 +644,11 @@ def eval_condition(
             # EB03-013 キャロット)。 非ラッシュなら登場ターン = sickness True。
             if self_inplay is None or not getattr(self_inplay, "summoning_sickness", False):
                 return False
+        elif k == "self_chara_named_absent":
+            # 自分の場に カード名 v のキャラが いない 場合 True (= OP08-005「自分のクロマーリモが
+            # いない場合」 / OP03-027「自分のブチがいない場合」)。
+            if any(c.card.name == v for c in me.characters):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
