@@ -9459,18 +9459,12 @@
       ]
     },
     {
-      "_text": "OP15-119 opp_event_or_trigger_fired: 相手イベント/ブロッカー発動時 → 空島キャラ1枚にレストドン1付与 (※ ブロッカー発動は trigger 系では拾えない、 イベント or トリガー のみ)",
+      "_text": "OP15-119 ルフィ 相手イベント/トリガー発動時: 自ライフ上1公開、 コスト1につき自身 +1000 turn",
       "when": "opp_event_or_trigger_fired",
       "do": [
         {
-          "attach_rested_don": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "feature": "空島"
-              }
-            },
-            "count": 1
+          "reveal_self_life_top_pump_per_cost": {
+            "per_cost": 1000
           }
         }
       ]

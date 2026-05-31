@@ -3951,7 +3951,16 @@ def _execute_effect_body(
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             peeked = me.life[:n]
             state.push_log(f"  効果: ライフ上 {n} 枚を表向き → {[c.name for c in peeked]}")
-        elif k == "peek_opp_deck_top":
+        elif k == "reveal_self_life_top_pump_per_cost":
+            # 「自分のライフの上から1枚を公開。 公開カードのコスト1につき このキャラ +per_cost」
+            # (= OP15-119 ルフィ)。 ライフは公開のみ (場所変えず)。 self_inplay に turn pump。
+            spec_val = v if isinstance(v, dict) else {}
+            per = int(spec_val.get("per_cost", 1000))
+            if me.life and self_inplay is not None:
+                revealed = me.life[0]
+                cost = int(getattr(revealed, "cost", 0) or 0)
+                self_inplay.turn_buff += per * cost
+                state.push_log(f"  効果: ライフ上公開 (コスト{cost}) → 自身 +{per*cost} turn")
             # 公式: 「相手のデッキの上から N 枚を見る」 (OP11-070 プリン等)。
             # 「見る」 = acting player の私的情報。 状態変化なし、 カードは相手デッキ上に残る。
             # public log (= state.log は両者可視) には カード名を出さない (= draw と同じ隠ぺい保護)。
