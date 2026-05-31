@@ -632,6 +632,18 @@ def eval_condition(
             # このターン中に自分がコスト N 以上のイベントを使用していたか (= OP15-002 ルーシー)。
             if getattr(me, "max_event_cost_this_turn", 0) < int(v):
                 return False
+        elif k == "exists_chara_cost_ge":
+            # どちらかの場にコスト N 以上のキャラがいるか (= OP10-058 「コスト8以上のキャラがいる場合」)。
+            # キャラのみ (= leader 除く)。 現在コスト (base_cost) で判定。
+            n = int(v)
+            allc = list(me.characters) + (list(opp.characters) if opp else [])
+            if not any(getattr(c, "base_cost", 0) >= n for c in allc):
+                return False
+        elif k == "self_inplay_summoning_sickness":
+            # この効果source のキャラが召喚酔い中か (= 「このキャラが登場したターン」 proxy、
+            # EB03-013 キャロット)。 非ラッシュなら登場ターン = sickness True。
+            if self_inplay is None or not getattr(self_inplay, "summoning_sickness", False):
+                return False
         elif k == "self_don_ge":
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             if total < int(v):
