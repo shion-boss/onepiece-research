@@ -1957,9 +1957,9 @@
       "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
-        "target_base_power_le": 7000,
         "target_feature": "海軍",
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_power_le": 7000
       },
       "cost": [
         {
@@ -2002,7 +2002,7 @@
       "when": "on_self_life_taken",
       "if": {
         "self_turn": true,
-        "self_hand_le": 7
+        "self_hand_count_le": 7
       },
       "cost": {
         "once_per_turn": true
@@ -2571,7 +2571,7 @@
         "target": "any_self_chara",
         "target_feature": "空島",
         "by_opp_effect": true,
-        "target_base_power_ge": 6000
+        "target_power_ge": 6000
       },
       "do": [
         {
@@ -9277,7 +9277,7 @@
       "if": {
         "target": "any_self_chara",
         "by_opp_effect": true,
-        "target_base_power_le": 7000
+        "target_power_le": 7000
       },
       "do": [
         {
@@ -10107,7 +10107,7 @@
         }
       ],
       "if": {
-        "opp_don_ge": 6
+        "opp_don_count_ge": 6
       }
     }
   ],
@@ -10576,7 +10576,7 @@
       "_text": "OP06-093 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
       "if": {
-        "opp_hand_ge": 5
+        "opp_hand_count_ge": 5
       },
       "do": [
         {
@@ -13368,7 +13368,7 @@
       "when": "on_self_life_taken",
       "if": {
         "self_turn": true,
-        "self_hand_le": 7
+        "self_hand_count_le": 7
       },
       "cost": {
         "once_per_turn": true
@@ -13731,7 +13731,7 @@
     {
       "_text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
       "_approx_note": "cost: 自ライフ表向き は 簡略 (engine 未対応)",
-      "when": "on_turn_end",
+      "when": "end_of_turn",
       "if": {
         "self_turn": true
       },
@@ -13778,7 +13778,7 @@
     {
       "_text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
       "_approx_note": "cost: 自ライフ表向き は 簡略 (engine 未対応)",
-      "when": "on_turn_end",
+      "when": "end_of_turn",
       "if": {
         "self_turn": true
       },
@@ -15373,7 +15373,7 @@
   "OP02-049": [
     {
       "_text": "【自分のターン終了時】自分の手札が0枚の場合、カード2枚を引く",
-      "when": "on_turn_end",
+      "when": "end_of_turn",
       "if": {
         "self_hand_eq": 0
       },
@@ -15399,7 +15399,7 @@
   "OP02-049_p1": [
     {
       "_text": "【自分のターン終了時】自分の手札が0枚の場合、カード2枚を引く",
-      "when": "on_turn_end",
+      "when": "end_of_turn",
       "if": {
         "self_hand_eq": 0
       },
@@ -15716,7 +15716,7 @@
       "when": "on_self_event_played",
       "if": {
         "self_attached_don_ge": 1,
-        "self_hand_le": 4
+        "self_hand_count_le": 4
       },
       "do": [
         {
@@ -15731,7 +15731,7 @@
       "when": "on_self_event_played",
       "if": {
         "self_attached_don_ge": 1,
-        "self_hand_le": 4
+        "self_hand_count_le": 4
       },
       "do": [
         {
@@ -16755,7 +16755,7 @@
       "when": "on_attack",
       "if": {
         "self_attached_don_ge": 1,
-        "self_hand_le": 3
+        "self_hand_count_le": 3
       },
       "do": [
         {
@@ -17260,7 +17260,7 @@
       "when": "on_attack",
       "if": {
         "self_attached_don_ge": 1,
-        "self_hand_le": 3
+        "self_hand_count_le": 3
       },
       "do": [
         {
@@ -17325,7 +17325,7 @@
         "target": "any_self_chara",
         "target_feature": "空島",
         "by_opp_effect": true,
-        "target_base_power_ge": 6000
+        "target_power_ge": 6000
       },
       "do": [
         {
@@ -17382,9 +17382,9 @@
       "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
-        "target_base_power_le": 7000,
         "target_feature": "海軍",
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_power_le": 7000
       },
       "cost": [
         {
@@ -32029,7 +32029,7 @@
       "_text": "OP06-093_p3 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
       "if": {
-        "opp_hand_ge": 5
+        "opp_hand_count_ge": 5
       },
       "do": [
         {
@@ -35129,7 +35129,7 @@
       "_text": "OP06-093_p1 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
       "if": {
-        "opp_hand_ge": 5
+        "opp_hand_count_ge": 5
       },
       "do": [
         {
@@ -38398,7 +38398,7 @@
       "_text": "OP06-093_p2 【登場時】相手の手札が5枚以上ある場合、以下から1つを選ぶ。・相手は自身の手札1枚を捨てる。・相手のキャラ1枚までを、このターン中、コスト-3。",
       "when": "on_play",
       "if": {
-        "opp_hand_ge": 5
+        "opp_hand_count_ge": 5
       },
       "do": [
         {
@@ -60753,7 +60753,7 @@
     {
       "_text": "【自分のターン終了時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
       "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
-      "when": "on_turn_end",
+      "when": "end_of_turn",
       "if": {
         "self_turn": true
       },
@@ -87145,12 +87145,13 @@
   ],
   "OP05-074_p4": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -87170,12 +87171,13 @@
   ],
   "OP05-074_r1": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -87195,12 +87197,13 @@
   ],
   "OP05-074_r2": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -87813,7 +87816,7 @@
       "if": {
         "target": "any_self_chara",
         "by_opp_effect": true,
-        "target_base_power_le": 7000
+        "target_power_le": 7000
       },
       "do": [
         {
@@ -87890,8 +87893,8 @@
       "when": "replace_leave",
       "if": {
         "target": "other_self_chara",
-        "target_base_power_le": 7000,
-        "by_opp_effect": true
+        "by_opp_effect": true,
+        "target_power_le": 7000
       },
       "do": [
         {
@@ -88444,8 +88447,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_attribute": "斬",
-        "self_don_rested_ge": 6
+        "self_don_rested_ge": 6,
+        "self_leader_attribute": "斬"
       },
       "do": [
         {
@@ -88461,7 +88464,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_attribute": "斬"
+        "self_leader_attribute": "斬"
       },
       "do": [
         {
@@ -89210,7 +89213,7 @@
     {
       "_text": "OP09-025 leader_passive (条件: leader_feature=ODYSSEY): このキャラはリーダーとのバトルでKOされない。",
       "_doc": "「リーダーとのバトル」 限定 (= 相手キャラとのバトルでは KO される) は engine 未配線。 簡略: battle_ko_immune (= 全バトルで KO されない) で 近似。 leader_feature 条件 で 発動 ガード。",
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "if": {
         "leader_feature": "ODYSSEY"
       },
@@ -89218,7 +89221,8 @@
         {
           "set_ko_immune_battle_only": true
         }
-      ]
+      ],
+      "n": 0
     }
   ],
   "OP09-045": [
@@ -89792,12 +89796,13 @@
   ],
   "OP05-074_p3": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -90201,12 +90206,13 @@
   ],
   "OP05-074": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -90226,12 +90232,13 @@
   ],
   "OP05-074_p1": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -90251,12 +90258,13 @@
   ],
   "OP05-074_p2": [
     {
-      "when": "leader_passive",
+      "when": "on_attached_don",
       "do": [
         {
           "_text": "【ブロッカー】 内蔵"
         }
-      ]
+      ],
+      "n": 0
     },
     {
       "_text": "【自分のターン中】【ターン1回】自場ドン デッキ戻った時 add_don 1",
@@ -91898,7 +91906,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_attribute": "斬"
+        "self_leader_attribute": "斬"
       },
       "do": [
         {
