@@ -223,6 +223,10 @@ class InPlay:
     ko_immune_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
     cannot_attack_until_turn_end: bool = False
+    # 「このターン終了時、 このキャラを持ち主のデッキの下に置く」 (= OP11-092 ヘルメッポ の
+    # 一時登場)。 play_from_trash の return_to_deck_bottom_at_turn_end で True、
+    # trigger_end_of_turn で デッキ底へ戻して消費。
+    return_to_deck_bottom_at_turn_end: bool = False
     # ターン中の元々のコスト軽減 (cost_minus 効果)。Phase.END でクリア。
     # 「元々のコスト N 以下」判定にこの修正値を反映する (= cost - cost_minus_until_turn_end)
     cost_minus_until_turn_end: int = 0
@@ -684,6 +688,9 @@ class GameState:
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
     last_discard_source_inplay: Optional[object] = None
     last_discard_count: int = 0
+    # 直近の「相手のデッキ上を見た」 私的情報 (= peek_opp_deck_top primitive、 OP11-070 等)。
+    # {"viewer_idx": int, "card_ids": [str]}。 public log には出さず ここに記録 (= AI/UI が利用可)。
+    last_peeked_opp_deck_top: Optional[dict] = None
     # 直近の「自分のキャラが KO された」 イベントの victim カード (= payload-aware 条件用)。
     # OP14-041 ハンコック 「元々のパワー5000以上 + 特徴《アマゾン・リリー》《九蛇海賊団》」 等。
     last_chara_ko_victim_card: Optional[object] = None

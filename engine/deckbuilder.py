@@ -129,13 +129,19 @@ def _meta_aware_curve_target(target_avg_cost: float) -> dict[int, int]:
     # 移動: 各 from から 1 ずつ、 各 to に 1 ずつ
     n_moved = 0
     while n_moved < shift_n:
+        progressed = False
         for fc in from_costs:
             if adjusted[fc] > 4 and n_moved < shift_n:
                 adjusted[fc] -= 1
                 n_moved += 1
+                progressed = True
         for tc in to_costs:
             if n_moved < shift_n * 2:  # = from で減らした分 移動先に
                 adjusted[tc] += 1
+        # from コスト の 在庫 (>4 分) が 尽きたら これ以上 動かせない → 無限ループ防止。
+        # (= 旧 bug: shift_n が from 在庫を超えると n_moved が 進まず spin)
+        if not progressed:
+            break
     # 50 枚保持
     total = sum(adjusted.values())
     if total != 50:

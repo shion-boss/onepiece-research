@@ -2265,6 +2265,14 @@ def _execute_effect_body(
                 if isinstance(v, dict) and "_iid_picks" in v:
                     iid_picks = v["_iid_picks"]
                 active_charas = [c for c in opp.characters if not c.rested and not c.cannot_be_rested_buff]
+                # cost_le 制約 (= ST26-002 「コスト1以下のキャラかドン1枚」 等)。 dict spec のみ、
+                # string form は 後方互換で 無制約のまま。 DON 側は cost 概念なしで常に対象。
+                _cost_le = v.get("cost_le") if isinstance(v, dict) else None
+                if _cost_le is not None:
+                    active_charas = [
+                        c for c in active_charas
+                        if int(getattr(c.card, "cost", 0) or 0) <= int(_cost_le)
+                    ]
                 # 人間 acting + active chara 候補あり (= 複数 chara or chara + DON 両方 可能)
                 # → chara から 選ばせる modal を 出す。
                 # 選ばない (= 空 picks) なら DON 側 へ fallback。
@@ -3037,6 +3045,8 @@ def _execute_effect_body(
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
             unique_name = bool(spec.get("unique_name", False))
+            # 一時登場: このターン終了時にデッキ下へ戻す (= OP11-092 ヘルメッポ)
+            want_return_eot = bool(spec.get("return_to_deck_bottom_at_turn_end", False))
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
                 picks_idx = list(v["_picks_idx"])
@@ -3109,6 +3119,7 @@ def _execute_effect_body(
                             me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                         me.trash.pop(i)
                         ip = InPlay.of(card, rested=rested, sickness=True)
+                        ip.return_to_deck_bottom_at_turn_end = want_return_eot
                         me.characters.append(ip)
                         played_count += 1
                         label = "レストで" if rested else ""
@@ -3143,6 +3154,7 @@ def _execute_effect_body(
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)
+                    ip.return_to_deck_bottom_at_turn_end = want_return_eot
                     me.characters.append(ip)
                     found += 1
                     seen_names.add(card.name)
@@ -3844,6 +3856,21 @@ def _execute_effect_body(
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             peeked = me.life[:n]
             state.push_log(f"  効果: ライフ上 {n} 枚を表向き → {[c.name for c in peeked]}")
+        elif k == "peek_opp_deck_top":
+            # 公式: 「相手のデッキの上から N 枚を見る」 (OP11-070 プリン等)。
+            # 「見る」 = acting player の私的情報。 状態変化なし、 カードは相手デッキ上に残る。
+            # public log (= state.log は両者可視) には カード名を出さない (= draw と同じ隠ぺい保護)。
+            # acting player の私的知識として state.last_peeked_opp_deck_top に記録 (= AI/UI が利用可)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            peeked = opp.deck[:n]
+            state.last_peeked_opp_deck_top = {
+                "viewer_idx": state.players.index(me),
+                "card_ids": [c.card_id for c in peeked],
+            }
+            if not peeked:
+                state.push_log(f"  効果: 相手デッキ上を確認 → デッキ空")
+            else:
+                state.push_log(f"  効果: 相手デッキ上 {len(peeked)} 枚を確認 (私的情報)")
         elif k == "set_base_cost_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
             # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}
@@ -6826,6 +6853,9 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             prior_picks["ko_iid"] = picked_iid
         elif cost_kind == "rest_self_target_name":
             prior_picks["rest_iid"] = picked_iid
+        elif cost_kind == "trash_filtered_chara":
+            # OP13-079 イム leader の choice cost (= 手札空時の キャラ axis)
+            prior_picks["choice_cost_chara_iid"] = picked_iid
         # source inplay 復元
         inplay = None
         for ip in [*me.characters, me.leader, *me.stages]:
@@ -7681,6 +7711,25 @@ def trigger_end_of_turn(
     opp = state.opponent
     me_idx = state.players.index(me)
     opp_idx = 1 - me_idx
+
+    # === このターン終了時の delayed 処理 (= turn player 視点) ===
+    # 1. schedule_at_self_turn_end で予約された効果を flush (= OP15-025 クロ。 従来 append のみで
+    #    一度も実行されない dead 状態だった bug 修復)。
+    scheduled = list(getattr(me, "scheduled_at_self_turn_end", None) or [])
+    if scheduled:
+        me.scheduled_at_self_turn_end = []
+        for spec in scheduled:
+            for prim in (spec.get("do", []) if isinstance(spec, dict) else []):
+                execute_effect(prim, state, me, opp, None)
+    # 2. 一時登場キャラ を 持ち主のデッキの下へ戻す (= OP11-092 ヘルメッポ)。
+    for ip in [c for c in list(me.characters)
+               if getattr(c, "return_to_deck_bottom_at_turn_end", False)]:
+        me.characters.remove(ip)
+        me.deck.append(ip.card)
+        if ip.attached_dons > 0:
+            me.don_rested += ip.attached_dons
+            ip.attached_dons = 0
+        state.push_log(f"  ターン終了時: {ip.card.name} を デッキの下に置く")
 
     human_optionals: list[dict] = []
 
@@ -8992,6 +9041,16 @@ def _can_pay_activate_cost(
         ]
         if not cands:
             return False
+    # 選択コスト: 「特徴X を持つキャラ か 手札1枚をトラッシュ」 (= OP13-079 イム leader)。
+    # spec: {"discard_hand_or_trash_filtered_chara": {"filter": {"feature": "天竜人"}, "n": 1}}
+    # 払える条件: 手札 ≥ 1 OR filter 一致の自キャラ ≥ 1 (= どちらか一方で足りる)。
+    choice_cost = cost.get("discard_hand_or_trash_filtered_chara")
+    if choice_cost:
+        n = int(choice_cost.get("n", 1))
+        c_filt = choice_cost.get("filter", {})
+        chara_cands = [c for c in me.characters if _matches_filter(c.card, c_filt)]
+        if len(me.hand) < n and len(chara_cands) < n:
+            return False
     once_per_turn = cost.get("once_per_turn", True)
     if once_per_turn and getattr(inplay, "_act_used", False):
         return False
@@ -9342,6 +9401,91 @@ def fire_activate_main(
                 me.trash.append(me.hand.pop(idx))
                 state.push_log(f"  起動メインコスト: 手札1捨て")
         # is_resume + picked_idxs なし は 既 払 い 済 と み な し no-op (= 想 定 外 だ が safe)
+    # discard_hand_or_trash_filtered_chara: 「特徴X キャラ か 手札1枚 を トラッシュ」 選択コスト
+    # (= OP13-079 イム leader)。 人間 acting + 両方の選択肢あり → modal halt。
+    # AI / 片方のみ → heuristic (= 手札優先、 手札空なら 該当キャラ trash)。
+    choice_cost = cost.get("discard_hand_or_trash_filtered_chara")
+    if choice_cost:
+        n = int(choice_cost.get("n", 1))
+        c_filt = choice_cost.get("filter", {})
+        chara_cands = [c for c in me.characters if _matches_filter(c.card, c_filt)]
+        # resume key: discard_idxs (= 既存 activate_main_discard_pick modal 由来、 手札 axis) /
+        #             choice_cost_chara_iid (= activate_main_cost_pick modal 由来、 キャラ axis)。
+        # 既存 2 modal を 再利用するため 新 UI component 不要。
+        if isinstance(cost_picks, dict) and "discard_idxs" in cost_picks:
+            idxs = sorted(set(int(i) for i in cost_picks["discard_idxs"]
+                              if 0 <= int(i) < len(me.hand)), reverse=True)
+            for hi in idxs[:n]:
+                me.trash.append(me.hand.pop(hi))
+                state.push_log(f"  起動メインコスト: 手札1捨て (人間選択)")
+        elif isinstance(cost_picks, dict) and "choice_cost_chara_iid" in cost_picks:
+            tgt = next((c for c in chara_cands
+                        if c.instance_id == cost_picks["choice_cost_chara_iid"]), None)
+            if tgt is not None:
+                me.characters.remove(tgt)
+                me.trash.append(tgt.card)
+                if tgt.attached_dons > 0:
+                    me.don_rested += tgt.attached_dons
+                    tgt.attached_dons = 0
+                state.push_log(f"  起動メインコスト: 天竜人キャラtrash {tgt.card.name}")
+        elif not is_resume and _should_human_pick(state) and len(me.hand) >= n:
+            # 手札あり → 既存 discard modal を reuse (= 手札 axis、 mill deck で支配的)
+            eff_idx = _find_effect_index(state, inplay, eff)
+            state.pending_choice = {
+                "kind": "activate_main_discard_pick",
+                "source_iid": inplay.instance_id,
+                "effect_index": eff_idx,
+                "candidates": [
+                    {"hand_idx": i, "card_id": c.card_id, "name": c.name,
+                     "cost": int(c.cost) if c.cost is not None else 0,
+                     "power": int(c.power) if c.power is not None else 0}
+                    for i, c in enumerate(me.hand)
+                ],
+                "limit": n,
+                "prior_picks": dict(cost_picks),
+            }
+            state.push_log(f"  起動メインコスト: 手札 {n} 枚 捨てる 対象 を 選択 待ち")
+            return
+        elif not is_resume and _should_human_pick(state) and chara_cands:
+            # 手札空 + 天竜人キャラあり → 既存 cost_pick modal を reuse (= キャラ axis)
+            eff_idx = _find_effect_index(state, inplay, eff)
+            state.pending_choice = {
+                "kind": "activate_main_cost_pick",
+                "cost_kind": "trash_filtered_chara",
+                "source_iid": inplay.instance_id,
+                "effect_index": eff_idx,
+                "candidates": [
+                    {"iid": c.instance_id, "card_id": c.card.card_id, "name": c.card.name,
+                     "cost": int(c.card.cost) if c.card.cost is not None else 0,
+                     "power": int(c.power), "rested": bool(c.rested),
+                     "attached_dons": int(c.attached_dons), "owner": "self", "is_leader": False}
+                    for c in chara_cands
+                ],
+                "prior_picks": dict(cost_picks),
+                "limit": 1,
+                "primitive_kind": "trash_filtered_chara",
+                "description": "起動メインコスト: トラッシュする 天竜人キャラ を 選択",
+            }
+            state.push_log(f"  起動メインコスト: 天竜人キャラ {len(chara_cands)} 枚 → 人間 選択 待ち (trash)")
+            return
+        elif not is_resume:
+            # AI / 片方のみ: 手札優先 (= mill deck で手札discardが支配的)、 手札空なら キャラtrash
+            if len(me.hand) >= n:
+                for _ in range(n):
+                    if not me.hand:
+                        break
+                    idx = state.rng.randrange(len(me.hand))
+                    me.trash.append(me.hand.pop(idx))
+                    state.push_log(f"  起動メインコスト: 手札1捨て")
+            elif chara_cands:
+                chara_cands.sort(key=lambda c: c.power)
+                for tgt in chara_cands[:n]:
+                    me.characters.remove(tgt)
+                    me.trash.append(tgt.card)
+                    if tgt.attached_dons > 0:
+                        me.don_rested += tgt.attached_dons
+                        tgt.attached_dons = 0
+                    state.push_log(f"  起動メインコスト: 天竜人キャラtrash {tgt.card.name}")
     # ko_self_with_filter: 自場の該当キャラ1枚KO
     # 人間 acting + 候補 > 1 + pick 未指定 → modal halt + activate_main_cost_pick で resume。
     ko_filter = cost.get("ko_self_with_filter")
