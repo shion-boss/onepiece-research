@@ -8196,10 +8196,19 @@
           }
         },
         {
-          "put_top_to_life": 1,
-          "_chain": "always",
-          "_condition": {
-            "self_life_le": 1
+          "replace_ko_complex": {
+            "branches": [
+              {
+                "if": {
+                  "self_life_le": 1
+                },
+                "do": [
+                  {
+                    "put_top_to_life": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -12072,13 +12081,22 @@
           "life_to_hand": 1
         },
         {
-          "add_don": 1,
-          "_chain": "if_prev_succeeded",
-          "_condition": {
-            "self_don_count_eq": 0,
-            "_or": [
+          "replace_ko_complex": {
+            "branches": [
               {
-                "self_don_count_ge": 3
+                "if": {
+                  "self_don_count_eq": 0,
+                  "_or": [
+                    {
+                      "self_don_count_ge": 3
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "add_don": 1
+                  }
+                ]
               }
             ]
           }
@@ -16006,13 +16024,22 @@
           "life_to_hand": 1
         },
         {
-          "add_don": 1,
-          "_chain": "if_prev_succeeded",
-          "_condition": {
-            "self_don_count_eq": 0,
-            "_or": [
+          "replace_ko_complex": {
+            "branches": [
               {
-                "self_don_count_ge": 3
+                "if": {
+                  "self_don_count_eq": 0,
+                  "_or": [
+                    {
+                      "self_don_count_ge": 3
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "add_don": 1
+                  }
+                ]
               }
             ]
           }

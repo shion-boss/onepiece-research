@@ -3072,8 +3072,9 @@ def test_op14_063_sugar_uses_play_from_hand_with_opp_don_cond():
         f"OP14-063 on_ko: play_from_hand であるべき (= 公式 手札 から)、 旧 play_from_trash 残存 {do}"
     )
     if_block = on_ko.get("if") or {}
-    assert if_block.get("opp_don_ge") == 6, (
-        f"OP14-063 on_ko 条件 opp_don_ge:6 不在: {if_block}"
+    # opp_don_count_ge が engine handled な正キー (opp_don_ge は未handled=silently-ignored だった)
+    assert if_block.get("opp_don_count_ge") == 6, (
+        f"OP14-063 on_ko 条件 opp_don_count_ge:6 不在: {if_block}"
     )
 
 
