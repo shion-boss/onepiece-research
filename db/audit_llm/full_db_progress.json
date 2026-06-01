@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2689/4518 (59.5%)。 audited 2024 + vanilla 449 + equivalence 216。 残監査キュー= signature_clusters.json (1460署名/1838枚)。 architectural defer は meta.deferred_cards (43件)。 OP01-008/OP02-057/OP15-025 はキュー残置 (engine 拡張/複合 後に再監査)。",
+    "現状": "verified 2696/4518 (59.7%)。 audited 2031 + vanilla 449 + equivalence 216。 残キュー= signature_clusters.json (1454署名/1831枚)。 architectural defer は meta.deferred_cards (43件)。 OP01-008/OP02-057/OP15-025 はキュー残置。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -34,7 +34,8 @@
       "『A。その後Xの場合 そのカードはキーワード』 EVENT は、 base power_pump を if で誤gate + キーワード部を when:on_play で書くと dead (= EVENT は trigger_main_event の when:main のみ発火)。 正: pump 無条件(main) + キーワードも別 when:main entry に if付きで、 同 filter target で (OP04-093/OP10-097)",
       "⛔誤検知回避【最重要】: `self_inplay` (target string) は『自身固定』 ではない。 _resolve_target line~1524 で [me.leader]+me.characters から pick 1 (human modal / AI auto-pick 最高power) = 『自分のリーダーかキャラ1枚まで』 の正規 shorthand (249 overlay 使用)。 一方 bare `self` (line~1517) は [self_inplay] = 発動元キャラ固定 = 『このキャラ』。 self_inplay_choice も leader+chars choice で同義。 ⇒『リーダーかキャラ1枚まで が self_inplay だからバグ』 は FALSE (調査済、 真バグ0)。 bare self を使うのは『このキャラの〜』 用で正しい",
       "⭐search_top_n の filter が text の絞り込み (コストA〜B / パワーN / 【トリガー】持ち / イベント・キャラ category) を {} 空で落とす実バグ系統 (EB03-060/ST30-002/ST30-017/OP09-102 等)。 filter キー= cost_ge/cost_le, power_eq, trigger:true, category:'EVENT'|'CHARACTER'。 ただし『カード1枚まで』 無制約 (OP05-043/OP15-118 等) は空filter が正 = FP",
-      "⭐二重search: optional_cost_then 内 search + standalone search_top_n が併存し2回引くバグ (OP12-080/OP03-020)。 単一 optional_cost_then{cost:[...], effect:[search_top_n ...]} に rebuild。 OP03-020 は inner filter が CHARACTER 誤 (text=イベント→EVENT 修正)。 search_top_n は rest_remain:'bottom' で残りを底に置くので 追加 look_top_reorder は spurious 二重 (OP09-102/OP11-070)"
+      "⭐二重search: optional_cost_then 内 search + standalone search_top_n が併存し2回引くバグ (OP12-080/OP03-020)。 単一 optional_cost_then{cost:[...], effect:[search_top_n ...]} に rebuild。 OP03-020 は inner filter が CHARACTER 誤 (text=イベント→EVENT 修正)。 search_top_n は rest_remain:'bottom' で残りを底に置くので 追加 look_top_reorder は spurious 二重 (OP09-102/OP11-070)",
+      "⭐spurious 'on_attack power_pump self_leader +1000 battle' stub (= 禁止の自動近似): LEADER の【アタック時】 overlay が実テキストと無関係に +1000 になっている系統。 scan: on_attack do に {power_pump self_leader 1000 battle} を持つが text の【アタック時】 に『パワー+1000』 が無い → spurious。 21件中14件該当。 各リーダー固有の実効果に書換要 (検出: on_attack stub かつ text に +1000 無し)"
     ],
     "defer_architectural_触らない": [
       "OP01-120/OP09-014 等: 「パワーN以下のブロッカー無視」 → 専用primitive無 (ブロック不可で過剰近似中)",
@@ -114,12 +115,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1460,
-      "remaining_cards": 1838,
+      "remaining_unique_sig": 1454,
+      "remaining_cards": 1831,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 2689,
+    "total_verified": 2696,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -278,7 +279,20 @@
       "gates": "smoke ERROR=0 / pytest EXIT=0 / behavior reproducible (play_self guard / to_hand / leader cond)"
     },
     "cluster_grind_batch21": "2680/4518 (59.3%)。 fixed 17 entry + parallel 伝播: 速攻：キャラ正規化(EB04-007/_p1) / search cost_ge2欠落+OR feature(OP11-048,OP13-012_p1,OP11-070/_p1,ST28-005) / ドン!!×N static 丸ごと欠落(OP03-078/_p1/_p2 相手全コスト-3, OP04-020/_p1 -1, EB04-017 ミンク3+で-1, ST28-005 自+3000) / soshite_base_gated EVENT dead entry 復活(OP04-093 DA, OP10-097 バニッシュ)。 behavioral verify + run1==run2 + full pytest 706 green + smoke ERROR0。 audited +22。 keyword_duration_missing=FP確定 / 速攻：キャラ=正規KW確定 / ①end_of_turn cost=systematic未モデル化convention",
-    "cluster_grind_batch22": "2689/4518 (59.5%)。 systematic= search_top_n が text pick-filter を {}空 で落とす修正 9枚: EB03-060(cost2-8) / ST30-002・ST30-017/_p1(power6000+CHARACTER) / OP09-102(trigger:true + spurious look_top_reorder除去) / OP12-080・OP03-020(二重search rebuild、 OP03-020 は inner CHARACTER→EVENT) / ST07-016(counter にライフscry欠落→追加)。 behavioral verify (filter実効: cost/power で非該当除外、 二重search解消 search系=1) + full pytest 706 + smoke ERROR0。 audited +9。 ⛔重要: 『リーダーかキャラ1枚まで→self_inplay』 を212件 systematic バグ と誤認したが、 self_inplay は正規shorthand で真バグ0 と判明 (誤修正回避)"
+    "cluster_grind_batch22": "2689/4518 (59.5%)。 systematic= search_top_n が text pick-filter を {}空 で落とす修正 9枚: EB03-060(cost2-8) / ST30-002・ST30-017/_p1(power6000+CHARACTER) / OP09-102(trigger:true + spurious look_top_reorder除去) / OP12-080・OP03-020(二重search rebuild、 OP03-020 は inner CHARACTER→EVENT) / ST07-016(counter にライフscry欠落→追加)。 behavioral verify (filter実効: cost/power で非該当除外、 二重search解消 search系=1) + full pytest 706 + smoke ERROR0。 audited +9。 ⛔重要: 『リーダーかキャラ1枚まで→self_inplay』 を212件 systematic バグ と誤認したが、 self_inplay は正規shorthand で真バグ0 と判明 (誤修正回避)",
+    "cluster_grind_batch23": "2696/4518 (59.7%)。 spurious self_leader+1000 on_attack stub 是正 9枚: OP09-062/_p1(トリガー捨て→ドン)、 ST11-001/_p1(FILM search)、 P-047/_p1(spurious重複除去)、 OP03-077/_p1(デッキ上→ライフ)、 ST10-003(+2000turn + ライフ4+で-1000 static)。 behavioral (ST10-003 static / stub除去で+1000しない) + pytest 706 + smoke0。 audited +7",
+    "pending_found_bugs_batch21_23": {
+      "note": "grind 中に発見したが未修正の実バグ。 次バッチで処理する",
+      "items": [
+        "OP06-020 ホーディ leader: do に life_to_hand 1 (テキストは『自分の効果でライフを手札に加えられない』 = 逆! prevent_self_life_to_hand_turn が正)。 + 『キャラかドン』 の or-don rest 欠落",
+        "OP10-001 スモーカー leader activate_main: untap_don 1 (text『ドン2枚まで』=2) + conditions opp_turn が誤 (起動メイン=自ターン) + 『自分のパワー7000以上のキャラがいる場合』 if 欠落",
+        "OP04-001 ビビ leader: spurious 重複 activate_main(draw 1 only, cost無) + 『このリーダーはアタックできない』 static 欠落",
+        "OP03-021 クロ leader: cost に『東の海キャラ2枚レスト』 欠落 + do untap_don 1 が誤(『このリーダーをアクティブ』=untap leader)",
+        "OP04-040 クイーン leader: spurious +1000 stub + 『コスト8以上キャラいれば 引く代わりにデッキトップをライフ』 alternative 欠落 (複雑)",
+        "OP05-041 サカズキ leader on_attack: spurious +1000 stub。 実=相手キャラ1枚 このターン中コスト-1 (turn-duration opp cost-down primitive 未実装 → 要engine)",
+        "ST07-001 リンリン leader: spurious +1000 stub。 実=ライフ上下1枚手札(任意)→ライフ2以下なら手札1枚ライフへ (optional+conditional 複雑)"
+      ]
+    }
   },
   "audited": [
     "EB01-001",
@@ -732,6 +746,8 @@
     "OP03-072_p2",
     "OP03-072_r1",
     "OP03-075",
+    "OP03-077",
+    "OP03-077_p1",
     "OP03-078",
     "OP03-078_p1",
     "OP03-078_p2",
@@ -1920,6 +1936,8 @@
     "P-029",
     "P-038",
     "P-043",
+    "P-047",
+    "P-047_p1",
     "P-049",
     "P-049_p1",
     "P-053",
@@ -2148,6 +2166,7 @@
     "ST09-014",
     "ST10-001",
     "ST10-002",
+    "ST10-003",
     "ST10-005",
     "ST10-006",
     "ST10-006_p2",
@@ -2161,6 +2180,8 @@
     "ST10-013",
     "ST10-013_p1",
     "ST10-013_p2",
+    "ST11-001",
+    "ST11-001_p1",
     "ST11-002",
     "ST11-003",
     "ST11-003_p1",

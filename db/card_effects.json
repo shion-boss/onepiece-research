@@ -14542,56 +14542,56 @@
   ],
   "OP09-062": [
     {
-      "_text": "OP09-062 【アタック時】自分の手札から",
+      "_text": "OP09-062 【アタック時】手札から【トリガー】1枚を捨てることができる：ドン‼1枚をレストで追加",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "trigger": true
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
-    },
-    {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP09-062_p1": [
     {
-      "_text": "OP09-062_p1 【アタック時】自分の手札から",
+      "_text": "OP09-062 【アタック時】手札から【トリガー】1枚を捨てることができる：ドン‼1枚をレストで追加",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "trigger": true
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
-    },
-    {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP09-081": [
@@ -16012,11 +16012,7 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
+          "put_top_to_life": 1
         }
       ],
       "cost": {
@@ -16034,11 +16030,7 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
+          "put_top_to_life": 1
         }
       ],
       "cost": {
@@ -16864,10 +16856,14 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "search_top_n": {
+            "depth": 1,
+            "filter": {
+              "feature": "FILM"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -17121,10 +17117,14 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "search_top_n": {
+            "depth": 1,
+            "filter": {
+              "feature": "FILM"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -17184,8 +17184,8 @@
         {
           "power_pump": {
             "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+            "amount": 2000,
+            "duration": "turn"
           }
         }
       ],
@@ -17197,6 +17197,24 @@
       "cost": {
         "pay_don": 1
       }
+    },
+    {
+      "_text": "ST10-003 【自分のターン中】自分のライフが4枚以上の場合、このリーダーはパワー-1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_life_ge": 4
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": -1000,
+            "duration": "static"
+          }
+        }
+      ]
     }
   ],
   "ST09-001": [
@@ -17496,19 +17514,6 @@
     }
   ],
   "P-047": [
-    {
-      "_text": "P-047 【アタック時】自分の手札が3枚以下の場合、カード1枚を引く。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        }
-      ]
-    },
     {
       "_text": "【ドン!!×1】【アタック時】自分の手札が3枚以下の場合、カード1枚を引く",
       "when": "on_attack",
@@ -18007,19 +18012,6 @@
     }
   ],
   "P-047_p1": [
-    {
-      "_text": "P-047_p1 【アタック時】自分の手札が3枚以下の場合、カード1枚を引く。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        }
-      ]
-    },
     {
       "_text": "【ドン!!×1】【アタック時】自分の手札が3枚以下の場合、カード1枚を引く",
       "when": "on_attack",
