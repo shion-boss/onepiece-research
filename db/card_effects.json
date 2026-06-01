@@ -12192,9 +12192,6 @@
       },
       "do": [
         {
-          "draw": 1
-        },
-        {
           "power_pump_multi": {
             "target_specs": [
               "one_self_character_any",
@@ -12205,15 +12202,6 @@
             "duration": "turn",
             "_label": "革命軍_or_trigger"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP05-002_p2 【トリガー】を持つキャラ3枚までを、このターン中、パワー+3000。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
@@ -12533,9 +12521,6 @@
         "once_per_turn": true
       },
       "do": [
-        {
-          "draw": 1
-        },
         {
           "attach_rested_don": {
             "target": "all_self_team",
@@ -14259,15 +14244,6 @@
       ]
     },
     {
-      "_text": "OP09-062 【トリガー】を持つカード1枚を捨てることができる：ドン‼デッキからドン‼1枚までを、レストで追加する。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    },
-    {
       "_text": "activate_main: add_don 補完",
       "when": "activate_main",
       "do": [
@@ -14291,15 +14267,6 @@
             "amount": 1000,
             "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP09-062_p1 【トリガー】を持つカード1枚を捨てることができる：ドン‼デッキからドン‼1枚までを、レストで追加する。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     },
@@ -14355,9 +14322,6 @@
       },
       "do": [
         {
-          "draw": 1
-        },
-        {
           "attach_rested_don": {
             "target": "all_self_team",
             "count": 1,
@@ -14376,9 +14340,6 @@
         "once_per_turn": true
       },
       "do": [
-        {
-          "draw": 1
-        },
         {
           "attach_rested_don": {
             "target": "all_self_team",
@@ -15048,9 +15009,6 @@
       },
       "do": [
         {
-          "draw": 1
-        },
-        {
           "power_pump_multi": {
             "target_specs": [
               "one_self_character_any",
@@ -15061,15 +15019,6 @@
             "duration": "turn",
             "_label": "革命軍_or_trigger"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP05-002 【トリガー】を持つキャラ3枚までを、このターン中、パワー+3000。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
@@ -15083,9 +15032,6 @@
       },
       "do": [
         {
-          "draw": 1
-        },
-        {
           "power_pump_multi": {
             "target_specs": [
               "one_self_character_any",
@@ -15096,15 +15042,6 @@
             "duration": "turn",
             "_label": "革命軍_or_trigger"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP05-002_p1 【トリガー】を持つキャラ3枚までを、このターン中、パワー+3000。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
@@ -16388,7 +16325,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_character_any",
+            "count": 2
+          }
         }
       ]
     }
@@ -16402,7 +16342,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_character_any",
+            "count": 2
+          }
         }
       ]
     }
@@ -16659,9 +16602,6 @@
       },
       "do": [
         {
-          "draw": 1
-        },
-        {
           "search_top_n": {
             "depth": 5,
             "filter": {
@@ -16677,11 +16617,8 @@
     {
       "_text": "ST13-002 【自分のターン終了時】自分のライフの表向きのカードすべてをトラッシュに置く。",
       "when": "end_of_turn",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自ライフ表向きカードすべてをトラッシュ (= 表向きライフ未モデル、 face-up-life 機構要)"
     }
   ],
   "ST13-002_p1": [
@@ -16692,9 +16629,6 @@
         "once_per_turn": true
       },
       "do": [
-        {
-          "draw": 1
-        },
         {
           "search_top_n": {
             "depth": 5,
@@ -16711,11 +16645,8 @@
     {
       "_text": "ST13-002_p1 【自分のターン終了時】自分のライフの表向きのカードすべてをトラッシュに置く。",
       "when": "end_of_turn",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自ライフ表向きカードすべてをトラッシュ (= 表向きライフ未モデル、 face-up-life 機構要)"
     }
   ],
   "ST13-003": [
@@ -17001,7 +16932,16 @@
       },
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "FILM"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -17016,7 +16956,7 @@
       },
       "do": [
         {
-          "draw": 1
+          "mill_opp_life_to_trash": 1
         }
       ]
     }
@@ -17030,9 +16970,6 @@
         "pay_don": 4
       },
       "do": [
-        {
-          "draw": 1
-        },
         {
           "return_to_hand": {
             "type": "one_self_chara_filtered",
@@ -17069,7 +17006,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 1
+          }
         }
       ]
     }
@@ -17083,7 +17023,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 1
+          }
         }
       ]
     }
@@ -17114,7 +17057,16 @@
       },
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "FILM"
+              }
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -17257,7 +17209,11 @@
       },
       "do": [
         {
-          "draw": 1
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 1,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -17307,7 +17263,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 1
+          }
         }
       ]
     }
@@ -17549,9 +17508,6 @@
       },
       "do": [
         {
-          "draw": 1
-        },
-        {
           "attach_rested_don": {
             "target": "all_self_team",
             "count": 1,
@@ -17773,7 +17729,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 1
+          }
         }
       ]
     }
@@ -17787,7 +17746,10 @@
       },
       "do": [
         {
-          "draw": 1
+          "attach_rested_don": {
+            "target": "one_self_character_any",
+            "count": 2
+          }
         }
       ]
     }
