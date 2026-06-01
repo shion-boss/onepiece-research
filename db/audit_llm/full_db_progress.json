@@ -1,4 +1,38 @@
 {
+ "_RESUME": {
+  "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
+  "現状": "verified 2196/4518 (48%)。 audited(inline監査済 1531) + vanilla_verified(空overlay正常 449) + equivalence_verified(audited等価 216)。 残監査キュー = db/audit_llm/signature_clusters.json (overlay+text署名でクラスタ化、 size降順、 audited除外済、 約1659署名/2330枚)。",
+  "再開手順": [
+   "1. db/audit_llm/signature_clusters.json を読む。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
+   "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
+   "3. 正しい rep は `.venv/bin/python scripts/mark_audited_clusters.py REP1 REP2 ...` で cluster 全メンバーを audited に追加 + signature_clusters.json 再生成 + total_verified 自動更新。",
+   "4. バグの rep は db/card_effects.json を公式text通りに直接修正 (engine未実装primitiveは engine/effects.py 追加 or 近似+_text注記)。 修正後 smoke + pytest 確認 → commit。",
+   "5. 横断的に怪しい型は `.venv/bin/python scripts/scan_systematic_issues.py` で DB全体検出 → バッチ修正 (これが最高ROI)。",
+   "6. 意味ある単位ごとに `git add db/audit_llm/full_db_progress.json db/audit_llm/signature_clusters.json db/card_effects.json && git commit && git push origin main`。"
+  ],
+  "検証ゲート_commit前必須": ".venv/bin/python -m pytest -q (green) / scripts/smoke_test_card_effects.py (ERROR 0) / card_effects.json は round-trip安定 (json.dumps indent=2 ensure_ascii=False+改行)。 必要に応じ scripts/audit_engine_strictness.py(10/10) / audit_overlay_vs_faq.py(sev>=5=0) / test_no_double_optional_cost.py。",
+  "scripts": {
+   "scripts/mark_audited_clusters.py": "確認済 rep を渡すと cluster 全体を audited 化 + queue 再生成。 grind の主ツール",
+   "scripts/scan_systematic_issues.py": "DB横断 systematic バグ検出 (missing_draw/dup_same_when/don_gate/search_filter/soshite_base_gated 等)",
+   "scripts/smoke_test_card_effects.py": "全カード効果を最小ステートで発火、 ERROR検出",
+   "scripts/audit_human_choice_coverage.py": "任意コスト/択一の人間操作欠落検出 (→db/audit_llm/human_choice.json)"
+  },
+  "頻出バグ類型_grind中に注視": [
+   "効果違い (text と無関係な do、 例 OP08-118 debuff→KO / OP06-047 自draw→相手手札リセット)",
+   "destination違い (手札に戻す vs デッキの下、 例 OP06-058)",
+   "「A。その後Xの場合B」 で base A まで if gate (self-target base のみ無条件化、 opp-debuff conditional は触らない=ST29-015 の FP 回避)",
+   "条件節 欠落/余分 (ドン差/レスト数/ライフ、 例 OP06-069欠落 OP05-118余分)",
+   "cost踏み倒し (任意コスト未モデル化、 search filter部分欠落)",
+   "二重 (cost.discard_hand+do.trash_random / 同when if有+無条件)"
+  ],
+  "defer_architectural_触らない": [
+   "OP01-120/OP09-014 等: 「パワーN以下のブロッカー無視」 → 専用primitive無 (ブロック不可で過剰近似中)",
+   "OP11-071: 任意コスト宣言(declare)機構 未実装",
+   "【自分のターン中】相手すべて等の継続静的効果 ~20枚: on_attached_don n:0 static 化が要 (OP02-121/OP05-102/EB04-017 等)",
+   "OP15-060 等: 複雑な複合 (要個別rebuild)"
+  ],
+  "注意": "rush 厳禁。 各batch ~10-15% に固有バグ (真正度85-90%実証)。 高速処理は FP を生む (実績: draw誤付与/ST29-015条件誤削除/二重cost — 全て検証で捕捉・是正)。 mark_audited 前に必ず text 照合。 systematic 一括修正は self-target限定等の制約を必ず検証。"
+ },
  "meta": {
   "created": "2026-05-31",
   "total_effect_cards": 4072,
