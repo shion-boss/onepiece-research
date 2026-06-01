@@ -690,6 +690,10 @@ def eval_condition(
             subs = v if isinstance(v, list) else [v]
             if not any(eval_condition(s, state, me, self_inplay) for s in subs):
                 return False
+        elif k == "not":
+            # 否定: v = <condition dict> が False の場合に True (= 「~でない場合」、 OP12-096 等)。
+            if eval_condition(v if isinstance(v, dict) else {}, state, me, self_inplay):
+                return False
         elif k == "leader_attribute":
             # 自リーダーが属性 v を持つか (= OP13-025「属性(打)」)。
             if me.leader is None or str(v) not in (me.leader.card.attribute or ""):
@@ -1629,6 +1633,21 @@ def _resolve_target(
         if outer_kind and _maybe_request_target_pick(
             state, cands, 1, outer_kind, outer_value, self_inplay,
             description="相手レストキャラ から 1 枚 選択 (パワー≤5000)",
+        ):
+            return []
+        cands.sort(key=lambda c: -_opp_value(c))
+        return cands[:1]
+    if target_spec == "one_opponent_rested_character_don_eq_cost":
+        # 「相手のレストのキャラ1枚までを選ぶ。 選んだキャラのコストが付与ドン枚数と同じ場合、 KO」
+        # (= OP15-031 プリンプリン)。 簡略: cost==attached_dons を満たす rested キャラだけを候補化
+        # (= KO が成立する選択のみ行う)。
+        cands = [
+            c for c in opp.characters
+            if c.rested and getattr(c, "base_cost", -1) == getattr(c, "attached_dons", -2)
+        ]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手レストキャラ から 1 枚 選択 (コスト=付与ドン枚数)",
         ):
             return []
         cands.sort(key=lambda c: -_opp_value(c))
@@ -2941,6 +2960,11 @@ def _execute_effect_body(
                     me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                 ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
                 me.characters.append(ip)
+                # 「登場させた場合、 そのキャラは 【keyword】 を得る」 (= OP12-058 速攻)。
+                pk = spec_val.get("played_keyword")
+                if pk:
+                    ip.granted_keywords.add(str(pk))
+                    state.push_log(f"  効果: 登場キャラに【{pk}】付与 → {revealed.name}")
                 if state.effects_overlay:
                     trigger_on_play(state, me, opp, ip, state.effects_overlay)
             else:
@@ -4241,6 +4265,27 @@ def _execute_effect_body(
                 me.trash.append(c)
                 milled.append(c.name)
             state.push_log(f"  効果: 自デッキ {len(milled)} 枚 trash → {milled}")
+        elif k == "mill_top_then":
+            # 「自分のデッキの上から N 枚をトラッシュに置く。 置いたカードが <filter> の場合、 <then>」
+            # (= OP08-096「コスト6以上だった場合」)。 N=1 default。 milled の いずれかが filter
+            # 一致なら then を発動。 デッキ空で 0 枚なら filter 不一致扱い (then 不発)。
+            spec_val = v if isinstance(v, dict) else {}
+            n = int(spec_val.get("count", 1))
+            filt = spec_val.get("filter", {})
+            then_specs = spec_val.get("then", []) or []
+            milled = []
+            for _ in range(n):
+                if me.deck:
+                    milled.append(me.deck.pop(0))
+                    me.trash.append(milled[-1])
+            matched = any(_matches_filter(c, filt) for c in milled)
+            state.push_log(
+                f"  効果: デッキ上{len(milled)}枚トラッシュ → {[c.name for c in milled]} "
+                f"({'条件成立' if matched else '条件不成立'})"
+            )
+            if matched:
+                for es in then_specs:
+                    execute_effect(es, state, me, opp, self_inplay)
         elif k == "look_top_reorder":
             # 自分のデッキ上 N 枚を見て、 好きな順番で デッキの上/下 に置く。
             # spec:
@@ -6018,6 +6063,29 @@ def _execute_effect_body(
                     if len(matching) < rh_count:
                         can_pay = False
                         break
+                elif "ko_self_chara" in cs:
+                    # 公式 「自分のキャラ N 枚を (KO/トラッシュに置く) ことができる：効果」 用 cost。
+                    # OP05-087 ハクバ (このキャラ以外) / EB04-048 ルッチ 等。
+                    # spec: {"ko_self_chara": {"count": 1, "filter": {...}, "exclude_self": true}}
+                    #   or short: {"ko_self_chara": 1}
+                    kc_spec = cs["ko_self_chara"]
+                    if isinstance(kc_spec, dict):
+                        kc_count = int(kc_spec.get("count", 1))
+                        kc_filt = kc_spec.get("filter", {})
+                        kc_excl = bool(kc_spec.get("exclude_self", False))
+                    else:
+                        kc_count = int(kc_spec)
+                        kc_filt = {}
+                        kc_excl = False
+                    matching = [
+                        c for c in me.characters
+                        if _matches_filter(c.card, kc_filt)
+                        and not (kc_excl and self_inplay is not None
+                                 and c.instance_id == self_inplay.instance_id)
+                    ]
+                    if len(matching) < kc_count:
+                        can_pay = False
+                        break
                 elif "trash_to_deck" in cs:
                     # 公式 「自分のトラッシュから filter 一致のカード N 枚を好きな順番でデッキの下/上に置く
                     # ことができる：効果」 用 cost。 OP11-119 コビー 等。
@@ -6180,6 +6248,36 @@ def _execute_effect_body(
                             state.push_log(
                                 f"  効果コスト: 自キャラ → デッキ下 ({c.card.name})"
                             )
+                            if c.attached_dons > 0:
+                                me.don_rested += c.attached_dons
+                        else:
+                            new_chars.append(c)
+                    me.characters = new_chars
+                    continue
+                if "ko_self_chara" in cs:
+                    # 公式: 自分のキャラ N 枚を KO (= トラッシュへ)。 OP05-087 / EB04-048。
+                    kc_spec = cs["ko_self_chara"]
+                    if isinstance(kc_spec, dict):
+                        kc_count = int(kc_spec.get("count", 1))
+                        kc_filt = kc_spec.get("filter", {})
+                        kc_excl = bool(kc_spec.get("exclude_self", False))
+                    else:
+                        kc_count = int(kc_spec)
+                        kc_filt = {}
+                        kc_excl = False
+                    cands = [
+                        c for c in me.characters
+                        if _matches_filter(c.card, kc_filt)
+                        and not (kc_excl and self_inplay is not None
+                                 and c.instance_id == self_inplay.instance_id)
+                    ]
+                    cands.sort(key=lambda c: c.power)  # AI 簡易: power 低い順を犠牲
+                    to_ko = {c.instance_id for c in cands[:kc_count]}
+                    new_chars = []
+                    for c in me.characters:
+                        if c.instance_id in to_ko:
+                            me.trash.append(c.card)
+                            state.push_log(f"  効果コスト: 自キャラKO → {c.card.name}")
                             if c.attached_dons > 0:
                                 me.don_rested += c.attached_dons
                         else:
