@@ -1618,22 +1618,54 @@
   ],
   "OP15-045": [
     {
-      "_text": "OP15-045 on_play: 自分の手札からイベント1枚を捨てることができる：カード2枚を引く。",
+      "_text": "OP15-045 on_play: 自分の手札からイベント1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP15-048": [
     {
-      "_text": "OP15-048 on_play: 自分の手札からイベント1枚を捨てることができる：カード2枚を引く。【相手のターン中】",
+      "_text": "OP15-048 on_play: 自分の手札からイベント1枚を捨てることができる：カード2枚を引く。【相手のターン中】 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ],
       "conditions": [
@@ -2827,11 +2859,28 @@
   ],
   "ST30-006": [
     {
-      "_text": "ST30-006 on_play: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "ST30-006 on_play: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_ge": 6000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -3852,11 +3901,28 @@
   ],
   "OP03-012": [
     {
-      "_text": "OP03-012 on_attack: 自分のパワー4000以上の赤のキャラ1枚をトラッシュに置くことができる：カード1枚を引く。その後、このキャラは、このバトル中、パワー+1000。",
+      "_text": "OP03-012 on_attack: 自分のパワー4000以上の赤のキャラ1枚をトラッシュに置くことができる：カード1枚を引く。その後、このキャラは、このバトル中、パワー+1000。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1,
+                  "filter": {
+                    "color": "赤",
+                    "power_ge": 4000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -5168,24 +5234,33 @@
   ],
   "EB03-055": [
     {
-      "_text": "EB03-055 on_play: 自分のライフの上から1枚をトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から2枚までを、ライフの上に加える。【相",
+      "_text": "EB03-055 on_play: 自ライフ上1枚trash(任意コスト)→リーダー麦わらならデッキ上2枚までをライフへ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 2
-        },
-        {
-          "mill_self_life_to_trash": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "麦わらの一味"
+                  },
+                  "do": [
+                    {
+                      "put_top_to_life": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "conditions": [
-        {
-          "leader_feature": "麦わらの一味"
-        }
-      ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -5651,23 +5726,28 @@
       ]
     },
     {
-      "_text": "OP13-031 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
+      "_text": "OP13-031 on_play: 自キャラ1枚を手札に戻すコスト(任意)→手札からcost5以下キャラをレスト登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 5
-            },
-            "limit": 1
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "cost_le": 5
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 5
+                  },
+                  "limit": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -7889,7 +7969,7 @@
       }
     },
     {
-      "_text": "OP15-057 opp_attack: このステージをレストにし、自分の手札からイベントかステージカード1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
+      "_text": "OP15-057 opp_attack: ステージrest+手札からイベント/ステージ1枚捨て(コスト)→自リーダー/キャラ+2000 battle",
       "when": "opp_attack",
       "do": [
         {
@@ -7899,7 +7979,19 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true,
+        "discard_hand_with_filter": {
+          "filter": {
+            "category_in": [
+              "EVENT",
+              "STAGE"
+            ]
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP06-038": [
@@ -8010,11 +8102,27 @@
   ],
   "EB03-041": [
     {
-      "_text": "EB03-041 on_play: 自分の手札から特徴《海軍》を持つカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "EB03-041 on_play: 自分の手札から特徴《海軍》を持つカード1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "海軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -8092,11 +8200,24 @@
   ],
   "OP07-085": [
     {
-      "_text": "OP07-085 on_play: 自分のキャラ1枚をトラッシュに置くことができる：相手のキャラ1枚までを、KOする。",
+      "_text": "OP07-085 on_play: 自分のキャラ1枚をトラッシュに置くことができる：相手のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
       ]
     }
@@ -12445,14 +12566,25 @@
   ],
   "OP07-079_p2": [
     {
-      "_text": "OP07-079_p2 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "OP07-079_p2 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -14597,14 +14729,25 @@
   ],
   "OP07-079": [
     {
-      "_text": "OP07-079 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "OP07-079 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -14612,14 +14755,25 @@
   ],
   "OP07-079_p1": [
     {
-      "_text": "OP07-079_p1 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "OP07-079_p1 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -17177,20 +17331,38 @@
   ],
   "P-086": [
     {
-      "_text": "P-086 起動メイン(ターン1,ドン-3):手札からハートの海賊団cost4以下1枚を登場 (旧draw誤実装、 自パワー3000+デッキ下cost は近似省略)",
+      "_text": "P-086 起動メイン【ターン1回】: ドン-3 + 自パワー3000以上キャラ1枚をデッキ下(任意コスト) → 手札からコスト4以下ハートの海賊団キャラ1枚を登場",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "pay_don": 3
+        "once_per_turn": true
       },
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "feature": "ハートの海賊団",
-              "cost_le": 4
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 3
+              },
+              {
+                "return_self_chara_to_deck_bottom": {
+                  "count": 1,
+                  "filter": {
+                    "power_ge": 3000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "feature": "ハートの海賊団",
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -19228,17 +19400,33 @@
   ],
   "P-083": [
     {
-      "_text": "P-083 on_attack: 自分の手札からキャラカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-1000。その後、カード1枚を引く。",
+      "_text": "P-083 on_attack: 自分の手札からキャラカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-1000。その後、カード1枚を引く。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -19246,11 +19434,28 @@
   ],
   "PRB02-003": [
     {
-      "_text": "PRB02-003 on_play: 自分の手札からパワー6000以上のキャラカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "PRB02-003 on_play: 自分の手札からパワー6000以上のキャラカード1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_ge": 6000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -19465,16 +19670,39 @@
   ],
   "ST19-002": [
     {
-      "_text": "ST19-002 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。",
+      "_text": "ST19-002 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "color": "黒",
+                    "feature": "海軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "海軍"
+                  },
+                  "do": [
+                    {
+                      "draw": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "海軍"
-      }
+      ]
     }
   ],
   "OP02-004": [
@@ -19663,14 +19891,22 @@
   ],
   "OP03-121": [
     {
-      "_text": "OP03-121 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-121 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -22665,20 +22901,37 @@
   ],
   "OP10-047": [
     {
-      "_text": "OP10-047 on_attack: 自分のコスト3以上の特徴《革命軍》を持つキャラ1枚を持ち主の手札に戻すことができる：このキャラは、このターン中、パワー+3000。",
+      "_text": "OP10-047 on_attack: 自分のコスト3以上の特徴《革命軍》を持つキャラ1枚を持ち主の手札に戻すことができる：このキャラは、このターン中、パワー+3000。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 3000,
-            "duration": "turn"
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 3,
+                    "feature": "革命軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 3000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
       ]
@@ -23811,11 +24064,28 @@
   ],
   "OP08-037": [
     {
-      "_text": "OP08-037 main: 自分の特徴《ミンク族》を持つキャラ1枚をレストにできる：相手のキャラ1枚までを、レストにする。",
+      "_text": "OP08-037 main: 自分の特徴《ミンク族》を持つキャラ1枚をレストにできる：相手のキャラ1枚までを、レストにする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "ミンク族"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_any"
+              }
+            ]
+          }
         }
       ]
     },
@@ -24913,31 +25183,98 @@
   ],
   "OP05-096": [
     {
-      "_text": "OP05-096 main: 相手のコスト1以下のキャラ1枚までを、KOするか、持ち主の手札に戻すか、ライフの上か下に表向きで置く。その後、自分の特徴《天竜人》を持つキャラがいる場合、カード",
+      "_text": "OP05-096 main: 相手コスト1以下キャラ1枚までを KO/手札戻し/ライフ置き の択一→天竜人キャラありでドロー1 [choice化]",
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "KOする",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_1cost"
+                  }
+                ]
+              },
+              {
+                "label": "手札に戻す",
+                "do": [
+                  {
+                    "return_to_hand": {
+                      "type": "one_opponent_character_filtered",
+                      "filter": {
+                        "cost_le": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "label": "ライフの上か下に置く",
+                "do": [
+                  {
+                    "chara_to_opp_life": {
+                      "type": "one_opponent_character_filtered",
+                      "filter": {
+                        "cost_le": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         },
         {
-          "ko": "one_opponent_character_cost_le_1cost"
-        },
-        {
-          "return_to_hand": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 1
-            }
+          "conditional": {
+            "if": {
+              "self_chara_feature_count_ge": {
+                "feature": "天竜人",
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP05-096 trigger: 相手のコスト6以下のキャラ1枚までを、KOするか、持ち主の手札に戻す。",
+      "_text": "OP05-096 trigger: 相手コスト6以下キャラ1枚までを KO/手札戻し の択一 [choice化]",
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_6cost"
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "KOする",
+                "do": [
+                  {
+                    "ko": "one_opponent_character_cost_le_6cost"
+                  }
+                ]
+              },
+              {
+                "label": "手札に戻す",
+                "do": [
+                  {
+                    "return_to_hand": {
+                      "type": "one_opponent_character_filtered",
+                      "filter": {
+                        "cost_le": 6
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -25093,11 +25430,27 @@
   ],
   "OP04-081": [
     {
-      "_text": "OP04-081 on_attack: 自分のリーダーをレストにできる：相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から2枚をトラッシュに置く。",
+      "_text": "OP04-081 on_attack: 自分のリーダーをレストにできる：相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から2枚をトラッシュに置く。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "category": "LEADER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -25140,16 +25493,38 @@
   ],
   "OP04-091": [
     {
-      "_text": "OP04-091 on_play: 自分のリーダー1枚をレストにできる：自分のリーダーが特徴《ドレスローザ》を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から",
+      "_text": "OP04-091 on_play: 自分のリーダー1枚をレストにできる：自分のリーダーが特徴《ドレスローザ》を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "category": "LEADER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "ドレスローザ"
+                  },
+                  "do": [
+                    {
+                      "ko": "one_opponent_character_cost_le_1cost"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "ドレスローザ"
-      }
+      ]
     }
   ],
   "OP04-092": [
@@ -25295,14 +25670,30 @@
   ],
   "OP03-018": [
     {
-      "_text": "OP03-018 main: 自分の手札からイベント1枚を捨てることができる：相手の、パワー5000以下のキャラ1枚までとパワー4000以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-018 main: 自分の手札からイベント1枚を捨てることができる：相手の、パワー5000以下のキャラ1枚までとパワー4000以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_power_le_5000",
-            "one_opponent_character_power_le_4000"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_power_le_5000",
+                  "one_opponent_character_power_le_4000"
+                ]
+              }
+            ]
+          }
         }
       ]
     },
@@ -26514,11 +26905,22 @@
   ],
   "ST13-008": [
     {
-      "_text": "ST13-008 on_play: 自分のライフの上か下から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "ST13-008 on_play: 自分のライフの上か下から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -26990,11 +27392,27 @@
   ],
   "P-038": [
     {
-      "_text": "P-038 on_play: 自分のリーダー1枚をレストにできる：相手のコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "P-038 on_play: 自分のリーダー1枚をレストにできる：相手のコスト1以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "category": "LEADER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -27767,17 +28185,33 @@
   ],
   "P-083_p1": [
     {
-      "_text": "P-083_p1 on_attack: 自分の手札からキャラカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-1000。その後、カード1枚を引く。",
+      "_text": "P-083_p1 on_attack: 自分の手札からキャラカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-1000。その後、カード1枚を引く。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -27830,11 +28264,28 @@
   ],
   "PRB02-003_p1": [
     {
-      "_text": "PRB02-003_p1 on_play: 自分の手札からパワー6000以上のキャラカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "PRB02-003_p1 on_play: 自分の手札からパワー6000以上のキャラカード1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_ge": 6000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -28266,16 +28717,39 @@
   ],
   "ST19-002_p2": [
     {
-      "_text": "ST19-002_p2 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。",
+      "_text": "ST19-002_p2 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "color": "黒",
+                    "feature": "海軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "海軍"
+                  },
+                  "do": [
+                    {
+                      "draw": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "海軍"
-      }
+      ]
     }
   ],
   "ST21-003_p2": [
@@ -29023,14 +29497,22 @@
   ],
   "OP03-121_p4": [
     {
-      "_text": "OP03-121_p4 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-121_p4 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -29046,14 +29528,22 @@
   ],
   "OP03-121_p5": [
     {
-      "_text": "OP03-121_p5 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-121_p5 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -30735,11 +31225,27 @@
   ],
   "EB03-041_p1": [
     {
-      "_text": "EB03-041_p1 on_play: 自分の手札から特徴《海軍》を持つカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "EB03-041_p1 on_play: 自分の手札から特徴《海軍》を持つカード1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "海軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ],
       "conditions": [
@@ -30848,24 +31354,33 @@
   ],
   "EB03-055_p1": [
     {
-      "_text": "EB03-055_p1 on_play: 自分のライフの上から1枚をトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から2枚までを、ライフの上に加える。【相",
+      "_text": "EB03-055 on_play: 自ライフ上1枚trash(任意コスト)→リーダー麦わらならデッキ上2枚までをライフへ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 2
-        },
-        {
-          "mill_self_life_to_trash": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "麦わらの一味"
+                  },
+                  "do": [
+                    {
+                      "put_top_to_life": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "conditions": [
-        {
-          "leader_feature": "麦わらの一味"
-        }
-      ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -31023,24 +31538,33 @@
   ],
   "EB03-055_p2": [
     {
-      "_text": "EB03-055_p2 on_play: 自分のライフの上から1枚をトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から2枚までを、ライフの上に加える。【相",
+      "_text": "EB03-055 on_play: 自ライフ上1枚trash(任意コスト)→リーダー麦わらならデッキ上2枚までをライフへ",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 2
-        },
-        {
-          "mill_self_life_to_trash": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "麦わらの一味"
+                  },
+                  "do": [
+                    {
+                      "put_top_to_life": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "conditions": [
-        {
-          "leader_feature": "麦わらの一味"
-        }
-      ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      ]
     },
     {
       "_text": "EB03-055 ロビン 相手ターン中 自KO時: 相手に 1 ダメージ",
@@ -34611,11 +35135,24 @@
   ],
   "OP07-085_p2": [
     {
-      "_text": "OP07-085_p2 on_play: 自分のキャラ1枚をトラッシュに置くことができる：相手のキャラ1枚までを、KOする。",
+      "_text": "OP07-085_p2 on_play: 自分のキャラ1枚をトラッシュに置くことができる：相手のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
       ]
     }
@@ -35673,11 +36210,24 @@
   ],
   "OP07-085_p1": [
     {
-      "_text": "OP07-085_p1 on_play: 自分のキャラ1枚をトラッシュに置くことができる：相手のキャラ1枚までを、KOする。",
+      "_text": "OP07-085_p1 on_play: 自分のキャラ1枚をトラッシュに置くことができる：相手のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
       ]
     }
@@ -36726,14 +37276,30 @@
   ],
   "OP03-018_p1": [
     {
-      "_text": "OP03-018_p1 main: 自分の手札からイベント1枚を捨てることができる：相手の、パワー5000以下のキャラ1枚までとパワー4000以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-018_p1 main: 自分の手札からイベント1枚を捨てることができる：相手の、パワー5000以下のキャラ1枚までとパワー4000以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_power_le_5000",
-            "one_opponent_character_power_le_4000"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_power_le_5000",
+                  "one_opponent_character_power_le_4000"
+                ]
+              }
+            ]
+          }
         }
       ]
     },
@@ -37610,11 +38176,28 @@
   ],
   "ST30-006_p1": [
     {
-      "_text": "ST30-006_p1 on_play: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：カード2枚を引く。",
+      "_text": "ST30-006_p1 on_play: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：カード2枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_ge": 6000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -37956,11 +38539,22 @@
   ],
   "ST13-008_p1": [
     {
-      "_text": "ST13-008_p1 on_play: 自分のライフの上か下から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "ST13-008_p1 on_play: 自分のライフの上か下から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -40702,16 +41296,39 @@
   ],
   "ST19-002_p1": [
     {
-      "_text": "ST19-002_p1 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。",
+      "_text": "ST19-002_p1 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "color": "黒",
+                    "feature": "海軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "海軍"
+                  },
+                  "do": [
+                    {
+                      "draw": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "海軍"
-      }
+      ]
     }
   ],
   "ST23-001_p1": [
@@ -41137,14 +41754,22 @@
   ],
   "OP03-121_p2": [
     {
-      "_text": "OP03-121_p2 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-121_p2 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -42456,14 +43081,22 @@
   ],
   "EB01-051_p1": [
     {
-      "_text": "EB01-051_p1 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "EB01-051_p1 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "mill_self_top": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -42481,14 +43114,22 @@
   ],
   "EB01-051_r1": [
     {
-      "_text": "EB01-051_r1 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "EB01-051_r1 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "mill_self_top": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -42649,22 +43290,54 @@
   ],
   "OP01-055_p1": [
     {
-      "_text": "OP01-055_p1 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。",
+      "_text": "OP01-055_p1 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 2,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP01-055_r1": [
     {
-      "_text": "OP01-055_r1 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。",
+      "_text": "OP01-055_r1 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 2,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -43669,20 +44342,36 @@
   ],
   "OP07-056_p1": [
     {
-      "_text": "OP07-056_p1 counter: 自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+      "_text": "OP07-056_p1 counter: 自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。 [opt-cost化]",
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 4000,
-            "duration": "battle"
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              },
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
       ]
@@ -43699,20 +44388,36 @@
   ],
   "OP07-056_r1": [
     {
-      "_text": "OP07-056_r1 counter: 自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+      "_text": "OP07-056_r1 counter: 自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。 [opt-cost化]",
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 4000,
-            "duration": "battle"
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              },
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
       ]
@@ -45312,17 +46017,33 @@
   ],
   "P-083_r1": [
     {
-      "_text": "P-083_r1 on_attack: 自分の手札からキャラカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-1000。その後、カード1枚を引く。",
+      "_text": "P-083_r1 on_attack: 自分の手札からキャラカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-1000。その後、カード1枚を引く。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -46304,16 +47025,39 @@
   ],
   "ST19-002_r1": [
     {
-      "_text": "ST19-002_r1 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。",
+      "_text": "ST19-002_r1 on_play: 自分の手札から黒の特徴《海軍》を持つカード2枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、カード3枚を引く。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "draw": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "color": "黒",
+                    "feature": "海軍"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "海軍"
+                  },
+                  "do": [
+                    {
+                      "draw": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "海軍"
-      }
+      ]
     }
   ],
   "ST21-003_r1": [
@@ -48033,14 +48777,22 @@
   ],
   "OP03-121_r1": [
     {
-      "_text": "OP03-121_r1 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-121_r1 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -50789,19 +51541,38 @@
   ],
   "EB04-019": [
     {
-      "_text": "EB04-019 main: 自分のカード1枚をレストにできる：自分のリーダーが特徴《ミンク族》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-3。",
+      "_text": "EB04-019 main: 自分のカード1枚をレストにできる：自分のリーダーが特徴《ミンク族》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-3。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "ミンク族"
+                  },
+                  "do": [
+                    {
+                      "cost_minus": {
+                        "target": "one_opponent_character_any",
+                        "amount": 3
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
-      ],
-      "if": {
-        "leader_feature": "ミンク族"
-      }
+      ]
     },
     {
       "_text": "EB04-019 counter: 自分の特徴《ミンク族》を持つ、リーダーかキャラ1枚までを、このバトル中、パワー+3000。",
@@ -51152,13 +51923,24 @@
   ],
   "EB04-042": [
     {
-      "_text": "EB04-042 on_play: 自分のデッキの上から3枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "EB04-042 on_play: 自分のデッキの上から3枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 3
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -51223,14 +52005,22 @@
   ],
   "EB04-049": [
     {
-      "_text": "EB04-049 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手の元々のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "EB04-049 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手の元々のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "mill_self_top": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -52264,14 +53054,22 @@
   ],
   "EB03-054": [
     {
-      "_text": "EB03-054 on_play: 自分のライフの上から1枚をトラッシュに置くことができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "EB03-054 on_play: 自分のライフの上から1枚をトラッシュに置くことができる：自分のデッキの上から1枚までを、ライフの上に加える。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "mill_self_life_to_trash": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -54249,14 +55047,22 @@
   ],
   "EB01-051": [
     {
-      "_text": "EB01-051 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "EB01-051 main: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
-        },
-        {
-          "mill_self_top": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -56830,13 +57636,29 @@
   ],
   "OP13-053": [
     {
-      "_text": "OP13-053 on_attack: 自分の『白ひげ海賊団』を含む特徴を持つキャラ1枚をトラッシュに置くことができる：カード1枚を引き、このキャラは、このターン中、【バニッシュ】を得る。",
+      "_text": "OP13-053 on_attack: 自分の『白ひげ海賊団』を含む特徴を持つキャラ1枚をトラッシュに置くことができる：カード1枚を引き、このキャラは、このターン中、【バニッシュ】を得る。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "バニッシュ"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "白ひげ海賊団"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "バニッシュ"
+                }
+              }
+            ]
           }
         }
       ]
@@ -58328,16 +59150,38 @@
   ],
   "OP12-074": [
     {
-      "_text": "OP12-074 on_play: 自分の手札からイベント1枚を捨てることができる：自分のリーダーが「サンジ」の場合、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP12-074 on_play: 自分の手札からイベント1枚を捨てることができる：自分のリーダーが「サンジ」の場合、ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_name": "サンジ"
+                  },
+                  "do": [
+                    {
+                      "add_don": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_name": "サンジ"
-      }
+      ]
     }
   ],
   "OP12-078": [
@@ -58495,13 +59339,24 @@
   ],
   "OP12-090": [
     {
-      "_text": "OP12-090 on_attack: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-2。",
+      "_text": "OP12-090 on_attack: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-2。 [opt-cost化]",
       "when": "on_attack",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 2
+                }
+              }
+            ]
           }
         }
       ]
@@ -59781,11 +60636,22 @@
   ],
   "OP11-098": [
     {
-      "_text": "OP11-098 main: 自分のデッキの上から3枚をトラッシュに置くことができる：相手のコスト2以下のキャラ1枚までを、KOする。",
+      "_text": "OP11-098 main: 自分のデッキの上から3枚をトラッシュに置くことができる：相手のコスト2以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 3
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -60413,20 +61279,37 @@
   ],
   "OP10-021": [
     {
-      "_text": "OP10-021 activate_main: このステージをレストにできる：自分のリーダーが「シーザー・クラウン」の場合、自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。",
+      "_text": "OP10-021 activate_main: このステージをレストにできる：自分のリーダーが「シーザー・クラウン」の場合、自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_name": "シーザー・クラウン"
+                  },
+                  "do": [
+                    {
+                      "attach_don": {
+                        "target": "self_inplay_choice",
+                        "count": 1,
+                        "rested": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
-      ],
-      "if": {
-        "leader_name": "シーザー・クラウン"
-      }
+      ]
     }
   ],
   "OP10-025": [
@@ -61684,20 +62567,37 @@
   ],
   "OP09-021": [
     {
-      "_text": "OP09-021 activate_main: このステージをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "_text": "OP09-021 activate_main: このステージをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "赤髪海賊団"
+                  },
+                  "do": [
+                    {
+                      "power_pump": {
+                        "target": "one_opponent_character_any",
+                        "amount": -1000,
+                        "duration": "turn"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
-      ],
-      "if": {
-        "leader_feature": "赤髪海賊団"
-      }
+      ]
     }
   ],
   "OP09-024": [
@@ -65067,20 +65967,36 @@
   ],
   "OP07-056": [
     {
-      "_text": "OP07-056 counter: 自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+      "_text": "OP07-056 counter: 自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。 [opt-cost化]",
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 4000,
-            "duration": "battle"
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              },
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
       ]
@@ -69658,13 +70574,29 @@
   ],
   "OP04-088": [
     {
-      "_text": "OP04-088 activate_main: 自分のリーダー1枚をレストにできる：相手のキャラ1枚までを、このターン中、コスト-4。",
+      "_text": "OP04-088 activate_main: 自分のリーダー1枚をレストにできる：相手のキャラ1枚までを、このターン中、コスト-4。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 4
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "category": "LEADER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 4
+                }
+              }
+            ]
           }
         }
       ]
@@ -69795,16 +70727,38 @@
   ],
   "OP04-098": [
     {
-      "_text": "OP04-098 on_play: 自分の手札から特徴《ワノ国》を持つカード2枚を捨てることができる：自分のライフが1枚以下の場合、自分のデッキの上から1枚をライフの上に加える。",
+      "_text": "OP04-098 on_play: 自分の手札から特徴《ワノ国》を持つカード2枚を捨てることができる：自分のライフが1枚以下の場合、自分のデッキの上から1枚をライフの上に加える。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "feature": "ワノ国"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "self_life_le": 1
+                  },
+                  "do": [
+                    {
+                      "put_top_to_life": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     }
   ],
   "OP04-102": [
@@ -70934,16 +71888,33 @@
   ],
   "OP03-075": [
     {
-      "_text": "OP03-075 activate_main: このステージをレストにできる：自分のリーダーが「アイスバーグ」の場合、ドン!!デッキからドン!!1枚までを、レストで追加する。",
+      "_text": "OP03-075 activate_main: このステージをレストにできる：自分のリーダーが「アイスバーグ」の場合、ドン!!デッキからドン!!1枚までを、レストで追加する。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_name": "アイスバーグ"
+                  },
+                  "do": [
+                    {
+                      "add_rested_don": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_name": "アイスバーグ"
-      }
+      ]
     }
   ],
   "OP03-078": [
@@ -71231,21 +72202,38 @@
   ],
   "OP03-098": [
     {
-      "_text": "OP03-098 activate_main: このステージをレストにできる：自分のリーダーが『CP』を含む特徴を持つ場合、相手のキャラ1枚までを、このターン中、コスト-2。",
+      "_text": "OP03-098 activate_main: このステージをレストにできる：自分のリーダーが『CP』を含む特徴を持つ場合、相手のキャラ1枚までを、このターン中、コスト-2。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_features_any": [
+                      "CP"
+                    ]
+                  },
+                  "do": [
+                    {
+                      "cost_minus": {
+                        "target": "one_opponent_character_any",
+                        "amount": 2
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
-      ],
-      "if": {
-        "leader_features_any": [
-          "CP"
-        ]
-      }
+      ]
     },
     {
       "_text": "OP03-098 trigger: このカードを登場させる",
@@ -71381,11 +72369,22 @@
   ],
   "OP03-109": [
     {
-      "_text": "OP03-109 on_play: 自分のライフの上か下から1枚をトラッシュに置くことができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP03-109 on_play: 自分のライフの上か下から1枚をトラッシュに置くことができる：自分のデッキの上から1枚までを、ライフの上に加える。 [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -73612,11 +74611,27 @@
   ],
   "OP01-055": [
     {
-      "_text": "OP01-055 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。",
+      "_text": "OP01-055 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 2,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -74570,13 +75585,24 @@
   ],
   "ST30-007": [
     {
-      "_text": "ST30-007 on_play: 自分のドン!!1枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+      "_text": "ST30-007 on_play: 自分のドン!!1枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる) [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              }
+            ]
           }
         }
       ]
@@ -74597,13 +75623,24 @@
   ],
   "ST30-007_p1": [
     {
-      "_text": "ST30-007_p1 on_play: 自分のドン!!1枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+      "_text": "ST30-007_p1 on_play: 自分のドン!!1枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる) [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              }
+            ]
           }
         }
       ]
@@ -74684,13 +75721,24 @@
   ],
   "ST30-012": [
     {
-      "_text": "ST30-012 on_play: 自分のドン!!枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+      "_text": "ST30-012 on_play: 自分のドン!!枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる) [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              }
+            ]
           }
         }
       ]
@@ -74707,13 +75755,24 @@
   ],
   "ST30-012_p1": [
     {
-      "_text": "ST30-012_p1 on_play: 自分のドン!!枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
+      "_text": "ST30-012_p1 on_play: 自分のドン!!枚をレストにできる：このキャラは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる) [opt-cost化]",
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              }
+            ]
           }
         }
       ]
@@ -76948,14 +78007,22 @@
   ],
   "OP03-121_r2": [
     {
-      "_text": "OP03-121_r2 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-121_r2 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト5以下のキャラ1枚までを、KOする。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -80090,19 +81157,36 @@
       ]
     },
     {
-      "_text": "ST06-017 activate_main: このステージをレストにできる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "ST06-017 activate_main: このステージをレストにできる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "海軍"
+                  },
+                  "do": [
+                    {
+                      "cost_minus": {
+                        "target": "one_opponent_character_any",
+                        "amount": 1
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
-      ],
-      "if": {
-        "leader_feature": "海軍"
-      }
+      ]
     }
   ],
   "ST05-002": [
@@ -80398,16 +81482,33 @@
   ],
   "ST04-017": [
     {
-      "_text": "ST04-017 activate_main: このステージをレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン!!デッキからドン!!1枚までをレストで追加する。",
+      "_text": "ST04-017 activate_main: このステージをレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン!!デッキからドン!!1枚までをレストで追加する。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "百獣海賊団"
+                  },
+                  "do": [
+                    {
+                      "add_rested_don": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "百獣海賊団"
-      }
+      ]
     }
   ],
   "ST03-003": [
@@ -81898,11 +82999,27 @@
   ],
   "OP01-055_p2": [
     {
-      "_text": "OP01-055_p2 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。",
+      "_text": "OP01-055_p2 main: 自分のキャラ2枚をレストにできる：カード2枚を引く。 [opt-cost化]",
       "when": "main",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 2,
+                  "filter": {
+                    "category": "CHARACTER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -86697,16 +87814,33 @@
   ],
   "ST04-017_p1": [
     {
-      "_text": "ST04-017_p1 activate_main: このステージをレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン!!デッキからドン!!1枚までをレストで追加する。",
+      "_text": "ST04-017_p1 activate_main: このステージをレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン!!デッキからドン!!1枚までをレストで追加する。 [opt-cost化]",
       "when": "activate_main",
       "do": [
         {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "百獣海賊団"
+                  },
+                  "do": [
+                    {
+                      "add_rested_don": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "百獣海賊団"
-      }
+      ]
     }
   ],
   "ST05-002_p2": [

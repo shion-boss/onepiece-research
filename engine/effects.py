@@ -2472,7 +2472,10 @@ def _execute_effect_body(
                         t.next_opp_turn_end_applier_idx = me_idx
                         t.next_opp_turn_end_applied_turn = state.turn_number
                     else:
-                        t.power_buff_until_turn_end += amount
+                        # 通常 power_pump (turn) と同じく turn_buff を使う。
+                        # 旧コードは存在しない power_buff_until_turn_end を参照し
+                        # AttributeError (= power_pump_multi turn-duration 全カードで発火) だった。
+                        t.turn_buff += amount
                     already.add(id(t))
             state.push_log(
                 f"  効果: power+{amount} multi ({duration}) → "
@@ -6162,6 +6165,21 @@ def _execute_effect_body(
             if not should_fire:
                 state.push_log(f"  効果: optional_cost_then 不発 (cost不能 or 効果空)")
                 return False
+            # 人間 操作 中 は 任意コスト (= 公式「〜できる：」) の pay/skip を 本人 に 委ねる。
+            # _cost_confirmed (= resolve_pending_choice 経由 の 再実行) は bypass。
+            # AI 操作 (= _should_human_pick False) は 従来通り 自動 fire (= matrix/test 不変)。
+            if not spec_val.get("_cost_confirmed") and _should_human_pick(state):
+                src_name = self_inplay.card.name if self_inplay is not None else "効果"
+                state.pending_choice = {
+                    "kind": "optional_cost_confirm",
+                    "spec": spec_val,
+                    "self_inplay_iid": (
+                        self_inplay.instance_id if self_inplay is not None else None
+                    ),
+                    "source_name": src_name,
+                    "prompt": f"{src_name}: 任意コストを払って効果を発動しますか？",
+                }
+                return False
             for cs in cost_specs:
                 # 一部 cost は execute_effect の通常パスでは正しく動かない:
                 #   - rest_self_target_name / rest_self_target はそのキャラを rest にする
@@ -6178,8 +6196,10 @@ def _execute_effect_body(
                             state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
                             break
                     continue
-                if "rest_self" in cs and not isinstance(cs.get("rest_self"), (dict, int, str)):
-                    # rest_self: True 形式 (= self_inplay を rest)
+                if cs.get("rest_self") is True:
+                    # rest_self: True 形式 (= self_inplay = ステージ/キャラ を rest)。
+                    # 旧ガード not isinstance(..,(dict,int,str)) は bool が int 部分型のため
+                    # True を誤除外し no-op だった (= 既存8枚含む rest_self cost 不発の pre-existing bug)。
                     if self_inplay is not None and not self_inplay.rested:
                         self_inplay.rested = True
                         state.push_log(f"  効果コスト: 自身レスト {self_inplay.card.name}")
@@ -6527,6 +6547,27 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "optional_cost_confirm":
+        # 任意コスト (= 公式「〜できる：」) の pay/skip 人間選択。 picks[0]==1 → pay。
+        # pay → 同 spec を _cost_confirmed 付き で 再実行 (= gate bypass、 cost+effect 実行。
+        # effect 内 の target pick 等 は さらに pending_choice を 連鎖 で 立てる)。
+        spec = dict(choice.get("spec") or {})
+        self_inplay_iid = choice.get("self_inplay_iid")
+        self_inplay = None
+        if self_inplay_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == self_inplay_iid:
+                    self_inplay = ip
+                    break
+        state.pending_choice = None
+        if not (picks and picks[0] == 1):
+            state.push_log(f"  効果: 任意コスト 見送り ({choice.get('source_name', '')})")
+            return
+        spec["_cost_confirmed"] = True
+        execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
         return
 
     if kind in ("play_from_trash_pick", "summon_from_deck_pick"):

@@ -1837,6 +1837,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "optional_cost_confirm" ? (
+          /* 任意コスト (= 公式「〜できる：」) の pay/skip を 人間 に 委ねる。
+             払う → picks=[1] (= engine が _cost_confirmed 付きで cost+effect 再実行)、
+             払わない → picks=[0] (= 見送り)。 */
+          <OptionalCostConfirmModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "play_from_hand_pick" ? (
           <PlayFromHandPickModal
             payload={state.pending_payload}
@@ -6345,6 +6354,58 @@ function ViewLifeTopChoosePositionModal({
 // ========================================================================== //
 // reveal_top_play: デッキ上 1 枚 公開 → 登場 / skip confirm modal
 // ========================================================================== //
+
+// OptionalCostConfirmModal: 任意コスト (= 公式「〜できる：」) の pay/skip 確認。
+// 旧実装は can_pay なら自動 fire し、 人間にコスト払いの是非を問わず自動化していた。
+function OptionalCostConfirmModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const prompt = String(
+    payload.prompt ?? "任意コストを払って効果を発動しますか？",
+  );
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex w-full max-w-md flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-2 text-lg font-bold text-amber-200">任意コスト</h3>
+        <p className="mb-5 text-sm text-zinc-200">{prompt}</p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([0]);
+            }}
+            disabled={busy}
+            className="ml-auto rounded bg-zinc-700 px-4 py-2 text-sm text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            払わない
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([1]);
+            }}
+            disabled={busy}
+            className="rounded bg-amber-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+          >
+            コストを払う
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function RevealTopPlayConfirmModal({
   payload,
