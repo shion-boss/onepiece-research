@@ -303,8 +303,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                     source_iid=evt.source_iid,
                 ) is False:
                     continue
-                for primitive in eff.get("do", []):
-                    execute_effect(primitive, state, me, opp, self_inplay)
+                run_do_array(eff.get("do", []), state, me, opp, self_inplay)
             return
 
         # 通常の when 一致 effects を全て発火
@@ -390,8 +389,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                         )
                         return
                     _pay_counter_cost(state, me, opp, self_inplay, real_cost)
-            for primitive in eff.get("do", []):
-                execute_effect(primitive, state, me, opp, self_inplay)
+            run_do_array(eff.get("do", []), state, me, opp, self_inplay)
     finally:
         state.current_source_card_id = prev_src_cid
         state.forced_human_actor_idx = prev_forced
@@ -6498,23 +6496,73 @@ def run_do_array(
     - `_chain: "always"` (= 「その後」/省略): 前文の成否に関わらず実行
     """
     prev_succeeded = True
-    for spec in do_list:
+    for i, spec in enumerate(do_list):
         chain = spec.get("_chain", "always")
         if chain == "if_prev_succeeded" and not prev_succeeded:
             continue
         # _chain は execute_effect には渡さない (純粋なプリミティブ part のみ)
         clean_spec = {k: v for k, v in spec.items() if k != "_chain"}
         result = execute_effect(clean_spec, state, me, opp, self_inplay)
-        # 人間 interactive choice 待ち が 立った 場合 は 後続 を 止める
-        # (= 選択 解決 後 に 残り を 動かす 仕組み は 後段 で 別途 必要 だが、
-        #    まず は halt を 保証)
+        # 人間 interactive choice 待ち が 立った 場合 は 後続 を 止める。
+        # 残り do を _continuation に退避 → resolve_pending_choice が選択解決後に継続実行。
+        # (= search_top_n + trash_self_hand 等、 1 do-list 内に複数 interactive primitive が
+        #    並ぶカード (OP13-086 シャルリア宮 等) で、 後続が pending_choice を上書きして
+        #    前段の modal/効果を喪失する人間UXバグを防ぐ)。
         if state.pending_choice is not None:
+            if "_continuation" not in state.pending_choice:
+                state.pending_choice["_continuation"] = {
+                    "do": list(do_list[i + 1:]),
+                    "owner_idx": state.players.index(me),
+                    "source_iid": self_inplay.instance_id if self_inplay is not None else None,
+                }
             return
         # execute_effect は基本 True 返却 (現状)。将来各プリミティブで失敗判定するなら更新
         prev_succeeded = result if result is not None else True
 
 
+def _run_continuation(state: GameState, cont: dict) -> None:
+    """run_do_array が halt 時に保存した _continuation (残り do-items) を実行。
+
+    owner_idx / source_iid から me/opp/self_inplay を復元し、 残り do を run_do_array で
+    順次実行 (途中で再び pending_choice が立てば run_do_array が再度 continuation 保存)。"""
+    do_items = cont.get("do") or []
+    if not do_items:
+        return
+    owner_idx = int(cont.get("owner_idx", state.turn_player_idx))
+    me = state.players[owner_idx]
+    opp = state.players[1 - owner_idx]
+    si = None
+    sid = cont.get("source_iid")
+    if sid is not None:
+        for ip in [me.leader, *me.characters, *me.stages,
+                   opp.leader, *opp.characters, *opp.stages]:
+            if ip.instance_id == sid:
+                si = ip
+                break
+    run_do_array(do_items, state, me, opp, si)
+
+
 def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
+    """人間 選択 を 反映 して pending_choice を 解消 (wrapper)。
+
+    解決後、 元の choice に _continuation (= 同 do-list の残り primitive、 run_do_array が
+    halt 時に保存) があれば実行する。 chained choice (= 解決で新たな pending_choice が
+    立つ) 時は continuation を引き継ぐ。"""
+    choice = state.pending_choice
+    if choice is None:
+        return
+    cont = choice.get("_continuation")
+    _resolve_pending_choice_inner(state, picks)
+    if state.pending_choice is not None:
+        # 解決で新たな pending_choice が連鎖 → continuation を引き継ぐ
+        if cont is not None and "_continuation" not in state.pending_choice:
+            state.pending_choice["_continuation"] = cont
+        return
+    if cont is not None:
+        _run_continuation(state, cont)
+
+
+def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     """人間 選択 を 反映 して pending_choice を 解消。
 
     picks の 意味 は choice.kind 別:

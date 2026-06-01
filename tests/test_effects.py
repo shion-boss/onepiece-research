@@ -3408,3 +3408,36 @@ def test_on_self_chara_ko_preserves_victim_context():
     trigger_on_self_chara_ko(state, me, state.players[1], overlay)  # victim_card 省略
     resolve_triggers(state)
     assert len(me.hand) == h0 + 1, "OP13-002: 元々パワー6000+キャラKOで1ドローが発火しない (victim context clobber)"
+
+
+def test_op13_086_multi_interactive_continuation():
+    """engine/UX fix: 1 do-list 内に複数 human-interactive primitive が並ぶカードで、
+    前段 (search_top_n) の modal を後段 (trash_self_hand_random) が上書きせず、
+    search→discard の順で modal が出て効果が完遂する (run_do_array の _continuation 機構)。
+    OP13-086 シャルリア宮 (発見済み UX バグ) の回帰防止。"""
+    from engine.effects import trigger_on_play, resolve_pending_choice
+    import json as _json
+    repo = _repo()
+    overlay = _overlay()
+    tenryu = [c["card_id"] for c in _json.load(open(ROOT / "db" / "cards.json"))
+              if "天竜人" in (c.get("features") or "")][:2]
+    state = _make_state(repo, "OP13-079", overlay=overlay)
+    state.human_player_idx = 0
+    state.turn_number = 3
+    state.turn_player_idx = 0
+    me = state.players[0]
+    me.deck = [repo.get(tenryu[0]), repo.get(tenryu[1]), repo.get("OP01-013")] + [repo.get("OP01-013")] * 10
+    me.hand = [repo.get("OP01-013"), repo.get("OP01-016")]
+    ip = InPlay.of(repo.get("OP13-086"), sickness=True)
+    me.characters = [ip]
+    trigger_on_play(state, me, state.players[1], ip, overlay)
+    # 1st modal = search_top_n (天竜人を選ぶ) が先に出る
+    assert (state.pending_choice or {}).get("kind") == "search_top_n", \
+        f"search modal が先に出ない: {(state.pending_choice or {}).get('kind')}"
+    resolve_pending_choice(state, [0])  # 天竜人[0] を手札へ
+    # 2nd modal = self_hand_discard_pick が継続して出る (上書きされず)
+    assert (state.pending_choice or {}).get("kind") == "self_hand_discard_pick", \
+        f"discard modal が継続しない: {(state.pending_choice or {}).get('kind')}"
+    resolve_pending_choice(state, [0])
+    assert state.pending_choice is None, "全 choice 解決後も pending が残る"
+    assert len(me.trash) == 3, "残2枚trash + 手札1捨て = trash 3 にならない"
