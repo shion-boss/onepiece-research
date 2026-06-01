@@ -19649,13 +19649,29 @@
   ],
   "PRB02-017": [
     {
-      "_text": "PRB02-017 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のレストのリーダーか、「モンキー・Ｄ・ルフィ」以外の相手のキャラ1枚までは、次の相手のエンド",
+      "_text": "PRB02-017 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のレストのリーダーか、「モンキー・Ｄ・ルフィ」以外の相手のキャラ1枚までは、次の相手のエンド [r2]",
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_any",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_character_any",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ]
@@ -25749,11 +25765,27 @@
       }
     },
     {
-      "_text": "OP04-094 trigger: 自分のリーダーをレストにできる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP04-094 trigger: 自分のリーダーをレストにできる：相手のコスト5以下のキャラ1枚までを、KOする。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "category": "LEADER"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -28694,13 +28726,29 @@
   ],
   "PRB02-017_p1": [
     {
-      "_text": "PRB02-017_p1 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のレストのリーダーか、「モンキー・Ｄ・ルフィ」以外の相手のキャラ1枚までは、次の相手のエンド",
+      "_text": "PRB02-017_p1 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のレストのリーダーか、「モンキー・Ｄ・ルフィ」以外の相手のキャラ1枚までは、次の相手のエンド [r2]",
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_any",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_character_any",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ]
@@ -37483,13 +37531,29 @@
       ]
     },
     {
-      "_text": "OP03-013_p1 on_ko: 自分の手札からイベント1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。",
+      "_text": "マルコ KO時: 手札からイベント1枚を捨てることができる: このキャラカードをトラッシュからレストで登場させる。",
       "when": "on_ko",
       "do": [
         {
-          "play_self": {
-            "from": "trash",
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -39662,13 +39726,29 @@
       ]
     },
     {
-      "_text": "OP03-013_p2 on_ko: 自分の手札からイベント1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。",
+      "_text": "マルコ KO時: 手札からイベント1枚を捨てることができる: このキャラカードをトラッシュからレストで登場させる。",
       "when": "on_ko",
       "do": [
         {
-          "play_self": {
-            "from": "trash",
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -41917,13 +41997,29 @@
       ]
     },
     {
-      "_text": "OP03-013_p3 on_ko: 自分の手札からイベント1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。",
+      "_text": "マルコ KO時: 手札からイベント1枚を捨てることができる: このキャラカードをトラッシュからレストで登場させる。",
       "when": "on_ko",
       "do": [
         {
-          "play_self": {
-            "from": "trash",
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -49996,14 +50092,22 @@
       }
     },
     {
-      "_text": "OP05-115_p1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP05-115_p1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -50029,14 +50133,22 @@
       }
     },
     {
-      "_text": "OP05-115_p2 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP05-115_p2 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -50062,14 +50174,22 @@
       }
     },
     {
-      "_text": "OP05-115_p3 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP05-115_p3 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -50095,14 +50215,22 @@
       }
     },
     {
-      "_text": "OP05-115_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP05-115_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -65685,19 +65813,33 @@
       ]
     },
     {
-      "_text": "OP08-111 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。",
+      "_text": "OP08-111 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "play_self": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "self_life_le": 2
+                  },
+                  "do": [
+                    {
+                      "play_self": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "OP08-112": [
@@ -65798,14 +65940,22 @@
   ],
   "OP08-117": [
     {
-      "_text": "OP08-117 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト7以下のキャラ1枚までを、KOする。",
+      "_text": "OP08-117 main: 自分のライフの上から1枚をトラッシュに置くことができる：相手のコスト7以下のキャラ1枚までを、KOする。 [r2]",
       "when": "main",
       "do": [
         {
-          "mill_self_life_to_trash": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_7cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_7cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -69917,14 +70067,22 @@
       }
     },
     {
-      "_text": "OP05-115 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP05-115 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [r2]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -72880,30 +73038,33 @@
   ],
   "OP03-105": [
     {
-      "_text": "don×1 on_attack: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：このキャラは、このバトル中、パワー+3000",
+      "_text": "OP03-105 on_attack(ドン1): トリガー持ち手札捨て(cost)→このキャラ+3000 [r2]",
       "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 3000,
-            "duration": "battle"
-          }
-        }
-      ],
       "if": {
         "self_attached_don_ge": 1
-      }
-    },
-    {
-      "_text": "OP03-105 on_attack: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：このキャラは、このバトル中、パワー+3000。",
-      "when": "on_attack",
+      },
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -73095,11 +73256,27 @@
   ],
   "OP03-115": [
     {
-      "_text": "OP03-115 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-115 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト1以下のキャラ1枚までを、KOする。 [r2]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -78696,11 +78873,27 @@
   ],
   "OP03-115_r1": [
     {
-      "_text": "OP03-115_r1 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-115_r1 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト1以下のキャラ1枚までを、KOする。 [r2]",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -78720,14 +78913,22 @@
       ]
     },
     {
-      "_text": "OP03-118_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "trigger: 手札2捨て で 自デッキ上1→ライフ",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
