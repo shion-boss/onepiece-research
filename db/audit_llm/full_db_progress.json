@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2842/4518 (62%)。 【Track1 grind 2026-06-02】 batch7-11。 batch11=feature exact照合 systematic scan (CP family 6枚永久不発 是正、 他70は「/」分割FP)。 engine計4件追加。 全ゲートgreen。 次=cluster grind 継続 (multi-card優先)。 ⚠full_db_progress.json 都度更新で自律進行。",
+    "現状": "verified 2858/4518 (63%)。 【Track1 grind 2026-06-02】 batch7-12 で engine 5件 + 約130枚是正。 batch12=条件欠落4枚(動的filter/self_life比較/reveal/exact-power count、 全既存primitive)。 全ゲートgreen。 次=cluster grind 継続。 ⚠full_db_progress.json 都度更新で自律進行。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -134,12 +134,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1376,
-      "remaining_cards": 1687,
+      "remaining_unique_sig": 1368,
+      "remaining_cards": 1671,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 2842,
+    "total_verified": 2858,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -391,6 +391,13 @@
       "cards": 6,
       "lesson": "⭐「『X』を含む特徴」 の exact照合は X が単独feature要素なら「/」分割でマッチ(FP) / X が長いfeatureの substring (CP⊂CP9) なら永久不発(真bug)。 scan は exact値が全カードの「/」分割要素集合に存在するかで判定",
       "gates": "smoke ERROR=0 / pytest EXIT=0 / leader_feature_contains CP→CP9/CP0 マッチ検証"
+    },
+    "cluster_grind_session_2026_06_02_batch12": {
+      "fixed": "ST29-002 ウソップ(「相手ライフ枚数以下コスト」動的filter欠落→one_opponent_character_filtered cost_le_dynamic:opp_life_count) / ST29-003 カク(「自ライフ≤相手ライフなら+1000」static欠落→on_attached_don n0 self_life_le_opp) / ST22-003 白ひげ(「デッキ上1枚公開、白ひげなら2枚引く」reveal+条件欠落→reveal_top_then feature_contains rest_remain:top) / ST30-015(「元々パワー6000のキャラ2枚以上」条件欠落→self_chara_filtered_count_ge power_eq:6000 count:2)",
+      "clean": "ST13-013(named search) ST05-006(ドン-2 draw) ST04-010(ドン-1 KO+trig play) ST02-005(レストKO+trig play)",
+      "cards": 16,
+      "lesson": "⭐既存primitiveで多くの条件欠落は補完可: 動的cost filter(cost_le_dynamic:opp_life_count) / self_life_le_opp / reveal_top_then(rest_remain:top で公開カードを戻しdraw) / self_chara_filtered_count_ge(power_eq で元々パワーぴったり count)",
+      "gates": "smoke ERROR=0 / pytest EXIT=0 / 動的filter+reveal behavioral検証"
     }
   },
   "audited": [
@@ -2301,6 +2308,8 @@
     "ST01-015_r2",
     "ST02-001",
     "ST02-001_p1",
+    "ST02-005",
+    "ST02-005_r1",
     "ST02-007",
     "ST02-008",
     "ST02-008_p2",
@@ -2344,6 +2353,8 @@
     "ST04-005_p4",
     "ST04-005_p5",
     "ST04-005_r1",
+    "ST04-010",
+    "ST04-010_p1",
     "ST04-016",
     "ST04-016_p3",
     "ST04-016_p4",
@@ -2359,6 +2370,8 @@
     "ST05-004_r1",
     "ST05-005",
     "ST05-005_r1",
+    "ST05-006",
+    "ST05-006_r1",
     "ST05-009",
     "ST05-009_r1",
     "ST05-014",
@@ -2460,6 +2473,8 @@
     "ST13-012",
     "ST13-012_p1",
     "ST13-012_p2",
+    "ST13-013",
+    "ST13-013_p1",
     "ST13-014",
     "ST13-014_p1",
     "ST13-014_p2",
@@ -2544,6 +2559,8 @@
     "ST21-014_p1",
     "ST21-014_p2",
     "ST22-002",
+    "ST22-003",
+    "ST22-003_p1",
     "ST22-010",
     "ST22-015",
     "ST23-001",
@@ -2556,6 +2573,10 @@
     "ST28-005",
     "ST29-001",
     "ST29-001_p1",
+    "ST29-002",
+    "ST29-002_p1",
+    "ST29-003",
+    "ST29-003_p1",
     "ST29-004",
     "ST29-009",
     "ST29-009_p1",
@@ -2569,6 +2590,8 @@
     "ST30-007",
     "ST30-008",
     "ST30-012",
+    "ST30-015",
+    "ST30-015_p1",
     "ST30-017",
     "ST30-017_p1"
   ],

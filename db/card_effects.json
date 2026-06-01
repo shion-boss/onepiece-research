@@ -27321,7 +27321,15 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "power_eq": 6000
+          },
+          "count": 2
+        }
+      }
     },
     {
       "_text": "ST30-015 trigger: 相手のパワー6000以下のキャラ1枚までを、KOする。",
@@ -27339,7 +27347,12 @@
       "when": "on_attack",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     },
@@ -27348,12 +27361,34 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
   ],
   "ST29-003": [
+    {
+      "_text": "ST29-003 静的: 自ライフ≤相手ライフなら このキャラ+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le_opp": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
     {
       "_text": "ST29-003 trigger: 相手のコスト3以下のキャラ1枚までを、KOする。",
       "when": "trigger",
@@ -27588,7 +27623,18 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "draw": 2
+              }
+            ],
+            "rest_remain": "top"
+          }
         }
       ]
     }
@@ -39792,7 +39838,15 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "power_eq": 6000
+          },
+          "count": 2
+        }
+      }
     },
     {
       "_text": "ST30-015_p1 trigger: 相手のパワー6000以下のキャラ1枚までを、KOする。",
@@ -39810,7 +39864,12 @@
       "when": "on_attack",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     },
@@ -39819,12 +39878,34 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
   ],
   "ST29-003_p1": [
+    {
+      "_text": "ST29-003_p1 静的: 自ライフ≤相手ライフなら このキャラ+1000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le_opp": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
     {
       "_text": "ST29-003_p1 trigger: 相手のコスト3以下のキャラ1枚までを、KOする。",
       "when": "trigger",
@@ -40055,7 +40136,18 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "draw": 2
+              }
+            ],
+            "rest_remain": "top"
+          }
         }
       ]
     }
