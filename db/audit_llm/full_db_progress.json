@@ -70,6 +70,17 @@
    "draw復元": 81,
    "total_card": 216,
    "note": "inline監査+等価署名化で発見した systematic bug。 cost:{discard_hand:N}(action-cost実行)+do:[trash_random:N]が二重発火しN×2枚捨て。 opt型はoptional_cost_then化、mand型はentry cost除去+欠落draw復元。 commit ac08292/b8746b7/3f75c95"
+  },
+  "systematic_fix_phase": {
+   "scanner": "scripts/scan_systematic_issues.py",
+   "double_discard": 216,
+   "dup_same_when": 50,
+   "missing_draw": 25,
+   "search_filter_missing": 25,
+   "don_gate_missing": 153,
+   "total_card": "~470 (重複除く)",
+   "deferred": "don_gate 自分のターン中静的 ~7 + OP11-071 declare機構",
+   "note": "等価署名 grind 中に DB 横断 systematic bug を機械検出・一括是正。 個別監査では見えない横断パターン (二重discard/二重発火/欠落draw/filter欠落/ドンgate欠落)。 scanner で missing_draw/search_filter は FP 除き 0。"
   }
  },
  "audited": [

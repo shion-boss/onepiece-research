@@ -46,7 +46,8 @@ for cid, ents in eff.items():
                 continue
             filt = st.get("filter", {})
             text_wants_feat = bool(re.search(r"(特徴《[^》]+》|『[^』]+』を含む特徴)", t))
-            has_feat = any(k in filt for k in ("feature", "feature_contains", "feature_in", "name", "name_in", "color", "category"))
+            has_feat = any(k in filt for k in ("feature", "feature_contains", "feature_in",
+                "name", "name_in", "color", "category", "or_clauses", "feature_or_name", "or", "cost_eq", "cost_ge"))
             if text_wants_feat and not has_feat:
                 issues["search_filter_missing"].append(cid)
 
