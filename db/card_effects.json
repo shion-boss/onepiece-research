@@ -19994,11 +19994,22 @@
       ]
     },
     {
-      "_text": "OP03-113 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-113 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [r3]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -26734,11 +26745,22 @@
       ]
     },
     {
-      "_text": "ST29-004 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "ST29-004 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [r3]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -29320,15 +29342,29 @@
   ],
   "OP01-047_p3": [
     {
-      "_text": "OP01-047_p3 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 3
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 3
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         },
         {
@@ -29722,11 +29758,22 @@
       ]
     },
     {
-      "_text": "OP03-113_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-113_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [r3]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -33003,23 +33050,28 @@
   ],
   "OP13-031_p1": [
     {
-      "_text": "OP13-031_p1 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
+      "_text": "OP13-031 on_play: 自キャラ1枚を手札に戻すコスト(任意)→手札からcost5以下キャラをレスト登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 5
-            },
-            "limit": 1
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "cost_le": 5
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 5
+                  },
+                  "limit": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -37440,15 +37492,29 @@
   ],
   "OP01-047_p2": [
     {
-      "_text": "OP01-047_p2 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 3
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 3
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         },
         {
@@ -37757,11 +37823,22 @@
       ]
     },
     {
-      "_text": "OP03-113_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-113_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [r3]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -38304,15 +38381,29 @@
   ],
   "OP01-047_p1": [
     {
-      "_text": "OP01-047_p1 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 3
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 3
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         },
         {
@@ -38561,11 +38652,22 @@
       ]
     },
     {
-      "_text": "ST29-004_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "ST29-004_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [r3]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -47719,15 +47821,29 @@
   ],
   "OP01-047_r1": [
     {
-      "_text": "OP01-047_r1 on_play: 自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
+      "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 3
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 3
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         },
         {
@@ -49124,11 +49240,22 @@
       ]
     },
     {
-      "_text": "OP03-113_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-113_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [r3]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -51172,19 +51299,30 @@
   ],
   "P-029_p2": [
     {
-      "_text": "P-029_p2 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "P-029_p2 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。 [r3]",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_character_filtered",
-              "filter": {
-                "exclude_name": "バルトロメオ",
-                "feature": "FILM"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_character_filtered",
+                    "filter": {
+                      "exclude_name": "バルトロメオ",
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -51192,19 +51330,30 @@
   ],
   "P-029_p3": [
     {
-      "_text": "P-029_p3 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "P-029_p3 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。 [r3]",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_character_filtered",
-              "filter": {
-                "exclude_name": "バルトロメオ",
-                "feature": "FILM"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_character_filtered",
+                    "filter": {
+                      "exclude_name": "バルトロメオ",
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -51212,19 +51361,30 @@
   ],
   "P-029_r1": [
     {
-      "_text": "P-029_r1 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "P-029_r1 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。 [r3]",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_character_filtered",
-              "filter": {
-                "exclude_name": "バルトロメオ",
-                "feature": "FILM"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_character_filtered",
+                    "filter": {
+                      "exclude_name": "バルトロメオ",
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -56327,16 +56487,27 @@
   ],
   "OP15-088": [
     {
-      "_text": "OP15-088 on_play: 自分のデッキの上から3枚をトラッシュに置くことができる：自分のトラッシュからコスト2以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP15-088 on_play: 自分のデッキの上から3枚をトラッシュに置くことができる：自分のトラッシュからコスト2以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。 [r3]",
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "cost_le": 2,
-              "feature": "麦わらの一味"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 3
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "cost_le": 2,
+                    "feature": "麦わらの一味"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -64748,16 +64919,33 @@
   ],
   "OP08-039": [
     {
-      "_text": "OP08-039 activate_main: このステージをレストにできる：自分のリーダーが特徴《ミンク族》を持つ場合、自分のドン‼1枚までを、アクティブにする。",
+      "_text": "OP08-039 activate_main: このステージをレストにできる：自分のリーダーが特徴《ミンク族》を持つ場合、自分のドン‼1枚までを、アクティブにする。 [r3]",
       "when": "activate_main",
       "do": [
         {
-          "untap_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "ミンク族"
+                  },
+                  "do": [
+                    {
+                      "untap_don": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "ミンク族"
-      }
+      ]
     },
     {
       "_text": "OP08-039 end_of_turn: 自分の特徴《ミンク族》を持つキャラ1枚までを、アクティブにする。",
@@ -72207,11 +72395,27 @@
   ],
   "OP03-037": [
     {
-      "_text": "OP03-037 main: 自分の特徴《東の海》を持つキャラ1枚をレストにできる：相手のレストのコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-037 main: 自分の特徴《東の海》を持つキャラ1枚をレストにできる：相手のレストのコスト3以下のキャラ1枚までを、KOする。 [r3]",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_rested_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "東の海"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_rested_character_cost_le_3cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -79579,19 +79783,30 @@
   ],
   "P-029_r2": [
     {
-      "_text": "P-029_r2 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "P-029_r2 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。 [r3]",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_character_filtered",
-              "filter": {
-                "exclude_name": "バルトロメオ",
-                "feature": "FILM"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_character_filtered",
+                    "filter": {
+                      "exclude_name": "バルトロメオ",
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -81055,13 +81270,29 @@
   ],
   "ST11-002": [
     {
-      "_text": "ST11-002 end_of_turn: 自分の手札からイベント1枚を捨てることができる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "ST11-002 end_of_turn: 自分の手札からイベント1枚を捨てることができる：自分の特徴《FILM》を持つキャラ1枚までを、アクティブにする。 [r3]",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": "one_self_character_any",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": "one_self_character_any",
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -85471,19 +85702,30 @@
   ],
   "P-029": [
     {
-      "_text": "P-029 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。",
+      "_text": "P-029 end_of_turn: このキャラをレストにできる：自分の「バルトロメオ」以外の特徴《FILM》を持つキャラ1枚までを、アクティブにする。 [r3]",
       "when": "end_of_turn",
       "do": [
         {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_character_filtered",
-              "filter": {
-                "exclude_name": "バルトロメオ",
-                "feature": "FILM"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_character_filtered",
+                    "filter": {
+                      "exclude_name": "バルトロメオ",
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
