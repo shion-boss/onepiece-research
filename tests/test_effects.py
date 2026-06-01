@@ -179,6 +179,21 @@ def test_truly_original_power_filter_uses_base_power():
     assert remaining == ["OP11-015"], remaining
 
 
+def test_category_filter_case_insensitive():
+    """filter の category は大小無視で判定する。 overlay 側の小文字 "character" 誤記が
+    silent no-op (= 全不マッチ → 効果不発) を起こさないことのガード (EB02-056 等 9 枚)。"""
+    from engine.effects import _matches_filter
+    from engine.core import CardDef, Category
+
+    chara = CardDef(card_id="X", name="t", category=Category.CHARACTER, color="赤",
+                    cost=4, life=0, power=5000, counter=0, attribute="斬",
+                    block_icon=None, features=("test",), text="", trigger=None, rarity="C")
+    assert _matches_filter(chara, {"category": "character"}) is True
+    assert _matches_filter(chara, {"category": "CHARACTER"}) is True
+    assert _matches_filter(chara, {"category": "event"}) is False
+    assert _matches_filter(chara, {"category_in": ["character", "event"]}) is True
+
+
 def test_attach_don_primitive():
     """attach_don: 自キャラ/リーダーにアクティブドン N 付与"""
     repo = _repo()

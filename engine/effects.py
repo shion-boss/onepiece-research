@@ -7539,13 +7539,16 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         subs = filt["or"]
         if not any(_matches_filter(card, sub) for sub in subs):
             return False
-    if "category" in filt and card.category.value != filt["category"]:
+    # category は大文字 ("CHARACTER"/"EVENT"/"STAGE"/"LEADER") が正規。 overlay 側で小文字
+    # ("character") を書くと従来は silent no-op (= 全不マッチ) で効果不発になっていた。
+    # 大小無視で比較し、 誤記による不発を防ぐ (= 値は4種で大小違いの誤マッチは起きない)。
+    if "category" in filt and card.category.value != str(filt["category"]).upper():
         return False
     if "category_in" in filt:
         cats = filt["category_in"]
         if isinstance(cats, str):
             cats = [cats]
-        if card.category.value not in cats:
+        if card.category.value not in [str(c).upper() for c in cats]:
             return False
     if "cost_le" in filt and card.cost > int(filt["cost_le"]):
         return False

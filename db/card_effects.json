@@ -3122,7 +3122,7 @@
             "depth": 5,
             "filter": {
               "cost_le": 2,
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "play",
@@ -6206,7 +6206,7 @@
             "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
-              "exclude_card_id": "PRB02-012"
+              "exclude_name": "ナミ"
             },
             "limit": 1,
             "destination": "hand",
@@ -7407,22 +7407,33 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
           "search_top_n": {
             "depth": 5,
             "filter": {
               "feature": "科学者",
-              "name": "ベガパンク",
               "exclude_name": "ベガパンク",
               "cost_le": 5,
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "play",
             "rest_remain": "bottom"
           }
+        }
+      ]
+    },
+    {
+      "_text": "EB02-056 on_play(その後): 相手のキャラが2枚以下の場合、自分の手札1枚を捨てる。",
+      "when": "on_play",
+      "if": {
+        "opp_chara_filtered_count_le": {
+          "filter": {},
+          "count": 2
+        }
+      },
+      "do": [
+        {
+          "trash_self_hand_random": 1
         }
       ]
     },
@@ -7647,7 +7658,22 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -9169,7 +9195,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ベガパンク"
+      }
     }
   ],
   "OP07-101": [
@@ -16874,7 +16903,7 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "hand",
@@ -16905,7 +16934,7 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "hand",
@@ -22617,7 +22646,7 @@
             "filter": {
               "feature": "麦わらの一味",
               "cost_le": 5,
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "play",
@@ -24786,7 +24815,7 @@
                 "search_top_n": {
                   "depth": 5,
                   "filter": {
-                    "category": "character"
+                    "category": "CHARACTER"
                   },
                   "limit": 1,
                   "destination": "hand",
@@ -28932,7 +28961,7 @@
             "depth": 5,
             "filter": {
               "feature": "麦わらの一味",
-              "exclude_card_id": "PRB02-012"
+              "exclude_name": "ナミ"
             },
             "limit": 1,
             "destination": "hand",
@@ -32447,17 +32476,13 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
           "search_top_n": {
             "depth": 5,
             "filter": {
               "feature": "科学者",
-              "name": "ベガパンク",
               "exclude_name": "ベガパンク",
               "cost_le": 5,
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "play",
@@ -32467,7 +32492,22 @@
       ]
     },
     {
-      "_text": "EB02-056_p1 trigger: カード1枚を引く。",
+      "_text": "EB02-056 on_play(その後): 相手のキャラが2枚以下の場合、自分の手札1枚を捨てる。",
+      "when": "on_play",
+      "if": {
+        "opp_chara_filtered_count_le": {
+          "filter": {},
+          "count": 2
+        }
+      },
+      "do": [
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    },
+    {
+      "_text": "EB02-056 trigger: カード1枚を引く。",
       "when": "trigger",
       "do": [
         {
@@ -35631,7 +35671,7 @@
             "filter": {
               "feature": "麦わらの一味",
               "cost_le": 5,
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "play",
@@ -39948,7 +39988,22 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -41121,7 +41176,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ベガパンク"
+      }
     }
   ],
   "OP07-107_p2": [
@@ -56423,7 +56481,7 @@
             "depth": 3,
             "filter": {
               "feature": "ドンキホーテ海賊団",
-              "category": "character"
+              "category": "CHARACTER"
             },
             "limit": 1,
             "destination": "hand",
