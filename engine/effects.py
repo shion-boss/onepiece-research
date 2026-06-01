@@ -4435,7 +4435,10 @@ def _execute_effect_body(
                 continue
             if not me.can_play_character():
                 me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
-            ip = InPlay.of(found_card, rested=False, sickness=True)
+            # spec {"rested": true} で 「レストで登場」 (= 蘇生系 ST30-008/OP03-013 等) を honor。
+            # 旧コードは rested=False ハードコードで「レストで」 を無視していた。
+            _rested = bool(v.get("rested")) if isinstance(v, dict) else False
+            ip = InPlay.of(found_card, rested=_rested, sickness=True)
             me.characters.append(ip)
             if state.effects_overlay:
                 trigger_on_play(state, me, opp, ip, state.effects_overlay)

@@ -751,11 +751,11 @@
           "optional_cost_then": {
             "cost": [
               {
-                "trash_self_hand_filtered": {
+                "discard_hand_with_filter": {
+                  "count": 1,
                   "filter": {
                     "category": "EVENT"
-                  },
-                  "n": 1
+                  }
                 }
               }
             ],
@@ -864,11 +864,31 @@
       }
     },
     {
-      "_text": "OP05-017 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。",
+      "_text": "OP05-017 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_multicolor": true
+                  },
+                  "do": [
+                    {
+                      "play_self": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -2870,7 +2890,7 @@
                   "count": 1,
                   "filter": {
                     "category": "CHARACTER",
-                    "power_ge": 6000
+                    "power_eq": 6000
                   }
                 }
               }
@@ -8954,11 +8974,22 @@
   ],
   "OP05-105": [
     {
-      "_text": "OP05-105 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP05-105 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -24324,33 +24355,61 @@
   ],
   "OP08-104": [
     {
-      "_text": "OP08-104 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。その後、カード1枚を引く。",
+      "_text": "OP08-104 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。その後、カード1枚を引く。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              },
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP08-113": [
     {
-      "_text": "OP08-113 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させ、相手のコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP08-113 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させ、相手のコスト3以下のキャラ1枚までを、KOする。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "self_life_le": 2
+                  },
+                  "do": [
+                    {
+                      "play_self": true
+                    },
+                    {
+                      "ko": "one_opponent_character_cost_le_3cost"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "OP03-112": [
@@ -24596,11 +24655,24 @@
       ]
     },
     {
-      "_text": "OP07-055 trigger: 自分のキャラ1枚を持ち主の手札に戻すことができる：相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "_text": "OP07-055 trigger: 自分のキャラ1枚を持ち主の手札に戻すことができる：相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻す。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -30067,33 +30139,66 @@
   ],
   "OP05-105_p1": [
     {
-      "_text": "OP05-105_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP05-105_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP05-105_p2": [
     {
-      "_text": "OP05-105_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP05-105_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP05-105_p3": [
     {
-      "_text": "OP05-105_p3 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP05-105_p3 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -38187,7 +38292,7 @@
                   "count": 1,
                   "filter": {
                     "category": "CHARACTER",
-                    "power_ge": 6000
+                    "power_eq": 6000
                   }
                 }
               }
@@ -48518,11 +48623,22 @@
   ],
   "OP03-108_p2": [
     {
-      "_text": "OP03-108_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-108_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
@@ -48551,11 +48667,22 @@
   ],
   "OP03-108_r1": [
     {
-      "_text": "OP03-108_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-108_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
@@ -48584,96 +48711,184 @@
   ],
   "OP03-110_p2": [
     {
-      "_text": "OP03-110_p2 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP03-110_p2 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP03-110_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-110_p2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP03-110_p3": [
     {
-      "_text": "OP03-110_p3 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP03-110_p3 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP03-110_p3 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-110_p3 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP03-110_p4": [
     {
-      "_text": "OP03-110_p4 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP03-110_p4 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP03-110_p4 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-110_p4 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP03-110_r1": [
     {
-      "_text": "OP03-110_r1 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP03-110_r1 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP03-110_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-110_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -51176,14 +51391,22 @@
       }
     },
     {
-      "_text": "ST09-014_p1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "ST09-014_p1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -51206,14 +51429,22 @@
       }
     },
     {
-      "_text": "ST09-014_p2 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "ST09-014_p2 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -51236,14 +51467,22 @@
       }
     },
     {
-      "_text": "ST09-014_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "ST09-014_r1 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -58037,36 +58276,69 @@
   ],
   "OP13-114": [
     {
-      "_text": "OP13-114 on_attack: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "OP13-114 on_attack: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP13-114 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP13-114 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
     {
-      "_text": "OP13-114 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "OP13-114 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。 [trig-fix]",
       "when": "on_play",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -58074,36 +58346,69 @@
   ],
   "OP13-114_p1": [
     {
-      "_text": "OP13-114_p1 on_attack: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "OP13-114_p1 on_attack: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP13-114_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP13-114_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
     {
-      "_text": "OP13-114_p1 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "OP13-114_p1 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラ1枚までを、このターン中、パワー-2000。 [trig-fix]",
       "when": "on_play",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -65265,16 +65570,33 @@
   ],
   "OP08-114": [
     {
-      "_text": "OP08-114 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。",
+      "_text": "OP08-114 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "self_life_le": 2
+                  },
+                  "do": [
+                    {
+                      "play_self": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "OP08-116": [
@@ -68376,14 +68698,31 @@
       }
     },
     {
-      "_text": "OP05-016 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。",
+      "_text": "OP05-016 trigger: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "play_self": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_multicolor": true
+                  },
+                  "do": [
+                    {
+                      "play_self": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -70869,11 +71208,22 @@
   ],
   "OP04-108": [
     {
-      "_text": "OP04-108 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP04-108 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
@@ -72303,11 +72653,22 @@
   ],
   "OP03-108": [
     {
-      "_text": "OP03-108 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-108 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
@@ -72336,11 +72697,22 @@
   ],
   "OP03-108_p1": [
     {
-      "_text": "OP03-108_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-108_p1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     },
@@ -72391,24 +72763,46 @@
   ],
   "OP03-110": [
     {
-      "_text": "OP03-110 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP03-110 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP03-110 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-110 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -75661,13 +76055,30 @@
   ],
   "ST30-008": [
     {
-      "_text": "ST30-008 on_ko: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。",
+      "_text": "ST30-008 on_ko: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。 [trig-fix]",
       "when": "on_ko",
       "do": [
         {
-          "play_self": {
-            "from": "trash",
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_eq": 6000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -75675,13 +76086,30 @@
   ],
   "ST30-008_p1": [
     {
-      "_text": "ST30-008_p1 on_ko: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。",
+      "_text": "ST30-008_p1 on_ko: 自分の手札からパワー6000のキャラカード1枚を捨てることができる：このキャラカードをトラッシュからレストで登場させる。 [trig-fix]",
       "when": "on_ko",
       "do": [
         {
-          "play_self": {
-            "from": "trash",
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_eq": 6000
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -77928,24 +78356,46 @@
   ],
   "OP03-110_r2": [
     {
-      "_text": "OP03-110_r2 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。",
+      "_text": "OP03-110_r2 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、パワー+2000。 [trig-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
     },
     {
-      "_text": "OP03-110_r2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP03-110_r2 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -80570,14 +81020,22 @@
       }
     },
     {
-      "_text": "ST09-014 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "ST09-014 trigger: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -88225,11 +88683,22 @@
   ],
   "OP05-105_r1": [
     {
-      "_text": "OP05-105_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+      "_text": "OP05-105_r1 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [trig-fix]",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
