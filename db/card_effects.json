@@ -10572,18 +10572,28 @@
   ],
   "EB03-024": [
     {
-      "_text": "ビビ (赤青 cost5) ブロッカー+登場時: アラバスタ/麦わら 5以下 trash 登場",
+      "_text": "EB03-024 on_play: 手札からアラバスタ/麦わら コスト5以下キャラを登場。 その後このターン キャラ登場不可",
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
-              "feature": "アラバスタ王国",
-              "cost_le": 5
+              "cost_le": 5,
+              "or_clauses": [
+                {
+                  "feature": "アラバスタ王国"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
             },
             "limit": 1
           }
+        },
+        {
+          "block_chara_play_turn": true
         }
       ]
     }
@@ -10609,18 +10619,22 @@
   ],
   "EB04-025": [
     {
-      "_text": "ビビ (赤青 cost7) 登場時: アラバスタ8以下 trash 登場 + 相手手札デッキ下",
+      "_text": "EB04-025 on_play: 手札からビビ以外のアラバスタ コスト8以下キャラを登場。 その後 相手手札1枚をデッキ下",
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
               "feature": "アラバスタ王国",
-              "cost_le": 8
+              "cost_le": 8,
+              "exclude_name": "ネフェルタリ・ビビ"
             },
             "limit": 1
           }
+        },
+        {
+          "opp_hand_to_deck_bottom": 1
         }
       ]
     }
@@ -10638,14 +10652,14 @@
   ],
   "OP15-007": [
     {
-      "_text": "ギン (赤緑 cost6) 登場時 (東の海): 5以下 trash 登場",
+      "_text": "OP15-007 on_play (東の海): 手札からコスト5以下キャラを登場",
       "when": "on_play",
       "if": {
         "leader_feature": "東の海"
       },
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
               "cost_le": 5
@@ -10865,12 +10879,13 @@
               "category": "CHARACTER",
               "cost_le": 4
             },
-            "limit": 1
+            "limit": 1,
+            "rested": true
           }
         },
         {
-          "attach_don": {
-            "target": "self_leader",
+          "attach_rested_don": {
+            "target": "one_self_team_any",
             "count": 1
           }
         }
@@ -11459,19 +11474,37 @@
     {
       "_text": "OP12-094 on_play: 自分のトラッシュから特徴《革命軍》を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のリーダーが特徴《革命軍》を持つ場合、自分のトラッシュからコス",
       "when": "on_play",
-      "do": [
-        {
-          "play_from_trash": {
-            "filter": {
-              "cost_le": 6
-            },
-            "limit": 1
-          }
-        }
-      ],
       "if": {
         "leader_feature": "革命軍"
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "filter": {
+                    "feature": "革命軍"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 6
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP12-118": [
@@ -28994,12 +29027,13 @@
               "category": "CHARACTER",
               "cost_le": 4
             },
-            "limit": 1
+            "limit": 1,
+            "rested": true
           }
         },
         {
-          "attach_don": {
-            "target": "self_leader",
+          "attach_rested_don": {
+            "target": "one_self_team_any",
             "count": 1
           }
         }
@@ -31555,18 +31589,22 @@
   ],
   "EB04-025_p1": [
     {
-      "_text": "ビビ (赤青 cost7) 登場時: アラバスタ8以下 trash 登場 + 相手手札デッキ下",
+      "_text": "EB04-025_p1 on_play: 手札からビビ以外のアラバスタ コスト8以下キャラを登場。 その後 相手手札1枚をデッキ下",
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
               "feature": "アラバスタ王国",
-              "cost_le": 8
+              "cost_le": 8,
+              "exclude_name": "ネフェルタリ・ビビ"
             },
             "limit": 1
           }
+        },
+        {
+          "opp_hand_to_deck_bottom": 1
         }
       ]
     }
@@ -31906,18 +31944,28 @@
   ],
   "EB03-024_p1": [
     {
-      "_text": "ビビ (赤青 cost5) ブロッカー+登場時: アラバスタ/麦わら 5以下 trash 登場",
+      "_text": "EB03-024_p1 on_play: 手札からアラバスタ/麦わら コスト5以下キャラを登場。 その後このターン キャラ登場不可",
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
-              "feature": "アラバスタ王国",
-              "cost_le": 5
+              "cost_le": 5,
+              "or_clauses": [
+                {
+                  "feature": "アラバスタ王国"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
             },
             "limit": 1
           }
+        },
+        {
+          "block_chara_play_turn": true
         }
       ]
     }
@@ -32167,18 +32215,28 @@
   ],
   "EB03-024_p2": [
     {
-      "_text": "ビビ (赤青 cost5) ブロッカー+登場時: アラバスタ/麦わら 5以下 trash 登場",
+      "_text": "EB03-024_p2 on_play: 手札からアラバスタ/麦わら コスト5以下キャラを登場。 その後このターン キャラ登場不可",
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
-              "feature": "アラバスタ王国",
-              "cost_le": 5
+              "cost_le": 5,
+              "or_clauses": [
+                {
+                  "feature": "アラバスタ王国"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
             },
             "limit": 1
           }
+        },
+        {
+          "block_chara_play_turn": true
         }
       ]
     }
@@ -32774,14 +32832,14 @@
   ],
   "OP15-007_p1": [
     {
-      "_text": "ギン (赤緑 cost6) 登場時 (東の海): 5以下 trash 登場",
+      "_text": "OP15-007_p1 on_play (東の海): 手札からコスト5以下キャラを登場",
       "when": "on_play",
       "if": {
         "leader_feature": "東の海"
       },
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
               "cost_le": 5
@@ -35278,19 +35336,37 @@
     {
       "_text": "OP12-094_p1 on_play: 自分のトラッシュから特徴《革命軍》を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のリーダーが特徴《革命軍》を持つ場合、自分のトラッシュからコス",
       "when": "on_play",
-      "do": [
-        {
-          "play_from_trash": {
-            "filter": {
-              "cost_le": 6
-            },
-            "limit": 1
-          }
-        }
-      ],
       "if": {
         "leader_feature": "革命軍"
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "filter": {
+                    "feature": "革命軍"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 6
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP12-108_p1": [
