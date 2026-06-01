@@ -4726,7 +4726,7 @@
       ]
     },
     {
-      "_text": "EB04-007 起動メイン: 相手power8000+ キャラ存在で 速攻 + アクティブキャラアタック可",
+      "_text": "EB04-007 起動メイン: 相手power8000+ キャラ存在で 自身に速攻：キャラ (turn)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -4735,11 +4735,8 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻"
+            "keyword": "速攻：キャラ"
           }
-        },
-        {
-          "give_attack_active_chara": "self"
         }
       ],
       "if": {
@@ -15679,6 +15676,23 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP04-020 【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-1",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -1,
+            "scope": "opp"
+          }
+        }
+      ]
     }
   ],
   "OP04-020_p1": [
@@ -15695,6 +15709,23 @@
               }
             },
             "count": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "【ドン!!×1】【自分のターン中】相手のキャラすべてを、コスト-1",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -1,
+            "scope": "opp"
           }
         }
       ]
@@ -22625,7 +22656,11 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "ファイアタンク海賊団"
+              "feature_in": [
+                "ファイアタンク海賊団",
+                "麦わらの一味"
+              ],
+              "cost_ge": 2
             },
             "limit": 1,
             "destination": "hand",
@@ -22770,17 +22805,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
+              "cost_ge": 2,
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "bottom"
           }
         }
       ]
@@ -27077,6 +27107,7 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
+              "cost_ge": 2,
               "feature": "ワノ国"
             },
             "limit": 1,
@@ -27088,6 +27119,22 @@
       "conditions": [
         {
           "self_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "ST28-005 【ドン‼×2】【自分のターン中】このキャラのパワー+3000",
+      "when": "on_attached_don",
+      "n": 2,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000
+          }
         }
       ]
     }
@@ -31570,7 +31617,15 @@
             "keyword": "速攻：キャラ"
           }
         }
-      ]
+      ],
+      "if": {
+        "opp_chara_filtered_count_ge": {
+          "filter": {
+            "power_ge": 8000
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "EB04-018_p1": [
@@ -35817,17 +35872,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
+              "cost_ge": 2,
               "feature": "ビッグ・マム海賊団"
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "bottom"
           }
         }
       ]
@@ -43848,7 +43898,11 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "アラバスタ王国"
+              "feature_in": [
+                "アラバスタ王国",
+                "麦わらの一味"
+              ],
+              "cost_ge": 2
             },
             "limit": 1,
             "destination": "hand",
@@ -53461,6 +53515,29 @@
       "if": {
         "leader_feature": "ミンク族"
       }
+    },
+    {
+      "_text": "EB04-017 【自分のターン中】自分の特徴《ミンク族》キャラ3枚以上で相手のキャラすべてをコスト-1",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true,
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "ミンク族"
+          },
+          "count": 3
+        }
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -1,
+            "scope": "opp"
+          }
+        }
+      ]
     }
   ],
   "EB04-019": [
@@ -64077,7 +64154,7 @@
   ],
   "OP10-097": [
     {
-      "_text": "OP10-097 main: 自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+2000。その後、自分のトラッシュが10枚以上ある場合、そのカードは、このターン中、【バ",
+      "_text": "OP10-097 main: ドレスローザ キャラ1枚に パワー+2000 (無条件)",
       "when": "main",
       "do": [
         {
@@ -64092,10 +64169,7 @@
             "duration": "turn"
           }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 10
-      }
+      ]
     },
     {
       "_text": "OP10-097 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
@@ -64110,15 +64184,20 @@
       ]
     },
     {
-      "_text": "OP10-097 その後、自分のトラッシュが10枚以上ある場合、そのカードは、このターン中、【バニッシュ】を得る。",
-      "when": "on_play",
+      "_text": "OP10-097 その後トラッシュ10枚以上で ドレスローザキャラに【バニッシュ】(turn)",
+      "when": "main",
       "if": {
         "self_trash_count_ge": 10
       },
       "do": [
         {
           "give_keyword": {
-            "target": "self",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
             "keyword": "バニッシュ",
             "duration": "turn"
           }
@@ -68960,6 +69039,23 @@
           "self_turn": true
         }
       ]
+    },
+    {
+      "_text": "【ドン!!×1】【自分のターン中】相手のキャラすべてをコスト-3",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -3,
+            "scope": "opp"
+          }
+        }
+      ]
     }
   ],
   "OP06-004": [
@@ -73047,7 +73143,7 @@
   ],
   "OP04-093": [
     {
-      "_text": "OP04-093 main: 自分の特徴《ドレスローザ》を持つキャラ1枚までを、このターン中、パワー+6000。その後、自分のトラッシュが15枚以上ある場合、そのカードは、このターン中、【ダ",
+      "_text": "OP04-093 main: ドレスローザ キャラ1枚に パワー+6000 (無条件)",
       "when": "main",
       "do": [
         {
@@ -73062,10 +73158,7 @@
             "duration": "turn"
           }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 15
-      }
+      ]
     },
     {
       "_text": "OP04-093 trigger: カード3枚を引き、自分の手札2枚を捨てる。 [mdraw]",
@@ -73080,15 +73173,20 @@
       ]
     },
     {
-      "_text": "OP04-093 その後、自分のトラッシュが15枚以上ある場合、そのカードは、このターン中、【ダブルアタック】を得る。",
-      "when": "on_play",
+      "_text": "OP04-093 その後トラッシュ15枚以上で ドレスローザキャラに【ダブルアタック】(turn)",
+      "when": "main",
       "if": {
         "self_trash_count_ge": 15
       },
       "do": [
         {
           "give_keyword": {
-            "target": "self",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "ドレスローザ"
+              }
+            },
             "keyword": "ダブルアタック",
             "duration": "turn"
           }
@@ -74352,6 +74450,23 @@
           "self_turn": true
         }
       ]
+    },
+    {
+      "_text": "OP03-078 【ドン!!×1】【自分のターン中】相手のキャラすべてをコスト-3",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -3,
+            "scope": "opp"
+          }
+        }
+      ]
     }
   ],
   "OP03-078_p1": [
@@ -74369,6 +74484,23 @@
         },
         {
           "self_turn": true
+        }
+      ]
+    },
+    {
+      "_text": "【ドン!!×1】【自分のターン中】相手のキャラすべてをコスト-3",
+      "when": "on_attached_don",
+      "n": 1,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -3,
+            "scope": "opp"
+          }
         }
       ]
     }

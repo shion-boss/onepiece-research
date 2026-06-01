@@ -3197,8 +3197,10 @@ def test_st29_015_counter_split():
 
 
 def test_eb04_007_zoro_activate_has_opp_chara_condition():
-    """EB04-007 ゾロ activate_main: 公式 「相手の power 8000+ キャラ がいる場合」 if が 追加 され、
-    速攻：キャラ を give_keyword + give_attack_active_chara で 適切 に 実装。"""
+    """EB04-007 ゾロ activate_main: 公式 「相手の power 8000+ キャラ がいる場合、 この
+    キャラは、 このターン中、 【速攻：キャラ】 を得る」。 if (opp power8000+) + give_keyword
+    で 速攻：キャラ を 付与 する (= テキストに無い give_attack_active_chara/アクティブ
+    アタック可 は 付けない、 engine が 速攻：キャラ keyword を 正規認識 core.py:363-)。"""
     overlay = _overlay()
     bundle = overlay.get("EB04-007")
     actmain = next(e for e in bundle.effects if e.get("when") == "activate_main")
@@ -3206,8 +3208,11 @@ def test_eb04_007_zoro_activate_has_opp_chara_condition():
     cond = if_b.get("opp_chara_filtered_count_ge")
     assert isinstance(cond, dict), f"opp_chara_filtered_count_ge dict 不在: {cond}"
     assert cond.get("filter", {}).get("power_ge") == 8000, f"power_ge:8000 不在: {cond}"
+    gks = [d["give_keyword"] for d in actmain.get("do", []) if "give_keyword" in d]
+    assert any(g.get("keyword") == "速攻：キャラ" for g in gks), f"give_keyword 速攻：キャラ 不在: {actmain.get('do')}"
+    # テキストに無い アクティブアタック可 (give_attack_active_chara) は 付与 しない
     do_keys = [list(d.keys())[0] for d in actmain.get("do", [])]
-    assert "give_attack_active_chara" in do_keys, f"give_attack_active_chara 不在: {do_keys}"
+    assert "give_attack_active_chara" not in do_keys, f"テキスト外の give_attack_active_chara 混入: {do_keys}"
 
 
 def test_op11_013_grus_uses_disable_blocker():
