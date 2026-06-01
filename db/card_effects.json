@@ -12392,11 +12392,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自分の付与済ドン合計2枚までを自キャラ1に付与 (= feature 無 multi-source don 移動、 primitive 要)"
     }
   ],
   "OP07-019_p2": [
@@ -13037,11 +13034,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自キャラ2枚の元々パワーを入れ替え (= base-power swap between two chara、 primitive 要)"
     }
   ],
   "OP14-001_p1": [
@@ -13051,11 +13045,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自キャラ2枚の元々パワーを入れ替え (= base-power swap between two chara、 primitive 要)"
     }
   ],
   "OP14-020_p1": [
@@ -13371,11 +13362,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "手札からイベント2枚公開 cost → 元々パワー4000以下キャラ+2000 (= reveal-hand-event cost 未対応)"
     }
   ],
   "OP12-001_p1": [
@@ -13385,11 +13373,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "手札からイベント2枚公開 cost → 元々パワー4000以下キャラ+2000 (= reveal-hand-event cost 未対応)"
     }
   ],
   "OP12-020_p1": [
@@ -13985,15 +13970,6 @@
   ],
   "OP10-099": [
     {
-      "_text": "OP10-099 【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
-      "when": "end_of_turn",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    },
-    {
       "_text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
       "_approx_note": "cost: 自ライフ表向き は 簡略 (engine 未対応)",
       "when": "end_of_turn",
@@ -14031,15 +14007,6 @@
     }
   ],
   "OP10-099_p1": [
-    {
-      "_text": "OP10-099_p1 【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
-      "when": "end_of_turn",
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
-    },
     {
       "_text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
       "_approx_note": "cost: 自ライフ表向き は 簡略 (engine 未対応)",
@@ -14562,11 +14529,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自分の付与済ドン合計2枚までを自キャラ1に付与 (= feature 無 multi-source don 移動、 primitive 要)"
     }
   ],
   "OP07-001_p1": [
@@ -14576,11 +14540,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自分の付与済ドン合計2枚までを自キャラ1に付与 (= feature 無 multi-source don 移動、 primitive 要)"
     }
   ],
   "OP07-019_p1": [
@@ -15685,11 +15646,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "次に手札から登場させるコスト3以上《ワノ国》のコスト-1 (= filtered next-play cost、 deferred [[project_full_db_audit_phase]])"
     }
   ],
   "OP02-025_p1": [
@@ -15699,11 +15657,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "次に手札から登場させるコスト3以上《ワノ国》のコスト-1 (= filtered next-play cost、 deferred [[project_full_db_audit_phase]])"
     }
   ],
   "OP02-049": [
@@ -16572,11 +16527,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自コスト3+パワー7000+キャラをライフに表向き加える cost → 自キャラ+2000 (= face-up-life cost 未対応)"
     }
   ],
   "ST13-001_p1": [
@@ -16586,11 +16538,8 @@
       "cost": {
         "once_per_turn": true
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自コスト3+パワー7000+キャラをライフに表向き加える cost → 自キャラ+2000 (= face-up-life cost 未対応)"
     }
   ],
   "ST13-002": [
@@ -17167,7 +17116,11 @@
       },
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "one_self_chara_no_effect",
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -17247,11 +17200,8 @@
       "if": {
         "self_attached_don_ge": 1
       },
-      "do": [
-        {
-          "draw": 1
-        }
-      ]
+      "do": [],
+      "_missing_effect": "自デッキ上1枚をトラッシュ (= self-deck-mill、 deck-out 特殊勝利を進める。 primitive 要)"
     }
   ],
   "ST01-001_p3": [
@@ -17687,7 +17637,11 @@
       },
       "do": [
         {
-          "draw": 1
+          "power_pump": {
+            "target": "one_self_chara_no_effect",
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
