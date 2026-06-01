@@ -8816,7 +8816,10 @@
         {
           "search_top_n": {
             "depth": 4,
-            "filter": {},
+            "filter": {
+              "cost_ge": 2,
+              "cost_le": 8
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
@@ -22273,26 +22276,17 @@
             ],
             "effect": [
               {
-                "search": {
-                  "source": "deck",
+                "search_top_n": {
+                  "depth": 3,
                   "filter": {
                     "category": "EVENT"
                   },
                   "limit": 1,
                   "destination": "hand",
-                  "depth": 3
+                  "rest_remain": "bottom"
                 }
               }
             ]
-          }
-        },
-        {
-          "search_top_n": {
-            "depth": 3,
-            "filter": {},
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
           }
         }
       ],
@@ -24130,16 +24124,12 @@
         {
           "search_top_n": {
             "depth": 3,
-            "filter": {},
+            "filter": {
+              "trigger": true
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 3,
-            "to": "bottom"
           }
         }
       ],
@@ -26259,26 +26249,17 @@
             ],
             "effect": [
               {
-                "search": {
-                  "source": "deck",
+                "search_top_n": {
+                  "depth": 5,
                   "filter": {
-                    "category": "CHARACTER"
+                    "category": "EVENT"
                   },
                   "limit": 1,
                   "destination": "hand",
-                  "depth": 5
+                  "rest_remain": "bottom"
                 }
               }
             ]
-          }
-        },
-        {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {},
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
           }
         }
       ],
@@ -26980,7 +26961,10 @@
         {
           "search_top_n": {
             "depth": 5,
-            "filter": {},
+            "filter": {
+              "power_eq": 6000,
+              "category": "CHARACTER"
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
@@ -39297,7 +39281,10 @@
         {
           "search_top_n": {
             "depth": 5,
-            "filter": {},
+            "filter": {
+              "power_eq": 6000,
+              "category": "CHARACTER"
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
@@ -78561,7 +78548,10 @@
         {
           "search_top_n": {
             "depth": 5,
-            "filter": {},
+            "filter": {
+              "power_eq": 6000,
+              "category": "CHARACTER"
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
@@ -78589,7 +78579,10 @@
         {
           "search_top_n": {
             "depth": 5,
-            "filter": {},
+            "filter": {
+              "power_eq": 6000,
+              "category": "CHARACTER"
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
@@ -83734,6 +83727,12 @@
       "_text": "ST07-016 counter: 自分か相手のライフの上から1枚までを見て、ライフの上か下に置く。その後、自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
       "when": "counter",
       "do": [
+        {
+          "scry_life": {
+            "owner": "self_or_opp",
+            "depth": 1
+          }
+        },
         {
           "power_pump": {
             "target": "self_inplay",
