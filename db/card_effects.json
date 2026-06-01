@@ -65406,7 +65406,21 @@
       "when": "on_attack",
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -65432,7 +65446,21 @@
       "when": "on_attack",
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -66634,8 +66662,7 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3,
-        "self_life_ge": 3
+        "opp_life_ge": 3
       }
     },
     {
@@ -66665,8 +66692,7 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3,
-        "self_life_ge": 3
+        "opp_life_ge": 3
       }
     },
     {
@@ -68470,7 +68496,13 @@
       "do": [
         {
           "set_cannot_attack": {
-            "target": "one_opponent_character_cost_le_6cost",
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6,
+                "exclude_name": "モンキー・D・ルフィ"
+              }
+            },
             "duration": "next_opp_turn_end"
           }
         }
@@ -68495,7 +68527,13 @@
       "do": [
         {
           "set_cannot_attack": {
-            "target": "one_opponent_character_cost_le_6cost",
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 6,
+                "exclude_name": "モンキー・D・ルフィ"
+              }
+            },
             "duration": "next_opp_turn_end"
           }
         }
