@@ -48300,6 +48300,29 @@
   ],
   "PRB02-002": [
     {
+      "_text": "PRB02-002 【ターン1回】相手効果で場を離れる代わりに このターン中パワー-2000できる",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ],
+      "optional": true
+    },
+    {
       "_text": "PRB02-002 on_attack: 相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "on_attack",
       "do": [
@@ -48310,13 +48333,33 @@
             "duration": "turn"
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "PRB02-002_p1": [
+    {
+      "_text": "PRB02-002_p1 【ターン1回】相手効果で場を離れる代わりに このターン中パワー-2000できる",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ],
+      "optional": true
+    },
     {
       "_text": "PRB02-002_p1 on_attack: 相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "on_attack",
@@ -48328,10 +48371,7 @@
             "duration": "turn"
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "PRB02-004": [
@@ -48412,7 +48452,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "PRB02-011_p1": [
@@ -48423,7 +48466,10 @@
         {
           "add_rested_don": 1
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "PRB02-018": [
@@ -54061,7 +54107,12 @@
         },
         {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ミンク族"
+              }
+            },
             "limit": 2
           }
         }
@@ -54081,7 +54132,12 @@
         },
         {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ミンク族"
+              }
+            },
             "limit": 2
           }
         }
@@ -54256,12 +54312,20 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "opp_hand_to_deck_bottom": 2
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 2
-      },
       "if": {
         "opp_hand_count_ge": 6
       }
@@ -54300,12 +54364,20 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "opp_hand_to_deck_bottom": 2
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 2
-      },
       "if": {
         "opp_hand_count_ge": 6
       }
@@ -54621,19 +54693,64 @@
   ],
   "EB04-043": [
     {
+      "_text": "EB04-043 【ターン1回】自元々cost5以下黒キャラが相手効果KO代替: トラッシュ3枚デッキ下",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_cost_le": 5,
+        "target_color": "黒",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "trash_to_deck": {
+            "limit": 3,
+            "to": "bottom"
+          }
+        }
+      ],
+      "optional": true
+    },
+    {
       "_text": "EB04-043 on_play: 自分のデッキの上から2枚をトラッシュに置く。",
       "when": "on_play",
       "do": [
         {
           "mill_self_top": 2
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "EB04-043_p1": [
+    {
+      "_text": "EB04-043_p1 【ターン1回】自元々cost5以下黒キャラが相手効果KO代替: トラッシュ3枚デッキ下",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_cost_le": 5,
+        "target_color": "黒",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "trash_to_deck": {
+            "limit": 3,
+            "to": "bottom"
+          }
+        }
+      ],
+      "optional": true
+    },
     {
       "_text": "EB04-043_p1 on_play: 自分のデッキの上から2枚をトラッシュに置く。",
       "when": "on_play",
@@ -54641,10 +54758,7 @@
         {
           "mill_self_top": 2
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "EB04-045": [
@@ -55438,7 +55552,10 @@
           "draw": 1
         },
         {
-          "self_hand_to_deck_bottom": 1
+          "self_hand_to_deck_bottom": {
+            "amount": 1,
+            "to": "top"
+          }
         },
         {
           "add_don": 1
@@ -55467,7 +55584,10 @@
           "draw": 1
         },
         {
-          "self_hand_to_deck_bottom": 1
+          "self_hand_to_deck_bottom": {
+            "amount": 1,
+            "to": "top"
+          }
         },
         {
           "add_don": 1

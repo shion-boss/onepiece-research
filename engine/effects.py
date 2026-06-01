@@ -5213,18 +5213,24 @@ def _execute_effect_body(
                 moved += 1
             state.push_log(f"  効果: 相手手札 {moved} 枚をデッキ下へ")
         elif k == "self_hand_to_deck_bottom":
-            # 自分の手札 N 枚を好きな順番でデッキの下に置く。 簡略: 末尾から。
+            # 自分の手札 N 枚を好きな順番でデッキの下 (or 上) に置く。 簡略: コスト最高から。
+            # spec: int | {"amount": N, "to": "bottom"|"top"} ("top" = デッキの上に置く)
             spec = v if isinstance(v, dict) else {"amount": int(v) if not isinstance(v, dict) else 1}
             n = int(spec.get("amount", 1))
+            to = spec.get("to", "bottom")
             moved = 0
             for _ in range(n):
                 if not me.hand:
                     break
-                # ヒューリスティック: コスト最高のカード (= 手札で死にカード) をデッキ下に
+                # ヒューリスティック: コスト最高のカード (= 手札で死にカード) を移動
                 idx = max(range(len(me.hand)), key=lambda i: me.hand[i].cost)
-                me.deck.append(me.hand.pop(idx))
+                card = me.hand.pop(idx)
+                if to == "top":
+                    me.deck.insert(0, card)
+                else:
+                    me.deck.append(card)
                 moved += 1
-            state.push_log(f"  効果: 自手札 {moved} 枚をデッキ下へ")
+            state.push_log(f"  効果: 自手札 {moved} 枚をデッキ{'上' if to=='top' else '下'}へ")
         elif k == "give_attack_active_chara":
             # 「相手のアクティブのキャラにもアタックできる」 = "アクティブアタック可" キーワード付与。
             # spec: target ("self" / "self_leader" / "self_inplay" など)、 duration
