@@ -3760,7 +3760,8 @@
         }
       ],
       "cost": {
-        "return_self_to_hand": true
+        "return_self_to_hand": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -3842,7 +3843,8 @@
             "depth": 5,
             "filter": {
               "feature": "インペルダウン",
-              "exclude_name": "バギー"
+              "exclude_name": "バギー",
+              "color": "青"
             },
             "limit": 1,
             "destination": "hand",
@@ -4107,7 +4109,24 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -4430,7 +4449,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP05-015": [
@@ -5085,8 +5107,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
-              "feature": "ロジャー海賊団"
+              "feature_contains": "ロジャー海賊団",
+              "exclude_name": "シャンクス"
             },
             "limit": 1,
             "destination": "hand",
@@ -34256,8 +34278,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "category": "CHARACTER",
-              "feature": "ロジャー海賊団"
+              "feature_contains": "ロジャー海賊団",
+              "exclude_name": "シャンクス"
             },
             "limit": 1,
             "destination": "hand",
@@ -38298,7 +38320,24 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -38669,7 +38708,8 @@
             "depth": 5,
             "filter": {
               "feature": "インペルダウン",
-              "exclude_name": "バギー"
+              "exclude_name": "バギー",
+              "color": "青"
             },
             "limit": 1,
             "destination": "hand",
@@ -40253,7 +40293,8 @@
         }
       ],
       "cost": {
-        "return_self_to_hand": true
+        "return_self_to_hand": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -42986,7 +43027,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP05-019_p1": [
