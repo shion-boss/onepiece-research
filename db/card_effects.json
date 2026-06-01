@@ -56284,9 +56284,6 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
@@ -56328,9 +56325,6 @@
       "conditions": [
         {
           "leader_feature": "麦わらの一味"
-        },
-        {
-          "opp_turn": true
         }
       ],
       "if": {
@@ -56548,10 +56542,16 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 1
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         },
         {
-          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -56562,10 +56562,16 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 1
+          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         },
         {
-          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -56626,12 +56632,19 @@
           "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
-              "power_le": 6000
+              "power_le": 6000,
+              "no_effect": true
             },
             "limit": 1
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_power_ge_count_le": {
+          "power": 5000,
+          "count": 2
+        }
+      }
     }
   ],
   "EB02-022_p1": [
@@ -56643,12 +56656,19 @@
           "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
-              "power_le": 6000
+              "power_le": 6000,
+              "no_effect": true
             },
             "limit": 1
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_power_ge_count_le": {
+          "power": 5000,
+          "count": 2
+        }
+      }
     }
   ],
   "EB02-027": [
@@ -56855,6 +56875,9 @@
       "_text": "EB02-046 on_play: 自分のデッキの上から2枚をトラッシュに置き、相手のキャラ1枚までを、このターン中、コスト-1。",
       "when": "on_play",
       "do": [
+        {
+          "mill_self_top": 2
+        },
         {
           "cost_minus": {
             "target": "one_opponent_character_any",
@@ -59059,30 +59082,16 @@
     {
       "_text": "OP14-009 opp_attack: 【ターン1回】自分の手札2枚を捨てることができる：自分のリーダーとキャラ1枚を選ぶ。選んだカードそれぞれの元々のパワーを、このバトル中、入れ替える。",
       "when": "opp_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 2
-        }
-      ],
-      "cost": {
-        "once_per_turn": true,
-        "discard_hand": 2
-      }
+      "do": [],
+      "_missing_effect": "【相手のアタック時】【ターン1回】手札2枚捨て：自リーダーとキャラ1枚の元々のパワーをこのバトル中入れ替える。 base-power swap (= OP14-001同class) 未実装のため無効化 (旧二重discard回避)"
     }
   ],
   "OP14-009_p1": [
     {
       "_text": "OP14-009_p1 opp_attack: 【ターン1回】自分の手札2枚を捨てることができる：自分のリーダーとキャラ1枚を選ぶ。選んだカードそれぞれの元々のパワーを、このバトル中、入れ替える。",
       "when": "opp_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 2
-        }
-      ],
-      "cost": {
-        "once_per_turn": true,
-        "discard_hand": 2
-      }
+      "do": [],
+      "_missing_effect": "【相手のアタック時】【ターン1回】手札2枚捨て：自リーダーとキャラ1枚の元々のパワーをこのバトル中入れ替える。 base-power swap (= OP14-001同class) 未実装のため無効化 (旧二重discard回避)"
     }
   ],
   "OP14-011": [

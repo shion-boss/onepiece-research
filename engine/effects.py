@@ -1014,6 +1014,15 @@ def eval_condition(
             count = sum(1 for c in me.characters if c.card.cost >= cost_ge)
             if count < n_req:
                 return False
+        elif k == "self_chara_power_ge_count_le":
+            # 自場のキャラ (= me.characters) のうち パワー (現在値) N 以上が count 枚【以下】 なら True。
+            # EB02-022 ウソップ 「自分のパワー5000以上のキャラが2枚以下の場合」 等。
+            spec_val = v if isinstance(v, dict) else {}
+            power_ge = int(spec_val.get("power", spec_val.get("power_ge", 5000)))
+            cap = int(spec_val.get("count", 2))
+            cnt = sum(1 for c in me.characters if c.power >= power_ge)
+            if cnt > cap:
+                return False
         elif k == "leader_multicolor":
             # 自リーダーが多色 (= color に "/" 含む) であるか
             is_multi = "/" in me.leader.card.color
