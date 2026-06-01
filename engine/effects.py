@@ -3948,8 +3948,15 @@ def _execute_effect_body(
             me.prevent_self_life_to_hand_until_turn_end = True
             state.push_log(f"  効果: このターン中、 自効果ライフ→手札 禁止")
         elif k == "prevent_ko":
-            # ターン終了時まで KO 耐性付与。target = self / all_self_characters 等
-            target_spec = v if isinstance(v, str) else "self"
+            # ターン終了時まで KO 耐性付与。target = self / all_self_characters / {type/filter} dict 等。
+            # dict spec ({target:..}/{type:..}/{_iid_picks:..}) も _resolve_target に渡す
+            # (= 旧実装は dict を "self" に潰しており ST05-017 の FILM target を無視していた)
+            if isinstance(v, str):
+                target_spec = v
+            elif isinstance(v, dict):
+                target_spec = v.get("target", v)
+            else:
+                target_spec = "self"
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="prevent_ko", outer_value=target_spec)
             for t in targets:
                 t.ko_immune_until_turn_end = True
@@ -3974,8 +3981,12 @@ def _execute_effect_body(
             state.push_log(f"  効果: アタック不可 ({duration}) → {[t.card.name for t in targets]}")
         elif k == "stay_rested_next_refresh":
             # 「次の (相手の) リフレッシュフェイズでアクティブにならない」
-            # target = "one_opponent_character_*" など。多くは rest 効果と組み合わせる
-            target_spec = v if isinstance(v, str) else "one_opponent_character_any"
+            # target = "one_opponent_character_*" 文字列 か {type/filter} dict。
+            # dict spec ({type:..}/{_iid_picks:..}) も _resolve_target に渡す
+            # (= 旧実装は dict を "one_opponent_character_any" に潰しており、 ① {type,filter} 指定の
+            #  filter 無視 ② 人間 target_pick 再実行時 _iid_picks 無視で無限 target_pick 再表示、 の
+            #  人間UXバグがあった。 OP07-026/OP15-077/ST24-004 等)
+            target_spec = v if isinstance(v, (str, dict)) else "one_opponent_character_any"
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="stay_rested_next_refresh", outer_value=target_spec)
             for t in targets:
                 t.stay_rested_next_refresh = True
@@ -6645,20 +6656,20 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                 if ip.instance_id == self_inplay_iid:
                     self_inplay = ip
                     break
-        # 再実行: target_spec に _iid_picks を 追加 (= 任意 spec 形式 を カバー)
+        # 再実行: target_spec に _iid_picks を 追加 (= 任意 spec 形式 を カバー)。
+        # primitive 側 の target 抽出 が ① v を 直接 target_spec とする / ② v.get("target") から
+        # 取る、 の 2 系統 あるため、 top-level と "target" subfield の 両方に _iid_picks を 入れて
+        # どちら の 読み方 でも bypass が 効く ように する。
+        # (= ② 系 (return_to_deck_bottom 等) で string spec 再実行 時 に v.get("target") が default に
+        #    戻り target を 再解決 → 無限 target_pick 再表示 する 人間UXバグ の 修正)
         if isinstance(primitive_value, dict):
             new_spec = dict(primitive_value)
             new_spec["_iid_picks"] = picked_iids
-            # nested "target" dict にも injection (= power_pump 等 spec.target を 持つ primitive)
-            if "target" in new_spec and isinstance(new_spec["target"], dict):
-                new_spec["target"] = {
-                    **new_spec["target"], "_iid_picks": picked_iids,
-                }
-            elif "target" in new_spec and isinstance(new_spec["target"], str):
-                new_spec["target"] = {"_iid_picks": picked_iids}
+            base_t = new_spec["target"] if isinstance(new_spec.get("target"), dict) else {}
+            new_spec["target"] = {**base_t, "_iid_picks": picked_iids}
         else:
             # 文字列 spec (例: "one_opponent_character_any") → dict 化 して bypass
-            new_spec = {"_iid_picks": picked_iids}
+            new_spec = {"_iid_picks": picked_iids, "target": {"_iid_picks": picked_iids}}
         state.pending_choice = None  # 先 に クリア (= 再実行 中 に 別 choice 立てる 可能性 防ぐ)
         state.push_log(f"  効果: 人間選択 → {primitive_kind} 対象 {len(picked_iids)} 枚")
         execute_effect({primitive_kind: new_spec}, state, me, opp, self_inplay)
