@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 3093/4518 (68%)。 【Track1 grind 2026-06-02】 batch7-21。 engine 8件 + systematic 4件。 batch21=spurious opp_turn/条件欠落/cost踏み倒し。 全ゲートgreen。 次=base-rep cluster grind継続 (残~125)。 ⚠full_db_progress.json 都度更新で自律進行。",
+    "現状": "verified 3095/4518 (68%)。 【Track1 grind 2026-06-02】 batch7-22。 engine 8件 + systematic 5件 (on_attached_don fallthrough/相手レストカード/feature exact-CP/parallel伝播/spurious opp_turn永久不発)。 全ゲートgreen。 次=base-rep cluster grind継続 (残~120)。 ⚠full_db_progress.json 都度更新で自律進行。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -141,12 +141,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1223,
-      "remaining_cards": 1438,
+      "remaining_unique_sig": 1221,
+      "remaining_cards": 1436,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 3093,
+    "total_verified": 3095,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -494,6 +494,14 @@
       "cards": 16,
       "lesson": "⭐activate_main(起動メイン)も on_play同様 自ターン発火 → opp_turn条件は永久不発のspurious (EB02-003/OP07-071)",
       "gates": "smoke ERROR=0 / pytest EXIT=0"
+    },
+    "cluster_grind_session_2026_06_02_batch22_spurious_oppturn_systematic": {
+      "theme": "on_play/activate_main/main に opp_turn条件 = 永久不発 (これらは自ターン発火) を DB横断 scan",
+      "scan": "4 hit、 全て 【相手のターン中】 が別clauseなのに self-turn trigger に誤付与された auto-extract bug",
+      "fixed": "OP15-048(登場時draw に opp_turn=永久不発) / EB04-010(登場時debuff) / OP10-086(起動メインKO、 + 黒ひげleader+登場ターン条件欠落も補完) / ST19-004(起動メイン attach、 + トラッシュ1枚デッキ下cost欠落も補完→optional_cost_then ※activate_main cost は trash_to_deck非対応)",
+      "cards": 4,
+      "lesson": "⭐on_play/activate_main/main + opp_turn = 永久不発 systematic (自ターン発火)。 既audited でも auto-extract由来で混入しうる。 ⛔activate_main cost dict は trash_to_deck 非対応 (silent ignore) → optional_cost_then 内に置く",
+      "gates": "smoke ERROR=0 / pytest EXIT=0 / ST19-004 cost behavioral検証"
     }
   },
   "audited": [
@@ -690,6 +698,7 @@
     "EB04-007",
     "EB04-007_p1",
     "EB04-008",
+    "EB04-010",
     "EB04-012",
     "EB04-012_p1",
     "EB04-013",
@@ -2048,6 +2057,7 @@
     "OP10-082",
     "OP10-082_p1",
     "OP10-082_p2",
+    "OP10-086",
     "OP10-090",
     "OP10-090_p1",
     "OP10-092",

@@ -1668,15 +1668,7 @@
             ]
           }
         }
-      ],
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ],
-      "if": {
-        "opp_turn": true
-      }
+      ]
     },
     {
       "_text": "OP15-048 on_ko: 相手は自身の手札1枚をデッキの下に置く。",
@@ -54031,11 +54023,6 @@
             "duration": "turn"
           }
         }
-      ],
-      "conditions": [
-        {
-          "opp_turn": true
-        }
       ]
     },
     {
@@ -64889,11 +64876,10 @@
       "cost": {
         "once_per_turn": true
       },
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ]
+      "if": {
+        "leader_feature": "黒ひげ海賊団",
+        "self_summoning_sickness": true
+      }
     },
     {
       "_text": "OP10-086 シリュウ 相手ターン中: 自身 +2000",
@@ -81834,21 +81820,30 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 1,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
         "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ]
+      }
     },
     {
       "_text": "ST19-004 ヒナ 相手ターン中 DON≥1: 自身 コスト+4",
