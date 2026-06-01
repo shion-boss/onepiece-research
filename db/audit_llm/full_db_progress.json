@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2733/4518 (60.5%)。 【人間vsAI UX 実質完了 (2026-06-02)】 全29 pending_choice kind の set+resolve 健全確認 (~440 human games で crash/stuck/NO_ACT 0)。 UX バグ修復: multi-interactive continuation(シャルリア宮)/target_pick dict無視4種/set_base_power_copy無限ループ/ターン開始時効果後NO_ACT詰み。 【全カード正確性 grind 進行中】 _approx_note 重複二重発火クリーンアップ 10/11枚処理 (残 OP15-086 速攻補完要 + OP10-099/OP15-070 engine依存)。 duration-mismatch 是正。 次=残 _approx + missing-condition 116 精査 + cluster grind 継続。",
+    "現状": "verified 2733/4518 (60.5%)。 【UX 実質完了 + Track1 正確性 grind 進行中 (2026-06-02)】 _approx_note 重複二重発火クリーンアップ 9/11 + duration-mismatch + 効果違い + systematic scan(DON gate/対象誤/clause欠落) + missing-condition で計17枚修復 (batch 1-6、 commit fd83dd1〜1d839e8)。 engine: play_from_trash に played_keyword 追加。 残 missing-condition は EB02-022/soshite 系が engine 拡張要 defer。 次=cluster grind 継続 (signature_clusters.json) + missing-cond 残triage。 ⚠ohtsuki さん指示: 本作業は full_db_progress.json を都度確認・更新しながら進める。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -63,7 +63,10 @@
       "OP12-093 モーリー: 「このキャラのコスト+4」 のみ = self static cost+N 未実装 (in_hand_cost_plus は 0件で silent no-op、 OP08-084/OP12-089 と同類)",
       "OP11-022 しらほし leader: 『手札から 自分の場のドン枚数以下コストの 海王類feature か メガロ(named) を登場』 = feature-filter + dynamic-cost(self_don) + named択一 の play_from_hand 未対応 (play_from_hand_named_with_dynamic_cost は name単一のみ)。 + 『ライフ上1枚を表向き』 cost (peek_self_life_top は情報のみ)。 要 engine 拡張",
       "OP13-002/_p1 エース leader (複合): (1)相手アタック時【ターン1回】手札1捨て→相手リーダーかキャラに『このバトル中』-2000 (leader-or-char択一 + battle duration) (2)【ドン×1】【ターン1回】ダメージを受けた時か自分の元々パワー6000+キャラKO時に1ドロー (二重トリガー)。 base も近似 (opp_attack→opponent_leader/turn、 draw→on_attack)。 要 multi-trigger rebuild",
-      "OP15-093 リスキー兄弟: 『速攻：キャラ と 属性(斬) を得る』 の 属性付与 が未実装 (give_attribute primitive 不在、 granted_attribute model 無)。 速攻：キャラ部は正しい。 要 engine 拡張 (give_attribute + InPlay.granted_attributes)"
+      "OP15-093 リスキー兄弟: 『速攻：キャラ と 属性(斬) を得る』 の 属性付与 が未実装 (give_attribute primitive 不在、 granted_attribute model 無)。 速攻：キャラ部は正しい。 要 engine 拡張 (give_attribute + InPlay.granted_attributes)",
+      "EB02-022 ウソップ: 【登場時】『自分のパワー5000以上のキャラが2枚以下の場合』 の条件未実装 (self_chara_power_ge_count_le 不在)。 play_from_hand 自体は実装済、 gate のみ欠落",
+      "OP07-035/OP11-059 等 soshite 同一target 2段pump: 『リーダーかキャラ1枚+2000。その後Xの場合、そのカードを+N』 = 1段目で選んだ target を2段目で再参照する機構が未実装 (現状1段目のみ)。 counter EVENT 多数",
+      "OP10-099/OP15-070: _approx_note 残 (OP10-099=自ライフ表向きcost未実装 / OP15-070=named-group『シュラ』 static set_base_power)。 engine 拡張要"
     ],
     "注意": "rush 厳禁。 各batch ~10-15% に固有バグ (真正度85-90%実証)。 高速処理は FP を生む (実績: draw誤付与/ST29-015条件誤削除/二重cost — 全て検証で捕捉・是正)。 mark_audited 前に必ず text 照合。 systematic 一括修正は self-target限定等の制約を必ず検証。 ⚠parallel の card text が ‼(U+203C) vs !!(ASCII) で署名が割れる → base を mark しても ‼系 parallel は別cluster 残存。 fixed parallel は その cluster rep を別途 mark 要 (例 ST18-001 base+_p1=!!、 _p2/_p3/_r1=‼)。"
   },
@@ -74,7 +77,7 @@
     "flagged_total": 284,
     "note": "全4518 inline 監査の progress。 flagged_queue を優先消化、 audited に移動して resume。",
     "last_session": "2026-06-02",
-    "fixed_count": 520,
+    "fixed_count": 528,
     "phantom_phase": {
       "detector": "scripts/audit_overlay_text_phantom.py",
       "flagged": 55,
@@ -2785,7 +2788,15 @@
     "ST28-004",
     "OP03-059",
     "OP09-068",
-    "OP04-071"
+    "OP04-071",
+    "OP07-079",
+    "EB04-052",
+    "OP15-086",
+    "ST02-010",
+    "OP12-018",
+    "OP13-064",
+    "OP03-049",
+    "OP05-009"
   ],
   "deferred_complex": [
     "OP02-025",
