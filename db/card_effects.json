@@ -16253,22 +16253,6 @@
   "ST29-001": [
     {
       "_text": "ST29-001 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
-    },
-    {
-      "_text": "ST29-001 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -16283,27 +16267,26 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ST29-001 on_attack: [mdraw-fix]",
+      "when": "on_attack",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "ST29-001_p1": [
     {
       "_text": "ST29-001_p1 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
-    },
-    {
-      "_text": "ST29-001_p1 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -16318,6 +16301,21 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ST29-001 on_attack: [mdraw-fix]",
+      "when": "on_attack",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ],
+      "if": {
+        "self_life_le": 2
+      }
     }
   ],
   "OP06-022_p3": [
@@ -27719,9 +27717,12 @@
       ]
     },
     {
-      "_text": "P-106 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。",
+      "_text": "P-106 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。 [mdraw-fix]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "ko": "one_opponent_character_cost_le_2cost"
         }
@@ -41580,9 +41581,12 @@
       ]
     },
     {
-      "_text": "P-106_p1 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。",
+      "_text": "P-106_p1 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。 [mdraw-fix]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "ko": "one_opponent_character_cost_le_2cost"
         }
@@ -41603,9 +41607,12 @@
       ]
     },
     {
-      "_text": "P-106_p2 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。",
+      "_text": "P-106_p2 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。 [mdraw-fix]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "ko": "one_opponent_character_cost_le_2cost"
         }
@@ -53671,9 +53678,15 @@
   ],
   "EB03-034": [
     {
-      "_text": "EB03-034 on_play: カード1枚を引き、自分の手札1枚をデッキの上に置く。その後、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "EB03-034 on_play: カード1枚を引き、自分の手札1枚をデッキの上に置く。その後、ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
+        {
+          "self_hand_to_deck_bottom": 1
+        },
         {
           "add_don": 1
         }
@@ -53694,9 +53707,15 @@
   ],
   "EB03-034_p1": [
     {
-      "_text": "EB03-034_p1 on_play: カード1枚を引き、自分の手札1枚をデッキの上に置く。その後、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "EB03-034_p1 on_play: カード1枚を引き、自分の手札1枚をデッキの上に置く。その後、ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
+        {
+          "self_hand_to_deck_bottom": 1
+        },
         {
           "add_don": 1
         }
@@ -56217,15 +56236,11 @@
   ],
   "OP15-019": [
     {
-      "_text": "OP15-019 main: カード1枚を引き、自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+1000。",
+      "_text": "OP15-019 main: カード1枚を引き、自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+1000。 [mdraw-fix]",
       "when": "main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
+          "draw": 1
         },
         {
           "power_pump": {
@@ -57559,9 +57574,12 @@
       }
     },
     {
-      "_text": "OP14-058 counter: カード1枚を引き、自分のリーダーを、このバトル中、パワー+3000。",
+      "_text": "OP14-058 counter: カード1枚を引き、自分のリーダーを、このバトル中、パワー+3000。 [mdraw-fix]",
       "when": "counter",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "power_pump": {
             "target": "self_leader",
@@ -59343,9 +59361,12 @@
   ],
   "OP09-119_p3": [
     {
-      "_text": "OP09-119_p3 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。",
+      "_text": "OP09-119_p3 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "give_keyword": {
             "target": "self",
@@ -64623,9 +64644,12 @@
   ],
   "OP09-119": [
     {
-      "_text": "OP09-119 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。",
+      "_text": "OP09-119 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "give_keyword": {
             "target": "self",
@@ -64640,9 +64664,12 @@
   ],
   "OP09-119_p1": [
     {
-      "_text": "OP09-119_p1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。",
+      "_text": "OP09-119_p1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "give_keyword": {
             "target": "self",
@@ -64657,9 +64684,12 @@
   ],
   "OP09-119_p2": [
     {
-      "_text": "OP09-119_p2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。",
+      "_text": "OP09-119_p2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：カード1枚を引き、このキャラは、このターン中、【速攻】を得る。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "give_keyword": {
             "target": "self",
@@ -86698,14 +86728,20 @@
   ],
   "P-103": [
     {
-      "_text": "P-103 on_play: カード2枚を引き、自分の手札2枚を好きな順番に並び替え、デッキの上か下に置く。その後、自分のリーダーにレストのドン‼1枚までを、付与する。",
+      "_text": "P-103 on_play: カード2枚を引き、自分の手札2枚を好きな順番に並び替え、デッキの上か下に置く。その後、自分のリーダーにレストのドン‼1枚までを、付与する。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
+        {
+          "self_hand_to_deck_bottom": 2
+        },
         {
           "attach_don": {
             "target": "self_leader",
             "count": 1,
-            "rested": false
+            "rested": true
           }
         }
       ]
@@ -86713,14 +86749,20 @@
   ],
   "P-103_p1": [
     {
-      "_text": "P-103_p1 on_play: カード2枚を引き、自分の手札2枚を好きな順番に並び替え、デッキの上か下に置く。その後、自分のリーダーにレストのドン‼1枚までを、付与する。",
+      "_text": "P-103_p1 on_play: カード2枚を引き、自分の手札2枚を好きな順番に並び替え、デッキの上か下に置く。その後、自分のリーダーにレストのドン‼1枚までを、付与する。 [mdraw-fix]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
+        {
+          "self_hand_to_deck_bottom": 2
+        },
         {
           "attach_don": {
             "target": "self_leader",
             "count": 1,
-            "rested": false
+            "rested": true
           }
         }
       ]
