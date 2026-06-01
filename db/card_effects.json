@@ -70424,6 +70424,13 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -70439,6 +70446,13 @@
       "do": [
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -70570,19 +70584,6 @@
   ],
   "OP06-061": [
     {
-      "_text": "OP06-061 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、相手のキャラ1枚までを、このターン中、パワー-2000し、このキャラは",
-      "when": "on_play",
-      "do": [
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
       "_text": "【登場時】自分の場のドン!!が相手の場のドン!!の枚数以下の場合、相手のキャラ1枚までを、このターン中、パワー-2000し、このキャラは【速攻】を得る。",
       "when": "on_play",
       "if": {
@@ -70607,19 +70608,6 @@
     }
   ],
   "OP06-061_p1": [
-    {
-      "_text": "OP06-061_p1 on_play: 自分の場のドン !!が相手の場のドン !!の枚数以下の場合、相手のキャラ1枚までを、このターン中、パワー-2000し、このキャラは",
-      "when": "on_play",
-      "do": [
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
     {
       "_text": "【登場時】自分の場のドン!!が相手の場のドン!!の枚数以下の場合、相手のキャラ1枚までを、このターン中、パワー-2000し、このキャラは【速攻】を得る。",
       "when": "on_play",
@@ -71070,12 +71058,26 @@
       "when": "on_play",
       "do": [
         {
-          "trash_to_hand": {
-            "filter": {
-              "exclude_name": "ドクトル・ホグバック",
-              "feature": "スリラーバーク海賊団"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "exclude_name": "ドクトル・ホグバック",
+                    "feature": "スリラーバーク海賊団"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -71363,12 +71365,28 @@
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "chara_to_self_life": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "power_eq": 0
+                    }
+                  },
+                  "place": "choice"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     },
     {
       "_text": "OP06-103 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -71379,7 +71397,7 @@
         }
       ],
       "if": {
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -71848,6 +71866,30 @@
   ],
   "OP05-032": [
     {
+      "_text": "OP05-032 【ターン1回】KO代替: ピーカ以外コスト3以上の自キャラ1枚レスト",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "rest": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_ge": 3,
+              "exclude_name": "ピーカ"
+            }
+          }
+        }
+      ],
+      "optional": true
+    },
+    {
       "_text": "OP05-032 end_of_turn: ①：このキャラをアクティブにする。",
       "when": "end_of_turn",
       "do": [
@@ -71861,6 +71903,30 @@
     }
   ],
   "OP05-032_p1": [
+    {
+      "_text": "OP05-032_p1 【ターン1回】KO代替: ピーカ以外コスト3以上の自キャラ1枚レスト",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "rest": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "cost_ge": 3,
+              "exclude_name": "ピーカ"
+            }
+          }
+        }
+      ],
+      "optional": true
+    },
     {
       "_text": "OP05-032_p1 end_of_turn: ①：このキャラをアクティブにする。",
       "when": "end_of_turn",
@@ -72330,19 +72396,33 @@
       "when": "activate_main",
       "do": [
         {
-          "trash_to_hand": {
-            "filter": {
-              "cost_ge": 3,
-              "cost_le": 5,
-              "color": "黒"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "cost_ge": 3,
+                    "cost_le": 5,
+                    "color": "黒"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "rest_self_don": 1
       }
     }
   ],
@@ -72352,19 +72432,33 @@
       "when": "activate_main",
       "do": [
         {
-          "trash_to_hand": {
-            "filter": {
-              "cost_ge": 3,
-              "cost_le": 5,
-              "color": "黒"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "cost_ge": 3,
+                    "cost_le": 5,
+                    "color": "黒"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
         "rest_self": true,
-        "trash_self": true
+        "rest_self_don": 1
       }
     }
   ],
@@ -79742,12 +79836,28 @@
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "chara_to_self_life": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "power_eq": 0
+                    }
+                  },
+                  "place": "choice"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     },
     {
       "_text": "OP06-103_r1 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -79758,7 +79868,7 @@
         }
       ],
       "if": {
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -90706,12 +90816,26 @@
       "when": "on_play",
       "do": [
         {
-          "trash_to_hand": {
-            "filter": {
-              "exclude_name": "ドクトル・ホグバック",
-              "feature": "スリラーバーク海賊団"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "exclude_name": "ドクトル・ホグバック",
+                    "feature": "スリラーバーク海賊団"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
