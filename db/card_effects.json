@@ -6626,6 +6626,9 @@
       ],
       "cost": {
         "rest_self_don": 2
+      },
+      "if": {
+        "leader_color": "青"
       }
     },
     {
@@ -21419,11 +21422,34 @@
   ],
   "OP15-102": [
     {
+      "_text": "OP15-102 手札時: 自分のパワー7000以上の空島キャラがいる場合 コスト-3",
+      "when": "in_hand",
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature": "空島",
+            "power_ge": 7000
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "in_hand_cost_minus": 3
+        }
+      ]
+    },
+    {
       "_text": "OP15-102 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、レストにする。",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
@@ -36208,6 +36234,9 @@
       ],
       "cost": {
         "rest_self_don": 2
+      },
+      "if": {
+        "leader_color": "青"
       }
     },
     {
@@ -58851,7 +58880,27 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "or": [
+          {
+            "self_chara_filtered_count_ge": {
+              "filter": {
+                "power_ge": 8000
+              },
+              "count": 1
+            }
+          },
+          {
+            "opp_chara_filtered_count_ge": {
+              "filter": {
+                "power_ge": 8000
+              },
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "_text": "trigger: 手札から パワー2000以下 赤キャラ 1 登場",
