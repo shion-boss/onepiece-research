@@ -530,6 +530,15 @@
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "cost_eq": 2
+            },
+            "limit": 1,
+            "rested": true
+          }
         }
       ],
       "if": {
@@ -580,10 +589,7 @@
             ],
             "effect": [
               {
-                "return_to_hand": {
-                  "type": "one_self_chara_filtered",
-                  "filter": {}
-                }
+                "return_to_hand": "one_opponent_character_power_eq_6000"
               }
             ]
           }
@@ -961,10 +967,7 @@
             ],
             "effect": [
               {
-                "return_to_hand": {
-                  "type": "one_self_chara_filtered",
-                  "filter": {}
-                }
+                "return_to_hand": "one_opponent_character_any"
               }
             ]
           }
@@ -1223,7 +1226,10 @@
         {
           "rest": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "if": {
+        "self_rested_chara_count_ge": 2
+      }
     }
   ],
   "OP09-044": [
@@ -31863,10 +31869,7 @@
             ],
             "effect": [
               {
-                "return_to_hand": {
-                  "type": "one_self_chara_filtered",
-                  "filter": {}
-                }
+                "return_to_hand": "one_opponent_character_power_eq_6000"
               }
             ]
           }
@@ -34882,6 +34885,15 @@
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "cost_eq": 2
+            },
+            "limit": 1,
+            "rested": true
           }
         }
       ],
@@ -40882,10 +40894,7 @@
             ],
             "effect": [
               {
-                "return_to_hand": {
-                  "type": "one_self_chara_filtered",
-                  "filter": {}
-                }
+                "return_to_hand": "one_opponent_character_any"
               }
             ]
           }
@@ -78759,7 +78768,10 @@
         {
           "rest": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "if": {
+        "self_rested_chara_count_ge": 2
+      }
     }
   ],
   "ST13-016_r1": [
