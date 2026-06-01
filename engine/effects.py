@@ -1462,6 +1462,7 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             attached_don_ge = int(filt.get("attached_don_ge", 0))
             rested_required = bool(filt.get("rested", False))
+            active_required = bool(filt.get("active", False))
             cands = []
             for ip in opp.characters:
                 if not _matches_filter(ip.card, filt):
@@ -1469,6 +1470,8 @@ def _resolve_target(
                 if attached_don_ge > 0 and ip.attached_dons < attached_don_ge:
                     continue
                 if rested_required and not ip.rested:
+                    continue
+                if active_required and ip.rested:
                     continue
                 if "current_power_le" in filt and ip.power > int(filt["current_power_le"]):
                     continue

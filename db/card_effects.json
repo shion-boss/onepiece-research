@@ -25226,7 +25226,8 @@
             "depth": 5,
             "filter": {
               "feature": "ワノ国",
-              "exclude_name": "お玉"
+              "exclude_name": "お玉",
+              "color": "緑"
             },
             "limit": 1,
             "destination": "hand",
@@ -25271,11 +25272,9 @@
             "amount": 3000,
             "duration": "turn"
           }
-        },
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "_missing_effect": "第2文「自分のコスト3以上のキャラ1枚をレストにできる。そうした場合、相手のコスト5以下のキャラをレスト」 = rest-own-filtered-char as optional cost が未対応のため省略 (踏み倒し回避)。 power_pump は実装"
     },
     {
       "_text": "OP07-036 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -25483,6 +25482,15 @@
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "power_le": 4000,
+              "color": "紫"
+            },
+            "limit": 1
           }
         }
       ],
@@ -25804,7 +25812,21 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -26125,7 +26147,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     }
   ],
   "OP04-037": [
@@ -26276,6 +26301,9 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_le_1cost"
+        },
+        {
+          "mill_self_top": 1
         }
       ],
       "if": {
@@ -26591,13 +26619,15 @@
                   {
                     "type": "one_opponent_character_filtered",
                     "filter": {
-                      "cost_le": 4
+                      "cost_le": 4,
+                      "rested": true
                     }
                   },
                   {
                     "type": "one_opponent_character_filtered",
                     "filter": {
-                      "cost_le": 4
+                      "cost_le": 4,
+                      "rested": true
                     }
                   }
                 ]
@@ -26796,8 +26826,8 @@
           "search_top_n": {
             "depth": 3,
             "filter": {
-              "feature": "CP",
-              "exclude_name": "スパンダム"
+              "exclude_name": "スパンダム",
+              "feature_contains": "CP"
             },
             "limit": 1,
             "destination": "hand",
@@ -26806,10 +26836,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ],
-        "leader_feature": "CP"
+        "leader_feature_contains": "CP"
       }
     }
   ],
@@ -26979,31 +27006,7 @@
   ],
   "OP02-062": [
     {
-      "_text": "OP02-062 on_attack: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
-      "when": "on_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 2
-        }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
-    },
-    {
-      "_text": "OP02-062 on_play: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
-      "when": "on_play",
-      "do": [
-        {
-          "trash_self_hand_random": 2
-        }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
-    },
-    {
-      "_text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。",
+      "_text": "OP02-062 【登場時】手札2枚捨て：コスト4以下キャラ1枚持ち主手札へ。その後このターン中ダブルアタック。",
       "when": "on_play",
       "do": [
         {
@@ -27030,23 +27033,31 @@
       ]
     },
     {
-      "_text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。",
+      "_text": "OP02-062 【アタック時】手札2枚捨て：コスト4以下キャラ1枚持ち主手札へ。その後このターン中ダブルアタック。",
       "when": "on_attack",
       "do": [
         {
-          "return_to_hand": "one_inplay_cost_le_4"
-        },
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ダブルアタック",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_inplay_cost_le_4"
+              },
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "ダブルアタック",
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP02-066": [
@@ -27231,6 +27242,15 @@
             "amount": 4000,
             "duration": "battle"
           }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "active": true
+            }
+          }
         }
       ]
     },
@@ -27250,7 +27270,20 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "ko_multi": [
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 3
+              }
+            },
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 2
+              }
+            }
+          ]
         }
       ],
       "cost": {
@@ -37467,7 +37500,8 @@
             "depth": 5,
             "filter": {
               "feature": "ワノ国",
-              "exclude_name": "お玉"
+              "exclude_name": "お玉",
+              "color": "緑"
             },
             "limit": 1,
             "destination": "hand",
@@ -37575,6 +37609,15 @@
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "power_le": 4000,
+              "color": "紫"
+            },
+            "limit": 1
           }
         }
       ],
@@ -37900,7 +37943,21 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -38457,7 +38514,10 @@
         {
           "rest": "one_opponent_character_cost_le_4cost"
         }
-      ]
+      ],
+      "cost": {
+        "rest_self_don": 2
+      }
     }
   ],
   "OP04-031_p1": [
@@ -38547,6 +38607,9 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_le_1cost"
+        },
+        {
+          "mill_self_top": 1
         }
       ],
       "if": {
@@ -38801,13 +38864,15 @@
                   {
                     "type": "one_opponent_character_filtered",
                     "filter": {
-                      "cost_le": 4
+                      "cost_le": 4,
+                      "rested": true
                     }
                   },
                   {
                     "type": "one_opponent_character_filtered",
                     "filter": {
-                      "cost_le": 4
+                      "cost_le": 4,
+                      "rested": true
                     }
                   }
                 ]
@@ -38894,8 +38959,8 @@
           "search_top_n": {
             "depth": 3,
             "filter": {
-              "feature": "CP",
-              "exclude_name": "スパンダム"
+              "exclude_name": "スパンダム",
+              "feature_contains": "CP"
             },
             "limit": 1,
             "destination": "hand",
@@ -38904,10 +38969,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ],
-        "leader_feature": "CP"
+        "leader_feature_contains": "CP"
       }
     }
   ],
@@ -39264,31 +39326,7 @@
   ],
   "OP02-062_p1": [
     {
-      "_text": "OP02-062_p1 on_attack: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
-      "when": "on_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 2
-        }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
-    },
-    {
-      "_text": "OP02-062_p1 on_play: 自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、",
-      "when": "on_play",
-      "do": [
-        {
-          "trash_self_hand_random": 2
-        }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
-    },
-    {
-      "_text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。",
+      "_text": "OP02-062_p1 【登場時】手札2枚捨て：コスト4以下キャラ1枚持ち主手札へ。その後このターン中ダブルアタック。",
       "when": "on_play",
       "do": [
         {
@@ -39315,23 +39353,31 @@
       ]
     },
     {
-      "_text": "【登場時】/【アタック時】自分の手札2枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、このキャラは、このターン中、【ダブルアタック】を得る。",
+      "_text": "OP02-062_p1 【アタック時】手札2枚捨て：コスト4以下キャラ1枚持ち主手札へ。その後このターン中ダブルアタック。",
       "when": "on_attack",
       "do": [
         {
-          "return_to_hand": "one_inplay_cost_le_4"
-        },
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ダブルアタック",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_inplay_cost_le_4"
+              },
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "ダブルアタック",
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP02-096_p1": [
@@ -39667,7 +39713,20 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "ko_multi": [
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 3
+              }
+            },
+            {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "cost_le": 2
+              }
+            }
+          ]
         }
       ],
       "cost": {
@@ -39914,11 +39973,9 @@
             "amount": 3000,
             "duration": "turn"
           }
-        },
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
         }
-      ]
+      ],
+      "_missing_effect": "第2文「自分のコスト3以上のキャラ1枚をレストにできる。そうした場合、相手のコスト5以下のキャラをレスト」 = rest-own-filtered-char as optional cost が未対応のため省略 (踏み倒し回避)。 power_pump は実装"
     },
     {
       "_text": "OP07-036_p1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -81527,6 +81584,15 @@
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        },
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "active": true
+            }
           }
         }
       ]
