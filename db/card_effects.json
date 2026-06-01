@@ -69396,12 +69396,7 @@
       ],
       "cost": {
         "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ]
+      }
     },
     {
       "_text": "【相手のターン中】 leader フォクシー海賊団 → 相手キャラ全 -1000 (static)",
@@ -69436,12 +69431,7 @@
       ],
       "cost": {
         "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ]
+      }
     },
     {
       "_text": "【相手のターン中】 leader フォクシー海賊団 → 相手キャラ全 -1000 (static)",
@@ -69477,6 +69467,9 @@
       "cost": {
         "once_per_turn": true,
         "pay_don": 3
+      },
+      "if": {
+        "opp_field_count_ge": 3
       }
     }
   ],
@@ -69595,9 +69588,26 @@
       "when": "on_play",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 3
+                }
+              }
+            ]
           }
         }
       ]
@@ -87088,6 +87098,9 @@
       "cost": {
         "once_per_turn": true,
         "pay_don": 3
+      },
+      "if": {
+        "opp_field_count_ge": 3
       }
     }
   ],
@@ -87097,9 +87110,26 @@
       "when": "on_play",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 3
+                }
+              }
+            ]
           }
         }
       ]

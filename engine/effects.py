@@ -620,6 +620,10 @@ def eval_condition(
         elif k == "self_field_count_ge":
             if len(me.characters) < int(v):
                 return False
+        elif k == "opp_field_count_ge":
+            # 相手の場のキャラ (= リーダー含めず) が N 枚以上 (OP07-073 ルフィ等)。
+            if len(opp.characters) < int(v):
+                return False
         elif k == "self_field_count_le":
             if len(me.characters) > int(v):
                 return False
