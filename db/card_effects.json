@@ -334,9 +334,12 @@
   ],
   "OP06-045": [
     {
-      "_text": "OP06-045 on_play: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。",
+      "_text": "OP06-045 on_play: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。 [mdraw]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "self_hand_to_deck_bottom": 2
         }
@@ -504,9 +507,12 @@
   ],
   "EB02-024": [
     {
-      "_text": "EB02-024 on_play: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。その後、コスト1以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "_text": "EB02-024 on_play: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。その後、コスト1以下のキャラ1枚までを、持ち主の手札に戻す。 [mdraw]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "self_hand_to_deck_bottom": 2
         },
@@ -43618,9 +43624,12 @@
       ]
     },
     {
-      "_text": "EB01-060_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB01-060_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -43647,9 +43656,12 @@
       ]
     },
     {
-      "_text": "EB01-060_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB01-060_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -44870,9 +44882,12 @@
       ]
     },
     {
-      "_text": "OP07-056_p1 trigger: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。",
+      "_text": "OP07-056_p1 trigger: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "self_hand_to_deck_bottom": 2
         }
@@ -44916,9 +44931,12 @@
       ]
     },
     {
-      "_text": "OP07-056_r1 trigger: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。",
+      "_text": "OP07-056_r1 trigger: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "self_hand_to_deck_bottom": 2
         }
@@ -46094,9 +46112,12 @@
       ]
     },
     {
-      "_text": "OP10-109_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP10-109_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -46114,9 +46135,12 @@
       ]
     },
     {
-      "_text": "OP10-109_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP10-109_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -49661,9 +49685,12 @@
       }
     },
     {
-      "_text": "OP04-095_p2 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP04-095_p2 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -49688,9 +49715,12 @@
       }
     },
     {
-      "_text": "OP04-095_p3 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP04-095_p3 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -49715,9 +49745,12 @@
       }
     },
     {
-      "_text": "OP04-095_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP04-095_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -52939,9 +52972,12 @@
       ]
     },
     {
-      "_text": "EB04-059 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB04-059 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -52963,9 +52999,12 @@
       ]
     },
     {
-      "_text": "EB04-060 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB04-060 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -55975,9 +56014,12 @@
       ]
     },
     {
-      "_text": "EB01-060 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "EB01-060 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -62836,9 +62878,12 @@
       }
     },
     {
-      "_text": "OP10-097 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP10-097 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -62994,9 +63039,12 @@
       ]
     },
     {
-      "_text": "OP10-109 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP10-109 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -63110,9 +63158,12 @@
       ]
     },
     {
-      "_text": "OP10-116 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP10-116 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -64343,9 +64394,12 @@
       ]
     },
     {
-      "_text": "OP09-106 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP09-106 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 3
+        },
         {
           "trash_self_hand_random": 2
         }
@@ -67004,9 +67058,12 @@
       ]
     },
     {
-      "_text": "OP07-056 trigger: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。",
+      "_text": "OP07-056 trigger: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "self_hand_to_deck_bottom": 2
         }
@@ -68895,9 +68952,12 @@
       ]
     },
     {
-      "_text": "OP06-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP06-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -69662,9 +69722,12 @@
   ],
   "OP05-046": [
     {
-      "_text": "OP05-046 on_ko: カード1枚を引き、自分の手札1枚をデッキの下に置く。",
+      "_text": "OP05-046 on_ko: カード1枚を引き、自分の手札1枚をデッキの下に置く。 [mdraw]",
       "when": "on_ko",
       "do": [
+        {
+          "draw": 1
+        },
         {
           "self_hand_to_deck_bottom": 1
         }
@@ -69720,9 +69783,12 @@
   ],
   "OP05-054": [
     {
-      "_text": "OP05-054 on_play: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。",
+      "_text": "OP05-054 on_play: カード2枚を引き、自分の手札2枚を好きな順番でデッキの下に置く。 [mdraw]",
       "when": "on_play",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "self_hand_to_deck_bottom": 2
         }
@@ -71719,9 +71785,12 @@
       }
     },
     {
-      "_text": "OP04-093 trigger: カード3枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP04-093 trigger: カード3枚を引き、自分の手札2枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 3
+        },
         {
           "trash_self_hand_random": 2
         }
@@ -71762,9 +71831,12 @@
       }
     },
     {
-      "_text": "OP04-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP04-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -75043,9 +75115,12 @@
       ]
     },
     {
-      "_text": "OP02-119 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP02-119 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -76072,9 +76147,12 @@
       ]
     },
     {
-      "_text": "OP01-088 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP01-088 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -77314,9 +77392,12 @@
       }
     },
     {
-      "_text": "ST29-017 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "ST29-017 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
@@ -84914,9 +84995,12 @@
       ]
     },
     {
-      "_text": "OP09-106_p1 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP09-106_p1 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 3
+        },
         {
           "trash_self_hand_random": 2
         }
@@ -84941,9 +85025,12 @@
       ]
     },
     {
-      "_text": "OP09-106_p2 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。",
+      "_text": "OP09-106_p2 trigger: 自分のリーダーが「ニコ・ロビン」の場合、カード3枚を引き、自分の手札2枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 3
+        },
         {
           "trash_self_hand_random": 2
         }
@@ -87908,9 +87995,12 @@
       }
     },
     {
-      "_text": "OP04-095_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。",
+      "_text": "OP04-095_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
       "when": "trigger",
       "do": [
+        {
+          "draw": 2
+        },
         {
           "trash_self_hand_random": 1
         }
