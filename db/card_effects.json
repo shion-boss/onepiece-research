@@ -9876,6 +9876,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP15-119 相手【ブロッカー】発動時: 自ライフ上1公開、 コスト1につき自身+1000 turn",
+      "when": "on_opp_blocker_use",
+      "do": [
+        {
+          "reveal_self_life_top_pump_per_cost": {
+            "per_cost": 1000
+          }
+        }
+      ]
     }
   ],
   "OP06-119": [
@@ -33626,6 +33637,17 @@
     {
       "_text": "OP15-119 相手イベント/ブロッカー発動時:自ライフ上1公開、コスト1につき+1000",
       "when": "opp_event_or_trigger_fired",
+      "do": [
+        {
+          "reveal_self_life_top_pump_per_cost": {
+            "per_cost": 1000
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP15-119 相手【ブロッカー】発動時: 自ライフ上1公開、 コスト1につき自身+1000 turn",
+      "when": "on_opp_blocker_use",
       "do": [
         {
           "reveal_self_life_top_pump_per_cost": {
@@ -94083,7 +94105,8 @@
         {
           "rest_self_cards": 2
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP15-050": [
