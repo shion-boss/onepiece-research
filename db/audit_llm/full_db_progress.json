@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2733/4518 (60.5%)。 【16デッキ完璧化中】 Phase1-2(leader)-3(engine) 進行。 16デッキ214枚は systematic バグ0。 leader 16枚精読+engine fix 完了。 次=16デッキ非leaderカード精読。",
+    "現状": "verified 2733/4518 (60.5%)。 【人間vsAI UX 実質完了 (2026-06-02)】 全29 pending_choice kind の set+resolve 健全確認 (~440 human games で crash/stuck/NO_ACT 0)。 UX バグ修復: multi-interactive continuation(シャルリア宮)/target_pick dict無視4種/set_base_power_copy無限ループ/ターン開始時効果後NO_ACT詰み。 【全カード正確性 grind 進行中】 _approx_note 重複二重発火クリーンアップ 10/11枚処理 (残 OP15-086 速攻補完要 + OP10-099/OP15-070 engine依存)。 duration-mismatch 是正。 次=残 _approx + missing-condition 116 精査 + cluster grind 継続。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -41,7 +41,11 @@
       "⭐『このリーダーをアクティブにする』 を untap_don(=ドンをアクティブ) で誤実装 → 正は untap_chara target:self_leader (リーダーを untap)。 OP03-021/ST02-001 で発見・是正。 untap_chara は self_leader target を取れる",
       "⭐turn-duration の相手/自キャラ コスト操作は `cost_minus` primitive ({target, amount, duration:turn|next_opp_turn_end})。 amount正=コスト-N。 set_base_cost_timed (next_opp_turn_end専用) と使い分け。 OP05-041 の『このターン中コスト-1』 stub を是正",
       "⭐engine bug: trigger_on_self_chara_ko が victim_card=None で last_chara_ko_victim_card を clobber → victim_truly_original_power_ge/victim_feature_in が常に空振り (= 『元々パワーN以上のキャラがKOされた時』 が effect/battle KO 双方で不発)。 fix: victim_card 未指定時は trigger_on_ko 設定の context を保持。 OP13-002/OP14-041 修復、 回帰test追加",
-      "⭐missing-condition / duration-mismatch 系統 (16デッキ完璧化 2026-06-01 で確立): text『〜の場合』 gating があるが overlay に条件 (if/conditions/conditional/choice_effect/optional_cost_then/replace_ko_complex) が一切無い = 条件丸ごと欠落。 + power_pump duration が text『このターン中』(turn)/『このバトル中』(battle) と不一致。 検出器= scripts/scan_missing_conditions.py (--meta-only も)。 ⚠replace_ko_complex は do-primitive 実行時 branches を即評価する汎用 conditional (= replace 専用ではない、 main/on_attack で正常動作。 misuse 扱いしない)"
+      "⭐missing-condition / duration-mismatch 系統 (16デッキ完璧化 2026-06-01 で確立): text『〜の場合』 gating があるが overlay に条件 (if/conditions/conditional/choice_effect/optional_cost_then/replace_ko_complex) が一切無い = 条件丸ごと欠落。 + power_pump duration が text『このターン中』(turn)/『このバトル中』(battle) と不一致。 検出器= scripts/scan_missing_conditions.py (--meta-only も)。 ⚠replace_ko_complex は do-primitive 実行時 branches を即評価する汎用 conditional (= replace 専用ではない、 main/on_attack で正常動作。 misuse 扱いしない)",
+      "⭐_approx_note 重複 entry の二重発火 (= 旧『近似』 entry が proper optional_cost_then entry と同一 when で併存し効果2回/コスト2回発火)。 検出: 同 base に '_approx_note' 持ち + 同 when の proper entry 併存。 fix: approx 重複削除、 proper を残す。 ただし proper 側が効果欠落 (例 OP15-086=登場だけで速攻付与なし) なら proper を補完。 全DB _approx_note は11 base (2026-06-02: OP05-080/ST07-004/OP07-083/OP15-041/ST28-004/OP03-059/OP09-068/OP04-071 処理済、 残 OP15-086(速攻補完要)/OP10-099/OP15-070=engine依存)",
+      "⭐on_attached_don n:0 の無料常時化バグ (= 本来コスト/トリガー付き効果を static 化して無料発火)。 OP04-071 が『相手アタック時 DON-1 でブロッカー』 を on_attached_don n:0 で無料常時ブロッカー化していた。 正: opp_attack when + cost。 検出: on_attached_don n:0 だが text が静的でない (アタック時/相手アタック時/コスト付)",
+      "⭐give_keyword は battle duration 非対応 (turn 既定で granted_keywords に積み _reset_turn_buff でクリア)。 攻撃KW(バニッシュ/ダブルアタック)・ブロッカーの『このバトル中』 は turn 近似が engine 上の正 (1回 attack/block で rest → gameplay 等価)。 _approx_note『battle→turn 近似』 は honest な制限注記で真バグではない。 ただし power_pump は battle duration 対応なので『このバトル中 パワー+N』 は battle が正",
+      "⭐人間UX target_pick 無限ループ系統 (= primitive が dict target spec を固定文字列で捨て、 target_pick 解決後の _iid_picks 注入を無視 → 同 modal 再表示で人間が詰む)。 set_base_power_copy(from_target)/stay_rested/prevent_ko/return_to_deck_bottom で発見・是正済。 全 primitive scan で他になし (untap/redirect_attack は安全)。 検出: 'isinstance(v, str) else \"<固定>\"' で dict を捨てる + outer_kind 渡す primitive"
     ],
     "defer_architectural_触らない": [
       "OP01-120/OP09-014 等: 「パワーN以下のブロッカー無視」 → 専用primitive無 (ブロック不可で過剰近似中)",
@@ -69,8 +73,8 @@
     "deck_pool_audited": 214,
     "flagged_total": 284,
     "note": "全4518 inline 監査の progress。 flagged_queue を優先消化、 audited に移動して resume。",
-    "last_session": "2026-06-01",
-    "fixed_count": 511,
+    "last_session": "2026-06-02",
+    "fixed_count": 520,
     "phantom_phase": {
       "detector": "scripts/audit_overlay_text_phantom.py",
       "flagged": 55,
@@ -306,7 +310,24 @@
     "cluster_grind_batch27": "2728/4518 (60.4%)。 systematic『円番号(②③④)=コストエリアのドンをレスト』 を pay_don(=デッキ戻し誤) → rest_self_don に是正 10件 (OP01-041/OP04-001/_p1/OP03-021/_p1/ST06-001/ST02-001/_p1/P-011/_p1)。 + OP03-021/ST02-001 の『リーダーをアクティブ』 untap_don→untap_chara self_leader。 fire_activate_main が rest_self_don を rested化で正しく支払う確認。 pytest 706 + smoke0。 audited +4 (OP03-021 は 東の海2枚レスト cost 未モデルで未mark)",
     "cluster_grind_batch28": "2732/4518 (60.5%)。 queue 残置 residue 一掃: OP01-008/_p1 (ライフ任意コスト → optional_cost_then{life_to_hand→速攻})、 OP02-057/_r1 (『デッキの上か下』 → rest_remain top_or_bottom)、 OP04-040/_p1 (spurious +1000 stub 除去、 cost8+代替は pending)。 OP15-025/OP03-040/OP02-025 を deferred_cards へ (架空勝利条件/attach_rested_don to_opp/filtered next-play cost = architectural)。 behavioral (OP01-008 任意cost: life-1/hand+1/速攻) + pytest 706 + smoke0。 audited +4",
     "cluster_grind_batch29": "2740/4518 (60.6%)。 OP05-041 on_attack stub+1000 → cost_minus(相手キャラthis-turnコスト-1) で pending解消。 + 確認mark OP12-040(海軍discard→draw)/OP06-042(ドン戻り→draw)/OP02-026(効果なしキャラ登場→untap2)。 behavioral (cost_minus_until_turn_end +1) + pytest 706 + smoke0。 audited +8。 OP12-081 は on_attack の attack-target(リーダー限定) 判別不可で over-fire = limitation 未mark",
-    "meta_perfection_phase": "【16デッキ完璧化プロジェクト】 Phase1 systematic スイープ=バグ0確認。 Phase2 leader精読: OP14-020(if feature斬→cost5誤)/OP15-002(discard-scaling pump欠落)/OP11-041(duration)/OP13-002(trigger+target rebuild)/EB04-001(replace_ko_complex誤用→conditional) 是正。 Phase3 engine: on_self_chara_ko victim context clobber fix (OP13-002/OP14-041 復活)。 OP13-002 を deferred から除去。 | Phase2 非leader精読: 上位26枚中24枚正常、 OP15-035(replace_leave optional欠落)/OP15-119(『イベントか[ブロッカー]発動時』 のブロッカー側 on_opp_blocker_use 欠落) 是正。 高頻度カードは健全 (2026-05-31 監査が常用カードでよく保たれている)。 監査済 42/214 (leader16+非leader26)。 | 16デッキ214枚 全精読完了 (leader16+非leader198)。 修正 ~12枚: leader(OP14-020/OP15-002/OP11-041/OP13-002/EB04-001) + OP15-035/OP15-119/OP06-059/OP12-118/OP06-038/ST24-004/OP11-080/OP14-018/OP15-102 + OP04-040/ST20-004/ST07-001。 engine victim-context fix。 16デッキは systematic/missing-condition/duration/amount すべて 0 (完璧化達成)。 全カード横展開: scan_missing_conditions.py で missing-cond 116 + duration 29 候補検出 (→ db/audit_llm/missing_conditions.json、 非meta長尾、 次grind目標)。"
+    "meta_perfection_phase": "【16デッキ完璧化プロジェクト】 Phase1 systematic スイープ=バグ0確認。 Phase2 leader精読: OP14-020(if feature斬→cost5誤)/OP15-002(discard-scaling pump欠落)/OP11-041(duration)/OP13-002(trigger+target rebuild)/EB04-001(replace_ko_complex誤用→conditional) 是正。 Phase3 engine: on_self_chara_ko victim context clobber fix (OP13-002/OP14-041 復活)。 OP13-002 を deferred から除去。 | Phase2 非leader精読: 上位26枚中24枚正常、 OP15-035(replace_leave optional欠落)/OP15-119(『イベントか[ブロッカー]発動時』 のブロッカー側 on_opp_blocker_use 欠落) 是正。 高頻度カードは健全 (2026-05-31 監査が常用カードでよく保たれている)。 監査済 42/214 (leader16+非leader26)。 | 16デッキ214枚 全精読完了 (leader16+非leader198)。 修正 ~12枚: leader(OP14-020/OP15-002/OP11-041/OP13-002/EB04-001) + OP15-035/OP15-119/OP06-059/OP12-118/OP06-038/ST24-004/OP11-080/OP14-018/OP15-102 + OP04-040/ST20-004/ST07-001。 engine victim-context fix。 16デッキは systematic/missing-condition/duration/amount すべて 0 (完璧化達成)。 全カード横展開: scan_missing_conditions.py で missing-cond 116 + duration 29 候補検出 (→ db/audit_llm/missing_conditions.json、 非meta長尾、 次grind目標)。",
+    "session_2026_06_02": {
+      "ux_complete": "全29 pending_choice kind 健全確認、 UX bug 6種修復 (continuation/target_pick dict無視4/set_base_power_copy/NO_ACT)。 verify_rare_pending_kinds.py + fuzz_human_play.py 強化",
+      "correctness": "_approx_note 重複二重発火 10枚 + duration-mismatch 是正",
+      "fixed_cards": [
+        "OP05-080",
+        "ST07-004",
+        "OP07-083",
+        "OP13-075",
+        "OP11-088",
+        "OP15-041",
+        "ST28-004",
+        "OP03-059",
+        "OP09-068",
+        "OP04-071"
+      ],
+      "tracks": "Track1(正確性 grind)/Track2(AI Phase2)/Track3(matrix 再計算 background) 並行"
+    }
   },
   "audited": [
     "EB01-001",
@@ -2755,7 +2776,16 @@
     "OP09-004_p7",
     "OP09-069_p1",
     "OP09-069_p2",
-    "OP09-069_r1"
+    "OP09-069_r1",
+    "OP05-080",
+    "ST07-004",
+    "OP07-083",
+    "OP11-088",
+    "OP15-041",
+    "ST28-004",
+    "OP03-059",
+    "OP09-068",
+    "OP04-071"
   ],
   "deferred_complex": [
     "OP02-025",
