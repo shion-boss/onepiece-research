@@ -2328,6 +2328,47 @@ def _execute_effect_body(
             if _ko_any and state.effects_overlay:
                 # 「キャラが自分の効果で場を離れた時」 (OP07-038 ハンコック等)
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+        elif k == "chara_to_trash":
+            # 「相手の…キャラを、 トラッシュに置く」 (= 戦闘以外の非 KO トラッシュ送り)。
+            # 公式 (総合 10-2-1 / rules skill §232,507): 「トラッシュに置く」 は KO ではない。
+            # → ① KO 耐性 (ko_immune_*/static_ko_immune/per_turn/source-power) を 受けない
+            #    ② 【KO時】 (trigger_on_ko/on_opp_chara_ko/on_self_chara_ko) を 発動しない。
+            # 一方、 場を離れる事象なので: protect_from_opp_effect (= 効果で離れない) は 尊重し、
+            # 置換効果 (try_replace_ko, leave_kind="chara_to_trash") と
+            # 「自分の効果で場を離れた時」 トリガーは 発火する。 構造は return_to_deck_bottom と同型
+            # (= 非 KO leave) で、 行き先のみ trash。
+            targets = _resolve_target(
+                v, state, me, opp, self_inplay,
+                outer_kind="chara_to_trash", outer_value=v,
+            )
+            if not targets:
+                return False  # 対象 0 枚 = 解決不能
+            _ctt_any = False
+            for t in targets:
+                if t in opp.characters:
+                    if t.protect_from_opp_effect:
+                        state.push_log(f"  保護効果: {t.card.name} は相手の効果で離れない")
+                        continue
+                    if state.effects_overlay and try_replace_ko(
+                        state, opp, me, t, state.effects_overlay,
+                        by_opp_effect=True, leave_kind="chara_to_trash",
+                    ):
+                        continue
+                    opp.characters.remove(t)
+                    opp.trash.append(t.card)
+                    if t.attached_dons > 0:  # 6-5-5-4: 付与ドンはレストでコストエリアへ
+                        opp.don_rested += t.attached_dons
+                    state.push_log(f"  効果: {t.card.name} をトラッシュへ (非KO)")
+                    _ctt_any = True
+                elif t in me.characters:
+                    me.characters.remove(t)
+                    me.trash.append(t.card)
+                    if t.attached_dons > 0:
+                        me.don_rested += t.attached_dons
+                    state.push_log(f"  効果: {t.card.name} を自トラッシュへ (非KO)")
+                    _ctt_any = True
+            if _ctt_any and state.effects_overlay:
+                trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
         elif k == "power_pump":
             # {"target": "self", "amount": 2000, "duration": "turn"|"static",
             #  "feature": "麦わらの一味" (特徴フィルタ),
@@ -6758,6 +6799,12 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
                 owner.don_rested += victim.attached_dons
         elif leave_kind == "return_to_deck_bottom":
             owner.deck.append(victim.card)
+            if victim.attached_dons > 0:
+                owner.don_rested += victim.attached_dons
+        elif leave_kind == "chara_to_trash":
+            # 非 KO のトラッシュ送り (= 「トラッシュに置く」)。 zone は trash だが
+            # KO ではないので 【KO時】 トリガーは 発動しない (leave トリガーは 呼出元で発火)。
+            owner.trash.append(victim.card)
             if victim.attached_dons > 0:
                 owner.don_rested += victim.attached_dons
         return

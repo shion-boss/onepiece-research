@@ -211,6 +211,51 @@ def test_op13_100_fires_only_on_trigger_bearing_chara():
     assert _op13_100_play_chara("OP01-016") == 0, "非トリガーキャラ登場では 不発"
 
 
+def test_chara_to_trash_bypasses_ko_immunity_and_skips_ko_triggers():
+    """chara_to_trash (= 「トラッシュに置く」 非KO除去): KO耐性を無視し【KO時】を発動しない。
+
+    公式 (総合 10-2-1 / rules skill §232,507): 「トラッシュに置く」 は KO ではない。
+    → KO耐性を貫通し、 victim の【KO時】 (例: OP15-012 バギーの KO時1ドロー) も 起きない。
+    ko primitive との 振る舞い差を 固定する (= OP09-009/OP07-091 等の fidelity 保証)。
+    """
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def _trash(prim, *, immune):
+        p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        oc = InPlay.of(repo.get("OP01-016"), sickness=False)  # ナミ cost2
+        if immune:
+            oc.ko_immune_until_turn_end = True
+        p2.characters = [oc]
+        st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                       effects_overlay=overlay)
+        execute_effect({prim: "one_opponent_character_cost_le_2"}, st, p1, p2, p1.leader)
+        return len(p2.characters), len(p2.trash)
+
+    # KO耐性あり: ko は塞がれ、 chara_to_trash は貫通する
+    assert _trash("ko", immune=True) == (1, 0), "ko は KO耐性で 塞がれる"
+    assert _trash("chara_to_trash", immune=True) == (0, 1), "chara_to_trash は KO耐性を貫通"
+    # 耐性なし: どちらも トラッシュへ
+    assert _trash("chara_to_trash", immune=False) == (0, 1), "耐性無しなら トラッシュへ"
+
+    # 【KO時】非発動: OP15-012 バギー (KO時1ドロー) を victim にして 相手が引かないこと
+    def _ko_trigger(prim):
+        p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        victim = InPlay.of(repo.get("OP15-012"), sickness=False)
+        p2.characters = [victim]
+        p2.deck = [repo.get("OP01-013")] * 5
+        st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                       effects_overlay=overlay)
+        execute_effect({prim: {"type": "one_opponent_character_filtered", "filter": {}}},
+                       st, p1, p2, p1.leader)
+        return len(p2.hand)
+
+    assert _ko_trigger("ko") == 1, "ko は victim の【KO時】1ドローを発動させる"
+    assert _ko_trigger("chara_to_trash") == 0, "chara_to_trash は【KO時】を発動しない"
+
+
 def test_no_effect_filter_discriminates_vanilla_vs_effect():
     """play_from_hand の filter no_effect:true が「元々効果のないキャラ」 だけを候補にする (= EB03-003 等)。"""
     import json as _json

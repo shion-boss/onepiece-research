@@ -10382,7 +10382,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "chara_to_trash": "one_opponent_character_power_le_6000"
         }
       ]
     }
@@ -16755,7 +16755,7 @@
   ],
   "ST10-001": [
     {
-      "_text": "ST10-001 ロー 起動メイン: ドン-3 → 相手P3000以下KO",
+      "_text": "ST10-001 ロー 起動メイン: ドン-3 → 相手P3000以下を持ち主デッキ下 + 自手札cost4以下キャラ登場",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
@@ -16763,7 +16763,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "return_to_deck_bottom": "one_opponent_character_power_le_3000"
         },
         {
           "play_from_hand": {
@@ -33785,7 +33785,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "chara_to_trash": "one_opponent_character_power_le_6000"
         }
       ]
     }
@@ -34955,7 +34955,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "chara_to_trash": "one_opponent_character_power_le_6000"
         }
       ]
     }
@@ -44039,7 +44039,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "chara_to_trash": "one_opponent_character_power_le_6000"
         }
       ]
     }
@@ -63786,7 +63786,7 @@
           "trash_opp_hand_random": 1
         },
         {
-          "ko": "one_opponent_character_cost_le_7"
+          "chara_to_trash": "one_opponent_character_cost_le_7"
         }
       ],
       "cost": {
@@ -63810,7 +63810,7 @@
           "trash_opp_hand_random": 1
         },
         {
-          "ko": "one_opponent_character_cost_le_7"
+          "chara_to_trash": "one_opponent_character_cost_le_7"
         }
       ],
       "cost": {
@@ -65557,7 +65557,7 @@
           }
         },
         {
-          "ko": "one_opponent_character_cost_le_2"
+          "chara_to_trash": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -66888,10 +66888,10 @@
             "optional": false,
             "options": [
               {
-                "label": "コスト4以下 KO (= トラッシュへ)",
+                "label": "コスト4以下 トラッシュへ (非KO)",
                 "do": [
                   {
-                    "ko": "one_opponent_character_cost_le_4cost"
+                    "chara_to_trash": "one_opponent_character_cost_le_4cost"
                   }
                 ]
               },
@@ -77223,7 +77223,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_0"
+          "chara_to_trash": "one_opponent_character_cost_le_0"
         }
       ]
     }
@@ -80412,14 +80412,14 @@
   ],
   "ST03-003": [
     {
-      "_text": "ST03-003 クロコ ブロック時: ドン1+ で 相手コスト2以下KO",
+      "_text": "ST03-003 クロコ ブロック時: ドン1+ で 相手コスト2以下を持ち主デッキ下",
       "when": "on_block",
       "if": {
         "self_don_ge": 1
       },
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_2"
         }
       ]
     }
@@ -82308,10 +82308,10 @@
             "optional": false,
             "options": [
               {
-                "label": "コスト4以下 KO (= トラッシュへ)",
+                "label": "コスト4以下 トラッシュへ (非KO)",
                 "do": [
                   {
-                    "ko": "one_opponent_character_cost_le_4cost"
+                    "chara_to_trash": "one_opponent_character_cost_le_4cost"
                   }
                 ]
               },
@@ -82463,7 +82463,7 @@
           }
         },
         {
-          "ko": "one_opponent_character_cost_le_2"
+          "chara_to_trash": "one_opponent_character_cost_le_2"
         }
       ]
     }
