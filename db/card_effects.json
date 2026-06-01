@@ -306,33 +306,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "OP01-060 on_attack: ①(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの一番上を公開し、そのカードがコスト4以下の特徴《王下七武海》を持つキャラカードの場合、レストで",
-      "when": "on_attack",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "reveal_top_play": {
-                  "filter": {
-                    "cost_le": 4,
-                    "feature": "王下七武海"
-                  },
-                  "rested": true,
-                  "rest_remain": "bottom"
-                }
-              }
-            ]
-          }
-        }
-      ]
     }
   ],
   "OP02-001": [
@@ -715,24 +688,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP01-084 on_attack: 自分のデッキの上から5枚を見て、特徴《B・W》を持つイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
-      "when": "on_attack",
-      "do": [
-        {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {
-              "category": "EVENT",
-              "feature": "B・W"
-            },
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
-          }
-        }
-      ]
     }
   ],
   "OP03-013": [
@@ -2136,24 +2091,6 @@
       "if": {
         "self_attached_don_ge": 3
       },
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "OP12-020 activate_main: 【ターン1回】このターン中、このリーダーが相手のキャラとバトルしている場合、このリーダーをアクティブにする。その後、このリーダーは、このターン中、相手の元々のコ",
-      "when": "activate_main",
-      "do": [
-        {
-          "untap": "self_leader"
-        },
-        {
-          "set_cannot_attack_target_cost_le": {
-            "target": "self_leader",
-            "cost_le": 7
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
       }
@@ -3568,24 +3505,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP01-038 on_attack: 相手のレストのコスト2以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_rested_character_cost_le_2cost"
-        }
-      ]
-    },
-    {
-      "_text": "OP01-038 on_ko: 自分の手札1枚を相手が選び、捨てる。",
-      "when": "on_ko",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ]
     }
   ],
   "OP01-041": [
@@ -13624,24 +13543,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "OP12-020_p1 activate_main: 【ターン1回】このターン中、このリーダーが相手のキャラとバトルしている場合、このリーダーをアクティブにする。その後、このリーダーは、このターン中、相手の元々のコ",
-      "when": "activate_main",
-      "do": [
-        {
-          "untap": "self_leader"
-        },
-        {
-          "set_cannot_attack_target_cost_le": {
-            "target": "self_leader",
-            "cost_le": 7
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP12-041_p1": [
@@ -16270,33 +16171,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "OP01-060_p1 on_attack: ①(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの一番上を公開し、そのカードがコスト4以下の特徴《王下七武海》を持つキャラカードの場合、レストで",
-      "when": "on_attack",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "reveal_top_play": {
-                  "filter": {
-                    "cost_le": 4,
-                    "feature": "王下七武海"
-                  },
-                  "rested": true,
-                  "rest_remain": "bottom"
-                }
-              }
-            ]
-          }
-        }
-      ]
     }
   ],
   "OP01-061": [
@@ -16705,33 +16579,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "OP01-060_p2 on_attack: ①(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの一番上を公開し、そのカードがコスト4以下の特徴《王下七武海》を持つキャラカードの場合、レストで",
-      "when": "on_attack",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              }
-            ],
-            "effect": [
-              {
-                "reveal_top_play": {
-                  "filter": {
-                    "cost_le": 4,
-                    "feature": "王下七武海"
-                  },
-                  "rested": true,
-                  "rest_remain": "bottom"
-                }
-              }
-            ]
-          }
-        }
-      ]
     }
   ],
   "ST11-001_p1": [
@@ -17363,24 +17210,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "OP12-020_p3 activate_main: 【ターン1回】このターン中、このリーダーが相手のキャラとバトルしている場合、このリーダーをアクティブにする。その後、このリーダーは、このターン中、相手の元々のコ",
-      "when": "activate_main",
-      "do": [
-        {
-          "untap": "self_leader"
-        },
-        {
-          "set_cannot_attack_target_cost_le": {
-            "target": "self_leader",
-            "cost_le": 7
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP13-001_p1": [
@@ -17918,24 +17747,6 @@
       "if": {
         "self_attached_don_ge": 3
       },
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "OP12-020_p2 activate_main: 【ターン1回】このターン中、このリーダーが相手のキャラとバトルしている場合、このリーダーをアクティブにする。その後、このリーダーは、このターン中、相手の元々のコ",
-      "when": "activate_main",
-      "do": [
-        {
-          "untap": "self_leader"
-        },
-        {
-          "set_cannot_attack_target_cost_le": {
-            "target": "self_leader",
-            "cost_le": 7
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
       }
@@ -26661,15 +26472,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "OP02-115 on_attack: 相手のコスト0のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_cost_eq_0"
-        }
-      ]
     }
   ],
   "OP01-057": [
@@ -29585,15 +29387,6 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP02-004_p4 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -37762,15 +37555,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "OP02-004_p2 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_power_le_3000"
-        }
-      ]
     }
   ],
   "OP02-099_p2": [
@@ -38188,15 +37972,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "OP02-004_p1 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_power_le_3000"
-        }
-      ]
     }
   ],
   "OP02-013_p1": [
@@ -38481,15 +38256,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "OP02-115_p1 on_attack: 相手のコスト0のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_cost_eq_0"
-        }
-      ]
     }
   ],
   "OP02-121_p1": [
@@ -39873,15 +39639,6 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP02-004_p3 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -48022,22 +47779,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "OP01-024_p2 activate_main: 【ターン1回】このキャラにレストのドン‼2枚までを付与する。",
-      "when": "activate_main",
-      "do": [
-        {
-          "attach_don": {
-            "target": "self",
-            "count": 2,
-            "rested": true
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP01-024_r1": [
@@ -48056,22 +47797,6 @@
       "if": {
         "self_attached_don_ge": 2
       },
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "OP01-024_r1 activate_main: 【ターン1回】このキャラにレストのドン‼2枚までを付与する。",
-      "when": "activate_main",
-      "do": [
-        {
-          "attach_don": {
-            "target": "self",
-            "count": 2,
-            "rested": true
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
       }
@@ -48386,15 +48111,6 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP02-004_r1 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -53541,19 +53257,6 @@
     }
   ],
   "EB03-020": [
-    {
-      "_text": "EB03-020 カウンター:自リーダーかキャラ1枚 このバトル+2000",
-      "when": "counter",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        }
-      ]
-    },
     {
       "_text": "EB03-020 その後:自FILMキャラ2枚以上いる場合、そのカード更にこのバトル+2000",
       "when": "counter",
@@ -61056,24 +60759,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP11-006 on_attack: 相手の属性(特)を持つキャラ1枚までを、このターン中、パワー-5000。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "attribute": "特"
-              }
-            },
-            "amount": -5000,
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP11-007": [
@@ -63638,19 +63323,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "OP09-010 on_attack: このキャラは、このターン中、パワー+2000。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP09-011": [
@@ -65139,23 +64811,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "OP08-010 activate_main: 【ターン1回】このキャラ以外の自分の特徴《動物》を持つキャラ1枚までを、このターン中、パワー+1000。",
-      "when": "activate_main",
-      "do": [
-        {
-          "power_pump": {
-            "target": "other_self_chara",
-            "amount": 1000,
-            "duration": "turn",
-            "feature": "動物"
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP08-013": [
@@ -66495,18 +66150,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP08-111 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     },
     {
       "_text": "OP08-111 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。 [r2]",
@@ -68065,19 +67708,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP06-006 on_attack: このキャラは、次の自分のターン開始時まで、パワー+1000。その後、このターン終了時、自分の特徴《FILM》を持つキャラ1枚をトラッシュに置く。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "next_self_turn_start"
-          }
-        }
-      ]
     }
   ],
   "OP06-009": [
@@ -71349,28 +70979,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP04-043 on_attack: コスト2以下のキャラ1枚までを、持ち主の手札かデッキの下に戻す。",
-      "when": "on_attack",
-      "do": [
-        {
-          "choice": {
-            "options": [
-              [
-                {
-                  "return_to_hand": "one_opponent_character_cost_le_2cost"
-                }
-              ],
-              [
-                {
-                  "return_to_deck_bottom": "one_opponent_character_cost_le_2cost"
-                }
-              ]
-            ]
-          }
-        }
-      ]
     }
   ],
   "OP04-048": [
@@ -72696,18 +72304,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP03-002 on_attack: 相手は、このバトル中、パワー2000以下のキャラの【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "OP03-004": [
@@ -73010,15 +72606,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP03-047 on_play: コスト3以下のキャラ1枚までを、持ち主の手札に戻し、自分のデッキの上から2枚をトラッシュに置いてもよい。",
-      "when": "on_play",
-      "do": [
-        {
-          "return_to_hand": "one_opponent_character_cost_le_3cost"
-        }
-      ]
     }
   ],
   "OP03-047_p1": [
@@ -73033,15 +72620,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP03-047_p1 on_play: コスト3以下のキャラ1枚までを、持ち主の手札に戻し、自分のデッキの上から2枚をトラッシュに置いてもよい。",
-      "when": "on_play",
-      "do": [
-        {
-          "return_to_hand": "one_opponent_character_cost_le_3cost"
-        }
-      ]
     }
   ],
   "OP03-050": [
@@ -73067,15 +72645,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP03-051 on_ko: 自分のデッキの上から3枚をトラッシュに置いてもよい。",
-      "when": "on_ko",
-      "do": [
-        {
-          "mill_self_top": 3
-        }
-      ]
     }
   ],
   "OP03-053": [
@@ -73506,22 +73075,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP03-090 on_ko: 自分のトラッシュからコスト4以下の『CP』を含む特徴を持つキャラカード1枚までを、レストで登場させる。",
-      "when": "on_ko",
-      "do": [
-        {
-          "play_from_trash": {
-            "filter": {
-              "feature_contains": "CP",
-              "cost_le": 4
-            },
-            "limit": 1,
-            "rested": true
-          }
-        }
-      ]
     },
     {
       "_text": "OP03-090 【ドン!!×1】このキャラは【ブロッカー】を得る。",
@@ -75609,22 +75162,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP01-014 on_block: 自分の手札からコスト2以下の赤のキャラカード1枚までを、登場させる。",
-      "when": "on_block",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_le": 2,
-              "color": "赤"
-            },
-            "limit": 1
-          }
-        }
-      ]
     }
   ],
   "OP01-015": [
@@ -75727,22 +75264,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "OP01-024 activate_main: 【ターン1回】このキャラにレストのドン‼2枚までを付与する。",
-      "when": "activate_main",
-      "do": [
-        {
-          "attach_don": {
-            "target": "self",
-            "count": 2,
-            "rested": true
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP01-024_p1": [
@@ -75761,22 +75282,6 @@
       "if": {
         "self_attached_don_ge": 2
       },
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "OP01-024_p1 activate_main: 【ターン1回】このキャラにレストのドン‼2枚までを付与する。",
-      "when": "activate_main",
-      "do": [
-        {
-          "attach_don": {
-            "target": "self",
-            "count": 2,
-            "rested": true
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
       }
@@ -76278,18 +75783,6 @@
       "if": {
         "self_attached_don_ge": 1
       },
-      "cost": {
-        "rest_self": true
-      }
-    },
-    {
-      "_text": "OP01-063 activate_main: このキャラをレストにできる：相手の手札1枚を選び、公開する。公開したカードがイベントの場合、相手のライフ1枚までを、持ち主のデッキの下に置く。",
-      "when": "activate_main",
-      "do": [
-        {
-          "reveal_opp_hand_and_if_event_mill_life": 1
-        }
-      ],
       "cost": {
         "rest_self": true
       }
@@ -78042,18 +77535,6 @@
       }
     },
     {
-      "_text": "ST28-002 on_play: 自分の特徴《ワノ国》を持つリーダーは、このターン中、【バニッシュ】を得る。",
-      "when": "on_play",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self_leader",
-            "keyword": "バニッシュ"
-          }
-        }
-      ]
-    },
-    {
       "_text": "ST28-002 【ドン‼×2】このキャラは【ブロッカー】を得る。",
       "when": "on_attached_don",
       "n": 2,
@@ -78869,19 +78350,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "OP09-010_r1 on_attack: このキャラは、このターン中、パワー+2000。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP09-011_r1": [
@@ -79440,23 +78908,6 @@
       }
     },
     {
-      "_text": "ST21-015 on_ko: 自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる。",
-      "when": "on_ko",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "power_le": 6000,
-              "color": "赤",
-              "exclude_name": "ロロノア・ゾロ"
-            },
-            "limit": 1
-          }
-        }
-      ]
-    },
-    {
       "_text": "ST21-015 【ドン‼×2】このキャラは【速攻】を得る。",
       "when": "on_attached_don",
       "n": 2,
@@ -79490,23 +78941,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST21-015_p1 on_ko: 自分の手札から「ロロノア・ゾロ」以外のパワー6000以下の赤のキャラカード1枚までを、登場させる。",
-      "when": "on_ko",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "power_le": 6000,
-              "color": "赤",
-              "exclude_name": "ロロノア・ゾロ"
-            },
-            "limit": 1
-          }
-        }
-      ]
     },
     {
       "_text": "ST21-015_p1 【ドン‼×2】このキャラは【速攻】を得る。",
@@ -82207,32 +81641,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "ST09-008 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト4以下の黄の特徴《ワノ国》を持つキャラカード1枚までを、登場させる。",
-      "when": "on_attack",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "life_top_or_bottom_to_hand": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "color": "黄",
-                    "feature": "ワノ国",
-                    "cost_le": 4
-                  }
-                }
-              }
-            ]
-          }
-        }
-      ]
     }
   ],
   "ST09-012": [
@@ -82439,36 +81847,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "ST07-004 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。(このカードがダメージを与えた場合、",
-      "when": "on_attack",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "life_top_or_bottom_to_hand": 1
-              }
-            ],
-            "effect": [
-              {
-                "give_keyword": {
-                  "target": "self",
-                  "keyword": "バニッシュ"
-                }
-              },
-              {
-                "power_pump": {
-                  "target": "self",
-                  "amount": 1000,
-                  "duration": "battle"
-                }
-              }
-            ]
-          }
-        }
-      ]
     },
     {
       "_text": "【ドン!!×1】【アタック時】自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。 ※battle→turn",
@@ -83405,15 +82783,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "ST02-008 on_attack: 相手のドン!!1枚までを、レストにする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "rest_opp_don": 1
-        }
-      ]
     }
   ],
   "ST02-009": [
@@ -83547,18 +82916,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-002 on_attack: 相手は、このバトル中、パワー5000以上のキャラの【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     },
     {
       "_text": "ST01-002 trigger: このカードを登場させる。",
@@ -83771,18 +83128,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-002_r1 on_attack: 相手は、このバトル中、パワー5000以上のキャラの【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     },
     {
       "_text": "ST01-002_r1 trigger: このカードを登場させる。",
@@ -84073,15 +83418,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "ST02-008_r1 on_attack: 相手のドン!!1枚までを、レストにする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "rest_opp_don": 1
-        }
-      ]
     }
   ],
   "ST02-009_r1": [
@@ -84575,22 +83911,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP01-014_p1 on_block: 自分の手札からコスト2以下の赤のキャラカード1枚までを、登場させる。",
-      "when": "on_block",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_le": 2,
-              "color": "赤"
-            },
-            "limit": 1
-          }
-        }
-      ]
     }
   ],
   "OP01-015_p1": [
@@ -87481,18 +86801,6 @@
       }
     },
     {
-      "_text": "ST01-002_p2 on_attack: 相手は、このバトル中、パワー5000以上のキャラの【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
-    },
-    {
       "_text": "ST01-002_p2 trigger: このカードを登場させる。",
       "when": "trigger",
       "do": [
@@ -87747,15 +87055,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "ST02-008_p2 on_attack: 相手のドン!!1枚までを、レストにする。",
-      "when": "on_attack",
-      "do": [
-        {
-          "rest_opp_don": 1
-        }
-      ]
     }
   ],
   "ST02-010_p2": [
@@ -88426,22 +87725,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP01-014_p2 on_block: 自分の手札からコスト2以下の赤のキャラカード1枚までを、登場させる。",
-      "when": "on_block",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "cost_le": 2,
-              "color": "赤"
-            },
-            "limit": 1
-          }
-        }
-      ]
     }
   ],
   "OP01-021_p4": [
@@ -89363,18 +88646,6 @@
       }
     },
     {
-      "_text": "ST01-002_p1 on_attack: 相手は、このバトル中、パワー5000以上のキャラの【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
-    },
-    {
       "_text": "ST01-002_p1 trigger: このカードを登場させる。",
       "when": "trigger",
       "do": [
@@ -89399,18 +88670,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-002_p4 on_attack: 相手は、このバトル中、パワー5000以上のキャラの【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     },
     {
       "_text": "ST01-002_p4 trigger: このカードを登場させる。",
