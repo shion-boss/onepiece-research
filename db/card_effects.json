@@ -64171,6 +64171,13 @@
       "when": "activate_main",
       "do": [
         {
+          "attach_don": {
+            "target": "self_inplay_choice",
+            "count": 2,
+            "rested": true
+          }
+        },
+        {
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -1000,
@@ -64188,6 +64195,13 @@
       "_text": "OP10-016_p1 activate_main: このキャラをレストにできる：自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。その後、相手のキャラ1枚までを、このターン中、パワー-1000。",
       "when": "activate_main",
       "do": [
+        {
+          "attach_don": {
+            "target": "self_inplay_choice",
+            "count": 2,
+            "rested": true
+          }
+        },
         {
           "power_pump": {
             "target": "one_opponent_character_any",
@@ -64489,12 +64503,41 @@
   ],
   "OP10-037": [
     {
+      "_text": "OP10-037 【ターン1回】相手効果離脱代替: 自ODYSSEYキャラ1枚レスト",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "rest": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "feature": "ODYSSEY"
+            }
+          }
+        }
+      ],
+      "optional": true
+    },
+    {
       "_text": "OP10-037 end_of_turn: 自分の特徴《ODYSSEY》を持つキャラ1枚までを、アクティブにする。",
       "when": "end_of_turn",
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ODYSSEY"
+              }
+            },
             "limit": 1
           }
         }
@@ -64506,12 +64549,41 @@
   ],
   "OP10-037_p1": [
     {
+      "_text": "OP10-037_p1 【ターン1回】相手効果離脱代替: 自ODYSSEYキャラ1枚レスト",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "rest": {
+            "type": "one_self_chara_filtered",
+            "filter": {
+              "feature": "ODYSSEY"
+            }
+          }
+        }
+      ],
+      "optional": true
+    },
+    {
       "_text": "OP10-037_p1 end_of_turn: 自分の特徴《ODYSSEY》を持つキャラ1枚までを、アクティブにする。",
       "when": "end_of_turn",
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ODYSSEY"
+              }
+            },
             "limit": 1
           }
         }
@@ -64897,10 +64969,32 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "one_self_character_any",
-            "amount": 2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "filter": {
+                    "feature": "スリラーバーク海賊団"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "exclude_name": "ペローナ"
+                    }
+                  },
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -90815,10 +90909,32 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "one_self_character_any",
-            "amount": 2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 2,
+                  "filter": {
+                    "feature": "スリラーバーク海賊団"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "exclude_name": "ペローナ"
+                    }
+                  },
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],

@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 3045/4518 (67%)。 【Track1 grind 2026-06-02】 batch7-18。 engine 7件 + systematic 4件。 batch18=leader OR/多色条件欠落。 全ゲートgreen。 次=base-rep cluster grind継続 (残~145)。 ⚠full_db_progress.json 都度更新で自律進行。",
+    "現状": "verified 3061/4518 (67%)。 【Track1 grind 2026-06-02】 batch7-19。 engine 7件 + systematic 4件 + 多数 cluster grind。 batch19=attach欠落/replace_leave/cost踏み倒し是正。 全ゲートgreen。 次=base-rep cluster grind継続 (残~135)。 ⚠full_db_progress.json 都度更新で自律進行。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -141,12 +141,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1247,
-      "remaining_cards": 1486,
+      "remaining_unique_sig": 1239,
+      "remaining_cards": 1470,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 3045,
+    "total_verified": 3061,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -474,6 +474,12 @@
       "deferred_new": "OP11-073(declare機構=OP11-071同class、+2000無条件過剰近似) / OP12-087(cost+3 self static=OP12-089同class、 leader OR是正済)",
       "cards": 8,
       "gates": "smoke ERROR=0 / pytest EXIT=0"
+    },
+    "cluster_grind_session_2026_06_02_batch19": {
+      "fixed": "OP10-016(「リーダーかキャラにレストドン2付与」欠落→attach_don) / OP10-037(replace_leave欠落=ODYSSEYキャラレスト離脱代替 + end_of_turn untap に ODYSSEY filter欠落) / OP10-092(trash_to_deck cost踏み倒し + pump「ペローナ以外」exclude欠落→optional_cost_then rebuild)",
+      "clean": "OP07-012(登場debuff) OP10-019(ドン5 KO+counter) OP10-033(ODYSSEY keep_opp_rested_don) OP10-090(KO時 ドレスローザ蘇生) OP10-107(ライフcost→hand_to_self_life)",
+      "cards": 16,
+      "gates": "smoke ERROR=0 / pytest EXIT=0 / exclude_name behavioral検証"
     }
   },
   "audited": [
@@ -1561,6 +1567,7 @@
     "OP07-001_p1",
     "OP07-001_p2",
     "OP07-008",
+    "OP07-012",
     "OP07-014",
     "OP07-014_p1",
     "OP07-014_r1",
@@ -1948,9 +1955,14 @@
     "OP10-011",
     "OP10-011_p1",
     "OP10-011_r1",
+    "OP10-015",
+    "OP10-016",
+    "OP10-016_p1",
     "OP10-018",
     "OP10-018_p1",
     "OP10-018_r1",
+    "OP10-019",
+    "OP10-019_p1",
     "OP10-021",
     "OP10-022",
     "OP10-022_p1",
@@ -1963,6 +1975,10 @@
     "OP10-032_p1",
     "OP10-032_p2",
     "OP10-032_r1",
+    "OP10-033",
+    "OP10-033_p1",
+    "OP10-037",
+    "OP10-037_p1",
     "OP10-042",
     "OP10-042_p1",
     "OP10-042_p2",
@@ -1989,9 +2005,15 @@
     "OP10-082",
     "OP10-082_p1",
     "OP10-082_p2",
+    "OP10-090",
+    "OP10-090_p1",
+    "OP10-092",
+    "OP10-092_p1",
     "OP10-097",
     "OP10-099",
     "OP10-099_p1",
+    "OP10-107",
+    "OP10-107_p1",
     "OP10-108",
     "OP10-108_p1",
     "OP10-108_p2",
