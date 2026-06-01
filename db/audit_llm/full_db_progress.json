@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2680/4518 (59.3%)。 audited 2015 + vanilla 449 + equivalence 216。 残監査キュー= db/audit_llm/signature_clusters.json (1467署名/1847枚)。 architectural defer は meta.deferred_cards (42件)。 OP01-008/OP02-057/OP15-025 はキュー残置 (engine 拡張/複合 後に再監査)。",
+    "現状": "verified 2689/4518 (59.5%)。 audited 2024 + vanilla 449 + equivalence 216。 残監査キュー= signature_clusters.json (1460署名/1838枚)。 architectural defer は meta.deferred_cards (43件)。 OP01-008/OP02-057/OP15-025 はキュー残置 (engine 拡張/複合 後に再監査)。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -31,7 +31,10 @@
       "⭐keyword_duration_missing は behavioral FP (= scanner が『恒久付与の疑い』 と出すが、 give_keyword は duration 省略時 default 'turn' で granted_keywords に積み、 _reset_turn_buff(game.py:690) が毎ターン終了でクリア → このターン中と同義)。 duration:'turn' 明記は no-op churn。 静的(on_attached_don)の keyword も同様で恒久が正。 57 entry 確認済、 mark 時は他の不備のみ見る",
       "⭐end_of_turn の ①(ドンN枚レスト)任意コストは systematic 未モデル化 convention (= OP05-032 等 audited 先例が cost なしで効果のみ。 OP04-020/_p1 もこれに準拠)。 ➀コストgate は将来の systematic 候補 (要 optional-cost-on-field-trigger gate)",
       "search_top_n は rest_remain:'bottom' で『残りをデッキ下』 を自前処理する → 追加の look_top_reorder は spurious 二重 (OP11-070/_p1 で混入していた)。 「コストN以上」 は filter.cost_ge 欠落に注意 (OP11-048/OP11-070/OP13-012_p1/ST28-005)",
-      "『A。その後Xの場合 そのカードはキーワード』 EVENT は、 base power_pump を if で誤gate + キーワード部を when:on_play で書くと dead (= EVENT は trigger_main_event の when:main のみ発火)。 正: pump 無条件(main) + キーワードも別 when:main entry に if付きで、 同 filter target で (OP04-093/OP10-097)"
+      "『A。その後Xの場合 そのカードはキーワード』 EVENT は、 base power_pump を if で誤gate + キーワード部を when:on_play で書くと dead (= EVENT は trigger_main_event の when:main のみ発火)。 正: pump 無条件(main) + キーワードも別 when:main entry に if付きで、 同 filter target で (OP04-093/OP10-097)",
+      "⛔誤検知回避【最重要】: `self_inplay` (target string) は『自身固定』 ではない。 _resolve_target line~1524 で [me.leader]+me.characters から pick 1 (human modal / AI auto-pick 最高power) = 『自分のリーダーかキャラ1枚まで』 の正規 shorthand (249 overlay 使用)。 一方 bare `self` (line~1517) は [self_inplay] = 発動元キャラ固定 = 『このキャラ』。 self_inplay_choice も leader+chars choice で同義。 ⇒『リーダーかキャラ1枚まで が self_inplay だからバグ』 は FALSE (調査済、 真バグ0)。 bare self を使うのは『このキャラの〜』 用で正しい",
+      "⭐search_top_n の filter が text の絞り込み (コストA〜B / パワーN / 【トリガー】持ち / イベント・キャラ category) を {} 空で落とす実バグ系統 (EB03-060/ST30-002/ST30-017/OP09-102 等)。 filter キー= cost_ge/cost_le, power_eq, trigger:true, category:'EVENT'|'CHARACTER'。 ただし『カード1枚まで』 無制約 (OP05-043/OP15-118 等) は空filter が正 = FP",
+      "⭐二重search: optional_cost_then 内 search + standalone search_top_n が併存し2回引くバグ (OP12-080/OP03-020)。 単一 optional_cost_then{cost:[...], effect:[search_top_n ...]} に rebuild。 OP03-020 は inner filter が CHARACTER 誤 (text=イベント→EVENT 修正)。 search_top_n は rest_remain:'bottom' で残りを底に置くので 追加 look_top_reorder は spurious 二重 (OP09-102/OP11-070)"
     ],
     "defer_architectural_触らない": [
       "OP01-120/OP09-014 等: 「パワーN以下のブロッカー無視」 → 専用primitive無 (ブロック不可で過剰近似中)",
@@ -111,12 +114,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1467,
-      "remaining_cards": 1847,
+      "remaining_unique_sig": 1460,
+      "remaining_cards": 1838,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 2680,
+    "total_verified": 2689,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -274,7 +277,8 @@
       "cards": 34,
       "gates": "smoke ERROR=0 / pytest EXIT=0 / behavior reproducible (play_self guard / to_hand / leader cond)"
     },
-    "cluster_grind_batch21": "2680/4518 (59.3%)。 fixed 17 entry + parallel 伝播: 速攻：キャラ正規化(EB04-007/_p1) / search cost_ge2欠落+OR feature(OP11-048,OP13-012_p1,OP11-070/_p1,ST28-005) / ドン!!×N static 丸ごと欠落(OP03-078/_p1/_p2 相手全コスト-3, OP04-020/_p1 -1, EB04-017 ミンク3+で-1, ST28-005 自+3000) / soshite_base_gated EVENT dead entry 復活(OP04-093 DA, OP10-097 バニッシュ)。 behavioral verify + run1==run2 + full pytest 706 green + smoke ERROR0。 audited +22。 keyword_duration_missing=FP確定 / 速攻：キャラ=正規KW確定 / ①end_of_turn cost=systematic未モデル化convention"
+    "cluster_grind_batch21": "2680/4518 (59.3%)。 fixed 17 entry + parallel 伝播: 速攻：キャラ正規化(EB04-007/_p1) / search cost_ge2欠落+OR feature(OP11-048,OP13-012_p1,OP11-070/_p1,ST28-005) / ドン!!×N static 丸ごと欠落(OP03-078/_p1/_p2 相手全コスト-3, OP04-020/_p1 -1, EB04-017 ミンク3+で-1, ST28-005 自+3000) / soshite_base_gated EVENT dead entry 復活(OP04-093 DA, OP10-097 バニッシュ)。 behavioral verify + run1==run2 + full pytest 706 green + smoke ERROR0。 audited +22。 keyword_duration_missing=FP確定 / 速攻：キャラ=正規KW確定 / ①end_of_turn cost=systematic未モデル化convention",
+    "cluster_grind_batch22": "2689/4518 (59.5%)。 systematic= search_top_n が text pick-filter を {}空 で落とす修正 9枚: EB03-060(cost2-8) / ST30-002・ST30-017/_p1(power6000+CHARACTER) / OP09-102(trigger:true + spurious look_top_reorder除去) / OP12-080・OP03-020(二重search rebuild、 OP03-020 は inner CHARACTER→EVENT) / ST07-016(counter にライフscry欠落→追加)。 behavioral verify (filter実効: cost/power で非該当除外、 二重search解消 search系=1) + full pytest 706 + smoke ERROR0。 audited +9。 ⛔重要: 『リーダーかキャラ1枚まで→self_inplay』 を212件 systematic バグ と誤認したが、 self_inplay は正規shorthand で真バグ0 と判明 (誤修正回避)"
   },
   "audited": [
     "EB01-001",
@@ -419,6 +423,7 @@
     "EB03-054",
     "EB03-055",
     "EB03-056",
+    "EB03-060",
     "EB03-061",
     "EB03-061_p1",
     "EB03-061_p2",
@@ -687,6 +692,7 @@
     "OP03-013_p2",
     "OP03-013_p3",
     "OP03-018",
+    "OP03-020",
     "OP03-022",
     "OP03-022_p1",
     "OP03-024",
@@ -1534,6 +1540,7 @@
     "OP09-096",
     "OP09-096_p1",
     "OP09-096_r1",
+    "OP09-102",
     "OP09-106",
     "OP09-106_p1",
     "OP09-106_p2",
@@ -1680,6 +1687,7 @@
     "OP12-074",
     "OP12-077",
     "OP12-078",
+    "OP12-080",
     "OP12-090",
     "OP12-094",
     "OP12-094_p1",
@@ -2132,6 +2140,7 @@
     "ST07-008",
     "ST07-008_p1",
     "ST07-008_p3",
+    "ST07-016",
     "ST08-007",
     "ST08-008",
     "ST08-009",
@@ -2288,10 +2297,14 @@
     "ST29-009_p1",
     "ST29-009_p2",
     "ST29-015",
+    "ST30-002",
+    "ST30-002_p1",
     "ST30-006",
     "ST30-007",
     "ST30-008",
-    "ST30-012"
+    "ST30-012",
+    "ST30-017",
+    "ST30-017_p1"
   ],
   "flagged_queue": [],
   "fixed": [
