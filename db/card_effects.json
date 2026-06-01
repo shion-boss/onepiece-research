@@ -1833,17 +1833,13 @@
           }
         },
         {
-          "replace_ko_complex": {
-            "branches": [
+          "conditional": {
+            "if": {
+              "self_life_ge": 2
+            },
+            "do": [
               {
-                "if": {
-                  "self_life_ge": 2
-                },
-                "do": [
-                  {
-                    "life_to_hand": 1
-                  }
-                ]
+                "life_to_hand": 1
               }
             ]
           }
@@ -2109,7 +2105,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "battle"
+            "duration": "turn"
           }
         }
       ]
@@ -2193,14 +2189,14 @@
   ],
   "OP13-002": [
     {
-      "_text": "赤青エース 相手アタック時: 相手リーダー -2000",
+      "_text": "OP13-002 相手アタック時(ターン1回,手札1捨て): 相手リーダーかキャラ1枚 このバトル中-2000",
       "when": "opp_attack",
       "do": [
         {
           "power_pump": {
-            "target": "opponent_leader",
+            "target": "one_opp_chara_or_leader",
             "amount": -2000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ],
@@ -2210,19 +2206,39 @@
       }
     },
     {
-      "_text": "赤青エース ドン1+ 自分アタック時 1ドロー",
-      "when": "on_attack",
+      "_text": "OP13-002 【ドン×1】【ターン1回】ダメージを受けた時に1ドロー (高power KOと共有)",
+      "when": "on_self_life_taken",
       "if": {
-        "self_don_active_ge": 1
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": "OP13-002_draw"
       },
       "do": [
         {
           "draw": 1
         }
+      ]
+    },
+    {
+      "_text": "OP13-002 【ドン×1】【ターン1回】元々パワー6000以上のキャラがKOされた時に1ドロー (ダメージと共有)",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "victim_truly_original_power_ge": 6000
+        }
       ],
       "cost": {
-        "once_per_turn": true
-      }
+        "once_per_turn": "OP13-002_draw"
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP13-003": [
@@ -2346,8 +2362,10 @@
       "_text": "緑ミホーク 起動メイン: 自レスト + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止",
       "when": "activate_main",
       "if": {
-        "self_chara_feature_count_ge": {
-          "feature": "斬",
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 5
+          },
           "count": 1
         }
       },
@@ -2564,10 +2582,15 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {
+              "category_in": [
+                "EVENT",
+                "STAGE"
+              ]
+            },
+            "amount_per_discard": 1000,
+            "target": "self_leader"
           }
         }
       ]
@@ -2577,10 +2600,15 @@
       "when": "opp_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {
+              "category_in": [
+                "EVENT",
+                "STAGE"
+              ]
+            },
+            "amount_per_discard": 1000,
+            "target": "self_leader"
           }
         }
       ]
@@ -12281,6 +12309,18 @@
             "amount": -1000,
             "duration": "turn"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_ge": 2
+            },
+            "do": [
+              {
+                "life_to_hand": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -13172,10 +13212,15 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {
+              "category_in": [
+                "EVENT",
+                "STAGE"
+              ]
+            },
+            "amount_per_discard": 1000,
+            "target": "self_leader"
           }
         }
       ]
@@ -13185,10 +13230,15 @@
       "when": "opp_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {
+              "category_in": [
+                "EVENT",
+                "STAGE"
+              ]
+            },
+            "amount_per_discard": 1000,
+            "target": "self_leader"
           }
         }
       ]
@@ -13388,8 +13438,10 @@
       "_text": "緑ミホーク 起動メイン: 自レスト + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止",
       "when": "activate_main",
       "if": {
-        "self_chara_feature_count_ge": {
-          "feature": "斬",
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 5
+          },
           "count": 1
         }
       },
@@ -13578,27 +13630,56 @@
   ],
   "OP13-002_p1": [
     {
-      "_text": "OP13-002_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このバトル中、パワー-2000。【ドン‼×1】【ターン1回】自分がダメージを [dd-fix]",
+      "_text": "OP13-002 相手アタック時(ターン1回,手札1捨て): 相手リーダーかキャラ1枚 このバトル中-2000",
       "when": "opp_attack",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "draw": 1
-              }
-            ]
+          "power_pump": {
+            "target": "one_opp_chara_or_leader",
+            "amount": -2000,
+            "duration": "battle"
           }
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "discard_hand": 1
       }
+    },
+    {
+      "_text": "OP13-002 【ドン×1】【ターン1回】ダメージを受けた時に1ドロー (高power KOと共有)",
+      "when": "on_self_life_taken",
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": "OP13-002_p1_draw"
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP13-002 【ドン×1】【ターン1回】元々パワー6000以上のキャラがKOされた時に1ドロー (ダメージと共有)",
+      "when": "on_self_chara_ko",
+      "conditions": [
+        {
+          "self_attached_don_ge": 1
+        },
+        {
+          "victim_truly_original_power_ge": 6000
+        }
+      ],
+      "cost": {
+        "once_per_turn": "OP13-002_p1_draw"
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP13-004_p1": [

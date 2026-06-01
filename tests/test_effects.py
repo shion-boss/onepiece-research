@@ -3383,3 +3383,28 @@ def test_play_from_hand_or_trash_human_pick_branch():
     hand_count = sum(1 for c in cands if c.get("source") == "hand")
     trash_count = sum(1 for c in cands if c.get("source") == "trash")
     assert hand_count == 2 and trash_count == 2, f"source 内訳 不一致 (h={hand_count}, t={trash_count})"
+
+
+def test_on_self_chara_ko_preserves_victim_context():
+    """engine fix: trigger_on_self_chara_ko が victim_card 未指定時に直前の trigger_on_ko が
+    設定した last_chara_ko_victim_card を clobber しない (= victim_truly_original_power_ge 等が
+    effect-KO/battle-KO 双方で正しく評価される)。 OP13-002 エース / OP14-041 ハンコック の
+    『元々パワーN以上のキャラが KO された時』 効果の回帰防止。"""
+    from engine.effects import trigger_on_ko, trigger_on_self_chara_ko, resolve_triggers
+    repo = _repo()
+    overlay = _overlay()
+    # 元々パワー6000以上のキャラを探す
+    big = next(c.card_id for c in (repo.get(x["card_id"]) for x in __import__("json").load(open(ROOT / "db" / "cards.json")))
+               if c.category == Category.CHARACTER and isinstance(c.power, int) and c.power >= 6000)
+    state = _make_state(repo, "OP13-002", overlay=overlay)
+    state.turn_number = 4
+    state.turn_player_idx = 1
+    me = state.players[0]
+    me.leader.attached_dons = 1  # 【ドン×1】
+    h0 = len(me.hand)
+    victim = repo.get(big)
+    # 実 KO 相当の trigger 順序 (me = victim owner, players[1] = actor)
+    trigger_on_ko(state, me, state.players[1], victim, overlay, by_opp_effect=True)
+    trigger_on_self_chara_ko(state, me, state.players[1], overlay)  # victim_card 省略
+    resolve_triggers(state)
+    assert len(me.hand) == h0 + 1, "OP13-002: 元々パワー6000+キャラKOで1ドローが発火しない (victim context clobber)"

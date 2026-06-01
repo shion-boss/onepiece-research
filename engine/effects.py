@@ -8747,7 +8747,12 @@ def trigger_on_self_chara_ko(
     state.last_chara_ko_victim_card に一時保存され、 eval_condition の victim_* 条件で読まれる。"""
     if not effects_overlay:
         return
-    state.last_chara_ko_victim_card = victim_card
+    # victim_card 未指定時は直前の trigger_on_ko が設定した context を保持する。
+    # (= None で clobber すると victim_truly_original_power_ge / victim_feature_in 等が
+    #  常に空振りし、 OP13-002 エース / OP14-041 ハンコック 等の「元々パワーN以上のキャラが
+    #  KO された時」 効果が effect-KO / battle-KO の双方で発火しなくなる engine bug を防ぐ)
+    if victim_card is not None:
+        state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
     _maybe_resolve(state)
     state.last_chara_ko_victim_card = None
