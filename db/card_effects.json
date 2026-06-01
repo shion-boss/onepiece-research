@@ -45928,7 +45928,13 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "if": {
+        "opp_inplay_truly_original_power_ge_count": {
+          "power_ge": 5000,
+          "count": 2
+        }
+      }
     }
   ],
   "OP09-009_r1": [
@@ -46065,16 +46071,10 @@
               "feature": "麦わらの一味"
             }
           }
-        },
-        {
-          "set_ko_immune_timed": {
-            "target": "all_self_team",
-            "duration": "next_opp_turn_end"
-          }
         }
       ],
       "if": {
-        "self_rested_cards_count_ge": 2
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
@@ -46096,16 +46096,10 @@
               "feature": "麦わらの一味"
             }
           }
-        },
-        {
-          "set_ko_immune_timed": {
-            "target": "all_self_team",
-            "duration": "next_opp_turn_end"
-          }
         }
       ],
       "if": {
-        "self_rested_cards_count_ge": 2
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
@@ -62866,7 +62860,13 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "if": {
+        "opp_inplay_truly_original_power_ge_count": {
+          "power_ge": 5000,
+          "count": 2
+        }
+      }
     }
   ],
   "ST16-004_p1": [
@@ -64256,7 +64256,13 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "if": {
+        "opp_inplay_truly_original_power_ge_count": {
+          "power_ge": 5000,
+          "count": 2
+        }
+      }
     }
   ],
   "OP09-007": [
@@ -64593,16 +64599,10 @@
               "feature": "麦わらの一味"
             }
           }
-        },
-        {
-          "set_ko_immune_timed": {
-            "target": "all_self_team",
-            "duration": "next_opp_turn_end"
-          }
         }
       ],
       "if": {
-        "self_rested_cards_count_ge": 2
+        "self_rested_chara_count_ge": 2
       }
     }
   ],

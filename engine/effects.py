@@ -806,6 +806,20 @@ def eval_condition(
                     if ip is not None and ip.truly_original_power >= 6000)
             if n < int(v):
                 return False
+        elif k == "opp_inplay_truly_original_power_ge_count":
+            # 相手の元々パワー X 以上の キャラ (任意で リーダー含む) が N 体以上 (= OP09-005 レイリー)
+            # spec: {"power_ge": 5000, "count": 2, "include_leader": false}
+            if opp is None:
+                return False
+            spec = v if isinstance(v, dict) else {}
+            thr = int(spec.get("power_ge", 0))
+            need = int(spec.get("count", 1))
+            pool = list(opp.characters)
+            if spec.get("include_leader") and opp.leader is not None:
+                pool.append(opp.leader)
+            n = sum(1 for ip in pool if ip is not None and ip.truly_original_power >= thr)
+            if n < need:
+                return False
         elif k == "exists_chara_cost_0_or_ge_8":
             # 「コスト0か8以上のキャラがいる場合」 (= クロコダイル OP14-090/094/120)。
             # 現在コスト (base_cost = cost_minus 反映) で 両者の場のキャラ を判定。 v=True 要求。
