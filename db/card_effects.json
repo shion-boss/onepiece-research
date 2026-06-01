@@ -19572,7 +19572,7 @@
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
-            "duration": "battle"
+            "duration": "turn"
           }
         },
         {
