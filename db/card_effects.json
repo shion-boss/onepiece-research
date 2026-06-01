@@ -23872,11 +23872,18 @@
   ],
   "OP09-089": [
     {
-      "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを",
+      "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -25180,8 +25187,7 @@
         {
           "conditional": {
             "if": {
-              "opp_life_le": 2,
-              "self_life_le": 2
+              "opp_life_le": 2
             },
             "do": [
               {
@@ -25215,8 +25221,7 @@
         {
           "conditional": {
             "if": {
-              "opp_life_le": 2,
-              "self_life_le": 2
+              "opp_life_le": 2
             },
             "do": [
               {
@@ -29173,7 +29178,7 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_le_5cost"
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -29187,7 +29192,7 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_le_5cost"
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -34578,7 +34583,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5cost"
+          "ko": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -34611,7 +34616,7 @@
       },
       "do": [
         {
-          "ko": "one_opponent_character_le_5cost"
+          "ko": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -36129,7 +36134,7 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_le_5cost"
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -39160,8 +39165,7 @@
         {
           "conditional": {
             "if": {
-              "opp_life_le": 2,
-              "self_life_le": 2
+              "opp_life_le": 2
             },
             "do": [
               {
@@ -39195,8 +39199,7 @@
         {
           "conditional": {
             "if": {
-              "opp_life_le": 2,
-              "self_life_le": 2
+              "opp_life_le": 2
             },
             "do": [
               {
@@ -41300,11 +41303,18 @@
   ],
   "OP09-089_p1": [
     {
-      "_text": "OP09-089_p1 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを",
+      "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -43279,8 +43289,7 @@
         {
           "conditional": {
             "if": {
-              "opp_life_le": 2,
-              "self_life_le": 2
+              "opp_life_le": 2
             },
             "do": [
               {
@@ -43314,8 +43323,7 @@
         {
           "conditional": {
             "if": {
-              "opp_life_le": 2,
-              "self_life_le": 2
+              "opp_life_le": 2
             },
             "do": [
               {
@@ -48227,7 +48235,7 @@
       },
       "do": [
         {
-          "rest": "one_opponent_character_le_5cost"
+          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -78792,11 +78800,18 @@
   ],
   "OP09-089_r1": [
     {
-      "_text": "OP09-089_r1 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを",
+      "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "do": [
         {
           "draw": 1
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
