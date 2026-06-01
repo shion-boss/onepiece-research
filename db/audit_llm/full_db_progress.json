@@ -1,9 +1,9 @@
 {
  "_RESUME": {
   "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-  "現状": "verified 2196/4518 (48%)。 audited(inline監査済 1531) + vanilla_verified(空overlay正常 449) + equivalence_verified(audited等価 216)。 残監査キュー = db/audit_llm/signature_clusters.json (overlay+text署名でクラスタ化、 size降順、 audited除外済、 約1659署名/2330枚)。",
+  "現状": "verified 2321/4518 (51%、 50%突破)。 audited(inline監査済 1656) + vanilla_verified(空overlay正常 449) + equivalence_verified(audited等価 216)。 残監査キュー = db/audit_llm/signature_clusters.json (overlay+text署名でクラスタ化、 size降順、 audited除外済、 1622署名/2205枚)。 architectural defer は meta.deferred_cards (20件) に蓄積済。",
   "再開手順": [
-   "1. db/audit_llm/signature_clusters.json を読む。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
+   "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
    "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
    "3. 正しい rep は `.venv/bin/python scripts/mark_audited_clusters.py REP1 REP2 ...` で cluster 全メンバーを audited に追加 + signature_clusters.json 再生成 + total_verified 自動更新。",
    "4. バグの rep は db/card_effects.json を公式text通りに直接修正 (engine未実装primitiveは engine/effects.py 追加 or 近似+_text注記)。 修正後 smoke + pytest 確認 → commit。",
@@ -23,15 +23,20 @@
    "「A。その後Xの場合B」 で base A まで if gate (self-target base のみ無条件化、 opp-debuff conditional は触らない=ST29-015 の FP 回避)",
    "条件節 欠落/余分 (ドン差/レスト数/ライフ、 例 OP06-069欠落 OP05-118余分)",
    "cost踏み倒し (任意コスト未モデル化、 search filter部分欠落)",
-   "二重 (cost.discard_hand+do.trash_random / 同when if有+無条件)"
+   "二重 (cost.discard_hand+do.trash_random / 同when if有+無条件)",
+   "target spec typo 空解決 (例 one_opponent_character_le_Ncost = 未定義specで silent no-op 不発、 正は cost_le_N。 base 正で parallel のみ typo 乖離するパターンに注意)",
+   "parallel が base から実装乖離 (例 OP09-004 base=static正 / _p5-p7=誤main+turn、 OP09-065 二重rest。 base overlay を copy して是正)"
   ],
   "defer_architectural_触らない": [
    "OP01-120/OP09-014 等: 「パワーN以下のブロッカー無視」 → 専用primitive無 (ブロック不可で過剰近似中)",
    "OP11-071: 任意コスト宣言(declare)機構 未実装",
    "【自分のターン中】相手すべて等の継続静的効果 ~20枚: on_attached_don n:0 static 化が要 (OP02-121/OP05-102/EB04-017 等)",
-   "OP15-060 等: 複雑な複合 (要個別rebuild)"
+   "OP15-060 等: 複雑な複合 (要個別rebuild)",
+   "either-side char target: 「コストN以下のキャラ1枚まで(両陣営)、 持ち主の手札に戻す/KO」 = 両陣営から選択する spec 未実装 (OP10-046/OP11-118/OP07-040/OP03-122)。 one_opponent/one_self 限定では片側が欠落",
+   "self static cost+N (OP08-084 このキャラのコスト+4) / group filtered static (ST14-017 黒麦わら全員コスト+1 継続) / ライフ表向きcost (P-106 ライフ上1枚を表向きにできる：)",
+   "※ defer 全件 ID は meta.deferred_cards (20件) に集約 = grind dump 時に skip する"
   ],
-  "注意": "rush 厳禁。 各batch ~10-15% に固有バグ (真正度85-90%実証)。 高速処理は FP を生む (実績: draw誤付与/ST29-015条件誤削除/二重cost — 全て検証で捕捉・是正)。 mark_audited 前に必ず text 照合。 systematic 一括修正は self-target限定等の制約を必ず検証。"
+  "注意": "rush 厳禁。 各batch ~10-15% に固有バグ (真正度85-90%実証)。 高速処理は FP を生む (実績: draw誤付与/ST29-015条件誤削除/二重cost — 全て検証で捕捉・是正)。 mark_audited 前に必ず text 照合。 systematic 一括修正は self-target限定等の制約を必ず検証。 ⚠parallel の card text が ‼(U+203C) vs !!(ASCII) で署名が割れる → base を mark しても ‼系 parallel は別cluster 残存。 fixed parallel は その cluster rep を別途 mark 要 (例 ST18-001 base+_p1=!!、 _p2/_p3/_r1=‼)。"
  },
  "meta": {
   "created": "2026-05-31",
