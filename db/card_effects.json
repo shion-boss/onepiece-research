@@ -23460,7 +23460,7 @@
             },
             "limit": 2,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -24023,7 +24023,7 @@
             "effect": [
               {
                 "power_pump": {
-                  "target": "self_leader",
+                  "target": "self_inplay",
                   "amount": 2000,
                   "duration": "battle"
                 }
@@ -24406,7 +24406,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -24445,19 +24446,30 @@
   ],
   "OP09-103": [
     {
-      "_text": "OP09-103 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト4以下の特徴《革命軍》を持つキャラカード1枚までを、登場させる。登場させた場合、カー",
+      "_text": "OP09-103 【登場時】ライフ上下1枚手札に加える：手札からコスト4以下革命軍キャラ1枚登場。登場させた場合1枚引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 4,
-              "feature": "革命軍"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "cost_le": 4,
+                    "feature": "革命軍"
+                  },
+                  "limit": 1
+                }
+              },
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]
@@ -24576,17 +24588,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "デレシ!!"
+              "exclude_name": "デレシ!!",
+              "trigger": true
             },
             "limit": 2,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "bottom"
           }
         }
       ]
@@ -36842,7 +36849,7 @@
             "effect": [
               {
                 "power_pump": {
-                  "target": "self_leader",
+                  "target": "self_inplay",
                   "amount": 2000,
                   "duration": "battle"
                 }
@@ -36978,19 +36985,30 @@
   ],
   "OP09-103_p1": [
     {
-      "_text": "OP09-103_p1 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト4以下の特徴《革命軍》を持つキャラカード1枚までを、登場させる。登場させた場合、カー",
+      "_text": "OP09-103_p1 【登場時】ライフ上下1枚手札に加える：手札からコスト4以下革命軍キャラ1枚登場。登場させた場合1枚引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 4,
-              "feature": "革命軍"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "cost_le": 4,
+                    "feature": "革命軍"
+                  },
+                  "limit": 1
+                }
+              },
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ]
@@ -44130,17 +44148,12 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "デレシ!!"
+              "exclude_name": "デレシ!!",
+              "trigger": true
             },
             "limit": 2,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "bottom"
           }
         }
       ]
@@ -44168,7 +44181,7 @@
             },
             "limit": 2,
             "destination": "hand",
-            "rest_remain": "trash"
+            "rest_remain": "bottom"
           }
         }
       ],
@@ -79603,7 +79616,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
