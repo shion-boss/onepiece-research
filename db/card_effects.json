@@ -26861,9 +26861,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ]
+        "leader_feature_contains": "CP"
       }
     }
   ],
@@ -50487,7 +50485,7 @@
             "filter": {
               "category": "CHARACTER",
               "cost_le": 5,
-              "feature": "CP"
+              "feature_contains": "CP"
             },
             "limit": 1,
             "destination": "play",
@@ -50496,10 +50494,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ],
-        "leader_feature": "CP"
+        "leader_feature_contains": "CP"
       }
     },
     {
@@ -50530,7 +50525,7 @@
             "filter": {
               "category": "CHARACTER",
               "cost_le": 5,
-              "feature": "CP"
+              "feature_contains": "CP"
             },
             "limit": 1,
             "destination": "play",
@@ -50539,10 +50534,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ],
-        "leader_feature": "CP"
+        "leader_feature_contains": "CP"
       }
     },
     {
@@ -50573,7 +50565,7 @@
             "filter": {
               "category": "CHARACTER",
               "cost_le": 5,
-              "feature": "CP"
+              "feature_contains": "CP"
             },
             "limit": 1,
             "destination": "play",
@@ -50582,10 +50574,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ],
-        "leader_feature": "CP"
+        "leader_feature_contains": "CP"
       }
     },
     {
@@ -74993,7 +74982,7 @@
             "filter": {
               "category": "CHARACTER",
               "cost_le": 5,
-              "feature": "CP"
+              "feature_contains": "CP"
             },
             "limit": 1,
             "destination": "play",
@@ -75002,10 +74991,7 @@
         }
       ],
       "if": {
-        "leader_features_any": [
-          "CP"
-        ],
-        "leader_feature": "CP"
+        "leader_feature_contains": "CP"
       }
     },
     {
@@ -75109,9 +75095,7 @@
               {
                 "conditional": {
                   "if": {
-                    "leader_features_any": [
-                      "CP"
-                    ]
+                    "leader_feature_contains": "CP"
                   },
                   "do": [
                     {

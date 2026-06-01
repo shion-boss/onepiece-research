@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2841/4518 (62%)。 【Track1 grind 2026-06-02】 batch7-10 で engine 4件 (on_self_battle_ko trigger / opp_rested_cards_count_ge / self_chara_truly_original_power_ge / active filter) + 約100枚是正。 batch10 重大: feature exact照合で「CPを含む特徴」 gate が永久不発(OP03-086)。 全ゲートgreen。 次=cluster grind 継続 (残1377 cluster、 multi-card優先)。 ⚠ohtsuki指示: full_db_progress.json 都度更新で自律進行。",
+    "現状": "verified 2842/4518 (62%)。 【Track1 grind 2026-06-02】 batch7-11。 batch11=feature exact照合 systematic scan (CP family 6枚永久不発 是正、 他70は「/」分割FP)。 engine計4件追加。 全ゲートgreen。 次=cluster grind 継続 (multi-card優先)。 ⚠full_db_progress.json 都度更新で自律進行。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -134,12 +134,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1377,
-      "remaining_cards": 1688,
+      "remaining_unique_sig": 1376,
+      "remaining_cards": 1687,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 2841,
+    "total_verified": 2842,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -383,6 +383,14 @@
       "cards": 26,
       "lesson": "⭐feature/leader_feature は exact (tuple membership)。 「『X』を含む特徴」 は必ず feature_contains/leader_feature_contains (CP9/CP0 系を exact CP で gate すると永久不発)。 ⭐return_to_hand 等の dict target は {type,filter} 直接形式 (= {target:{...}} ラッパーは _resolve_target が空解決 silent no-op)",
       "gates": "smoke ERROR=0 / pytest EXIT=0 / active filter + return_to_hand 解決 behavioral検証"
+    },
+    "cluster_grind_session_2026_06_02_batch11_CP_systematic": {
+      "theme": "OP03-086 で発見した feature exact照合の永久不発を DB横断 scan",
+      "scan": "「を含む特徴」 text + exact feature/leader_feature overlay = 74 hit。 但し core.py が features を「/」分割するため 白ひげ海賊団/B・W/海軍/ワノ国 等は exact 要素でマッチ(FP)。 真バグ= substring でしか存在しない feature のみ",
+      "real_bug": "CP family のみ 6枚 (features=CP9/CP0/CP-AIGIS0 等で bare CP は非存在)。 OP03-093/OP03-094(+p1/p2/r1)/OP03-098 を exact CP → feature_contains/leader_feature_contains 是正",
+      "cards": 6,
+      "lesson": "⭐「『X』を含む特徴」 の exact照合は X が単独feature要素なら「/」分割でマッチ(FP) / X が長いfeatureの substring (CP⊂CP9) なら永久不発(真bug)。 scan は exact値が全カードの「/」分割要素集合に存在するかで判定",
+      "gates": "smoke ERROR=0 / pytest EXIT=0 / leader_feature_contains CP→CP9/CP0 マッチ検証"
     }
   },
   "audited": [
@@ -902,6 +910,7 @@
     "OP03-092",
     "OP03-092_p1",
     "OP03-092_p2",
+    "OP03-093",
     "OP03-094",
     "OP03-094_p1",
     "OP03-094_p2",
