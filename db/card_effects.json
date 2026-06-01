@@ -948,7 +948,9 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 5
+          "opp_hand_to_deck_then_draw": {
+            "draw": 5
+          }
         }
       ]
     }
@@ -4855,7 +4857,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
@@ -12734,7 +12741,7 @@
   ],
   "OP08-002_p2": [
     {
-      "_text": "OP08-002_p2 【起動メイン】【ターン1回】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。 [don-gate2]",
+      "_text": "OP08-002 activate_main: 【ドン×1】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -12742,6 +12749,16 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "hand_to_deck_bottom": 1
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -14534,7 +14551,7 @@
   ],
   "OP08-002": [
     {
-      "_text": "OP08-002 【起動メイン】【ターン1回】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。 [don-gate2]",
+      "_text": "OP08-002 activate_main: 【ドン×1】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -14542,6 +14559,16 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "hand_to_deck_bottom": 1
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -14551,7 +14578,7 @@
   ],
   "OP08-002_p1": [
     {
-      "_text": "OP08-002_p1 【起動メイン】【ターン1回】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。 [don-gate2]",
+      "_text": "OP08-002 activate_main: 【ドン×1】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -14559,6 +14586,16 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "hand_to_deck_bottom": 1
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -19141,6 +19178,21 @@
     }
   ],
   "OP03-008": [
+    {
+      "_text": "OP03-008 static: このキャラは属性(斬)を持つカードとのバトルでKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        }
+      ]
+    },
     {
       "_text": "OP03-008 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
       "when": "on_play",
@@ -28054,7 +28106,22 @@
   ],
   "OP03-008_p2": [
     {
-      "_text": "OP03-008_p2 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP03-008 static: このキャラは属性(斬)を持つカードとのバトルでKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP03-008 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
@@ -29274,11 +29341,13 @@
   ],
   "OP06-047_p3": [
     {
-      "_text": "OP06-047_p3 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
+      "_text": "OP06-047 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 5
+          "opp_hand_to_deck_then_draw": {
+            "draw": 5
+          }
         }
       ]
     }
@@ -37350,7 +37419,22 @@
   ],
   "OP03-008_p1": [
     {
-      "_text": "OP03-008_p1 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP03-008 static: このキャラは属性(斬)を持つカードとのバトルでKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP03-008 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
@@ -37602,11 +37686,16 @@
   ],
   "OP05-102_p1": [
     {
-      "_text": "OP05-102_p1 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP05-102 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
@@ -40217,7 +40306,22 @@
   ],
   "OP03-008_p3": [
     {
-      "_text": "OP03-008_p3 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP03-008 static: このキャラは属性(斬)を持つカードとのバトルでKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP03-008 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
@@ -40626,11 +40730,16 @@
   ],
   "OP05-102_p2": [
     {
-      "_text": "OP05-102_p2 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP05-102 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
@@ -40686,22 +40795,26 @@
   ],
   "OP06-047_p1": [
     {
-      "_text": "OP06-047_p1 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
+      "_text": "OP06-047 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 5
+          "opp_hand_to_deck_then_draw": {
+            "draw": 5
+          }
         }
       ]
     }
   ],
   "OP06-047_p2": [
     {
-      "_text": "OP06-047_p2 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
+      "_text": "OP06-047 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 5
+          "opp_hand_to_deck_then_draw": {
+            "draw": 5
+          }
         }
       ]
     }
@@ -44390,7 +44503,22 @@
   ],
   "OP03-008_r2": [
     {
-      "_text": "OP03-008_r2 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "_text": "OP03-008 static: このキャラは属性(斬)を持つカードとのバトルでKOされない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_immune_attribute_in_battle": {
+            "target": "self",
+            "attributes": [
+              "斬"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP03-008 on_play: 自分のデッキの上から5枚を見て、赤のイベント1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
@@ -44828,11 +44956,16 @@
   ],
   "OP05-102_r1": [
     {
-      "_text": "OP05-102_r1 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP05-102 on_play: 相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
@@ -44850,11 +44983,13 @@
   ],
   "OP06-047_r1": [
     {
-      "_text": "OP06-047_r1 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
+      "_text": "OP06-047 on_play: 相手は自身の手札すべてをデッキに戻しシャッフルする。その後、相手はカード5枚を引く。",
       "when": "on_play",
       "do": [
         {
-          "draw": 5
+          "opp_hand_to_deck_then_draw": {
+            "draw": 5
+          }
         }
       ]
     }
@@ -52209,44 +52344,77 @@
   ],
   "P-055_p2": [
     {
-      "_text": "P-055_p2 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+      "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "P-055_p3": [
     {
-      "_text": "P-055_p3 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+      "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "P-055_r1": [
     {
-      "_text": "P-055_r1 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+      "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "ST01-014_p2": [
@@ -86908,12 +87076,23 @@
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "P-057": [
@@ -89687,16 +89866,27 @@
   ],
   "P-055_p1": [
     {
-      "_text": "P-055_p1 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+      "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 2,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "P-073_p1": [

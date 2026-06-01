@@ -2252,6 +2252,19 @@ def _execute_effect_body(
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
             state.push_log(f"  効果: 相手手札 {n} 枚 トラッシュ")
+        elif k == "opp_hand_to_deck_then_draw":
+            # OP06-047 シャーロット・プリン: 「相手は自身の手札すべてをデッキに戻し
+            # シャッフルする。 その後、 相手はカード N 枚を引く。」 = 相手の手札リセット
+            # (= 手札 >N なら撹乱、 <N なら相手有利だが net で N 枚固定)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("draw", 5))
+            returned = len(opp.hand)
+            opp.deck.extend(opp.hand)
+            opp.hand.clear()
+            state.rng.shuffle(opp.deck)
+            drawn = opp.draw(n)
+            state.push_log(
+                f"  効果: 相手手札 {returned} 枚 → デッキに戻しシャッフル、 相手 {len(drawn)} 枚 ドロー"
+            )
         elif k == "trash_all_self_chara":
             # OP13-082 五老星 等。 公式: 「自分のキャラすべてをトラッシュに置く」。
             # 全 自陣 キャラ を trash へ 移送 + 付与 ドン は レスト で コスト エリア に 戻す
@@ -7475,6 +7488,9 @@ def _resolve_dynamic_filter(
     elif src == "self_don_active":
         # 「自分のアクティブのドン!!の枚数以下のコスト」 想定 (= 派生)
         out["cost_le"] = me.don_active
+    elif src == "opp_life_count":
+        # OP05-102 ゲダツ: 「相手のライフの枚数以下のコストを持つ相手のキャラ」
+        out["cost_le"] = len(opp.life)
     elif src is not None:
         # 未知 source は 防御的 に 大値 (= 制限 ない と 同義) で 通す
         out["cost_le"] = 99
