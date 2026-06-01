@@ -7267,15 +7267,20 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
             state.pending_choice = None
             state.push_log(f"  起動メインコスト: {cost_kind} 選択 なし → 中止")
             return
-        picked_iid = int(candidates[valid_picks[0]]["iid"])
+        picked_cand = candidates[valid_picks[0]]
         # cost_picks に inject (= prior に 重ねる)
         if cost_kind == "ko_self_with_filter":
-            prior_picks["ko_iid"] = picked_iid
+            prior_picks["ko_iid"] = int(picked_cand["iid"])
         elif cost_kind == "rest_self_target_name":
-            prior_picks["rest_iid"] = picked_iid
+            prior_picks["rest_iid"] = int(picked_cand["iid"])
         elif cost_kind == "trash_filtered_chara":
-            # OP13-079 イム leader の choice cost (= 手札空時の キャラ axis)
-            prior_picks["choice_cost_chara_iid"] = picked_iid
+            # OP13-079 イム leader の choice cost (= 「天竜人キャラ か 手札1枚」 統合 modal)。
+            # 候補は キャラ axis と 手札 axis が 混在しうる。 axis フィールドで 振り分ける
+            # (= 手札候補は 擬似 iid 負値 + hand_idx 持ち、 キャラ候補は 実 iid)。
+            if picked_cand.get("axis") == "hand":
+                prior_picks["discard_idxs"] = [int(picked_cand["hand_idx"])]
+            else:
+                prior_picks["choice_cost_chara_iid"] = int(picked_cand["iid"])
         # source inplay 復元
         inplay = None
         for ip in [*me.characters, me.leader, *me.stages]:
@@ -9861,45 +9866,46 @@ def fire_activate_main(
                     me.don_rested += tgt.attached_dons
                     tgt.attached_dons = 0
                 state.push_log(f"  起動メインコスト: 天竜人キャラtrash {tgt.card.name}")
-        elif not is_resume and _should_human_pick(state) and len(me.hand) >= n:
-            # 手札あり → 既存 discard modal を reuse (= 手札 axis、 mill deck で支配的)
+        elif not is_resume and _should_human_pick(state) and (len(me.hand) >= n or chara_cands):
+            # 公式: 「天竜人キャラ か 手札1枚 を トラッシュ」 の 2 択。 手札候補 と 盤面天竜人
+            # キャラ候補を 1 つの activate_main_cost_pick modal に 統合 して 人間に 両方 選ばせる
+            # (= 旧 実装は 手札あると キャラ axis を 出さず 自動化していた bug、 2026-06-01 修正)。
+            # 候補形式: キャラ = iid 持ち / 手札 = hand_idx 持ち (擬似 iid に 負値を 振り key 衝突回避)。
+            # TargetPickModal は card_id で 画像表示 + iid/power/rested を 使うのみ なので 混在可。
             eff_idx = _find_effect_index(state, inplay, eff)
-            state.pending_choice = {
-                "kind": "activate_main_discard_pick",
-                "source_iid": inplay.instance_id,
-                "effect_index": eff_idx,
-                "candidates": [
-                    {"hand_idx": i, "card_id": c.card_id, "name": c.name,
-                     "cost": int(c.cost) if c.cost is not None else 0,
-                     "power": int(c.power) if c.power is not None else 0}
-                    for i, c in enumerate(me.hand)
-                ],
-                "limit": n,
-                "prior_picks": dict(cost_picks),
-            }
-            state.push_log(f"  起動メインコスト: 手札 {n} 枚 捨てる 対象 を 選択 待ち")
-            return
-        elif not is_resume and _should_human_pick(state) and chara_cands:
-            # 手札空 + 天竜人キャラあり → 既存 cost_pick modal を reuse (= キャラ axis)
-            eff_idx = _find_effect_index(state, inplay, eff)
+            cands_mixed = []
+            for c in chara_cands:
+                cands_mixed.append({
+                    "iid": c.instance_id, "card_id": c.card.card_id, "name": c.card.name,
+                    "cost": int(c.card.cost) if c.card.cost is not None else 0,
+                    "power": int(c.power), "rested": bool(c.rested),
+                    "attached_dons": int(c.attached_dons), "owner": "self", "is_leader": False,
+                    "axis": "chara",
+                })
+            for i, c in enumerate(me.hand):
+                cands_mixed.append({
+                    "iid": -(i + 1),  # 擬似 iid (= key 衝突回避、 resolve では hand_idx を 使う)
+                    "hand_idx": i, "card_id": c.card_id, "name": c.name,
+                    "cost": int(c.cost) if c.cost is not None else 0,
+                    "power": int(c.power) if c.power is not None else 0,
+                    "rested": False, "attached_dons": 0, "owner": "self", "is_leader": False,
+                    "axis": "hand",
+                })
             state.pending_choice = {
                 "kind": "activate_main_cost_pick",
                 "cost_kind": "trash_filtered_chara",
                 "source_iid": inplay.instance_id,
                 "effect_index": eff_idx,
-                "candidates": [
-                    {"iid": c.instance_id, "card_id": c.card.card_id, "name": c.card.name,
-                     "cost": int(c.card.cost) if c.card.cost is not None else 0,
-                     "power": int(c.power), "rested": bool(c.rested),
-                     "attached_dons": int(c.attached_dons), "owner": "self", "is_leader": False}
-                    for c in chara_cands
-                ],
+                "candidates": cands_mixed,
                 "prior_picks": dict(cost_picks),
-                "limit": 1,
+                "limit": n,
                 "primitive_kind": "trash_filtered_chara",
-                "description": "起動メインコスト: トラッシュする 天竜人キャラ を 選択",
+                "description": "起動メインコスト: トラッシュする 天竜人キャラ か 手札 を 選択",
             }
-            state.push_log(f"  起動メインコスト: 天竜人キャラ {len(chara_cands)} 枚 → 人間 選択 待ち (trash)")
+            state.push_log(
+                f"  起動メインコスト: 天竜人キャラ {len(chara_cands)} + 手札 {len(me.hand)} "
+                f"→ 人間 選択 待ち (trash)"
+            )
             return
         elif not is_resume:
             # AI / 片方のみ: 手札優先 (= mill deck で手札discardが支配的)、 手札空なら キャラtrash

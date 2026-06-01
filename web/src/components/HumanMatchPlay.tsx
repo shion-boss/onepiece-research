@@ -4338,6 +4338,10 @@ function TargetPickModal({
           attached_dons: number;
           owner: "self" | "opp";
           is_leader: boolean;
+          // イム OP13-079 起動メイン: 手札候補 (axis:"hand") は擬似 iid 負値 + hand_idx 持ち。
+          // キャラ候補 (axis:"chara") と 1 つの modal に混在する。
+          hand_idx?: number;
+          axis?: "hand" | "chara";
         }[]
       | undefined) ?? [];
   const limit = Number(payload.limit ?? 1);

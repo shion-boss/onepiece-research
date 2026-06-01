@@ -85,18 +85,50 @@ def test_not_payable_when_no_hand_no_tenryu_chara():
     assert not _offered(st, p1, overlay), "手札空 + 天竜人キャラなし → 発動不可"
 
 
-def test_human_hand_path_uses_discard_modal():
-    """人間 + 手札あり → activate_main_discard_pick modal → 選択解決で discard + draw。"""
+def test_human_hand_only_uses_unified_cost_pick_modal():
+    """人間 + 手札のみ (盤面天竜人キャラ無し) → 統合 activate_main_cost_pick modal で
+    手札候補のみ提示 → 選択解決で discard + draw。
+
+    2026-06-01: 旧実装は手札ありだと activate_main_discard_pick (手札専用) modal を出し、
+    盤面天竜人キャラがいても選択肢に出さなかった (= 人間選択の自動化 bug)。 統合 modal 化。"""
     repo, overlay = _repo(), load_effect_overlay(ROOT / "db" / "card_effects.json")
     st, p1, p2 = _setup(repo, overlay, [FILLER, FILLER], [], human=True)
     deck0 = len(p1.deck)
     fire_activate_main(st, p1, p2, p1.leader, _leader_eff(overlay))
     assert st.pending_choice is not None
-    assert st.pending_choice["kind"] == "activate_main_discard_pick"
-    resolve_pending_choice(st, [0])  # candidates index 0 を捨てる
+    assert st.pending_choice["kind"] == "activate_main_cost_pick"
+    cands = st.pending_choice["candidates"]
+    assert all(c.get("axis") == "hand" for c in cands), "盤面キャラ無しなら手札候補のみ"
+    resolve_pending_choice(st, [0])  # candidates index 0 (手札) を捨てる
     resolve_triggers(st)
     assert st.pending_choice is None
     assert len(p1.trash) == 1 and len(p1.deck) == deck0 - 1
+
+
+def test_human_both_hand_and_chara_offers_both_axes():
+    """★bug regression: 人間 + 手札あり + 盤面天竜人キャラあり → 統合 modal が
+    両方 (手札 axis + キャラ axis) を提示し、 盤面キャラを trash する選択ができる。
+
+    ohtsuki さん報告: 旧実装は手札があると盤面天竜人キャラの選択肢を出さず、
+    公式「天竜人キャラ か 手札1枚」の2択を手札一択に潰していた (= 人間判断の自動化)。"""
+    repo, overlay = _repo(), load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p1, p2 = _setup(repo, overlay, [FILLER, FILLER], [TENRYU], human=True)
+    deck0 = len(p1.deck)
+    fire_activate_main(st, p1, p2, p1.leader, _leader_eff(overlay))
+    assert st.pending_choice is not None
+    assert st.pending_choice["kind"] == "activate_main_cost_pick"
+    cands = st.pending_choice["candidates"]
+    assert any(c.get("axis") == "chara" for c in cands), "盤面天竜人キャラが選択肢に出る"
+    assert any(c.get("axis") == "hand" for c in cands), "手札も選択肢に出る"
+    # 盤面キャラ (axis=chara) を選んで trash → 盤面キャラが消え、 手札は減らない
+    chara_idx = next(i for i, c in enumerate(cands) if c.get("axis") == "chara")
+    hand0 = len(p1.hand)
+    resolve_pending_choice(st, [chara_idx])
+    resolve_triggers(st)
+    assert st.pending_choice is None
+    assert len(p1.characters) == 0, "選んだ盤面天竜人キャラが trash された"
+    assert len(p1.hand) == hand0 + 1, "手札は減らず draw +1 のみ (= キャラを切ったので)"
+    assert len(p1.deck) == deck0 - 1, "1ドロー"
 
 
 def test_human_empty_hand_path_uses_chara_pick_modal():
