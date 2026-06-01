@@ -255,7 +255,7 @@ class HumanSession:
     def advance_until_pause(self, max_actions: int = 200) -> None:
         """ゲーム 終了 か 人間 input 必要 まで AI を 進める。"""
         from .ai import play_one_action
-        from .game import Phase, advance_phase, play_until_main
+        from .game import Phase, play_until_main
         from .effects import _maybe_prompt_end_of_turn_optional, resolve_triggers
 
         for _ in range(max_actions):
@@ -278,12 +278,14 @@ class HumanSession:
                 self.pending_kind = "choice"
                 self.pending_payload = dict(self.state.pending_choice)
                 return
-            # Phase.END で 止まって いる (= 任意効果 解決後 など、 phase 進行 が 必要) なら
-            # advance_phase + play_until_main で 次 ターン の MAIN まで 進める。
-            if self.state.phase == Phase.END:
-                advance_phase(self.state)
-                if self.state.pending_choice is not None or self.state.game_over:
-                    continue
+            # Phase が MAIN でない (= END/REFRESH/DRAW/DON で 止まって いる) なら MAIN まで 進める。
+            # play_one_action は phase 無関係で 即 choose_action を 呼ぶ ので、 MAIN 未到達 で
+            # 人間 ターンに 入る と HumanAI が PauseSignal("action") を 投げ、 legal_actions が
+            # phase!=MAIN ゆえ 空 で 詰む (= NO_ACT)。 特に 人間 の ターン開始時 効果
+            # (trigger_turn_start が REFRESH→DRAW で pending_choice を立てる) を 解決した 後、
+            # phase が DRAW に 残った まま ここへ 来る ケースを 救う。 play_until_main は END の
+            # advance_phase (= trigger_end_of_turn + ターン交代) も 内包する。
+            if self.state.phase != Phase.MAIN:
                 play_until_main(self.state)
                 continue
             tp = self.state.turn_player_idx

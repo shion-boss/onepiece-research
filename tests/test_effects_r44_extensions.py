@@ -17,6 +17,7 @@ from engine.deck import CardRepository
 from engine.effects import (
     CardEffectBundle,
     execute_effect,
+    resolve_pending_choice,
     trigger_main_event,
 )
 from engine.game import _reset_turn_buff
@@ -121,6 +122,50 @@ def test_set_base_power_copy_no_target_returns_false():
     )
     assert ret is False
     assert mr2.turn_base_power_override is None
+
+
+def test_set_base_power_copy_human_target_pick_honors_iid():
+    """回帰 (人間 UX): from_target="one_opponent_character_any" が 複数候補 + 人間操作中 で
+    target_pick を halt → resolve_pending_choice で 選んだ キャラ の power を copy する。
+
+    バグ: set_base_power_copy は from_target キー で 対象 を 読む ため、 target_pick 解決後の
+    再実行で 注入される _iid_picks (= top-level / "target" に 入る) が 届かず default
+    "one_opponent_character_any" に 戻り、 再び target_pick を halt → 無限ループ で 人間が詰む。
+    fix: 再実行 (v に _iid_picks) を from_target に 適用。
+    """
+    repo = _repo()
+    state = _make_state(repo)
+    state.human_player_idx = 0
+    state.turn_player_idx = 0
+    me = state.players[0]
+    opp = state.players[1]
+    mr2_card = CardDef(card_id="TEST-MR2", name="Mr.2", category=Category.CHARACTER,
+                       color=("紫",), cost=4, power=1000, counter=1000, features=(), text="")
+    me.characters.append(InPlay.of(mr2_card, sickness=False))
+    mr2 = me.characters[-1]
+    # opp 2 体 (5000 / 8000) → 候補 ≥ 2 で 必ず human target_pick halt
+    for cid, pw in [("TEST-OPP-A", 5000), ("TEST-OPP-B", 8000)]:
+        c = CardDef(card_id=cid, name=cid, category=Category.CHARACTER, color=("赤",),
+                    cost=5, power=pw, counter=1000, features=(), text="")
+        opp.characters.append(InPlay.of(c, sickness=False))
+    target_8000 = opp.characters[-1]
+
+    execute_effect({"set_base_power_copy": {"from_target": "one_opponent_character_any",
+                                            "to_target": "self", "duration": "turn"}},
+                   state, me, opp, mr2)
+    # 人間操作中 + 複数候補 → target_pick で halt
+    assert state.pending_choice is not None
+    assert state.pending_choice["kind"] == "target_pick"
+    assert state.pending_choice["primitive_kind"] == "set_base_power_copy"
+
+    cands = state.pending_choice["candidates"]
+    pick_idx = next(i for i, c in enumerate(cands) if c["iid"] == target_8000.instance_id)
+    resolve_pending_choice(state, [pick_idx])
+
+    # 再 halt せず 完遂、 選んだ 8000 を copy (= 5000 でも default でもない)
+    assert state.pending_choice is None, "target_pick が 再表示 された (= _iid_picks 不 honor → 無限ループ)"
+    assert mr2.turn_base_power_override == 8000
+    assert mr2.power == 8000
 
 
 def test_turn_base_power_override_cleared_on_turn_end():

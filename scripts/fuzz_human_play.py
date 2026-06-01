@@ -52,7 +52,7 @@ def play_one(a, b, seed, human_first, rng):
     last_sig = None
     same_count = 0
     choice_kinds = set()
-    while not s.state.game_over and steps < 4000:
+    while not s.state.game_over and steps < 1200:
         steps += 1
         pk = s.pending_kind
         # stuck 検出: 同一 (pending_kind, payload kind, turn) が連続
@@ -102,9 +102,12 @@ def main():
             all_kinds |= cks
             if status in ("STUCK", "NO_ACTIONS", "TIMEOUT"):
                 crashes.append((status, a, b, seed, hf, steps, sig))
+            print(f"  game {g+1}/{N_GAMES} {status} {a} vs {b} steps={steps}", flush=True)
         except Exception as e:
             results["CRASH"] += 1
             crashes.append(("CRASH", a, b, seed, hf, str(e), traceback.format_exc()))
+            print(f"  game {g+1}/{N_GAMES} CRASH {a} vs {b} seed={seed} hf={hf}: {e}", flush=True)
+            print(traceback.format_exc(), flush=True)
     print(f"=== fuzz {N_GAMES} games ===")
     print("results:", results)
     print("exercised choice kinds:", sorted(k for k in all_kinds if k))

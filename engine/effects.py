@@ -3321,7 +3321,12 @@ def _execute_effect_body(
             from_target = spec.get("from_target", "one_opponent_character_any")
             to_target = spec.get("to_target", "self")
             duration = spec.get("duration", "turn")
-            from_cands = _resolve_target(from_target, state, me, opp, self_inplay, outer_kind="set_base_power_copy", outer_value=from_target)
+            # 人間 target_pick 解決後の再実行 (= v に _iid_picks) は from_target に適用
+            # (= from_target キーは target_pick 解決の _iid_picks 注入先 "target" と異なるため、
+            #  明示的に拾わないと default に戻り 無限 target_pick 再表示する)
+            if isinstance(v, dict) and "_iid_picks" in v:
+                from_target = {"_iid_picks": v["_iid_picks"]}
+            from_cands = _resolve_target(from_target, state, me, opp, self_inplay, outer_kind="set_base_power_copy", outer_value=v)
             if not from_cands:
                 state.push_log("  効果: power-copy 対象なし (不発)")
                 return False
