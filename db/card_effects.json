@@ -3572,7 +3572,7 @@
       "cost": {
         "once_per_turn": true,
         "rest_self": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -15602,7 +15602,7 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 2
+        "rest_self_don": 2
       },
       "do": [
         {
@@ -15637,7 +15637,7 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 2
+        "rest_self_don": 2
       },
       "do": [
         {
@@ -15862,11 +15862,14 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3
+        "rest_self_don": 3
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_chara": {
+            "target": "self_leader",
+            "limit": 1
+          }
         },
         {
           "rest": "one_opponent_character_cost_le_5"
@@ -15880,11 +15883,14 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3
+        "rest_self_don": 3
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_chara": {
+            "target": "self_leader",
+            "limit": 1
+          }
         },
         {
           "rest": "one_opponent_character_cost_le_5"
@@ -17350,8 +17356,8 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3,
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self_don": 3
       },
       "do": [
         {
@@ -17430,12 +17436,15 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3,
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self_don": 3
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_chara": {
+            "target": "self_leader",
+            "limit": 1
+          }
         }
       ]
     }
@@ -17480,12 +17489,15 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 3,
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self_don": 3
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_chara": {
+            "target": "self_leader",
+            "limit": 1
+          }
         }
       ]
     }
@@ -17588,7 +17600,7 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -18086,7 +18098,7 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 1
+        "rest_self_don": 1
       },
       "do": [
         {
