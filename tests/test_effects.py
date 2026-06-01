@@ -3441,3 +3441,44 @@ def test_op13_086_multi_interactive_continuation():
     resolve_pending_choice(state, [0])
     assert state.pending_choice is None, "全 choice 解決後も pending が残る"
     assert len(me.trash) == 3, "残2枚trash + 手札1捨て = trash 3 にならない"
+
+
+def test_on_self_battle_ko_trigger():
+    """on_self_battle_ko: 「このキャラのバトルによって相手のキャラをKOした時」 が
+    バトルKO 解決時に attacker 本人だけ 1 回発火し、 【ドン!!×N】 gate / 【ターン1回】 を尊重する。
+    旧実装 (on_attached_don n=N + 命令型 do) の _recompute_static 毎の無限発火を回避した回帰ガード。"""
+    from engine.effects import trigger_on_self_battle_ko
+    repo = _repo()
+    overlay = _overlay()
+
+    def _mk(attacker_id, dons):
+        p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        atk = InPlay.of(repo.get(attacker_id), sickness=False)
+        atk.attached_dons = dons
+        p1.characters = [atk]
+        p1.hand = [repo.get("OP01-013")] * 3
+        p1.deck = [repo.get("OP01-016")] * 10
+        p2.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]
+        st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1), effects_overlay=overlay)
+        return st, p1, p2, atk
+
+    # OP04-086 チンジャオ: 【ドン!!×1】バトルKO時 2 ドロー 2 捨て → 1 回だけ (deck-2, hand 不変)
+    st, me, opp, atk = _mk("OP04-086", 1)
+    h0, d0 = len(me.hand), len(me.deck)
+    trigger_on_self_battle_ko(st, me, opp, atk, overlay)
+    assert len(me.hand) == h0 and len(me.deck) == d0 - 2, "OP04-086: 2ドロー2捨てが1回発火しない"
+    # DON=0 は gate で不発
+    st, me, opp, atk = _mk("OP04-086", 0)
+    h0, d0 = len(me.hand), len(me.deck)
+    trigger_on_self_battle_ko(st, me, opp, atk, overlay)
+    assert len(me.hand) == h0 and len(me.deck) == d0, "OP04-086: DON=0 gate が効かず発火した"
+
+    # OP02-094 イスカ: 【ドン!!×1】【ターン1回】バトルKO時アクティブ化、 2 回目は once_per_turn で不発
+    st, me, opp, atk = _mk("OP02-094", 1)
+    atk.rested = True
+    trigger_on_self_battle_ko(st, me, opp, atk, overlay)
+    assert atk.rested is False, "OP02-094: アクティブ化しない"
+    atk.rested = True
+    trigger_on_self_battle_ko(st, me, opp, atk, overlay)
+    assert atk.rested is True, "OP02-094: once_per_turn が効かず2回目も発火した"

@@ -1382,6 +1382,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                                 trigger_on_ko,
                                 trigger_on_opp_chara_ko,
                                 trigger_on_self_chara_ko,
+                                trigger_on_self_battle_ko,
                             )
                             # battle KO → by_opp_effect=False (= バトル由来)
                             trigger_on_ko(
@@ -1390,6 +1391,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             )
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
+                            # 「このキャラのバトルによって相手のキャラをKOした時」 (self-scope)
+                            trigger_on_self_battle_ko(state, me, opp, attacker, state.effects_overlay)
                 else:
                     state.push_log("  survived")
                 _reset_battle_buffs(state)
@@ -1495,6 +1498,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             trigger_on_ko,
                             trigger_on_opp_chara_ko,
                             trigger_on_self_chara_ko,
+                            trigger_on_self_battle_ko,
                         )
                         # battle KO (blocker) → by_opp_effect=False
                         trigger_on_ko(
@@ -1503,6 +1507,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         )
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
+                        # 「このキャラのバトルによって相手のキャラをKOした時」 (self-scope)
+                        trigger_on_self_battle_ko(state, me, opp, attacker, state.effects_overlay)
             else:
                 state.push_log("  blocker survived")
             _reset_battle_buffs(state)

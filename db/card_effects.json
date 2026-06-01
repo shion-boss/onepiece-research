@@ -17138,10 +17138,10 @@
       "n": 1,
       "do": [
         {
-          "set_base_cost_timed": {
-            "target": "all_self_characters",
+          "set_base_cost_filtered_static": {
+            "filter": {},
             "delta": 1,
-            "duration": "static"
+            "scope": "self"
           }
         }
       ]
@@ -19001,42 +19001,20 @@
   ],
   "OP02-002": [
     {
-      "_text": "OP02-002 on_attached_don (パターン未一致): 【自分のターン中】このリーダーか自分のキャラにドン‼が付与された時、相手のコスト7以下のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "OP02-002 【自分のターン中】このリーダーか自分のキャラにドン‼が付与された時、相手のコスト7以下のキャラ1枚までを、このターン中、コスト-1。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_cost_le_7cost",
-            "amount": 1
-          }
-        }
-      ],
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ]
+      "do": [],
+      "_missing_effect": "ドン付与時トリガー (on_don_attached イベント未実装)。 旧 on_attached_don n0 + cost_minus は _recompute_static 毎にスタックする有害近似のため無効化。 要: DON付与時 trigger event + cost_minus(相手cost≤7, turn, 1枚選択)"
     }
   ],
   "OP02-002_p1": [
     {
-      "_text": "OP02-002_p1 on_attached_don (パターン未一致): 【自分のターン中】このリーダーか自分のキャラにドン‼が付与された時、相手のコスト7以下のキャラ1枚までを、このターン中、コスト-1。",
+      "_text": "OP02-002 【自分のターン中】このリーダーか自分のキャラにドン‼が付与された時、相手のコスト7以下のキャラ1枚までを、このターン中、コスト-1。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_cost_le_7cost",
-            "amount": 1
-          }
-        }
-      ],
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ]
+      "do": [],
+      "_missing_effect": "ドン付与時トリガー (on_don_attached イベント未実装)。 旧 on_attached_don n0 + cost_minus は _recompute_static 毎にスタックする有害近似のため無効化。 要: DON付与時 trigger event + cost_minus(相手cost≤7, turn, 1枚選択)"
     }
   ],
   "OP02-026": [
@@ -19166,7 +19144,7 @@
       "n": 0,
       "conditions": [
         {
-          "self_chara_power_ge": 7000
+          "self_chara_truly_original_power_ge": 7000
         }
       ],
       "do": [
@@ -19212,7 +19190,7 @@
       "n": 0,
       "conditions": [
         {
-          "self_chara_power_ge": 7000
+          "self_chara_truly_original_power_ge": 7000
         }
       ],
       "do": [
@@ -20023,6 +20001,9 @@
       "_text": "PRB02-016 activate_main: このキャラをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
       "when": "activate_main",
       "do": [
+        {
+          "life_top_or_bottom_to_hand": 1
+        },
         {
           "power_pump": {
             "target": "self_inplay",
@@ -29403,6 +29384,9 @@
       "_text": "PRB02-016_p1 activate_main: このキャラをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
       "when": "activate_main",
       "do": [
+        {
+          "life_top_or_bottom_to_hand": 1
+        },
         {
           "power_pump": {
             "target": "self_inplay",
@@ -68411,58 +68395,6 @@
   ],
   "OP07-024": [
     {
-      "_text": "OP07-024 on_attached_don (パターン未一致): 【相手のアタック時】このキャラをレストにできる：自分のコスト5以下の特徴《魚人族》を持つキャラ1枚までは、このターン中、【ブロッカー】を得る。(相手のアタックの",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self": true
-              }
-            ],
-            "effect": [
-              {
-                "give_keyword": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "feature": "魚人族",
-                      "cost_le": 5
-                    }
-                  },
-                  "keyword": "ブロッカー"
-                }
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【相手のアタック時】このキャラをレストにできる：自分のコスト5以下の特徴《魚人族》を持つキャラ1枚までは、このターン中、【ブロッカー】を得る。",
-      "when": "opp_attack_on_chara",
-      "cost": {
-        "rest_self": true
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "feature": "魚人族",
-                "cost_le": 5
-              }
-            },
-            "keyword": "ブロッカー",
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
       "_text": "OP07-024 コアラ 相手アタック時 [rest_self]: 自コスト5以下魚人族 キャラ1枚に【ブロッカー】 (このターン)",
       "when": "opp_attack",
       "cost": {
@@ -73333,9 +73265,8 @@
   ],
   "OP04-086": [
     {
-      "_text": "on_attached_don n=1: このキャラのバトルによって相手のキャラをKOした時、カード2枚を引き、自分の手札2枚を捨てる",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP04-086 【ドン!!×1】このキャラのバトルによって相手のキャラをKOした時、カード2枚を引き、自分の手札2枚を捨てる。",
+      "when": "on_self_battle_ko",
       "do": [
         {
           "draw": 2
@@ -73343,7 +73274,10 @@
         {
           "trash_self_hand_random": 2
         }
-      ]
+      ],
+      "if": {
+        "self_inplay_attached_dons_ge": 1
+      }
     }
   ],
   "OP04-088": [
@@ -76593,9 +76527,8 @@
   ],
   "OP02-094": [
     {
-      "_text": "on_attached_don n=1: 【ターン1回】このキャラのバトルによって相手のキャラをKOした時、このキャラをアクティブにする",
-      "when": "on_attached_don",
-      "n": 1,
+      "_text": "OP02-094 【ドン‼×1】【ターン1回】このキャラのバトルによって相手のキャラをKOした時、このキャラをアクティブにする。",
+      "when": "on_self_battle_ko",
       "do": [
         {
           "untap_chara": {
@@ -76606,6 +76539,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_inplay_attached_dons_ge": 1
       }
     }
   ],
@@ -81308,11 +81244,9 @@
       },
       "do": [
         {
-          "set_base_cost_timed": {
+          "set_base_cost": {
             "target": "self",
-            "amount": 4,
-            "duration": "static",
-            "relative": true
+            "delta": 4
           }
         }
       ]
@@ -82247,7 +82181,11 @@
         }
       ],
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "self_chara_cost_ge_count": {
+          "cost_ge": 6,
+          "n": 1
+        }
       }
     }
   ],
@@ -83674,12 +83612,8 @@
       "_text": "on_attached_don n=1: このキャラが相手のキャラとバトルしたバトル終了時、バトルした相手のキャラをKOしてもよい。そうした場合、このキャラをKO",
       "when": "on_attached_don",
       "n": 1,
-      "do": [
-        {
-          "optional_after_battle_mutual_ko": true
-        }
-      ],
-      "optional": true
+      "do": [],
+      "_missing_effect": "【ドン!!×1】バトル終了時、バトルした相手キャラを任意KO→そうしたら自身KO。 optional_after_battle_mutual_ko は no-op (last_battle_opponent context 未記録)。 要 battle-end トリガー + 相互KO実装"
     }
   ],
   "ST08-014": [

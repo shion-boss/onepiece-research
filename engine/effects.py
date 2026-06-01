@@ -911,6 +911,16 @@ def eval_condition(
                 tp = getattr(c, "truly_original_power", c.power)
                 if tp is not None and int(tp) >= need:
                     return False
+        elif k == "self_chara_truly_original_power_ge":
+            # 自場 の キャラ (= me.characters) に、 元々パワー N 以上 が 「いる」 場合 True。
+            # 「元々のパワー」 = truly_original_power (= バフ込みの現在値ではなく原本)。
+            # ST30-001 「自分の元々のパワー7000以上のキャラがいる場合」 等。
+            need = int(v)
+            if not any(
+                int(getattr(c, "truly_original_power", c.power) or 0) >= need
+                for c in me.characters
+            ):
+                return False
         elif k == "self_chara_filtered_count_ge":
             # 複合 filter (色 + 特徴 + 除外名 等) でカウント条件判定。
             # OP11-096 リッパー 「リッパー以外の自分の黒の特徴《海軍》を持つキャラがいる場合」 等。
@@ -8703,6 +8713,42 @@ def trigger_on_opp_chara_ko(
     if not effects_overlay:
         return
     _enqueue_field_when(state, me, "on_opp_chara_ko", effects_overlay)
+    _maybe_resolve(state)
+
+
+def trigger_on_self_battle_ko(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    attacker: InPlay,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「このキャラのバトルによって相手のキャラをKOした時」 (on_self_battle_ko)。
+    me = attacker 所有者、 attacker = バトルで KO した アタッカー本人。 バトル KO の解決直後、
+    attacker 本人の効果だけを self-scope で発火する (on_opp_chara_ko の全体発火と異なり、
+    「このキャラのバトルによって」 を満たす)。 OPTCG では ブロッカー/防御側が アタッカーを KO
+    することは無い (= バトル KO は常に アタッカー由来) ので attacker 限定で正しい。
+    OP04-086 チンジャオ (2 ドロー 2 捨て) / OP02-094 イスカ (アクティブ化) 等。
+    【ドン!!×N】 gate は eff の if/conditions に self_inplay_attached_dons_ge を置く。
+    """
+    if not effects_overlay:
+        return
+    bundle = effects_overlay.get(attacker.card.card_id)
+    if bundle is None:
+        return
+    for eff in bundle.effects:
+        if eff.get("when") != "on_self_battle_ko":
+            continue
+        if not eval_all_conditions(eff, state, me, attacker):
+            continue
+        cost = eff.get("cost", {})
+        if cost.get("once_per_turn"):
+            key = f"_self_battle_ko_{attacker.instance_id}"
+            if key in me.once_per_turn_used:
+                continue
+            me.once_per_turn_used.add(key)
+        for prim in eff.get("do", []):
+            execute_effect(prim, state, me, opp, attacker)
     _maybe_resolve(state)
 
 
