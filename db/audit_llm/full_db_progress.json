@@ -291,15 +291,11 @@
     "cluster_grind_batch22": "2689/4518 (59.5%)。 systematic= search_top_n が text pick-filter を {}空 で落とす修正 9枚: EB03-060(cost2-8) / ST30-002・ST30-017/_p1(power6000+CHARACTER) / OP09-102(trigger:true + spurious look_top_reorder除去) / OP12-080・OP03-020(二重search rebuild、 OP03-020 は inner CHARACTER→EVENT) / ST07-016(counter にライフscry欠落→追加)。 behavioral verify (filter実効: cost/power で非該当除外、 二重search解消 search系=1) + full pytest 706 + smoke ERROR0。 audited +9。 ⛔重要: 『リーダーかキャラ1枚まで→self_inplay』 を212件 systematic バグ と誤認したが、 self_inplay は正規shorthand で真バグ0 と判明 (誤修正回避)",
     "cluster_grind_batch23": "2696/4518 (59.7%)。 spurious self_leader+1000 on_attack stub 是正 9枚: OP09-062/_p1(トリガー捨て→ドン)、 ST11-001/_p1(FILM search)、 P-047/_p1(spurious重複除去)、 OP03-077/_p1(デッキ上→ライフ)、 ST10-003(+2000turn + ライフ4+で-1000 static)。 behavioral (ST10-003 static / stub除去で+1000しない) + pytest 706 + smoke0。 audited +7",
     "pending_found_bugs_batch21_23": {
-      "note": "grind 発見の未修正バグ。 batch24:OP06-020/OP10-001/OP04-001、 batch26:OP11-062/OP01-003/OP01-031 解消",
+      "note": "pending 既知バグ。 解消: batch24(OP06-020/OP10-001/OP04-001) batch26(OP11-062/OP01-003/OP01-031) leaders(OP14-020/OP15-002/OP11-041/OP13-002/EB04-001) + OP15-035/OP15-119 + OP04-040/ST20-004/ST07-001。 残=engine拡張要",
       "items": [
-        "OP04-040 クイーン leader: spurious +1000 stub + 『コスト8以上キャラいれば 引く代わりにデッキトップをライフ』 alternative 欠落 (複雑)",
-        "ST07-001 リンリン leader: spurious +1000 stub。 実=ライフ上下1枚手札(任意)→ライフ2以下なら手札1枚ライフへ (optional+conditional 複雑)",
         "OP03-040 ナミ leader: 『デッキ0で勝利』 代替勝利条件 未実装(architectural) + mill が on_attached_don n1 で timing 近似(本来=アタックでダメージ時)",
         "OP03-021 クロ leader: cost『東の海2枚をレストにできる』 が未モデル (rest_self_cards_filtered は do-primitive で activate cost に不可)。 don-cost(③→rest_self_don)/untap-leader は batch27 是正済",
-        "ST20-004 リンリン: optional life cost (life_to_hand 無条件、 OP01-008類) 未モデル。 untap は batch26b 是正済",
         "ST22-001 白ひげ leader: 『手札の白ひげカード1枚公開(任意)：1枚引き公開カードをデッキ上に置く』 の reveal-cost + put-on-deck-top 未モデル (draw のみ)",
-        "OP04-040 クイーン: spurious +1000 は batch28 除去済。 残『コスト8以上キャラいれば 引く代わりにデッキ上1枚をライフ(任意)』 の代替 conditional 未モデル",
         "OP12-081 コアラ leader: 第1効果『リーダーにアタックした時』 の attack-target 判別を engine が dispatch せず 全on_attack で over-fire (limitation)。 第2効果(opp cost8登場→opp life→hand)は正"
       ]
     },

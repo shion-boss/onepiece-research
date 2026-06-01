@@ -15903,7 +15903,7 @@
   ],
   "OP04-040": [
     {
-      "_text": "【ドン!!×1】【アタック時】自分のライフと手札の合計枚数が4枚以下の場合、カード1枚を引く",
+      "_text": "OP04-040 【ドン×1】【アタック時】ライフ+手札4以下: 1ドロー (コスト8以上キャラがいれば代わりにデッキ上1枚ライフ可)",
       "when": "on_attack",
       "if": {
         "self_attached_don_ge": 1,
@@ -15911,14 +15911,42 @@
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "カード1枚を引く",
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "デッキ上1枚をライフ(コスト8以上キャラがいる場合)",
+                "if": {
+                  "self_chara_filtered_count_ge": {
+                    "filter": {
+                      "cost_ge": 8
+                    },
+                    "count": 1
+                  }
+                },
+                "do": [
+                  {
+                    "put_top_to_life": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP04-040_p1": [
     {
-      "_text": "【ドン!!×1】【アタック時】自分のライフと手札の合計枚数が4枚以下の場合、カード1枚を引く",
+      "_text": "OP04-040 【ドン×1】【アタック時】ライフ+手札4以下: 1ドロー (コスト8以上キャラがいれば代わりにデッキ上1枚ライフ可)",
       "when": "on_attack",
       "if": {
         "self_attached_don_ge": 1,
@@ -15926,7 +15954,35 @@
       },
       "do": [
         {
-          "draw": 1
+          "choice_effect": {
+            "optional": false,
+            "options": [
+              {
+                "label": "カード1枚を引く",
+                "do": [
+                  {
+                    "draw": 1
+                  }
+                ]
+              },
+              {
+                "label": "デッキ上1枚をライフ(コスト8以上キャラがいる場合)",
+                "if": {
+                  "self_chara_filtered_count_ge": {
+                    "filter": {
+                      "cost_ge": 8
+                    },
+                    "count": 1
+                  }
+                },
+                "do": [
+                  {
+                    "put_top_to_life": 1
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -17408,19 +17464,34 @@
   ],
   "ST07-001": [
     {
-      "_text": "ST07-001 【アタック時】自分のライフの上か下から1枚を手札に加えることができる：自分のライフが2枚以下の場合、自分の手札1枚までを、ライフの上に加える。 [don-gate]",
+      "_text": "ST07-001 【ドン×2】【アタック時】ライフ上下1手札(任意)：ライフ2以下なら手札1枚をライフへ",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "self_life_le": 2
+                  },
+                  "do": [
+                    {
+                      "hand_to_self_life": 1
+                    }
+                  ]
+                }
+              }
+            ]
           }
         }
       ],
       "if": {
-        "self_life_le": 2,
         "self_attached_don_ge": 2
       }
     }
@@ -27520,18 +27591,26 @@
       "when": "on_play",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "feature": "ビッグ・マム海賊団",
-                "cost_le": 3
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "ビッグ・マム海賊団",
+                      "cost_le": 3
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
