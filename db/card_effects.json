@@ -310,20 +310,7 @@
   ],
   "OP02-001": [
     {
-      "_text": "赤白ひげ アタック時: 自リーダーパワー+1000 (公式テキスト準拠)",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "_text": "OP02-001 end_of_turn: 自分のライフの上から1枚を手札に加える。",
       "when": "end_of_turn",
       "do": [
         {
@@ -15941,20 +15928,7 @@
   ],
   "OP02-001_p1": [
     {
-      "_text": "赤白ひげ アタック時: 自リーダーパワー+1000 (公式テキスト準拠)",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "_text": "OP02-001 end_of_turn: 自分のライフの上から1枚を手札に加える。",
       "when": "end_of_turn",
       "do": [
         {
@@ -16747,20 +16721,7 @@
   ],
   "OP02-001_p4": [
     {
-      "_text": "赤白ひげ アタック時: 自リーダーパワー+1000 (公式テキスト準拠)",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "_text": "OP02-001 end_of_turn: 自分のライフの上から1枚を手札に加える。",
       "when": "end_of_turn",
       "do": [
         {
@@ -17601,20 +17562,7 @@
   ],
   "OP02-001_p3": [
     {
-      "_text": "赤白ひげ アタック時: 自リーダーパワー+1000 (公式テキスト準拠)",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【自分のターン終了時】自分のライフの上から1枚を手札に加える。",
+      "_text": "OP02-001 end_of_turn: 自分のライフの上から1枚を手札に加える。",
       "when": "end_of_turn",
       "do": [
         {

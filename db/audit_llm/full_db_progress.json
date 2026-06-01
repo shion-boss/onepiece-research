@@ -40,7 +40,7 @@
   "flagged_total": 284,
   "note": "全4518 inline 監査の progress。 flagged_queue を優先消化、 audited に移動して resume。",
   "last_session": "2026-06-01",
-  "fixed_count": 489,
+  "fixed_count": 493,
   "phantom_phase": {
    "detector": "scripts/audit_overlay_text_phantom.py",
    "flagged": 55,
@@ -91,12 +91,12 @@
    "equivalence_verified": 216,
    "effect_cards": 4069,
    "unique_sig": 2334,
-   "remaining_unique_sig": 1640,
-   "remaining_cards": 2257,
+   "remaining_unique_sig": 1639,
+   "remaining_cards": 2253,
    "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
    "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
   },
-  "total_verified": 2269,
+  "total_verified": 2273,
   "total_cards": 4518,
   "double_discard_fix": {
    "opt型": 121,
@@ -133,7 +133,6 @@
   },
   "deferred_cards": [
    "OP01-120",
-   "OP02-001",
    "OP02-121",
    "OP05-007",
    "OP08-074",
@@ -157,7 +156,8 @@
     "group_static": "ST14-017 サニー号 「黒麦わらキャラ全員コスト+1」 継続filtered static"
    },
    "gates": "smoke ERROR=0 / pytest EXIT=0 / faq sev>=5=0 / behavior reproducible"
-  }
+  },
+  "op02_001_phantom_resolved": "2026-06-01 ユーザー承認で削除。 白ひげLeader on_attack+1000 は phantom (cards.json text=終了時ライフのみ)。 end_of_turn life_to_hand のみ残存"
  },
  "audited": [
   "EB01-001",
@@ -366,6 +366,10 @@
   "OP01-095",
   "OP01-104",
   "OP01-119",
+  "OP02-001",
+  "OP02-001_p1",
+  "OP02-001_p3",
+  "OP02-001_p4",
   "OP02-004_p1",
   "OP02-004_p2",
   "OP02-004_p3",
@@ -2112,7 +2116,11 @@
   "OP09-037_p2",
   "EB01-056",
   "EB01-056_p1",
-  "EB01-056_p2"
+  "EB01-056_p2",
+  "OP02-001",
+  "OP02-001_p1",
+  "OP02-001_p3",
+  "OP02-001_p4"
  ],
  "deferred_complex": [
   "OP02-025",
