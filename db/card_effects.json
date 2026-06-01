@@ -19289,11 +19289,20 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     }
   ],
   "OP07-109": [
@@ -19358,20 +19367,21 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_power_le_3000",
-            "one_opponent_character_power_le_3000"
-          ]
-        },
-        {
-          "power_pump_multi": {
-            "target_specs": [
-              "one_opponent_character_any",
-              "one_opponent_character_any"
-            ],
-            "amount": -2500,
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
             "duration": "next_opp_turn_end"
           }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -19433,8 +19443,15 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "クロスギルド",
-              "exclude_name": "Mr.3(ギャルディーノ)"
+              "exclude_name": "Mr.3(ギャルディーノ)",
+              "or_clauses": [
+                {
+                  "feature": "クロスギルド"
+                },
+                {
+                  "feature_contains": "B・W"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -20150,8 +20167,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -20199,7 +20215,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "don_diff_le": 0
       }
     }
   ],
@@ -20234,7 +20251,14 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "シャンドラの戦士"
+              "or_clauses": [
+                {
+                  "name": "アッパーヤード"
+                },
+                {
+                  "feature": "シャンドラの戦士"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -28419,8 +28443,15 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "クロスギルド",
-              "exclude_name": "Mr.3(ギャルディーノ)"
+              "exclude_name": "Mr.3(ギャルディーノ)",
+              "or_clauses": [
+                {
+                  "feature": "クロスギルド"
+                },
+                {
+                  "feature_contains": "B・W"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -30698,8 +30729,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -31090,7 +31120,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "don_diff_le": 0
       }
     }
   ],
@@ -31191,7 +31222,14 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "シャンドラの戦士"
+              "or_clauses": [
+                {
+                  "name": "アッパーヤード"
+                },
+                {
+                  "feature": "シャンドラの戦士"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -31210,7 +31248,14 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "シャンドラの戦士"
+              "or_clauses": [
+                {
+                  "name": "アッパーヤード"
+                },
+                {
+                  "feature": "シャンドラの戦士"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -36563,20 +36608,21 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_power_le_3000",
-            "one_opponent_character_power_le_3000"
-          ]
-        },
-        {
-          "power_pump_multi": {
-            "target_specs": [
-              "one_opponent_character_any",
-              "one_opponent_character_any"
-            ],
-            "amount": -2500,
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
             "duration": "next_opp_turn_end"
           }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -36587,20 +36633,21 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_power_le_3000",
-            "one_opponent_character_power_le_3000"
-          ]
-        },
-        {
-          "power_pump_multi": {
-            "target_specs": [
-              "one_opponent_character_any",
-              "one_opponent_character_any"
-            ],
-            "amount": -2500,
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
             "duration": "next_opp_turn_end"
           }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -36869,11 +36916,20 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     }
   ],
   "OP07-109_p1": [
@@ -37135,7 +37191,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "don_diff_le": 0
       }
     }
   ],
@@ -37579,8 +37636,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -40700,7 +40756,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "don_diff_le": 0
       }
     }
   ],
@@ -40861,11 +40918,20 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     }
   ],
   "OP07-109_p3": [
@@ -45524,10 +45590,7 @@
         {
           "put_top_to_life": 1
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP07-119_r1 その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。",
@@ -45661,20 +45724,21 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_power_le_3000",
-            "one_opponent_character_power_le_3000"
-          ]
-        },
-        {
-          "power_pump_multi": {
-            "target_specs": [
-              "one_opponent_character_any",
-              "one_opponent_character_any"
-            ],
-            "amount": -2500,
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
             "duration": "next_opp_turn_end"
           }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -45796,7 +45860,7 @@
   ],
   "OP09-027_p2": [
     {
-      "_text": "OP09-027_p2 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。",
+      "_text": "OP09-027_p2 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -45805,12 +45869,15 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 3
       }
     }
   ],
   "OP09-027_r1": [
     {
-      "_text": "OP09-027_r1 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。",
+      "_text": "OP09-027_r1 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -45819,6 +45886,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 3
       }
     }
   ],
@@ -45932,8 +46002,15 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "クロスギルド",
-              "exclude_name": "Mr.3(ギャルディーノ)"
+              "exclude_name": "Mr.3(ギャルディーノ)",
+              "or_clauses": [
+                {
+                  "feature": "クロスギルド"
+                },
+                {
+                  "feature_contains": "B・W"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -46801,10 +46878,21 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -46819,10 +46907,21 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -47942,10 +48041,21 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "self_hand_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
@@ -47960,10 +48070,21 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "self_hand_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
@@ -48470,7 +48591,7 @@
   ],
   "OP01-052_p1": [
     {
-      "_text": "OP01-052_p1 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。",
+      "_text": "OP01-052_p1 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -48479,12 +48600,15 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
   "OP01-052_p2": [
     {
-      "_text": "OP01-052_p2 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。",
+      "_text": "OP01-052_p2 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -48493,12 +48617,15 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
   "OP01-052_r1": [
     {
-      "_text": "OP01-052_r1 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。",
+      "_text": "OP01-052_r1 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -48507,6 +48634,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
@@ -51050,8 +51180,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -51683,7 +51812,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "don_diff_le": 0
       }
     }
   ],
@@ -51940,7 +52070,14 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "シャンドラの戦士"
+              "or_clauses": [
+                {
+                  "name": "アッパーヤード"
+                },
+                {
+                  "feature": "シャンドラの戦士"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -64153,7 +64290,7 @@
   ],
   "OP09-027": [
     {
-      "_text": "OP09-027 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。",
+      "_text": "OP09-027 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -64162,6 +64299,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 3
       }
     }
   ],
@@ -68291,10 +68431,7 @@
         {
           "put_top_to_life": 1
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP07-119 その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。",
@@ -68321,10 +68458,7 @@
         {
           "put_top_to_life": 1
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP07-119_p1 その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。",
@@ -76481,7 +76615,7 @@
   ],
   "OP01-052": [
     {
-      "_text": "OP01-052 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。",
+      "_text": "OP01-052 on_attack: 【ターン1回】自分のレストのキャラが2枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -76490,6 +76624,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
@@ -78937,8 +79074,15 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "クロスギルド",
-              "exclude_name": "Mr.3(ギャルディーノ)"
+              "exclude_name": "Mr.3(ギャルディーノ)",
+              "or_clauses": [
+                {
+                  "feature": "クロスギルド"
+                },
+                {
+                  "feature_contains": "B・W"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -80612,10 +80756,21 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "self_hand_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
@@ -85533,10 +85688,7 @@
         {
           "put_top_to_life": 1
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP07-119_p2 その後、自分のライフが2枚以下の場合、このキャラは、このターン中、【速攻】を得る。",
@@ -85727,7 +85879,7 @@
   ],
   "OP09-027_p1": [
     {
-      "_text": "OP09-027_p1 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。",
+      "_text": "OP09-027_p1 on_attack: 【ターン1回】自分のレストのキャラが3枚以上いる場合、カード1枚を引く。 [grind3]",
       "when": "on_attack",
       "do": [
         {
@@ -85736,6 +85888,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 3
       }
     }
   ],
@@ -86987,10 +87142,21 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -89554,10 +89720,21 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -90061,10 +90238,21 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "self_hand_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
@@ -90123,11 +90311,20 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 1
+            },
+            "do": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 1
-      }
+      ]
     }
   ],
   "OP09-004_r1": [
