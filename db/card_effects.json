@@ -60178,6 +60178,13 @@
             "amount": 2000,
             "duration": "next_opp_turn_end"
           }
+        },
+        {
+          "power_pump": {
+            "target": "all_opponent_characters",
+            "amount": -2000,
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "cost": {
@@ -60194,6 +60201,13 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
+            "duration": "next_opp_turn_end"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "all_opponent_characters",
+            "amount": -2000,
             "duration": "next_opp_turn_end"
           }
         }
@@ -61285,8 +61299,15 @@
             "effect": [
               {
                 "power_pump": {
+                  "target": "all_opponent_characters",
+                  "amount": -1000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "power_pump": {
                   "target": "opponent_leader",
-                  "amount": -3000,
+                  "amount": -1000,
                   "duration": "turn"
                 }
               }
@@ -84692,7 +84713,7 @@
       },
       "conditions": [
         {
-          "self_don_active_ge": 1
+          "self_attached_don_ge": 1
         },
         {
           "self_turn": true
@@ -85336,7 +85357,7 @@
       },
       "conditions": [
         {
-          "self_don_active_ge": 1
+          "self_attached_don_ge": 1
         },
         {
           "self_turn": true
@@ -89092,7 +89113,7 @@
       },
       "conditions": [
         {
-          "self_don_active_ge": 1
+          "self_attached_don_ge": 1
         },
         {
           "self_turn": true
