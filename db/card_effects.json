@@ -14025,7 +14025,7 @@
                 "ko": {
                   "type": "one_opponent_character_filtered",
                   "filter": {
-                    "truly_original_power_le": 4000
+                    "current_power_le": 4000
                   }
                 }
               }
@@ -14061,7 +14061,7 @@
                 "ko": {
                   "type": "one_opponent_character_filtered",
                   "filter": {
-                    "truly_original_power_le": 4000
+                    "current_power_le": 4000
                   }
                 }
               }
@@ -16936,55 +16936,14 @@
   ],
   "ST12-001": [
     {
-      "_text": "don×1 on_attack: 【ターン1回】自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のパワー7000以下のキャラ1枚までを",
+      "_text": "ST12-001 on_attack: 【ドン!!×1】【ターン1回】自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のパワー7000以下のキャラ1枚までを、アクティブにする。",
       "when": "on_attack",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_chara_to_hand": {
-                  "count": 1,
-                  "filter": {
-                    "cost_ge": 2
-                  }
-                }
-              }
-            ],
-            "effect": [
-              {
-                "untap_chara": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "power_le": 7000
-                    }
-                  },
-                  "limit": 1
-                }
-              }
-            ]
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "truly_original_power_le": 7000
-            }
-          }
-        }
-      ],
       "if": {
         "self_attached_don_ge": 1
       },
       "cost": {
         "once_per_turn": true
-      }
-    },
-    {
-      "_text": "ST12-001 on_attack: 【ターン1回】自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：自分のパワー7000以下のキャラ1枚までを、アクティブにする。",
-      "when": "on_attack",
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -17004,7 +16963,7 @@
                   "target": {
                     "type": "one_self_chara_filtered",
                     "filter": {
-                      "power_le": 7000
+                      "current_power_le": 7000
                     }
                   },
                   "limit": 1
@@ -17013,10 +16972,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "ST11-001": [
@@ -97337,7 +97293,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "truly_original_power_le": 8000
+              "current_power_le": 8000
             }
           }
         }
@@ -97976,7 +97932,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "truly_original_power_le": 8000
+              "current_power_le": 8000
             }
           }
         }
@@ -97995,7 +97951,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "truly_original_power_le": 8000
+              "current_power_le": 8000
             }
           }
         }
@@ -98014,7 +97970,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "truly_original_power_le": 8000
+              "current_power_le": 8000
             }
           }
         }

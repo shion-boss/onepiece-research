@@ -1396,6 +1396,12 @@ def _resolve_target(
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.characters
                      if _matches_filter(ip.card, filt)]
+            # 「(現在の) パワー N 以下/以上」 (= 元々のパワー でなく バフ込み 現在値)。
+            # _matches_filter は CardDef ベースで現在値を見られないため ここで InPlay.power を判定。
+            if "current_power_le" in filt:
+                cands = [ip for ip in cands if ip.power <= int(filt["current_power_le"])]
+            if "current_power_ge" in filt:
+                cands = [ip for ip in cands if ip.power >= int(filt["current_power_ge"])]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(
