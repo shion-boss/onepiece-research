@@ -8973,7 +8973,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand_multi": [
+          "return_to_deck_bottom_multi": [
             "one_opponent_character_cost_le_6",
             "one_opponent_character_cost_le_6"
           ]
@@ -8985,7 +8985,7 @@
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_5"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -12813,29 +12813,24 @@
   ],
   "OP08-058_p2": [
     {
-      "_text": "OP08-058_p2 【アタック時】自分のライフの上から2枚を表向きにできる：ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
-    },
-    {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP08-098_p2": [
@@ -14677,56 +14672,46 @@
   ],
   "OP08-058": [
     {
-      "_text": "OP08-058 【アタック時】自分のライフの上から2枚を表向きにできる：ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
-    },
-    {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP08-058_p1": [
     {
-      "_text": "OP08-058_p1 【アタック時】自分のライフの上から2枚を表向きにできる：ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
-    },
-    {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP08-098_p1": [
@@ -28156,7 +28141,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand_multi": [
+          "return_to_deck_bottom_multi": [
             "one_opponent_character_cost_le_6",
             "one_opponent_character_cost_le_6"
           ]
@@ -28168,7 +28153,7 @@
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_5"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -44930,7 +44915,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_hand_multi": [
+          "return_to_deck_bottom_multi": [
             "one_opponent_character_cost_le_6",
             "one_opponent_character_cost_le_6"
           ]
@@ -44942,7 +44927,7 @@
       "when": "trigger",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_5"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_5"
         }
       ]
     }
