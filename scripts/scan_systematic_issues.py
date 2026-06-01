@@ -75,6 +75,25 @@ for cid, ents in eff.items():
                 if key in c and any(isinstance(d, dict) and key in d for d in e.get("do", [])):
                     issues["cost_do_dup_" + key].append(cid)
 
+    ov_obj = ents
+
+    # 5) 【ターン1回】 once_per_turn 欠落: text に【ターン1回】 だが overlay に once_per_turn 無し
+    if "【ターン1回】" in t and "once_per_turn" not in ov:
+        issues["once_per_turn_missing"].append(cid)
+
+    # 6) 【ドン!!×N】 don gate 欠落: 該当 when entry に self_attached_don_ge も on_attached_don も無し
+    if re.search(r"【ドン[!！‼]+×(\d+)】", t):
+        gated = ("self_attached_don_ge" in ov) or any(
+            isinstance(e, dict) and e.get("when") == "on_attached_don" for e in ents)
+        if not gated:
+            issues["don_gate_missing"].append(cid)
+
+    # 7) duration 誤り: text「次の相手の(ターン|エンドフェイズ)終了時まで」 だが overlay に
+    #    next_opp_turn_end が無く、 power_pump/cost_minus/give_keyword の duration が turn/battle
+    if re.search(r"次の相手の(ターン|エンドフェイズ)終了時まで", t) and "next_opp_turn_end" not in ov:
+        if re.search(r'"duration":\s*"(turn|battle)"', ov):
+            issues["duration_next_opp_missing"].append(cid)
+
 
 print("=== systematic 検出 (audited 除外) ===")
 for k, v in sorted(issues.items(), key=lambda x: -len(set(x[1]))):
