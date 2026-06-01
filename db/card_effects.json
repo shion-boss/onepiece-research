@@ -20083,11 +20083,24 @@
   ],
   "EB04-048": [
     {
-      "_text": "EB04-048 on_play: 自分のキャラ1枚をトラッシュに置くことができる：カード1枚を引く。",
+      "_text": "EB04-048 登場時(自キャラ1トラッシュ):カード1枚を引く",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -21581,20 +21594,22 @@
   ],
   "OP12-058": [
     {
-      "_text": "OP12-058 main: 自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、自分のデッキの上から1枚を公開し、そのカードがコスト9以下の『白ひげ海賊団』を含む特徴を持つキャラカードの",
+      "_text": "OP12-058 メイン:リーダーが白ひげ海賊団含む場合、デッキ上1公開し白ひげ海賊団cost9以下キャラなら登場、登場したキャラは速攻",
       "when": "main",
       "do": [
         {
-          "give_keyword": {
-            "target": "self_inplay",
-            "keyword": "速攻"
+          "reveal_top_play": {
+            "filter": {
+              "feature_contains": "白ひげ海賊団",
+              "cost_le": 9
+            },
+            "played_keyword": "速攻",
+            "rest_remain": "bottom"
           }
         }
       ],
       "if": {
-        "leader_features_any": [
-          "白ひげ海賊団"
-        ]
+        "leader_feature_contains": "白ひげ海賊団"
       }
     },
     {
@@ -22300,11 +22315,44 @@
   ],
   "OP11-095": [
     {
-      "_text": "OP11-095 on_play: 自分のトラッシュから特徴《海軍》を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、コス",
+      "_text": "OP11-095 登場時(トラッシュ海軍3枚デッキ下):リーダーにレストドン1付与、その後コスト9以上キャラがいれば相手cost7以下を1KO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_7cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "filter": {
+                    "feature": "海軍"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 1,
+                  "rested": true
+                }
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "exists_chara_cost_ge": 9
+                  },
+                  "do": [
+                    {
+                      "ko": "one_opponent_character_cost_le_7cost"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -30464,11 +30512,24 @@
   ],
   "EB04-048_p1": [
     {
-      "_text": "EB04-048_p1 on_play: 自分のキャラ1枚をトラッシュに置くことができる：カード1枚を引く。",
+      "_text": "EB04-048 登場時(自キャラ1トラッシュ):カード1枚を引く",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -34455,11 +34516,44 @@
   ],
   "OP11-095_p1": [
     {
-      "_text": "OP11-095_p1 on_play: 自分のトラッシュから特徴《海軍》を持つカード3枚を好きな順番でデッキの下に置くことができる：自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、コス",
+      "_text": "OP11-095 登場時(トラッシュ海軍3枚デッキ下):リーダーにレストドン1付与、その後コスト9以上キャラがいれば相手cost7以下を1KO",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_7cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "filter": {
+                    "feature": "海軍"
+                  },
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 1,
+                  "rested": true
+                }
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "exists_chara_cost_ge": 9
+                  },
+                  "do": [
+                    {
+                      "ko": "one_opponent_character_cost_le_7cost"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -54492,13 +54586,11 @@
   ],
   "OP15-031": [
     {
-      "_text": "OP15-031 on_play: 相手のレストのキャラ1枚までを選ぶ。選んだキャラのコストがそのキャラに付与されているドン‼の枚数と同じ場合、KOする。",
+      "_text": "OP15-031 登場時:相手レストキャラ1枚選択、 コスト=付与ドン枚数 ならKO",
       "when": "on_play",
       "do": [
         {
-          "ko": {
-            "type": "one_opp_chara_with_don_eq_cost"
-          }
+          "ko": "one_opponent_rested_character_don_eq_cost"
         }
       ]
     }
@@ -57663,14 +57755,57 @@
   ],
   "OP12-015": [
     {
-      "_text": "OP12-015 on_play: 自分の手札からイベント2枚を公開することができる：自分の手札からパワー3000以下の赤のキャラカード1枚までを、登場させる。その後、自分のリーダーかキャラ1枚に",
+      "_text": "OP12-015 静的:自付与ドン合計2以上ならこのキャラ+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_attached_don_ge": 2
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP12-015 登場時(手札イベント2公開):手札から赤power3000以下キャラ1枚を登場、その後自リーダーかキャラにレストドン1付与",
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "category": "EVENT"
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "color": "赤",
+                    "power_le": 3000
+                  },
+                  "limit": 1
+                }
+              },
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -57678,14 +57813,57 @@
   ],
   "OP12-015_p1": [
     {
-      "_text": "OP12-015_p1 on_play: 自分の手札からイベント2枚を公開することができる：自分の手札からパワー3000以下の赤のキャラカード1枚までを、登場させる。その後、自分のリーダーかキャラ1枚に",
+      "_text": "OP12-015 静的:自付与ドン合計2以上ならこのキャラ+2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_attached_don_ge": 2
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP12-015 登場時(手札イベント2公開):手札から赤power3000以下キャラ1枚を登場、その後自リーダーかキャラにレストドン1付与",
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "category": "EVENT"
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "color": "赤",
+                    "power_le": 3000
+                  },
+                  "limit": 1
+                }
+              },
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -58419,11 +58597,44 @@
   ],
   "OP12-096": [
     {
-      "_text": "OP12-096 main: 相手のコスト4以下のキャラ1枚までを、KOする。自分のコスト8以上のキャラがいる場合、相手のコスト4以下のキャラの代わりに相手のコスト6以下のキャラを選ぶ。",
+      "_text": "OP12-096 メイン:相手cost4以下1枚KO。 自cost8以上キャラがいればcost6以下を代わりに選ぶ",
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_4cost"
+          "conditional": {
+            "if": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "cost_ge": 8
+                },
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "ko": "one_opponent_character_cost_le_6cost"
+              }
+            ]
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "not": {
+                "self_chara_filtered_count_ge": {
+                  "filter": {
+                    "cost_ge": 8
+                  },
+                  "count": 1
+                }
+              }
+            },
+            "do": [
+              {
+                "ko": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -63830,18 +64041,25 @@
   ],
   "OP08-096": [
     {
-      "_text": "OP08-096 counter: 自分のデッキの上から1枚をトラッシュに置く。置いたカードがコスト6以上の場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+5000。",
+      "_text": "OP08-096 カウンター:デッキ上1枚トラッシュ、 そのカードがコスト6以上なら自リーダーかキャラ+5000",
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 5000,
-            "duration": "battle"
+          "mill_top_then": {
+            "count": 1,
+            "filter": {
+              "cost_ge": 6
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 5000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
-        },
-        {
-          "mill_self_top": 1
         }
       ]
     },
@@ -67852,13 +68070,27 @@
   ],
   "OP05-087": [
     {
-      "_text": "OP05-087 on_attack: このキャラ以外の自分のキャラ1枚をKOできる：相手のキャラ1枚までを、このターン中、コスト-5。",
+      "_text": "OP05-087 アタック時(このキャラ以外の自キャラ1KO):相手キャラ1枚 このターン中コスト-5",
       "when": "on_attack",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 5
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1,
+                  "exclude_self": true
+                }
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 5
+                }
+              }
+            ]
           }
         }
       ]
