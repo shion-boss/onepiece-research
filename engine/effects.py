@@ -3362,6 +3362,10 @@ def _execute_effect_body(
             unique_name = bool(spec.get("unique_name", False))
             # 一時登場: このターン終了時にデッキ下へ戻す (= OP11-092 ヘルメッポ)
             want_return_eot = bool(spec.get("return_to_deck_bottom_at_turn_end", False))
+            # 「登場させたキャラは、 このターン中、 【keyword】 を得る」 (= OP15-086 速攻)。
+            # reveal_top_play の played_keyword と同機構: 召喚 ip の granted_keywords に積む
+            # (= turn-scoped、 _reset_turn_buff でクリア = 「このターン中」)。
+            pk_grant = spec.get("played_keyword")
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
                 picks_idx = list(v["_picks_idx"])
@@ -3436,6 +3440,8 @@ def _execute_effect_body(
                         ip = InPlay.of(card, rested=rested, sickness=True)
                         ip.return_to_deck_bottom_at_turn_end = want_return_eot
                         me.characters.append(ip)
+                        if pk_grant:
+                            ip.granted_keywords.add(str(pk_grant))
                         played_count += 1
                         label = "レストで" if rested else ""
                         state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
@@ -3473,6 +3479,8 @@ def _execute_effect_body(
                     ip = InPlay.of(card, rested=rested, sickness=True)
                     ip.return_to_deck_bottom_at_turn_end = want_return_eot
                     me.characters.append(ip)
+                    if pk_grant:
+                        ip.granted_keywords.add(str(pk_grant))
                     found += 1
                     seen_names.add(card.name)
                     label = "レストで" if rested else ""
