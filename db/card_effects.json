@@ -8833,7 +8833,7 @@
   ],
   "OP01-029": [
     {
-      "_text": "OP01-029 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP01-029 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -8842,11 +8842,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP01-029 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -11223,7 +11236,7 @@
       "do": [
         {
           "attach_don": {
-            "target": "self_leader",
+            "target": "self_inplay_choice",
             "count": 2
           }
         }
@@ -24121,14 +24134,28 @@
   ],
   "OP05-093": [
     {
-      "_text": "OP05-093 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-093 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_cost_le_2cost",
-            "one_opponent_character_cost_le_1cost"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_cost_le_2cost",
+                  "one_opponent_character_cost_le_1cost"
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -29331,7 +29358,7 @@
   ],
   "OP01-029_p3": [
     {
-      "_text": "OP01-029_p3 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP01-029_p3 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -29340,11 +29367,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP01-029_p3 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -29362,7 +29402,7 @@
   ],
   "OP01-029_p4": [
     {
-      "_text": "OP01-029_p4 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP01-029_p4 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -29371,11 +29411,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP01-029_p4 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -36229,14 +36282,28 @@
   ],
   "OP05-093_p2": [
     {
-      "_text": "OP05-093_p2 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-093_p2 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_cost_le_2cost",
-            "one_opponent_character_cost_le_1cost"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_cost_le_2cost",
+                  "one_opponent_character_cost_le_1cost"
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -36248,7 +36315,7 @@
       "do": [
         {
           "attach_don": {
-            "target": "self_leader",
+            "target": "self_inplay_choice",
             "count": 2
           }
         }
@@ -36633,7 +36700,7 @@
       "do": [
         {
           "attach_don": {
-            "target": "self_leader",
+            "target": "self_inplay_choice",
             "count": 2
           }
         }
@@ -37460,14 +37527,28 @@
   ],
   "OP05-093_p1": [
     {
-      "_text": "OP05-093_p1 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-093_p1 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_cost_le_2cost",
-            "one_opponent_character_cost_le_1cost"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_cost_le_2cost",
+                  "one_opponent_character_cost_le_1cost"
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -40692,7 +40773,7 @@
       "do": [
         {
           "attach_don": {
-            "target": "self_leader",
+            "target": "self_inplay_choice",
             "count": 2
           }
         }
@@ -42260,7 +42341,7 @@
   ],
   "OP01-029_p2": [
     {
-      "_text": "OP01-029_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP01-029_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -42269,11 +42350,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP01-029_p2 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -42654,28 +42748,56 @@
   ],
   "OP05-093_p3": [
     {
-      "_text": "OP05-093_p3 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-093_p3 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_cost_le_2cost",
-            "one_opponent_character_cost_le_1cost"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_cost_le_2cost",
+                  "one_opponent_character_cost_le_1cost"
+                ]
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP05-093_p4": [
     {
-      "_text": "OP05-093_p4 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP05-093_p4 on_play: 自分のトラッシュのカード3枚を好きな順番でデッキの下に置くことができる：相手の、コスト2以下のキャラ1枚までとコスト1以下のキャラ1枚までを、KOする。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_cost_le_2cost",
-            "one_opponent_character_cost_le_1cost"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  "one_opponent_character_cost_le_2cost",
+                  "one_opponent_character_cost_le_1cost"
+                ]
+              }
+            ]
+          }
         }
       ]
     }
@@ -45037,7 +45159,7 @@
       "do": [
         {
           "attach_don": {
-            "target": "self_leader",
+            "target": "self_inplay_choice",
             "count": 2
           }
         }
@@ -45896,22 +46018,44 @@
   ],
   "OP09-076_p1": [
     {
-      "_text": "OP09-076_p1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP09-076_p1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "OP09-076_r2": [
     {
-      "_text": "OP09-076_r2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP09-076_r2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -48147,7 +48291,7 @@
   ],
   "OP01-029_r1": [
     {
-      "_text": "OP01-029_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP01-029_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -48156,11 +48300,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP01-029_r1 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -49988,7 +50145,7 @@
   ],
   "OP04-095_p2": [
     {
-      "_text": "OP04-095_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP04-095_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -49997,11 +50154,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 15
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 15
-      }
+      ]
     },
     {
       "_text": "OP04-095_p2 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
@@ -50018,7 +50188,7 @@
   ],
   "OP04-095_p3": [
     {
-      "_text": "OP04-095_p3 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP04-095_p3 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -50027,11 +50197,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 15
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 15
-      }
+      ]
     },
     {
       "_text": "OP04-095_p3 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
@@ -50048,7 +50231,7 @@
   ],
   "OP04-095_r1": [
     {
-      "_text": "OP04-095_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP04-095_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -50057,11 +50240,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 15
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 15
-      }
+      ]
     },
     {
       "_text": "OP04-095_r1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
@@ -54774,7 +54970,9 @@
         {
           "search_top_n": {
             "depth": 4,
-            "filter": {},
+            "filter": {
+              "cost_ge": 4
+            },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
@@ -64428,11 +64626,22 @@
   ],
   "OP09-076": [
     {
-      "_text": "OP09-076 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP09-076 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -72225,7 +72434,7 @@
   ],
   "OP04-095": [
     {
-      "_text": "OP04-095 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP04-095 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -72234,11 +72443,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 15
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 15
-      }
+      ]
     },
     {
       "_text": "OP04-095 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
@@ -78387,11 +78609,22 @@
   ],
   "OP09-076_r1": [
     {
-      "_text": "OP09-076_r1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP09-076_r1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -85494,11 +85727,22 @@
   ],
   "OP09-076_p2": [
     {
-      "_text": "OP09-076_p2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP09-076_p2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [grind]",
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -88535,7 +88779,7 @@
   ],
   "OP04-095_p1": [
     {
-      "_text": "OP04-095_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。",
+      "_text": "OP04-095_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが15枚以上ある場合、そのカードを、このバトル中、パワー+2000。 [grind]",
       "when": "counter",
       "do": [
         {
@@ -88544,11 +88788,24 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 15
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 15
-      }
+      ]
     },
     {
       "_text": "OP04-095_p1 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
