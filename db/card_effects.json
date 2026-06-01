@@ -46877,8 +46877,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
@@ -47238,12 +47237,22 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_power_le_2000"
         }
       ],
       "conditions": [
         {
           "self_turn": true
+        },
+        {
+          "or": [
+            {
+              "leader_feature": "クロスギルド"
+            },
+            {
+              "leader_feature_contains": "B・W"
+            }
+          ]
         }
       ]
     }
@@ -47254,12 +47263,22 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_power_le_2000"
         }
       ],
       "conditions": [
         {
           "self_turn": true
+        },
+        {
+          "or": [
+            {
+              "leader_feature": "クロスギルド"
+            },
+            {
+              "leader_feature_contains": "B・W"
+            }
+          ]
         }
       ]
     }
@@ -54115,6 +54134,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "rest_self_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -54124,11 +54146,6 @@
               }
             ]
           }
-        }
-      ],
-      "conditions": [
-        {
-          "opp_turn": true
         }
       ]
     },
@@ -54145,6 +54162,11 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        },
+        {
+          "set_protect_from_opp_effect_static": {
+            "target": "self"
+          }
         }
       ]
     }
@@ -54158,6 +54180,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "rest_self_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -54167,11 +54192,6 @@
               }
             ]
           }
-        }
-      ],
-      "conditions": [
-        {
-          "opp_turn": true
         }
       ]
     },
@@ -54187,6 +54207,11 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_protect_from_opp_effect_static": {
+            "target": "self"
           }
         }
       ]
@@ -54270,7 +54295,29 @@
       "when": "activate_main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 1,
+                  "rested": true
+                }
+              },
+              {
+                "attach_don": {
+                  "target": "one_self_character_any",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -54296,7 +54343,29 @@
       "when": "activate_main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 1,
+                  "rested": true
+                }
+              },
+              {
+                "attach_don": {
+                  "target": "one_self_character_any",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -54348,96 +54417,18 @@
   ],
   "EB03-031": [
     {
-      "_text": "EB03-031 on_play: ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、",
+      "_text": "EB03-031: 【自分のターン中】【登場時】ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、【メイン】効果を発動する。",
+      "_missing_effect": "トラッシュのコスト7以下イベントの【メイン】効果を発動する primitive 未実装。 旧 play_event_from_hand は手札からの誤近似(自動近似禁止)につき無効化。 要: ドン-1 cost + leader=サンジ 条件 + trash event main 発動 primitive",
       "when": "on_play",
-      "do": [
-        {
-          "play_event_from_hand": {
-            "filter": {
-              "category": "EVENT",
-              "cost_le": 7
-            }
-          }
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      },
-      "if": {
-        "leader_name": "サンジ"
-      }
-    },
-    {
-      "_text": "EB03-031 main: 効果を発動する。",
-      "when": "main",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_event_from_hand": {
-                  "filter": {
-                    "category": "EVENT",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
-          }
-        }
-      ]
+      "do": []
     }
   ],
   "EB03-031_p1": [
     {
-      "_text": "EB03-031_p1 on_play: ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、",
+      "_text": "EB03-031_p1: 【自分のターン中】【登場時】ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、【メイン】効果を発動する。",
+      "_missing_effect": "トラッシュのコスト7以下イベントの【メイン】効果を発動する primitive 未実装。 旧 play_event_from_hand は手札からの誤近似(自動近似禁止)につき無効化。 要: ドン-1 cost + leader=サンジ 条件 + trash event main 発動 primitive",
       "when": "on_play",
-      "do": [
-        {
-          "play_event_from_hand": {
-            "filter": {
-              "category": "EVENT",
-              "cost_le": 7
-            }
-          }
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      },
-      "if": {
-        "leader_name": "サンジ"
-      }
-    },
-    {
-      "_text": "EB03-031_p1 main: 効果を発動する。",
-      "when": "main",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_event_from_hand": {
-                  "filter": {
-                    "category": "EVENT",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
-          }
-        }
-      ]
+      "do": []
     }
   ],
   "EB03-032": [
@@ -54873,8 +54864,7 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "rest_self_don": 1
+        "once_per_turn": true
       },
       "do": [
         {
@@ -54922,8 +54912,7 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "rest_self_don": 1
+        "once_per_turn": true
       },
       "do": [
         {
@@ -54971,8 +54960,7 @@
       "_text": "【起動メイン】【ターン1回】自分のドン‼1枚までを、アクティブにする。その後、相手の、コスト4以下のキャラかドン‼1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "rest_self_don": 1
+        "once_per_turn": true
       },
       "do": [
         {
@@ -55024,6 +55012,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "rest_self_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -55033,11 +55024,6 @@
               }
             ]
           }
-        }
-      ],
-      "conditions": [
-        {
-          "opp_turn": true
         }
       ]
     },
@@ -55053,6 +55039,11 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_protect_from_opp_effect_static": {
+            "target": "self"
           }
         }
       ]
@@ -55076,7 +55067,29 @@
       "when": "activate_main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 1,
+                  "rested": true
+                }
+              },
+              {
+                "attach_don": {
+                  "target": "one_self_character_any",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -55086,49 +55099,10 @@
   ],
   "EB03-031_p2": [
     {
-      "_text": "EB03-031_p2 on_play: ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、",
+      "_text": "EB03-031_p2: 【自分のターン中】【登場時】ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、【メイン】効果を発動する。",
+      "_missing_effect": "トラッシュのコスト7以下イベントの【メイン】効果を発動する primitive 未実装。 旧 play_event_from_hand は手札からの誤近似(自動近似禁止)につき無効化。 要: ドン-1 cost + leader=サンジ 条件 + trash event main 発動 primitive",
       "when": "on_play",
-      "do": [
-        {
-          "play_event_from_hand": {
-            "filter": {
-              "category": "EVENT",
-              "cost_le": 7
-            }
-          }
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      },
-      "if": {
-        "leader_name": "サンジ"
-      }
-    },
-    {
-      "_text": "EB03-031_p2 main: 効果を発動する。",
-      "when": "main",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_don_to_deck": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_event_from_hand": {
-                  "filter": {
-                    "category": "EVENT",
-                    "cost_le": 7
-                  }
-                }
-              }
-            ]
-          }
-        }
-      ]
+      "do": []
     }
   ],
   "EB03-042_p2": [
@@ -64022,8 +63996,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
@@ -64052,8 +64025,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
@@ -87436,12 +87408,22 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_power_le_2000"
         }
       ],
       "conditions": [
         {
           "self_turn": true
+        },
+        {
+          "or": [
+            {
+              "leader_feature": "クロスギルド"
+            },
+            {
+              "leader_feature_contains": "B・W"
+            }
+          ]
         }
       ]
     }
