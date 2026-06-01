@@ -5260,7 +5260,7 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 3000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
@@ -69150,41 +69150,18 @@
               {
                 "give_keyword": {
                   "target": "self",
-                  "keyword": "バニッシュ"
+                  "keyword": "バニッシュ",
+                  "duration": "turn"
                 }
               },
               {
                 "power_pump": {
                   "target": "self",
-                  "amount": 3000,
-                  "duration": "battle"
+                  "amount": 1000,
+                  "duration": "turn"
                 }
               }
             ]
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【起動メイン】自分のトラッシュの特徴《スリラーバーク海賊団》を持つカード4枚を好きな順番でデッキの下に置くことができる：このキャラは、このターン中、【バニッシュ】を得て、パワー+1000。",
-      "_approx_note": "cost: trash filtered to deck 4 → 簡略",
-      "when": "activate_main",
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "バニッシュ",
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
           }
         }
       ]
@@ -71765,30 +71742,6 @@
       "cost": {
         "once_per_turn": true
       }
-    },
-    {
-      "_text": "【アタック時】【ターン1回】自分のトラッシュのカード20枚をデッキに戻しシャッフルできる：このキャラは、このバトル中、【ダブルアタック】を得て、パワー+10000。 ※battle→turn",
-      "_approx_note": "battle→turn 近似、 cost: trash_to_deck 20 → 簡略 (engine 未対応)",
-      "when": "on_attack",
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ダブルアタック",
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 10000,
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP05-081": [
@@ -83939,33 +83892,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "【ドン!!×1】【アタック時】自分のライフの上か下から1枚を手札に加えることができる：このキャラは、このバトル中、【バニッシュ】を得て、パワー+1000。 ※battle→turn",
-      "_approx_note": "battle→turn 近似",
-      "when": "on_attack",
-      "if": {
-        "self_inplay_attached_dons_ge": 1
-      },
-      "cost": {
-        "life_top_or_bottom_to_hand": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "バニッシュ",
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "ST07-005": [
@@ -95428,7 +95354,7 @@
           "power_pump": {
             "target": "self",
             "amount": 5000,
-            "duration": "turn"
+            "duration": "battle"
           }
         }
       ]
