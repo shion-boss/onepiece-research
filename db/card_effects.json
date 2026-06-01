@@ -12829,7 +12829,7 @@
   ],
   "OP07-079_p2": [
     {
-      "_text": "OP07-079_p2 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
+      "_text": "OP07-079_p2 【アタック時】デッキ上2枚トラッシュできる：相手のキャラ1枚までを、このターン中、コスト-1。",
       "when": "on_attack",
       "do": [
         {
@@ -12841,10 +12841,10 @@
             ],
             "effect": [
               {
-                "power_pump": {
-                  "target": "self_leader",
-                  "amount": 1000,
-                  "duration": "battle"
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 1,
+                  "duration": "turn"
                 }
               }
             ]
@@ -15123,7 +15123,7 @@
   ],
   "OP07-079_p1": [
     {
-      "_text": "OP07-079_p1 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
+      "_text": "OP07-079_p1 【アタック時】デッキ上2枚トラッシュできる：相手のキャラ1枚までを、このターン中、コスト-1。",
       "when": "on_attack",
       "do": [
         {
@@ -15135,10 +15135,10 @@
             ],
             "effect": [
               {
-                "power_pump": {
-                  "target": "self_leader",
-                  "amount": 1000,
-                  "duration": "battle"
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 1,
+                  "duration": "turn"
                 }
               }
             ]
@@ -20153,6 +20153,9 @@
       "when": "on_play",
       "do": [
         {
+          "trash_self_hand_random": 1
+        },
+        {
           "draw": 2
         }
       ],
@@ -22019,7 +22022,17 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "or": [
+          {
+            "leader_name": "ボア・ハンコック"
+          },
+          {
+            "leader_multicolor": true
+          }
+        ]
+      }
     }
   ],
   "OP13-056": [
@@ -22172,17 +22185,12 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "exclude_name": "リリス"
+              "exclude_name": "リリス",
+              "trigger": true
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 4,
-            "to": "bottom"
           }
         }
       ]
@@ -22277,6 +22285,22 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_4cost"
+        },
+        {
+          "conditional": {
+            "if": {
+              "leader_name": "ロロノア・ゾロ"
+            },
+            "do": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 3,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -22745,6 +22769,20 @@
     }
   ],
   "OP11-023": [
+    {
+      "_text": "OP11-023 手札時 コスト-3: 魚人族leader + 自ライフ3以下 + 相手レスト5枚以上",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "魚人族",
+        "self_life_le": 3,
+        "opp_rested_cards_count_ge": 5
+      },
+      "do": [
+        {
+          "in_hand_cost_minus": 3
+        }
+      ]
+    },
     {
       "_text": "OP11-023 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
       "when": "trigger",
@@ -24730,7 +24768,11 @@
         {
           "ko": "one_opponent_rested_character_cost_le_2cost"
         }
-      ]
+      ],
+      "if": {
+        "leader_feature": "ミンク族",
+        "opp_rested_cards_count_ge": 7
+      }
     }
   ],
   "OP08-034": [
@@ -36017,6 +36059,20 @@
   ],
   "OP11-023_p1": [
     {
+      "_text": "OP11-023_p1 手札時 コスト-3: 魚人族leader + 自ライフ3以下 + 相手レスト5枚以上",
+      "when": "in_hand",
+      "if": {
+        "leader_feature": "魚人族",
+        "self_life_le": 3,
+        "opp_rested_cards_count_ge": 5
+      },
+      "do": [
+        {
+          "in_hand_cost_minus": 3
+        }
+      ]
+    },
+    {
       "_text": "OP11-023_p1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
       "when": "trigger",
       "do": [
@@ -44156,6 +44212,22 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_4cost"
+        },
+        {
+          "conditional": {
+            "if": {
+              "leader_name": "ロロノア・ゾロ"
+            },
+            "do": [
+              {
+                "attach_don": {
+                  "target": "self_leader",
+                  "count": 3,
+                  "rested": true
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -66715,7 +66787,10 @@
             "keyword": "速攻"
           }
         }
-      ]
+      ],
+      "if": {
+        "opp_rested_cards_count_ge": 7
+      }
     }
   ],
   "OP08-031": [

@@ -1091,6 +1091,17 @@ def eval_condition(
             count += sum(1 for s in me.stages if s.rested)
             if count < int(v):
                 return False
+        elif k == "opp_rested_cards_count_ge":
+            # 相手の場のレストカード数 ≥ N。 公式cardqa: 「レストのカード」 =
+            # レストのドン‼ + レストのリーダー + レストのキャラ + レストのステージ の合計。
+            # OP08-028 / OP08-033 / OP11-023 「相手のレストのカードがN枚以上ある場合」。
+            count = opp.don_rested
+            count += sum(1 for c in opp.characters if c.rested)
+            if opp.leader is not None and opp.leader.rested:
+                count += 1
+            count += sum(1 for s in opp.stages if s.rested)
+            if count < int(v):
+                return False
         elif k == "self_chara_power_ge":
             # 自場に N パワー以上のキャラがいる
             need = int(v)
