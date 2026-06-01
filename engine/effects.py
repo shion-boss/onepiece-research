@@ -2328,6 +2328,26 @@ def _execute_effect_body(
             if _ko_any and state.effects_overlay:
                 # 「キャラが自分の効果で場を離れた時」 (OP07-038 ハンコック等)
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+        elif k == "trash_self_named_hand_or_field":
+            # 公式: 「自分の手札か場の「<name>」1枚をトラッシュに置く」 (= OP06-033 方舟ノア コスト)。
+            # 場 (stages) 優先 → なければ手札 から、 name 一致 1 枚 を トラッシュ。
+            nm = v.get("name") if isinstance(v, dict) else str(v)
+            _tn_done = False
+            for s in list(me.stages):
+                if s.card.name == nm:
+                    me.stages.remove(s)
+                    me.trash.append(s.card)
+                    if s.attached_dons > 0:
+                        me.don_rested += s.attached_dons
+                    state.push_log(f"  効果: 場の「{nm}」をトラッシュ")
+                    _tn_done = True
+                    break
+            if not _tn_done:
+                for i, c in enumerate(me.hand):
+                    if c.name == nm:
+                        me.trash.append(me.hand.pop(i))
+                        state.push_log(f"  効果: 手札の「{nm}」をトラッシュ")
+                        break
         elif k == "chara_to_trash":
             # 「相手の…キャラを、 トラッシュに置く」 (= 戦闘以外の非 KO トラッシュ送り)。
             # 公式 (総合 10-2-1 / rules skill §232,507): 「トラッシュに置く」 は KO ではない。
@@ -6046,6 +6066,14 @@ def _execute_effect_body(
                         if (ip.card.name == target_name and not ip.rested)
                     ]
                     if not cands:
+                        can_pay = False
+                        break
+                elif "trash_self_named_hand_or_field" in cs:
+                    # 名前指定 trash cost (OP06-033 方舟ノア)。 手札か場に該当 name が無ければ払えない。
+                    _nm = cs["trash_self_named_hand_or_field"]
+                    _nm = _nm.get("name") if isinstance(_nm, dict) else str(_nm)
+                    if not any(s.card.name == _nm for s in me.stages) and \
+                            not any(c.name == _nm for c in me.hand):
                         can_pay = False
                         break
                 elif "discard_hand_with_filter" in cs:

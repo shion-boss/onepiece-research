@@ -67500,15 +67500,71 @@
   ],
   "OP06-033": [
     {
-      "_text": "OP06-033 on_play: 自分の手札から特徴《魚人族》を持つカード1枚を捨てるか、自分の手札か場の「方舟ノア」1枚をトラッシュに置くことができる：相手のレストのキャラ1枚までを、KOする",
+      "_text": "OP06-033 on_play: 魚人族カード捨て or 方舟ノアtrash の択一コスト → 相手レストキャラ1枚までKO [choice-cost化]",
       "when": "on_play",
       "do": [
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "rested": true
-            }
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "魚人族カードを捨てる",
+                "do": [
+                  {
+                    "optional_cost_then": {
+                      "_cost_confirmed": true,
+                      "cost": [
+                        {
+                          "discard_hand_with_filter": {
+                            "count": 1,
+                            "filter": {
+                              "feature": "魚人族"
+                            }
+                          }
+                        }
+                      ],
+                      "effect": [
+                        {
+                          "ko": {
+                            "type": "one_opponent_character_filtered",
+                            "filter": {
+                              "rested": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "label": "「方舟ノア」をトラッシュ",
+                "do": [
+                  {
+                    "optional_cost_then": {
+                      "_cost_confirmed": true,
+                      "cost": [
+                        {
+                          "trash_self_named_hand_or_field": {
+                            "name": "方舟ノア"
+                          }
+                        }
+                      ],
+                      "effect": [
+                        {
+                          "ko": {
+                            "type": "one_opponent_character_filtered",
+                            "filter": {
+                              "rested": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
