@@ -12591,7 +12591,7 @@
   ],
   "OP06-001_p2": [
     {
-      "_text": "OP06-001_p2 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン‼デッキからドン‼1枚までを、レストで追加する。 [bug-fix]",
+      "_text": "OP06-001_p2 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン !!デッキからドン !!1枚までを、レストで追加する。 [bug-fix]",
       "when": "on_attack",
       "do": [
         {
@@ -12621,23 +12621,11 @@
           }
         }
       ]
-    },
-    {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
     }
   ],
   "OP06-020_p2": [
     {
-      "_text": "OP06-020_p2 【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン‼1枚までを、レストにする。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。",
+      "_text": "OP06-020_p2 【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン !!1枚までを、レストにする。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
@@ -12645,10 +12633,10 @@
       },
       "do": [
         {
-          "life_to_hand": 1
+          "rest": "one_opponent_character_cost_le_3"
         },
         {
-          "rest": "one_opponent_character_cost_le_3"
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -16994,6 +16982,12 @@
       "when": "on_attack",
       "do": [
         {
+          "scry_life": {
+            "owner": "self_or_opp",
+            "depth": 1
+          }
+        },
+        {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
@@ -18530,21 +18524,20 @@
   ],
   "OP06-042_p2": [
     {
-      "_text": "OP06-042_p2 on_self_don_returned_to_deck: 自ターン1回 → 1ドロー",
+      "_text": "OP06-042_p2 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の場のドン !!がドン !!デッキに戻された時、カード1枚を引く。",
       "when": "on_self_don_returned_to_deck",
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
+      "n": 0,
       "do": [
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP07-038_p2": [
@@ -28791,21 +28784,20 @@
   ],
   "OP06-076_p2": [
     {
-      "_text": "OP06-076_p2 on_self_don_returned_to_deck: 自ターン1回 → 相手コスト2以下を KO",
+      "_text": "OP06-076_p2 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の場のドン !!がドン !!デッキに戻された時、相手のコスト2以下のキャラ1枚までを、KOする。",
       "when": "on_self_don_returned_to_deck",
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
+      "n": 0,
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2"
+          "ko": "one_opponent_character_cost_le_2cost"
         }
-      ]
+      ],
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP06-078_p1": [
@@ -29764,9 +29756,12 @@
   ],
   "ST18-002_p2": [
     {
-      "_text": "ST18-002_p2 on_play: 自分の場のドン‼が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。",
+      "_text": "ST18-002_p2 on_play: 自分の場のドン!!が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。",
       "when": "on_play",
       "do": [
+        {
+          "trash_self_hand_random": 1
+        },
         {
           "draw": 2
         }
@@ -32181,7 +32176,7 @@
   "EB04-044_p2": [
     {
       "_text": "EB04-044_p2 replace_ko (海軍リーダー + ターン1回): 場を離れる代わりに手札1枚捨て",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "self",
         "leader_feature": "海軍"
@@ -32766,7 +32761,7 @@
   ],
   "EB03-053_p2": [
     {
-      "_text": "EB03-053 ナミ 登場時: 自リーダーに rested ドン1付与, その後 相手life≥3 で 相手ライフ1を相手手札に",
+      "_text": "EB03-053_p2 ナミ 登場時 1/2: 自リーダーに rested ドン1付与",
       "when": "on_play",
       "do": [
         {
@@ -32779,7 +32774,33 @@
       ]
     },
     {
-      "_text": "EB03-053 ナミ 登場時 その後: 相手life≥3 の場合のみ 相手ライフ上1を相手手札へ",
+      "_text": "EB03-053_p2 ナミ KO時: 自ライフ上1表向き(任意cost) → 自手札 power6000以下 キャラ1 登場",
+      "when": "on_ko",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "power_le": 6000,
+                    "category": "CHARACTER"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053_p2 ナミ 登場時 2/2: 相手ライフ3+ の 場合、 相手ライフ上1枚 を 相手 手札 へ",
       "when": "on_play",
       "if": {
         "opp_life_ge": 3
@@ -32787,20 +32808,6 @@
       "do": [
         {
           "mill_opp_life_to_hand": 1
-        }
-      ]
-    },
-    {
-      "_text": "EB03-053 ナミ KO時: 自ライフ表向き (任意) → 自手札 power6000以下のキャラ登場",
-      "when": "on_ko",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "power_le": 6000
-            },
-            "limit": 1
-          }
         }
       ]
     }
@@ -35160,7 +35167,7 @@
   ],
   "OP13-084_p2": [
     {
-      "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
+      "_text": "OP13-084_p2 シェパード 常在: 自trash7+で相手の効果で場を離れない (= 公式: 自分のターン中 限定 ではない、 相手 ターン中 も 不滅)",
       "when": "on_attached_don",
       "n": 0,
       "do": [
@@ -35171,9 +35178,32 @@
       "conditions": [
         {
           "self_trash_count_ge": 7
+        }
+      ]
+    },
+    {
+      "_text": "OP13-084_p2 シェパード 自ターン中 + trash10+ で 自 五老星 全 元 々 power 7000",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_trash_count_ge": 10
         },
         {
           "self_turn": true
+        }
+      ],
+      "do": [
+        {
+          "set_base_power": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "五老星"
+              }
+            },
+            "amount": 7000
+          }
         }
       ]
     }
@@ -37524,7 +37554,8 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -40330,7 +40361,8 @@
         }
       ],
       "cost": {
-        "return_self_to_hand": true
+        "return_self_to_hand": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -40708,7 +40740,7 @@
   ],
   "EB04-061_p2": [
     {
-      "_text": "EB04-061 ルフィ 手札時 コスト-1: 自ライフ1以下",
+      "_text": "EB04-061_p2 ルフィ 手札時 コスト-1: 自ライフ1以下",
       "when": "in_hand",
       "if": {
         "self_life_le": 1
@@ -40720,7 +40752,7 @@
       ]
     },
     {
-      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + self ブロッカー獲得 (turn)",
+      "_text": "EB04-061_p2 ルフィ 登場時: 1捨てで 自リーダー +2000 + ブロッカー (next_opp_turn_end 統一)",
       "when": "on_play",
       "cost": {
         "discard_hand": 1
@@ -40730,19 +40762,13 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         },
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "ブロッカー"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
+            "keyword": "ブロッカー",
             "duration": "next_opp_turn_end"
           }
         }
@@ -44480,7 +44506,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-012_p1": [
@@ -44900,13 +44929,24 @@
   ],
   "ST17-004_p2": [
     {
-      "_text": "ST17-004_p2 on_play: 自分のデッキの上から3枚を見て、好きな順番に並び替え、デッキの上か下に置く。その後、自分の特徴《王下七武海》を持つ、リーダーかキャラ1枚にレストのドン‼1枚まで",
+      "_text": "ST17-004_p2 ハンコック 登場時: デッキ上3並び替え 上/下 + その後 自 王下七武海 リーダー/キャラ 1 に レストドン1付与",
       "when": "on_play",
       "do": [
         {
           "look_top_reorder": {
             "depth": 3,
             "to": "choice"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "王下七武海"
+              }
+            },
+            "count": 1
           }
         }
       ]
@@ -46213,11 +46253,11 @@
   ],
   "OP06-118_r2": [
     {
-      "_text": "【アタック時】【ターン1回】自分のドン‼1枚をレストにできる：このキャラをアクティブにする。",
+      "_text": "OP06-118_r2 ゾロ on_attack: ドン1レストでアクティブ (ターン1回)",
       "when": "on_attack",
       "cost": {
         "once_per_turn": true,
-        "rest_self_don": 1
+        "pay_don": 1
       },
       "do": [
         {
@@ -46226,11 +46266,11 @@
       ]
     },
     {
-      "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：このキャラをアクティブにする。",
+      "_text": "OP06-118_r2 ゾロ activate_main: ドン2レストでアクティブ (ターン1回)",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "rest_self_don": 2
+        "pay_don": 2
       },
       "do": [
         {
@@ -47651,19 +47691,19 @@
   ],
   "OP10-079_p1": [
     {
-      "_text": "OP10-079_p1 main: 相手のコスト5以下のキャラ1枚までを、KOする。その後、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "神誅殺 メイン: 相手コスト5以下KO + ドン+1",
       "when": "main",
       "do": [
         {
-          "add_don": 1
+          "ko": "one_opponent_character_cost_le_5"
         },
         {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "add_don": 1
         }
       ]
     },
     {
-      "_text": "OP10-079_p1 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "trigger: ドン1 アクティブ 追加",
       "when": "trigger",
       "do": [
         {
@@ -47674,19 +47714,19 @@
   ],
   "OP10-079_r1": [
     {
-      "_text": "OP10-079_r1 main: 相手のコスト5以下のキャラ1枚までを、KOする。その後、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "神誅殺 メイン: 相手コスト5以下KO + ドン+1",
       "when": "main",
       "do": [
         {
-          "add_don": 1
+          "ko": "one_opponent_character_cost_le_5"
         },
         {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "add_don": 1
         }
       ]
     },
     {
-      "_text": "OP10-079_r1 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "trigger: ドン1 アクティブ 追加",
       "when": "trigger",
       "do": [
         {
@@ -48462,13 +48502,19 @@
   ],
   "ST02-007_r2": [
     {
-      "_text": "ST02-007_r2 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《超新星》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番",
+      "_text": "ボニー cost1 (緑) 【起動メイン】(コスト1+rest_self) 超新星サーチ",
       "when": "activate_main",
+      "cost": {
+        "rest_self": true,
+        "once_per_turn": true,
+        "rest_self_don": 1
+      },
       "do": [
         {
           "search_top_n": {
             "depth": 5,
             "filter": {
+              "category": "CHARACTER",
               "feature": "超新星"
             },
             "limit": 1,
@@ -48476,11 +48522,7 @@
             "rest_remain": "bottom"
           }
         }
-      ],
-      "cost": {
-        "rest_self_don": 1,
-        "rest_self": true
-      }
+      ]
     }
   ],
   "ST06-008_p2": [
@@ -49182,9 +49224,12 @@
   ],
   "ST18-002_r1": [
     {
-      "_text": "ST18-002_r1 on_play: 自分の場のドン‼が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。",
+      "_text": "ST18-002_r1 on_play: 自分の場のドン!!が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。",
       "when": "on_play",
       "do": [
+        {
+          "trash_self_hand_random": 1
+        },
         {
           "draw": 2
         }
@@ -61144,8 +61189,11 @@
   ],
   "OP10-030_p2": [
     {
-      "_text": "OP10-030_p2 activate_main: 自分のドン‼1枚までを、アクティブにする。その後、自分はこのターン中、キャラの効果でドン‼をアクティブにできない。",
+      "_text": "スモーカー 起動メイン: ドン1アクティブ化",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "untap_don": 1
@@ -72415,7 +72463,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       }
     }
   ],
@@ -79365,7 +79414,7 @@
   ],
   "OP06-100_r2": [
     {
-      "_text": "OP06-100_r2 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix] [don-gate]",
+      "_text": "OP06-100_r2 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
@@ -79382,10 +79431,7 @@
             ]
           }
         }
-      ],
-      "if": {
-        "self_attached_don_ge": 2
-      }
+      ]
     },
     {
       "_text": "OP06-100_r2 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -79483,7 +79529,7 @@
   ],
   "OP06-110_r2": [
     {
-      "_text": "on_attached_don n=2: このキャラは、相手のアクティブのキャラにもアタックできる",
+      "_text": "【ドン !!×2】このキャラは相手のアクティブのキャラにもアタックできる。",
       "when": "on_attached_don",
       "n": 2,
       "do": [
@@ -79493,16 +79539,16 @@
       ]
     },
     {
-      "_text": "OP06-110_r2 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
+      "_text": "trigger: 相手ライフ≤3 で 自身登場",
       "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
       "do": [
         {
           "play_self": true
         }
-      ],
-      "if": {
-        "self_life_le": 3
-      }
+      ]
     }
   ],
   "OP06-112_r1": [
@@ -85512,7 +85558,8 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -91255,8 +91302,11 @@
   ],
   "ST10-013_p3": [
     {
-      "_text": "ST10-013_p3 on_attack: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_attack",
+      "_text": "ST10-013_p3 on_play: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -91265,14 +91315,14 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     },
     {
-      "_text": "ST10-013_p3 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_play",
+      "_text": "ST10-013_p3 on_attack: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_attack",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -91281,16 +91331,16 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "ST10-013_p4": [
     {
-      "_text": "ST10-013_p4 on_attack: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_attack",
+      "_text": "ST10-013_p4 on_play: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_play",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -91299,14 +91349,14 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     },
     {
-      "_text": "ST10-013_p4 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+1000。",
-      "when": "on_play",
+      "_text": "ST10-013_p4 on_attack: ドン-1 → 自リーダーに次の自ターン開始まで+1000",
+      "when": "on_attack",
+      "cost": {
+        "pay_don": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -91315,10 +91365,7 @@
             "duration": "next_self_turn_start"
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "ST13-012_p2": [
@@ -93242,24 +93289,20 @@
   ],
   "OP06-076_r1": [
     {
-      "_text": "【自分のターン中】【ターン1回】自ドン デッキ戻った時 相手 cost 2 以下 1枚 KO",
+      "_text": "OP06-076_r1 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の場のドン !!がドン !!デッキに戻された時、相手のコスト2以下のキャラ1枚までを、KOする。",
       "when": "on_self_don_returned_to_deck",
+      "n": 0,
+      "do": [
+        {
+          "ko": "one_opponent_character_cost_le_2cost"
+        }
+      ],
       "if": {
         "self_turn": true
       },
       "cost": {
         "once_per_turn": true
-      },
-      "do": [
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 2
-            }
-          }
-        }
-      ]
+      }
     }
   ],
   "OP07-029_r1": [
