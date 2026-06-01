@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2858/4518 (63%)。 【Track1 grind 2026-06-02】 batch7-12 で engine 5件 + 約130枚是正。 batch12=条件欠落4枚(動的filter/self_life比較/reveal/exact-power count、 全既存primitive)。 全ゲートgreen。 次=cluster grind 継続。 ⚠full_db_progress.json 都度更新で自律進行。",
+    "現状": "verified 2870/4518 (63%)。 【Track1 grind 2026-06-02】 batch7-13。 batch13=parallel-split cluster照合 (OP06-059_p1 trigger揃え / ST02-007 base ①cost欠落補完)。 全ゲートgreen。 次=cluster grind 継続 (残cluster multi-card優先)。 ⚠full_db_progress.json 都度更新で自律進行。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -134,12 +134,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1368,
-      "remaining_cards": 1671,
+      "remaining_unique_sig": 1363,
+      "remaining_cards": 1661,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 2858,
+    "total_verified": 2870,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -398,6 +398,13 @@
       "cards": 16,
       "lesson": "⭐既存primitiveで多くの条件欠落は補完可: 動的cost filter(cost_le_dynamic:opp_life_count) / self_life_le_opp / reveal_top_then(rest_remain:top で公開カードを戻しdraw) / self_chara_filtered_count_ge(power_eq で元々パワーぴったり count)",
       "gates": "smoke ERROR=0 / pytest EXIT=0 / 動的filter+reveal behavioral検証"
+    },
+    "cluster_grind_session_2026_06_02_batch13_parallels": {
+      "theme": "parallel-split cluster (base監査済だが ‼/!! or feature署名割れで別cluster残存) の照合・伝播",
+      "fixed": "OP06-059_p1(trigger が look_top_reorder→base の scry_deck_reorder に揃える、 公式「上か下に置く」) / ST02-007 base(①ドン1レスト cost 欠落=踏み倒し、 p4 が正→rest_self_don:1 補完)",
+      "verified_clean": "EB01-038(+p1: counter redirect_attack + trigger pay_don1 draw2) / OP05-077_p1 / P-083_p1 / ST15-002_p2 (audited base と effect一致)",
+      "lesson": "⭐parallel-split cluster は base が audited でも (1)effect一致なら mark のみ (2)不一致なら どちらが正か判定し伝播。 ST02-007 の様に base 側が誤(①cost欠落)で parallel が正のケースもある",
+      "gates": "smoke ERROR=0 / pytest EXIT=0"
     }
   },
   "audited": [
@@ -439,6 +446,9 @@
     "EB01-027",
     "EB01-027_p1",
     "EB01-029",
+    "EB01-038",
+    "EB01-038_p1",
+    "EB01-038_r1",
     "EB01-040",
     "EB01-040_p1",
     "EB01-040_p2",
@@ -1174,6 +1184,8 @@
     "OP05-076",
     "OP05-076_p1",
     "OP05-077",
+    "OP05-077_p1",
+    "OP05-077_r1",
     "OP05-081",
     "OP05-081_p1",
     "OP05-081_p2",
@@ -1301,6 +1313,7 @@
     "OP06-058_p1",
     "OP06-058_r1",
     "OP06-059",
+    "OP06-059_p1",
     "OP06-060",
     "OP06-060_p1",
     "OP06-060_p2",
@@ -2221,6 +2234,8 @@
     "P-082_p2",
     "P-082_r1",
     "P-083",
+    "P-083_p1",
+    "P-083_r1",
     "P-085",
     "P-085_p1",
     "P-085_r1",
@@ -2311,6 +2326,8 @@
     "ST02-005",
     "ST02-005_r1",
     "ST02-007",
+    "ST02-007_p4",
+    "ST02-007_p5",
     "ST02-008",
     "ST02-008_p2",
     "ST02-008_r1",
@@ -2502,6 +2519,8 @@
     "ST14-016_r1",
     "ST15-002",
     "ST15-002_p1",
+    "ST15-002_p2",
+    "ST15-002_r1",
     "ST16-001",
     "ST16-001_p1",
     "ST16-001_p2",

@@ -4899,7 +4899,8 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -28747,29 +28748,28 @@
   ],
   "OP06-059_p1": [
     {
-      "_text": "OP06-059_p1 counter: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000し、カード1枚を引く。",
+      "_text": "OP06-059_p1 +1000 + 1ドロー",
       "when": "counter",
       "do": [
-        {
-          "draw": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "draw": 1
         }
       ]
     },
     {
-      "_text": "OP06-059_p1 trigger: 自分のデッキの上から5枚を見て、好きな順番に並び替え、デッキの上か下に置く。",
+      "_text": "OP06-059_p1 自デッキ上5枚 並び替え (上 or 下)",
       "when": "trigger",
       "do": [
         {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "choice"
+          "scry_deck_reorder": {
+            "depth": 5
           }
         }
       ]
