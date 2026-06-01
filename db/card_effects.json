@@ -11397,13 +11397,13 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "all_self_chara_filtered",
               "filter": {
                 "feature": "ビッグ・マム海賊団",
                 "cost_ge": 3
               }
             },
-            "count": 2
+            "limit": 2
           }
         },
         {
@@ -13824,7 +13824,7 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "one_self_chara_filtered",
               "filter": {
                 "or_clauses": [
                   {
@@ -13836,7 +13836,7 @@
                 ]
               }
             },
-            "count": 1
+            "limit": 1
           }
         },
         {
@@ -13856,7 +13856,7 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "one_self_chara_filtered",
               "filter": {
                 "or_clauses": [
                   {
@@ -13868,7 +13868,7 @@
                 ]
               }
             },
-            "count": 1
+            "limit": 1
           }
         },
         {
@@ -13956,6 +13956,9 @@
       "when": "on_attack",
       "do": [
         {
+          "peek_opp_deck_top": 1
+        },
+        {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
@@ -13964,7 +13967,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       }
     },
     {
@@ -13972,10 +13976,13 @@
       "when": "opp_attack",
       "do": [
         {
+          "peek_opp_deck_top": 1
+        },
+        {
           "power_pump": {
-            "target": "opponent_leader",
-            "amount": -1000,
-            "duration": "turn"
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "battle"
           }
         }
       ],
@@ -13991,6 +13998,9 @@
       "when": "on_attack",
       "do": [
         {
+          "peek_opp_deck_top": 1
+        },
+        {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
@@ -13999,7 +14009,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "pay_don": 1
       }
     },
     {
@@ -14007,10 +14018,13 @@
       "when": "opp_attack",
       "do": [
         {
+          "peek_opp_deck_top": 1
+        },
+        {
           "power_pump": {
-            "target": "opponent_leader",
-            "amount": -1000,
-            "duration": "turn"
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "battle"
           }
         }
       ],
@@ -15672,12 +15686,12 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "one_self_chara_filtered",
               "filter": {
                 "cost_le": 5
               }
             },
-            "count": 1
+            "limit": 1
           }
         }
       ]
@@ -15708,12 +15722,12 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "one_self_chara_filtered",
               "filter": {
                 "cost_le": 5
               }
             },
-            "count": 1
+            "limit": 1
           }
         }
       ]
@@ -16362,11 +16376,39 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 4
+        "rest_self_don": 4
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "超新星",
+                  "麦わらの一味"
+                ],
+                "cost_le": 5
+              }
+            },
+            "limit": 1
+          }
+        },
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "超新星",
+                  "麦わらの一味"
+                ],
+                "cost_le": 5
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -16377,11 +16419,39 @@
       "when": "activate_main",
       "cost": {
         "once_per_turn": true,
-        "pay_don": 4
+        "rest_self_don": 4
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "超新星",
+                  "麦わらの一味"
+                ],
+                "cost_le": 5
+              }
+            },
+            "limit": 1
+          }
+        },
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature_in": [
+                  "超新星",
+                  "麦わらの一味"
+                ],
+                "cost_le": 5
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -16395,7 +16465,23 @@
       },
       "do": [
         {
-          "untap_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "feature": "ワノ国"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_don": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -16409,7 +16495,23 @@
       },
       "do": [
         {
-          "untap_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "feature": "ワノ国"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_don": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -23584,6 +23686,17 @@
             "amount": 3000,
             "duration": "battle"
           }
+        },
+        {
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "cost_le": 5
+              }
+            },
+            "limit": 1
+          }
         }
       ],
       "if": {
@@ -23596,23 +23709,6 @@
       "do": [
         {
           "draw": 1
-        }
-      ]
-    },
-    {
-      "_text": "on_play: untap 補完",
-      "when": "on_play",
-      "do": [
-        {
-          "untap_chara": {
-            "target": {
-              "type": "self_chara_filtered",
-              "filter": {
-                "cost_le": 5
-              }
-            },
-            "count": 1
-          }
         }
       ]
     }
@@ -27342,13 +27438,13 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "one_self_chara_filtered",
               "filter": {
                 "feature": "ビッグ・マム海賊団",
                 "cost_le": 3
               }
             },
-            "count": 1
+            "limit": 1
           }
         }
       ]
@@ -35813,13 +35909,13 @@
         {
           "untap_chara": {
             "target": {
-              "type": "self_chara_filtered",
+              "type": "all_self_chara_filtered",
               "filter": {
                 "feature": "ビッグ・マム海賊団",
                 "cost_ge": 3
               }
             },
-            "count": 2
+            "limit": 2
           }
         }
       ]
