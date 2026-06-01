@@ -95,6 +95,25 @@ for cid, ents in eff.items():
         if re.search(r'"duration":\s*"(turn|battle)"', ov):
             issues["duration_next_opp_missing"].append(cid)
 
+    # 8) 「以下から1つを選ぶ」 だが choice_effect 無し
+    if re.search(r"以下から[0-9０-９]*[1１]?つを?選", t) and "choice_effect" not in ov and "choice" not in ov:
+        issues["choice_missing"].append(cid)
+
+    # 9) 「相手のキャラすべて」 系 だが all_opponent_characters/all_opp 系 target 無し
+    if re.search(r"相手の(キャラ|リーダーとキャラ)すべて", t):
+        if not any(s in ov for s in ("all_opponent", "all_opp", "opp_all")):
+            issues["all_target_missing"].append(cid)
+
+    # 10) give_keyword で 「このターン中」 の duration 欠落 (= 恒久付与の疑い)
+    for e in ents:
+        for d in e.get("do", []):
+            gk = d.get("give_keyword") if isinstance(d, dict) else None
+            if isinstance(gk, dict) and "duration" not in gk:
+                # text に「このターン中…得る」 等 期間限定 がある場合のみ (恒久 keyword は除外)
+                kw = gk.get("keyword", "")
+                if kw and re.search(r"このターン中[^。]{0,15}【?" + re.escape(str(kw)), t):
+                    issues["keyword_duration_missing"].append(cid)
+
 
 print("=== systematic 検出 (audited 除外) ===")
 for k, v in sorted(issues.items(), key=lambda x: -len(set(x[1]))):
