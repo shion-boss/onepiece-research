@@ -14029,14 +14029,17 @@
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_don": 2
         }
       ],
-      "conditions": [
-        {
-          "opp_turn": true
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "power_ge": 7000
+          },
+          "count": 1
         }
-      ]
+      }
     },
     {
       "_text": "OP10-001 スモーカー 相手ターン中: 自海軍/パンクハザード キャラ +1000",
@@ -14073,14 +14076,17 @@
       },
       "do": [
         {
-          "untap_don": 1
+          "untap_don": 2
         }
       ],
-      "conditions": [
-        {
-          "opp_turn": true
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "power_ge": 7000
+          },
+          "count": 1
         }
-      ]
+      }
     },
     {
       "_text": "OP10-001 スモーカー 相手ターン中: 自海軍/パンクハザード キャラ +1000",
@@ -15136,10 +15142,10 @@
       },
       "do": [
         {
-          "life_to_hand": 1
+          "rest": "one_opponent_character_cost_le_3"
         },
         {
-          "rest": "one_opponent_character_cost_le_3"
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -15154,10 +15160,10 @@
       },
       "do": [
         {
-          "life_to_hand": 1
+          "rest": "one_opponent_character_cost_le_3"
         },
         {
-          "rest": "one_opponent_character_cost_le_3"
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -15568,14 +15574,12 @@
   ],
   "OP04-001": [
     {
-      "_text": "OP04-001 【起動メイン】【ターン1回】➁(コストエリアのドン!!を指定の数レストにできる)：カード1枚を引き、自分のキャラ1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "activate_main",
-      "cost": {
-        "once_per_turn": true
-      },
+      "_text": "OP04-001 このリーダーはアタックできない (常在)",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
-          "draw": 1
+          "set_cannot_attack_static": "self"
         }
       ]
     },
@@ -15605,14 +15609,12 @@
   ],
   "OP04-001_p1": [
     {
-      "_text": "OP04-001_p1 【起動メイン】【ターン1回】➁(コストエリアのドン!!を指定の数レストにできる)：カード1枚を引き、自分のキャラ1枚までは、このターン中、【速攻】を得る。(このカードは登場したターンにアタックできる)",
-      "when": "activate_main",
-      "cost": {
-        "once_per_turn": true
-      },
+      "_text": "OP04-001 このリーダーはアタックできない (常在)",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
-          "draw": 1
+          "set_cannot_attack_static": "self"
         }
       ]
     },

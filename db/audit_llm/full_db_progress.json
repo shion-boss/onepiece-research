@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 2696/4518 (59.7%)。 audited 2031 + vanilla 449 + equivalence 216。 残キュー= signature_clusters.json (1454署名/1831枚)。 architectural defer は meta.deferred_cards (43件)。 OP01-008/OP02-057/OP15-025 はキュー残置。",
+    "現状": "verified 2706/4518 (59.9%)。 audited 2041 + vanilla 449 + equivalence 216。 残キュー= signature_clusters.json (1449署名/1821枚)。 architectural defer は meta.deferred_cards (43件)。 OP01-008/OP02-057/OP15-025 はキュー残置。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -115,12 +115,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1454,
-      "remaining_cards": 1831,
+      "remaining_unique_sig": 1449,
+      "remaining_cards": 1821,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 2696,
+    "total_verified": 2706,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -282,17 +282,15 @@
     "cluster_grind_batch22": "2689/4518 (59.5%)。 systematic= search_top_n が text pick-filter を {}空 で落とす修正 9枚: EB03-060(cost2-8) / ST30-002・ST30-017/_p1(power6000+CHARACTER) / OP09-102(trigger:true + spurious look_top_reorder除去) / OP12-080・OP03-020(二重search rebuild、 OP03-020 は inner CHARACTER→EVENT) / ST07-016(counter にライフscry欠落→追加)。 behavioral verify (filter実効: cost/power で非該当除外、 二重search解消 search系=1) + full pytest 706 + smoke ERROR0。 audited +9。 ⛔重要: 『リーダーかキャラ1枚まで→self_inplay』 を212件 systematic バグ と誤認したが、 self_inplay は正規shorthand で真バグ0 と判明 (誤修正回避)",
     "cluster_grind_batch23": "2696/4518 (59.7%)。 spurious self_leader+1000 on_attack stub 是正 9枚: OP09-062/_p1(トリガー捨て→ドン)、 ST11-001/_p1(FILM search)、 P-047/_p1(spurious重複除去)、 OP03-077/_p1(デッキ上→ライフ)、 ST10-003(+2000turn + ライフ4+で-1000 static)。 behavioral (ST10-003 static / stub除去で+1000しない) + pytest 706 + smoke0。 audited +7",
     "pending_found_bugs_batch21_23": {
-      "note": "grind 中に発見したが未修正の実バグ。 次バッチで処理する",
+      "note": "grind 中に発見したが未修正の実バグ (batch24 で OP06-020/OP10-001/OP04-001 解消)。 残りは次バッチ候補",
       "items": [
-        "OP06-020 ホーディ leader: do に life_to_hand 1 (テキストは『自分の効果でライフを手札に加えられない』 = 逆! prevent_self_life_to_hand_turn が正)。 + 『キャラかドン』 の or-don rest 欠落",
-        "OP10-001 スモーカー leader activate_main: untap_don 1 (text『ドン2枚まで』=2) + conditions opp_turn が誤 (起動メイン=自ターン) + 『自分のパワー7000以上のキャラがいる場合』 if 欠落",
-        "OP04-001 ビビ leader: spurious 重複 activate_main(draw 1 only, cost無) + 『このリーダーはアタックできない』 static 欠落",
         "OP03-021 クロ leader: cost に『東の海キャラ2枚レスト』 欠落 + do untap_don 1 が誤(『このリーダーをアクティブ』=untap leader)",
         "OP04-040 クイーン leader: spurious +1000 stub + 『コスト8以上キャラいれば 引く代わりにデッキトップをライフ』 alternative 欠落 (複雑)",
         "OP05-041 サカズキ leader on_attack: spurious +1000 stub。 実=相手キャラ1枚 このターン中コスト-1 (turn-duration opp cost-down primitive 未実装 → 要engine)",
         "ST07-001 リンリン leader: spurious +1000 stub。 実=ライフ上下1枚手札(任意)→ライフ2以下なら手札1枚ライフへ (optional+conditional 複雑)"
       ]
-    }
+    },
+    "cluster_grind_batch24": "2706/4518 (59.9%)。 grind発見の個別実バグ是正: OP06-020/_p1(do の life_to_hand が逆! → rest + prevent_self_life_to_hand_turn)、 OP10-001/_p1(untap_don 1→2、 conditions opp_turn 誤除去、 パワー7000+if 追加)、 OP04-001/_p1(spurious 重複 draw entry 除去 + 【アタックできない】static追加)。 + OP05-001/OP04-019 確認mark。 behavioral (OP04-001 leader アタック不可) + pytest 706 + smoke0。 audited +10"
   },
   "audited": [
     "EB01-001",
@@ -807,6 +805,8 @@
     "OP03-123_p2",
     "OP03-123_p3",
     "OP03-123_r1",
+    "OP04-001",
+    "OP04-001_p1",
     "OP04-003",
     "OP04-013",
     "OP04-013_p1",
@@ -815,6 +815,8 @@
     "OP04-016_p1",
     "OP04-016_p2",
     "OP04-016_r1",
+    "OP04-019",
+    "OP04-019_p1",
     "OP04-020",
     "OP04-020_p1",
     "OP04-024",
@@ -907,6 +909,8 @@
     "OP04-119",
     "OP04-119_p1",
     "OP04-119_p2",
+    "OP05-001",
+    "OP05-001_p1",
     "OP05-002",
     "OP05-002_p1",
     "OP05-002_p2",
@@ -1079,6 +1083,8 @@
     "OP06-013_p1",
     "OP06-016",
     "OP06-016_p1",
+    "OP06-020",
+    "OP06-020_p1",
     "OP06-021",
     "OP06-021_p1",
     "OP06-021_p2",
@@ -1566,6 +1572,8 @@
     "OP09-119_p1",
     "OP09-119_p2",
     "OP09-119_p3",
+    "OP10-001",
+    "OP10-001_p1",
     "OP10-002",
     "OP10-002_p1",
     "OP10-003",
