@@ -46172,37 +46172,28 @@
   ],
   "OP09-065_r1": [
     {
-      "_text": "OP09-065_r1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする",
+      "_text": "OP09-065 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは速攻を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6cost"
-        }
-      ]
-    },
-    {
-      "_text": "【登場時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
-      "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
-      "when": "on_play",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        },
-        {
-          "rest": {
-            "target": {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 6
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
               }
-            }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻",
+                  "duration": "turn"
+                }
+              },
+              {
+                "rest": "one_opponent_character_cost_le_6cost"
+              }
+            ]
           }
         }
       ]
@@ -47662,22 +47653,28 @@
   ],
   "ST13-004_p2": [
     {
-      "_text": "ST13-004_p2 on_play: 自分のデッキの上から1枚をライフの上に加える。その後、自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。",
+      "_text": "ST13-004 on_play: 自分のデッキの上から1枚をライフの上に加える。その後、自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。",
       "when": "on_play",
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
   ],
   "ST13-004_r1": [
     {
-      "_text": "ST13-004_r1 on_play: 自分のデッキの上から1枚をライフの上に加える。その後、自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。",
+      "_text": "ST13-004 on_play: 自分のデッキの上から1枚をライフの上に加える。その後、自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。",
       "when": "on_play",
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
@@ -64808,37 +64805,28 @@
   ],
   "OP09-065": [
     {
-      "_text": "OP09-065 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする",
+      "_text": "OP09-065 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは速攻を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6cost"
-        }
-      ]
-    },
-    {
-      "_text": "【登場時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
-      "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
-      "when": "on_play",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        },
-        {
-          "rest": {
-            "target": {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 6
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
               }
-            }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻",
+                  "duration": "turn"
+                }
+              },
+              {
+                "rest": "one_opponent_character_cost_le_6cost"
+              }
+            ]
           }
         }
       ]
@@ -64846,37 +64834,28 @@
   ],
   "OP09-065_p1": [
     {
-      "_text": "OP09-065_p1 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする",
+      "_text": "OP09-065 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは速攻を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6cost"
-        }
-      ]
-    },
-    {
-      "_text": "【登場時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
-      "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
-      "when": "on_play",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        },
-        {
-          "rest": {
-            "target": {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 6
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
               }
-            }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻",
+                  "duration": "turn"
+                }
+              },
+              {
+                "rest": "one_opponent_character_cost_le_6cost"
+              }
+            ]
           }
         }
       ]
@@ -81588,17 +81567,23 @@
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
   ],
   "ST13-004_p1": [
     {
-      "_text": "ST13-004_p1 on_play: 自分のデッキの上から1枚をライフの上に加える。その後、自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。",
+      "_text": "ST13-004 on_play: 自分のデッキの上から1枚をライフの上に加える。その後、自分のライフすべてを見て、1枚を自分のデッキの上に置き、ライフを好きな順番で置く。",
       "when": "on_play",
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "scry_all_life_one_to_deck": true
         }
       ]
     }
@@ -86070,37 +86055,28 @@
   ],
   "OP09-065_p2": [
     {
-      "_text": "OP09-065_p2 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする",
+      "_text": "OP09-065 on_play: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラは速攻を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6cost"
-        }
-      ]
-    },
-    {
-      "_text": "【登場時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラは、このターン中、【速攻】を得る。その後、相手のコスト6以下のキャラ1枚までを、レストにする。",
-      "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
-      "when": "on_play",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        },
-        {
-          "rest": {
-            "target": {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 6
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
               }
-            }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻",
+                  "duration": "turn"
+                }
+              },
+              {
+                "rest": "one_opponent_character_cost_le_6cost"
+              }
+            ]
           }
         }
       ]
