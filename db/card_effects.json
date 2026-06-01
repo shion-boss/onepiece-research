@@ -62298,7 +62298,14 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_name": "コアラ"
+        "or": [
+          {
+            "leader_name": "コアラ"
+          },
+          {
+            "leader_name": "モンキー・Ｄ・ルフィ"
+          }
+        ]
       },
       "do": [
         {
@@ -62339,7 +62346,14 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_name": "コアラ"
+        "or": [
+          {
+            "leader_name": "コアラ"
+          },
+          {
+            "leader_name": "モンキー・Ｄ・ルフィ"
+          }
+        ]
       },
       "do": [
         {
@@ -63271,7 +63285,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     },
     {
       "_text": "OP11-060 trigger: このカードの【メイン】効果を発動する。",
@@ -90827,7 +90844,10 @@
             "rest_remain": "bottom"
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     },
     {
       "_text": "OP11-060_p1 trigger: このカードの【メイン】効果を発動する。",

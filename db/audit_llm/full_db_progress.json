@@ -1,7 +1,7 @@
 {
   "_RESUME": {
     "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-    "現状": "verified 3033/4518 (67%)。 【Track1 grind 2026-06-02】 batch7-17。 engine 7件 + systematic 4件。 batch17=pump target/rested/active filter 是正。 全ゲートgreen。 次=base-rep cluster grind継続 (残~150)。 ⚠full_db_progress.json 都度更新で自律進行。",
+    "現状": "verified 3045/4518 (67%)。 【Track1 grind 2026-06-02】 batch7-18。 engine 7件 + systematic 4件。 batch18=leader OR/多色条件欠落。 全ゲートgreen。 次=base-rep cluster grind継続 (残~145)。 ⚠full_db_progress.json 都度更新で自律進行。",
     "再開手順": [
       "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
       "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -77,7 +77,9 @@
       "EB04-031 キング: (1)replace_ko 自ドン1枚ドンデッキ戻し (return_self_don_to_deck は replace cost対応だが do側未確認) (2)activate_main「他の「キング」がいない場合」= no-other-self-named 条件未実装 + 「ドン1アクティブ+さらに1レスト」 dual don追加。 現状 add_don:1のみの近似",
       "OP14-009 ロー: 「自リーダーとキャラ1枚の元々のパワーをこのバトル中入れ替える」 = base-power swap (OP14-001同class、 swap機構未実装)。 二重discard回避でneutralize",
       "OP13-023 ウタ: 「このターン中、元々コスト5以上のキャラを登場できない」 = cost-filtered play block 未実装 (block_chara_play_turn は全chara block)。 untap_don+KO revive(rested)は実装",
-      "OP13-064 ロジャー: 「自リーダーとロジャー海賊団以外のキャラは効果無効」 = 自陣 non-feature キャラの効果 negate static 未実装。 on_play(リーダー+2000/相手全体-2000 next_opp)は実装"
+      "OP13-064 ロジャー: 「自リーダーとロジャー海賊団以外のキャラは効果無効」 = 自陣 non-feature キャラの効果 negate static 未実装。 on_play(リーダー+2000/相手全体-2000 next_opp)は実装",
+      "OP11-073 リンリン: 「任意のコストを宣言し相手デッキ上1枚公開、一致ならリーダー+2000」 = declare機構(OP11-071同class)未実装。 現状 pay_don5で+2000無条件の過剰近似。 速攻は実装",
+      "OP12-087 ロビン: 「コアラかルフィleaderならブロッカー得てコスト+3」 の self static cost+3 未実装(OP12-089/PRB02-015同class)。 ブロッカー(leader OR是正済)+on_play手札破壊は実装"
     ],
     "注意": "rush 厳禁。 各batch ~10-15% に固有バグ (真正度85-90%実証)。 高速処理は FP を生む (実績: draw誤付与/ST29-015条件誤削除/二重cost — 全て検証で捕捉・是正)。 mark_audited 前に必ず text 照合。 systematic 一括修正は self-target限定等の制約を必ず検証。 ⚠parallel の card text が ‼(U+203C) vs !!(ASCII) で署名が割れる → base を mark しても ‼系 parallel は別cluster 残存。 fixed parallel は その cluster rep を別途 mark 要 (例 ST18-001 base+_p1=!!、 _p2/_p3/_r1=‼)。"
   },
@@ -139,12 +141,12 @@
       "equivalence_verified": 216,
       "effect_cards": 4069,
       "unique_sig": 2334,
-      "remaining_unique_sig": 1253,
-      "remaining_cards": 1498,
+      "remaining_unique_sig": 1247,
+      "remaining_cards": 1486,
       "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
       "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
     },
-    "total_verified": 3033,
+    "total_verified": 3045,
     "total_cards": 4518,
     "double_discard_fix": {
       "opt型": 121,
@@ -217,8 +219,12 @@
       "OP10-048",
       "OP10-095",
       "OP11-022",
+      "OP11-073",
+      "OP11-073_p1",
       "OP11-118",
       "OP12-020",
+      "OP12-087",
+      "OP12-087_p1",
       "OP12-089",
       "OP12-089_p1",
       "OP12-093",
@@ -460,6 +466,13 @@
       "deferred_new": "OP13-023(cost-filtered play block未実装、 untap+revive実装) / OP13-064(non-feature キャラ効果negate static未実装、 on_play実装)",
       "cards": 8,
       "lesson": "⭐pump target は KOの power制限を誤って継承しやすい (「相手キャラ任意 pump→その後 power≤N KO」 で pump は any)。 ⭐block_chara_play_turn は全chara block (cost-filtered版なし)",
+      "gates": "smoke ERROR=0 / pytest EXIT=0"
+    },
+    "cluster_grind_session_2026_06_02_batch18": {
+      "fixed": "OP12-087(on_attached_don leader条件 コアラのみ→or[コアラ,ルフィ]) / OP11-060(main に leader_multicolor条件欠落補完)",
+      "clean": "OP13-110(エッグヘッド trigger持ちplay) OP12-008(シャンクス手札捨て→debuff) OP12-051(ヒナ disable_blocker) OP12-060(牛肉 choice bounce/draw) OP11-084(海軍 mill+active attack付与)",
+      "deferred_new": "OP11-073(declare機構=OP11-071同class、+2000無条件過剰近似) / OP12-087(cost+3 self static=OP12-089同class、 leader OR是正済)",
+      "cards": 8,
       "gates": "smoke ERROR=0 / pytest EXIT=0"
     }
   },
@@ -2029,6 +2042,8 @@
     "OP11-051",
     "OP11-051_p1",
     "OP11-054",
+    "OP11-060",
+    "OP11-060_p1",
     "OP11-062",
     "OP11-062_p1",
     "OP11-067",
@@ -2037,6 +2052,8 @@
     "OP11-070_p1",
     "OP11-080",
     "OP11-082",
+    "OP11-084",
+    "OP11-084_p1",
     "OP11-092",
     "OP11-092_p1",
     "OP11-095",
@@ -2054,6 +2071,8 @@
     "OP12-001_p1",
     "OP12-006",
     "OP12-006_p1",
+    "OP12-008",
+    "OP12-008_p1",
     "OP12-014",
     "OP12-014_p1",
     "OP12-014_p2",
@@ -2077,10 +2096,14 @@
     "OP12-041",
     "OP12-041_p1",
     "OP12-042",
+    "OP12-051",
+    "OP12-051_p1",
     "OP12-056",
     "OP12-056_p1",
     "OP12-058",
     "OP12-058_p1",
+    "OP12-060",
+    "OP12-060_p1",
     "OP12-061",
     "OP12-062",
     "OP12-062_p1",
@@ -2185,6 +2208,8 @@
     "OP13-100_p1",
     "OP13-102",
     "OP13-108",
+    "OP13-110",
+    "OP13-110_p1",
     "OP13-113",
     "OP13-113_p1",
     "OP13-114",
