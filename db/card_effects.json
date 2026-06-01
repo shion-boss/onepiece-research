@@ -2258,6 +2258,23 @@
   ],
   "OP13-004": [
     {
+      "_text": "OP13-004: 自分のライフが4枚以上の場合、このリーダーのパワー-1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_ge": 4
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": -1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
       "_text": "on_attached_don n=1: 自分のコスト8以上のキャラがいる場合、自分のリーダーとキャラすべてを、パワー+1000",
       "when": "on_attached_don",
       "n": 1,
@@ -2352,14 +2369,25 @@
     {
       "_text": "OP14-040 activate_main: 自分の手札1枚を捨てることができる：自分の特徴《魚人族》か《人魚族》を持つ、リーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature_in": [
+                  "魚人族",
+                  "人魚族"
+                ]
+              }
+            },
+            "count": 2
+          }
+        }
+      ]
     }
   ],
   "OP14-041": [
@@ -2498,26 +2526,6 @@
     }
   ],
   "OP15-001": [
-    {
-      "_text": "don×1 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする",
-      "when": "activate_main",
-      "do": [
-        {
-          "rest": "one_opponent_character_attached_don_ge_2"
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "self_attached_don_ge": 1
-        },
-        {
-          "opp_turn": true
-        }
-      ]
-    },
     {
       "_text": "OP15-001 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする。",
       "when": "activate_main",
@@ -13034,26 +13042,6 @@
   ],
   "OP15-001_p1": [
     {
-      "_text": "don×1 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする",
-      "when": "activate_main",
-      "do": [
-        {
-          "rest": "one_opponent_character_attached_don_ge_2"
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "self_attached_don_ge": 1
-        },
-        {
-          "opp_turn": true
-        }
-      ]
-    },
-    {
       "_text": "OP15-001_p1 activate_main: 【ターン1回】相手のドン‼が2枚以上付与されているキャラ1枚までを、レストにする。",
       "when": "activate_main",
       "do": [
@@ -13328,16 +13316,27 @@
   ],
   "OP14-040_p1": [
     {
-      "_text": "OP14-040_p1 activate_main: 自分の手札1枚を捨てることができる：自分の特徴《魚人族》か《人魚族》を持つ、リーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
+      "_text": "OP14-040 activate_main: 自分の手札1枚を捨てることができる：自分の特徴《魚人族》か《人魚族》を持つ、リーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
       "cost": {
         "discard_hand": 1
-      }
+      },
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature_in": [
+                  "魚人族",
+                  "人魚族"
+                ]
+              }
+            },
+            "count": 2
+          }
+        }
+      ]
     }
   ],
   "OP14-041_p1": [
@@ -13510,6 +13509,23 @@
     }
   ],
   "OP13-004_p1": [
+    {
+      "_text": "OP13-004: 自分のライフが4枚以上の場合、このリーダーのパワー-1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_ge": 4
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": -1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
     {
       "_text": "on_attached_don n=1: 自分のコスト8以上のキャラがいる場合、自分のリーダーとキャラすべてを、パワー+1000",
       "when": "on_attached_don",
