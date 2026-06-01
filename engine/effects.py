@@ -683,6 +683,17 @@ def eval_condition(
             # 自リーダーの現在パワーが N 以上か (= OP09-017 ワイヤー「リーダーがパワー7000以上」)。
             if me.leader is None or me.leader.power < int(v):
                 return False
+        elif k == "or":
+            # OR 結合: v = [cond1, cond2, ...] のいずれかが True なら True
+            # (= 「特徴Xか属性Y」「リーダーがXか「Y」」 等の 選言 gate)。 eval_all_conditions の
+            # AND 枠内で 1 つの選言 block として機能する。
+            subs = v if isinstance(v, list) else [v]
+            if not any(eval_condition(s, state, me, self_inplay) for s in subs):
+                return False
+        elif k == "leader_attribute":
+            # 自リーダーが属性 v を持つか (= OP13-025「属性(打)」)。
+            if me.leader is None or str(v) not in (me.leader.card.attribute or ""):
+                return False
         elif k == "self_life_le_opp":
             # 自ライフ枚数 ≤ 相手ライフ枚数 (= OP10-114 ドレーク「自ライフが相手以下」)。
             if opp is None or len(me.life) > len(opp.life):
