@@ -53,8 +53,37 @@ def main() -> None:
             if "_text" in e and "[dd-fix]" not in e["_text"]:
                 e["_text"] += " [dd-fix]"
             changed.append(cid)
+    # 後処理: entry に discard 以外の実コスト (pay_don/rest_self/rest_self_don 等) が
+    # 残り optional_cost_then と二重になる場合、 entry 実コストを optional_cost_then.cost へ統合。
+    REAL = {"rest_self_don", "rest_self", "rest", "pay_don", "return_self_don_to_deck",
+            "return_self_don", "trash_self", "return_self_to_trash", "return_self_to_hand"}
+    merged = []
+    for cid, ents in eff.items():
+        if not isinstance(ents, list) or cid == "OP04-111":  # allowlist (意図的)
+            continue
+        for e in ents:
+            if not isinstance(e, dict):
+                continue
+            cost = e.get("cost")
+            if not isinstance(cost, dict):
+                continue
+            real_keys = [k for k in cost if k in REAL]
+            if not real_keys:
+                continue
+            oct_do = next((d for d in e.get("do", []) if isinstance(d, dict) and "optional_cost_then" in d), None)
+            if oct_do is None:
+                continue
+            oc = oct_do["optional_cost_then"]
+            for k in real_keys:
+                oc.setdefault("cost", []).insert(0, {k: cost.pop(k)})
+            if not cost:
+                e.pop("cost", None)
+            merged.append(cid)
+
     EFF.write_text(json.dumps(eff, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"opt型 二重discard 是正 {len(set(changed))} card / {len(changed)} entry")
+    if merged:
+        print(f"entry実コスト統合 (二重コスト解消): {sorted(set(merged))}")
 
 
 if __name__ == "__main__":

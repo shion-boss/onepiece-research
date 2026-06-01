@@ -34239,6 +34239,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "rest_self_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -34257,9 +34260,6 @@
           }
         }
       ],
-      "cost": {
-        "rest_self_don": 1
-      },
       "if": {
         "leader_name": "イム"
       }
@@ -60119,6 +60119,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "rest_self": true
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -60132,10 +60135,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "rest_self": true
-      }
+      ]
     }
   ],
   "OP12-056": [
@@ -65739,6 +65739,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "pay_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -65752,10 +65755,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "OP08-069_p1": [
@@ -65767,6 +65767,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "pay_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -65780,10 +65783,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "OP08-070": [
@@ -88828,6 +88828,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "pay_don": 1
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -88841,10 +88844,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "OP08-105_p2": [
@@ -89083,6 +89083,9 @@
           "optional_cost_then": {
             "cost": [
               {
+                "rest_self": true
+              },
+              {
                 "trash_self_hand_random": 1
               }
             ],
@@ -89096,10 +89099,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "rest_self": true
-      }
+      ]
     }
   ],
   "OP13-063_p1": [
