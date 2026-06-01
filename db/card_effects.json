@@ -765,7 +765,12 @@
       "when": "on_ko",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_5000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 5000
+            }
+          }
         }
       ]
     }
@@ -1160,7 +1165,12 @@
       "when": "on_ko",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 6000
+            }
+          }
         }
       ],
       "if": {
@@ -1478,7 +1488,12 @@
       "when": "on_ko",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 6000
+            }
+          }
         }
       ],
       "conditions": [
@@ -3452,7 +3467,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 6000
+            }
+          }
         }
       ],
       "cost": {
@@ -20812,7 +20832,12 @@
       "when": "counter",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 6000
+            }
+          }
         }
       ]
     },
@@ -20821,7 +20846,12 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 5000
+            }
+          }
         }
       ]
     }
@@ -21159,7 +21189,12 @@
           "draw": 1
         },
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 3000
+            }
+          }
         }
       ],
       "if": {
@@ -21277,7 +21312,12 @@
             ],
             "effect": [
               {
-                "rest": "one_opponent_character_power_le_7000"
+                "rest": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "truly_original_power_le": 7000
+                  }
+                }
               }
             ]
           }
@@ -21706,7 +21746,12 @@
       "when": "on_attack",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_power_le_3000"
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 3000
+            }
+          }
         }
       ]
     }
@@ -21717,7 +21762,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 3000
+            }
+          }
         }
       ],
       "if": {
@@ -22555,12 +22605,12 @@
   ],
   "OP11-051": [
     {
-      "_text": "OP11-051 on_play: 元々のパワー5000以下のキャラ1枚までを、持ち主の手札に戻す。",
-      "when": "on_play",
+      "_text": "OP11-051 on_ko (by_opp_effect): このキャラが相手の効果でKOされた時、デッキ上5枚を見て、コスト5以下の特徴《麦わらの一味》キャラ1枚までを登場させ、残りを好きな順番でデッキの下に置く。",
+      "when": "on_ko",
+      "if": {
+        "by_opp_effect": true
+      },
       "do": [
-        {
-          "return_to_hand": "one_opponent_character_power_le_5000"
-        },
         {
           "search_top_n": {
             "depth": 5,
@@ -22572,6 +22622,20 @@
             "limit": 1,
             "destination": "play",
             "rest_remain": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP11-051 on_play: 元々のパワー5000以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "when": "on_play",
+      "do": [
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 5000
+            }
           }
         }
       ]
@@ -35549,12 +35613,12 @@
   ],
   "OP11-051_p1": [
     {
-      "_text": "OP11-051_p1 on_play: 元々のパワー5000以下のキャラ1枚までを、持ち主の手札に戻す。",
-      "when": "on_play",
+      "_text": "OP11-051 on_ko (by_opp_effect): このキャラが相手の効果でKOされた時、デッキ上5枚を見て、コスト5以下の特徴《麦わらの一味》キャラ1枚までを登場させ、残りを好きな順番でデッキの下に置く。",
+      "when": "on_ko",
+      "if": {
+        "by_opp_effect": true
+      },
       "do": [
-        {
-          "return_to_hand": "one_opponent_character_power_le_5000"
-        },
         {
           "search_top_n": {
             "depth": 5,
@@ -35566,6 +35630,20 @@
             "limit": 1,
             "destination": "play",
             "rest_remain": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP11-051 on_play: 元々のパワー5000以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "when": "on_play",
+      "do": [
+        {
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 5000
+            }
           }
         }
       ]
@@ -41650,7 +41728,12 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 3000
+            }
+          }
         }
       ],
       "if": {
@@ -58271,7 +58354,13 @@
             ],
             "effect": [
               {
-                "ko": "one_opponent_rested_character_power_le_7000"
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "truly_original_power_le": 7000,
+                    "rested": true
+                  }
+                }
               }
             ]
           }
@@ -79673,7 +79762,12 @@
       "when": "on_ko",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_6000"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 6000
+            }
+          }
         }
       ],
       "if": {
@@ -89925,7 +90019,13 @@
             ],
             "effect": [
               {
-                "ko": "one_opponent_rested_character_power_le_7000"
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "truly_original_power_le": 7000,
+                    "rested": true
+                  }
+                }
               }
             ]
           }

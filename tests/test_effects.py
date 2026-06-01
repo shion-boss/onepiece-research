@@ -152,6 +152,33 @@ def test_give_rush_primitive():
     assert sanji.summoning_sickness is False
 
 
+def test_truly_original_power_filter_uses_base_power():
+    """filter の truly_original_power_le は 「元々のパワー」 (= CardDef 印刷値) で判定し、
+    バフ/デバフ後の 現在値 では判定しない (公式 4-9)。 EB01-010 / OP09-015 等の
+    「相手の元々のパワー N 以下のキャラを KO」 系の回帰ガード。"""
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    me = state.players[0]
+    opp = state.players[1]
+
+    from engine.effects import execute_effect
+
+    low_base = InPlay.of(repo.get("ST21-005"), sickness=False)  # 元々 4000
+    high_base = InPlay.of(repo.get("OP11-015"), sickness=False)  # 元々 6000
+    low_base.turn_buff = 3000  # 現在 7000 (= base は 4000 のまま)
+    high_base.turn_buff = -2000  # 現在 4000 (= base は 6000 のまま)
+    opp.characters = [low_base, high_base]
+
+    execute_effect(
+        {"ko": {"type": "one_opponent_character_filtered",
+                "filter": {"truly_original_power_le": 5000}}},
+        state, me, opp, None,
+    )
+    remaining = [c.card.card_id for c in opp.characters]
+    # 元々 4000 (現在 7000) が KO、 元々 6000 (現在 4000) は残る = base 判定の証明。
+    assert remaining == ["OP11-015"], remaining
+
+
 def test_attach_don_primitive():
     """attach_don: 自キャラ/リーダーにアクティブドン N 付与"""
     repo = _repo()

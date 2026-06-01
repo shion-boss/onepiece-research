@@ -7553,6 +7553,15 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "power_eq" in filt and card.power != int(filt["power_eq"]):
         return False
+    # 「元々のパワー N 以下/以上/ぴったり」 (公式 4-9): _matches_filter は CardDef を
+    # 受けるため card.power = 印刷値 = 元々のパワー。 power_le 等と同義だが、 overlay 側で
+    # 公式テキスト 「元々のパワー」 を明示するための エイリアス (= 現在値 current_power_* と区別)。
+    if "truly_original_power_le" in filt and card.power > int(filt["truly_original_power_le"]):
+        return False
+    if "truly_original_power_ge" in filt and card.power < int(filt["truly_original_power_ge"]):
+        return False
+    if "truly_original_power_eq" in filt and card.power != int(filt["truly_original_power_eq"]):
+        return False
     if "feature" in filt and filt["feature"] not in card.features:
         return False
     if "feature_contains" in filt:
