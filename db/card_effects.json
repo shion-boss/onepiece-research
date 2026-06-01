@@ -16050,6 +16050,12 @@
       "when": "on_attack",
       "do": [
         {
+          "scry_life": {
+            "owner": "self_or_opp",
+            "depth": 1
+          }
+        },
+        {
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
@@ -16067,6 +16073,12 @@
       "_text": "OP03-099_p1 【アタック時】自分か相手のライフの上から1枚までを見て、ライフの上か下に置く。その後、このリーダーは、このバトル中、パワー+1000。 [don-gate]",
       "when": "on_attack",
       "do": [
+        {
+          "scry_life": {
+            "owner": "self_or_opp",
+            "depth": 1
+          }
+        },
         {
           "power_pump": {
             "target": "self_leader",
@@ -16168,18 +16180,18 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        },
-        {
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
               "cost_le": 3
             }
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ],
@@ -16194,18 +16206,18 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        },
-        {
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
               "cost_le": 3
             }
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ],
@@ -16482,7 +16494,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "OP01-062_p1": [
@@ -16497,27 +16512,13 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "once_per_turn": true
+      }
     }
   ],
   "ST29-001": [
-    {
-      "_text": "ST29-001 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
-      "when": "on_attached_don",
-      "n": 0,
-      "if": {
-        "self_life_le": 2
-      },
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
     {
       "_text": "ST29-001 on_attack: [mdraw-fix]",
       "when": "on_attack",
@@ -16535,23 +16536,6 @@
     }
   ],
   "ST29-001_p1": [
-    {
-      "_text": "ST29-001_p1 【アタック時】自分のライフが2枚以下の場合、カード1枚を引き、自分の手札1枚を捨てる。",
-      "when": "on_attached_don",
-      "n": 0,
-      "if": {
-        "self_life_le": 2
-      },
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "static"
-          }
-        }
-      ]
-    },
     {
       "_text": "ST29-001 on_attack: [mdraw-fix]",
       "when": "on_attack",
