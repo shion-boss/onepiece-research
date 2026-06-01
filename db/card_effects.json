@@ -61536,6 +61536,9 @@
       "do": [
         {
           "ko": "one_opponent_character_cost_le_1cost"
+        },
+        {
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -90901,6 +90904,9 @@
             "owner": "either",
             "depth": 1
           }
+        },
+        {
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -90915,6 +90921,9 @@
             "owner": "either",
             "depth": 1
           }
+        },
+        {
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -91218,7 +91227,7 @@
           }
         },
         {
-          "play_self": false
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -91390,6 +91399,9 @@
               "cost_le": 4
             }
           }
+        },
+        {
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -91410,6 +91422,9 @@
             "keyword": "ブロッカー",
             "duration": "turn"
           }
+        },
+        {
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -91893,6 +91908,9 @@
             "owner": "either",
             "depth": 1
           }
+        },
+        {
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -91949,7 +91967,7 @@
           }
         },
         {
-          "play_self": false
+          "to_hand_self_trigger": true
         }
       ]
     }
@@ -92684,6 +92702,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
+        "leader_feature": "FILM",
         "self_rested_cards_count_ge": 6
       },
       "do": [
@@ -92703,6 +92722,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
+        "leader_feature": "FILM",
         "self_rested_cards_count_ge": 6
       },
       "do": [
@@ -97082,6 +97102,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
+        "leader_feature": "FILM",
         "self_rested_cards_count_ge": 6
       },
       "do": [

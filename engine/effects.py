@@ -4460,6 +4460,9 @@ def _execute_effect_body(
             # このカードを登場させる。 trigger / on_ko 等 self_inplay=None の場面で使う。
             # source_card_id は state.current_source_card_id にスタックされている。
             # 検索順: me.trash (= trigger 後 / KO 後)、 me.hand (= 通常)。
+            # play_self:false は「登場させない」 = no-op (= 旧 overlay の誤用防止 guard)。
+            if v is False:
+                continue
             src_cid = (
                 self_inplay.card.card_id if self_inplay
                 else getattr(state, "current_source_card_id", None)
