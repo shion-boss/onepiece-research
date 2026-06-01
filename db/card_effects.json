@@ -1615,23 +1615,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "【起動メイン】【ターン1回】自分のキャラ1枚を持ち主のデッキの下に置くことができる：このキャラは、このターン中、【速攻】を得る。",
-      "_approx_note": "cost: 自キャラ deck-bottom は 簡略 (一部 engine 未対応)",
-      "when": "activate_main",
-      "cost": {
-        "once_per_turn": true
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP15-045": [
@@ -65644,15 +65627,6 @@
   ],
   "OP09-068": [
     {
-      "_text": "OP09-068 end_of_turn: 自分の場のドン‼を1枚以上ドン‼デッキに戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の相手のターン終了時まで、",
-      "when": "end_of_turn",
-      "do": [
-        {
-          "untap": "self"
-        }
-      ]
-    },
-    {
       "_text": "【自分のターン終了時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
       "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
       "when": "end_of_turn",
@@ -73047,53 +73021,6 @@
   ],
   "OP04-071": [
     {
-      "_text": "OP04-071 on_attached_don : 【相手のアタック時】ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このキャラは、このバトル中、【ブロッカー】を得て、パワー+10",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロッカー"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 10000,
-            "duration": "battle"
-          }
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
-    },
-    {
-      "_text": "【相手のアタック時】ドン!!-1：このキャラは、このバトル中、【ブロッカー】を得て、パワー+1000。 ※battle→turn",
-      "_approx_note": "battle duration を turn で 近似 + opp_attack trigger",
-      "when": "opp_attack_on_chara",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロッカー",
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
       "_text": "OP04-071 Mr.4(ベーブ) 相手アタック時 [DON-1]: 自身に【ブロッカー】+ パワー+1000 (バトル中)",
       "when": "opp_attack",
       "cost": {
@@ -74548,23 +74475,6 @@
       "cost": {
         "pay_don": 1
       }
-    },
-    {
-      "_text": "【アタック時】ドン!!-1：このキャラは、このバトル中、【バニッシュ】を得る。 ※battle→turn",
-      "_approx_note": "battle duration を turn duration で 近似",
-      "when": "on_attack",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "バニッシュ",
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP03-060": [
@@ -79542,33 +79452,6 @@
             "target": "self_leader",
             "amount": 1000,
             "duration": "static"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【起動メイン】【ターン1回】自分の付与されているドン!!合計2枚をコストエリアにレストで戻すことができる：このキャラは、このターン中、【速攻】を得て、パワー+1000。",
-      "_approx_note": "cost: 付与ドン2枚をコストエリアレスト → 簡略 (= once_per_turn のみ)",
-      "when": "activate_main",
-      "cost": {
-        "once_per_turn": true
-      },
-      "if": {
-        "self_inplay_attached_dons_ge": 2
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "turn"
           }
         }
       ]
