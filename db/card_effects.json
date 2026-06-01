@@ -81246,7 +81246,10 @@
         {
           "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ウタ"
+      }
     },
     {
       "_text": "ST11-005_p2 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -81268,10 +81271,26 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "FILM"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
@@ -82621,7 +82640,10 @@
         {
           "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ウタ"
+      }
     },
     {
       "_text": "ST11-005 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -88978,7 +89000,10 @@
         {
           "untap": "self_leader"
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ウタ"
+      }
     },
     {
       "_text": "ST11-005_p1 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
@@ -90547,10 +90572,26 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "FILM"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
@@ -90565,10 +90606,26 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "FILM"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ],
