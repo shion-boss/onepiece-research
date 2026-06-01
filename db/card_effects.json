@@ -4106,7 +4106,10 @@
         {
           "return_to_hand": "one_opponent_character_cost_le_3"
         }
-      ]
+      ],
+      "if": {
+        "self_deck_count_le": 20
+      }
     }
   ],
   "OP03-071": [
@@ -4449,7 +4452,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "if": {
+        "self_leader_power_le": 0
+      }
     }
   ],
   "OP05-011": [
