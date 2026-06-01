@@ -13319,40 +13319,44 @@
   ],
   "OP13-100": [
     {
-      "_text": "OP13-100 【トリガー】を持つキャラが登場した時、発動できる。自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
-        }
-      ],
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ],
+      "_text": "OP13-100 ボニー: 自分の【トリガー】を持つキャラが登場した時(自ターン・ターン1回)、リーダーかキャラ1枚にレストのドン2枚付与",
+      "when": "on_self_chara_played",
+      "if": {
+        "played_self_chara_has_trigger": true,
+        "self_turn": true
+      },
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 2
+          }
+        }
+      ]
     }
   ],
   "OP13-100_p1": [
     {
-      "_text": "OP13-100_p1 【トリガー】を持つキャラが登場した時、発動できる。自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
-        }
-      ],
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ],
+      "_text": "OP13-100_p1 ボニー: 自分の【トリガー】を持つキャラが登場した時(自ターン・ターン1回)、リーダーかキャラ1枚にレストのドン2枚付与",
+      "when": "on_self_chara_played",
+      "if": {
+        "played_self_chara_has_trigger": true,
+        "self_turn": true
+      },
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "one_self_team_any",
+            "count": 2
+          }
+        }
+      ]
     }
   ],
   "OP12-001": [

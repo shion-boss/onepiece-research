@@ -181,6 +181,36 @@ def test_reveal_life_top_play_no_match_is_noop():
     assert len(p1.characters) == 0, "非マッチなら 登場しない"
 
 
+def _op13_100_play_chara(played_id):
+    """OP13-100 ボニー: 自場に played_id を登場させ on_self_chara_played を実経路発火。
+    リーダー+キャラの合計 attached_don 増分を返す (= 効果が乗ったか)。"""
+    from engine.effects import trigger_on_play, resolve_triggers
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP13-100"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1.don_rested = 3
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(4),
+                   effects_overlay=overlay)
+    st.turn_player_idx = 0  # 自分のターン
+    ip = InPlay.of(repo.get(played_id), sickness=True)
+    p1.characters.append(ip)
+    trigger_on_play(st, p1, p2, ip, overlay)
+    resolve_triggers(st)
+    return p1.leader.attached_dons + sum(c.attached_dons for c in p1.characters)
+
+
+def test_op13_100_fires_only_on_trigger_bearing_chara():
+    """OP13-100 ボニー: 【トリガー】持ちキャラ登場でレストドン2付与、 非トリガーキャラでは不発。
+
+    旧 overlay は when:"trigger" + phantom draw:1 で LEADER では永久に発火しなかった
+    (= leader はライフに入らないので card-trigger が起きない)。 正しくは
+    on_self_chara_played + played_self_chara_has_trigger gate。 [[project_full_db_audit_phase]]。
+    """
+    assert _op13_100_play_chara("PRB02-016") == 2, "トリガー持ちキャラ登場で レストドン2 付与"
+    assert _op13_100_play_chara("OP01-016") == 0, "非トリガーキャラ登場では 不発"
+
+
 def test_no_effect_filter_discriminates_vanilla_vs_effect():
     """play_from_hand の filter no_effect:true が「元々効果のないキャラ」 だけを候補にする (= EB03-003 等)。"""
     import json as _json

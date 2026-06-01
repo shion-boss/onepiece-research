@@ -116,7 +116,9 @@ def audit() -> list[dict]:
         #    【ブロッカー】無効化系 (= ブロック不可) は 「発動できない」 表現になる。
         #    活用形・無効化表現を網羅して FP を抑える。
         if keys & {"give_keyword", "give_rush"}:
-            if not re.search(r"与え|得る|得て|発動できない|アタックできる|ブロックできない", text):
+            # 付与/取得/無効化に加え、 状態語 + 「になる」 (= 効果が無効になる/アタックできなくなる
+            # 等の give_keyword 化される表現) も網羅。 OP06-083 (効果無効) で FP を踏んだ。
+            if not re.search(r"与え|得る|得て|発動できない|アタックできる|ブロックできない|無効|になる", text):
                 flags.append("overlay give_keyword あるが text に keyword 付与表現無し (= phantom keyword)")
 
         # 4) phantom extra_turn: 追加ターンは破滅的誤実装なので 単独でも flag

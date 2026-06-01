@@ -871,6 +871,16 @@ def eval_condition(
                 effects_count = len(eff_list) if hasattr(eff_list, "__len__") else 0
             if bool(v) != (effects_count == 0):
                 return False
+        elif k == "played_self_chara_has_trigger":
+            # 直近の self_chara_played カードが 【トリガー】 を持つか (= OP13-100 ボニー用)。
+            # 公式: 「自分の【トリガー】を持つキャラが登場した時」。 CardDef.trigger (str) が
+            # 非空なら トリガー持ち。 on_self_chara_played の if gate で使う。
+            pc = getattr(state, "last_self_chara_played_card", None)
+            if pc is None:
+                return False
+            has_trigger = bool(getattr(pc, "trigger", "") or "")
+            if bool(v) != has_trigger:
+                return False
         elif k == "actor_source_feature_contains":
             # 直近の効果発動 source カードの特徴に v を含むか (= OP12-040 クザン用)。
             # trigger_on_self_hand_discarded が state.last_discard_source_inplay を一時設定。

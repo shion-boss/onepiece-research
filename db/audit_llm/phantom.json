@@ -1,15 +1,5 @@
 [
   {
-    "card_id": "OP06-083",
-    "name": "オーズ",
-    "category": "CHARACTER",
-    "score": 1,
-    "flags": [
-      "overlay give_keyword あるが text に keyword 付与表現無し (= phantom keyword)"
-    ],
-    "text": "このキャラはアタックできない。【起動メイン】自分の特徴《スリラーバーク海賊団》を持つキャラ1枚をKOできる：このキャラは、このターン中、効果が無効になる。"
-  },
-  {
     "card_id": "OP06-092",
     "name": "ブルック",
     "category": "CHARACTER",
@@ -108,26 +98,6 @@
       "overlay ko あるが text に「KO」無し (= phantom KO 濃厚)"
     ],
     "text": "【登場時】相手のパワー6000以下のキャラ1枚までを、トラッシュに置く。"
-  },
-  {
-    "card_id": "OP13-100",
-    "name": "ジュエリー・ボニー",
-    "category": "LEADER",
-    "score": 1,
-    "flags": [
-      "overlay draw あるが text に「引く/ドロー」無し (= phantom draw 濃厚)"
-    ],
-    "text": "【自分のターン中】【ターン1回】自分の【トリガー】を持つキャラが登場した時、発動できる。自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。"
-  },
-  {
-    "card_id": "OP13-100_p1",
-    "name": "ジュエリー・ボニー",
-    "category": "LEADER",
-    "score": 1,
-    "flags": [
-      "overlay draw あるが text に「引く/ドロー」無し (= phantom draw 濃厚)"
-    ],
-    "text": "【自分のターン中】【ターン1回】自分の【トリガー】を持つキャラが登場した時、発動できる。自分のリーダーかキャラ1枚にレストのドン‼2枚までを、付与する。"
   },
   {
     "card_id": "ST03-003",
