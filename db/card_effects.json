@@ -12365,20 +12365,36 @@
   ],
   "OP06-080_p2": [
     {
-      "_text": "OP06-080_p2 【アタック時】➁(コストエリアのドン‼を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のデッキの上から2枚をトラッシュに置き、自分のトラッシュのコスト4以下の特徴《スリラーバーク海賊団》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP06-080 アタック時②(ドン2レスト,手札1捨て):デッキ上2トラッシュ+トラッシュからスリラーバークcost4以下1枚を登場",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              },
+              {
+                "discard_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "mill_self_top": 2
+              },
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "スリラーバーク海賊団",
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP07-001_p2": [
@@ -14901,38 +14917,70 @@
   ],
   "OP06-080": [
     {
-      "_text": "OP06-080 【アタック時】➁(コストエリアのドン !!を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のデッキの上から2枚をトラッシュに置き、自分のトラッシュのコスト4以下の特徴《スリラーバーク海賊団》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP06-080 アタック時②(ドン2レスト,手札1捨て):デッキ上2トラッシュ+トラッシュからスリラーバークcost4以下1枚を登場",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              },
+              {
+                "discard_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "mill_self_top": 2
+              },
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "スリラーバーク海賊団",
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP06-080_p1": [
     {
-      "_text": "OP06-080_p1 【アタック時】②(コストエリアのドン !!を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のデッキの上から2枚をトラッシュに置き、自分のトラッシュのコスト4以下の特徴《スリラーバーク海賊団》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP06-080 アタック時②(ドン2レスト,手札1捨て):デッキ上2トラッシュ+トラッシュからスリラーバークcost4以下1枚を登場",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              },
+              {
+                "discard_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "mill_self_top": 2
+              },
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "スリラーバーク海賊団",
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP05-001": [
@@ -15475,48 +15523,56 @@
   ],
   "OP03-022": [
     {
-      "_text": "OP03-022 【アタック時】①(コストエリアのドン!!を指定の数レストにできる)：自分の手札からコスト4以下の",
+      "_text": "OP03-022 アタック時①(ドン1レスト):手札からコスト4以下の【トリガー】持ちキャラ1枚を登場",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "has_trigger": true,
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP03-022 【トリガー】を持つキャラカード1枚までを、登場させる。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
   ],
   "OP03-022_p1": [
     {
-      "_text": "OP03-022_p1 【アタック時】①(コストエリアのドン!!を指定の数レストにできる)：自分の手札からコスト4以下の",
+      "_text": "OP03-022 アタック時①(ドン1レスト):手札からコスト4以下の【トリガー】持ちキャラ1枚を登場",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "has_trigger": true,
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP03-022_p1 【トリガー】を持つキャラカード1枚までを、登場させる。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
