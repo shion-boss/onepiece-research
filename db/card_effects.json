@@ -5083,10 +5083,19 @@
           }
         },
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "next_opp_turn_end"
+          "conditional": {
+            "if": {
+              "opp_rested_chara_count_ge": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ]
@@ -8131,6 +8140,22 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_rested_cards_count_ge": 8
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -11569,7 +11594,10 @@
         {
           "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_rested_cards_count_ge": 8
+      }
     }
   ],
   "OP13-099": [
@@ -31396,6 +31424,22 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_rested_cards_count_ge": 8
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -31419,6 +31463,22 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_rested_cards_count_ge": 8
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -35692,7 +35752,10 @@
         {
           "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_rested_cards_count_ge": 8
+      }
     }
   ],
   "OP12-118_p2": [
@@ -35709,7 +35772,10 @@
         {
           "untap_don": 1
         }
-      ]
+      ],
+      "if": {
+        "self_rested_cards_count_ge": 8
+      }
     }
   ],
   "OP12-119_p1": [
@@ -43568,6 +43634,22 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_rested_cards_count_ge": 8
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -52095,6 +52177,22 @@
             "target": "self_inplay",
             "amount": 2000,
             "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_rested_cards_count_ge": 8
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
