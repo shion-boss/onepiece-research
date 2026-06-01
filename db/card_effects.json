@@ -15091,7 +15091,7 @@
   ],
   "OP07-079": [
     {
-      "_text": "OP07-079 【アタック時】自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-1。 [opt-cost化]",
+      "_text": "OP07-079 【アタック時】デッキ上2枚トラッシュできる：相手のキャラ1枚までを、このターン中、コスト-1。",
       "when": "on_attack",
       "do": [
         {
@@ -15103,10 +15103,10 @@
             ],
             "effect": [
               {
-                "power_pump": {
-                  "target": "self_leader",
-                  "amount": 1000,
-                  "duration": "battle"
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 1,
+                  "duration": "turn"
                 }
               }
             ]
@@ -54443,14 +54443,14 @@
   ],
   "EB04-052": [
     {
-      "_text": "EB04-052 サンジ アタック時: 自リーダー +1000 (本来は元々のパワー = 相手リーダー)",
+      "_text": "EB04-052 サンジ 【アタック時】このキャラの元々のパワーは、このターン中、相手のリーダーと同じパワーになる。",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "battle"
+          "set_base_power_copy": {
+            "from_target": "opponent_leader",
+            "to_target": "self",
+            "duration": "turn"
           }
         }
       ]
