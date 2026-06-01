@@ -7854,12 +7854,6 @@
             "destination": "hand",
             "rest_remain": "bottom"
           }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 3,
-            "to": "bottom"
-          }
         }
       ]
     },
@@ -12329,12 +12323,30 @@
   ],
   "EB04-001_p1": [
     {
-      "_text": "EB04-001_p1 activate_main: 【ターン1回】相手のキャラ1枚までを、このターン中、パワー-1000。その後、自分のライフが2枚以上の場合、自分のライフの上から1枚を手札に加えることができる。",
-      "when": "activate_main",
+      "_text": "赤黄ボニー 常在: 相手ターン中ライフ1以下で自リーダー +2000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "opp_turn": true,
+        "self_life_le": 1
+      },
       "do": [
         {
-          "life_to_hand": 1
-        },
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "赤黄ボニー 起動メイン: 相手キャラ -1000",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
         {
           "power_pump": {
             "target": "one_opponent_character_any",
@@ -12352,38 +12364,6 @@
                 "life_to_hand": 1
               }
             ]
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "self_life_ge": 2
-        },
-        {
-          "opp_turn": true
-        }
-      ],
-      "if": {
-        "self_life_ge": 2
-      }
-    },
-    {
-      "_text": "赤黄ボニー 相手ターン中 ライフ1以下: 自リーダー +2000",
-      "when": "on_attached_don",
-      "n": 0,
-      "if": {
-        "opp_turn": true,
-        "self_life_le": 1
-      },
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "static"
           }
         }
       ]
@@ -13407,11 +13387,29 @@
   ],
   "OP15-058_p1": [
     {
-      "_text": "OP15-058_p1 activate_main: 【ターン1回】自分の第2ターン以降の場合、ドン‼デッキからドン‼1枚までをアクティブで追加し、さらに4枚までをレストで追加する。その後、自分のキャラ1枚にレスト",
+      "_text": "紫エネル ルール: ドンデッキ 6 枚",
+      "when": "setup_modifier",
+      "do": [
+        {
+          "set_don_deck_size": 6
+        }
+      ]
+    },
+    {
+      "_text": "紫エネル 起動メイン: 第2T+ アクティブドン+1 + レストドン+4",
       "when": "activate_main",
+      "if": {
+        "self_turn_number_ge": 2
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 4
         },
         {
           "attach_don": {
@@ -13420,10 +13418,7 @@
             "rested": true
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP14-001": [
@@ -13582,6 +13577,16 @@
     }
   ],
   "OP14-079_p1": [
+    {
+      "_text": "黒クロコダイル 常在: 相手キャラは自分の効果で離れない",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_opp_protect_static": true
+        }
+      ]
+    },
     {
       "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
       "when": "activate_main",
@@ -14035,27 +14040,6 @@
   ],
   "OP11-041_p1": [
     {
-      "_text": "OP11-041_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：このリーダーは、このターン中、パワー+2000。 [don-gate2]",
-      "when": "opp_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
-      "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
-      },
-      "conditions": [
-        {
-          "self_turn": true
-        }
-      ],
-      "if": {
-        "self_attached_don_ge": 1
-      }
-    },
-    {
       "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
       "when": "on_self_life_taken",
       "if": {
@@ -14068,6 +14052,26 @@
       "do": [
         {
           "draw": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP11-041_p1 ナミ 相手アタック時 [DON×1 + ターン1回 + 手札1捨て]: 自リーダー +2000",
+      "when": "opp_attack",
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "cost": {
+        "once_per_turn": true,
+        "discard_hand": 1
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 2000,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -18117,7 +18121,7 @@
   ],
   "OP08-002_p3": [
     {
-      "_text": "OP08-002_p3 【起動メイン】【ターン1回】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。 [don-gate2]",
+      "_text": "OP08-002_p3 activate_main: 【ドン×1】カード1枚を引き、自分の手札1枚をデッキの上か下に置く。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
@@ -18125,6 +18129,16 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "hand_to_deck_bottom": 1
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
         }
       ],
       "if": {
@@ -31981,14 +31995,17 @@
   ],
   "EB04-002_p1": [
     {
-      "_text": "EB04-002_p1 on_play: 自分のデッキの上から4枚を見て、「ジュエリー・ボニー」以外の特徴《エッグヘッド》か《麦わらの一味》を持つカード1枚までを公開し、手札に加える。その後、残りを好き",
+      "_text": "ジュエリー・ボニー 登場時: デッキ上4枚見てエッグヘッド/麦わら1枚公開手札追加",
       "when": "on_play",
       "do": [
         {
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "エッグヘッド",
+              "feature_in": [
+                "エッグヘッド",
+                "麦わらの一味"
+              ],
               "exclude_name": "ジュエリー・ボニー"
             },
             "limit": 1,
@@ -32128,7 +32145,7 @@
   "EB04-044_p1": [
     {
       "_text": "EB04-044_p1 replace_ko (海軍リーダー + ターン1回): 場を離れる代わりに手札1枚捨て",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "self",
         "leader_feature": "海軍"
@@ -32237,7 +32254,7 @@
   ],
   "EB04-061_p1": [
     {
-      "_text": "EB04-061 ルフィ 手札時 コスト-1: 自ライフ1以下",
+      "_text": "EB04-061_p1 ルフィ 手札時 コスト-1: 自ライフ1以下",
       "when": "in_hand",
       "if": {
         "self_life_le": 1
@@ -32249,7 +32266,7 @@
       ]
     },
     {
-      "_text": "EB04-061 ルフィ 登場時: 1捨てで 自リーダー +2000 + self ブロッカー獲得 (turn)",
+      "_text": "EB04-061_p1 ルフィ 登場時: 1捨てで 自リーダー +2000 + ブロッカー (next_opp_turn_end 統一)",
       "when": "on_play",
       "cost": {
         "discard_hand": 1
@@ -32259,19 +32276,13 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 2000,
-            "duration": "turn"
+            "duration": "next_opp_turn_end"
           }
         },
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "ブロッカー"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
+            "keyword": "ブロッカー",
             "duration": "next_opp_turn_end"
           }
         }
@@ -32481,14 +32492,17 @@
           }
         }
       ],
-      "conditions": [
-        {
-          "opp_turn": true
+      "cost": {
+        "discard_hand_with_filter": {
+          "filter": {
+            "feature": "海軍"
+          },
+          "count": 1
         }
-      ]
+      }
     },
     {
-      "_text": "EB03-041 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",
+      "_text": "EB03-041_p1 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -32546,7 +32560,7 @@
   ],
   "EB03-053_p1": [
     {
-      "_text": "EB03-053 ナミ 登場時: 自リーダーに rested ドン1付与, その後 相手life≥3 で 相手ライフ1を相手手札に",
+      "_text": "EB03-053_p1 ナミ 登場時 1/2: 自リーダーに rested ドン1付与",
       "when": "on_play",
       "do": [
         {
@@ -32559,7 +32573,33 @@
       ]
     },
     {
-      "_text": "EB03-053 ナミ 登場時 その後: 相手life≥3 の場合のみ 相手ライフ上1を相手手札へ",
+      "_text": "EB03-053_p1 ナミ KO時: 自ライフ上1表向き(任意cost) → 自手札 power6000以下 キャラ1 登場",
+      "when": "on_ko",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "peek_self_life_top": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "power_le": 6000,
+                    "category": "CHARACTER"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "EB03-053_p1 ナミ 登場時 2/2: 相手ライフ3+ の 場合、 相手ライフ上1枚 を 相手 手札 へ",
       "when": "on_play",
       "if": {
         "opp_life_ge": 3
@@ -32567,20 +32607,6 @@
       "do": [
         {
           "mill_opp_life_to_hand": 1
-        }
-      ]
-    },
-    {
-      "_text": "EB03-053 ナミ KO時: 自ライフ表向き (任意) → 自手札 power6000以下のキャラ登場",
-      "when": "on_ko",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "power_le": 6000
-            },
-            "limit": 1
-          }
         }
       ]
     }
@@ -33713,7 +33739,7 @@
   ],
   "OP15-114_p1": [
     {
-      "_text": "OP15-114_p1 on_play: ライフ表向き cost → 相手全員-2000, パワー0以下を全KO",
+      "_text": "OP15-114_p1 on_play: 自分のライフの上から1枚を表向きにできる：相手のキャラすべてを、このターン中、パワー-2000。その後、相手のパワー0以下のキャラすべてを、KOする。",
       "when": "on_play",
       "do": [
         {
@@ -33740,21 +33766,17 @@
       ]
     },
     {
-      "_text": "OP15-114_p1 起動メイン: 空島リーダーかキャラ1枚にレストドン1付与 (once)",
+      "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
-          "attach_rested_don": {
-            "target": {
-              "type": "one_self_chara_or_leader_filtered",
-              "filter": {
-                "feature": "空島"
-              }
-            },
-            "count": 1
+          "attach_don": {
+            "target": "self_leader",
+            "count": 1,
+            "rested": true
           }
         }
       ]
@@ -34006,7 +34028,23 @@
   ],
   "OP13-031_p1": [
     {
-      "_text": "OP13-031 on_play: 自キャラ1枚を手札に戻すコスト(任意)→手札からcost5以下キャラをレスト登場",
+      "_text": "OP13-031_p1 常在: 自分のライフが1枚以下の場合、このキャラは【ブロッカー】を得る",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le": 1
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-031_p1 on_play: 自キャラ1枚を手札に戻すコスト(任意)→手札からcost5以下キャラをレスト登場",
       "when": "on_play",
       "do": [
         {
@@ -34028,22 +34066,6 @@
                 }
               }
             ]
-          }
-        }
-      ]
-    },
-    {
-      "_text": "OP13-031_p1 自分のライフが1枚以下の場合、このキャラは【ブロッカー】を得る。",
-      "when": "on_attached_don",
-      "n": 0,
-      "if": {
-        "self_life_le": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロッカー"
           }
         }
       ]
@@ -34266,8 +34288,8 @@
   ],
   "OP14-061_p1": [
     {
-      "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
-      "when": "replace_ko",
+      "_text": "OP14-061_p1 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
+      "when": "replace_leave",
       "cost": [
         {
           "once_per_turn": true
@@ -34286,7 +34308,7 @@
       "optional": true
     },
     {
-      "_text": "OP14-061 ヴェルゴ アタック時: ドン-1 → 相手キャラ1 -2000 turn",
+      "_text": "OP14-061_p1 ヴェルゴ アタック時: ドン-1 → 相手キャラ1 -2000 turn",
       "when": "on_attack",
       "cost": {
         "pay_don": 1
@@ -34487,6 +34509,18 @@
   ],
   "OP14-111_p1": [
     {
+      "_text": "OP14-111_p1 on_play: 相手のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+      "when": "on_play",
+      "do": [
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP14-111_p1 on_ko: 相手のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
       "when": "on_ko",
       "do": [
@@ -34510,18 +34544,6 @@
             },
             "limit": 1,
             "rested": true
-          }
-        }
-      ]
-    },
-    {
-      "_text": "OP14-111_p1 on_play: 相手のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
-      "when": "on_play",
-      "do": [
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_cost_le_6cost",
-            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -34818,13 +34840,26 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "or": [
+          {
+            "leader_name": "ボア・ハンコック"
+          },
+          {
+            "leader_multicolor": true
+          }
+        ]
+      }
     }
   ],
   "OP13-054_p1": [
     {
-      "_text": "OP13-054_p1 on_play: 自分のライフが3枚以下の場合、カード2枚を引く。その後、自分のリーダーにレストのドン‼1枚までを、付与する。",
+      "_text": "ヤマト 登場時: ライフ3以下なら2ドロー",
       "when": "on_play",
+      "if": {
+        "self_life_le": 3
+      },
       "do": [
         {
           "draw": 2
@@ -34833,13 +34868,10 @@
           "attach_don": {
             "target": "self_leader",
             "count": 1,
-            "rested": false
+            "rested": true
           }
         }
-      ],
-      "if": {
-        "self_life_le": 3
-      }
+      ]
     }
   ],
   "OP13-065_p1": [
@@ -34992,34 +35024,28 @@
   ],
   "OP13-082_p1": [
     {
-      "_text": "OP13-082_p1 activate_main: 自分のリーダーが「イム」の場合、自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：自分のキャラすべてをトラッシュに置き、自分のトラッシュからパワ [dd-fix]",
+      "_text": "OP13-082_p1 五老星 起動メイン: リーダー「イム」の場合、 ドン1レスト + 手札1捨て を コスト として、 自分のキャラすべてをトラッシュに置き、 自分のトラッシュからパワー5000のカード名の異なる特徴《五老星》を持つキャラカード5枚まで を登場させる",
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "rest_self_don": 1
-              },
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_trash": {
-                  "filter": {
-                    "feature": "五老星",
-                    "power_eq": 5000
-                  },
-                  "count": 5,
-                  "distinct_names": true
-                }
-              }
-            ]
+          "trash_all_self_chara": true
+        },
+        {
+          "play_from_trash": {
+            "filter": {
+              "feature": "五老星",
+              "power_eq": 5000,
+              "category": "CHARACTER"
+            },
+            "limit": 5,
+            "unique_name": true
           }
         }
       ],
+      "cost": {
+        "discard_hand": 1,
+        "rest_self_don": 1
+      },
       "if": {
         "leader_name": "イム"
       }
@@ -35091,7 +35117,7 @@
   ],
   "OP13-084_p1": [
     {
-      "_text": "static: 自トラッシュ7+で相手の効果で場を離れない",
+      "_text": "OP13-084_p1 シェパード 常在: 自trash7+で相手の効果で場を離れない (= 公式: 自分のターン中 限定 ではない、 相手 ターン中 も 不滅)",
       "when": "on_attached_don",
       "n": 0,
       "do": [
@@ -35102,9 +35128,32 @@
       "conditions": [
         {
           "self_trash_count_ge": 7
+        }
+      ]
+    },
+    {
+      "_text": "OP13-084_p1 シェパード 自ターン中 + trash10+ で 自 五老星 全 元 々 power 7000",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_trash_count_ge": 10
         },
         {
           "self_turn": true
+        }
+      ],
+      "do": [
+        {
+          "set_base_power": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "五老星"
+              }
+            },
+            "amount": 7000
+          }
         }
       ]
     }
@@ -35302,17 +35351,12 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "exclude_name": "リリス"
+              "exclude_name": "リリス",
+              "trigger": true
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 4,
-            "to": "bottom"
           }
         }
       ]
@@ -35905,40 +35949,32 @@
   ],
   "OP12-119_p1": [
     {
-      "_text": "OP12-119_p1 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、このキャラは、次の相手のエンドフェイズ終了時まで、コスト+2。 [dd-fix]",
+      "_text": "OP12-119_p1 on_play (cost: 手札1捨): 自デッキ上1枚→ライフ + 自cost+2 (= 次opp turn 終 ま で)",
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "put_top_to_life": 1
-              },
-              {
-                "cost_minus": {
-                  "target": "self",
-                  "amount": -2,
-                  "duration": "next_opp_turn_end"
-                }
-              }
-            ]
+          "put_top_to_life": 1
+        },
+        {
+          "cost_minus": {
+            "target": "self",
+            "amount": -2,
+            "duration": "next_opp_turn_end"
           }
         }
       ],
+      "cost": {
+        "discard_hand": 1
+      }
+    },
+    {
+      "_text": "OP12-119_p1 くま 相手ターン中 自KO時: 自デッキ上1枚→ライフ",
+      "when": "on_ko",
       "conditions": [
         {
           "opp_turn": true
         }
-      ]
-    },
-    {
-      "_text": "OP12-119_p1 on_ko: 自分のデッキの上から1枚までを、ライフの上に加える。",
-      "when": "on_ko",
+      ],
       "do": [
         {
           "put_top_to_life": 1
@@ -36057,13 +36093,7 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "bottom"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -36087,28 +36117,20 @@
   ],
   "OP11-008_p1": [
     {
-      "_text": "OP11-008_p1 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。 [dd-fix]",
+      "_text": "OP11-008_p1 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。",
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_opponent_character_any",
-                  "amount": -6000,
-                  "duration": "turn"
-                }
-              }
-            ]
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -6000,
+            "duration": "turn"
           }
         }
       ],
+      "cost": {
+        "discard_hand": 1
+      },
       "if": {
         "leader_feature": "海軍"
       }
@@ -36121,7 +36143,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_6000",
+            "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
@@ -40115,19 +40137,19 @@
       ]
     },
     {
-      "_text": "ST22-002_p1 イゾウ 相手アタック時 [trash_self]: 1ドロー + 手札1 デッキ下",
+      "_text": "ST22-002_p1 opp_attack: このキャラをトラッシュに置くことができる：カード1枚を引き、自分の手札1枚をデッキの下に置く。",
       "when": "opp_attack",
-      "cost": {
-        "trash_self": true
-      },
       "do": [
         {
           "draw": 1
         },
         {
-          "hand_to_deck_bottom": 1
+          "self_hand_to_deck_bottom": 1
         }
-      ]
+      ],
+      "cost": {
+        "trash_self": true
+      }
     }
   ],
   "ST22-003_p1": [
@@ -42414,7 +42436,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP13-040_p1": [
@@ -42738,7 +42763,7 @@
   ],
   "OP14-107_p1": [
     {
-      "_text": "OP14-107_p1 on_play: 相手のライフが3枚以下の場合、カード2枚を引き、自分の手札2枚を捨てる。 [dd-mand]",
+      "_text": "OP14-107_p1 シャクヤク 登場時: 相手のライフが3枚以下の場合、 カード2枚を引き、 自分の手札2枚を捨てる (= 公式: 引く+捨てる は 共に 効果 do、 自ライフ 条件 は 公式 に ない)",
       "when": "on_play",
       "do": [
         {
@@ -42749,8 +42774,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     },
     {
@@ -43002,7 +43026,8 @@
       "when": "activate_main",
       "cost": {
         "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 1
       },
       "do": [
         {
@@ -43142,6 +43167,9 @@
       "_text": "ST18-002_p1 on_play: 自分の場のドン!!が8枚以上ある場合、自分の手札1枚を捨て、カード2枚を引く。",
       "when": "on_play",
       "do": [
+        {
+          "trash_self_hand_random": 1
+        },
         {
           "draw": 2
         }
@@ -44060,16 +44088,6 @@
       "when": "main",
       "do": [
         {
-          "prevent_blocker_for_attacker": {
-            "target": {
-              "type": "one_self_chara_or_leader_filtered",
-              "filter": {
-                "feature": "王下七武海"
-              }
-            }
-          }
-        },
-        {
           "power_pump": {
             "target": {
               "type": "one_self_chara_or_leader_filtered",
@@ -44079,6 +44097,16 @@
             },
             "amount": 2000,
             "duration": "turn"
+          }
+        },
+        {
+          "prevent_blocker_for_attacker": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "王下七武海"
+              }
+            }
           }
         }
       ]
@@ -44225,18 +44253,21 @@
   ],
   "OP08-040_p1": [
     {
-      "_text": "OP08-040_p1 on_play: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、相手のコスト4以下のキャラ",
+      "_text": "アトモス 登場時: 白ひげ海賊団リーダー時 相手キャラ1枚レスト",
       "when": "on_play",
+      "if": {
+        "leader_feature": "白ひげ海賊団"
+      },
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "return_to_hand": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
         }
       ],
-      "if": {
-        "leader_features_any": [
-          "白ひげ海賊団"
-        ]
-      },
       "cost": {
         "reveal_hand_with_filter": {
           "filter": {
@@ -44537,7 +44568,7 @@
   ],
   "OP13-086_p1": [
     {
-      "_text": "OP13-086 登場時: デッキ上3を見て 天竜人 (除く自身) 1を手札 残trash + 1捨て",
+      "_text": "OP13-086_p1 シャルリア宮 登場時: デッキ上3を見て 天竜人 (除く自身) 1を手札に加える、 その後 残りをトラッシュに置き 手札1捨て (= 公式: 残りはトラッシュ、 デッキ底ではない)",
       "when": "on_play",
       "do": [
         {
@@ -44549,7 +44580,7 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "bottom"
+            "rest_remain": "trash"
           }
         },
         {
@@ -44844,13 +44875,24 @@
   ],
   "ST17-004_p1": [
     {
-      "_text": "ST17-004_p1 on_play: 自分のデッキの上から3枚を見て、好きな順番に並び替え、デッキの上か下に置く。その後、自分の特徴《王下七武海》を持つ、リーダーかキャラ1枚にレストのドン‼1枚まで",
+      "_text": "ST17-004_p1 ハンコック 登場時: デッキ上3並び替え 上/下 + その後 自 王下七武海 リーダー/キャラ 1 に レストドン1付与",
       "when": "on_play",
       "do": [
         {
           "look_top_reorder": {
             "depth": 3,
             "to": "choice"
+          }
+        },
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "王下七武海"
+              }
+            },
+            "count": 1
           }
         }
       ]
@@ -45963,29 +46005,28 @@
   ],
   "OP06-059_r1": [
     {
-      "_text": "OP06-059_r1 counter: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000し、カード1枚を引く。",
+      "_text": "ホワイトスネーク カウンター: +1000 + 1ドロー",
       "when": "counter",
       "do": [
-        {
-          "draw": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "draw": 1
         }
       ]
     },
     {
-      "_text": "OP06-059_r1 trigger: 自分のデッキの上から5枚を見て、好きな順番に並び替え、デッキの上か下に置く。",
+      "_text": "trigger: 自デッキ上5枚 並び替え (上 or 下)",
       "when": "trigger",
       "do": [
         {
-          "look_top_reorder": {
-            "depth": 5,
-            "to": "choice"
+          "scry_deck_reorder": {
+            "depth": 5
           }
         }
       ]
@@ -64204,8 +64245,11 @@
   ],
   "OP10-030_p1": [
     {
-      "_text": "OP10-030_p1 activate_main: 自分のドン‼1枚までを、アクティブにする。その後、自分はこのターン中、キャラの効果でドン‼をアクティブにできない。",
+      "_text": "スモーカー 起動メイン: ドン1アクティブ化",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "untap_don": 1
@@ -81103,12 +81147,12 @@
   ],
   "OP03-118_r1": [
     {
-      "_text": "OP03-118_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+5000。",
+      "_text": "威国 カウンター: 自リーダー +5000 このバトル中",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_inplay",
+            "target": "self_leader",
             "amount": 5000,
             "duration": "battle"
           }
