@@ -95,6 +95,29 @@ for cid, ents in eff.items():
         if re.search(r'"duration":\s*"(turn|battle)"', ov):
             issues["duration_next_opp_missing"].append(cid)
 
+    # 11) search/look で text「コストN以上/以下のカード」 だが filter に cost_ge/cost_le 無し
+    for e in ents:
+        for d in e.get("do", []):
+            st = (d.get("search_top_n") or d.get("search")) if isinstance(d, dict) else None
+            if not isinstance(st, dict):
+                continue
+            filt = st.get("filter", {})
+            if re.search(r"コスト\d+以上", t) and "cost_ge" not in filt and "cost_le_dynamic" not in filt:
+                issues["search_cost_ge_missing"].append(cid)
+            if re.search(r"コスト\d+以下のカード", t) and "cost_le" not in filt:
+                issues["search_cost_le_missing"].append(cid)
+
+    # 12) 「その後 base-gate」: counter/main で text「+N。その後、…場合、…+N」 だが
+    #     entry が if 付き + power_pump 単発 (= base 強化まで条件 gate されている疑い)
+    if re.search(r"パワー[+＋]\d+。その後、[^。]{0,40}場合", t):
+        for e in ents:
+            if e.get("when") in ("counter", "main", "on_play", "on_attack") and e.get("if"):
+                do = e.get("do", [])
+                pumps = [d for d in do if isinstance(d, dict) and "power_pump" in d]
+                conds = [d for d in do if isinstance(d, dict) and "conditional" in d]
+                if len(pumps) == 1 and not conds:
+                    issues["soshite_base_gated"].append(cid)
+
     # 8) 「以下から1つを選ぶ」 だが choice_effect 無し
     if re.search(r"以下から[0-9０-９]*[1１]?つを?選", t) and "choice_effect" not in ov and "choice" not in ov:
         issues["choice_missing"].append(cid)
