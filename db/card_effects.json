@@ -599,22 +599,27 @@
   ],
   "EB03-025": [
     {
-      "_text": "EB03-025 on_play: 自分の手札1枚を捨てることができる：元々のパワー6000のキャラ1枚までを、持ち主の手札に戻す。",
+      "_text": "EB03-025 on_play: 自分の手札1枚を捨てることができる：元々のパワー6000のキャラ1枚までを、持ち主の手札に戻す。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB04-018": [
@@ -980,22 +985,27 @@
   ],
   "OP06-051": [
     {
-      "_text": "OP06-051 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。",
+      "_text": "OP06-051 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP07-011": [
@@ -2843,24 +2853,29 @@
   ],
   "ST23-003": [
     {
-      "_text": "ST23-003 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手の元々のパワー4000以下のキャラ1枚までを、KOする。",
+      "_text": "ST23-003 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手の元々のパワー4000以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "truly_original_power_le": 4000
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "truly_original_power_le": 4000
+                  }
+                }
+              }
+            ]
           }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_feature": "赤髪海賊団"
       }
@@ -3657,19 +3672,24 @@
   ],
   "OP01-064": [
     {
-      "_text": "OP01-064 on_attack: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "_text": "OP01-064 on_attack: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、持ち主の手札に戻す。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP01-077": [
@@ -3885,19 +3905,24 @@
   ],
   "OP02-098": [
     {
-      "_text": "OP02-098 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-098 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP03-003": [
@@ -3909,7 +3934,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -4287,27 +4313,32 @@
   ],
   "OP04-041": [
     {
-      "_text": "OP04-041 on_play: 自分の手札2枚を捨てることができる：自分のデッキの上から5枚を見て、特徴《東の海》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの",
+      "_text": "OP04-041 on_play: 自分の手札2枚を捨てることができる：自分のデッキの上から5枚を見て、特徴《東の海》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
-        },
-        {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {
-              "feature": "東の海"
-            },
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "feature": "東の海"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP04-045": [
@@ -4610,22 +4641,27 @@
   ],
   "OP06-023": [
     {
-      "_text": "OP06-023 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
+      "_text": "OP06-023 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_leader",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_leader",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-023 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -6593,23 +6629,28 @@
   ],
   "OP06-115": [
     {
-      "_text": "OP06-115 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP06-115 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-115 trigger: 自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札1枚を捨てる。",
@@ -8798,23 +8839,28 @@
   ],
   "OP05-037": [
     {
-      "_text": "OP05-037 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP05-037 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-037 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -13432,19 +13478,26 @@
   ],
   "OP13-002_p1": [
     {
-      "_text": "OP13-002_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このバトル中、パワー-2000。【ドン‼×1】【ターン1回】自分がダメージを",
+      "_text": "OP13-002_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このバトル中、パワー-2000。【ドン‼×1】【ターン1回】自分がダメージを [dd-fix]",
       "when": "opp_attack",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
@@ -19119,23 +19172,28 @@
   ],
   "OP02-068": [
     {
-      "_text": "OP02-068 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP02-068 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP02-068 trigger: コスト2以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -19169,23 +19227,28 @@
   ],
   "OP03-097": [
     {
-      "_text": "OP03-097 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-097 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-097 trigger: カード1枚を引く。その後、相手のコスト1以下のキャラ1枚までを、KOする。",
@@ -19313,24 +19376,29 @@
   ],
   "OP07-118": [
     {
-      "_text": "OP07-118 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP07-118 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "cost_le": 5
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP08-118": [
@@ -19871,19 +19939,24 @@
   ],
   "OP02-099": [
     {
-      "_text": "OP02-099 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-099 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-117": [
@@ -19927,23 +20000,28 @@
   ],
   "OP03-055": [
     {
-      "_text": "OP03-055 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
+      "_text": "OP03-055 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-055 trigger: コスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -20287,23 +20365,28 @@
   ],
   "EB04-028": [
     {
-      "_text": "EB04-028 main: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のパワー10000以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、ア",
+      "_text": "EB04-028 main: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のパワー10000以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、ア [dd-fix]",
       "when": "main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_power_le_10000",
-            "duration": "next_opp_turn_end",
-            "count": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_character_power_le_10000",
+                  "duration": "next_opp_turn_end",
+                  "count": 2
+                }
+              }
+            ]
           }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_feature": "海軍"
       }
@@ -21857,29 +21940,34 @@
   ],
   "OP12-047": [
     {
-      "_text": "OP12-047 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から5枚を見て、「センゴク」以外の特徴《海軍》を持つカード2枚までを公開し、手札に加える。その後、残りを好き",
+      "_text": "OP12-047 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から5枚を見て、「センゴク」以外の特徴《海軍》を持つカード2枚までを公開し、手札に加える。その後、残りを好き [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {
-              "feature": "海軍",
-              "name": "センゴク",
-              "exclude_name": "センゴク"
-            },
-            "limit": 2,
-            "destination": "hand",
-            "rest_remain": "bottom"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "feature": "海軍",
+                    "name": "センゴク",
+                    "exclude_name": "センゴク"
+                  },
+                  "limit": 2,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP12-054": [
@@ -21898,23 +21986,28 @@
   ],
   "OP12-057": [
     {
-      "_text": "OP12-057 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分の手札1枚を捨てる。",
+      "_text": "OP12-057 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分の手札1枚を捨てる。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP12-057 trigger: 自分の手札1枚を捨てることができる：カード1枚を引く。",
@@ -22784,24 +22877,29 @@
   ],
   "OP11-118": [
     {
-      "_text": "OP11-118 on_attack: 自分の手札1枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "_text": "OP11-118 on_attack: 自分の手札1枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "cost_le": 4
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {
+                    "cost_le": 4
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP10-004": [
@@ -23762,19 +23860,24 @@
   ],
   "OP09-088": [
     {
-      "_text": "OP09-088 on_attack: 自分の手札2枚を捨てることができる：カード2枚を引く。",
+      "_text": "OP09-088 on_attack: 自分の手札2枚を捨てることができる：カード2枚を引く。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP09-089": [
@@ -24427,19 +24530,24 @@
   ],
   "OP08-091": [
     {
-      "_text": "OP08-091 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP08-091 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP08-091 trigger: 相手のコスト3以下のキャラ1枚までを、KOする。",
@@ -24574,27 +24682,32 @@
   ],
   "OP07-004": [
     {
-      "_text": "OP07-004 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から5枚を見て、パワー2000以下のキャラカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデ",
+      "_text": "OP07-004 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から5枚を見て、パワー2000以下のキャラカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデ [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {
-              "category": "character"
-            },
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "category": "character"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP07-013": [
@@ -25985,32 +26098,37 @@
   ],
   "OP03-025": [
     {
-      "_text": "OP03-025 on_play: 自分の手札1枚を捨てることができる：相手のレストのコスト4以下のキャラ2枚までを、KOする。",
+      "_text": "OP03-025 on_play: 自分の手札1枚を捨てることができる：相手のレストのコスト4以下のキャラ2枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko_multi": [
-            {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 4
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
               }
-            },
-            {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 4
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  {
+                    "type": "one_opponent_character_filtered",
+                    "filter": {
+                      "cost_le": 4
+                    }
+                  },
+                  {
+                    "type": "one_opponent_character_filtered",
+                    "filter": {
+                      "cost_le": 4
+                    }
+                  }
+                ]
               }
-            }
-          ]
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-025 【ドン!!×1】このキャラは【ダブルアタック】を得る。",
@@ -26220,19 +26338,24 @@
   ],
   "OP03-093": [
     {
-      "_text": "OP03-093 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが『CP』を含む特徴を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。",
+      "_text": "OP03-093 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが『CP』を含む特徴を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_features_any": [
           "CP"
@@ -26354,19 +26477,24 @@
       ]
     },
     {
-      "_text": "OP02-056 on_attack: 自分の手札1枚を捨てることができる：相手のコスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "OP02-056 on_attack: 自分の手札1枚を捨てることができる：相手のコスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-062": [
@@ -26443,19 +26571,24 @@
   ],
   "OP02-066": [
     {
-      "_text": "OP02-066 main: 自分の手札2枚を捨てることができる：自分のリーダーが特徴《インペルダウン》を持つ場合、カード2枚までを引く。",
+      "_text": "OP02-066 main: 自分の手札2枚を捨てることができる：自分のリーダーが特徴《インペルダウン》を持つ場合、カード2枚までを引く。 [dd-fix]",
       "when": "main",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 2
-      },
       "if": {
         "leader_feature": "インペルダウン"
       }
@@ -27303,27 +27436,32 @@
   ],
   "ST08-005": [
     {
-      "_text": "ST08-005 on_play: 自分の手札1枚を捨てることができる：コスト1以下のキャラすべてを、KOする。",
+      "_text": "ST08-005 on_play: 自分の手札1枚を捨てることができる：コスト1以下のキャラすべてを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko_multi": {
-            "target": {
-              "type": "all_chara_filtered",
-              "filter": {
-                "cost_le": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
               }
-            },
-            "scope": "both"
+            ],
+            "effect": [
+              {
+                "ko_multi": {
+                  "target": {
+                    "type": "all_chara_filtered",
+                    "filter": {
+                      "cost_le": 1
+                    }
+                  },
+                  "scope": "both"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "ST08-009": [
@@ -27385,22 +27523,27 @@
   ],
   "ST06-002": [
     {
-      "_text": "ST06-002 on_play: 自分の手札1枚を捨てることができる：相手のコスト0のキャラ1枚までを、KOする。",
+      "_text": "ST06-002 on_play: 自分の手札1枚を捨てることができる：相手のコスト0のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "ST06-012": [
@@ -27614,22 +27757,27 @@
   ],
   "P-035": [
     {
-      "_text": "P-035 on_attack: 自分の手札1枚を捨てることができる：相手のコスト0のキャラ1枚までを、KOする。",
+      "_text": "P-035 on_attack: 自分の手札1枚を捨てることができる：相手のコスト0のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "P-038": [
@@ -27842,23 +27990,28 @@
   ],
   "OP02-068_p1": [
     {
-      "_text": "OP02-068_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP02-068_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP02-068_p1 trigger: コスト2以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -28055,23 +28208,28 @@
   ],
   "OP06-115_p1": [
     {
-      "_text": "OP06-115_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP06-115_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-115_p1 trigger: 自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札1枚を捨てる。",
@@ -29485,19 +29643,24 @@
   ],
   "OP02-099_p5": [
     {
-      "_text": "OP02-099_p5 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-099_p5 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-117_p4": [
@@ -29571,7 +29734,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -29590,7 +29754,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -29609,7 +29774,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -29621,23 +29787,28 @@
   ],
   "OP03-055_p2": [
     {
-      "_text": "OP03-055_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
+      "_text": "OP03-055_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-055_p2 trigger: コスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -29651,23 +29822,28 @@
   ],
   "OP03-055_p3": [
     {
-      "_text": "OP03-055_p3 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
+      "_text": "OP03-055_p3 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-055_p3 trigger: コスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -30530,22 +30706,27 @@
   ],
   "OP06-023_p1": [
     {
-      "_text": "OP06-023_p1 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
+      "_text": "OP06-023_p1 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_leader",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_leader",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-023_p1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -30559,22 +30740,27 @@
   ],
   "OP06-023_p2": [
     {
-      "_text": "OP06-023_p2 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
+      "_text": "OP06-023_p2 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_leader",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_leader",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-023_p2 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -30588,22 +30774,27 @@
   ],
   "OP06-023_p3": [
     {
-      "_text": "OP06-023_p3 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
+      "_text": "OP06-023_p3 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_leader",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_leader",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-023_p3 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -31521,22 +31712,27 @@
   ],
   "EB03-025_p1": [
     {
-      "_text": "EB03-025_p1 on_play: 自分の手札1枚を捨てることができる：元々のパワー6000のキャラ1枚までを、持ち主の手札に戻す。",
+      "_text": "EB03-025_p1 on_play: 自分の手札1枚を捨てることができる：元々のパワー6000のキャラ1枚までを、持ち主の手札に戻す。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB03-041_p1": [
@@ -34036,25 +34232,32 @@
   ],
   "OP13-082_p1": [
     {
-      "_text": "OP13-082_p1 activate_main: 自分のリーダーが「イム」の場合、自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：自分のキャラすべてをトラッシュに置き、自分のトラッシュからパワ",
+      "_text": "OP13-082_p1 activate_main: 自分のリーダーが「イム」の場合、自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：自分のキャラすべてをトラッシュに置き、自分のトラッシュからパワ [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "play_from_trash": {
-            "filter": {
-              "feature": "五老星",
-              "power_eq": 5000
-            },
-            "count": 5,
-            "distinct_names": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "feature": "五老星",
+                    "power_eq": 5000
+                  },
+                  "count": 5,
+                  "distinct_names": true
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "discard_hand": 1,
         "rest_self_don": 1
       },
       "if": {
@@ -34574,24 +34777,29 @@
   ],
   "OP07-118_p2": [
     {
-      "_text": "OP07-118_p2 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP07-118_p2 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "cost_le": 5
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP09-004_p5": [
@@ -34889,26 +35097,31 @@
   ],
   "OP12-119_p1": [
     {
-      "_text": "OP12-119_p1 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、このキャラは、次の相手のエンドフェイズ終了時まで、コスト+2。",
+      "_text": "OP12-119_p1 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、このキャラは、次の相手のエンドフェイズ終了時まで、コスト+2。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "cost_minus": {
-            "target": "self",
-            "amount": -2,
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              },
+              {
+                "cost_minus": {
+                  "target": "self",
+                  "amount": -2,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "conditions": [
         {
           "opp_turn": true
@@ -35063,23 +35276,28 @@
   ],
   "OP11-008_p1": [
     {
-      "_text": "OP11-008_p1 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。",
+      "_text": "OP11-008_p1 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -6000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -6000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_feature": "海軍"
       }
@@ -35395,46 +35613,56 @@
   ],
   "OP11-118_p1": [
     {
-      "_text": "OP11-118_p1 on_attack: 自分の手札1枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "_text": "OP11-118_p1 on_attack: 自分の手札1枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "cost_le": 4
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {
+                    "cost_le": 4
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP11-118_p2": [
     {
-      "_text": "OP11-118_p2 on_attack: 自分の手札1枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "_text": "OP11-118_p2 on_attack: 自分の手札1枚を捨てることができる：コスト4以下のキャラ1枚までを、持ち主の手札に戻す。その後、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "cost_le": 4
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {
+                    "cost_le": 4
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP06-119_p2": [
@@ -36630,24 +36858,29 @@
   ],
   "OP07-118_p1": [
     {
-      "_text": "OP07-118_p1 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP07-118_p1 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "cost_le": 5
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP01-073_p2": [
@@ -36673,7 +36906,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -37566,19 +37800,24 @@
   ],
   "OP02-099_p2": [
     {
-      "_text": "OP02-099_p2 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-099_p2 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP03-013_p1": [
@@ -37683,32 +37922,37 @@
   ],
   "OP03-025_p1": [
     {
-      "_text": "OP03-025_p1 on_play: 自分の手札1枚を捨てることができる：相手のレストのコスト4以下のキャラ2枚までを、KOする。",
+      "_text": "OP03-025_p1 on_play: 自分の手札1枚を捨てることができる：相手のレストのコスト4以下のキャラ2枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko_multi": [
-            {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 4
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
               }
-            },
-            {
-              "type": "one_opponent_character_filtered",
-              "filter": {
-                "cost_le": 4
+            ],
+            "effect": [
+              {
+                "ko_multi": [
+                  {
+                    "type": "one_opponent_character_filtered",
+                    "filter": {
+                      "cost_le": 4
+                    }
+                  },
+                  {
+                    "type": "one_opponent_character_filtered",
+                    "filter": {
+                      "cost_le": 4
+                    }
+                  }
+                ]
               }
-            }
-          ]
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-025_p1 【ドン!!×1】このキャラは【ダブルアタック】を得る。",
@@ -38230,19 +38474,24 @@
   ],
   "OP02-099_p1": [
     {
-      "_text": "OP02-099_p1 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-099_p1 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-115_p1": [
@@ -38465,19 +38714,24 @@
   ],
   "OP01-064_p1": [
     {
-      "_text": "OP01-064_p1 on_attack: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "_text": "OP01-064_p1 on_attack: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、持ち主の手札に戻す。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_hand": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP01-070_p1": [
@@ -39690,23 +39944,28 @@
   ],
   "OP02-068_p2": [
     {
-      "_text": "OP02-068_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP02-068_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP02-068_p2 trigger: コスト2以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -39743,53 +40002,68 @@
   ],
   "OP02-098_p1": [
     {
-      "_text": "OP02-098_p1 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-098_p1 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-098_p3": [
     {
-      "_text": "OP02-098_p3 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-098_p3 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-099_p4": [
     {
-      "_text": "OP02-099_p4 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-099_p4 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP03-008_p3": [
@@ -39934,23 +40208,28 @@
   ],
   "OP03-097_p1": [
     {
-      "_text": "OP03-097_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-097_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-097_p1 trigger: カード1枚を引く。その後、相手のコスト1以下のキャラ1枚までを、KOする。",
@@ -40094,23 +40373,28 @@
   ],
   "OP05-037_p1": [
     {
-      "_text": "OP05-037_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP05-037_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-037_p1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -40124,23 +40408,28 @@
   ],
   "OP05-037_p2": [
     {
-      "_text": "OP05-037_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP05-037_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-037_p2 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -40250,22 +40539,27 @@
   ],
   "OP06-051_p2": [
     {
-      "_text": "OP06-051_p2 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。",
+      "_text": "OP06-051_p2 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 2
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": {
+                  "type": "one_self_chara_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP06-069_p2": [
@@ -41799,23 +42093,28 @@
   ],
   "EB04-028_p1": [
     {
-      "_text": "EB04-028_p1 main: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のパワー10000以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、ア",
+      "_text": "EB04-028_p1 main: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のパワー10000以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、ア [dd-fix]",
       "when": "main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_power_le_10000",
-            "duration": "next_opp_turn_end",
-            "count": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_character_power_le_10000",
+                  "duration": "next_opp_turn_end",
+                  "count": 2
+                }
+              }
+            ]
           }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_feature": "海軍"
       }
@@ -42143,23 +42442,28 @@
   ],
   "OP03-055_p1": [
     {
-      "_text": "OP03-055_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
+      "_text": "OP03-055_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-055_p1 trigger: コスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -43801,23 +44105,28 @@
   ],
   "OP02-068_r1": [
     {
-      "_text": "OP02-068_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP02-068_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP02-068_r1 trigger: コスト2以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -43879,23 +44188,28 @@
   ],
   "OP03-072_p1": [
     {
-      "_text": "OP03-072_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-072_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-072_p1 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
@@ -43909,23 +44223,28 @@
   ],
   "OP03-072_r1": [
     {
-      "_text": "OP03-072_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-072_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-072_r1 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
@@ -43939,23 +44258,28 @@
   ],
   "OP03-097_r1": [
     {
-      "_text": "OP03-097_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-097_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-097_r1 trigger: カード1枚を引く。その後、相手のコスト1以下のキャラ1枚までを、KOする。",
@@ -43972,23 +44296,28 @@
   ],
   "OP04-016_p1": [
     {
-      "_text": "OP04-016_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP04-016_p1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP04-016_p1 trigger: 相手のリーダーかキャラ1枚までを、このターン中、パワー-3000。",
@@ -44006,23 +44335,28 @@
   ],
   "OP04-016_r1": [
     {
-      "_text": "OP04-016_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP04-016_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP04-016_r1 trigger: 相手のリーダーかキャラ1枚までを、このターン中、パワー-3000。",
@@ -44153,23 +44487,28 @@
   ],
   "OP05-037_r1": [
     {
-      "_text": "OP05-037_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP05-037_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-037_r1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -44515,23 +44854,28 @@
   ],
   "OP06-115_r1": [
     {
-      "_text": "OP06-115_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP06-115_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-115_r1 trigger: 自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札1枚を捨てる。",
@@ -44941,24 +45285,29 @@
   ],
   "OP07-118_r1": [
     {
-      "_text": "OP07-118_r1 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP07-118_r1 on_play: 自分の手札1枚を捨てることができる：相手の、コスト5以下のキャラ1枚までとコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 5
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "cost_le": 5
+                  }
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP07-119_r1": [
@@ -48406,19 +48755,24 @@
   ],
   "OP02-099_r1": [
     {
-      "_text": "OP02-099_r1 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-099_r1 on_play: 自分の手札1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-106_p4": [
@@ -48511,7 +48865,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -48523,23 +48878,28 @@
   ],
   "OP03-055_r1": [
     {
-      "_text": "OP03-055_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。",
+      "_text": "OP03-055_r1 counter: 自分の手札1枚を捨てることができる：自分のリーダー1枚までを、このバトル中、パワー+4000。その後、自分のデッキの上から2枚をトラッシュに置いてもよい。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-055_r1 trigger: コスト4以下のキャラ1枚までを、持ち主の手札に戻す。",
@@ -49889,19 +50249,24 @@
   ],
   "OP05-073_p1": [
     {
-      "_text": "OP05-073_p1 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。",
+      "_text": "OP05-073_p1 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-073_p1 trigger: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このカードを登場させる。",
@@ -49918,19 +50283,24 @@
   ],
   "OP05-073_p2": [
     {
-      "_text": "OP05-073_p2 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。",
+      "_text": "OP05-073_p2 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-073_p2 trigger: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このカードを登場させる。",
@@ -49947,19 +50317,24 @@
   ],
   "OP05-073_r1": [
     {
-      "_text": "OP05-073_r1 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。",
+      "_text": "OP05-073_r1 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-073_r1 trigger: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このカードを登場させる。",
@@ -50506,22 +50881,27 @@
   ],
   "OP06-023_r1": [
     {
-      "_text": "OP06-023_r1 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。",
+      "_text": "OP06-023_r1 on_play: 自分の手札1枚を捨てることができる：相手のレストのリーダー1枚までは、次の相手のターン終了時まで、アタックできない。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_leader",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_leader",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-023_r1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -51143,19 +51523,24 @@
   ],
   "OP06-100_p1": [
     {
-      "_text": "OP06-100_p1 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP06-100_p1 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-100_p1 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -51172,19 +51557,24 @@
   ],
   "OP06-100_p2": [
     {
-      "_text": "OP06-100_p2 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP06-100_p2 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-100_p2 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -51201,19 +51591,24 @@
   ],
   "OP06-100_r1": [
     {
-      "_text": "OP06-100_r1 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP06-100_r1 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-100_r1 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -52253,23 +52648,28 @@
       }
     },
     {
-      "_text": "EB04-022 on_attack: 自分の手札1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "EB04-022 on_attack: 自分の手札1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB04-022_p1": [
@@ -52289,23 +52689,28 @@
       }
     },
     {
-      "_text": "EB04-022_p1 on_attack: 自分の手札1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "EB04-022_p1 on_attack: 自分の手札1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB04-026": [
@@ -53066,19 +53471,24 @@
   ],
   "EB03-018": [
     {
-      "_text": "EB03-018 end_of_turn: 自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+      "_text": "EB03-018 end_of_turn: 自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。 [dd-fix]",
       "when": "end_of_turn",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "untap": "self"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "conditions": [
         {
           "opp_turn": true
@@ -53104,19 +53514,24 @@
   ],
   "EB03-018_p1": [
     {
-      "_text": "EB03-018_p1 end_of_turn: 自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+      "_text": "EB03-018_p1 end_of_turn: 自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。 [dd-fix]",
       "when": "end_of_turn",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "untap": "self"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "conditions": [
         {
           "opp_turn": true
@@ -53188,19 +53603,24 @@
   ],
   "EB03-021": [
     {
-      "_text": "EB03-021 on_play: 自分の手札1枚を捨てることができる：相手の元々の、パワー4000以下のキャラ1枚までとコスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "_text": "EB03-021 on_play: 自分の手札1枚を捨てることができる：相手の元々の、パワー4000以下のキャラ1枚までとコスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_deck_bottom": "one_opponent_character_cost_le_3"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_cost_le_3"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "EB03-022": [
@@ -53967,19 +54387,24 @@
   ],
   "EB03-018_p2": [
     {
-      "_text": "EB03-018_p2 end_of_turn: 自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+      "_text": "EB03-018_p2 end_of_turn: 自分のドン‼1枚をレストにし、自分の手札1枚を捨てることができる：このキャラをアクティブにする。 [dd-fix]",
       "when": "end_of_turn",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "untap": "self"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "conditions": [
         {
           "opp_turn": true
@@ -56062,22 +56487,27 @@
   ],
   "OP15-042": [
     {
-      "_text": "OP15-042 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが「レベッカ」の場合、このキャラは、このターン中、【速攻】を得る。",
+      "_text": "OP15-042 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが「レベッカ」の場合、このキャラは、このターン中、【速攻】を得る。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "give_keyword": {
-            "target": "self_inplay",
-            "keyword": "速攻"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self_inplay",
+                  "keyword": "速攻"
+                }
+              }
+            ]
           }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_name": "レベッカ"
       }
@@ -56608,23 +57038,28 @@
       }
     },
     {
-      "_text": "OP15-096 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP15-096 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP15-097": [
@@ -57243,25 +57678,30 @@
   ],
   "OP14-052": [
     {
-      "_text": "OP14-052 on_play: 自分の手札3枚を捨てることができる：自分の手札からコスト6以下の特徴《インペルダウン》を持つキャラカード1枚までを、登場させる。",
+      "_text": "OP14-052 on_play: 自分の手札3枚を捨てることができる：自分の手札からコスト6以下の特徴《インペルダウン》を持つキャラカード1枚までを、登場させる。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 3
-        },
-        {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 6,
-              "feature": "インペルダウン"
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 3
+              }
+            ],
+            "effect": [
+              {
+                "play_from_hand": {
+                  "filter": {
+                    "cost_le": 6,
+                    "feature": "インペルダウン"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 3
-      }
+      ]
     }
   ],
   "OP14-058": [
@@ -58574,19 +59014,24 @@
   ],
   "OP13-104": [
     {
-      "_text": "OP13-104 on_ko: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "OP13-104 on_ko: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、自分のデッキの上から1枚までを、ライフの上に加える。 [dd-fix]",
       "when": "on_ko",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP13-105": [
@@ -59169,45 +59614,59 @@
   ],
   "OP12-008": [
     {
-      "_text": "OP12-008 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "OP12-008 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。 [dd-fix]",
       "when": "opp_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_inplay_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_inplay_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
   "OP12-008_p1": [
     {
-      "_text": "OP12-008_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
+      "_text": "OP12-008_p1 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。 [dd-fix]",
       "when": "opp_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_opponent_inplay_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_inplay_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
@@ -59628,41 +60087,53 @@
   ],
   "OP12-043_p1": [
     {
-      "_text": "OP12-043_p1 on_play: 自分の手札1枚を捨てることができる：相手のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+      "_text": "OP12-043_p1 on_play: 自分の手札1枚を捨てることができる：相手のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_any",
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_character_any",
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP12-051": [
     {
-      "_text": "OP12-051 activate_main: このキャラをレストにし、自分の手札1枚を捨てることができる：相手の元々のコスト4以下のキャラ1枚までは、このターン中、",
+      "_text": "OP12-051 activate_main: このキャラをレストにし、自分の手札1枚を捨てることができる：相手の元々のコスト4以下のキャラ1枚までは、このターン中、 [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "disable_blocker": {
-            "target": "one_opponent_character_cost_le_4",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "disable_blocker": {
+                  "target": "one_opponent_character_cost_le_4",
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "discard_hand": 1,
         "rest_self": true
       }
     }
@@ -59987,19 +60458,24 @@
   ],
   "OP12-087": [
     {
-      "_text": "OP12-087 on_play: 自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。",
+      "_text": "OP12-087 on_play: 自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 2
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "opp_hand_count_ge": 5
       }
@@ -60023,19 +60499,24 @@
   ],
   "OP12-087_p1": [
     {
-      "_text": "OP12-087_p1 on_play: 自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。",
+      "_text": "OP12-087_p1 on_play: 自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 2
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "opp_hand_count_ge": 5
       }
@@ -61036,19 +61517,26 @@
   ],
   "OP11-071": [
     {
-      "_text": "OP11-071 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚",
+      "_text": "OP11-071 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚 [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
@@ -62361,19 +62849,24 @@
   ],
   "OP10-076": [
     {
-      "_text": "OP10-076 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "_text": "OP10-076 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、アクティブで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "leader_feature": "ドンキホーテ海賊団"
       }
@@ -65239,43 +65732,57 @@
   ],
   "OP08-069": [
     {
-      "_text": "OP08-069 on_play: ドン‼-1,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの",
+      "_text": "OP08-069 on_play: ドン‼-1,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "chara_to_opp_life": "one_opponent_character_cost_le_6"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              },
+              {
+                "chara_to_opp_life": "one_opponent_character_cost_le_6"
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "pay_don": 1,
-        "discard_hand": 1
+        "pay_don": 1
       }
     }
   ],
   "OP08-069_p1": [
     {
-      "_text": "OP08-069_p1 on_play: ドン‼-1,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの",
+      "_text": "OP08-069_p1 on_play: ドン‼-1,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "chara_to_opp_life": "one_opponent_character_cost_le_6"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              },
+              {
+                "chara_to_opp_life": "one_opponent_character_cost_le_6"
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "pay_don": 1,
-        "discard_hand": 1
+        "pay_don": 1
       }
     }
   ],
@@ -65432,49 +65939,63 @@
   ],
   "OP08-079": [
     {
-      "_text": "OP08-079 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の",
+      "_text": "OP08-079 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 1
-        },
-        {
-          "chara_to_trash": "one_opponent_character_cost_le_7"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 1
+              },
+              {
+                "trash_opp_hand_random": 1
+              },
+              {
+                "chara_to_trash": "one_opponent_character_cost_le_7"
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
   "OP08-079_p1": [
     {
-      "_text": "OP08-079_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の",
+      "_text": "OP08-079_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 1
-        },
-        {
-          "trash_opp_hand_random": 1
-        },
-        {
-          "chara_to_trash": "one_opponent_character_cost_le_7"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 1
+              },
+              {
+                "trash_opp_hand_random": 1
+              },
+              {
+                "chara_to_trash": "one_opponent_character_cost_le_7"
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
@@ -65737,22 +66258,27 @@
   ],
   "OP08-102": [
     {
-      "_text": "OP08-102 on_play: 自分の手札1枚を捨てることができる：自分のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP08-102 on_play: 自分の手札1枚を捨てることができる：自分のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {}
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {}
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP08-103": [
@@ -66343,23 +66869,30 @@
   ],
   "OP07-010": [
     {
-      "_text": "OP07-010 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
+      "_text": "OP07-010 opp_attack: 【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。 [dd-fix]",
       "when": "opp_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 2000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
@@ -68879,19 +69412,24 @@
   ],
   "OP06-100": [
     {
-      "_text": "OP06-100 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP06-100 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-100 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -69054,17 +69592,22 @@
   ],
   "OP06-112": [
     {
-      "_text": "OP06-112 on_attack: 手札1捨て → 相手ドン1レスト",
+      "_text": "OP06-112 on_attack: 手札1捨て → 相手ドン1レスト [dd-fix]",
       "when": "on_attack",
-      "cost": {
-        "discard_hand": 1
-      },
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "rest_opp_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest_opp_don": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -69676,19 +70219,24 @@
   ],
   "OP05-073": [
     {
-      "_text": "OP05-073 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。",
+      "_text": "OP05-073 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までを、レストで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP05-073 trigger: ドン!!-1(自分の場のドン!!を指定の数ドン!!デッキに戻すことができる)：このカードを登場させる。",
@@ -70399,18 +70947,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_p3 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST01-012_p4": [
@@ -70428,18 +70964,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_p4 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "OP02-120_p2": [
@@ -70577,23 +71101,28 @@
   ],
   "OP04-016": [
     {
-      "_text": "OP04-016 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP04-016 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP04-016 trigger: 相手のリーダーかキャラ1枚までを、このターン中、パワー-3000。",
@@ -72775,23 +73304,28 @@
   ],
   "OP03-072": [
     {
-      "_text": "OP03-072 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-072 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-072 trigger: ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
@@ -73645,18 +74179,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_p1 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST04-003_p1": [
@@ -74414,36 +74936,46 @@
   ],
   "OP02-064": [
     {
-      "_text": "OP02-064 on_attack: 自分の手札1枚を捨てることができる：コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。その後、このバトル終了時、このキャラを持ち主のデッキの下に置く。",
+      "_text": "OP02-064 on_attack: 自分の手札1枚を捨てることができる：コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。その後、このバトル終了時、このキャラを持ち主のデッキの下に置く。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "return_to_deck_bottom": "one_opponent_character_cost_le_2"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom": "one_opponent_character_cost_le_2"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-065": [
     {
-      "_text": "OP02-065 end_of_turn: 自分の手札1枚を捨てることができる：このキャラをアクティブにする。",
+      "_text": "OP02-065 end_of_turn: 自分の手札1枚を捨てることができる：このキャラをアクティブにする。 [dd-fix]",
       "when": "end_of_turn",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "untap": "self"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-067": [
@@ -76264,19 +76796,24 @@
   ],
   "OP01-101": [
     {
-      "_text": "OP01-101 on_attack: 自分の手札1枚を捨てることができる：ドン‼デッキからドン‼1枚までをレストで追加する。",
+      "_text": "OP01-101 on_attack: 自分の手札1枚を捨てることができる：ドン‼デッキからドン‼1枚までをレストで追加する。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_rested_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP01-102": [
@@ -77307,19 +77844,24 @@
   ],
   "OP06-100_r2": [
     {
-      "_text": "OP06-100_r2 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
+      "_text": "OP06-100_r2 on_attack: 自分の手札1枚を捨てることができる：相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_any"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP06-100_r2 trigger: 相手のライフが3枚以下の場合、このカードを登場させる。",
@@ -77441,17 +77983,22 @@
   ],
   "OP06-112_r1": [
     {
-      "_text": "OP06-112 on_attack: 手札1捨て → 相手ドン1レスト",
+      "_text": "OP06-112 on_attack: 手札1捨て → 相手ドン1レスト [dd-fix]",
       "when": "on_attack",
-      "cost": {
-        "discard_hand": 1
-      },
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "rest_opp_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest_opp_don": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -77643,19 +78190,24 @@
   ],
   "OP09-088_r1": [
     {
-      "_text": "OP09-088_r1 on_attack: 自分の手札2枚を捨てることができる：カード2枚を引く。",
+      "_text": "OP09-088_r1 on_attack: 自分の手札2枚を捨てることができる：カード2枚を引く。 [dd-fix]",
       "when": "on_attack",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     }
   ],
   "OP09-089_r1": [
@@ -79234,19 +79786,24 @@
   ],
   "OP02-098_r1": [
     {
-      "_text": "OP02-098_r1 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。",
+      "_text": "OP02-098_r1 on_play: 自分の手札1枚を捨てることができる：相手のコスト3以下のキャラ1枚までを、KOする。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "OP02-106_r1": [
@@ -80167,7 +80724,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "exclude_name": "イゾウ"
+              "exclude_name": "イゾウ",
+              "feature_contains": "白ひげ海賊団"
             },
             "limit": 1,
             "destination": "hand",
@@ -81585,19 +82143,24 @@
   ],
   "ST09-005": [
     {
-      "_text": "ST09-005 on_ko: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "_text": "ST09-005 on_ko: 自分の手札2枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [dd-fix]",
       "when": "on_ko",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 2
-      }
+      ]
     },
     {
       "_text": "ST09-005 【ドン!!×1】このキャラは【ダブルアタック】を得る。",
@@ -82568,19 +83131,24 @@
   ],
   "ST04-008": [
     {
-      "_text": "ST04-008 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までをアクティブで追加する。",
+      "_text": "ST04-008 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までをアクティブで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "ST04-014": [
@@ -83073,18 +83641,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST01-013": [
@@ -83327,18 +83883,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_r1 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST01-013_r1": [
@@ -84339,23 +84883,28 @@
   ],
   "OP03-072_p2": [
     {
-      "_text": "OP03-072_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP03-072_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP03-072_p2 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
@@ -84444,23 +84993,28 @@
   ],
   "OP04-016_p2": [
     {
-      "_text": "OP04-016_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+      "_text": "OP04-016_p2 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP04-016_p2 trigger: 相手のリーダーかキャラ1枚までを、このターン中、パワー-3000。",
@@ -85169,19 +85723,26 @@
   ],
   "OP11-071_p1": [
     {
-      "_text": "OP11-071_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚",
+      "_text": "OP11-071_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚 [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "discard_hand": 1
+        "once_per_turn": true
       }
     }
   ],
@@ -87057,18 +87618,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_p5 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST01-012_p6": [
@@ -87086,18 +87635,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_p6 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST01-012_p7": [
@@ -87115,18 +87652,6 @@
       "if": {
         "self_attached_don_ge": 2
       }
-    },
-    {
-      "_text": "ST01-012_p7 on_attack: 相手は、このバトル中、【ブロッカー】を発動できない。",
-      "when": "on_attack",
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
-          }
-        }
-      ]
     }
   ],
   "ST01-013_p1": [
@@ -87413,19 +87938,24 @@
   ],
   "ST04-008_p1": [
     {
-      "_text": "ST04-008_p1 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までをアクティブで追加する。",
+      "_text": "ST04-008_p1 on_play: 自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までをアクティブで追加する。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     }
   ],
   "ST06-006_p1": [
@@ -88291,22 +88821,29 @@
   ],
   "OP08-069_p2": [
     {
-      "_text": "OP08-069_p2 on_play: ドン‼-1,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの",
+      "_text": "OP08-069_p2 on_play: ドン‼-1,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のコスト6以下のキャラ1枚までを、相手のライフの [dd-fix]",
       "when": "on_play",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "chara_to_opp_life": "one_opponent_character_cost_le_6"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              },
+              {
+                "chara_to_opp_life": "one_opponent_character_cost_le_6"
+              }
+            ]
+          }
         }
       ],
       "cost": {
-        "pay_don": 1,
-        "discard_hand": 1
+        "pay_don": 1
       }
     }
   ],
@@ -88539,21 +89076,28 @@
   ],
   "OP12-051_p1": [
     {
-      "_text": "OP12-051_p1 activate_main: このキャラをレストにし、自分の手札1枚を捨てることができる：相手の元々のコスト4以下のキャラ1枚までは、このターン中、",
+      "_text": "OP12-051_p1 activate_main: このキャラをレストにし、自分の手札1枚を捨てることができる：相手の元々のコスト4以下のキャラ1枚までは、このターン中、 [dd-fix]",
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
-          "disable_blocker": {
-            "target": "one_opponent_character_cost_le_4",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "disable_blocker": {
+                  "target": "one_opponent_character_cost_le_4",
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
       "cost": {
-        "discard_hand": 1,
         "rest_self": true
       }
     }
