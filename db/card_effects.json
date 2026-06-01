@@ -12400,14 +12400,33 @@
   ],
   "OP06-001_p2": [
     {
-      "_text": "OP06-001_p2 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "_text": "OP06-001_p2 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン‼デッキからドン‼1枚までを、レストで追加する。 [bug-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "FILM"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
@@ -13945,64 +13964,74 @@
   ],
   "OP10-002": [
     {
-      "_text": "OP10-002 【アタック時】自分のコスト2以上の特徴《パンクハザード》を持つキャラ1枚を、持ち主の手札に戻すことができる：相手のパワー4000以下のキャラ1枚までを、KOする。",
+      "_text": "OP10-002 【アタック時】自分のコスト2以上の特徴《パンクハザード》を持つキャラ1枚を、持ち主の手札に戻すことができる：相手のパワー4000以下のキャラ1枚までを、KOする。 [bug-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "truly_original_power_le": 4000
-            }
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "truly_original_power_le": 4000
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2,
+                    "feature": "パンクハザード"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "truly_original_power_le": 4000
+                  }
+                }
+              }
+            ]
           }
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 2
+      }
     }
   ],
   "OP10-002_p1": [
     {
-      "_text": "OP10-002_p1 【アタック時】自分のコスト2以上の特徴《パンクハザード》を持つキャラ1枚を、持ち主の手札に戻すことができる：相手のパワー4000以下のキャラ1枚までを、KOする。",
+      "_text": "OP10-002_p1 【アタック時】自分のコスト2以上の特徴《パンクハザード》を持つキャラ1枚を、持ち主の手札に戻すことができる：相手のパワー4000以下のキャラ1枚までを、KOする。 [bug-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
-          }
-        },
-        {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "truly_original_power_le": 4000
-            }
-          }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "truly_original_power_le": 4000
-            }
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 2,
+                    "feature": "パンクハザード"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": {
+                  "type": "one_opponent_character_filtered",
+                  "filter": {
+                    "truly_original_power_le": 4000
+                  }
+                }
+              }
+            ]
           }
         }
-      ]
+      ],
+      "if": {
+        "self_attached_don_ge": 2
+      }
     }
   ],
   "OP10-003": [
@@ -14864,14 +14893,33 @@
   ],
   "OP06-001": [
     {
-      "_text": "OP06-001 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン !!デッキからドン !!1枚までを、レストで追加する。",
+      "_text": "OP06-001 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン !!デッキからドン !!1枚までを、レストで追加する。 [bug-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "FILM"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
@@ -14879,14 +14927,33 @@
   ],
   "OP06-001_p1": [
     {
-      "_text": "OP06-001_p1 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン !!デッキからドン !!1枚までを、レストで追加する。",
+      "_text": "OP06-001_p1 【アタック時】自分の手札の特徴《FILM》を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、ドン !!デッキからドン !!1枚までを、レストで追加する。 [bug-fix]",
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "FILM"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "add_rested_don": 1
+              }
+            ]
           }
         }
       ]
@@ -22981,11 +23048,40 @@
   ],
   "OP10-056": [
     {
-      "_text": "OP10-056 on_play: 自分の特徴《ドレスローザ》を持つ、リーダーかステージ1枚を、レストにし、自分のコスト4以上の特徴《ドレスローザ》を持つキャラ1枚を持ち主の手札に戻すことができる",
+      "_text": "OP10-056 on_play: 自分の特徴《ドレスローザ》を持つ、リーダーかステージ1枚を、レストにし、自分のコスト4以上の特徴《ドレスローザ》を持つキャラ1枚を持ち主の手札に戻すことができる [bug-fix]",
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_4cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_cards_filtered": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "ドレスローザ",
+                    "category_in": [
+                      "LEADER",
+                      "STAGE"
+                    ]
+                  }
+                }
+              },
+              {
+                "return_self_chara_to_hand": {
+                  "count": 1,
+                  "filter": {
+                    "cost_ge": 4,
+                    "feature": "ドレスローザ"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -23562,16 +23658,36 @@
   ],
   "OP09-060": [
     {
-      "_text": "OP09-060 activate_main: 自分の手札2枚を好きな順番でデッキの下に置き、このステージをレストにできる：自分のリーダーが特徴《クロスギルド》を持つ場合、カード2枚を引く。",
+      "_text": "OP09-060 activate_main: 自分の手札2枚を好きな順番でデッキの下に置き、このステージをレストにできる：自分のリーダーが特徴《クロスギルド》を持つ場合、カード2枚を引く。 [bug-fix]",
       "when": "activate_main",
       "do": [
         {
-          "draw": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "hand_to_deck_bottom": 2
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "クロスギルド"
+                  },
+                  "do": [
+                    {
+                      "draw": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "leader_feature": "クロスギルド"
-      }
+      ]
     }
   ],
   "OP09-066": [
@@ -64037,19 +64153,41 @@
   ],
   "OP08-106_p4": [
     {
-      "_text": "OP08-106_p4 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を",
+      "_text": "OP08-106_p4 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を [bug-fix]",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "self_hand_count_le": 3
+                  },
+                  "do": [
+                    {
+                      "draw": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_hand_count_le": 3
-      }
+      ]
     },
     {
       "_text": "OP08-106_p4 trigger: このカードの【登場時】効果を発動する。",
@@ -65398,19 +65536,41 @@
   ],
   "OP08-106": [
     {
-      "_text": "OP08-106 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を",
+      "_text": "OP08-106 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を [bug-fix]",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "self_hand_count_le": 3
+                  },
+                  "do": [
+                    {
+                      "draw": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_hand_count_le": 3
-      }
+      ]
     },
     {
       "_text": "OP08-106 trigger: このカードの【登場時】効果を発動する。",
@@ -65426,19 +65586,41 @@
   ],
   "OP08-106_p1": [
     {
-      "_text": "OP08-106_p1 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を",
+      "_text": "OP08-106_p1 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を [bug-fix]",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "self_hand_count_le": 3
+                  },
+                  "do": [
+                    {
+                      "draw": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_hand_count_le": 3
-      }
+      ]
     },
     {
       "_text": "OP08-106_p1 trigger: このカードの【登場時】効果を発動する。",
@@ -70658,11 +70840,31 @@
   ],
   "OP04-073": [
     {
-      "_text": "OP04-073 activate_main: このキャラと自分の『B・W』を含む特徴を持つキャラ1枚をトラッシュに置くことができる：ドン!!デッキからドン!!1枚までを、アクティブで追加する。",
+      "_text": "OP04-073 activate_main: このキャラと自分の『B・W』を含む特徴を持つキャラ1枚をトラッシュに置くことができる：ドン!!デッキからドン!!1枚までを、アクティブで追加する。 [bug-fix]",
       "when": "activate_main",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_to_trash": true
+              },
+              {
+                "ko_self_chara": {
+                  "count": 1,
+                  "filter": {
+                    "feature_contains": "B・W"
+                  },
+                  "exclude_self": true
+                }
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -73624,11 +73826,30 @@
   ],
   "OP02-048": [
     {
-      "_text": "OP02-048 activate_main: 自分の手札から特徴《ワノ国》を持つカード1枚を捨て、このステージをレストにできる：自分のドン‼1枚までを、アクティブにする。",
+      "_text": "OP02-048 activate_main: 自分の手札から特徴《ワノ国》を持つカード1枚を捨て、このステージをレストにできる：自分のドン‼1枚までを、アクティブにする。 [bug-fix]",
       "when": "activate_main",
       "do": [
         {
-          "untap_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "ワノ国"
+                  }
+                }
+              },
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "untap_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -84124,19 +84345,41 @@
   ],
   "OP08-106_p3": [
     {
-      "_text": "OP08-106_p3 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を",
+      "_text": "OP08-106_p3 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を [bug-fix]",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "self_hand_count_le": 3
+                  },
+                  "do": [
+                    {
+                      "draw": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_hand_count_le": 3
-      }
+      ]
     },
     {
       "_text": "OP08-106_p3 trigger: このカードの【登場時】効果を発動する。",
@@ -84152,19 +84395,41 @@
   ],
   "OP08-106_p5": [
     {
-      "_text": "OP08-106_p5 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を",
+      "_text": "OP08-106_p5 on_play: 自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のコスト5以下のキャラ1枚までを、KOする。その後、自分の手札が3枚以下の場合、カード1枚を [bug-fix]",
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_5cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {
+                    "has_trigger": true
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_5cost"
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "self_hand_count_le": 3
+                  },
+                  "do": [
+                    {
+                      "draw": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_hand_count_le": 3
-      }
+      ]
     },
     {
       "_text": "OP08-106_p5 trigger: このカードの【登場時】効果を発動する。",
