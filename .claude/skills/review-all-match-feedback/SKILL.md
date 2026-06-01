@@ -50,6 +50,7 @@ ohtsuki さん が こう言ったら invoke:
 
 | 要素 | 場所 |
 |---|---|
+| **解決済み追跡 ledger** | `db/feedback_resolutions.json` + `scripts/feedback_ledger.py` (= ★Step 1.5、 蒸し返し防止) |
 | spectate コメント DB | `${DATA_DIR}/spectate_comments.sqlite` (= local) or Postgres (= production) |
 | コメント クラスタリング | `engine/comment_clustering.py:cluster_comments` |
 | コメント クラスタ API | `GET /api/spectate/comments/clusters?replay_key=<key>` (= replay_key 省略 で 全件) |
@@ -100,6 +101,40 @@ ls -la db/matchup_matrix*.json
 # 1 週間 以上 古い + engine 大変更 直近 なら 再計算 推奨 (= 60 分):
 # .venv/bin/python scripts/compute_matchup_matrix.py --n-games 20 --seed 42
 ```
+
+### Step 1.5: 解決済み feedback を 除外 (= ★必須、 蒸し返し 防止)
+
+> **2026-06-01 追加**: spectate コメント (SQLite) と human_play log_comments (Blob/JSON) は
+> **処理後に消し込まれず DB に残り続ける**。 この skill を 素直に 走らせると **過去に修正済みの
+> 課題を毎回「未解決」 として 蒸し返す** (= 実際に 2026-06-01 に やらかした)。 必ず この Step で
+> 解決済みを除外し、 **真に未解決の feedback だけ** を Step 2 以降の対象にする。
+
+`db/feedback_resolutions.json` (= resolution ledger) を `scripts/feedback_ledger.py` で参照する:
+
+```bash
+# 未解決のみ抽出 (= 日時ヒューリスティック併用。 engine/web 最新 commit より古い feedback には
+# 「修正済みの可能性=要検証」 ヒントが付く)。 これが Step 2 以降の入力。
+.venv/bin/python scripts/feedback_ledger.py list-unresolved --since-commit-date
+.venv/bin/python scripts/feedback_ledger.py status   # resolved/unresolved サマリ
+```
+
+**手順 (= 手動マーク + 日時ヒューリスティック 併用、 2026-06-01 設計判断)**:
+1. `list-unresolved` で 残った feedback を 取得。 `[日時的に修正済みの可能性=要検証]` ヒント付きは
+   **コメント日時 < engine/web 最新 fix commit** の もの (= 修正で消化済みの公算)。
+2. 各 feedback を **現行 HEAD で再現するか 検証** (= 該当 engine/UI コードを読む / 実機 probe を書く /
+   `git log -S` で 該当症状の修正 commit を探す)。 **検証せず 額面通り 課題化 しない** (= 今回の教訓)。
+3. 修正済みと確認できたら ledger に記録 (= 次回から自動除外):
+   ```bash
+   .venv/bin/python scripts/feedback_ledger.py resolve <feedback_id> \
+     --commit <fix_commit> --reason "<何で どう直ったか + 検証方法>"
+   ```
+   - `feedback_id` 規約: `spectate:<comment_id>` / `humanplay:<file_hash>:idx<log_index>`
+     (= `list-unresolved` が そのまま 表示する ID を コピペ)。
+4. **真に未解決** (= 現行 HEAD で再現する) もののみ Step 2 以降で 改善対象 にする。
+
+> **注意**: ledger は **検証の代替ではなく 記録**。 「日時的に古い」 だけで resolved にしない
+> (= 古くても 未修正の 見逃しが ありうる)。 必ず Step 2 の 再現確認を 経てから mark する。
+> ledger が空 / 全 feedback が新しい 場合は この Step は 素通り (= 全件 が 検証対象)。
 
 ### Step 2: 各 source を 個別 解析 (= 詳細 は 既存 skill に 委譲)
 
@@ -367,6 +402,11 @@ ohtsuki さん 向け 報告:
 
 ## 注意事項 / 落とし穴
 
+- **★最重要 (2026-06-01 教訓): 解決済み feedback を 蒸し返さない**。 feedback source は 処理後に
+  消し込まれず 残り続ける ので、 Step 1.5 で `feedback_ledger.py list-unresolved` を 必ず 通す。
+  さらに **未解決と出た ものも 額面通り 課題化せず、 現行 HEAD で 再現するか 検証してから** 報告する
+  (= `git log -S "症状語"` で 修正 commit を探す / 該当コード を読む / 実機 probe)。 検証で 修正済みと
+  分かったら 即 ledger に `resolve` 記録 (= 次回 自動除外)。 「コメントが ある」 ≠ 「課題が ある」。
 - **comments DB が 空** の 環境 (= dev 初期) では Step 2A を skip。 spectate 機能 が 未使用 か 確認 (= count 0 を 確実 に reporting)。
 - **コメント の theme 分類 は heuristic** (= `comment_clustering.py:76 extract_themes`)。 ohtsuki さん の 自由 text なので 完全 分類 されない 場合あり。 分類 不明 (= `other`) が 多すぎる なら 元 text を 直接 全件 確認。
 - **「同 source で 多発」 と 「複数 source で 観測」 は別** 。 後者 が 真 (= 統計 + 質的 + 教師 で 揃う)。 1 source で だけ で 強く 出る issue は **その source 固有 の bias** の 可能性 (= comments は 主観、 matrix は engine bias、 humanplay は ohtsuki さん 戦術 癖)。

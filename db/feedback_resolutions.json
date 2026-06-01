@@ -1,0 +1,122 @@
+{
+  "_meta": {
+    "description": "match-feedback 解決追跡 ledger。 review-all-match-feedback skill が参照。",
+    "id_scheme": "spectate:<comment_id> / humanplay:<file_hash>:idx<log_index>"
+  },
+  "resolutions": {
+    "humanplay:8ff22174:idx27": {
+      "resolved": true,
+      "commit": "7c91d2d",
+      "reason": "replace_ko_optional modal 実装。 human所有 optional replace が選択 modal を出すことを実機検証済",
+      "date": "2026-06-01"
+    },
+    "humanplay:0ee2f9cd:idx28": {
+      "resolved": true,
+      "commit": "7c91d2d",
+      "reason": "同上。 replace 効果の使用可否を人間が選択する modal",
+      "date": "2026-06-01"
+    },
+    "humanplay:8ff22174:idx25": {
+      "resolved": true,
+      "commit": "0a64300",
+      "reason": "AI が effect不発 event を play しない (Phase1.1)。 engine も gate fail時 conditional cost を払わないことを実機検証",
+      "date": "2026-06-01"
+    },
+    "humanplay:8a7511c2:idx0": {
+      "resolved": true,
+      "commit": "0000000",
+      "reason": "テスト投稿 (= バグ検知テスト)、 実課題ではない",
+      "date": "2026-06-01"
+    },
+    "spectate:69e008b81b19453883193e65b3876f04": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "atk効果後に放置=futility。 attack なし plan の attach_don 抑制 + bonus 学習で対応",
+      "date": "2026-06-01"
+    },
+    "spectate:b4e1fad0b0504ba394491d72a3711222": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "弱キャラ-5000放置=futility。 同上 (effect futility prune)",
+      "date": "2026-06-01"
+    },
+    "spectate:221d1fd81c6043f0a9bc5f13dda996c6": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "無意味ドン付与。 attack なし plan の attach_don 抑制 (観戦コメント名指し)",
+      "date": "2026-06-01"
+    },
+    "spectate:6d50f035d8a74a7490f8d9d228292d4a": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "大量ドン付与+攻撃せず終了=futility。 同上",
+      "date": "2026-06-01"
+    },
+    "spectate:616ddb383f4648c7903357fc485a9837": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "無意味ドン付与。 同上",
+      "date": "2026-06-01"
+    },
+    "spectate:221a1b1a4720425eb9f104e7a8faec2a": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "無意味ドン付与。 同上",
+      "date": "2026-06-01"
+    },
+    "spectate:3fa51690081b4085bb0488aabcccddf8": {
+      "resolved": true,
+      "commit": "6e45db1",
+      "reason": "ドローアニメ要望。 DrawCardOverlay 実装済 (実 DOM 位置から直線移動)",
+      "date": "2026-06-01"
+    },
+    "spectate:99802ba2ec534a32ae3c934bf3160824": {
+      "resolved": true,
+      "commit": "6e45db1",
+      "reason": "アニメ要望。 ドロー/演出 frame 実装済",
+      "date": "2026-06-01"
+    },
+    "spectate:19c7270b3c6b4dcca2e1f10e0442567d": {
+      "resolved": true,
+      "commit": "6e45db1",
+      "reason": "アニメ要望。 同上",
+      "date": "2026-06-01"
+    },
+    "spectate:0248453928644155aaf21848425ee2f3": {
+      "resolved": true,
+      "commit": "6e45db1",
+      "reason": "ドローアニメ要望。 DrawCardOverlay 実装済",
+      "date": "2026-06-01"
+    },
+    "spectate:568b48541da14448a15e58312531b0b2": {
+      "resolved": true,
+      "commit": "14eacf2",
+      "reason": "ドン一瞬倍表示。 DON 表示タイミング修正 landed (= 視覚再確認推奨)",
+      "date": "2026-06-01"
+    },
+    "spectate:d798e5a0645f4791a11421877c93e919": {
+      "resolved": true,
+      "commit": "14eacf2",
+      "reason": "ドン戻し位置ずれ/瞬間移動。 同上 (= 視覚再確認推奨)",
+      "date": "2026-06-01"
+    },
+    "spectate:34681f00eb6c4b9e80f79908b88fdcbe": {
+      "resolved": true,
+      "commit": "23cc0d4",
+      "reason": "起動メインコストとlog順番。 起動メイン header→cost→effect 順に push_log 整理済",
+      "date": "2026-06-01"
+    },
+    "spectate:30141b10faef45768e62b1f4e5452a43": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "攻撃せずドン付与=futility。 attack なし plan の attach_don 抑制 (観戦コメント名指し)",
+      "date": "2026-06-01"
+    },
+    "spectate:f29b656d4b364c7593659dd8f21bb586": {
+      "resolved": true,
+      "commit": "e3c01bb",
+      "reason": "速攻で攻撃できたのでは=AI が速攻活用せず。 futility 系 + bonus 学習で速攻優先を学習",
+      "date": "2026-06-01"
+    }
+  }
+}
