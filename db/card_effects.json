@@ -55263,9 +55263,16 @@
   ],
   "EB02-006": [
     {
-      "_text": "EB02-006 activate_main: 【ターン1回】自分のリーダーが特徴《ワノ国》を持つか「ポートガス・D・エース」の場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、このキャラ",
+      "_text": "EB02-006 activate_main: 【起動メイン】【ターン1回】自分のリーダーが特徴《ワノ国》を持つか「ポートガス・D・エース」の場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、このキャラは、このターン中、【速攻】を得る。",
       "when": "activate_main",
       "do": [
+        {
+          "attach_don": {
+            "target": "self_leader",
+            "count": 1,
+            "rested": true
+          }
+        },
         {
           "give_keyword": {
             "target": "self_inplay",
@@ -55275,14 +55282,31 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "or": [
+          {
+            "leader_feature": "ワノ国"
+          },
+          {
+            "leader_name": "ポートガス・D・エース"
+          }
+        ]
       }
     }
   ],
   "EB02-006_p1": [
     {
-      "_text": "EB02-006_p1 activate_main: 【ターン1回】自分のリーダーが特徴《ワノ国》を持つか「ポートガス・D・エース」の場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、このキャラ",
+      "_text": "EB02-006_p1 activate_main: 【起動メイン】【ターン1回】自分のリーダーが特徴《ワノ国》を持つか「ポートガス・D・エース」の場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、このキャラは、このターン中、【速攻】を得る。",
       "when": "activate_main",
       "do": [
+        {
+          "attach_don": {
+            "target": "self_leader",
+            "count": 1,
+            "rested": true
+          }
+        },
         {
           "give_keyword": {
             "target": "self_inplay",
@@ -55292,6 +55316,16 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "or": [
+          {
+            "leader_feature": "ワノ国"
+          },
+          {
+            "leader_name": "ポートガス・D・エース"
+          }
+        ]
       }
     }
   ],
@@ -57835,10 +57869,21 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -57857,7 +57902,8 @@
             "keyword": "ブロッカー"
           }
         }
-      ]
+      ],
+      "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
     }
   ],
   "ST26-005_p1": [
@@ -61566,13 +61612,6 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
             "duration": "next_opp_turn_end"
           }
         }
@@ -61771,7 +61810,7 @@
       ]
     },
     {
-      "_text": "OP11-010 on_attack: このキャラは、このターン中、パワー+1000。その後、自分の特徴《海軍》を持つリーダー1枚までは、このターン中、アクティブのキャラにもアタックできる。",
+      "_text": "OP11-010 on_attack: このキャラは、このターン中、パワー+1000。その後、自分の特徴《海軍》を持つリーダー1枚までは、このターン中、アクティブのキャラにもアタックできる。 [approx: 海軍リーダー条件→self_leader (ひばりは海軍deck前提)]",
       "when": "on_attack",
       "do": [
         {
@@ -61779,6 +61818,11 @@
             "target": "self",
             "amount": 1000,
             "duration": "turn"
+          }
+        },
+        {
+          "give_attack_active_chara": {
+            "target": "self_leader"
           }
         }
       ]
@@ -61799,7 +61843,7 @@
       ]
     },
     {
-      "_text": "OP11-010_p1 on_attack: このキャラは、このターン中、パワー+1000。その後、自分の特徴《海軍》を持つリーダー1枚までは、このターン中、アクティブのキャラにもアタックできる。",
+      "_text": "OP11-010_p1 on_attack: このキャラは、このターン中、パワー+1000。その後、自分の特徴《海軍》を持つリーダー1枚までは、このターン中、アクティブのキャラにもアタックできる。 [approx: 海軍リーダー条件→self_leader (ひばりは海軍deck前提)]",
       "when": "on_attack",
       "do": [
         {
@@ -61807,6 +61851,11 @@
             "target": "self",
             "amount": 1000,
             "duration": "turn"
+          }
+        },
+        {
+          "give_attack_active_chara": {
+            "target": "self_leader"
           }
         }
       ]
@@ -64330,13 +64379,6 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
             "duration": "next_opp_turn_end"
           }
         }
@@ -64916,10 +64958,21 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -78962,10 +79015,21 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -79521,13 +79585,6 @@
       "_text": "OP09-013_r1 on_play: 自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+1000。",
       "when": "on_play",
       "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        },
         {
           "power_pump": {
             "target": "self_leader",
@@ -85013,9 +85070,16 @@
   ],
   "EB02-006_p2": [
     {
-      "_text": "EB02-006_p2 activate_main: 【ターン1回】自分のリーダーが特徴《ワノ国》を持つか「ポートガス・D・エース」の場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、このキャラ",
+      "_text": "EB02-006_p2 activate_main: 【起動メイン】【ターン1回】自分のリーダーが特徴《ワノ国》を持つか「ポートガス・D・エース」の場合、自分のリーダー1枚にレストのドン‼1枚までを、付与する。その後、このキャラは、このターン中、【速攻】を得る。",
       "when": "activate_main",
       "do": [
+        {
+          "attach_don": {
+            "target": "self_leader",
+            "count": 1,
+            "rested": true
+          }
+        },
         {
           "give_keyword": {
             "target": "self_inplay",
@@ -85025,6 +85089,16 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "or": [
+          {
+            "leader_feature": "ワノ国"
+          },
+          {
+            "leader_name": "ポートガス・D・エース"
+          }
+        ]
       }
     }
   ],
@@ -86250,7 +86324,7 @@
       ]
     },
     {
-      "_text": "OP11-010_p2 on_attack: このキャラは、このターン中、パワー+1000。その後、自分の特徴《海軍》を持つリーダー1枚までは、このターン中、アクティブのキャラにもアタックできる。",
+      "_text": "OP11-010_p2 on_attack: このキャラは、このターン中、パワー+1000。その後、自分の特徴《海軍》を持つリーダー1枚までは、このターン中、アクティブのキャラにもアタックできる。 [approx: 海軍リーダー条件→self_leader (ひばりは海軍deck前提)]",
       "when": "on_attack",
       "do": [
         {
@@ -86258,6 +86332,11 @@
             "target": "self",
             "amount": 1000,
             "duration": "turn"
+          }
+        },
+        {
+          "give_attack_active_chara": {
+            "target": "self_leader"
           }
         }
       ]
@@ -87812,10 +87891,21 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -87834,7 +87924,8 @@
             "keyword": "ブロッカー"
           }
         }
-      ]
+      ],
+      "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
     }
   ],
   "P-105_p1": [
@@ -87843,10 +87934,21 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -87865,7 +87967,8 @@
             "keyword": "ブロッカー"
           }
         }
-      ]
+      ],
+      "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
     }
   ],
   "P-107": [
@@ -89549,10 +89652,21 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_don_to_deck": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2,
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
