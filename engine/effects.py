@@ -1109,6 +1109,12 @@ def eval_condition(
             # 自分の場のキャラがすべて指定特徴を持つ (空でも True)
             if not all(v in c.card.features for c in me.characters):
                 return False
+        elif k == "self_chara_only_feature_contains":
+            # 自分の場のキャラがすべて『指定文字列を含む特徴』を持つ (空でも True)。
+            # 公式「自分のキャラが『X』を含む特徴を持つキャラのみの場合」 (EB03-038 ジェルマ:
+            #   実特徴は『ジェルマ66』 等のため exact ではなく部分一致で判定)。
+            if not all(any(str(v) in f for f in c.card.features) for c in me.characters):
+                return False
         elif k == "self_don_le":
             # 自分の場のドン!! (active+rested+attached) が N 以下
             total = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)

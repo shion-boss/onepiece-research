@@ -55577,6 +55577,10 @@
       ],
       "cost": {
         "rest_self_don": 1
+      },
+      "if": {
+        "don_diff_le": 0,
+        "self_chara_only_feature_contains": "ジェルマ"
       }
     },
     {
@@ -55762,18 +55766,31 @@
   ],
   "EB03-052": [
     {
-      "_text": "EB03-052 しらほし 起動メイン: 自KO代償 → デッキ上1ライフ追加",
+      "_text": "EB03-052 しらほし 起動メイン: このキャラをトラッシュ：リーダーしらほしの場合 デッキ上1をライフ→海王類すべて+1000(turn)",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "ko_self_with_filter": {},
         "trash_self": true
       },
       "do": [
         {
           "put_top_to_life": 1
+        },
+        {
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "海王類"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "しらほし"
+      }
     }
   ],
   "EB03-054": [
@@ -72997,10 +73014,22 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 3000,
-            "duration": "turn"
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "category": "CHARACTER",
+              "power_ge": 6000
+            },
+            "then": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 3000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -73069,6 +73098,22 @@
           "power_pump": {
             "target": "one_opponent_inplay_any",
             "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP04-017 counter(2): その後、自分のリーダーがアクティブの場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-1000。",
+      "when": "counter",
+      "if": {
+        "self_leader_active": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_inplay_any",
+            "amount": -1000,
             "duration": "turn"
           }
         }
@@ -75020,7 +75065,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_deck_count_le": 20
+      }
     }
   ],
   "OP03-054": [
@@ -76853,7 +76901,15 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "モージ"
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP02-059": [
@@ -77397,7 +77453,15 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ジャンゴ"
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP02-112": [
