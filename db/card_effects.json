@@ -21393,6 +21393,14 @@
       "cost": {
         "pay_don": 2,
         "rest_self": true
+      },
+      "if": {
+        "self_field_named_all_with_power": {
+          "names": [
+            "サトリ",
+            "ホトリ"
+          ]
+        }
       }
     }
   ],
@@ -58163,6 +58171,25 @@
   ],
   "OP15-014": [
     {
+      "_text": "OP15-014 replace_ko: このキャラがKOされる場合、代わりに手札からイベント1枚を捨てることができる。",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "discard_hand_with_filter": {
+            "filter": {
+              "category": "EVENT"
+            },
+            "count": 1
+          }
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
+    {
       "_text": "OP15-014 on_play: 自分の手札から元々のコスト3以下の特徴《ドレスローザ》を持つイベント1枚までを、発動する。",
       "when": "on_play",
       "do": [
@@ -58449,6 +58476,14 @@
       "cost": {
         "pay_don": 2,
         "rest_self": true
+      },
+      "if": {
+        "self_field_named_all_with_power": {
+          "names": [
+            "コトリ",
+            "サトリ"
+          ]
+        }
       }
     }
   ],
@@ -59626,12 +59661,12 @@
   ],
   "OP14-077": [
     {
-      "_text": "五色糸 カウンター: 自リーダー +4000 (このバトル中)",
+      "_text": "OP14-077 counter: 自分のリーダーかキャラ1枚まで+4000(battle)",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
           }
@@ -59639,16 +59674,16 @@
       ]
     },
     {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
+      "_text": "OP14-077 counter(2): その後、相手のパワー6000以上のキャラがいる場合、ドン‼デッキからドン‼1枚までをレストで追加。",
+      "when": "counter",
+      "if": {
+        "exists_opp_chara_power_ge": 6000
+      },
       "do": [
         {
           "add_rested_don": 1
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP14-078": [
@@ -80750,6 +80785,31 @@
   ],
   "ST26-001": [
     {
+      "_text": "ST26-001 in_hand: 元々パワー7000以上の『サン五郎』か『サンジ』がいる場合、コスト-5。",
+      "when": "in_hand",
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "or": [
+              {
+                "name": "サン五郎"
+              },
+              {
+                "name": "サンジ"
+              }
+            ],
+            "truly_original_power_ge": 7000
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "in_hand_cost_minus": 5
+        }
+      ]
+    },
+    {
       "_text": "ST26-001 on_play: 自分の、「サン五郎」と「サンジ」すべてを、持ち主の手札に戻す。",
       "when": "on_play",
       "do": [
@@ -81073,10 +81133,27 @@
             "limit": 1
           }
         }
+      ]
+    },
+    {
+      "_text": "ST25-003 replace_leave: 【ターン1回】自分のクロスギルドキャラが相手効果で場を離れる場合、代わりに手札1枚を捨てることができる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "クロスギルド",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
       ],
-      "cost": {
-        "once_per_turn": true
-      }
+      "do": [
+        {
+          "trash_self_hand_random": 1
+        }
+      ],
+      "optional": true
     }
   ],
   "ST25-004": [
@@ -81202,7 +81279,10 @@
         {
           "trash_self_hand_random": 1
         }
-      ]
+      ],
+      "if": {
+        "self_rested_cards_count_ge": 6
+      }
     }
   ],
   "OP09-010_r1": [
@@ -88930,7 +89010,10 @@
             "duration": "turn"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_rested_chara_count_ge": 2
+      }
     }
   ],
   "P-039": [
