@@ -226,12 +226,12 @@
    "equivalence_verified": 216,
    "effect_cards": 4069,
    "unique_sig": 2334,
-   "remaining_unique_sig": 54,
-   "remaining_cards": 101,
+   "remaining_unique_sig": 53,
+   "remaining_cards": 99,
    "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
    "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
   },
-  "total_verified": 4420,
+  "total_verified": 4422,
   "total_cards": 4518,
   "double_discard_fix": {
    "opt型": 121,
@@ -287,7 +287,6 @@
    "OP05-100",
    "OP05-100_p1",
    "OP05-100_p2",
-   "OP08-074",
    "OP10-026",
    "OP10-027",
    "OP11-005",
@@ -312,7 +311,6 @@
    "P-120",
    "ST05-010",
    "ST05-010_r1",
-   "ST08-013",
    "ST27-004"
   ],
   "cluster_grind_batch7": {
@@ -2579,6 +2577,7 @@
   "OP08-070",
   "OP08-071",
   "OP08-073",
+  "OP08-074",
   "OP08-075",
   "OP08-076",
   "OP08-077",
@@ -4100,6 +4099,7 @@
   "ST08-007",
   "ST08-008",
   "ST08-009",
+  "ST08-013",
   "ST08-014",
   "ST08-015",
   "ST09-001",

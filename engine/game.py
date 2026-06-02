@@ -1751,6 +1751,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             state.push_log("  survived")
         # バトル終了時処理: char vs char バトル (= blocked) なら on_self_battled 発火 (ST02-010)。
         if is_blocked and state.effects_overlay and attacker in [me.leader, *me.characters]:
+            # バトルした相手キャラ (= ブロッカー) を記録 (ST08-013 opp_just_battled 用)。
+            # 既にバトルKO されていれば opp.characters から消えており target 解決で [] になる。
+            state.last_battled_opp_iid = actual_target.instance_id
             from .effects import trigger_on_self_battled
             trigger_on_self_battled(state, me, opp, attacker, state.effects_overlay)
         # 「このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064)。

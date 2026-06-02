@@ -69472,16 +69472,33 @@
   ],
   "OP08-074": [
     {
-      "_text": "OP08-074 activate_main: 【ターン1回】自分のキャラの他の「ブラックマリア」がいない場合、ドン‼デッキからドン‼5枚までを、レストで追加する。その後、このターン終了時、相手の場のドン‼の",
+      "_text": "OP08-074 activate_main: 他ブラックマリアなし ドン5レスト追加→ターン終了時相手ドン枚数に合わせ自ドン戻す",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "self_chara_filtered_count_le": {
+          "filter": {
+            "name": "ブラックマリア"
+          },
+          "count": 1
+        }
+      },
       "do": [
         {
           "add_rested_don": 5
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "return_self_don_to_match_opp": true
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP08-074_p1": [
@@ -86923,11 +86940,29 @@
   ],
   "ST08-013": [
     {
-      "_text": "on_attached_don n=1: このキャラが相手のキャラとバトルしたバトル終了時、バトルした相手のキャラをKOしてもよい。そうした場合、このキャラをKO",
-      "when": "on_attached_don",
-      "n": 1,
-      "do": [],
-      "_missing_effect": "【ドン!!×1】バトル終了時、バトルした相手キャラを任意KO→そうしたら自身KO。 optional_after_battle_mutual_ko は no-op (last_battle_opponent context 未記録)。 要 battle-end トリガー + 相互KO実装"
+      "_text": "ST08-013 on_self_battled: バトルした相手キャラKO→そうしたら自身KO (ドン×1)",
+      "when": "on_self_battled",
+      "if": {
+        "self_attached_don_ge": 1
+      },
+      "optional": true,
+      "do": [
+        {
+          "conditional": {
+            "if": {
+              "opp_just_battled_present": true
+            },
+            "do": [
+              {
+                "ko": "opp_just_battled"
+              },
+              {
+                "return_self_to_trash": true
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "ST08-014": [

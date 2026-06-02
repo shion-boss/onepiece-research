@@ -633,6 +633,13 @@ def eval_condition(
             present = min(me.face_up_life_count, len(me.life)) > 0
             if bool(v) != present:
                 return False
+        elif k == "opp_just_battled_present":
+            # 直前にバトルした相手キャラがまだ場にいるか (ST08-013 そうしたら自身KO の gate)。
+            iid = getattr(state, "last_battled_opp_iid", None)
+            present = opp is not None and iid is not None and any(
+                ip.instance_id == iid for ip in opp.characters)
+            if bool(v) != present:
+                return False
         elif k == "self_chara_count_lt_opp":
             # 「自分のキャラが相手のキャラより少ない場合」 (EB04-059 等)。
             if opp is None or len(me.characters) >= len(opp.characters):
@@ -1660,6 +1667,14 @@ def _resolve_target(
                         val = ip.power if kind == "power" else ip.base_cost
                         return [ip] if val <= thr else []
             return []
+    if target_spec == "opp_just_battled":
+        # 直前にバトルした相手キャラ (ST08-013)。 バトルKO で既に場を離れていれば [] (= 不発)。
+        iid = getattr(state, "last_battled_opp_iid", None)
+        if iid is not None:
+            for ip in opp.characters:
+                if ip.instance_id == iid:
+                    return [ip]
+        return []
     if target_spec == "self_team_except_self":
         # 「このキャラ以外の自分のリーダーかキャラ1枚まで」 (ST01-005)。 発動元を除外。
         cands = [ip for ip in [me.leader, *me.characters]
@@ -5211,6 +5226,21 @@ def _execute_effect_body(
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
             state.push_log(f"  効果: 相手手札を{target_size}枚に")
+        elif k == "return_self_don_to_match_opp":
+            # 「相手の場のドンの枚数と同じになるように自分の場のドンをドンデッキに戻す」
+            # (OP08-074 等)。 自分のドン総数 > 相手 なら 超過分を返す (active 優先で残す)。
+            opp_total = opp.don_active + opp.don_rested
+            my_total = me.don_active + me.don_rested
+            excess = max(0, my_total - opp_total)
+            ret_rested = min(excess, me.don_rested)
+            me.don_rested -= ret_rested
+            me.don_remaining_in_deck += ret_rested
+            ret_active = excess - ret_rested
+            if ret_active > 0:
+                me.don_active -= ret_active
+                me.don_remaining_in_deck += ret_active
+            if excess > 0:
+                state.push_log(f"  効果: 自ドン{excess}をドンデッキへ (相手{opp_total}枚に合わせる)")
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
