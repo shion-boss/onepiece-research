@@ -51905,10 +51905,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_any",
-            "one_opponent_character_any"
-          ]
+          "ko_total_power_le": {
+            "max_count": 2,
+            "total_power_le": 4000
+          }
         }
       ]
     }
@@ -51919,10 +51919,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_any",
-            "one_opponent_character_any"
-          ]
+          "ko_total_power_le": {
+            "max_count": 2,
+            "total_power_le": 4000
+          }
         }
       ]
     }
@@ -63676,7 +63676,7 @@
       "when": "trigger",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_1"
         }
       ]
     }
@@ -65015,7 +65015,12 @@
       "do": [
         {
           "give_keyword": {
-            "target": "self_inplay",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "モンキー・D・ルフィ"
+              }
+            },
             "keyword": "バニッシュ"
           }
         }
@@ -65028,7 +65033,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any_cost_le_1"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_1"
         }
       ]
     }
@@ -65590,12 +65595,23 @@
       "when": "on_play",
       "do": [
         {
-          "hand_to_self_life": {
-            "filter": {
-              "category": "CHARACTER",
-              "feature": "超新星"
-            },
-            "count": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "hand_to_self_life": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "超新星"
+                  },
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -65966,6 +65982,9 @@
     {
       "_text": "OP09-007 on_play: 自分のパワー4000以下のリーダー1枚までを、このターン中、パワー+1000。",
       "when": "on_play",
+      "if": {
+        "self_leader_power_le": 4000
+      },
       "do": [
         {
           "power_pump": {
@@ -66120,10 +66139,10 @@
       "when": "main",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_any",
-            "one_opponent_character_any"
-          ]
+          "ko_total_power_le": {
+            "max_count": 2,
+            "total_power_le": 4000
+          }
         }
       ]
     }
@@ -72091,10 +72110,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_any",
-            "one_opponent_character_any"
-          ]
+          "ko_total_power_le": {
+            "max_count": 2,
+            "total_power_le": 4000
+          }
         }
       ]
     }
@@ -72105,10 +72124,10 @@
       "when": "on_play",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_any",
-            "one_opponent_character_any"
-          ]
+          "ko_total_power_le": {
+            "max_count": 2,
+            "total_power_le": 4000
+          }
         }
       ]
     }

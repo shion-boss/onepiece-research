@@ -50,6 +50,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import random
@@ -5484,6 +5485,58 @@ def _execute_effect_body(
                             trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
+            if _kom_any and state.effects_overlay:
+                trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+        elif k == "ko_total_power_le":
+            # 「相手のキャラ N 枚までを、 パワーの合計が X 以下になるようにKOする」
+            # (OP05-007 サボ / OP09-018 失せろ 等 5枚)。 旧 ko_multi [any,any] は合計
+            # 制約を落とす過剰近似だったため専用 primitive 化。
+            # spec: {"max_count": 2, "total_power_le": 4000}
+            # auto: KO 可能な相手キャラの中で、 現在 power 合計 <= cap の組合せのうち
+            #   除去 power 最大 (tie: 枚数多) を選ぶ (= 相手の最も価値あるキャラを最大除去)。
+            #   単独 power>cap のキャラは KO 不可 (= 合計制約が大型キャラを守る)。
+            spec = v if isinstance(v, dict) else {}
+            max_count = int(spec.get("max_count", 2))
+            cap = int(spec.get("total_power_le", 4000))
+
+            def _koable(c: InPlay) -> bool:
+                return not (
+                    c.protect_from_opp_effect
+                    or c.static_ko_immune
+                    or c.ko_immune_until_turn_end
+                    or c.ko_immune_through_opp_turn
+                    or c.ko_per_turn_immune_remaining > 0
+                )
+
+            pool = [c for c in opp.characters if _koable(c)]
+            best: list = []
+            best_key = (-1, -1)  # (除去 power 合計, 枚数)
+            for r in range(1, max_count + 1):
+                for combo in itertools.combinations(pool, r):
+                    s = sum(c.power for c in combo)
+                    if s <= cap:
+                        key = (s, len(combo))
+                        if key > best_key:
+                            best_key = key
+                            best = list(combo)
+            _kom_any = False
+            for t in best:
+                if t not in opp.characters:
+                    continue
+                if state.effects_overlay and try_replace_ko(
+                    state, opp, me, t, state.effects_overlay, by_opp_effect=True
+                ):
+                    continue
+                opp.characters.remove(t)
+                opp.trash.append(t.card)
+                if t.attached_dons > 0:
+                    opp.don_rested += t.attached_dons
+                state.push_log(f"  効果: KO {t.card.name} (合計power<={cap})")
+                _kom_any = True
+                if state.effects_overlay:
+                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
+                    trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                    trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
         elif k == "return_to_hand_multi":
