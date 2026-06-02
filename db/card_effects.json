@@ -60317,10 +60317,27 @@
   ],
   "OP14-009": [
     {
-      "_text": "OP14-009 opp_attack: 【ターン1回】自分の手札2枚を捨てることができる：自分のリーダーとキャラ1枚を選ぶ。選んだカードそれぞれの元々のパワーを、このバトル中、入れ替える。",
+      "_text": "OP14-009 opp_attack: 手札2捨て→自リーダーとキャラ元々パワー入替(このバトル中)",
       "when": "opp_attack",
-      "do": [],
-      "_missing_effect": "【相手のアタック時】【ターン1回】手札2枚捨て：自リーダーとキャラ1枚の元々のパワーをこのバトル中入れ替える。 base-power swap (= OP14-001同class) 未実装のため無効化 (旧二重discard回避)"
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "swap_base_power_self_leader_chara": true
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP14-009_p1": [
@@ -64271,11 +64288,17 @@
   ],
   "OP11-005": [
     {
-      "_text": "OP11-005 【ドン‼×1】このキャラは属性(特)を持たないキャラの効果でKOされない",
+      "_text": "OP11-005 【ドン×1】属性(特)を持たないキャラの効果でKOされない",
       "when": "on_attached_don",
       "n": 1,
-      "do": [],
-      "_missing_effect": "属性条件付き効果KO耐性 未実装: engine は battle KO の attribute 免疫 (set_immune_attribute_in_battle / game.py:415-420) のみ。 本カードは『効果でKOされない』=effect-KO 免疫で scope 不一致 (P-025『バトルで』 は同primitive正)。 KO source の attribute を effect-KO path で参照する機構が要"
+      "do": [
+        {
+          "set_ko_immune_from_non_attribute": {
+            "attribute": "特",
+            "target": "self"
+          }
+        }
+      ]
     }
   ],
   "OP11-006": [
@@ -91333,34 +91356,20 @@
   ],
   "P-059": [
     {
-      "_text": "P-059 counter: 自分のリーダーが「ウタ」の場合、自分の場のキャラを任意の枚数手札に戻してもよい。自分のリーダーかキャラ1枚までは、このバトル中、戻したキャラ1枚につきパワー+2",
+      "_text": "P-059 counter: leaderウタ 自キャラ任意戻し→戻した枚数×2000 pump",
       "when": "counter",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_chara_to_hand": {
-                  "count": 1,
-                  "filter": {}
-                }
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_team_any",
-                  "amount": 2000,
-                  "duration": "battle"
-                }
-              }
-            ]
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "return_self_charas_then_pump_per": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
+        }
+      ]
     }
   ],
   "P-060": [

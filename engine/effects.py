@@ -2589,6 +2589,14 @@ def _execute_effect_body(
                                 f"  KO 耐性 (source パワー≤{thr}): {t.card.name} は {self_inplay.card.name}(P={src_power}) の効果でKO不能"
                             )
                             continue
+                    # source-attribute-scoped KO 耐性 (= OP11-005「属性(特)を持たないキャラの効果でKOされない」)。
+                    req_attr = t.static_ko_immune_from_non_attribute
+                    if req_attr and self_inplay is not None:
+                        if req_attr not in (self_inplay.card.attribute or ""):
+                            state.push_log(
+                                f"  KO 耐性 (source 属性≠{req_attr}): {t.card.name} は {self_inplay.card.name} の効果でKO不能"
+                            )
+                            continue
                     # 置換効果 (KOされる場合、代わりに〜) のチェック
                     if state.effects_overlay and try_replace_ko(
                         state, opp, me, t, state.effects_overlay, by_opp_effect=True
@@ -5286,6 +5294,42 @@ def _execute_effect_body(
                 me.don_remaining_in_deck += ret_active
             if excess > 0:
                 state.push_log(f"  効果: 自ドン{excess}をドンデッキへ (相手{opp_total}枚に合わせる)")
+        elif k == "swap_base_power_self_leader_chara":
+            # 「自分のリーダーとキャラ1枚を選び、 元々のパワーをこのバトル中入れ替える」 (OP14-009)。
+            # AI: 最高 power の自キャラと leader を入替。 turn_base_power_override 使用。
+            if not me.characters:
+                state.push_log("  効果: 入替対象キャラなし (不発)")
+                return False
+            ch = max(me.characters, key=lambda c: c.power)
+            ld_base = me.leader.turn_base_power_override if me.leader.turn_base_power_override is not None else me.leader.card.power
+            ch_base = ch.turn_base_power_override if ch.turn_base_power_override is not None else ch.card.power
+            me.leader.turn_base_power_override = ch_base
+            ch.turn_base_power_override = ld_base
+            state.push_log(f"  効果: 元々パワー入替 リーダー({ld_base}<->{ch_base}){ch.card.name}")
+        elif k == "return_self_charas_then_pump_per":
+            # 「自分の場のキャラを任意の枚数手札に戻してもよい。 (target)は戻したキャラ1枚につき+M」
+            # (P-059)。 AI: pump target 以外の自キャラを全戻し -> target を戻し枚数xM で pump。
+            spec_val = v if isinstance(v, dict) else {}
+            amount = int(spec_val.get("amount", 2000))
+            duration = spec_val.get("duration", "battle")
+            pump_target_spec = spec_val.get("target", "self_inplay")
+            pts = _resolve_target(pump_target_spec, state, me, opp, self_inplay,
+                                  outer_kind="return_self_charas_then_pump_per", outer_value=pump_target_spec)
+            pump_target = pts[0] if pts else None
+            returned = 0
+            for c in list(me.characters):
+                if pump_target is not None and c.instance_id == pump_target.instance_id:
+                    continue
+                me.characters.remove(c)
+                me.hand.append(c.card)
+                if c.attached_dons > 0:
+                    me.don_rested += c.attached_dons
+                returned += 1
+            if pump_target is not None and returned > 0:
+                execute_effect({"power_pump": {"target": pump_target_spec,
+                                               "amount": amount * returned, "duration": duration}},
+                               state, me, opp, self_inplay)
+            state.push_log(f"  効果: 自キャラ{returned}枚戻し -> +{amount*returned}")
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
@@ -8538,6 +8582,7 @@ def evaluate_static_effects(
             ip.static_buff = 0
             ip.static_ko_immune = False
             ip.static_ko_immune_from_source_power_le = -1
+            ip.static_ko_immune_from_non_attribute = ""
             ip.base_power_override = None
             ip.base_cost_override = None
             ip.attack_taunt = False
@@ -8614,6 +8659,13 @@ def evaluate_static_effects(
                     # 常在内の set_ko_immune_from_source_power_le
                     # spec: {"target": "self", "threshold": 5000}
                     # OP14-003 「相手の元々のパワーN以下のキャラの効果でKOされない」
+                    if "set_ko_immune_from_non_attribute" in primitive:
+                        spec = primitive["set_ko_immune_from_non_attribute"]
+                        attr = spec.get("attribute", "") if isinstance(spec, dict) else str(spec)
+                        target_spec = spec.get("target", "self") if isinstance(spec, dict) else "self"
+                        for t in _resolve_target(target_spec, state, me, opp, inplay):
+                            t.static_ko_immune_from_non_attribute = attr
+                        continue
                     if "set_ko_immune_from_source_power_le" in primitive:
                         spec = primitive["set_ko_immune_from_source_power_le"]
                         if not isinstance(spec, dict):

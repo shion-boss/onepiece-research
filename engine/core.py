@@ -268,6 +268,9 @@ class InPlay:
     # 値: 上限 N (= -1 で無効、 N で source.truly_original_power <= N なら KO 不発)。
     # 静的 evaluate で毎回 -1 に戻す。
     static_ko_immune_from_source_power_le: int = -1
+    # 「属性Xを持たないキャラの効果でKOされない」 (OP11-005)。 "" = 無効。 source の attribute に
+    # この属性が含まれない場合 効果KO を 無効化。
+    static_ko_immune_from_non_attribute: str = ""
     # 「元々のパワー」を上書き (None なら CardDef.power を使う)。
     # 静的効果でセット (on_attached_don)、evaluate_static_effects でリセット
     base_power_override: Optional[int] = None
