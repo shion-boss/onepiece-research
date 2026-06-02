@@ -3855,6 +3855,32 @@ def _execute_effect_body(
                 else:
                     new_trash.append(card)
             me.trash[:] = new_trash
+        elif k == "bounce_self_chara_then_play_diff_color":
+            # 「自分のキャラ1枚を持ち主の手札に戻し、 戻したキャラと異なる色のコストN以下の
+            # キャラ1枚までを登場させる」 (EB01-020/OP01-002)。 戻したキャラの色を動的除外。
+            spec_val = v if isinstance(v, dict) else {}
+            cost_le = int(spec_val.get("play_cost_le", 2))
+            if not me.characters:
+                state.push_log("  効果: 戻す自キャラなし (不発)")
+                return False
+            victim = min(me.characters, key=lambda c: (c.power, c.card.cost))
+            bounced_colors = set(victim.card.color)
+            me.characters.remove(victim)
+            me.hand.append(victim.card)
+            if victim.attached_dons > 0:
+                me.don_rested += victim.attached_dons
+            state.push_log(f"  効果: {victim.card.name} を手札に戻す (色={bounced_colors})")
+            cands = [(i, c) for i, c in enumerate(me.hand)
+                     if c.category == Category.CHARACTER and c.cost <= cost_le
+                     and not (set(c.color) & bounced_colors)]
+            if not cands:
+                state.push_log("  効果: 異色キャラ手札になし (登場なし)")
+            else:
+                cands.sort(key=lambda ic: -ic[1].power)
+                idx, card = cands[0]
+                me.hand.pop(idx)
+                me.characters.append(InPlay.of(card, sickness=True))
+                state.push_log(f"  効果: 異色キャラ登場 {card.name}")
         elif k == "play_stage_from_hand":
             # 「自分の手札から[name/filter]のステージ1枚を登場させる」 (EB02-013 ゾウ /
             # EB03-044 鬼ヶ島 / OP08-110 アッパーヤード / EB02-032 ガレーラ 等)。

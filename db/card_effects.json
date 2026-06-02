@@ -240,8 +240,14 @@
   ],
   "OP01-002": [
     {
-      "_text": "OP01-002 activate_main: 【ターン1回】②(コストエリアのドン‼を指定の数レストにできる)：自分のキャラが5枚いる場合、自分のキャラ1枚を、持ち主の手札に戻し、自分の手札から、戻したキャ",
+      "_text": "OP01-002 activate_main: ② 自キャラ5枚で 自キャラ1戻し→異色cost5以下登場",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "self_chara_count_ge": 5
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -252,27 +258,14 @@
             ],
             "effect": [
               {
-                "return_to_hand": "any_self_chara"
-              },
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 5
-                  },
-                  "limit": 1
+                "bounce_self_chara_then_play_diff_color": {
+                  "play_cost_le": 5
                 }
               }
             ]
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "if": {
-        "self_field_count_ge": 5
-      }
+      ]
     }
   ],
   "OP01-060": [
@@ -58609,40 +58602,15 @@
   ],
   "EB01-020": [
     {
-      "_text": "EB01-020 main: 自分のリーダーが特徴《超新星》を持つ場合、自分のキャラ1枚を、持ち主の手札に戻し、自分の手札から、戻したキャラと異なる色のコスト2以下のキャラカード1枚までを、",
+      "_text": "EB01-020 main: 自キャラ1戻し→異色cost2以下登場 (leader超新星)",
       "when": "main",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_chara_to_hand": 1
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "cost_le": 2
-                  }
-                }
-              }
-            ]
-          }
-        }
-      ],
       "if": {
         "leader_feature": "超新星"
-      }
-    },
-    {
-      "_text": "EB01-020 trigger: このカードの【メイン】効果を発動する。",
-      "when": "trigger",
+      },
       "do": [
         {
-          "fire_self_effect": {
-            "when_kind": "main"
+          "bounce_self_chara_then_play_diff_color": {
+            "play_cost_le": 2
           }
         }
       ]
