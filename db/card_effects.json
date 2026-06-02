@@ -1874,8 +1874,7 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -12750,8 +12749,7 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -15441,8 +15439,7 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -16851,8 +16848,7 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -18053,8 +18049,7 @@
         "once_per_turn": true
       },
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -57811,8 +57806,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
@@ -57830,8 +57824,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
@@ -60605,8 +60598,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
@@ -81250,8 +81242,7 @@
       "when": "on_attached_don",
       "n": 2,
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       },
       "do": [
         {
@@ -81268,8 +81259,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 3,
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -81327,7 +81317,7 @@
         }
       ],
       "if": {
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -81369,7 +81359,7 @@
         }
       ],
       "if": {
-        "self_attached_don_ge": 2
+        "leader_feature": "ワノ国"
       }
     },
     {
@@ -83204,7 +83194,18 @@
       "when": "on_attack",
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -83512,9 +83513,23 @@
       "when": "activate_main",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 1,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -85168,8 +85183,7 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3,
-        "self_life_ge": 3
+        "opp_life_ge": 3
       }
     }
   ],
@@ -85220,22 +85234,6 @@
       "if": {
         "self_hand_count_le": 5,
         "self_attached_don_ge": 1
-      }
-    },
-    {
-      "_text": "ST12-011 on_attack: 自分の手札が5枚以下の場合、このキャラは、次の自分のターン開始時まで、パワー+2000。",
-      "when": "on_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "next_self_turn_start"
-          }
-        }
-      ],
-      "if": {
-        "self_hand_count_le": 5
       }
     }
   ],
@@ -87976,8 +87974,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 2,
-        "self_life_le": 2
+        "opp_life_le": 2
       }
     }
   ],
