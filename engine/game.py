@@ -405,6 +405,15 @@ def _recompute_static(state: GameState) -> None:
         evaluate_static_effects(state, state.effects_overlay)
 
 
+def _battle_attr_bonus(combatant, opponent) -> int:
+    """ST05-010: combatant が 「属性X とバトル時+N」 を持ち opponent が属性X を持つ場合 +N。"""
+    bpa = getattr(combatant, "battle_pump_vs_attribute", None)
+    if not bpa:
+        return 0
+    opp_attr = opponent.card.attribute or ""
+    return int(bpa.get(opp_attr, 0)) if opp_attr else 0
+
+
 def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
     """defender が attacker の attribute によってバトル KO 不可かどうか判定。
     P-052 ミホーク 「属性(斬)を持つカードとのバトルで KO されない」 等。
@@ -1515,6 +1524,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             )
         # ブロックされた場合: 勝てばブロッカーが KO、 負ければ生存 (リーダーへのダメージなし)
         if is_blocked:
+            atk_power += _battle_attr_bonus(attacker, actual_target)
+            defender_power += _battle_attr_bonus(actual_target, attacker)
             if atk_power >= defender_power:
                 _vs_leader_immune = (
                     actual_target.battle_ko_immune_vs_leader
@@ -1741,6 +1752,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 f"  counter +{counter_added} → "
                 f"{actual_target.card.name}(P={defender_power})"
             )
+        atk_power += _battle_attr_bonus(attacker, actual_target)
+        defender_power += _battle_attr_bonus(actual_target, attacker)
         if atk_power >= defender_power:
             if actual_target.ko_immune_until_turn_end:
                 state.push_log(f"  KO 耐性: {actual_target.card.name} は KO されない")

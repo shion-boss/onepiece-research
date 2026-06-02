@@ -238,6 +238,8 @@ class InPlay:
     # 「このキャラはリーダーとのバトルでKOされない」 (= 相手リーダーのアタックをブロックしても
     # KO されない、 OP09-025/ST08-002)。 静的効果でセット、 evaluate_static_effects でリセット。
     battle_ko_immune_vs_leader: bool = False
+    # 「属性Xを持つキャラとバトルする時 パワー+N」 (ST05-010)。 {attr: amount}。 静的eval でリセット。
+    battle_pump_vs_attribute: dict = field(default_factory=dict)
     # ブロッカー 効果 を 無効化 (turn 中、 OP12-051 等)。 _reset_turn_buff で False。
     blocker_disabled_until_turn_end: bool = False
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア

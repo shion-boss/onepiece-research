@@ -8651,6 +8651,7 @@ def evaluate_static_effects(
             ip.ko_immune_battle_attributes_not_in.clear()
             ip.battle_ko_immune_static = False
             ip.battle_ko_immune_vs_leader = False
+            ip.battle_pump_vs_attribute = {}
             # static-granted keywords は毎回再計算 (= 条件外れたら消える)
             ip.static_granted_keywords.clear()
         # 静的 filter 付き cost reduction も毎回再構築
@@ -8699,6 +8700,15 @@ def evaluate_static_effects(
                             t.static_ko_immune = True
                         continue
                     # 常在内の set_battle_ko_immune_vs_leader は vs-leader battle 耐性。
+                    if "set_battle_pump_vs_attribute" in primitive:
+                        spec = primitive["set_battle_pump_vs_attribute"]
+                        attr = spec.get("attribute", "")
+                        amount = int(spec.get("amount", 0))
+                        target_spec = spec.get("target", "self")
+                        for t in _resolve_target(target_spec, state, me, opp, inplay):
+                            if attr:
+                                t.battle_pump_vs_attribute[attr] = amount
+                        continue
                     if "set_battle_ko_immune_vs_leader" in primitive:
                         sv = primitive["set_battle_ko_immune_vs_leader"]
                         target_spec = sv.get("target", "self") if isinstance(sv, dict) else "self"
