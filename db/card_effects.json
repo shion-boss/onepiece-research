@@ -71332,6 +71332,9 @@
             "amount": 1000,
             "duration": "turn"
           }
+        },
+        {
+          "life_to_hand": 1
         }
       ]
     }
@@ -73058,6 +73061,13 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "battle"
+          }
         }
       ],
       "if": {
@@ -73280,7 +73290,7 @@
         {
           "power_pump": {
             "target": {
-              "type": "one_self_team_filtered",
+              "type": "one_self_chara_or_leader_filtered",
               "filter": {
                 "feature": "キッド海賊団"
               }
@@ -74514,7 +74524,29 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "name": "氷鬼",
+                  "count": 1
+                }
+              },
+              {
+                "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
+              }
+            ],
+            "effect": [
+              {
+                "play_from_trash": {
+                  "filter": {
+                    "name": "氷鬼"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -74666,7 +74698,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_5cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_5cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ],
       "if": {
@@ -74945,6 +74980,9 @@
     {
       "_text": "OP04-079 activate_main: 【ターン1回】相手のキャラ1枚までを、このターン中、コスト-4し、自分のデッキの上から2枚をトラッシュに置く。その後、自分の特徴《ドレスローザ》を持つキャラ1枚",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "cost_minus": {
@@ -74956,15 +74994,14 @@
           "mill_self_top": 2
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {}
+          "ko_self_chara": {
+            "count": 1,
+            "filter": {
+              "feature": "ドレスローザ"
+            }
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP04-080": [
@@ -75052,6 +75089,9 @@
             "target": "one_opponent_character_any",
             "amount": 2
           }
+        },
+        {
+          "mill_self_top": 1
         }
       ],
       "if": {
@@ -75067,6 +75107,9 @@
             "target": "one_opponent_character_any",
             "amount": 2
           }
+        },
+        {
+          "mill_self_top": 1
         }
       ],
       "if": {

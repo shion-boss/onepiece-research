@@ -2502,6 +2502,38 @@ def _execute_effect_body(
             if _ko_any and state.effects_overlay:
                 # 「キャラが自分の効果で場を離れた時」 (OP07-038 ハンコック等)
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+        elif k == "ko_self_chara":
+            # 公式: 「自分の (filter) キャラ N 枚を、 KO する」 (= 自軍 KO drawback、 OP04-079 等)。
+            # cost 版 (optional_cost_then 内) と異なり do-effect として【KO時】等を発火する。
+            # spec: {"filter": {...}, "count": N, "exclude_self": bool}  もしくは short int (=count)。
+            spec_val = v if isinstance(v, dict) else {"count": int(v)}
+            kc_count = int(spec_val.get("count", 1))
+            kc_filt = spec_val.get("filter", {})
+            kc_excl = bool(spec_val.get("exclude_self", False))
+            cands = [
+                c for c in me.characters
+                if _matches_filter(c.card, kc_filt)
+                and not (kc_excl and self_inplay is not None
+                         and c.instance_id == self_inplay.instance_id)
+            ]
+            cands.sort(key=lambda c: c.power)  # AI 簡易: power 低い順を犠牲
+            victims = cands[:kc_count]
+            _ksc_any = False
+            for t in victims:
+                if t not in me.characters:
+                    continue
+                me.characters.remove(t)
+                me.trash.append(t.card)
+                if t.attached_dons > 0:
+                    me.don_rested += t.attached_dons
+                state.push_log(f"  効果: 自キャラKO → {t.card.name}")
+                _ksc_any = True
+                if state.effects_overlay:
+                    # 効果による KO も【KO時】を発動 (10-2-1-3)。 自分の効果なので by_opp_effect=False。
+                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
+            if _ksc_any and state.effects_overlay:
+                trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
         elif k == "trash_self_named_hand_or_field":
             # 公式: 「自分の手札か場の「<name>」1枚をトラッシュに置く」 (= OP06-033 方舟ノア コスト)。
             # 場 (stages) 優先 → なければ手札 から、 name 一致 1 枚 を トラッシュ。
