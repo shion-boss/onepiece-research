@@ -58005,7 +58005,7 @@
   ],
   "EB02-039": [
     {
-      "_text": "EB02-039 main: 自分の手札からパワー4000以下の特徴《ジェルマ66》を持つキャラカード1枚を捨てることができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分のトラ",
+      "_text": "EB02-039 main: ジェルマ66pow4000以下捨て→ドン条件で同名pow5000-7000をトラッシュから登場",
       "when": "main",
       "do": [
         {
@@ -58014,7 +58014,6 @@
               {
                 "discard_hand_with_filter": {
                   "filter": {
-                    "category": "CHARACTER",
                     "feature": "ジェルマ66",
                     "power_le": 4000
                   },
@@ -58024,12 +58023,22 @@
             ],
             "effect": [
               {
-                "play_from_trash": {
-                  "filter": {
-                    "feature": "ジェルマ66",
-                    "cost_le": 6
+                "conditional": {
+                  "if": {
+                    "don_diff_le": 0
                   },
-                  "limit": 1
+                  "do": [
+                    {
+                      "play_from_trash": {
+                        "filter": {
+                          "name_in_last_discarded": true,
+                          "power_ge": 5000,
+                          "power_le": 7000
+                        },
+                        "limit": 1
+                      }
+                    }
+                  ]
                 }
               }
             ]

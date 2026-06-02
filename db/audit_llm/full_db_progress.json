@@ -226,12 +226,12 @@
    "equivalence_verified": 216,
    "effect_cards": 4069,
    "unique_sig": 2334,
-   "remaining_unique_sig": 32,
-   "remaining_cards": 66,
+   "remaining_unique_sig": 31,
+   "remaining_cards": 65,
    "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
    "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
   },
-  "total_verified": 4455,
+  "total_verified": 4456,
   "total_cards": 4518,
   "double_discard_fix": {
    "opt型": 121,
@@ -267,7 +267,6 @@
    "gates": "smoke ERROR=0 / pytest EXIT=0 / faq sev>=5=0 / behavior reproducible"
   },
   "deferred_cards": [
-   "EB02-039",
    "EB03-001",
    "EB03-001_p1",
    "OP05-007",
@@ -794,6 +793,7 @@
   "EB02-036_p1",
   "EB02-037",
   "EB02-038",
+  "EB02-039",
   "EB02-040",
   "EB02-041",
   "EB02-041_p1",

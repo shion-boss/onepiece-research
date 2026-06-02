@@ -7143,14 +7143,18 @@ def _execute_effect_body(
                     d_count = int(df_spec.get("count", 1))
                     discarded = 0
                     new_hand = []
+                    _disc_names = []
                     for c in me.hand:
                         if discarded < d_count and _matches_filter(c, d_filt):
                             me.trash.append(c)
                             discarded += 1
+                            _disc_names.append(c.name)
                             state.push_log(f"  効果コスト: 手札捨て (filter) → {c.name}")
                         else:
                             new_hand.append(c)
                     me.hand = new_hand
+                    # EB02-039: 「捨てたカードと同名」 参照用に記録。
+                    state.last_discarded_names = _disc_names
                     continue
                 if "reveal_hand_with_filter" in cs:
                     # R4: 「自分の手札から特徴X を持つカード N 枚を公開することができる」 cost。
@@ -8405,9 +8409,13 @@ def _resolve_dynamic_filter(
     """
     if not isinstance(filt, dict) or not filt:
         return filt
-    if "cost_le_dynamic" not in filt and "or" not in filt:
+    if ("cost_le_dynamic" not in filt and "or" not in filt
+            and "name_in_last_discarded" not in filt):
         return filt
     out = dict(filt)
+    if out.pop("name_in_last_discarded", None):
+        # EB02-039: 「捨てたカードと同名」 = 直前に cost で捨てたカード名 で絞る。
+        out["name_in"] = list(getattr(state, "last_discarded_names", []) or [])
     src = out.pop("cost_le_dynamic", None)
     if src == "sum_both_life_count":
         out["cost_le"] = len(me.life) + len(opp.life)
