@@ -16466,13 +16466,25 @@
   ],
   "OP02-025_p1": [
     {
-      "_text": "OP02-025_p1 【起動メイン】【ターン1回】自分のキャラが1枚以下の場合、このターン中、次に自分が手札から登場させるコスト3以上の特徴《ワノ国》を持つキャラカードの支払うコストは1少なくなる。",
+      "_text": "OP02-025 activate_main: 自キャラ1以下で次のワノ国cost3+のコスト-1",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
-      "do": [],
-      "_missing_effect": "次に手札から登場させるコスト3以上《ワノ国》のコスト-1 (= filtered next-play cost、 deferred [[project_full_db_audit_phase]])"
+      "if": {
+        "self_chara_count_le": 1
+      },
+      "do": [
+        {
+          "reduce_play_cost_filtered_turn": {
+            "filter": {
+              "feature": "ワノ国",
+              "cost_ge": 3
+            },
+            "amount": 1
+          }
+        }
+      ]
     }
   ],
   "OP02-049": [
@@ -60353,10 +60365,27 @@
   ],
   "OP14-009_p1": [
     {
-      "_text": "OP14-009_p1 opp_attack: 【ターン1回】自分の手札2枚を捨てることができる：自分のリーダーとキャラ1枚を選ぶ。選んだカードそれぞれの元々のパワーを、このバトル中、入れ替える。",
+      "_text": "OP14-009 opp_attack: 手札2捨て→自リーダーとキャラ元々パワー入替(このバトル中)",
       "when": "opp_attack",
-      "do": [],
-      "_missing_effect": "【相手のアタック時】【ターン1回】手札2枚捨て：自リーダーとキャラ1枚の元々のパワーをこのバトル中入れ替える。 base-power swap (= OP14-001同class) 未実装のため無効化 (旧二重discard回避)"
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 2
+              }
+            ],
+            "effect": [
+              {
+                "swap_base_power_self_leader_chara": true
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP14-011": [
@@ -61565,16 +61594,19 @@
   ],
   "OP13-023_p1": [
     {
-      "_text": "OP13-023_p1 on_play: 自分のドン‼2枚までを、アクティブにする。その後、自分は、このターン中、元々のコスト5以上のキャラカードを登場できない。",
+      "_text": "OP13-023 on_play: 自分のドン‼2枚までを、アクティブにする。その後、自分は、このターン中、元々のコスト5以上のキャラカードを登場できない。",
       "when": "on_play",
       "do": [
         {
           "untap_don": 2
+        },
+        {
+          "block_chara_play_cost_ge": 5
         }
       ]
     },
     {
-      "_text": "OP13-023_p1 on_ko: 自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
+      "_text": "OP13-023 on_ko: 自分の手札からコスト5以下のキャラカード1枚までを、レストで登場させる。",
       "when": "on_ko",
       "do": [
         {
@@ -61965,7 +61997,21 @@
   ],
   "OP13-064_p1": [
     {
-      "_text": "OP13-064_p1 on_play: ドン‼-3：自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。その後、相手のキャラすべてを、次の相手のエンドフェイズ終了時まで、パワー-2",
+      "_text": "OP13-064 static: 自陣のロジャー海賊団以外キャラ 効果無効",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_effect_negate_filtered_static": {
+            "exclude_filter": {
+              "feature_contains": "ロジャー海賊団"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-064 on_play: ドン‼-3：自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。その後、相手のキャラすべてを、次の相手のエンドフェイズ終了時まで、パワー-2",
       "when": "on_play",
       "do": [
         {
@@ -83046,7 +83092,7 @@
   ],
   "P-084_r1": [
     {
-      "_text": "P-084_r1 このキャラはアタックできない。",
+      "_text": "P-084 このキャラはアタックできない。",
       "when": "on_attached_don",
       "n": 0,
       "do": [
@@ -83056,7 +83102,32 @@
       ]
     },
     {
-      "_text": "P-084_r1 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。(自リーダーがバギーの時コスト3と4のキャラすべてアタック不可 は未実装=architectural)",
+      "_text": "P-084 static: leaderバギーで コスト3,4キャラ全アタック不可",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_name": "バギー"
+      },
+      "do": [
+        {
+          "set_cannot_attack_filtered_static": {
+            "filter": {
+              "or_clauses": [
+                {
+                  "cost_eq": 3
+                },
+                {
+                  "cost_eq": 4
+                }
+              ]
+            },
+            "scope": "both"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "P-084 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。(自リーダーがバギーの時コスト3と4のキャラすべてアタック不可 は未実装=architectural)",
       "when": "on_play",
       "do": [
         {
@@ -85040,34 +85111,20 @@
   ],
   "P-059_p1": [
     {
-      "_text": "P-059_p1 counter: 自分のリーダーが「ウタ」の場合、自分の場のキャラを任意の枚数手札に戻してもよい。自分のリーダーかキャラ1枚までは、このバトル中、戻したキャラ1枚につきパワー+2",
+      "_text": "P-059 counter: leaderウタ 自キャラ任意戻し→戻した枚数×2000 pump",
       "when": "counter",
-      "do": [
-        {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "return_self_chara_to_hand": {
-                  "count": 1,
-                  "filter": {}
-                }
-              }
-            ],
-            "effect": [
-              {
-                "power_pump": {
-                  "target": "one_self_team_any",
-                  "amount": 2000,
-                  "duration": "battle"
-                }
-              }
-            ]
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "return_self_charas_then_pump_per": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
+        }
+      ]
     }
   ],
   "P-060_p1": [
@@ -100310,7 +100367,13 @@
           "mill_self_life_to_trash": 1
         }
       ],
-      "optional": true
+      "optional": true,
+      "if": {
+        "target": "self",
+        "either_side_chara_named_absent": {
+          "name": "モンキー・D・ルフィ"
+        }
+      }
     }
   ],
   "OP05-107": [
@@ -100351,7 +100414,13 @@
           "mill_self_life_to_trash": 1
         }
       ],
-      "optional": true
+      "optional": true,
+      "if": {
+        "target": "self",
+        "either_side_chara_named_absent": {
+          "name": "モンキー・D・ルフィ"
+        }
+      }
     }
   ],
   "OP04-005": [
