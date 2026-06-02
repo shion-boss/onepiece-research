@@ -409,6 +409,8 @@ def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
     """defender が attacker の attribute によってバトル KO 不可かどうか判定。
     P-052 ミホーク 「属性(斬)を持つカードとのバトルで KO されない」 等。
     """
+    atk_attrs = {attacker.card.attribute} if attacker.card.attribute else set()
+    atk_attrs |= getattr(attacker, "granted_attributes", set())
     atk_attr = attacker.card.attribute or ""
     if (
         defender.battle_ko_immune_static
@@ -416,7 +418,7 @@ def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
         or defender.battle_ko_immune_through_opp_turn
     ):
         return True
-    if atk_attr and atk_attr in defender.ko_immune_battle_attributes_in:
+    if atk_attrs & set(defender.ko_immune_battle_attributes_in):
         return True
     if defender.ko_immune_battle_attributes_not_in:
         # 「属性 X を持たないカードとのバトルで KO されない」 (P-025 スモーカー等)
@@ -444,6 +446,7 @@ def _reset_turn_buff(state: GameState) -> None:
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.turn_buff = 0
             ip.granted_keywords = set()
+            ip.granted_attributes = set()
             ip.ko_immune_until_turn_end = False
             ip.battle_ko_immune_until_turn_end = False
             ip.blocker_disabled_until_turn_end = False

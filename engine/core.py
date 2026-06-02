@@ -212,6 +212,8 @@ class InPlay:
     next_turn_buff: int = 0
     # 動的に付与されるキーワード (event 由来 = give_keyword/give_rush 等の単発効果)。Phase.END でクリア
     granted_keywords: set = field(default_factory=set)
+    # 動的付与された属性 (give_attribute、 OP15-093)。 Phase.END/refresh でクリア。
+    granted_attributes: set = field(default_factory=set)
     # 静的に付与されるキーワード (on_attached_don 等の常在条件由来)。
     # evaluate_static_effects で毎回 False から再計算される。 ドンが外れれば消える。
     static_granted_keywords: set = field(default_factory=set)

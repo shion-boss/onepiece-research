@@ -5330,6 +5330,16 @@ def _execute_effect_body(
                                                "amount": amount * returned, "duration": duration}},
                                state, me, opp, self_inplay)
             state.push_log(f"  効果: 自キャラ{returned}枚戻し -> +{amount*returned}")
+        elif k == "give_attribute":
+            # 「(target)は、 このターン中、 属性(X)を得る」 (OP15-093)。 granted_attributes に追加。
+            spec_val = v if isinstance(v, dict) else {}
+            attr = spec_val.get("attribute", "")
+            target_spec = spec_val.get("target", "self")
+            for t in _resolve_target(target_spec, state, me, opp, self_inplay,
+                                     outer_kind="give_attribute", outer_value=target_spec):
+                if attr:
+                    t.granted_attributes.add(attr)
+            state.push_log(f"  効果: 属性({attr}) 付与")
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
@@ -8610,6 +8620,10 @@ def evaluate_static_effects(
         for inplay in candidates:
             bundle = effects_overlay.get(inplay.card.card_id)
             if bundle is None:
+                continue
+            # 「効果が無効」 のキャラは静的効果も適用しない (= OP14-056 自身negateで
+            # cannot_attack static 解除 / 一般に negate されたキャラの常在も無効化)。
+            if "効果無効" in inplay.granted_keywords:
                 continue
             for eff in bundle.effects:
                 if eff.get("when") != "on_attached_don":

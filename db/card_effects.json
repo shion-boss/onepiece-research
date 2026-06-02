@@ -11193,6 +11193,19 @@
           "set_cannot_attack_static": "self"
         }
       ]
+    },
+    {
+      "_text": "OP14-056 on_self_hand_discarded: 効果で手札捨てられた時 このターン中効果無効",
+      "when": "on_self_hand_discarded",
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "効果無効",
+            "duration": "turn"
+          }
+        }
+      ]
     }
   ],
   "OP11-082": [
@@ -59923,27 +59936,34 @@
   ],
   "OP15-093": [
     {
-      "_text": "OP15-093 activate_main: このキャラをトラッシュに置くことができる：自分のトラッシュが15枚以上ある場合、自分のキャラの「モンキー・Ｄ・ルフィ」1枚までは、このターン中、【速攻：キャラ】",
+      "_text": "OP15-093 activate_main: このキャラトラッシュ：トラッシュ15+で ルフィに速攻：キャラ+属性(斬)",
       "when": "activate_main",
-      "do": [
-        {
-          "give_keyword": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "name": "モンキー・Ｄ・ルフィ"
-              }
-            },
-            "keyword": "速攻：キャラ"
-          }
-        }
-      ],
       "cost": {
         "trash_self": true
       },
       "if": {
         "self_trash_count_ge": 15
-      }
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "モンキー・D・ルフィ"
+            },
+            "keyword": "速攻：キャラ"
+          }
+        },
+        {
+          "give_attribute": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "モンキー・D・ルフィ"
+            },
+            "attribute": "斬"
+          }
+        }
+      ]
     }
   ],
   "OP15-095": [
