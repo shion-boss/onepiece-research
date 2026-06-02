@@ -1489,10 +1489,15 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # ブロックされた場合: 勝てばブロッカーが KO、 負ければ生存 (リーダーへのダメージなし)
         if is_blocked:
             if atk_power >= defender_power:
+                _vs_leader_immune = (
+                    actual_target.battle_ko_immune_vs_leader
+                    and attacker is me.leader
+                )
                 if (
                     not actual_target.ko_immune_until_turn_end
                     and not actual_target.static_ko_immune
                     and not _battle_ko_immune_by_attribute(actual_target, attacker)
+                    and not _vs_leader_immune
                 ):
                     opp.characters.remove(actual_target)
                     opp.trash.append(actual_target.card)

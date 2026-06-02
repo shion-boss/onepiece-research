@@ -86682,6 +86682,18 @@
   ],
   "ST08-002": [
     {
+      "_text": "ST08-002 static: リーダーとのバトルでKOされない",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_battle_ko_immune_vs_leader": {
+            "target": "self"
+          }
+        }
+      ]
+    },
+    {
       "_text": "ST08-002 activate_main: このキャラをレストにできる：相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "activate_main",
       "do": [
@@ -98797,17 +98809,18 @@
   "OP09-025": [
     {
       "_text": "OP09-025 leader_passive (条件: leader_feature=ODYSSEY): このキャラはリーダーとのバトルでKOされない。",
-      "_doc": "「リーダーとのバトル」 限定 (= 相手キャラとのバトルでは KO される) は engine 未配線。 簡略: battle_ko_immune (= 全バトルで KO されない) で 近似。 leader_feature 条件 で 発動 ガード。",
       "when": "on_attached_don",
+      "n": 0,
       "if": {
         "leader_feature": "ODYSSEY"
       },
       "do": [
         {
-          "set_ko_immune_battle_only": true
+          "set_battle_ko_immune_vs_leader": {
+            "target": "self"
+          }
         }
-      ],
-      "n": 0
+      ]
     }
   ],
   "OP09-045": [
