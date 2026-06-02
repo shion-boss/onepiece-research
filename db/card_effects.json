@@ -98727,7 +98727,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_feature": "ジェルマ66"
+        "leader_feature": "ジェルマ66",
+        "don_diff_le": -2
       },
       "do": [
         {
@@ -98743,7 +98744,7 @@
     {
       "_text": "このキャラのパワー+1000。",
       "when": "on_attached_don",
-      "n": 0,
+      "n": 2,
       "if": {
         "self_turn": true
       },
@@ -98751,7 +98752,12 @@
         {
           "power_pump": {
             "target": "self",
-            "amount": 1000,
+            "amount": 0,
+            "amount_per": {
+              "source": "self_trash_count",
+              "multiplier": 1000,
+              "divisor": 5
+            },
             "duration": "static"
           }
         }
@@ -98836,7 +98842,8 @@
       "if": {
         "self_chara_filtered_count_ge": {
           "filter": {
-            "feature": "シャンドラの戦士"
+            "feature": "シャンドラの戦士",
+            "exclude_name": "ラキ"
           },
           "count": 1
         }
@@ -99197,7 +99204,7 @@
           "filter": {
             "name": "クンフージュゴン"
           },
-          "count": 1
+          "count": 2
         }
       },
       "do": [
@@ -99224,7 +99231,8 @@
             "target": {
               "type": "all_self_chara_filtered",
               "filter": {
-                "feature": "アラバスタ王国"
+                "feature": "アラバスタ王国",
+                "exclude_name": "ネフェルタリ・コブラ"
               }
             },
             "amount": 1000,
