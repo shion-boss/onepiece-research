@@ -61151,6 +61151,9 @@
     {
       "_text": "OP13-104 on_ko: 自分の手札1枚を捨てることができる：自分のリーダーが多色の場合、自分のデッキの上から1枚までを、ライフの上に加える。 [dd-fix]",
       "when": "on_ko",
+      "if": {
+        "leader_color": "多色"
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -61808,20 +61811,36 @@
   ],
   "OP12-009": [
     {
-      "_text": "OP12-009 on_play: 自分の手札からイベント2枚を公開することができる：このキャラは、このターン中、【速攻】を得る。その後、次の相手のエンドフェイズ終了時まで、このキャラのパワー+1",
+      "_text": "OP12-009 on_play: 自分の手札からイベント2枚を公開することができる：このキャラは、このターン中、【速攻】を得る。その後、次の相手のエンドフェイズ終了時まで、このキャラのパワー+1000。",
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻"
-          }
-        },
-        {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ]
@@ -63191,20 +63210,11 @@
   ],
   "OP11-005": [
     {
-      "_text": "on_attached_don n=1: このキャラは属性(特)を持たないキャラの効果でKOされない",
+      "_text": "OP11-005 【ドン‼×1】このキャラは属性(特)を持たないキャラの効果でKOされない",
       "when": "on_attached_don",
       "n": 1,
-      "do": [
-        {
-          "set_immune_attribute_in_battle": {
-            "target": "self",
-            "attributes": [
-              "特"
-            ],
-            "negate": true
-          }
-        }
-      ]
+      "do": [],
+      "_missing_effect": "属性条件付き効果KO耐性 未実装: engine は battle KO の attribute 免疫 (set_immune_attribute_in_battle / game.py:415-420) のみ。 本カードは『効果でKOされない』=effect-KO 免疫で scope 不一致 (P-025『バトルで』 は同primitive正)。 KO source の attribute を effect-KO path で参照する機構が要"
     }
   ],
   "OP11-006": [
@@ -63612,7 +63622,7 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_cost_eq_1"
         }
       ]
     }
