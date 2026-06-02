@@ -77711,19 +77711,35 @@
   ],
   "OP01-015": [
     {
-      "_text": "OP01-015 on_attack: 自分の手札1枚を捨てることができる：自分のトラッシュの「トニートニー・チョッパー」以外のコスト4以下の特徴《麦わらの一味》を持つキャラカード1枚までを、手札に加 [don-gate]",
+      "_text": "OP01-015 【ドン‼×1】【アタック時】自分の手札1枚を捨てることができる：自分のトラッシュの「トニートニー・チョッパー」以外のコスト4以下の特徴《麦わらの一味》を持つキャラカード1枚までを、手札に加える。",
       "when": "on_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 4,
+                    "feature": "麦わらの一味",
+                    "exclude_name": "トニートニー・チョッパー"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP01-019": [
@@ -77919,6 +77935,7 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
+              "category": "CHARACTER",
               "feature": "麦わらの一味"
             },
             "limit": 1,
@@ -86640,19 +86657,35 @@
   ],
   "OP01-015_p1": [
     {
-      "_text": "OP01-015_p1 on_attack: 自分の手札1枚を捨てることができる：自分のトラッシュの「トニートニー・チョッパー」以外のコスト4以下の特徴《麦わらの一味》を持つキャラカード1枚までを、手札に加 [don-gate]",
+      "_text": "OP01-015_p1 【ドン‼×1】【アタック時】自分の手札1枚を捨てることができる：自分のトラッシュの「トニートニー・チョッパー」以外のコスト4以下の特徴《麦わらの一味》を持つキャラカード1枚までを、手札に加える。",
       "when": "on_attack",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
-      "cost": {
-        "discard_hand": 1
-      },
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "trash_to_hand": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "cost_le": 4,
+                    "feature": "麦わらの一味",
+                    "exclude_name": "トニートニー・チョッパー"
+                  },
+                  "limit": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP01-021_p1": [
@@ -90651,6 +90684,7 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
+              "category": "CHARACTER",
               "feature": "麦わらの一味"
             },
             "limit": 1,
