@@ -3831,6 +3831,29 @@ def _execute_effect_body(
                 else:
                     new_trash.append(card)
             me.trash[:] = new_trash
+        elif k == "play_stage_from_hand":
+            # 「自分の手札から[name/filter]のステージ1枚を登場させる」 (EB02-013 ゾウ /
+            # EB03-044 鬼ヶ島 / OP08-110 アッパーヤード / EB02-032 ガレーラ 等)。
+            # play_from_hand は CHARACTER 専用なので STAGE は本 primitive。 既存ステージは置換。
+            spec = v if isinstance(v, dict) else {"filter": {}}
+            filt = spec.get("filter", {}) if isinstance(spec, dict) else {}
+            idx = None
+            for i, card in enumerate(me.hand):
+                if card.category == Category.STAGE and _matches_filter(card, filt):
+                    idx = i
+                    break
+            if idx is None:
+                state.push_log("  効果: play_stage_from_hand 該当 ステージ なし (不発)")
+            else:
+                card = me.hand.pop(idx)
+                # 公式: ステージは1枚まで → 既存ステージはトラッシュへ置換。
+                for s in list(me.stages):
+                    me.stages.remove(s)
+                    me.trash.append(s.card)
+                    if s.attached_dons > 0:
+                        me.don_rested += s.attached_dons
+                me.stages.append(InPlay.of(card, sickness=False))
+                state.push_log(f"  効果: 手札からステージ登場 {card.name}")
         elif k == "play_from_hand":
             # 「自分の手札からキャラ1枚を 0 コストで登場」(緑紫ルフィ起動メイン / OP10-071 ドフラ 等)。
             # spec: {"filter": {"feature": "...", "cost_le": N}, "limit": 1, "rested": bool}
