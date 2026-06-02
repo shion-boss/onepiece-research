@@ -6733,6 +6733,15 @@ def _execute_effect_body(
                     if not opp.characters or avail_don < ad_n:
                         can_pay = False
                         break
+                elif "attach_active_don_to_named_chara" in cs:
+                    # 「自分の「<name>」1枚にアクティブのドンN枚を付与できる：」 cost
+                    # (EB04-009/OP12-016/019 レイリー等)。 該当 name のキャラ + アクティブドン必要。
+                    aa_spec = cs["attach_active_don_to_named_chara"]
+                    aa_name = aa_spec.get("name", "") if isinstance(aa_spec, dict) else str(aa_spec)
+                    aa_n = int(aa_spec.get("count", 1)) if isinstance(aa_spec, dict) else 1
+                    if me.don_active < aa_n or not any(c.card.name == aa_name for c in me.characters):
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -6818,6 +6827,18 @@ def _execute_effect_body(
                         take += more
                     tgt.attached_dons += take
                     state.push_log(f"  効果コスト: 相手ドン{take}を相手キャラ{tgt.card.name}に付与")
+                    continue
+                if "attach_active_don_to_named_chara" in cs:
+                    aa_spec = cs["attach_active_don_to_named_chara"]
+                    aa_name = aa_spec.get("name", "") if isinstance(aa_spec, dict) else str(aa_spec)
+                    aa_n = int(aa_spec.get("count", 1)) if isinstance(aa_spec, dict) else 1
+                    for c in me.characters:
+                        if c.card.name == aa_name:
+                            give = min(aa_n, me.don_active)
+                            me.don_active -= give
+                            c.attached_dons += give
+                            state.push_log(f"  効果コスト: アクティブドン{give}を{aa_name}に付与")
+                            break
                     continue
                 if cs.get("rest_self") is True:
                     # rest_self: True 形式 (= self_inplay = ステージ/キャラ を rest)。

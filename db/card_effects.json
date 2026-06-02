@@ -24148,27 +24148,40 @@
     {
       "_text": "OP10-057 on_play: 自分の、リーダーかステージ1枚を、レストにできる：自分のリーダーが「ウソップ」の場合、自分のデッキの上から5枚を見て、「レオ」以外の特徴《ドレスローザ》を持つカ [dd-mand]",
       "when": "on_play",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        },
-        {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {
-              "feature": "ドレスローザ",
-              "name": "レオ",
-              "exclude_name": "レオ"
-            },
-            "limit": 2,
-            "destination": "hand",
-            "rest_remain": "bottom"
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウソップ"
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {},
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "feature": "ドレスローザ",
+                    "exclude_name": "レオ"
+                  },
+                  "limit": 2,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP10-058": [
@@ -54878,10 +54891,24 @@
       "when": "main",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_active_don_to_named_chara": {
+                  "name": "シルバーズ・レイリー",
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -62823,13 +62850,8 @@
           "optional_cost_then": {
             "cost": [
               {
-                "attach_active_don": {
-                  "target": {
-                    "type": "one_self_chara_filtered",
-                    "filter": {
-                      "name": "シルバーズ・レイリー"
-                    }
-                  },
+                "attach_active_don_to_named_chara": {
+                  "name": "シルバーズ・レイリー",
                   "count": 2
                 }
               }
@@ -62934,10 +62956,24 @@
       "when": "main",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_active_don_to_named_chara": {
+                  "name": "シルバーズ・レイリー",
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
