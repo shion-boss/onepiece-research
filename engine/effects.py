@@ -1060,6 +1060,12 @@ def eval_condition(
             )
             if (self_don - opp_don) > n:
                 return False
+        elif k == "chara_diff_le":
+            # 自分のキャラ数 - 相手のキャラ数 が N 以下 (= 「相手より N 以上少ない」 を表現、
+            # don_diff_le と同形)。 例: chara_diff_le: -2 → 自キャラが相手より 2 枚以上少ない (OP10-098)。
+            n = int(v)
+            if (len(me.characters) - len(opp.characters)) > n:
+                return False
         elif k == "life_zero_either":
             # 自分か相手のライフが 0 (OR)。 OP09-118 用
             if bool(v) != (len(me.life) == 0 or len(opp.life) == 0):
