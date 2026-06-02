@@ -6696,6 +6696,13 @@ def _execute_effect_body(
                     if self_inplay is None or self_inplay not in me.characters:
                         can_pay = False
                         break
+                elif "return_self_to_deck_bottom" in cs:
+                    # 「このカードを持ち主のデッキの下に置く」 cost (OP10-026/027 キャラ /
+                    # EB01-030 ステージ)。 self_inplay が場 (chara/stage) にいる必要。
+                    if self_inplay is None or (
+                        self_inplay not in me.characters and self_inplay not in me.stages):
+                        can_pay = False
+                        break
                 elif "return_self_don_to_deck" in cs:
                     # 公式 「ドン!! -N (自分の場のドンを N 枚ドンデッキに戻すことができる)」
                     # optional cost として支払可。 場のドン (active+rested) が N 枚以上必要。
@@ -7017,6 +7024,20 @@ def _execute_effect_body(
                     if self_inplay is not None and not self_inplay.rested:
                         self_inplay.rested = True
                         state.push_log(f"  効果コスト: 自身レスト {self_inplay.card.name}")
+                    continue
+                if "return_self_to_deck_bottom" in cs:
+                    # 「このカードを持ち主のデッキの下に置く」 cost。 self_inplay を chara/stage
+                    # から取り除き me.deck 末尾へ。 付与ドンはレストでコストエリアへ。
+                    if self_inplay is not None:
+                        pool = me.characters if self_inplay in me.characters else (
+                            me.stages if self_inplay in me.stages else None)
+                        if pool is not None:
+                            pool.remove(self_inplay)
+                            me.deck.append(self_inplay.card)
+                            if self_inplay.attached_dons > 0:
+                                me.don_rested += self_inplay.attached_dons
+                                self_inplay.attached_dons = 0
+                            state.push_log(f"  効果コスト: {self_inplay.card.name} を デッキ下へ")
                     continue
                 if "discard_hand_with_filter" in cs:
                     df_spec = cs["discard_hand_with_filter"]

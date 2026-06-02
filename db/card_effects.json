@@ -21501,14 +21501,27 @@
   ],
   "EB01-030": [
     {
-      "_text": "EB01-030 activate_main: このカードと自分の手札1枚を好きな順番でデッキの下に置くことができる：カード2枚を引く。",
+      "_text": "EB01-030 activate_main: このカード+手札1をデッキ下→2引く",
       "when": "activate_main",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "self_hand_to_deck_bottom": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "return_self_to_deck_bottom": true
+              },
+              {
+                "self_hand_to_deck_bottom": {
+                  "amount": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
         }
       ]
     },
@@ -65873,16 +65886,23 @@
   ],
   "OP10-026": [
     {
-      "_text": "OP10-026 activate_main: このキャラと自分のトラッシュからパワー0の「錦えもん」1枚を好きな順番でデッキの下に置くことができる：自分の手札からコスト6の「錦えもん」1枚までを、登場させる",
+      "_text": "OP10-026 activate_main: このキャラ+トラッシュのパワー0錦えもんをデッキ下→手札からコスト6錦えもん登場",
       "when": "activate_main",
       "do": [
         {
           "optional_cost_then": {
             "cost": [
               {
-                "return_self_with_trash_to_deck_bottom": {
-                  "name": "錦えもん",
-                  "power_eq": 0
+                "return_self_to_deck_bottom": true
+              },
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "name": "錦えもん",
+                    "power_le": 0,
+                    "power_ge": 0
+                  },
+                  "limit": 1
                 }
               }
             ],
@@ -65892,7 +65912,8 @@
                   "filter": {
                     "name": "錦えもん",
                     "cost_eq": 6
-                  }
+                  },
+                  "limit": 1
                 }
               }
             ]
@@ -65903,16 +65924,23 @@
   ],
   "OP10-027": [
     {
-      "_text": "OP10-027 activate_main: このキャラと自分のトラッシュからパワー1000の「錦えもん」1枚を好きな順番でデッキの下に置くことができる：自分の手札からコスト6の「錦えもん」1枚までを、登場",
+      "_text": "OP10-027 activate_main: このキャラ+トラッシュのパワー1000錦えもんをデッキ下→手札からコスト6錦えもん登場",
       "when": "activate_main",
       "do": [
         {
           "optional_cost_then": {
             "cost": [
               {
-                "return_self_with_trash_to_deck_bottom": {
-                  "name": "錦えもん",
-                  "power_eq": 1000
+                "return_self_to_deck_bottom": true
+              },
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "name": "錦えもん",
+                    "power_le": 1000,
+                    "power_ge": 1000
+                  },
+                  "limit": 1
                 }
               }
             ],
@@ -65922,7 +65950,8 @@
                   "filter": {
                     "name": "錦えもん",
                     "cost_eq": 6
-                  }
+                  },
+                  "limit": 1
                 }
               }
             ]
