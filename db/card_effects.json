@@ -16311,9 +16311,21 @@
   ],
   "OP03-040_p1": [
     {
-      "_text": "on_attached_don n=1: このリーダーのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から1枚をトラッシュに置いてもよい",
+      "_text": "OP03-040 static rule: デッキ0で敗北の代わりに勝利",
       "when": "on_attached_don",
-      "n": 1,
+      "n": 0,
+      "do": [
+        {
+          "set_deck_out_wins": true
+        }
+      ]
+    },
+    {
+      "_text": "OP03-040 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上1trash(任意)",
+      "when": "on_opp_life_taken",
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
           "mill_self_top": 1
@@ -19232,11 +19244,20 @@
   ],
   "OP02-002_p1": [
     {
-      "_text": "OP02-002 【自分のターン中】このリーダーか自分のキャラにドン‼が付与された時、相手のコスト7以下のキャラ1枚までを、このターン中、コスト-1。",
-      "when": "on_attached_don",
-      "n": 0,
-      "do": [],
-      "_missing_effect": "ドン付与時トリガー (on_don_attached イベント未実装)。 旧 on_attached_don n0 + cost_minus は _recompute_static 毎にスタックする有害近似のため無効化。 要: DON付与時 trigger event + cost_minus(相手cost≤7, turn, 1枚選択)"
+      "_text": "OP02-002 on_self_don_attached: ドン付与時 相手cost7以下を このターン中コスト-1",
+      "when": "on_self_don_attached",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_cost_le_7",
+            "amount": 1,
+            "duration": "turn"
+          }
+        }
+      ]
     }
   ],
   "OP02-026": [
@@ -56685,10 +56706,24 @@
   ],
   "EB03-031": [
     {
-      "_text": "EB03-031: 【自分のターン中】【登場時】ドン‼-1：自分のリーダーが「サンジ」の場合、自分のトラッシュにあるコスト7以下のイベント1枚までの、【メイン】効果を発動する。",
-      "_missing_effect": "トラッシュのコスト7以下イベントの【メイン】効果を発動する primitive 未実装。 旧 play_event_from_hand は手札からの誤近似(自動近似禁止)につき無効化。 要: ドン-1 cost + leader=サンジ 条件 + trash event main 発動 primitive",
+      "_text": "EB03-031 on_play: ドン-1 サンジleaderで トラッシュのコスト7以下イベントのメイン効果発動",
       "when": "on_play",
-      "do": []
+      "cost": {
+        "pay_don": 1
+      },
+      "if": {
+        "leader_name": "サンジ"
+      },
+      "do": [
+        {
+          "fire_event_main_from_trash": {
+            "filter": {
+              "category": "EVENT",
+              "cost_le": 7
+            }
+          }
+        }
+      ]
     }
   ],
   "EB03-031_p1": [

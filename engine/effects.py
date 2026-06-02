@@ -5071,6 +5071,34 @@ def _execute_effect_body(
             me.stages.append(InPlay.of(card, rested=False, sickness=False))
             state.push_log(f"  効果: デッキ → ステージ 登場 {card.name} (特徴《{feature}》)")
             state.rng.shuffle(me.deck)
+        elif k == "fire_event_main_from_trash":
+            # 「自分のトラッシュにある(filter)イベント1枚までの、【メイン】効果を発動する」
+            # (EB03-031 サンジ)。 AI: 該当イベントの先頭1枚の main do を発火 (イベントはトラッシュに残留)。
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            depth = getattr(state, "_fire_self_depth", 0)
+            if depth >= 2:
+                continue
+            chosen = None
+            for c in me.trash:
+                if c.category == Category.EVENT and _matches_filter(c, filt):
+                    chosen = c
+                    break
+            if chosen is None:
+                state.push_log("  効果: トラッシュに該当イベントなし (不発)")
+            else:
+                bundle = state.effects_overlay.get(chosen.card_id) if state.effects_overlay else None
+                if bundle is not None:
+                    state._fire_self_depth = depth + 1
+                    try:
+                        for ev in bundle.effects:
+                            if ev.get("when") == "main" and eval_all_conditions(ev, state, me, self_inplay):
+                                for prim in ev.get("do", []):
+                                    execute_effect(prim, state, me, opp, self_inplay)
+                                break
+                    finally:
+                        state._fire_self_depth = depth
+                state.push_log(f"  効果: トラッシュのイベント {chosen.name} の【メイン】発動")
         elif k == "fire_self_effect":
             # このカードの【XXX】効果を発動する。 同 bundle 内の指定 when 効果を再発火。
             # 再帰防止: state._fire_self_depth で深度制限 (max 2)。
