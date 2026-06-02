@@ -9826,6 +9826,19 @@ def _can_pay_replace_cost(
             n = int(cs["discard_hand"])
             if len(me.hand) < n:
                 return False
+        elif "rest_self_leader_or_stage_filtered" in cs:
+            # 「代わりに自分のリーダーかステージ1枚をレストにできる」 (OP04-082/OP11-110)。
+            # リーダー (アクティブ) か filter 一致ステージ が rest 可能か。
+            rl_spec = cs["rest_self_leader_or_stage_filtered"]
+            rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
+            pool = ([me.leader] if me.leader is not None else []) + list(me.stages)
+            if not any(not ip.rested and _matches_filter(ip.card, rl_filt) for ip in pool):
+                return False
+        elif "return_self_don_to_deck" in cs:
+            # 「代わりに自分の場のドン1枚をドンデッキに戻す」 (EB04-031)。 場にドン必要。
+            n = int(cs["return_self_don_to_deck"]) if not isinstance(cs["return_self_don_to_deck"], dict) else 1
+            if (me.don_active + me.don_rested) < n:
+                return False
         elif "once_per_turn" in cs:
             # 【ターン1回】 — 同一ターン内 同一 holder の 同一 replace 発動 を 1 回 に 制限。
             # holder_card_id があれば per-card per-turn フラグ で 管理。
@@ -9885,6 +9898,25 @@ def _pay_replace_cost(
                 me.hand.sort(key=lambda c: (c.power, c.cost))
                 me.trash.append(me.hand.pop(0))
                 state.push_log(f"  離脱置換コスト: 手札 1 枚捨て")
+        elif "rest_self_leader_or_stage_filtered" in cs:
+            rl_spec = cs["rest_self_leader_or_stage_filtered"]
+            rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
+            pool = list(me.stages) + ([me.leader] if me.leader is not None else [])
+            for ip in pool:  # ステージ優先で rest (リーダー温存)
+                if not ip.rested and _matches_filter(ip.card, rl_filt):
+                    ip.rested = True
+                    state.push_log(f"  離脱置換コスト: 自レスト {ip.card.name}")
+                    break
+        elif "return_self_don_to_deck" in cs:
+            n = int(cs["return_self_don_to_deck"]) if not isinstance(cs["return_self_don_to_deck"], dict) else 1
+            taken = min(n, me.don_active)
+            me.don_active -= taken
+            me.don_remaining_in_deck += taken
+            if taken < n:
+                more = min(n - taken, me.don_rested)
+                me.don_rested -= more
+                me.don_remaining_in_deck += more
+            state.push_log(f"  離脱置換コスト: ドン{n}をドンデッキへ")
 
 
 def _replace_ko_match(

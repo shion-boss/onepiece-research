@@ -23700,11 +23700,38 @@
   ],
   "OP11-110": [
     {
+      "_text": "OP11-110 replace_ko: 代わりに魚人島かしらほしをレスト",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "rest_self_leader_or_stage_filtered": {
+            "filter": {}
+          }
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
+    {
       "_text": "OP11-110 on_play: 自分のライフの上か下から1枚を手札に加えることができる：相手のコスト1以下のキャラ1枚までを、KOする。",
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -27056,6 +27083,22 @@
     }
   ],
   "OP04-082": [
+    {
+      "_text": "OP04-082 replace_ko: 代わりにリーダーかコリーダコロシアムをレスト",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "rest_self_leader_or_stage_filtered": {
+            "filter": {}
+          }
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
     {
       "_text": "OP04-082 on_play: 自分のリーダーが「レベッカ」の場合、相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から1枚をトラッシュに置く。",
       "when": "on_play",
@@ -55435,16 +55478,42 @@
   ],
   "EB04-031": [
     {
+      "_text": "EB04-031 replace_ko: 代わりに自ドン1をドンデッキへ",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "return_self_don_to_deck": 1
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
+    {
       "_text": "EB04-031 activate_main: 【ターン1回】自分のリーダーが特徴《百獣海賊団》を持ち、自分のキャラの他の「キング」がいない場合、ドン‼デッキからドン‼1枚までをアクティブで追加し、さらに1枚",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "leader_feature": "百獣海賊団",
+        "self_chara_filtered_count_le": {
+          "filter": {
+            "name": "キング"
+          },
+          "count": 1
+        }
+      },
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 1
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "EB04-031_p1": [
@@ -98020,16 +98089,22 @@
   ],
   "OP13-078": [
     {
-      "_text": "activate_main: add_don 補完",
-      "when": "activate_main",
+      "_text": "OP13-078 on_self_chara_ko: ロジャーキャラが相手効果でKO時 ドン1レスト追加(KO経路近似)",
+      "when": "on_self_chara_ko",
+      "if": {
+        "by_opp_effect": true,
+        "victim_feature_in": [
+          "ロジャー海賊団"
+        ]
+      },
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "add_rested_don": 1
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP13-109": [
