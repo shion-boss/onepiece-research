@@ -8,6 +8,19 @@ from enum import Enum, auto
 from typing import Any, Callable, Optional
 
 
+def normalize_card_name(s: str) -> str:
+    """カード名の表記ゆれを正規化する。
+
+    公式データには 「モンキー・Ｄ・ルフィ」 (全角Ｄ) と 「モンキー・D・ルフィ」 (半角D) が
+    混在し、 効果テキスト/overlay も両形を使う。 名前一致 (= 「『X』 がいる場合」 や
+    named target) は文字列完全一致なので、 全角Ｄ↔半角D を揃えないと silent no-op になる。
+    エンジン内では半角D を正準形とする (= CardDef.name と overlay name 参照の双方で適用)。
+    """
+    if not isinstance(s, str):
+        return s
+    return s.replace("Ｄ", "D")
+
+
 class Phase(Enum):
     REFRESH = auto()
     DRAW = auto()
@@ -63,7 +76,7 @@ class CardDef:
 
         return cls(
             card_id=row["card_id"],
-            name=row.get("name", ""),
+            name=normalize_card_name(row.get("name", "")),
             category=category,
             color=colors,
             cost=_to_int(row.get("cost")),

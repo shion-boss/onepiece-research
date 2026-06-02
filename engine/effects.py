@@ -58,7 +58,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from .core import CardDef, Category, GameState, InPlay, Player
+from .core import CardDef, Category, GameState, InPlay, Player, normalize_card_name
 
 
 # --------------------------------------------------------------------------- #
@@ -75,6 +75,29 @@ class CardEffectBundle:
     effects: list[EffectSpec] = field(default_factory=list)
 
 
+_NAME_KEYS = {"name", "exclude_name"}
+
+
+def _normalize_overlay_names(obj):
+    """overlay 内の カード名参照 (name / exclude_name / name_in) を 正準形 (半角D) に揃える。
+
+    公式データの 全角Ｄ↔半角D 混在に対し、 card.name 側 (= normalize_card_name) と
+    overlay 側 の双方を 正規化して 名前一致 を成立させる (silent no-op 防止)。
+    """
+    if isinstance(obj, dict):
+        for k, v in list(obj.items()):
+            if k in _NAME_KEYS and isinstance(v, str):
+                obj[k] = normalize_card_name(v)
+            elif k == "name_in" and isinstance(v, list):
+                obj[k] = [normalize_card_name(x) if isinstance(x, str) else x for x in v]
+            else:
+                _normalize_overlay_names(v)
+    elif isinstance(obj, list):
+        for x in obj:
+            _normalize_overlay_names(x)
+    return obj
+
+
 def load_effect_overlay(path: str | Path) -> dict[str, CardEffectBundle]:
     p = Path(path)
     if not p.exists():
@@ -86,7 +109,7 @@ def load_effect_overlay(path: str | Path) -> dict[str, CardEffectBundle]:
             continue
         if not isinstance(effects, list):
             continue
-        out[cid] = CardEffectBundle(card_id=cid, effects=effects)
+        out[cid] = CardEffectBundle(card_id=cid, effects=_normalize_overlay_names(effects))
     return out
 
 
