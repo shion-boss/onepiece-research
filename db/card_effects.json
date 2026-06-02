@@ -8860,6 +8860,12 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
       ]
     }
@@ -11201,24 +11207,15 @@
       "_text": "OP12-093 on_attached_don (パターン未一致): 自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "in_hand_cost_minus": -4
-        }
-      ],
-      "if": {
-        "leader_feature": "革命軍"
-      }
-    },
-    {
-      "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
-      "when": "in_hand",
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 4
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
       ]
     }
@@ -20037,6 +20034,12 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
       ]
     }
@@ -25268,6 +25271,19 @@
       "cost": {
         "rest_self": true
       }
+    },
+    {
+      "_text": "OP08-084 static: このキャラのコスト+4",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
+        }
+      ]
     }
   ],
   "OP08-085": [
@@ -27999,6 +28015,7 @@
         }
       ],
       "if": {
+        "leader_name": "バギー",
         "self_hand_count_le": 3
       }
     },
@@ -28019,6 +28036,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
           }
         }
       ]
@@ -56236,15 +56259,19 @@
     },
     {
       "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
-      "when": "in_hand",
+      "when": "on_attached_don",
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 4
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
-      ]
+      ],
+      "n": 0
     }
   ],
   "EB03-042_p1": [
@@ -56279,15 +56306,19 @@
     },
     {
       "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
-      "when": "in_hand",
+      "when": "on_attached_don",
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 4
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
-      ]
+      ],
+      "n": 0
     }
   ],
   "EB03-049": [
@@ -56771,15 +56802,19 @@
     },
     {
       "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
-      "when": "in_hand",
+      "when": "on_attached_don",
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 4
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
-      ]
+      ],
+      "n": 0
     }
   ],
   "EB02-002": [
@@ -61345,27 +61380,44 @@
     {
       "_text": "OP13-081 activate_main: 【ターン1回】自分のトラッシュからカード1枚をデッキの下に置くことができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 1
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+3。",
-      "when": "in_hand",
+      "when": "on_attached_don",
+      "n": 0,
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 3
+          "set_base_cost": {
+            "target": "self",
+            "delta": 3
+          }
         }
       ]
     }
@@ -62546,6 +62598,22 @@
       "cost": {
         "discard_hand": 1
       }
+    },
+    {
+      "_text": "OP12-043 static: 手札5以上で cost+1",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_ge": 5
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
+          }
+        }
+      ]
     }
   ],
   "OP12-043_p1": [
@@ -62900,24 +62968,29 @@
     {
       "_text": "OP12-085 on_attack: 自分のリーダーが特徴《革命軍》を持ち、相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。",
       "when": "on_attack",
+      "if": {
+        "leader_feature": "革命軍",
+        "opp_hand_count_ge": 5
+      },
       "do": [
         {
           "trash_opp_hand_random": 1
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     },
     {
       "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+3。",
-      "when": "in_hand",
+      "when": "on_attached_don",
+      "n": 0,
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 3
+          "set_base_cost": {
+            "target": "self",
+            "delta": 3
+          }
         }
       ]
     }
@@ -62965,6 +63038,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 3
           }
         }
       ]
@@ -63096,13 +63175,17 @@
     },
     {
       "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
-      "when": "in_hand",
+      "when": "on_attached_don",
+      "n": 0,
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 4
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
       ]
     }
@@ -82053,6 +82136,27 @@
       "if": {
         "leader_name": "バギー"
       }
+    },
+    {
+      "_text": "ST25-001 static: 元々コスト5以上2枚以上で cost+1",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 5
+          },
+          "count": 2
+        }
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
+          }
+        }
+      ]
     }
   ],
   "ST25-003": [
@@ -90989,6 +91093,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
           }
         }
       ],
@@ -99986,6 +100096,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
           }
         }
       ]
