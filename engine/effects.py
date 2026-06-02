@@ -3216,6 +3216,27 @@ def _execute_effect_body(
                 me.deck.extend(remaining)
             if not picked:
                 state.push_log(f"  効果: search_top_n 該当なし")
+        elif k == "declare_cost_reveal_then":
+            # 公式 「任意のコストを宣言し、 相手のデッキの上から1枚を公開する。 公開したカードが
+            # 宣言したコストと同じ場合、 効果X」 (OP11-066/071/073/074/079/081 ビッグ・マム宣言系)。
+            # AI: 相手デッキの最頻コストを宣言 (= 命中率最大化)。 公開トップと一致なら effect 発動。
+            spec_val = v if isinstance(v, dict) else {}
+            effect_specs = spec_val.get("effect", [])
+            if not opp.deck:
+                state.push_log("  効果: 宣言 (相手デッキ空、 不発)")
+                return False
+            from collections import Counter as _Counter
+            cost_counts = _Counter(c.cost for c in opp.deck)
+            # 最頻コスト (tie は 低コスト優先 = 序盤札が多い傾向)
+            declared = min(cost_counts, key=lambda c: (-cost_counts[c], c))
+            revealed = opp.deck[0]
+            state.push_log(f"  効果: コスト{declared}を宣言 → 相手デッキ上公開 {revealed.name}(コスト{revealed.cost})")
+            if revealed.cost == declared:
+                state.push_log("  効果: 宣言一致！ 効果発動")
+                for es in effect_specs:
+                    execute_effect(es, state, me, opp, self_inplay)
+            else:
+                state.push_log("  効果: 宣言不一致 (不発)")
         elif k == "reveal_top_then":
             # R4: 公式 「自分のデッキの上から N 枚を公開し、 (filter 条件) の場合、 効果X」 ;
             #       その後、 公開したカードを デッキの (上/下/トラッシュ) に置く。

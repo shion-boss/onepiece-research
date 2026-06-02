@@ -23380,17 +23380,23 @@
     {
       "_text": "OP11-066 activate_main: このキャラをレストにできる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、相手の元々のコスト3以下のキャラ",
       "when": "activate_main",
-      "do": [
-        {
-          "add_rested_don": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
-        }
-      ],
       "cost": {
         "rest_self": true
-      }
+      },
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3"
+              },
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP11-070": [
@@ -23458,20 +23464,17 @@
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 5000,
-            "duration": "battle"
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 5000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP11-079 trigger: カード1枚を引く。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
@@ -64360,6 +64363,9 @@
     {
       "_text": "OP11-071 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚 [dd-fix]",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -64370,15 +64376,21 @@
             ],
             "effect": [
               {
-                "add_don": 1
+                "declare_cost_reveal_then": {
+                  "effect": [
+                    {
+                      "draw": 1
+                    },
+                    {
+                      "add_don": 1
+                    }
+                  ]
+                }
               }
             ]
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP11-072": [
@@ -64402,23 +64414,6 @@
   ],
   "OP11-073": [
     {
-      "_text": "OP11-073 opp_attack: 【ターン1回】ドン‼-5：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、自分のリーダー1枚までを、このター",
-      "when": "opp_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "turn"
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true,
-        "pay_don": 5
-      }
-    },
-    {
       "_text": "OP11-073 自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このキャラは【速攻】を得る。",
       "when": "on_attached_don",
       "n": 0,
@@ -64430,6 +64425,29 @@
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP11-073 opp_attack declare",
+      "when": "opp_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 5
+      },
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -64474,16 +64492,22 @@
     {
       "_text": "OP11-074 activate_main: 【ターン1回】ドン‼-1,このキャラをレストにできる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、相手の",
       "when": "activate_main",
-      "do": [
-        {
-          "rest": "one_opponent_character_cost_le_4cost"
-        }
-      ],
       "cost": {
         "once_per_turn": true,
         "pay_don": 1,
         "rest_self": true
-      }
+      },
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP11-076": [
@@ -64512,16 +64536,13 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_8cost"
-        }
-      ]
-    },
-    {
-      "_text": "OP11-081 trigger: ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-      "when": "trigger",
-      "do": [
-        {
-          "add_don": 1
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_8"
+              }
+            ]
+          }
         }
       ]
     }
