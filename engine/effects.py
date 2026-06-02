@@ -2609,6 +2609,31 @@ def _execute_effect_body(
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ksc_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+        elif k == "ko_self_chara_then_pump_leader_per":
+            # 「自分の(filter)キャラを任意の枚数KOしてもよい。 KOした1枚につきリーダーをパワー+M」
+            # (OP06-095 影の集合地等)。 AI: 全該当をKO → KO数×M でリーダー pump。
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            amount = int(spec_val.get("amount", 1000))
+            duration = spec_val.get("duration", "turn")
+            victims = [c for c in list(me.characters) if _matches_filter(c.card, filt)]
+            ko_count = 0
+            for tch in victims:
+                if tch not in me.characters:
+                    continue
+                me.characters.remove(tch)
+                me.trash.append(tch.card)
+                if tch.attached_dons > 0:
+                    me.don_rested += tch.attached_dons
+                ko_count += 1
+                if state.effects_overlay:
+                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
+            if ko_count > 0:
+                execute_effect({"power_pump": {"target": "self_leader",
+                                               "amount": amount * ko_count, "duration": duration}},
+                               state, me, opp, self_inplay)
+                state.push_log(f"  効果: 自KO{ko_count}枚 → リーダー+{amount*ko_count}")
         elif k == "trash_self_named_hand_or_field":
             # 公式: 「自分の手札か場の「<name>」1枚をトラッシュに置く」 (= OP06-033 方舟ノア コスト)。
             # 場 (stages) 優先 → なければ手札 から、 name 一致 1 枚 を トラッシュ。

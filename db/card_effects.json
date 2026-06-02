@@ -73036,12 +73036,13 @@
           }
         },
         {
-          "ko": {
-            "type": "all_self_chara_filtered",
+          "ko_self_chara_then_pump_leader_per": {
             "filter": {
               "feature": "スリラーバーク海賊団",
               "cost_le": 2
-            }
+            },
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ]
@@ -73071,12 +73072,13 @@
           }
         },
         {
-          "ko": {
-            "type": "all_self_chara_filtered",
+          "ko_self_chara_then_pump_leader_per": {
             "filter": {
               "feature": "スリラーバーク海賊団",
               "cost_le": 2
-            }
+            },
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ]
