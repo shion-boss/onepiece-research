@@ -1841,6 +1841,29 @@ def _resolve_target(
                 return []
             cands.sort(key=lambda c: -_opp_value(c))
             return cands[:1]
+        # one_character_either(_except_self)_cost_le_N (両陣営 1 体、 元々コスト)。
+        # 公式 「コストN以下のキャラ1枚まで(両陣営)、 持ち主の手札/デッキの下に戻す」
+        # (OP10-046/OP07-040/OP03-122/OP05-051/P-030/OP12-054 等)。 AI は相手キャラ優先
+        # (= 除去価値)、 human は modal で両陣営から選ぶ。
+        m = re.match(r"one_character_either(_except_self)?_cost_le_(\d+)(?:cost)?$", target_spec)
+        if m:
+            except_self = bool(m.group(1))
+            n = int(m.group(2))
+            opp_cands = [c for c in opp.characters if c.card.cost <= n]
+            self_cands = [c for c in me.characters if c.card.cost <= n
+                          and not (except_self and self_inplay is not None
+                                   and c.instance_id == self_inplay.instance_id)]
+            cands = opp_cands + self_cands
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"両陣営のキャラ から 1 枚 選択 (コスト≤{n})",
+            ):
+                return []
+            # AI auto-pick: 相手キャラ優先 (= 除去価値高い順)、 無ければ自キャラ。
+            opp_cands.sort(key=lambda c: -_opp_value(c))
+            if opp_cands:
+                return opp_cands[:1]
+            return self_cands[:1]
         # 現在コスト (= base_cost、 cost_minus 反映) 版。 クロコダイル「コスト0」 系 (= leader が
         # cost-10 して 作った コスト0 を 拾う)。 通常の cost_le_N は「元々のコスト」 (card.cost) のまま。
         m = re.match(r"one_opponent_character_current_cost_le_(\d+)$", target_spec)
@@ -2921,6 +2944,15 @@ def _execute_effect_body(
                     if t.attached_dons > 0:
                         opp.don_rested += t.attached_dons
                     state.push_log(f"  効果: 手札に戻す {t.card.name}")
+                    _ret_any = True
+                elif t in me.characters:
+                    # 両陣営 target (= 「コストN以下のキャラ1枚まで」 自陣も対象) の
+                    # 自キャラ bounce。 持ち主 (= me) の手札へ。
+                    me.characters.remove(t)
+                    me.hand.append(t.card)
+                    if t.attached_dons > 0:
+                        me.don_rested += t.attached_dons
+                    state.push_log(f"  効果: 自キャラを手札に戻す {t.card.name}")
                     _ret_any = True
             if _ret_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
