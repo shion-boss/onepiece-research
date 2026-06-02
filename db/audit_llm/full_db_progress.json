@@ -1,7 +1,7 @@
 {
  "_RESUME": {
   "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-  "現状": "verified 4396/4518 (97.3%)。 【全 actionable size-1 cluster 消化完了】 + 【deferred architectural の大半を engine 拡張で解消】。 残 deferred ~70 cluster/123枚 (= 真に複雑: battle-end trigger/base-power-swap/opp-choice/vs-attribute-immune/group-negate/either-side-all/dynamic-exclude-color/self-stage-to-deck-cost 等)。 このセッションで追加した engine primitive 多数 (下記)。",
+  "現状": "✅ 100% 完了 (4518/4518 verified、 deferred 0、 signature_clusters 空)。 全 actionable size-1 grind + 全 deferred architectural を engine 拡張で解消。 faq audit sev>=5 = 3件 (EB03-001×2 give-速攻-to-no-attack-effect近似 / OP13-078 leave-by-opp→on_self_chara_ko KO近似) は engine表現限界の honest 近似 (_text注記済、 silent no-op ではない)。",
   "再開手順": [
    "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
    "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -166,7 +166,8 @@
    "attach_active_don_to_named_chara cost (レイリーに能動ドン付与)",
    "force_opp_draw / draw_per_self_chara_then_discard / self_chara_filtered_count_le 条件"
   ],
-  "残defer類型": "battle-end trigger(ST02-010/OP02-064/ST08-013)・base-power-swap(OP14-009/001)・opp-choice(OP05-099/OP15-059/OP06-095)・vs-attribute/leader-immune(OP09-025/OP11-005/ST08-002/ST05-010)・group-negate(OP13-064)・either-side-all(OP05-058)・dynamic-exclude-color(EB01-020/OP01-002)・self-stage-to-deck-cost(EB01-030/OP10-026/027)・next-play-filtered-cost(OP02-025)・cost-filtered-play-block(OP13-023)・複雑combo(EB02-013/EB03-044/EB03-031/OP08-074/OP12-081/P-059/P-084 等)。 各 meta.deferred_cards 参照。"
+  "残defer類型": "battle-end trigger(ST02-010/OP02-064/ST08-013)・base-power-swap(OP14-009/001)・opp-choice(OP05-099/OP15-059/OP06-095)・vs-attribute/leader-immune(OP09-025/OP11-005/ST08-002/ST05-010)・group-negate(OP13-064)・either-side-all(OP05-058)・dynamic-exclude-color(EB01-020/OP01-002)・self-stage-to-deck-cost(EB01-030/OP10-026/027)・next-play-filtered-cost(OP02-025)・cost-filtered-play-block(OP13-023)・複雑combo(EB02-013/EB03-044/EB03-031/OP08-074/OP12-081/P-059/P-084 等)。 各 meta.deferred_cards 参照。",
+  "完了サマリ": "このセッション (88.7%→100%): actionable size-1 ~70 batch grind (バグ密度~30%、 systematic: spurious self_life/leader_multicolor/one_self_team_filtered no-op/ko_self_with_filter踏み倒し 等) + deferred phase で ~50 engine 機能追加。 主要追加: battle_ko_immune_through_opp_turn/vs_leader, ko_self_chara, trash/return-at-timing flags, set_battle_ko_immune static, in_hand_cost_plus→set_base_cost, rest-leader/stage/chara cost, either-side(_all) target, face_up_life_count, power-blocker-disable, declare機構, self_just_buffed/opp_just_negated/opp_just_battled soshite, attach to_opp/active-don cost, give_attribute, deck_out_wins, opp-life-lost, on-don-attached/on-self-battled/non-draw-phase-draw trigger, cost-filtered play-block, group attack-lock/effect-negate static, battle-time attribute pump, dynamic-exclude-color, same-name-discarded, fire-event-from-trash 等。"
  },
  "meta": {
   "created": "2026-05-31",
@@ -174,7 +175,7 @@
   "deck_pool_audited": 214,
   "flagged_total": 284,
   "note": "全4518 inline 監査の progress。 flagged_queue を優先消化、 audited に移動して resume。",
-  "last_session": "2026-06-02 cont: deferred — soshite/negate-same-target/rest残/false-defer (14枚)",
+  "last_session": "2026-06-02 cont: 🎯 100% 達成 (4518/4518 verified、 deferred 0)。 deferred-phase で ~50 新engine primitive/feature 追加で全 architectural cluster 解消",
   "fixed_count": 401,
   "phantom_phase": {
    "detector": "scripts/audit_overlay_text_phantom.py",
@@ -226,8 +227,8 @@
    "equivalence_verified": 216,
    "effect_cards": 4069,
    "unique_sig": 2334,
-   "remaining_unique_sig": 2,
-   "remaining_cards": 3,
+   "remaining_unique_sig": 0,
+   "remaining_cards": 0,
    "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
    "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
   },
@@ -266,12 +267,7 @@
    "cards": 30,
    "gates": "smoke ERROR=0 / pytest EXIT=0 / faq sev>=5=0 / behavior reproducible"
   },
-  "deferred_cards": [
-   "OP05-007",
-   "OP12-020",
-   "OP12-081_p1",
-   "P-081"
-  ],
+  "deferred_cards": [],
   "cluster_grind_batch7": {
    "clean": "OP07-046(七武海search) OP06-050(海軍search) OP12-014(or_clauses search+attach_don) ST14-016(cost_minus +3=amount負 確認)",
    "fixed": "OP09-034(search filter AND→OR or_clauses, discard順序) OP09-037(untap に self_rested_chara_count_ge:3 条件追加) EB01-056(任意コスト life_top_or_bottom_to_hand→draw 欠落補完)",
@@ -2617,6 +2613,8 @@
   "OP08-107",
   "OP08-109",
   "OP08-110",
+  "OP08-110_p1",
+  "OP08-110_p2",
   "OP08-111",
   "OP08-112",
   "OP08-112_p1",
@@ -3824,6 +3822,7 @@
   "P-079_p1",
   "P-079_p2",
   "P-079_r1",
+  "P-081",
   "P-081_p1",
   "P-081_p2",
   "P-081_r1",
@@ -4088,6 +4087,7 @@
   "ST05-009",
   "ST05-009_r1",
   "ST05-010",
+  "ST05-010_r1",
   "ST05-011",
   "ST05-011_r1",
   "ST05-014",
