@@ -602,7 +602,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_8000"
+          "ko": "one_opponent_rested_character_power_le_8000"
         }
       ],
       "cost": {
@@ -1003,6 +1003,18 @@
           "人魚族"
         ]
       }
+    },
+    {
+      "_text": "OP07-032 このキャラは登場したターンにキャラへアタックできる (=速攻：キャラ)",
+      "when": "on_play",
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
     }
   ],
   "OP07-039": [
@@ -72075,7 +72087,7 @@
         }
       ],
       "if": {
-        "self_life_le": 3
+        "opp_life_le": 3
       }
     }
   ],
@@ -85523,7 +85535,18 @@
       "when": "on_attack",
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -89596,18 +89619,6 @@
       "if": {
         "self_life_ge": 4,
         "self_attached_don_ge": 1
-      }
-    },
-    {
-      "_text": "P-048 on_attack: 自分のライフが4枚以上の場合、相手は自身の手札1枚をデッキの下に置く。",
-      "when": "on_attack",
-      "do": [
-        {
-          "opp_hand_to_deck_bottom": 1
-        }
-      ],
-      "if": {
-        "self_life_ge": 4
       }
     }
   ],
