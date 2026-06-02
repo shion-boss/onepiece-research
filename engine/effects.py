@@ -1660,6 +1660,17 @@ def _resolve_target(
                         val = ip.power if kind == "power" else ip.base_cost
                         return [ip] if val <= thr else []
             return []
+    if target_spec == "self_team_except_self":
+        # 「このキャラ以外の自分のリーダーかキャラ1枚まで」 (ST01-005)。 発動元を除外。
+        cands = [ip for ip in [me.leader, *me.characters]
+                 if self_inplay is None or ip.instance_id != self_inplay.instance_id]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自リーダー or 他キャラ から 1 枚 選択",
+        ):
+            return []
+        cands.sort(key=lambda ip: -ip.power)
+        return cands[:1]
     if target_spec == "self_just_buffed":
         # soshite (= 「その後、 そのカードを〜」) で直前の power_pump 対象を再参照。
         iid = getattr(state, "last_pumped_iid", None)

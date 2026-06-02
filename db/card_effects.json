@@ -88113,7 +88113,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "self_inplay",
+            "target": "self_team_except_self",
             "amount": 1000,
             "duration": "turn"
           }
