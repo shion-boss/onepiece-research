@@ -11466,10 +11466,26 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "feature_contains": "白ひげ海賊団"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -11870,9 +11886,6 @@
               }
             }
           }
-        },
-        {
-          "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
         }
       ]
     },
@@ -12044,7 +12057,8 @@
         {
           "rest": "self"
         }
-      ]
+      ],
+      "optional": true
     }
   ],
   "OP15-003": [
@@ -12080,7 +12094,7 @@
   "OP15-090": [
     {
       "_text": "ペローナ replace_ko: 自分のパワー7000以下が相手効果で離れる場合、手札捨て1で代替",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "if": {
         "target": "any_self_chara",
         "target_power_le": 7000,
@@ -16339,18 +16353,6 @@
           "draw": 2
         }
       ]
-    },
-    {
-      "_text": "エンポリオ・イワンコフ 自ターン終了時: 手札0なら 2ドロー",
-      "when": "end_of_turn",
-      "if": {
-        "self_hand_count_le": 0
-      },
-      "do": [
-        {
-          "draw": 2
-        }
-      ]
     }
   ],
   "OP02-049_p1": [
@@ -16363,15 +16365,6 @@
       "do": [
         {
           "draw": 2
-        }
-      ]
-    },
-    {
-      "_text": "OP02-049_p1 【自分のターン終了時】自分の手札が0枚の場合、カード2枚を引く。",
-      "when": "end_of_turn",
-      "do": [
-        {
-          "draw": 1
         }
       ]
     }
@@ -19028,9 +19021,16 @@
   ],
   "OP03-076_p1": [
     {
-      "_text": "OP03-076_p1 on_attached_don (パターン未一致): 【自分のターン中】【ターン1回】自分の手札2枚を捨てることができる：相手のキャラがKOされた時、このリーダーをアクティブにする。",
+      "_text": "OP03-076_p1 on_opp_chara_ko: 自ターン中 1回、手札2枚捨てる → 自リーダーアクティブ",
       "when": "on_opp_chara_ko",
-      "n": 0,
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ],
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -19046,13 +19046,7 @@
             ]
           }
         }
-      ],
-      "if": {
-        "self_turn": true
-      },
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP02-002": [
@@ -20267,6 +20261,9 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     },
@@ -20939,18 +20936,16 @@
       "do": [
         {
           "attach_rested_don": {
-            "target": {
-              "type": "one_self_chara_or_leader_filtered",
-              "filter": {
-                "feature": "ワノ国"
-              }
-            },
+            "target": "self_leader",
             "count": 1
           }
         }
       ],
       "cost": {
         "trash_self": true
+      },
+      "if": {
+        "leader_feature": "ワノ国"
       }
     }
   ],
@@ -30569,6 +30564,9 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -39101,6 +39099,9 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -39544,6 +39545,9 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -41308,6 +41312,9 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
@@ -50202,6 +50209,9 @@
             "amount": 2000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "prevent_self_life_to_hand_turn": true
         }
       ]
     }
