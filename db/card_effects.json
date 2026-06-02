@@ -73479,6 +73479,18 @@
       ]
     },
     {
+      "_text": "OP04-035 counter(2): その後、自分のキャラ1枚までを、アクティブにする。",
+      "when": "counter",
+      "do": [
+        {
+          "untap_chara": {
+            "target": "one_self_character_any",
+            "limit": 1
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP04-035 trigger: 自分のリーダー1枚までを、このターン中、パワー+2000。",
       "when": "trigger",
       "do": [
@@ -73487,17 +73499,6 @@
             "target": "self_leader",
             "amount": 2000,
             "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "on_play: untap 補完",
-      "when": "on_play",
-      "do": [
-        {
-          "untap_chara": {
-            "count": 1
           }
         }
       ]
@@ -78064,12 +78065,12 @@
   ],
   "OP01-026": [
     {
-      "_text": "ゴムゴムの火拳銃 カウンター: +4000 + 相手P4000以下KO",
+      "_text": "OP01-026 counter: 自分のリーダーかキャラ1枚まで+4000(battle) + 相手パワー4000以下KO",
       "when": "counter",
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
           }
