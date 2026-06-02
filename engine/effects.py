@@ -5340,6 +5340,10 @@ def _execute_effect_body(
                 if attr:
                     t.granted_attributes.add(attr)
             state.push_log(f"  効果: 属性({attr}) 付与")
+        elif k == "grant_turn_battle_ko_save_discard":
+            # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」 (EB02-030)。
+            me.turn_battle_ko_save_discard = True
+            state.push_log("  効果: このターン中 自キャラ バトルKO 代替(手札1捨て)")
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))

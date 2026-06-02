@@ -21301,20 +21301,11 @@
   ],
   "EB02-030": [
     {
-      "_text": "EB02-030 counter: 自分のキャラすべては、このターン中、バトルでKOされる場合、代わりに自分の手札1枚を捨てることができる。 [dd-mand]",
+      "_text": "EB02-030 counter: 自キャラ全体 このターン中バトルKO代替で手札1捨て",
       "when": "counter",
       "do": [
         {
-          "trash_self_hand_random": 1
-        }
-      ]
-    },
-    {
-      "_text": "EB02-030 trigger: カード1枚を引く。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
+          "grant_turn_battle_ko_save_discard": true
         }
       ]
     }

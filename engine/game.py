@@ -462,6 +462,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
         player.cannot_attack_leader_until_turn_end = False
+        player.turn_battle_ko_save_discard = False
         player.block_chara_play_cost_ge_threshold = -1
         player.play_cost_reductions_filtered_turn = []
         player.prevent_self_life_to_hand_until_turn_end = False
@@ -1508,6 +1509,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     actual_target.battle_ko_immune_vs_leader
                     and attacker is me.leader
                 )
+                # EB02-030: 自キャラ全体 バトルKO 代替で手札1捨て (= 防御側 opp の救済)。
+                if (opp.turn_battle_ko_save_discard and opp.hand
+                        and not actual_target.ko_immune_until_turn_end
+                        and not actual_target.static_ko_immune):
+                    opp.hand.sort(key=lambda c: (c.power, c.cost))
+                    opp.trash.append(opp.hand.pop(0))
+                    state.push_log(f"  バトルKO代替: 手札1捨てで {actual_target.card.name} 生存")
+                    _vs_leader_immune = True  # KO スキップ (生存)
                 if (
                     not actual_target.ko_immune_until_turn_end
                     and not actual_target.static_ko_immune

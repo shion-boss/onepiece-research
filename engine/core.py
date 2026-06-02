@@ -575,6 +575,9 @@ class Player:
     opp_on_play_disabled_through_opp_turn: bool = False
     # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット
     block_self_draw_until_turn_end: bool = False
+    # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」
+    # (EB02-030)。 バトルKO時に手札があれば1捨てで救済。 ターン終了でクリア。
+    turn_battle_ko_save_discard: bool = False
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
     # _reset_turn_buff で False に。 life_to_hand / life_top_or_bottom_to_hand (owner=self) が抑制される。
     prevent_self_life_to_hand_until_turn_end: bool = False
