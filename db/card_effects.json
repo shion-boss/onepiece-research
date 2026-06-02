@@ -59772,14 +59772,6 @@
           }
         }
       ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "conditions": [
-        {
-          "opp_turn": true
-        }
-      ],
       "if": {
         "self_attached_don_ge": 1
       }
@@ -60082,9 +60074,9 @@
         },
         {
           "return_to_hand": {
-            "type": "one_self_chara_filtered",
+            "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_le": 3
+              "truly_original_power_eq": 6000
             }
           }
         }
@@ -62676,7 +62668,10 @@
             "duration": "battle"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_trash_event_count_ge": 4
+      }
     }
   ],
   "OP12-060": [
@@ -63201,13 +63196,21 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "life_to_hand": 1
-        },
-        {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ]
+          }
         }
       ]
     },
@@ -63237,13 +63240,15 @@
           "power_pump": {
             "target": "self_leader",
             "amount": 1000,
-            "duration": "next_opp_turn_end",
-            "feature": "超新星"
+            "duration": "next_opp_turn_end"
           }
         }
       ],
       "cost": {
         "rest_self": true
+      },
+      "if": {
+        "leader_feature": "超新星"
       }
     },
     {
@@ -63325,7 +63330,8 @@
               "cost_le": 4,
               "feature": "超新星"
             },
-            "limit": 1
+            "limit": 1,
+            "rested": true
           }
         }
       ],
