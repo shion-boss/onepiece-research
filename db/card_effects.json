@@ -1882,14 +1882,25 @@
     {
       "_text": "緑ボニー 相手アタック時: 相手キャラ1枚レスト",
       "when": "opp_attack",
-      "do": [
-        {
-          "rest": "one_opponent_inplay_any"
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_inplay_any"
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP07-059": [
@@ -11369,12 +11380,25 @@
       "_text": "方舟 activate_main: rest_self → 相手コスト2以下全KO",
       "when": "activate_main",
       "cost": {
-        "rest_self": true,
         "once_per_turn": true
       },
       "do": [
         {
-          "ko": "any_opponent_character_cost_le_2"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "rest_self_target_name": "エネル"
+              }
+            ],
+            "effect": [
+              {
+                "ko": "any_opponent_character_cost_le_2"
+              }
+            ]
+          }
         }
       ]
     }
@@ -16051,18 +16075,36 @@
       "_text": "OP03-021 【起動メイン】③(コストエリアのドン!!を指定の数レストにできる),自分の特徴《東の海》を持つキャラ2枚をレストにできる　：このリーダーをアクティブにし、相手のコスト5以下のキャラ1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "rest_self_don": 3
+        "once_per_turn": true
       },
       "do": [
         {
-          "untap_chara": {
-            "target": "self_leader",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 3
+              },
+              {
+                "rest_self_chara_filtered": {
+                  "filter": {
+                    "feature": "東の海"
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": "self_leader",
+                  "limit": 1
+                }
+              },
+              {
+                "rest": "one_opponent_character_cost_le_5"
+              }
+            ]
           }
-        },
-        {
-          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -19872,7 +19914,26 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_4cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_4cost"
+              },
+              {
+                "mill_self_top": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -23773,7 +23834,23 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -24007,7 +24084,26 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              },
+              {
+                "mill_self_top": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -24018,7 +24114,29 @@
       "when": "activate_main",
       "do": [
         {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "mill_self_top": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -24029,7 +24147,29 @@
       "when": "activate_main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              },
+              {
+                "mill_self_top": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -25588,9 +25728,27 @@
             "amount": 3000,
             "duration": "turn"
           }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_chara_filtered": {
+                  "filter": {
+                    "cost_ge": 3
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_5"
+              }
+            ]
+          }
         }
-      ],
-      "_missing_effect": "第2文「自分のコスト3以上のキャラ1枚をレストにできる。そうした場合、相手のコスト5以下のキャラをレスト」 = rest-own-filtered-char as optional cost が未対応のため省略 (踏み倒し回避)。 power_pump は実装"
+      ]
     },
     {
       "_text": "OP07-036 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
@@ -27074,8 +27232,11 @@
           "optional_cost_then": {
             "cost": [
               {
-                "rest_self_target": {
-                  "feature": "東の海"
+                "rest_self_chara_filtered": {
+                  "filter": {
+                    "feature": "東の海"
+                  },
+                  "count": 1
                 }
               }
             ],
@@ -65650,9 +65811,29 @@
       "when": "activate_main",
       "do": [
         {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 2,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -65717,12 +65898,40 @@
       "when": "activate_main",
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "opp_hand_count_ge": 5
+                  },
+                  "do": [
+                    {
+                      "trash_opp_hand_random": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "mill_self_top": 2
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "opp_hand_count_ge": 5
-      }
+      ]
     }
   ],
   "OP10-090": [

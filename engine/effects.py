@@ -6537,6 +6537,28 @@ def _execute_effect_body(
                     if len(matching) < t_limit:
                         can_pay = False
                         break
+                elif "rest_self_leader_or_stage_filtered" in cs:
+                    # 公式 「自分の特徴X を持つ、 リーダーかステージ N 枚を、 レストにできる：効果」
+                    # (OP10-044/081/083/087/088/091/095 ドレスローザ 等)。 leader+stages から
+                    # filter 一致の アクティブ を count 枚 rest 可能か。
+                    rl_spec = cs["rest_self_leader_or_stage_filtered"]
+                    rl_n = int(rl_spec.get("count", 1)) if isinstance(rl_spec, dict) else int(rl_spec)
+                    rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
+                    pool = ([me.leader] if me.leader is not None else []) + list(me.stages)
+                    avail = [ip for ip in pool if not ip.rested and _matches_filter(ip.card, rl_filt)]
+                    if len(avail) < rl_n:
+                        can_pay = False
+                        break
+                elif "rest_self_chara_filtered" in cs:
+                    # 公式 「自分の特徴X / コストN以上 の キャラ M 枚を レストにできる：効果」
+                    # (OP03-021/OP03-036/OP07-036 等)。 アクティブの自キャラから filter 一致 を count 枚。
+                    rc_spec = cs["rest_self_chara_filtered"]
+                    rc_n = int(rc_spec.get("count", 1)) if isinstance(rc_spec, dict) else int(rc_spec)
+                    rc_filt = rc_spec.get("filter", {}) if isinstance(rc_spec, dict) else {}
+                    avail = [c for c in me.characters if not c.rested and _matches_filter(c.card, rc_filt)]
+                    if len(avail) < rc_n:
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -6577,6 +6599,28 @@ def _execute_effect_body(
                             ip.rested = True
                             state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
                             break
+                    continue
+                if "rest_self_leader_or_stage_filtered" in cs:
+                    rl_spec = cs["rest_self_leader_or_stage_filtered"]
+                    rl_n = int(rl_spec.get("count", 1)) if isinstance(rl_spec, dict) else int(rl_spec)
+                    rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
+                    pool = ([me.leader] if me.leader is not None else []) + list(me.stages)
+                    avail = [ip for ip in pool if not ip.rested and _matches_filter(ip.card, rl_filt)]
+                    # AI 簡易: ステージ優先で rest (= リーダーは攻撃に使いたい)。
+                    avail.sort(key=lambda ip: 0 if ip in me.stages else 1)
+                    for ip in avail[:rl_n]:
+                        ip.rested = True
+                        state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                    continue
+                if "rest_self_chara_filtered" in cs:
+                    rc_spec = cs["rest_self_chara_filtered"]
+                    rc_n = int(rc_spec.get("count", 1)) if isinstance(rc_spec, dict) else int(rc_spec)
+                    rc_filt = rc_spec.get("filter", {}) if isinstance(rc_spec, dict) else {}
+                    avail = [c for c in me.characters if not c.rested and _matches_filter(c.card, rc_filt)]
+                    avail.sort(key=lambda c: c.power)  # AI 簡易: power 低い順
+                    for ip in avail[:rc_n]:
+                        ip.rested = True
+                        state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
                     continue
                 if cs.get("rest_self") is True:
                     # rest_self: True 形式 (= self_inplay = ステージ/キャラ を rest)。
