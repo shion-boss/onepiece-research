@@ -21537,6 +21537,19 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "color": "黄",
+              "cost_le": 2,
+              "category_in": [
+                "CHARACTER",
+                "STAGE"
+              ]
+            },
+            "limit": 1
+          }
         }
       ]
     }
@@ -21666,7 +21679,7 @@
               "exclude_name": "バジル・ホーキンス"
             },
             "limit": 1,
-            "destination": "hand",
+            "destination": "play",
             "rest_remain": "bottom"
           }
         }
@@ -21715,7 +21728,15 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "超新星"
+              "category": "CHARACTER",
+              "or": [
+                {
+                  "feature": "超新星"
+                },
+                {
+                  "feature": "麦わらの一味"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -21805,6 +21826,9 @@
       "do": [
         {
           "return_to_hand": "one_opponent_character_any"
+        },
+        {
+          "trash_self_hand_random": 50
         }
       ]
     }
@@ -21934,7 +21958,9 @@
         {
           "ko": {
             "type": "one_opponent_character_filtered",
-            "filter": {}
+            "filter": {
+              "truly_original_power_eq": 0
+            }
           }
         }
       ]
@@ -22459,7 +22485,6 @@
                   "depth": 5,
                   "filter": {
                     "feature": "海軍",
-                    "name": "センゴク",
                     "exclude_name": "センゴク"
                   },
                   "limit": 2,
@@ -22857,6 +22882,18 @@
             "amount": -2000,
             "duration": "turn"
           }
+        },
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "海軍"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -23004,7 +23041,15 @@
           "search_top_n": {
             "depth": 4,
             "filter": {
-              "feature": "海王類"
+              "category": "CHARACTER",
+              "or": [
+                {
+                  "feature": "海王類"
+                },
+                {
+                  "feature": "魚人島"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -23028,6 +23073,25 @@
       "_text": "OP11-039 counter: 自分の特徴《魚人族》か《人魚族》を持つ、リーダーかキャラ1枚までを、このバトル中、パワー+3000。その後、相手のコスト3以下のキャラ1枚までを、レストにする。",
       "when": "counter",
       "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "or_clauses": [
+                  {
+                    "feature": "魚人族"
+                  },
+                  {
+                    "feature": "人魚族"
+                  }
+                ]
+              }
+            },
+            "amount": 3000,
+            "duration": "battle"
+          }
+        },
         {
           "rest": "one_opponent_character_cost_le_3cost"
         }
