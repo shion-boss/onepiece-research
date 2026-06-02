@@ -16124,21 +16124,39 @@
   ],
   "OP03-021_p1": [
     {
-      "_text": "OP03-021_p1 【起動メイン】③(コストエリアのドン!!を指定の数レストにできる),自分の特徴《東の海》を持つキャラ2枚をレストにできる　：このリーダーをアクティブにし、相手のコスト5以下のキャラ1枚までを、レストにする。",
+      "_text": "OP03-021 【起動メイン】③(コストエリアのドン!!を指定の数レストにできる),自分の特徴《東の海》を持つキャラ2枚をレストにできる　：このリーダーをアクティブにし、相手のコスト5以下のキャラ1枚までを、レストにする。",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "rest_self_don": 3
+        "once_per_turn": true
       },
       "do": [
         {
-          "untap_chara": {
-            "target": "self_leader",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 3
+              },
+              {
+                "rest_self_chara_filtered": {
+                  "filter": {
+                    "feature": "東の海"
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": "self_leader",
+                  "limit": 1
+                }
+              },
+              {
+                "rest": "one_opponent_character_cost_le_5"
+              }
+            ]
           }
-        },
-        {
-          "rest": "one_opponent_character_cost_le_5"
         }
       ]
     }
@@ -30188,7 +30206,7 @@
   ],
   "PRB02-015_p1": [
     {
-      "_text": "PRB02-015_p1 on_ko: 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
+      "_text": "PRB02-015 on_ko: 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
       "when": "on_ko",
       "do": [
         {
@@ -30200,7 +30218,7 @@
       }
     },
     {
-      "_text": "PRB02-015_p1 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。",
+      "_text": "PRB02-015 自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -30211,6 +30229,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
           }
         }
       ]
@@ -40797,7 +40821,7 @@
   ],
   "OP07-036_p1": [
     {
-      "_text": "OP07-036_p1 main: 自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。その後、自分のコスト3以上のキャラ1枚をレストにできる。そうした場合、相手のコスト5以下のキャ",
+      "_text": "OP07-036 main: 自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。その後、自分のコスト3以上のキャラ1枚をレストにできる。そうした場合、相手のコスト5以下のキャ",
       "when": "main",
       "do": [
         {
@@ -40806,12 +40830,30 @@
             "amount": 3000,
             "duration": "turn"
           }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_chara_filtered": {
+                  "filter": {
+                    "cost_ge": 3
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_5"
+              }
+            ]
+          }
         }
-      ],
-      "_missing_effect": "第2文「自分のコスト3以上のキャラ1枚をレストにできる。そうした場合、相手のコスト5以下のキャラをレスト」 = rest-own-filtered-char as optional cost が未対応のため省略 (踏み倒し回避)。 power_pump は実装"
+      ]
     },
     {
-      "_text": "OP07-036_p1 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "_text": "OP07-036 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
       "when": "trigger",
       "do": [
         {
@@ -43103,7 +43145,7 @@
   ],
   "OP12-089_p1": [
     {
-      "_text": "OP12-089_p1 on_ko: 自分のリーダーが特徴《革命軍》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
+      "_text": "OP12-089 on_ko: 自分のリーダーが特徴《革命軍》を持つ場合、相手の元々のコスト4以下のキャラ1枚までを、KOする。",
       "when": "on_ko",
       "do": [
         {
@@ -43115,7 +43157,7 @@
       }
     },
     {
-      "_text": "OP12-089_p1 自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。",
+      "_text": "OP12-089 自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -43127,33 +43169,30 @@
             "target": "self",
             "keyword": "ブロッカー"
           }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
       ]
     }
   ],
   "OP12-093_p1": [
     {
-      "_text": "OP12-093_p1 on_attached_don (パターン未一致): 自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
+      "_text": "OP12-093 on_attached_don (パターン未一致): 自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
       "when": "on_attached_don",
       "n": 0,
-      "do": [
-        {
-          "in_hand_cost_minus": -4
-        }
-      ],
-      "if": {
-        "leader_feature": "革命軍"
-      }
-    },
-    {
-      "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
-      "when": "in_hand",
       "if": {
         "leader_feature": "革命軍"
       },
       "do": [
         {
-          "in_hand_cost_plus": 4
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
         }
       ]
     }
@@ -49192,8 +49231,11 @@
   ],
   "PRB02-018_p1": [
     {
-      "_text": "PRB02-018_p1 on_play: 自分の表向きのライフがある場合、自分の手札かトラッシュからコスト2の、「サボ」か「ポートガス・D・エース」か「モンキー・Ｄ・ルフィ」1枚までを、登場させる。",
+      "_text": "PRB02-018 on_play: 自分の表向きのライフがある場合、自分の手札かトラッシュからコスト2の、「サボ」か「ポートガス・D・エース」か「モンキー・Ｄ・ルフィ」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "has_face_up_life": true
+      },
       "do": [
         {
           "play_from_hand_or_trash": {
@@ -62873,24 +62915,29 @@
   ],
   "OP12-043_p1": [
     {
-      "_text": "OP12-043_p1 on_play: 自分の手札1枚を捨てることができる：相手のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。 [dd-fix]",
+      "_text": "OP12-043 クザン 登場時: 手札捨て → 相手キャラ次相手リフレッシュ非アクティブ",
       "when": "on_play",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self_hand_random": 1
-              }
-            ],
-            "effect": [
-              {
-                "set_cannot_attack": {
-                  "target": "one_opponent_character_any",
-                  "duration": "next_opp_turn_end"
-                }
-              }
-            ]
+          "stay_rested_next_refresh": "one_opponent_character_any"
+        }
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
+    },
+    {
+      "_text": "OP12-043 static: 手札5以上で cost+1",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_ge": 5
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
           }
         }
       ]
@@ -63306,7 +63353,7 @@
   ],
   "OP12-087_p1": [
     {
-      "_text": "OP12-087_p1 on_play: 自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。 [dd-fix]",
+      "_text": "OP12-087 on_play: 自分の手札1枚を捨てることができる：相手の手札が5枚以上ある場合、相手は自身の手札2枚を捨てる。 [dd-fix]",
       "when": "on_play",
       "do": [
         {
@@ -63329,7 +63376,7 @@
       }
     },
     {
-      "_text": "OP12-087_p1 自分のリーダーが「コアラ」か「モンキー・Ｄ・ルフィ」の場合、このキャラは【ブロッカー】を得て、コスト+3。",
+      "_text": "OP12-087 自分のリーダーが「コアラ」か「モンキー・Ｄ・ルフィ」の場合、このキャラは【ブロッカー】を得て、コスト+3。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -63347,6 +63394,12 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 3
           }
         }
       ]
@@ -64455,24 +64508,7 @@
   ],
   "OP11-073_p1": [
     {
-      "_text": "OP11-073_p1 opp_attack: 【ターン1回】ドン‼-5：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、自分のリーダー1枚までを、このター",
-      "when": "opp_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "turn"
-          }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true,
-        "pay_don": 5
-      }
-    },
-    {
-      "_text": "OP11-073_p1 自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このキャラは【速攻】を得る。",
+      "_text": "OP11-073 自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このキャラは【速攻】を得る。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -64483,6 +64519,29 @@
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP11-073 opp_attack declare",
+      "when": "opp_attack",
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 5
+      },
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -89855,8 +89914,11 @@
   ],
   "OP11-071_p1": [
     {
-      "_text": "OP11-071_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚 [dd-fix]",
+      "_text": "OP11-071 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚 [dd-fix]",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -89867,15 +89929,21 @@
             ],
             "effect": [
               {
-                "add_don": 1
+                "declare_cost_reveal_then": {
+                  "effect": [
+                    {
+                      "draw": 1
+                    },
+                    {
+                      "add_don": 1
+                    }
+                  ]
+                }
               }
             ]
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "OP11-119_p2": [
