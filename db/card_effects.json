@@ -54919,8 +54919,13 @@
           "search_top_n": {
             "depth": 3,
             "filter": {
-              "category_in": [
-                "EVENT"
+              "or_clauses": [
+                {
+                  "name": "サンジ"
+                },
+                {
+                  "category": "EVENT"
+                }
               ]
             },
             "limit": 1,
@@ -54948,6 +54953,16 @@
     }
   ],
   "EB04-030": [
+    {
+      "_text": "EB04-030 replace_ko: KOされる場合、代わりに自分の場のドン‼1枚をドン‼デッキに戻すことができる。",
+      "when": "replace_ko",
+      "do": [
+        {
+          "return_self_don_to_deck": 1
+        }
+      ],
+      "optional": true
+    },
     {
       "_text": "EB04-030 on_play: ドン‼-2：自分のリーダーが特徴《百獣海賊団》を持つ場合、このキャラは、このターン中、【速攻】を得る。その後、相手のコスト7以下のキャラ1枚までを、レストにする",
       "when": "on_play",
@@ -55055,6 +55070,16 @@
       "when": "main",
       "do": [
         {
+          "power_pump": {
+            "target": {
+              "type": "self_chara_named",
+              "name": "カイドウ"
+            },
+            "amount": 3000,
+            "duration": "turn"
+          }
+        },
+        {
           "rest": "one_opponent_character_any"
         }
       ],
@@ -55084,13 +55109,16 @@
       "_text": "ステルス・ブラック メイン: サンジリーダー + 場ドン4+ → トラッシュからP6000以下サンジ登場",
       "when": "main",
       "if": {
+        "leader_name": "サンジ",
         "self_don_ge": 4
       },
       "do": [
         {
-          "play_from_trash": {
+          "play_from_hand_or_trash": {
             "filter": {
-              "category": "CHARACTER"
+              "category": "CHARACTER",
+              "name": "サンジ",
+              "power_le": 6000
             },
             "limit": 1
           }
@@ -55338,10 +55366,10 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 1000,
-            "duration": "battle"
+          "set_base_power_copy": {
+            "from_target": "opponent_leader",
+            "to_target": "self",
+            "duration": "turn"
           }
         }
       ]
@@ -55443,10 +55471,30 @@
       "when": "main",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "hand_to_self_life": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "エッグヘッド"
+                  },
+                  "count": 1
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -55556,15 +55604,35 @@
       "when": "activate_main",
       "do": [
         {
-          "rest": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 3,
-              "feature_in": [
-                "動物",
-                "SMILE"
-              ]
-            }
+          "choice_effect": {
+            "optional": true,
+            "options": [
+              {
+                "label": "キャラをレスト",
+                "do": [
+                  {
+                    "rest": {
+                      "type": "one_opponent_character_filtered",
+                      "filter": {
+                        "cost_le": 3,
+                        "feature_in": [
+                          "動物",
+                          "SMILE"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "label": "ドンをレスト",
+                "do": [
+                  {
+                    "rest_opp_don": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ],
@@ -55630,12 +55698,7 @@
       "do": [
         {
           "attach_rested_don": {
-            "target": {
-              "type": "one_self_chara_or_leader_filtered",
-              "filter": {
-                "attribute": "斬"
-              }
-            },
+            "target": "self_leader",
             "count": 2
           }
         }
@@ -55643,6 +55706,9 @@
       "cost": {
         "rest_self": true,
         "once_per_turn": true
+      },
+      "if": {
+        "leader_attribute": "斬"
       }
     }
   ],
@@ -55658,7 +55724,10 @@
           "untap_don": 1
         },
         {
-          "stay_rested_next_refresh": "one_opponent_character_cost_le_5"
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_8cost",
+            "count": 1
+          }
         }
       ]
     }
@@ -58004,8 +58073,10 @@
         },
         {
           "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "rested": false
+            }
           }
         }
       ],
@@ -58079,7 +58150,7 @@
             "filter": {
               "feature": "W7",
               "exclude_name": "ブルーノ",
-              "cost_le": 6
+              "cost_eq": 5
             },
             "limit": 1
           }
@@ -59077,8 +59148,9 @@
       "when": "activate_main",
       "do": [
         {
-          "play_from_trash": {
+          "trash_to_hand": {
             "filter": {
+              "category": "CHARACTER",
               "feature": "麦わらの一味",
               "exclude_name": "トニートニー・チョッパー"
             },
@@ -59238,7 +59310,7 @@
         {
           "power_pump": {
             "target": {
-              "type": "one_self_team_any",
+              "type": "one_self_chara_or_leader_filtered",
               "filter": {
                 "feature": "麦わらの一味"
               }
