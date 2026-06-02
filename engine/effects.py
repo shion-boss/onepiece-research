@@ -2677,8 +2677,28 @@ def _execute_effect_body(
             )
         elif k == "rest_multi":
             # 「(範囲) のキャラ N 枚 まで を、 レストにする」 (= 公式 OP03-024 等)。
-            # spec: list[target_spec] — 各要素 が rest 対象 spec、 list 長 = 上限。
-            # 同 chara を 二重 rest しない よう dedup。
+            # spec 2 形式:
+            #   - list[target_spec]: 各要素 が rest 対象 spec、 list 長 = 上限 (= 異 cost cap を
+            #     並べる 用)。 同 spec を 並べても 1 体しか rest されない (target が deterministic
+            #     top を 再選択 し dedup される) ので、 同 cap で N 体 は dict 形式 を 使う。
+            #   - {"target": any_*, "count": N}: target を 全 解決 → アクティブ優先で top N 体 rest。
+            #     OP10-023「コスト5以下のキャラ2枚まで」 等の「同 cap で N 体」 用。
+            if isinstance(v, dict) and "count" in v:
+                target_spec = v.get("target", "any_opponent_character_any")
+                count = int(v.get("count", 1))
+                cands = _resolve_target(
+                    target_spec, state, me, opp, self_inplay,
+                    outer_kind="rest", outer_value=target_spec,
+                )
+                if state.pending_choice is not None:
+                    return True
+                # アクティブ かつ レスト可能 を 脅威順 (= power 高) に 上限まで
+                cands = [t for t in cands if not t.rested and not t.cannot_be_rested_buff]
+                cands.sort(key=lambda ip: -ip.power)
+                for t in cands[:count]:
+                    t.rested = True
+                    state.push_log(f"  効果: rest {t.card.name}")
+                continue
             if not isinstance(v, list):
                 continue
             already = set()

@@ -1,7 +1,7 @@
 {
  "_RESUME": {
   "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-  "現状": "verified 3746/4518 (82.9%、 重複排除後)。 【✅simple tier (条件/コスト無 342枚) 完了 batch41-56】 detector-flagged 77 + simple 342 全処理。 simple での fixed 計 ~95枚 (cost踏み倒し/効果欠落/silent-noop target/missing条件 が主因、 バグ密度~35%実証)。 ⭐次= 残 704 cluster (804枚、 medium/complex tier) を signature_clusters.json から grind (size>=2 優先、 deferred ~136枚 skip)。 ⚠simple tier も バグ密度 ~30-40%: search filter の OR/category/color/exclude_name 欠落・『登場させる』 を destination:hand 誤(正=play)・第2効果/cost丸ごと欠落・target self_leader(正=self_inplay)・rest/return個数 copy-paste誤・KO/return filter空(正=元々パワー/コスト指定)・per-don pump 誤(正=flat)・EVENTの『その後』 を on_play誤配置(EVENTはon_play発火せず dead→counter/mainへ)・set_base_cost_timed(next_opp_turn_end専用)を turn に誤用(正=cost_minus)。 ⭐確立知見(誤検知回避): or_clauses/rested/current_power_le/feature_or_name/no_effect/feature_contains は filter で honored・『パワー0』=-99999慣例・self(他)キャラ→デッキ下 cost は primitive不在で省略慣例(P-033/OP05-056/OP10-088)・rest_self_target は name専用(feature不可)・swap_opp_power は filter キー(target_pair はdead、 default power_le9000)・trash_self_hand_random 手札超過で全捨て・destination:play で登場・total_life_le/chara_diff_le 実在。 主defer: face-up life cost・rest-leader/stage/feature-char cost・opp-draw/reveal-hand-as-cost primitive不在・動的cost(ライフ/同名)target・self static cost+N・declare機構・同一target参照(soshite)。 ⭐次= simple tier 残 98枚 継続 (queue= db/audit_llm/_simple_queue.json、 aud/dfr除外で先頭22ずつ dump→1:1照合→fix→smoke+pytest→mark+commit、 parallel ‼/!!分離は mark後 unhandled check)。 simple完了後 medium tier (条件C/コスト$、 ~580枚)。 全actionable残 813。 rush厳禁・mark前text照合必須。",
+  "現状": "verified 3765/4518 (83.3%、 重複排除後)。 【✅simple tier (条件/コスト無 342枚) 完了 batch41-56】 detector-flagged 77 + simple 342 全処理。 simple での fixed 計 ~95枚 (cost踏み倒し/効果欠落/silent-noop target/missing条件 が主因、 バグ密度~35%実証)。 ⭐次= 残 704 cluster (804枚、 medium/complex tier) を signature_clusters.json から grind (size>=2 優先、 deferred ~136枚 skip)。 ⚠simple tier も バグ密度 ~30-40%: search filter の OR/category/color/exclude_name 欠落・『登場させる』 を destination:hand 誤(正=play)・第2効果/cost丸ごと欠落・target self_leader(正=self_inplay)・rest/return個数 copy-paste誤・KO/return filter空(正=元々パワー/コスト指定)・per-don pump 誤(正=flat)・EVENTの『その後』 を on_play誤配置(EVENTはon_play発火せず dead→counter/mainへ)・set_base_cost_timed(next_opp_turn_end専用)を turn に誤用(正=cost_minus)。 ⭐確立知見(誤検知回避): or_clauses/rested/current_power_le/feature_or_name/no_effect/feature_contains は filter で honored・『パワー0』=-99999慣例・self(他)キャラ→デッキ下 cost は primitive不在で省略慣例(P-033/OP05-056/OP10-088)・rest_self_target は name専用(feature不可)・swap_opp_power は filter キー(target_pair はdead、 default power_le9000)・trash_self_hand_random 手札超過で全捨て・destination:play で登場・total_life_le/chara_diff_le 実在。 主defer: face-up life cost・rest-leader/stage/feature-char cost・opp-draw/reveal-hand-as-cost primitive不在・動的cost(ライフ/同名)target・self static cost+N・declare機構・同一target参照(soshite)。 ⭐次= simple tier 残 98枚 継続 (queue= db/audit_llm/_simple_queue.json、 aud/dfr除外で先頭22ずつ dump→1:1照合→fix→smoke+pytest→mark+commit、 parallel ‼/!!分離は mark後 unhandled check)。 simple完了後 medium tier (条件C/コスト$、 ~580枚)。 全actionable残 813。 rush厳禁・mark前text照合必須。",
   "再開手順": [
    "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
    "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -55,7 +55,8 @@
    "⭐【batch52】(1) ⛔**set_base_cost は static ブロック専用** (effects.py:8177、 on_attached_don 等の静的のみ)。 on_play 等の do-dispatch には無い → on_play で set_base_cost は silent no-op。 ターン限定コスト変更は **set_base_cost_timed** (amount=絶対値/delta=増減、 duration=turn or next_opp_turn_end)。 OP03-091 修復。 (2) ⛔**no_effect は _matches_filter で honor されない** (state依存) → one_opponent_character_filtered+filter:{no_effect} は silent に全キャラ対象 bug。 専用 target **one_opp_chara_no_effect** を engine 追加 (one_self_chara_no_effect の相手版)。 ⚠『元々の効果のない』=overlay effects=[] 判定 (_card_has_no_effect、 compiled bundle 必須=テストは load_effect_overlay 使う)。 (3) draw_per_hand_to_deck_bottom = 手札全戻し+同数draw (OP04-048 のシャッフルmulligan に転用、 shuffle_self_deck 単独は効果欠落)。 (4) ➁等 円数字コストは opp_attack でも optional_cost_then[rest_self_don N] で実装 (OP04-025 cost欠落、 OP04-021 が正テンプレ)。 (5) opp_life_count dynamic は既存 (OP05-116『相手ライフ枚数以下コスト』KO、 self_life_count と対)。",
    "⭐【batch53】(1) 『デッキから名前指定で登場/サーチ』 が shuffle_self_deck 単独で効果欠落 (OP01-069 スマイリー登場=summon_from_deck+shuffle / OP01-098 SMILE手札=search{name})。 search は deck source default で dest:hand+shuffle 自動。 summon_from_deck は『場へ』 版 (shuffle別途)。 (2) play_from_hand の filter に no_effect:true は honor される (line 3586。 _matches_filter とは別経路)。OP02-046 trigger『元々効果なしキャラ登場』 で欠落。 (3) trigger 条件欠落『相手の場にドンN枚以上』 = if:{opp_don_count_ge:N} (OP02-091)。 (4) 『コストN色のキャラ』 を one_self_character_cost_eq_N で書くと色filter落ち (OP02-016、 正= dict {one_self_chara_filtered, filter:{color,cost_eq}})。 return_opp_don/reveal_opp_hand 実在。",
    "⭐【batch54】(1) set_cannot_attack に **count 対応追加** (set_cannot_rest と同形式、 any_* target を N枚に絞る)。 ST19-001『コスト4以下2枚まで』 が optional_cost_then 外に重複 set_cannot_attack (cost踏み倒し) + 内側 any(全) の二重bug → 単一 {any_opponent_character_cost_le_4, count:2} に rebuild。 (2) one_opponent_character_filtered は blocker/rested/active/attached_don_ge filter を honor (ST01-016_r1『ブロッカー持ちcost3以下』 KO = filter:{cost_le:3,blocker:true})。 (3) untap_chara target が one_self_character_any で filter 全欠落 (ST02-009_r1、 正= one_self_chara_filtered+rested/cost_le/feature_in)。 (4) static の『このキャラがレストの場合』 は entry if:{self_rested:true} (ST02-014_r1、 静的でも eval_all_conditions 効く)。 (5) counter『+N その後ライフ全reorder』 で scry_life 欠落 (ST13-017)。 hand mulligan= draw_per_hand_to_deck_bottom (P-002、 shuffle単独は欠落、 OP04-048同型)。 ➀/② cost は on_play でも optional_cost_then[rest_self_don N] (ST10-009、 end_of_turn の①省略convention とは別)。",
-   "⭐【batch57 medium tier 開始】(1) entry-level cost:{pay_don:N} は on_play でも honor (ST18-005/ST04-002 ドン-1登場)。 (2) trigger 条件の self/opp 取り違え: OP06-112『相手ライフ3以下』 を self_life_le で記述 → opp_life_le。 (3) 【ドン×N】効果が if無しの重複entryで二重発火+gate漏れ (P-048、 don-gate付き正entryのみ残す)。 (4) 『相手のレストの…』 で rested filter 落ち (EB04-018、 one_opponent_rested_character_power_le_N)。 (5) ⭐systematic未処理: 『登場したターンにキャラへアタックできる』 plain-text が is_rush_chara_only False で未付与 10枚 (OP04-096/EB02-019/OP11-001(leader)/OP11-027 系)。 OP07-032(無条件self)は on_play give 速攻：キャラ で修復済。 残10は条件付き(EB02-019 opp≥2/OP11-027 leaderしらほし)・group-static(OP04-096 stage/OP11-001 leader が自ドレスローザ/SWORDキャラ全員に付与)で個別要。 parser一括は不適(条件/他者付与のため)。"
+   "⭐【batch57 medium tier 開始】(1) entry-level cost:{pay_don:N} は on_play でも honor (ST18-005/ST04-002 ドン-1登場)。 (2) trigger 条件の self/opp 取り違え: OP06-112『相手ライフ3以下』 を self_life_le で記述 → opp_life_le。 (3) 【ドン×N】効果が if無しの重複entryで二重発火+gate漏れ (P-048、 don-gate付き正entryのみ残す)。 (4) 『相手のレストの…』 で rested filter 落ち (EB04-018、 one_opponent_rested_character_power_le_N)。 (5) ⭐systematic未処理: 『登場したターンにキャラへアタックできる』 plain-text が is_rush_chara_only False で未付与 10枚 (OP04-096/EB02-019/OP11-001(leader)/OP11-027 系)。 OP07-032(無条件self)は on_play give 速攻：キャラ で修復済。 残10は条件付き(EB02-019 opp≥2/OP11-027 leaderしらほし)・group-static(OP04-096 stage/OP11-001 leader が自ドレスローザ/SWORDキャラ全員に付与)で個別要。 parser一括は不適(条件/他者付与のため)。",
+   "⭐【batch58】(1) rest_multi に dict {target:any_*, count:N} 形式追加 (list形式は同cap同spec並べでも target が deterministic top 再選択→1体しかrest しない。 ko_multi はKO除去で distinct になるが rest は残る)。 OP10-023『コスト5以下2枚まで』修復。 (2) ⛔**systematic: play_from_hand は CHARACTER専用 (3655) → 手札からSTAGE登場が silent no-op** 9枚 (EB02-013/EB03-013/EB03-044/OP08-110/OP08-115/EB02-032、 ゾウ/鬼ヶ島/アッパーヤード/ガレーラ)。 search→手札 部は正、 stage自動登場のみ欠落。 要 play_from_hand の stage 配置 (me.stages 置換) 対応。 ⚠CHARACTER path に影響するので慎重に。 (3) entry cost field は discard/pay_don/rest_self_don のみ (power_pump/rest_self は optional_cost_then 専用)。 OP04-002『リーダー-5000』 cost を entry cost で書くと no-op→ optional_cost_then に。 (4) 重複entry(don-gate漏れ二重発火) 再頻発 (EB01-026/P-048同型)。 条件に self/opp 取り違え (EB01-054 self_life_le 余分)。 『リーダーが「X」』 は leader_name (leader_feature ではない、 OP11-036)。"
   ],
   "defer_architectural_触らない": [
    "OP01-120/OP09-014 等: 「パワーN以下のブロッカー無視」 → 専用primitive無 (ブロック不可で過剰近似中)",
@@ -184,12 +185,12 @@
    "equivalence_verified": 216,
    "effect_cards": 4069,
    "unique_sig": 2334,
-   "remaining_unique_sig": 684,
-   "remaining_cards": 773,
+   "remaining_unique_sig": 665,
+   "remaining_cards": 754,
    "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
    "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
   },
-  "total_verified": 3746,
+  "total_verified": 3765,
   "total_cards": 4518,
   "double_discard_fix": {
    "opt型": 121,
@@ -226,11 +227,13 @@
   },
   "deferred_cards": [
    "EB01-059",
+   "EB02-013",
    "EB02-030",
    "EB02-039",
    "EB03-001",
    "EB03-001_p1",
    "EB03-031",
+   "EB03-044",
    "EB03-051",
    "EB04-009",
    "EB04-011",
@@ -265,6 +268,7 @@
    "OP05-103",
    "OP06-026",
    "OP06-074",
+   "OP07-019",
    "OP07-036",
    "OP07-036_p1",
    "OP07-040",
@@ -750,6 +754,7 @@
   "EB01-015_p2",
   "EB01-015_r1",
   "EB01-015_r2",
+  "EB01-016",
   "EB01-019",
   "EB01-021",
   "EB01-021_p1",
@@ -759,6 +764,7 @@
   "EB01-023",
   "EB01-023_p1",
   "EB01-023_p2",
+  "EB01-026",
   "EB01-027",
   "EB01-027_p1",
   "EB01-029",
@@ -791,6 +797,7 @@
   "EB01-052",
   "EB01-052_p1",
   "EB01-053",
+  "EB01-054",
   "EB01-056",
   "EB01-056_p1",
   "EB01-056_p2",
@@ -830,6 +837,7 @@
   "EB02-022",
   "EB02-022_p1",
   "EB02-024",
+  "EB02-025",
   "EB02-026",
   "EB02-026_p1",
   "EB02-026_p2",
@@ -885,6 +893,7 @@
   "EB03-011",
   "EB03-013",
   "EB03-013_p1",
+  "EB03-015",
   "EB03-018",
   "EB03-018_p1",
   "EB03-018_p2",
@@ -902,6 +911,7 @@
   "EB03-026_p2",
   "EB03-027",
   "EB03-027_p1",
+  "EB03-028",
   "EB03-034",
   "EB03-034_p1",
   "EB03-035",
@@ -929,6 +939,7 @@
   "EB03-056",
   "EB03-057",
   "EB03-057_p1",
+  "EB03-058",
   "EB03-060",
   "EB03-061",
   "EB03-061_p1",
@@ -1074,6 +1085,7 @@
   "OP01-035_p1",
   "OP01-035_p2",
   "OP01-037",
+  "OP01-038",
   "OP01-039",
   "OP01-039_p1",
   "OP01-039_p2",
@@ -1280,6 +1292,8 @@
   "OP02-073_p1",
   "OP02-074",
   "OP02-075",
+  "OP02-076",
+  "OP02-079",
   "OP02-083",
   "OP02-085",
   "OP02-085_p1",
@@ -1377,6 +1391,7 @@
   "OP03-024_p1",
   "OP03-025",
   "OP03-025_p1",
+  "OP03-026",
   "OP03-027",
   "OP03-028",
   "OP03-029",
@@ -1426,6 +1441,7 @@
   "OP03-062",
   "OP03-066",
   "OP03-066_p1",
+  "OP03-071",
   "OP03-072",
   "OP03-072_p1",
   "OP03-072_p2",
@@ -1513,6 +1529,7 @@
   "OP03-123_r1",
   "OP04-001",
   "OP04-001_p1",
+  "OP04-002",
   "OP04-003",
   "OP04-006",
   "OP04-009",
@@ -2282,6 +2299,7 @@
   "OP08-039",
   "OP08-040",
   "OP08-040_p1",
+  "OP08-041",
   "OP08-042",
   "OP08-047",
   "OP08-049",
@@ -2591,6 +2609,7 @@
   "OP10-021",
   "OP10-022",
   "OP10-022_p1",
+  "OP10-023",
   "OP10-024",
   "OP10-025",
   "OP10-028",
@@ -2618,6 +2637,7 @@
   "OP10-049",
   "OP10-049_p1",
   "OP10-049_p2",
+  "OP10-051",
   "OP10-052",
   "OP10-055",
   "OP10-056",
@@ -2702,6 +2722,7 @@
   "OP11-029",
   "OP11-031",
   "OP11-031_p1",
+  "OP11-036",
   "OP11-037",
   "OP11-039",
   "OP11-040",
@@ -2792,6 +2813,7 @@
   "OP12-041",
   "OP12-041_p1",
   "OP12-042",
+  "OP12-046",
   "OP12-047",
   "OP12-051",
   "OP12-051_p1",
@@ -3077,6 +3099,7 @@
   "OP15-021",
   "OP15-022",
   "OP15-022_p1",
+  "OP15-024",
   "OP15-027",
   "OP15-029",
   "OP15-031",
@@ -4359,7 +4382,14 @@
   "ST07-005",
   "P-048",
   "EB04-018",
-  "OP07-032"
+  "OP07-032",
+  "OP10-023",
+  "OP11-036",
+  "OP15-024",
+  "EB01-026",
+  "EB01-054",
+  "EB03-015",
+  "OP04-002"
  ],
  "deferred_complex": [
   "OP02-025",
@@ -4442,6 +4472,18 @@
   {
    "card": "P-120",
    "reason": "『相手のライフが離れているターン中』 = opp_life_lost_this_turn 条件が engine 未配線 → in_hand_cost_minus 2 を常時適用の近似 (_doc 注記済)。 cost-2 primitive 自体は別経路で wired。 要 turn-scoped opp-life-left フラグ"
+  },
+  {
+   "card": "OP07-019",
+   "reason": "opp_attack の ➀(rest_self_don)cost が entry-cost で未対応 (trigger経路は pay_don/discard のみ)。 once_per_turn は honored、 効果(相手inplay rest)正。 要 opp_attack rest_self_don cost"
+  },
+  {
+   "card": "EB02-013",
+   "reason": "play_from_hand が STAGE 非対応 (CHARACTER専用 effects.py:3655) → 『手札からゾウ(STAGE)登場』 silent no-op。 search→手札+ドン条件 は正。 systematic 9枚問題の一部"
+  },
+  {
+   "card": "EB03-044",
+   "reason": "同上 play_from_hand STAGE非対応 → 『手札から鬼ヶ島(STAGE)登場』 no-op。 search→手札 + ブロッカー(多色)は正"
   }
  ],
  "false_positive": [

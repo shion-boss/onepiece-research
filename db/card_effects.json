@@ -1305,13 +1305,10 @@
       "when": "on_play",
       "do": [
         {
-          "rest_multi": [
-            "one_opponent_character_cost_le_5cost",
-            "one_opponent_character_cost_le_5cost"
-          ]
-        },
-        {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "rest_multi": {
+            "target": "any_opponent_character_cost_le_5",
+            "count": 2
+          }
         }
       ],
       "if": {
@@ -1375,14 +1372,21 @@
       "_text": "マダラ 登場時: しらほしリーダー → デッキ上5枚海王類/しらほし1枚公開手札追加",
       "when": "on_play",
       "if": {
-        "leader_feature": "魚人島"
+        "leader_name": "しらほし"
       },
       "do": [
         {
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "海王類"
+              "or": [
+                {
+                  "feature": "海王類"
+                },
+                {
+                  "name": "しらほし"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -1557,16 +1561,11 @@
   ],
   "OP15-024": [
     {
-      "_text": "OP15-024 on_ko: 相手のリーダーかコスト7以下のキャラ1枚までを、レストにする。",
+      "_text": "OP15-024 on_ko: 相手のリーダーかコスト7以下のキャラ1枚までを、レストにする。 [レスト免疫部はstatic未モデル: protect_from_opp_effect過剰のため ブロッカーのみ付与]",
       "when": "on_ko",
       "do": [
         {
           "rest": "one_opponent_inplay_cost_le_7"
-        }
-      ],
-      "conditions": [
-        {
-          "opp_turn": true
         }
       ]
     },
@@ -3009,18 +3008,6 @@
         "self_hand_count_le": 1,
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "EB01-026 on_attack: 自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す。",
-      "when": "on_attack",
-      "do": [
-        {
-          "return_to_hand": "one_opponent_character_cost_le_3cost"
-        }
-      ],
-      "if": {
-        "self_hand_count_le": 1
-      }
     }
   ],
   "EB01-046": [
@@ -3076,8 +3063,7 @@
         }
       ],
       "if": {
-        "opp_life_le": 1,
-        "self_life_le": 1
+        "opp_life_le": 1
       }
     }
   ],
@@ -3282,6 +3268,20 @@
       "_text": "EB03-015 activate_main: このキャラをレストにできる：自分の特徴《魚人族》か《人魚族》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。その後、相手のコスト2以下のキャラ",
       "when": "activate_main",
       "do": [
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature_in": [
+                  "魚人族",
+                  "人魚族"
+                ]
+              }
+            },
+            "count": 1
+          }
+        },
         {
           "rest": "one_opponent_character_cost_le_2cost"
         }
@@ -4192,20 +4192,35 @@
       "when": "activate_main",
       "do": [
         {
-          "search_top_n": {
-            "depth": 5,
-            "filter": {
-              "feature": "アラバスタ王国"
-            },
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": -5000,
+                  "duration": "turn"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "feature": "アラバスタ王国"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "rest_self": true
-      }
+      ]
     }
   ],
   "OP04-008": [
