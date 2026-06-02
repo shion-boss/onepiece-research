@@ -32,6 +32,9 @@ def main(reps: list[str]) -> None:
                        ensure_ascii=False, sort_keys=True) if isinstance(e, list) else None
         c = cards.get(cid, {})
         t = re.sub(r"\s+", "", ((c.get("text") or "") + "|" + (c.get("trigger") or "")).strip())
+        # ‼(U+203C)/！！(全角)/!! を畳む。 同一効果の parallel が DON 記号の表記揺れだけで
+        # 署名割れ → base を mark しても片方が未マークで残る bug を防ぐ。
+        t = t.replace("‼", "!!").replace("！！", "!!")
         return (o, t)
 
     # 全 (overlay+text) → members
@@ -66,7 +69,12 @@ def main(reps: list[str]) -> None:
     eq["remaining_unique_sig"] = len(clusters)
     eq["remaining_cards"] = sum(c["size"] for c in clusters)
     prog["meta"]["equivalence_phase"] = eq
-    prog["meta"]["total_verified"] = len(audited) + len(prog.get("vanilla_verified", [])) + len(prog.get("equivalence_verified", []))
+    # union で 重複排除 (audited ∩ vanilla / ∩ equivalence の二重カウント防止)。
+    prog["meta"]["total_verified"] = len(
+        audited
+        | set(prog.get("vanilla_verified", []))
+        | set(prog.get("equivalence_verified", []))
+    )
 
     PROG.write_text(json.dumps(prog, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     QUEUE.write_text(json.dumps(clusters, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
