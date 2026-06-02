@@ -458,6 +458,7 @@ def _reset_turn_buff(state: GameState) -> None:
         # OP09-081 effect: 自ターン 開始 で 「相手 on_play 無効」 flag reset (= 設定 player から 見て 1 周)
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
+        player.cannot_attack_leader_until_turn_end = False
         player.prevent_self_life_to_hand_until_turn_end = False
         player.max_event_cost_this_turn = 0
     # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン
@@ -890,7 +891,8 @@ def legal_actions(state: GameState) -> list[Action]:
                         AttackCharacter(attacker_iid=atk.instance_id, target_iid=tgt.instance_id)
                     )
         else:
-            actions.append(AttackLeader(attacker_iid=atk.instance_id))
+            if not me.cannot_attack_leader_until_turn_end:
+                actions.append(AttackLeader(attacker_iid=atk.instance_id))
             for tgt in opponent.characters:
                 if (tgt.rested or attack_active_ok) and _can_attack_target(atk, tgt.card.cost):
                     actions.append(

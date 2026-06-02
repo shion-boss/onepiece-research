@@ -1885,6 +1885,12 @@ def _resolve_target(
                 return []
             cands.sort(key=lambda c: -_opp_value(c))
             return cands[:1]
+        # all_chara_either_cost_le_N (両陣営すべて、 元々コスト)。
+        # 「コストN以下のキャラすべて(両陣営)を、 持ち主のデッキの下に置く」 (OP05-058 等)。
+        m = re.match(r"all_chara_either_cost_le_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            return [c for c in (list(opp.characters) + list(me.characters)) if c.card.cost <= n]
         # one_character_either(_except_self)_cost_le_N (両陣営 1 体、 元々コスト)。
         # 公式 「コストN以下のキャラ1枚まで(両陣営)、 持ち主の手札/デッキの下に戻す」
         # (OP10-046/OP07-040/OP03-122/OP05-051/P-030/OP12-054 等)。 AI は相手キャラ優先
@@ -5135,6 +5141,17 @@ def _execute_effect_body(
                     break
                 me.trash.append(me.hand.pop(state.rng.randrange(len(me.hand))))
             state.push_log(f"  効果: {cnt}キャラで{nd}ドロー→{nd}捨て")
+        elif k == "block_self_attack_leader_turn":
+            # 「自分は、 このターン中、 (相手の) リーダーにアタックできない」 (OP06-026)。
+            me.cannot_attack_leader_until_turn_end = True
+            state.push_log("  効果: このターン中 リーダーにアタック不可")
+        elif k == "opp_hand_to_size":
+            # 「相手は手札が N 枚になるように、 自身の手札を捨てる」 (OP05-058 等)。
+            target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))
+            while len(opp.hand) > target_size:
+                idx = state.rng.randrange(len(opp.hand))
+                opp.trash.append(opp.hand.pop(idx))
+            state.push_log(f"  効果: 相手手札を{target_size}枚に")
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))

@@ -72046,6 +72046,9 @@
             },
             "limit": 1
           }
+        },
+        {
+          "block_self_attack_leader_turn": true
         }
       ]
     }
@@ -74029,7 +74032,13 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "any_opponent_character_cost_le_3"
+          "return_to_deck_bottom": "all_chara_either_cost_le_3"
+        },
+        {
+          "self_hand_to_size": 5
+        },
+        {
+          "opp_hand_to_size": 5
         }
       ]
     },
