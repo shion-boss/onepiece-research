@@ -703,6 +703,12 @@ def eval_condition(
             n = int(v)
             if opp is None or not any(getattr(c, "base_cost", 99) <= n for c in opp.characters):
                 return False
+        elif k == "exists_opp_chara_power_ge":
+            # 相手の場に (現在) パワー N 以上のキャラがいるか (= ST10-004「相手のパワー5000以上の
+            # キャラがいる場合」)。 「元々の」 でなければ現在パワー (InPlay.power) で判定。
+            n = int(v)
+            if opp is None or not any(c.power >= n for c in opp.characters):
+                return False
         elif k == "exists_chara_cost_le":
             # どちらかの場にコスト N 以下のキャラがいるか (= OP02-093/101/102/113「コスト0のキャラがいる場合」)。
             n = int(v)
