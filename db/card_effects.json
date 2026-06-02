@@ -1069,7 +1069,15 @@
         {
           "ko": "one_opponent_character_power_le_3000"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "チェス"
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP08-030": [
@@ -4579,6 +4587,23 @@
     }
   ],
   "OP05-101": [
+    {
+      "_text": "OP05-101 static: 自分のライフが2枚以下の場合、このキャラはパワー+1000。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
     {
       "_text": "OP05-101 on_play: 自分のデッキの上から5枚を見て、「ホーリー」1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置き、自分の手札から「ホーリー」1枚までを、登場させる。",
       "when": "on_play",
@@ -25345,7 +25370,18 @@
         {
           "return_to_hand": "one_opponent_character_cost_le_3cost"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature_in": [
+              "アマゾン・リリー",
+              "九蛇海賊団"
+            ]
+          },
+          "count": 2
+        }
+      }
     }
   ],
   "OP07-054": [
@@ -25726,6 +25762,22 @@
       ]
     },
     {
+      "_text": "OP06-018 main(2): その後、相手のパワー7000以上のキャラがいる場合、自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
+      "when": "main",
+      "if": {
+        "exists_opp_chara_power_ge": 7000
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP06-018 trigger: 相手のパワー5000以下のキャラ1枚までを、KOする。",
       "when": "trigger",
       "do": [
@@ -25974,7 +26026,10 @@
             }
           }
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     },
     {
       "_text": "OP05-059 trigger: 自分のリーダーが多色の場合、カード2枚を引く。",
@@ -25983,7 +26038,10 @@
         {
           "draw": 2
         }
-      ]
+      ],
+      "if": {
+        "leader_multicolor": true
+      }
     }
   ],
   "OP05-064": [
@@ -69149,7 +69207,18 @@
         {
           "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "feature_in": [
+              "アマゾン・リリー",
+              "九蛇海賊団"
+            ]
+          },
+          "count": 2
+        }
+      }
     }
   ],
   "OP07-053": [
@@ -69226,6 +69295,17 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "leader_feature": "フォクシー海賊団",
+        "not": {
+          "self_chara_filtered_count_ge": {
+            "filter": {
+              "name": "イトミミズ"
+            },
+            "count": 2
+          }
+        }
       }
     }
   ],
@@ -71805,6 +71885,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_rested_chara_count_ge": 2
       }
     }
   ],
