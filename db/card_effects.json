@@ -82936,17 +82936,11 @@
               {
                 "set_cannot_attack": {
                   "target": "any_opponent_character_cost_le_4",
+                  "count": 2,
                   "duration": "next_opp_turn_end"
                 }
               }
             ]
-          }
-        },
-        {
-          "set_cannot_attack": {
-            "target": "one_opponent_character_cost_le_4",
-            "count": 2,
-            "duration": "next_opp_turn_end"
           }
         }
       ]
@@ -84552,6 +84546,12 @@
             "amount": 4000,
             "duration": "battle"
           }
+        },
+        {
+          "scry_life": {
+            "owner": "self",
+            "depth": 5
+          }
         }
       ]
     },
@@ -85046,7 +85046,18 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -85253,10 +85264,21 @@
       "when": "on_block",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 4000,
-            "duration": "battle"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]
@@ -86982,7 +87004,13 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "blocker": true
+            }
+          }
         }
       ]
     }
@@ -87103,7 +87131,17 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "rested": true,
+                "cost_le": 5,
+                "feature_in": [
+                  "超新星",
+                  "ハートの海賊団"
+                ]
+              }
+            },
             "limit": 1
           }
         }
@@ -87167,7 +87205,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_rested": true
+      }
     }
   ],
   "ST02-015_r1": [
@@ -89074,7 +89115,7 @@
       "when": "main",
       "do": [
         {
-          "shuffle_self_deck": true
+          "draw_per_hand_to_deck_bottom": true
         }
       ]
     },

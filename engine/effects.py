@@ -4131,15 +4131,32 @@ def _execute_effect_body(
         elif k == "set_cannot_attack":
             # アタック不可 効果。 spec:
             #   - 文字列 target_spec (= 旧 形式、 duration=turn 固定)
-            #   - dict {"target": ..., "duration": "turn"|"next_opp_turn_end"}
+            #   - dict {"target": ..., "duration": "turn"|"next_opp_turn_end", "count": N}
             # 公式: 「次の相手のターン終了時まで、 アタックできない」 (OP06-023 / OP07-051 等)
+            # count: 「N 枚まで」 上限 (= any_* target を N 枚に絞る。 set_cannot_rest と同形式、
+            #   ST19-001 スモーカー「コスト4以下のキャラ2枚まで」 等)。
             if isinstance(v, dict):
                 target_spec = v.get("target", "one_opponent_character_any")
                 duration = v.get("duration", "turn")
+                count = int(v.get("count", 99))
+                iid_picks = v.get("_iid_picks")
             else:
                 target_spec = v
                 duration = "turn"
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_attack", outer_value=target_spec)
+                count = 99
+                iid_picks = None
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_attack", outer_value=v)
+            if iid_picks is not None:
+                targets = [t for t in targets if t.instance_id in iid_picks][:count]
+            elif len(targets) > count and _should_human_pick(state):
+                if _maybe_request_target_pick(
+                    state, targets, count, "set_cannot_attack", v, self_inplay,
+                    description=f"アタック不能 対象 を {count} 枚 まで 選択",
+                ):
+                    return False
+                targets = targets[:count]
+            else:
+                targets = targets[:count]
             for t in targets:
                 if duration == "next_opp_turn_end":
                     t.cannot_attack_through_opp_turn = True
