@@ -3828,7 +3828,7 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_5"
+          "rest": "one_opponent_character_cost_le_6"
         }
       ]
     }
@@ -4008,11 +4008,14 @@
                 "do": [
                   {
                     "untap_chara": {
-                      "type": "one_self_chara_or_leader_filtered",
-                      "filter": {
-                        "feature": "東の海",
-                        "cost_le": 6
-                      }
+                      "target": {
+                        "type": "one_self_chara_or_leader_filtered",
+                        "filter": {
+                          "feature": "東の海",
+                          "cost_le": 6
+                        }
+                      },
+                      "limit": 1
                     }
                   }
                 ]
@@ -4064,7 +4067,8 @@
             "depth": 5,
             "filter": {
               "feature": "東の海",
-              "exclude_name": "ナミ"
+              "exclude_name": "ナミ",
+              "color": "緑"
             },
             "limit": 1,
             "destination": "hand",
@@ -4232,7 +4236,13 @@
             ],
             "effect": [
               {
-                "return_self_to_hand": true
+                "schedule_at_self_turn_end": {
+                  "do": [
+                    {
+                      "return_self_to_hand": true
+                    }
+                  ]
+                }
               }
             ]
           }
@@ -8686,12 +8696,7 @@
           "rest": "one_opponent_character_cost_le_2cost"
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 2
-            }
-          }
+          "ko": "one_opponent_rested_character_cost_le_1cost"
         }
       ]
     }
@@ -9271,7 +9276,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ベガパンク"
+      }
     }
   ],
   "OP07-117": [
@@ -10853,7 +10861,8 @@
               "feature": "スリラーバーク海賊団",
               "cost_le": 4
             },
-            "limit": 1
+            "limit": 1,
+            "rested": true
           }
         }
       ]
@@ -19581,7 +19590,7 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": "one_opponent_character_power_le_10000"
         }
       ]
     }
@@ -20693,8 +20702,25 @@
       "when": "counter",
       "do": [
         {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "魚人族"
+              }
+            },
+            "amount": 3000,
+            "duration": "battle"
+          }
+        },
+        {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "魚人族"
+              }
+            },
             "limit": 1
           }
         }
@@ -20929,7 +20955,24 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_4cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -20943,11 +20986,22 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "ドレスローザ"
+              "feature": "ドレスローザ",
+              "category": "STAGE"
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
+          }
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "STAGE",
+              "feature": "ドレスローザ",
+              "cost_eq": 1
+            },
+            "limit": 1
           }
         }
       ]
@@ -21226,7 +21280,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "rest_self": true
+      }
     }
   ],
   "EB01-029": [
