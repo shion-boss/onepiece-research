@@ -51093,7 +51093,10 @@
       "n": 1,
       "do": [
         {
-          "set_ko_immune": "self"
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "static"
+          }
         }
       ]
     }
@@ -51105,7 +51108,10 @@
       "n": 1,
       "do": [
         {
-          "set_ko_immune": "self"
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "static"
+          }
         }
       ]
     }
@@ -51117,7 +51123,10 @@
       "n": 1,
       "do": [
         {
-          "set_ko_immune": "self"
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "static"
+          }
         }
       ]
     }
@@ -76659,7 +76668,10 @@
       "n": 1,
       "do": [
         {
-          "set_ko_immune": "self"
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "static"
+          }
         }
       ]
     }
@@ -83370,7 +83382,10 @@
       "n": 1,
       "do": [
         {
-          "set_ko_immune": "self"
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "static"
+          }
         }
       ]
     }
@@ -85696,7 +85711,10 @@
       },
       "do": [
         {
-          "set_ko_immune": "self"
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "static"
+          }
         }
       ]
     }
@@ -85917,12 +85935,21 @@
       "when": "main",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 7
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 7,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -86892,7 +86919,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
           }
@@ -90310,17 +90337,24 @@
     {
       "_text": "P-062 activate_main: 【ターン1回】相手のコスト4以下のキャラ1枚までを、レストにし、このキャラは、このターン中、パワー＋1000。その後、自分のライフの上から1枚を手札に加える。",
       "when": "activate_main",
-      "do": [
-        {
-          "life_to_hand": 1
-        },
-        {
-          "rest": "one_opponent_character_cost_le_4"
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_4"
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "life_to_hand": 1
+        }
+      ]
     }
   ],
   "P-065": [
@@ -90689,18 +90723,32 @@
     {
       "_text": "P-095 opp_attack: 【ターン1回】自分の手札からイベント1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。",
       "when": "opp_attack",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 2000,
-            "duration": "battle"
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "category": "EVENT",
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "P-096": [

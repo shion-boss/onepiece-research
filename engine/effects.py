@@ -8134,6 +8134,18 @@ def evaluate_static_effects(
                         for t in targets:
                             t.static_ko_immune = True
                         continue
+                    # 常在内の set_battle_ko_immune は battle_ko_immune_static を立てる
+                    # (= 「バトルでKOされない」 限定。 set_ko_immune の static_ko_immune は
+                    #  効果KO も止めるので過剰。 OP03-079 / ST09-004 等の battle-only 用)。
+                    if "set_battle_ko_immune" in primitive:
+                        sb = primitive["set_battle_ko_immune"]
+                        target_spec = sb.get("target", "self") if isinstance(sb, dict) else sb
+                        if not isinstance(target_spec, (str, dict)):
+                            target_spec = "self"
+                        targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        for t in targets:
+                            t.battle_ko_immune_static = True
+                        continue
                     # 常在内の set_ko_immune_from_source_power_le
                     # spec: {"target": "self", "threshold": 5000}
                     # OP14-003 「相手の元々のパワーN以下のキャラの効果でKOされない」
