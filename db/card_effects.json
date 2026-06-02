@@ -97382,7 +97382,7 @@
   "OP12-072": [
     {
       "_text": "OP12-072 自分の場のドン‼がドン‼デッキに戻された時、自分のリーダーが「サンジ」の場合、このキャラは、このターン中、【速攻】を得る。",
-      "when": "on_play",
+      "when": "on_self_don_returned_to_deck",
       "if": {
         "leader_name": "サンジ"
       },
@@ -97525,7 +97525,6 @@
   "OP11-027": [
     {
       "_text": "OP11-027 自分のリーダーが「しらほし」の場合、このキャラは登場したターンにキャラへアタックできる。",
-      "_doc": "「登場したターンにキャラへアタックできる」 = 速攻 (= rush) の キャラ 限定 版。 厳密 には 速攻 は リーダー+キャラ 両方 攻撃 可。 簡略: 速攻 を 付与 (= 過剰 包含、 リーダー アタック も 可)。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
@@ -97535,7 +97534,7 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻"
+            "keyword": "速攻：キャラ"
           }
         }
       ]
@@ -97544,11 +97543,10 @@
   "OP11-046": [
     {
       "_text": "OP11-046 自分のキャラが『ジェルマ』を含む特徴を持つキャラのみの場合、このキャラは相手の効果で、KOされずレストにされない。",
-      "_doc": "「自分のキャラが特徴X のみ」 条件 (= self_all_charas_feature_contains) は engine 未対応 で 簡略: 条件 を leader_feature_contains で 近似。 ジェルマ デッキ の リーダーは ジェルマ 特徴 持ち が 多い。",
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "leader_feature_contains": "ジェルマ"
+        "self_all_chara_feature": "ジェルマ"
       },
       "do": [
         {
@@ -97723,7 +97721,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "leader_name": "しらほし"
       },
       "do": [
         {
@@ -97794,7 +97793,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "self_rested_chara_count_ge": 2
       },
       "do": [
         {
@@ -97838,7 +97838,8 @@
       "if": {
         "self_chara_filtered_count_ge": {
           "filter": {
-            "feature": "トンタッタ族"
+            "feature": "トンタッタ族",
+            "exclude_name": "ビアン"
           },
           "count": 1
         }
