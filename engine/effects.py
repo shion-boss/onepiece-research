@@ -976,6 +976,13 @@ def eval_condition(
         elif k == "opp_hand_count_ge" and opp is not None:
             if len(opp.hand) < int(v):
                 return False
+        elif k == "self_hand_has_feature":
+            # 自分の手札に 指定特徴 (の一部) を含むカードがあるか (= 公開コストの gate)。
+            feat = str(v)
+            if not any(
+                any(feat in f for f in (c.features or ())) for c in me.hand
+            ):
+                return False
         elif k == "opp_turn":
             # 相手のターン中であれば True (= bool 値で発動条件をトグル)
             is_opp_turn = state.turn_player is not me

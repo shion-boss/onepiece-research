@@ -16904,12 +16904,18 @@
     {
       "_text": "ST22-001 【起動メイン】【ターン1回】自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を公開することができる：カード1枚を引き、公開したカードをデッキの上に置く。",
       "when": "activate_main",
+      "if": {
+        "self_hand_has_feature": "白ひげ海賊団"
+      },
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
           "draw": 1
+        },
+        {
+          "discard_self_to_deck_top": 1
         }
       ]
     }
@@ -16918,12 +16924,18 @@
     {
       "_text": "ST22-001_p1 【起動メイン】【ターン1回】自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を公開することができる：カード1枚を引き、公開したカードをデッキの上に置く。",
       "when": "activate_main",
+      "if": {
+        "self_hand_has_feature": "白ひげ海賊団"
+      },
       "cost": {
         "once_per_turn": true
       },
       "do": [
         {
           "draw": 1
+        },
+        {
+          "discard_self_to_deck_top": 1
         }
       ]
     }
@@ -47323,10 +47335,10 @@
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "draw": 1
         }
       ],
       "cost": {
@@ -66321,10 +66333,10 @@
       "when": "main",
       "do": [
         {
-          "draw": 1
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "draw": 1
         }
       ],
       "cost": {
