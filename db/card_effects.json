@@ -80838,12 +80838,23 @@
   ],
   "P-084_r1": [
     {
-      "_text": "P-084_r1 on_play: 自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。",
+      "_text": "P-084_r1 このキャラはアタックできない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_cannot_attack_static": "self"
+        }
+      ]
+    },
+    {
+      "_text": "P-084_r1 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。(自リーダーがバギーの時コスト3と4のキャラすべてアタック不可 は未実装=architectural)",
       "when": "on_play",
       "do": [
         {
           "play_from_hand": {
             "filter": {
+              "category": "CHARACTER",
               "cost_le": 6,
               "feature": "クロスギルド"
             },
@@ -81204,153 +81215,276 @@
   ],
   "ST22-005": [
     {
-      "_text": "ST22-005 activate_main: 【ターン1回】自分のドン‼3枚をレストにし、このキャラ以外の自分のキャラ1枚を持ち主の手札に戻すことができる：このキャラをアクティブにする。",
-      "when": "activate_main",
+      "_text": "ST22-005 このキャラが相手の効果で場を離れる場合、代わりに自分の手札2枚を捨てることができる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
       "do": [
         {
-          "untap": "self"
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
-          }
+          "trash_self_hand_random": 2
         }
       ],
+      "optional": true
+    },
+    {
+      "_text": "ST22-005 【起動メイン】【ターン1回】自分のドン‼3枚をレストにし、このキャラ以外の自分のキャラ1枚を持ち主の手札に戻すことができる：このキャラをアクティブにする。",
+      "when": "activate_main",
       "cost": {
         "once_per_turn": true,
         "rest_self_don": 3
-      }
+      },
+      "do": [
+        {
+          "return_to_hand": "other_self_chara"
+        },
+        {
+          "untap": "self"
+        }
+      ]
     }
   ],
   "ST22-005_p1": [
     {
-      "_text": "ST22-005_p1 activate_main: 【ターン1回】自分のドン‼3枚をレストにし、このキャラ以外の自分のキャラ1枚を持ち主の手札に戻すことができる：このキャラをアクティブにする。",
-      "when": "activate_main",
+      "_text": "ST22-005_p1 このキャラが相手の効果で場を離れる場合、代わりに自分の手札2枚を捨てることができる。",
+      "when": "replace_leave",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
       "do": [
         {
-          "untap": "self"
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {}
-          }
+          "trash_self_hand_random": 2
         }
       ],
+      "optional": true
+    },
+    {
+      "_text": "ST22-005_p1 【起動メイン】【ターン1回】自分のドン‼3枚をレストにし、このキャラ以外の自分のキャラ1枚を持ち主の手札に戻すことができる：このキャラをアクティブにする。",
+      "when": "activate_main",
       "cost": {
         "once_per_turn": true,
         "rest_self_don": 3
-      }
+      },
+      "do": [
+        {
+          "return_to_hand": "other_self_chara"
+        },
+        {
+          "untap": "self"
+        }
+      ]
     }
   ],
   "ST22-006": [
     {
-      "_text": "ST22-006 on_play: 自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。 [dd-mand]",
+      "_text": "ST22-006 【登場時】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "draw": 2
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
   ],
   "ST22-006_p1": [
     {
-      "_text": "ST22-006_p1 on_play: 自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。 [dd-mand]",
+      "_text": "ST22-006_p1 【登場時】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、カード2枚を引き、自分の手札1枚を捨てる。",
       "when": "on_play",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "draw": 2
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "rest_remain": "bottom"
+          }
         }
       ]
     }
   ],
   "ST22-007": [
     {
-      "_text": "ST22-007 activate_main: 【ターン1回】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与す",
+      "_text": "ST22-007 【起動メイン】【ターン1回】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ],
+            "rest_remain": "bottom"
+          }
+        }
+      ]
     }
   ],
   "ST22-007_p1": [
     {
-      "_text": "ST22-007_p1 activate_main: 【ターン1回】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与す",
+      "_text": "ST22-007_p1 【起動メイン】【ターン1回】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "attach_don": {
-            "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "attach_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "rested": true
+                }
+              }
+            ],
+            "rest_remain": "bottom"
+          }
+        }
+      ]
     }
   ],
   "ST22-011": [
     {
-      "_text": "ST22-011 on_play: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：自分の『白ひげ海賊団』を含む特徴を持つリーダー1枚までを、このターン中、パワー+",
+      "_text": "ST22-011 【自分のターン中】【登場時】自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：自分の『白ひげ海賊団』を含む特徴を持つリーダー1枚までを、このターン中、パワー+2000。",
       "when": "on_play",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "turn"
-          }
-        }
-      ],
       "conditions": [
         {
           "self_turn": true
+        },
+        {
+          "leader_feature_contains": "白ひげ海賊団"
+        }
+      ],
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "feature_contains": "白ひげ海賊団"
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "ST22-011_p1": [
     {
-      "_text": "ST22-011_p1 on_play: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：自分の『白ひげ海賊団』を含む特徴を持つリーダー1枚までを、このターン中、パワー+",
+      "_text": "ST22-011_p1 【自分のターン中】【登場時】自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：自分の『白ひげ海賊団』を含む特徴を持つリーダー1枚までを、このターン中、パワー+2000。",
       "when": "on_play",
-      "do": [
-        {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 2000,
-            "duration": "turn"
-          }
-        }
-      ],
       "conditions": [
         {
           "self_turn": true
+        },
+        {
+          "leader_feature_contains": "白ひげ海賊団"
+        }
+      ],
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "feature_contains": "白ひげ海賊団"
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "ST22-012": [
     {
-      "_text": "ST22-012 on_attack: 自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。",
+      "_text": "ST22-012 【ターン1回】このキャラが相手の効果でKOされる場合、代わりに自分の手札1枚を捨てることができる。",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "trash_self_hand_random": 1
+        }
+      ],
+      "optional": true
+    },
+    {
+      "_text": "ST22-012 【アタック時】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。",
       "when": "on_attack",
       "do": [
         {
@@ -81371,15 +81505,31 @@
             "rest_remain": "bottom"
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "ST22-012_p1": [
     {
-      "_text": "ST22-012_p1 on_attack: 自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。",
+      "_text": "ST22-012_p1 【ターン1回】このキャラが相手の効果でKOされる場合、代わりに自分の手札1枚を捨てることができる。",
+      "when": "replace_ko",
+      "if": {
+        "target": "self",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "trash_self_hand_random": 1
+        }
+      ],
+      "optional": true
+    },
+    {
+      "_text": "ST22-012_p1 【アタック時】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。",
       "when": "on_attack",
       "do": [
         {
@@ -81400,10 +81550,7 @@
             "rest_remain": "bottom"
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "ST21-002": [
@@ -81498,8 +81645,13 @@
       "do": [
         {
           "power_pump": {
-            "target": "all_self_characters",
-            "feature": "麦わらの一味",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "麦わらの一味",
+                "power_le": 4000
+              }
+            },
             "amount": 1000,
             "duration": "static"
           }
@@ -81518,8 +81670,13 @@
       "do": [
         {
           "power_pump": {
-            "target": "all_self_characters",
-            "feature": "麦わらの一味",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "麦わらの一味",
+                "power_le": 4000
+              }
+            },
             "amount": 1000,
             "duration": "static"
           }
@@ -89084,12 +89241,23 @@
   ],
   "P-084": [
     {
-      "_text": "P-084 on_play: 自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。",
+      "_text": "P-084 このキャラはアタックできない。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_cannot_attack_static": "self"
+        }
+      ]
+    },
+    {
+      "_text": "P-084 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。(自リーダーがバギーの時コスト3と4のキャラすべてアタック不可 は未実装=architectural)",
       "when": "on_play",
       "do": [
         {
           "play_from_hand": {
             "filter": {
+              "category": "CHARACTER",
               "cost_le": 6,
               "feature": "クロスギルド"
             },
