@@ -99672,7 +99672,8 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "self_turn": true
+        "self_turn": true,
+        "self_hand_count_ge": 5
       },
       "do": [
         {
@@ -100195,7 +100196,8 @@
       "_text": "on_ko (相手ターン中) → 自リーダー パワー+2000 (turn)",
       "when": "on_ko",
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "by_opp_effect": true
       },
       "do": [
         {
