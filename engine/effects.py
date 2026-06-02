@@ -1808,7 +1808,10 @@ def _resolve_target(
     # --- パラメトリック target (regex マッチ) ---
     if isinstance(target_spec, str):
         # one_opponent_character_cost_le_N (1 体、 実害評価 高い順)
-        m = re.match(r"one_opponent_character_cost_le_(\d+)(?:cost)?$", target_spec)
+        # `any_` infix は冗長 alias (= 「相手のコストN以下のキャラ」)。 既存 overlay 多数が
+        # one_opponent_character_any_cost_le_N で書いており、 これを許容しないと silent no-op
+        # (= KO/bounce 不発) になる bug があった (OP01-070/OP06-043/OP05-045 等 ~15 base)。
+        m = re.match(r"one_opponent_character_(?:any_)?cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
             cands = [c for c in opp.characters if c.card.cost <= n]
@@ -7778,6 +7781,9 @@ def _resolve_dynamic_filter(
     elif src == "opp_life_count":
         # OP05-102 ゲダツ: 「相手のライフの枚数以下のコストを持つ相手のキャラ」
         out["cost_le"] = len(opp.life)
+    elif src == "self_life_count":
+        # OP08-102 シャーロット・オペラ: 「自分のライフの枚数以下のコストを持つ相手のキャラ」
+        out["cost_le"] = len(me.life)
     elif src is not None:
         # 未知 source は 防御的 に 大値 (= 制限 ない と 同義) で 通す
         out["cost_le"] = 99
