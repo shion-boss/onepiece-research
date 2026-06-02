@@ -77047,7 +77047,13 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_self_character_cost_eq_1",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "color": "赤",
+                "cost_eq": 1
+              }
+            },
             "amount": 3000,
             "duration": "turn"
           }
@@ -77480,7 +77486,8 @@
           "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
-              "cost_le": 4
+              "cost_le": 4,
+              "no_effect": true
             }
           }
         }
@@ -77978,7 +77985,10 @@
         {
           "return_opp_don": 1
         }
-      ]
+      ],
+      "if": {
+        "opp_don_count_ge": 6
+      }
     }
   ],
   "OP02-094": [
@@ -79057,6 +79067,14 @@
       "when": "on_ko",
       "do": [
         {
+          "summon_from_deck": {
+            "filter": {
+              "name": "スマイリー"
+            },
+            "limit": 1
+          }
+        },
+        {
           "shuffle_self_deck": true
         }
       ]
@@ -79498,7 +79516,12 @@
       "when": "on_play",
       "do": [
         {
-          "shuffle_self_deck": true
+          "search": {
+            "filter": {
+              "name": "人造悪魔の実SMILE"
+            },
+            "limit": 1
+          }
         }
       ]
     }
