@@ -21444,7 +21444,10 @@
         {
           "draw": 1
         }
-      ]
+      ],
+      "cost": {
+        "pay_don": 1
+      }
     },
     {
       "_text": "ゲダツ KO時: 場ドン6以下なら相手キャラKO",
@@ -21540,11 +21543,20 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     }
   ],
   "OP15-106": [
@@ -21601,6 +21613,17 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_or_leader_filtered",
+              "filter": {
+                "feature": "空島"
+              }
+            },
+            "count": 1
+          }
         }
       ]
     },
@@ -22075,10 +22098,16 @@
       "when": "main",
       "do": [
         {
-          "untap_don": 2
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 2
+              }
+            ]
+          }
         }
       ]
     },
@@ -22225,7 +22254,7 @@
           "add_rested_don": 1
         },
         {
-          "ko": "one_opponent_character_cost_le_2"
+          "ko": "one_opponent_character_cost_le_1cost"
         }
       ]
     }
@@ -22559,10 +22588,18 @@
       "when": "trigger",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -22963,7 +23000,10 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "海王類"
+              "feature_in": [
+                "海王類",
+                "魚人島"
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -23316,6 +23356,7 @@
         }
       ],
       "if": {
+        "leader_name": "ニコ・ロビン",
         "self_don_ge": 7
       }
     },
@@ -23583,22 +23624,28 @@
       "do": [
         {
           "power_pump": {
-            "target": "self_inplay",
-            "amount": 1000,
-            "duration": "turn"
-          }
-        },
-        {
-          "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -4000,
             "duration": "turn"
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_le": 2
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_le": 2
-      }
+      ]
     },
     {
       "_text": "OP10-020 trigger: 相手のパワー3000以下のキャラ1枚までを、KOする。",
@@ -23670,7 +23717,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "ODYSSEY"
+              "feature": "ODYSSEY",
+              "category": "CHARACTER"
             },
             "limit": 2,
             "destination": "hand",
@@ -23704,7 +23752,8 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_le": 6
+              "cost_le": 5,
+              "rested": true
             }
           }
         }
@@ -23993,7 +24042,12 @@
       "when": "on_attack",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "sum_both_life_count"
+            }
+          }
         }
       ],
       "if": {
@@ -24019,7 +24073,10 @@
           "search_top_n": {
             "depth": 3,
             "filter": {
-              "feature": "超新星"
+              "feature_in": [
+                "超新星",
+                "キッド海賊団"
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -24038,7 +24095,12 @@
       "when": "on_play",
       "do": [
         {
-          "rest": "one_opponent_character_any"
+          "rest": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     },
@@ -24149,13 +24211,22 @@
       "when": "main",
       "do": [
         {
-          "draw": 1
-        },
-        {
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "exists_opp_chara_power_ge": 5000
+            },
+            "do": [
+              {
+                "draw": 1
+              }
+            ]
           }
         }
       ],
@@ -24678,11 +24749,20 @@
             },
             "count": 1
           }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_life_ge": 2
+            },
+            "do": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_life_ge": 2
-      }
+      ]
     },
     {
       "_text": "OP09-104 trigger: 自分のリーダーが多色の場合、カード2枚を引く。",
@@ -24931,6 +25011,13 @@
             "amount": -3000,
             "duration": "turn"
           }
+        },
+        {
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 3000,
+            "duration": "turn"
+          }
         }
       ]
     },
@@ -24939,7 +25026,7 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": "one_opponent_character_power_le_5000"
         }
       ]
     },
@@ -24951,6 +25038,13 @@
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -3000,
+            "duration": "turn"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "one_self_character_any",
+            "amount": 3000,
             "duration": "turn"
           }
         }
@@ -27967,10 +28061,26 @@
       "when": "main",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "feature_contains": "白ひげ海賊団"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "return_to_deck_bottom": "one_opponent_character_cost_le_5"
+              }
+            ]
+          }
         }
       ]
     },
@@ -61751,10 +61861,26 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 2000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -61905,15 +62031,31 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "reveal_hand_with_filter": {
+                  "count": 2,
+                  "filter": {
+                    "category": "EVENT"
+                  }
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 2
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "rest_self": true
-      }
+      ]
     }
   ],
   "OP12-015": [
@@ -100396,7 +100538,7 @@
   "P-111": [
     {
       "_text": "P-111 ロビン 置換 (ターン1回): 自麦わらキャラが相手効果で場離れる時、 ドン1レスト",
-      "when": "replace_ko",
+      "when": "replace_leave",
       "cost": [
         {
           "once_per_turn": true
