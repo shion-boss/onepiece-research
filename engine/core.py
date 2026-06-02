@@ -499,6 +499,10 @@ class Player:
     stages: list = field(default_factory=list)
     trash: list = field(default_factory=list)
     life: list = field(default_factory=list)
+    # 表向きのライフ枚数 (= しらほし系。 上から数えた face-up 枚数の近似)。
+    # leader/効果でライフを「表向き」 にした枚数を保持し、 「表向きのライフがある場合」
+    # 条件 / 「ライフ上1枚を裏向きにできる」 cost (= face-up を消費) 等で参照する。
+    face_up_life_count: int = 0
     # Phase 7I (2026-05-14): opp に公開済の手札カード ID リスト。
     # return_to_hand / search 等で「公開してから手札に加える」 経路を経たカードが追加される。
     # 手札からの退場 (= play / counter / discard) で先頭マッチ分が削除される。

@@ -12311,17 +12311,30 @@
       "_text": "緑黄しらほし 起動メイン: ドン-1 + 海王類をデッキから登場",
       "when": "activate_main",
       "cost": {
-        "once_per_turn": true,
-        "rest_self_don": 1
+        "once_per_turn": true
       },
       "do": [
         {
-          "summon_from_deck": {
-            "filter": {
-              "feature": "海王類",
-              "cost_le": 4
-            },
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              },
+              {
+                "flip_life_face_up": true
+              }
+            ],
+            "effect": [
+              {
+                "summon_from_deck": {
+                  "filter": {
+                    "feature": "海王類",
+                    "cost_le": 4
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -21087,9 +21100,15 @@
     {
       "_text": "EB03-051 on_play: 自分の表向きのライフがある場合、相手のコスト2以下のキャラ1枚までを、KOする。その後、自分のライフすべてを裏向きにする。",
       "when": "on_play",
+      "if": {
+        "has_face_up_life": true
+      },
       "do": [
         {
           "ko": "one_opponent_character_cost_le_2cost"
+        },
+        {
+          "set_all_life_face_down": true
         }
       ]
     }
@@ -22472,16 +22491,18 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_6cost"
-        }
-      ]
-    },
-    {
-      "_text": "OP13-117 trigger: カード1枚を引く。",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_up": true
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_6"
+              }
+            ]
+          }
         }
       ]
     }
@@ -23502,31 +23523,53 @@
     {
       "_text": "OP11-100 on_play: 自分のリーダーが「しらほし」の場合、自分のライフの上から1枚を裏向きにできる：カード1枚を引く。",
       "when": "on_play",
-      "do": [
-        {
-          "draw": 1
-        }
-      ],
       "if": {
         "leader_name": "しらほし"
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP11-103": [
     {
       "_text": "OP11-103 activate_main: 自分のリーダーが「しらほし」の場合、このキャラをレストにし、自分のライフの上から1枚を裏向きにできる：相手のコスト3以下のキャラ1枚までを、KOする。",
       "when": "activate_main",
-      "do": [
-        {
-          "ko": "one_opponent_character_cost_le_3cost"
-        }
-      ],
       "if": {
         "leader_name": "しらほし"
       },
-      "cost": {
-        "rest_self": true
-      }
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP11-104": [
@@ -23535,14 +23578,25 @@
       "when": "on_play",
       "do": [
         {
-          "search_top_n": {
-            "depth": 3,
-            "filter": {
-              "feature": "魚人島"
-            },
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "bottom"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 3,
+                  "filter": {
+                    "feature": "魚人島"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
           }
         }
       ]
@@ -29138,24 +29192,29 @@
     {
       "_text": "P-106 end_of_turn: 自分のライフの上から1枚を表向きにできる：自分の特徴《エッグヘッド》を持つキャラ1枚までを、アクティブにする。",
       "when": "end_of_turn",
+      "optional": true,
       "do": [
         {
-          "untap_chara": {
-            "target": "one_self_character_any",
-            "limit": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_up": true
+              }
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "feature": "エッグヘッド"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
-        }
-      ]
-    },
-    {
-      "_text": "P-106 trigger: カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。 [mdraw-fix]",
-      "when": "trigger",
-      "do": [
-        {
-          "draw": 1
-        },
-        {
-          "ko": "one_opponent_character_cost_le_2cost"
         }
       ]
     }
@@ -49107,6 +49166,9 @@
     {
       "_text": "PRB02-018 on_play: 自分の表向きのライフがある場合、自分の手札かトラッシュからコスト2の、「サボ」か「ポートガス・D・エース」か「モンキー・Ｄ・ルフィ」1枚までを、登場させる。",
       "when": "on_play",
+      "if": {
+        "has_face_up_life": true
+      },
       "do": [
         {
           "play_from_hand_or_trash": {
@@ -55634,10 +55696,30 @@
       "when": "main",
       "do": [
         {
-          "ko_multi": [
-            "one_opponent_character_cost_le_6cost",
-            "one_opponent_character_cost_le_5cost"
-          ]
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_up": true
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "self_chara_count_lt_opp": true
+                  },
+                  "do": [
+                    {
+                      "ko_multi": [
+                        "one_opponent_character_cost_le_6cost",
+                        "one_opponent_character_cost_le_5cost"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ]
     },
@@ -59638,9 +59720,20 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -64659,34 +64752,62 @@
     {
       "_text": "OP11-107 activate_main: 【ターン1回】自分のリーダーが「しらほし」の場合、自分のライフの上から1枚を裏向きにできる：このターン終了時、このキャラをアクティブにする。",
       "when": "activate_main",
-      "do": [
-        {
-          "untap": "self"
-        }
-      ],
       "cost": {
         "once_per_turn": true
       },
       "if": {
         "leader_name": "しらほし"
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "schedule_at_self_turn_end": {
+                  "do": [
+                    {
+                      "untap": "self"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP11-108": [
     {
       "_text": "OP11-108 on_play: 自分のリーダーが「しらほし」の場合、自分のライフの上から1枚を裏向きにできる：カード2枚を引き、自分の手札1枚を捨てる。 [dd-mand]",
       "when": "on_play",
-      "do": [
-        {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
       "if": {
         "leader_name": "しらほし"
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP11-109": [
@@ -64795,12 +64916,18 @@
     {
       "_text": "OP11-117 activate_main: 【ターン1回】自分のリーダーが「しらほし」の場合、自分のライフの上から1枚を表向きにできる：自分の特徴《海王類》か《魚人族》か《人魚族》を持つキャラ1枚までを、",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "leader_name": "しらほし"
+      },
       "do": [
         {
           "optional_cost_then": {
             "cost": [
               {
-                "peek_self_life_top": 1
+                "flip_life_face_up": true
               }
             ],
             "effect": [
@@ -64809,10 +64936,16 @@
                   "target": {
                     "type": "one_self_chara_filtered",
                     "filter": {
-                      "feature_in": [
-                        "海王類",
-                        "魚人族",
-                        "人魚族"
+                      "or_clauses": [
+                        {
+                          "feature": "海王類"
+                        },
+                        {
+                          "feature": "魚人族"
+                        },
+                        {
+                          "feature": "人魚族"
+                        }
                       ]
                     }
                   },
@@ -64823,13 +64956,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      },
-      "if": {
-        "leader_name": "しらほし"
-      }
+      ]
     }
   ],
   "OP11-119": [
@@ -68689,7 +68816,18 @@
       "when": "on_play",
       "do": [
         {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_down": true
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -68917,6 +69055,9 @@
       "do": [
         {
           "rest": "one_opponent_character_cost_le_2cost"
+        },
+        {
+          "set_all_life_face_down": true
         }
       ],
       "cost": {
@@ -83543,17 +83684,28 @@
     {
       "_text": "ST20-001 activate_main: 【ターン1回】自分のライフの上から1枚を表向きにできる：自分のリーダーかキャラ1枚にレストのドン!!1枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 1
-          }
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_up": true
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "ST20-005": [
@@ -97452,7 +97604,7 @@
       },
       "do": [
         {
-          "peek_self_life_top": 1
+          "flip_life_face_up_effect": 1
         }
       ]
     },
@@ -97728,7 +97880,7 @@
       },
       "do": [
         {
-          "peek_self_life_top": 1
+          "flip_life_face_up_effect": 1
         }
       ]
     },

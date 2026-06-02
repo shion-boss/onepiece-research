@@ -628,6 +628,15 @@ def eval_condition(
         elif k == "self_life_ge":
             if len(me.life) < int(v):
                 return False
+        elif k == "has_face_up_life":
+            # 「自分の表向きのライフがある場合」 (PRB02-018/EB03-051 等)。
+            present = min(me.face_up_life_count, len(me.life)) > 0
+            if bool(v) != present:
+                return False
+        elif k == "self_chara_count_lt_opp":
+            # 「自分のキャラが相手のキャラより少ない場合」 (EB04-059 等)。
+            if opp is None or len(me.characters) >= len(opp.characters):
+                return False
         elif k == "self_life_eq":
             if len(me.life) != int(v):
                 return False
@@ -5035,6 +5044,15 @@ def _execute_effect_body(
                             break
             me.don_rested += removed
             state.push_log(f"  効果: 付与ドン {removed} 枚 → コストエリアレスト")
+        elif k == "set_all_life_face_down":
+            # 「自分のライフすべてを裏向きにする」 (EB03-051/OP08-075 等)。 face-up 枚数 0 化。
+            me.face_up_life_count = 0
+            state.push_log("  効果: 自ライフすべてを裏向き")
+        elif k == "flip_life_face_up_effect":
+            # 「自分のライフの上から N 枚を表向きにする」 (= cost でなく効果としての表向き化)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            me.face_up_life_count = min(me.face_up_life_count + n, len(me.life))
+            state.push_log(f"  効果: 自ライフ上{n}枚を表向き")
         elif k == "schedule_self_trash_at_turn_end":
             # 「その後、 このターン終了時、 このキャラをトラッシュに置く」 自己犠牲 (OP03-005 サッチ)。
             # self_inplay に flag を立て、 turn-end flush で me.trash へ (= 当ターンは場に残り
@@ -6591,6 +6609,19 @@ def _execute_effect_body(
                     if len(avail) < rc_n:
                         can_pay = False
                         break
+                elif "flip_life_face_up" in cs:
+                    # 「自分のライフの上から1枚を表向きにできる：」 cost。 裏向き (= 通常) の
+                    # ライフが 1 枚以上 必要 (= 表向き枚数 < ライフ総数)。 しらほし系。
+                    fu = min(me.face_up_life_count, len(me.life))
+                    if len(me.life) - fu < 1:
+                        can_pay = False
+                        break
+                elif "flip_life_face_down" in cs:
+                    # 「自分のライフの上から1枚を裏向きにできる：」 cost。 表向きの
+                    # ライフが 1 枚以上 必要 (= leader 等で表向きにした分を消費)。
+                    if min(me.face_up_life_count, len(me.life)) < 1:
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -6653,6 +6684,14 @@ def _execute_effect_body(
                     for ip in avail[:rc_n]:
                         ip.rested = True
                         state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                    continue
+                if "flip_life_face_up" in cs:
+                    me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    state.push_log("  効果コスト: ライフ上1枚を表向き")
+                    continue
+                if "flip_life_face_down" in cs:
+                    me.face_up_life_count = max(0, min(me.face_up_life_count, len(me.life)) - 1)
+                    state.push_log("  効果コスト: ライフ上1枚を裏向き")
                     continue
                 if cs.get("rest_self") is True:
                     # rest_self: True 形式 (= self_inplay = ステージ/キャラ を rest)。
