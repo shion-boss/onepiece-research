@@ -674,6 +674,25 @@ def eval_condition(
             # いない場合」 / OP03-027「自分のブチがいない場合」)。
             if any(c.card.name == v for c in me.characters):
                 return False
+        elif k == "self_field_named_all_with_power":
+            # 自分の場 (リーダー+キャラ) に、 指定の全カード名が それぞれ存在する場合 True。
+            # power_eq 指定時は「元々のパワー (= card.power, base)」 がその値のキャラに限定。
+            # 例: ST30-016「自分の元々のパワー6000のキャラの、『エース』と『ルフィ』がいる場合」。
+            spec = v if isinstance(v, dict) else {"names": v}
+            names = [normalize_card_name(n) for n in spec.get("names", [])]
+            power_eq = spec.get("power_eq")
+            pool = [me.leader, *me.characters]
+            ok = True
+            for nm in names:
+                if power_eq is not None:
+                    found = any(c.card.name == nm and c.card.power == int(power_eq) for c in pool)
+                else:
+                    found = any(c.card.name == nm for c in pool)
+                if not found:
+                    ok = False
+                    break
+            if not ok:
+                return False
         elif k == "self_chara_cost_sum_ge":
             # 自分のキャラ (leader 除く) の現在コスト合計が N 以上か (= OP10-022 ロー)。
             total = sum(getattr(c, "base_cost", 0) for c in me.characters)

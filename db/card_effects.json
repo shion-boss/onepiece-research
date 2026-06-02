@@ -78783,33 +78783,32 @@
   ],
   "OP01-097": [
     {
-      "_text": "OP01-097 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。その後、相手のキャラ1枚までを、このターン中",
+      "_text": "OP01-097 【登場時】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "on_play",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
-          }
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
-    },
-    {
-      "_text": "OP01-097 【登場時】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。",
-      "when": "on_play",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻",
+                  "duration": "turn"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -78817,33 +78816,32 @@
   ],
   "OP01-097_p1": [
     {
-      "_text": "OP01-097_p1 on_play: ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。その後、相手のキャラ1枚までを、このターン中",
+      "_text": "OP01-097_p1 【登場時】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
       "when": "on_play",
       "do": [
         {
-          "power_pump": {
-            "target": "one_opponent_character_any",
-            "amount": -2000,
-            "duration": "turn"
-          }
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
-    },
-    {
-      "_text": "OP01-097_p1 【登場時】ドン‼-1(自分の場のドン‼を指定の数ドン‼デッキに戻すことができる)：このキャラは、このターン中、【速攻】を得る。",
-      "when": "on_play",
-      "cost": {
-        "pay_don": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻",
+                  "duration": "turn"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "one_opponent_character_any",
+                  "amount": -2000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -79221,28 +79219,62 @@
   ],
   "ST30-004": [
     {
-      "_text": "ST30-004 on_play: 自分の手札からパワー6000のキャラカード2枚を公開できる：カード3枚を引き、自分の手札2枚を捨てる。 [dd-mand]",
+      "_text": "ST30-004 【登場時】自分の手札からパワー6000のキャラカード2枚を公開できる：カード3枚を引き、自分の手札2枚を捨てる。",
       "when": "on_play",
       "do": [
         {
-          "draw": 3
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_eq": 6000
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 3
+              },
+              {
+                "trash_self_hand_random": 2
+              }
+            ]
+          }
         }
       ]
     }
   ],
   "ST30-004_p1": [
     {
-      "_text": "ST30-004_p1 on_play: 自分の手札からパワー6000のキャラカード2枚を公開できる：カード3枚を引き、自分の手札2枚を捨てる。 [dd-mand]",
+      "_text": "ST30-004_p1 【登場時】自分の手札からパワー6000のキャラカード2枚を公開できる：カード3枚を引き、自分の手札2枚を捨てる。",
       "when": "on_play",
       "do": [
         {
-          "draw": 3
-        },
-        {
-          "trash_self_hand_random": 2
+          "optional_cost_then": {
+            "cost": [
+              {
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "power_eq": 6000
+                  },
+                  "count": 2
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 3
+              },
+              {
+                "trash_self_hand_random": 2
+              }
+            ]
+          }
         }
       ]
     }
@@ -79535,12 +79567,9 @@
   ],
   "ST30-016": [
     {
-      "_text": "ST30-016 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。その後、自分の元々のパワー6000のキャラの、「ポートガス・Ｄ・エース」と「モンキー・D・ルフ",
+      "_text": "ST30-016 【カウンター】自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
       "when": "counter",
       "do": [
-        {
-          "draw": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
@@ -79549,22 +79578,55 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ST30-016 その後、自分の元々のパワー6000のキャラの、「ポートガス・Ｄ・エース」と「モンキー・D・ルフィ」がいる場合、カード1枚を引く。",
+      "when": "counter",
+      "if": {
+        "self_field_named_all_with_power": {
+          "names": [
+            "ポートガス・D・エース",
+            "モンキー・D・ルフィ"
+          ],
+          "power_eq": 6000
+        }
+      },
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "ST30-016_p1": [
     {
-      "_text": "ST30-016_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。その後、自分の元々のパワー6000のキャラの、「ポートガス・Ｄ・エース」と「モンキー・D・ルフ",
+      "_text": "ST30-016_p1 【カウンター】自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
       "when": "counter",
       "do": [
-        {
-          "draw": 1
-        },
         {
           "power_pump": {
             "target": "self_inplay",
             "amount": 3000,
             "duration": "battle"
           }
+        }
+      ]
+    },
+    {
+      "_text": "ST30-016_p1 その後、自分の元々のパワー6000のキャラの、「ポートガス・Ｄ・エース」と「モンキー・D・ルフィ」がいる場合、カード1枚を引く。",
+      "when": "counter",
+      "if": {
+        "self_field_named_all_with_power": {
+          "names": [
+            "ポートガス・D・エース",
+            "モンキー・D・ルフィ"
+          ],
+          "power_eq": 6000
+        }
+      },
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
