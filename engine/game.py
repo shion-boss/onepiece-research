@@ -463,6 +463,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.block_self_draw_until_turn_end = False
         player.cannot_attack_leader_until_turn_end = False
         player.turn_battle_ko_save_discard = False
+        player.life_lost_this_turn = False
         player.block_chara_play_cost_ge_threshold = -1
         player.play_cost_reductions_filtered_turn = []
         player.prevent_self_life_to_hand_until_turn_end = False
@@ -629,7 +630,11 @@ def advance_phase(state: GameState) -> None:
         if not (state.turn_number == 1 and state.turn_player_idx == 0):
             drawn = me.draw(1)
             if not drawn:
-                state.declare_winner(1 - state.turn_player_idx, f"{me.name} deckout")
+                # OP03-040: デッキ0 で 敗北の代わりに勝利。
+                if getattr(me, "deck_out_wins", False):
+                    state.declare_winner(state.turn_player_idx, f"{me.name} deckout-win")
+                else:
+                    state.declare_winner(1 - state.turn_player_idx, f"{me.name} deckout")
                 return
             # 1 snapshot = 1 行動 の原則: deck → hand を明示 (アニメ分離用)。
             state.push_log(f"draw: +1 → hand ({len(me.hand)})")
@@ -1287,6 +1292,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.leader.attached_dons += n
         me.dons_used_count += n
         state.push_log(f"attach don to leader x{n} (P={me.leader.power})")
+        if n > 0 and state.effects_overlay:
+            from .effects import trigger_on_self_don_attached
+            trigger_on_self_don_attached(state, me, opp, state.effects_overlay)
         return
 
     if isinstance(action, AttachDonToCharacter):
@@ -1296,6 +1304,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         ch.attached_dons += n
         me.dons_used_count += n
         state.push_log(f"attach don to {ch.card.name} x{n} (P={ch.power})")
+        if n > 0 and state.effects_overlay:
+            from .effects import trigger_on_self_don_attached
+            trigger_on_self_don_attached(state, me, opp, state.effects_overlay)
         return
 
     if isinstance(action, AttackLeader):
@@ -1571,6 +1582,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
                     break
                 taken = opp.life.pop(0)
+                opp.life_lost_this_turn = True
                 if is_banish:
                     opp.trash.append(taken)
                     state.push_log(

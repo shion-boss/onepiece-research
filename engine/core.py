@@ -578,6 +578,10 @@ class Player:
     # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」
     # (EB02-030)。 バトルKO時に手札があれば1捨てで救済。 ターン終了でクリア。
     turn_battle_ko_save_discard: bool = False
+    # このターン中にライフを失ったか (P-120 「相手のライフが離れているターン中」)。 refreshでクリア。
+    life_lost_this_turn: bool = False
+    # 「デッキが0で敗北の代わりに勝利」 (OP03-040)。 leader静的でセット、 非reset。
+    deck_out_wins: bool = False
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
     # _reset_turn_buff で False に。 life_to_hand / life_top_or_bottom_to_hand (owner=self) が抑制される。
     prevent_self_life_to_hand_until_turn_end: bool = False

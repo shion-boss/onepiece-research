@@ -649,6 +649,11 @@ def eval_condition(
                 present = present or any(c.card.name == name for c in opp.characters)
             if present:  # いる → 条件不成立 (= 効果無効)
                 return False
+        elif k == "opp_life_lost_this_turn":
+            # 「相手のライフが離れているターン中」 (P-120)。 opp が今ターン ライフを失ったか。
+            lost = opp is not None and getattr(opp, "life_lost_this_turn", False)
+            if bool(v) != lost:
+                return False
         elif k == "self_chara_count_lt_opp":
             # 「自分のキャラが相手のキャラより少ない場合」 (EB04-059 等)。
             if opp is None or len(me.characters) >= len(opp.characters):
@@ -8731,6 +8736,9 @@ def evaluate_static_effects(
                         for t in targets:
                             t.cannot_attack_static = True
                         continue
+                    if "set_deck_out_wins" in primitive:
+                        me.deck_out_wins = True
+                        continue
                     if "set_cannot_attack_filtered_static" in primitive:
                         spec = primitive["set_cannot_attack_filtered_static"]
                         filt = spec.get("filter", {})
@@ -9683,6 +9691,29 @@ def trigger_on_self_draw_non_draw_phase(
                 if key in me.once_per_turn_used:
                     continue
                 me.once_per_turn_used.add(key)
+            for prim in eff.get("do", []):
+                execute_effect(prim, state, me, opp, ip)
+
+
+def trigger_on_self_don_attached(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「このリーダーか自分のキャラにドンが付与された時」 (on_self_don_attached)。 OP02-002。
+    me = ドン付与した player。 場の各キャラ/リーダーの on_self_don_attached を発火。"""
+    if not effects_overlay:
+        return
+    for ip in [me.leader, *list(me.characters)]:
+        bundle = effects_overlay.get(ip.card.card_id)
+        if bundle is None:
+            continue
+        for eff in bundle.effects:
+            if eff.get("when") != "on_self_don_attached":
+                continue
+            if not eval_all_conditions(eff, state, me, ip):
+                continue
             for prim in eff.get("do", []):
                 execute_effect(prim, state, me, opp, ip)
 
