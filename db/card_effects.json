@@ -1755,8 +1755,30 @@
   ],
   "EB03-001": [
     {
-      "_text": "EB03-001 activate_main: このリーダーをレストにできる：相手のキャラ1枚までを、このターン中、パワー-2000。その後、自分の",
+      "_text": "EB03-001 replace_ko: 自元々cost4以上キャラKO時 代わりに手札1捨て(ターン1回)",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_cost_ge": 4,
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        },
+        {
+          "discard_hand": 1
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
+    {
+      "_text": "EB03-001 activate_main: リーダーレスト→相手cost-2000 + 自キャラ1枚に速攻(近似)",
       "when": "activate_main",
+      "cost": {
+        "rest_self": true
+      },
       "do": [
         {
           "power_pump": {
@@ -1764,19 +1786,13 @@
             "amount": -2000,
             "duration": "turn"
           }
-        }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
-    },
-    {
-      "_text": "EB03-001 on_attack: 効果を持たないキャラ1枚までは、このターン中、【速攻】を得る。",
-      "when": "on_attack",
-      "do": [
+        },
         {
           "give_keyword": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {}
+            },
             "keyword": "速攻"
           }
         }

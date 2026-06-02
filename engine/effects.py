@@ -10329,6 +10329,9 @@ def _replace_ko_match(
     if "target_cost_le" in cond:
         if victim.card.cost > int(cond["target_cost_le"]):
             return False
+    if "target_cost_ge" in cond:
+        if victim.card.cost < int(cond["target_cost_ge"]):
+            return False
     if "target_power_le" in cond:
         # 公式 4-9: 「元々のパワー X 以下」は永続効果で変更されない CardDef オリジナル値で判定
         if victim.truly_original_power > int(cond["target_power_le"]):
