@@ -49829,7 +49829,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "self_attached_don_ge": 1
       }
     },
     {
@@ -49856,7 +49857,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 5
+        "self_hand_count_le": 5,
+        "self_attached_don_ge": 1
       }
     },
     {
@@ -53076,7 +53078,7 @@
       "when": "on_play",
       "do": [
         {
-          "mill": 5
+          "mill_self_top": 5
         }
       ],
       "if": {
@@ -53090,7 +53092,7 @@
       "when": "on_play",
       "do": [
         {
-          "mill": 5
+          "mill_self_top": 5
         }
       ],
       "if": {
@@ -53104,7 +53106,7 @@
       "when": "on_play",
       "do": [
         {
-          "mill": 5
+          "mill_self_top": 5
         }
       ],
       "if": {
@@ -71101,7 +71103,7 @@
       "when": "on_play",
       "do": [
         {
-          "mill": 5
+          "mill_self_top": 5
         }
       ],
       "if": {
@@ -74027,30 +74029,84 @@
   ],
   "OP04-090": [
     {
-      "_text": "OP04-090 activate_main: 【ターン1回】自分のトラッシュのカード7枚を好きな順番でデッキの下に戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の自分のリフレッシュ",
-      "when": "activate_main",
+      "_text": "OP04-090 このキャラはアクティブのキャラにもアタックできる。",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
-          "untap": "self"
+          "give_attack_active_chara": "self"
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP04-090 【起動メイン】【ターン1回】自分のトラッシュのカード7枚を好きな順番でデッキの下に戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の自分のリフレッシュフェイズでアクティブにならない。",
+      "when": "activate_main",
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 7,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              },
+              {
+                "stay_rested_next_refresh": "self"
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP04-090_p1": [
     {
-      "_text": "OP04-090_p1 activate_main: 【ターン1回】自分のトラッシュのカード7枚を好きな順番でデッキの下に戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の自分のリフレッシュ",
-      "when": "activate_main",
+      "_text": "OP04-090_p1 このキャラはアクティブのキャラにもアタックできる。",
+      "when": "on_attached_don",
+      "n": 0,
       "do": [
         {
-          "untap": "self"
+          "give_attack_active_chara": "self"
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP04-090_p1 【起動メイン】【ターン1回】自分のトラッシュのカード7枚を好きな順番でデッキの下に戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の自分のリフレッシュフェイズでアクティブにならない。",
+      "when": "activate_main",
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 7,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              },
+              {
+                "stay_rested_next_refresh": "self"
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP04-093": [
@@ -74915,32 +74971,32 @@
   ],
   "OP03-041": [
     {
-      "_text": "on_attached_don n=1: このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい",
-      "when": "on_attack",
-      "n": 1,
-      "do": [
-        {
-          "mill": 7
-        }
-      ],
+      "_text": "OP03-041 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
+      "when": "on_opp_life_taken",
+      "optional": true,
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "mill_self_top": 7
+        }
+      ]
     }
   ],
   "OP03-041_p1": [
     {
-      "_text": "on_attached_don n=1: このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい",
-      "when": "on_attack",
-      "n": 1,
-      "do": [
-        {
-          "mill": 7
-        }
-      ],
+      "_text": "OP03-041_p1 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
+      "when": "on_opp_life_taken",
+      "optional": true,
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "mill_self_top": 7
+        }
+      ]
     }
   ],
   "OP03-042": [
@@ -74962,30 +75018,56 @@
   ],
   "OP03-047": [
     {
-      "_text": "don×1 on_play: コスト3以下のキャラ1枚までを、持ち主の手札に戻し、自分のデッキの上から2枚をトラッシュに置いてもよい",
+      "_text": "OP03-047 【登場時】コスト3以下のキャラ1枚までを、持ち主の手札に戻し、自分のデッキの上から2枚をトラッシュに置いてもよい。(両陣営対象は未実装のため相手キャラに近似)",
       "when": "on_play",
       "do": [
         {
           "return_to_hand": "one_opponent_character_cost_le_3cost"
+        },
+        {
+          "mill_self_top": 2
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP03-047 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
+      "when": "on_opp_life_taken",
+      "optional": true,
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "mill_self_top": 7
+        }
+      ]
     }
   ],
   "OP03-047_p1": [
     {
-      "_text": "don×1 on_play: コスト3以下のキャラ1枚までを、持ち主の手札に戻し、自分のデッキの上から2枚をトラッシュに置いてもよい",
+      "_text": "OP03-047_p1 【登場時】コスト3以下のキャラ1枚までを、持ち主の手札に戻し、自分のデッキの上から2枚をトラッシュに置いてもよい。(両陣営対象は未実装のため相手キャラに近似)",
       "when": "on_play",
       "do": [
         {
           "return_to_hand": "one_opponent_character_cost_le_3cost"
+        },
+        {
+          "mill_self_top": 2
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP03-047_p1 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
+      "when": "on_opp_life_taken",
+      "optional": true,
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "mill_self_top": 7
+        }
+      ]
     }
   ],
   "OP03-050": [
