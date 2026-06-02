@@ -39598,7 +39598,23 @@
   ],
   "OP04-082_p1": [
     {
-      "_text": "OP04-082_p1 on_play: 自分のリーダーが「レベッカ」の場合、相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から1枚をトラッシュに置く。",
+      "_text": "OP04-082 replace_ko: 代わりにリーダーかコリーダコロシアムをレスト",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "rest_self_leader_or_stage_filtered": {
+            "filter": {}
+          }
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
+    {
+      "_text": "OP04-082 on_play: 自分のリーダーが「レベッカ」の場合、相手のコスト1以下のキャラ1枚までを、KOする。その後、自分のデッキの上から1枚をトラッシュに置く。",
       "when": "on_play",
       "do": [
         {
@@ -55514,16 +55530,42 @@
   ],
   "EB04-031_p1": [
     {
-      "_text": "EB04-031_p1 activate_main: 【ターン1回】自分のリーダーが特徴《百獣海賊団》を持ち、自分のキャラの他の「キング」がいない場合、ドン‼デッキからドン‼1枚までをアクティブで追加し、さらに1枚",
+      "_text": "EB04-031 replace_ko: 代わりに自ドン1をドンデッキへ",
+      "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
+      "cost": [
+        {
+          "return_self_don_to_deck": 1
+        }
+      ],
+      "do": [],
+      "optional": true
+    },
+    {
+      "_text": "EB04-031 activate_main: 【ターン1回】自分のリーダーが特徴《百獣海賊団》を持ち、自分のキャラの他の「キング」がいない場合、ドン‼デッキからドン‼1枚までをアクティブで追加し、さらに1枚",
       "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "if": {
+        "leader_feature": "百獣海賊団",
+        "self_chara_filtered_count_le": {
+          "filter": {
+            "name": "キング"
+          },
+          "count": 1
+        }
+      },
       "do": [
         {
           "add_don": 1
+        },
+        {
+          "add_rested_don": 1
         }
-      ],
-      "cost": {
-        "once_per_turn": true
-      }
+      ]
     }
   ],
   "EB04-034": [
