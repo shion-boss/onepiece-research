@@ -55857,6 +55857,27 @@
   ],
   "EB04-057": [
     {
+      "_text": "EB04-057 static: ライフ2以下で 自黄科学者全体 相手効果離脱不可",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_le": 2
+      },
+      "do": [
+        {
+          "set_protect_from_opp_effect_static": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "color": "黄",
+                "feature": "科学者"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "_text": "on_attached_don n=1: このキャラは【ブロッカー】を得る",
       "when": "on_attached_don",
       "n": 1,
@@ -59053,7 +59074,12 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "sum_both_life_count"
+            }
+          }
         }
       ]
     }
@@ -74388,9 +74414,22 @@
     {
       "_text": "OP05-103 on_play: 自分の「ホトリ」がいる場合、相手のライフの枚数以下のコストを持つ相手のキャラ1枚までを、KOする。",
       "when": "on_play",
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ホトリ"
+          },
+          "count": 1
+        }
+      },
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     }
