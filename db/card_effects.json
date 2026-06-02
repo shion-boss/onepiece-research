@@ -91196,9 +91196,6 @@
       "do": [
         {
           "trash_opp_hand_random": 2
-        },
-        {
-          "trash_opp_hand_random": 2
         }
       ]
     }
@@ -93036,18 +93033,6 @@
       "if": {
         "self_life_ge": 4,
         "self_attached_don_ge": 1
-      }
-    },
-    {
-      "_text": "P-048_p1 on_attack: 自分のライフが4枚以上の場合、相手は自身の手札1枚をデッキの下に置く。",
-      "when": "on_attack",
-      "do": [
-        {
-          "opp_hand_to_deck_bottom": 1
-        }
-      ],
-      "if": {
-        "self_life_ge": 4
       }
     }
   ],
@@ -94901,10 +94886,11 @@
   ],
   "ST28-003": [
     {
-      "_text": "trigger: 条件 ({'leader_feature': 'ワノ国'}) で 自身登場",
+      "_text": "ST28-003 trigger: leader ワノ国 + 相手ライフ3以下で自身登場",
       "when": "trigger",
       "if": {
-        "leader_feature": "ワノ国"
+        "leader_feature": "ワノ国",
+        "opp_life_le": 3
       },
       "do": [
         {
@@ -96293,7 +96279,9 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "leader_multicolor": true,
+        "self_chara_no_truly_original_power_ge": 6000
       },
       "do": [
         {

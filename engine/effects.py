@@ -1090,8 +1090,10 @@ def eval_condition(
             if cnt > cap:
                 return False
         elif k == "leader_multicolor":
-            # 自リーダーが多色 (= color に "/" 含む) であるか
-            is_multi = "/" in me.leader.card.color
+            # 自リーダーが多色 (= color が 2 色以上) であるか。
+            # card.color は tuple (例: ('赤','黄')) なので "/" 文字列判定は常に False だった
+            # (= leader_multicolor:True が全 29 枚で不発の systematic bug)。 len で判定。
+            is_multi = len(me.leader.card.color) >= 2
             if bool(v) != is_multi:
                 return False
         elif k == "leader_feature_contains":
