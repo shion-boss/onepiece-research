@@ -249,6 +249,9 @@ class InPlay:
     # 「このターン終了時、このキャラをトラッシュに置く」 (= 自己犠牲 drawback、 OP03-005 サッチ)。
     # ターン終了 flush で me.characters → me.trash。
     trash_at_self_turn_end: bool = False
+    # 「このバトル終了時、このキャラを持ち主のデッキの下に置く」 (OP02-064 等)。
+    # バトル終了 flush で me.characters → me.deck (下)。
+    return_to_deck_bottom_at_battle_end: bool = False
     # ターン中の元々のコスト軽減 (cost_minus 効果)。Phase.END でクリア。
     # 「元々のコスト N 以下」判定にこの修正値を反映する (= cost - cost_minus_until_turn_end)
     cost_minus_until_turn_end: int = 0

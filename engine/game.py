@@ -1747,6 +1747,20 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         else:
             state.push_log("  survived")
+        # バトル終了時処理: char vs char バトル (= blocked) なら on_self_battled 発火 (ST02-010)。
+        if is_blocked and state.effects_overlay and attacker in [me.leader, *me.characters]:
+            from .effects import trigger_on_self_battled
+            trigger_on_self_battled(state, me, opp, attacker, state.effects_overlay)
+        # 「このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064)。
+        if getattr(attacker, "return_to_deck_bottom_at_battle_end", False):
+            attacker.return_to_deck_bottom_at_battle_end = False
+            if attacker in me.characters:
+                me.characters.remove(attacker)
+                me.deck.append(attacker.card)
+                if attacker.attached_dons > 0:
+                    me.don_rested += attacker.attached_dons
+                    attacker.attached_dons = 0
+                state.push_log(f"  バトル終了時: {attacker.card.name} を デッキの下に置く")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
         _reset_battle_buffs(state)
         return

@@ -5149,6 +5149,12 @@ def _execute_effect_body(
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
             me.face_up_life_count = min(me.face_up_life_count + n, len(me.life))
             state.push_log(f"  効果: 自ライフ上{n}枚を表向き")
+        elif k == "schedule_self_return_to_deck_bottom_at_battle_end":
+            # 「その後、 このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064)。
+            # self_inplay に flag を立て、 バトル終了 flush で me.deck 下へ。
+            if self_inplay is not None:
+                self_inplay.return_to_deck_bottom_at_battle_end = True
+                state.push_log(f"  効果: {self_inplay.card.name} を バトル終了時デッキ下に予約")
         elif k == "schedule_self_trash_at_turn_end":
             # 「その後、 このターン終了時、 このキャラをトラッシュに置く」 自己犠牲 (OP03-005 サッチ)。
             # self_inplay に flag を立て、 turn-end flush で me.trash へ (= 当ターンは場に残り
@@ -9372,6 +9378,36 @@ def trigger_on_self_rested(
             me.once_per_turn_used.add(key)
         for prim in eff.get("do", []):
             execute_effect(prim, state, me, opp, rested_ip)
+
+
+def trigger_on_self_battled(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    attacker: InPlay,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「このキャラが相手のキャラとバトルした(バトル終了時)」 (on_self_battled)。
+    me = attacker 所有者。 ST02-010 (自身アクティブ化) 等。 char vs char バトル後に発火。
+    """
+    if not effects_overlay:
+        return
+    bundle = effects_overlay.get(attacker.card.card_id)
+    if bundle is None:
+        return
+    for eff in bundle.effects:
+        if eff.get("when") != "on_self_battled":
+            continue
+        if not eval_all_conditions(eff, state, me, attacker):
+            continue
+        cost = eff.get("cost", {})
+        if cost.get("once_per_turn"):
+            key = f"_self_battled_{attacker.instance_id}"
+            if key in me.once_per_turn_used:
+                continue
+            me.once_per_turn_used.add(key)
+        for prim in eff.get("do", []):
+            execute_effect(prim, state, me, opp, attacker)
 
 
 def trigger_on_self_hand_discarded(

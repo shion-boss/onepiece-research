@@ -79009,6 +79009,9 @@
     {
       "_text": "OP02-064 on_attack: 自分の手札1枚を捨てることができる：コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。その後、このバトル終了時、このキャラを持ち主のデッキの下に置く。 [dd-fix] [don-gate]",
       "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
           "optional_cost_then": {
@@ -79020,14 +79023,14 @@
             "effect": [
               {
                 "return_to_deck_bottom": "one_opponent_character_cost_le_2"
+              },
+              {
+                "schedule_self_return_to_deck_bottom_at_battle_end": true
               }
             ]
           }
         }
-      ],
-      "if": {
-        "self_attached_don_ge": 1
-      }
+      ]
     }
   ],
   "OP02-065": [
@@ -87881,21 +87884,17 @@
   "ST02-010": [
     {
       "_text": "ホーキンス アタック時: ドン1+ で自身アクティブ化",
-      "when": "on_attack",
-      "do": [
-        {
-          "untap": "self"
-        }
-      ],
+      "when": "on_self_battled",
+      "if": {
+        "self_attached_don_ge": 1,
+        "self_turn": true
+      },
       "cost": {
         "once_per_turn": true
       },
-      "conditions": [
+      "do": [
         {
-          "self_attached_don_ge": 1
-        },
-        {
-          "self_turn": true
+          "untap": "self"
         }
       ]
     }
