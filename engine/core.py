@@ -230,6 +230,9 @@ class InPlay:
     battle_ko_immune_static: bool = False
     # 「このターン中、バトルでKO されない」 (= turn 限定、 turn end で reset)
     battle_ko_immune_until_turn_end: bool = False
+    # 「次の自分のターン開始時まで、バトルでKO されない」 (= 相手ターンを跨ぐ battle 耐性、
+    # OP06-030 ドスン等)。 所有者の次の refresh (= 自ターン開始) でクリア。
+    battle_ko_immune_through_opp_turn: bool = False
     # ブロッカー 効果 を 無効化 (turn 中、 OP12-051 等)。 _reset_turn_buff で False。
     blocker_disabled_until_turn_end: bool = False
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア

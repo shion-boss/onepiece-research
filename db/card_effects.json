@@ -68864,7 +68864,20 @@
       "when": "counter",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -68884,7 +68897,20 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -68967,10 +68993,24 @@
       "when": "activate_main",
       "do": [
         {
-          "put_top_to_life": 1
-        },
-        {
-          "mill_self_life_to_trash": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_life_to_trash": 1
+              }
+            ],
+            "effect": [
+              {
+                "schedule_at_self_turn_end": {
+                  "do": [
+                    {
+                      "put_top_to_life": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -69014,13 +69054,21 @@
       "when": "activate_main",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "power_pump": {
-            "target": "one_self_character_any",
-            "amount": 1000,
-            "duration": "next_opp_turn_end"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "one_self_character_any",
+                  "amount": 1000,
+                  "duration": "next_opp_turn_end"
+                }
+              }
+            ]
           }
         }
       ],
@@ -70355,7 +70403,14 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "百獣海賊団"
+              "or_clauses": [
+                {
+                  "feature": "百獣海賊団"
+                },
+                {
+                  "feature": "ビッグ・マム海賊団"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
@@ -70649,6 +70704,18 @@
             "effect": [
               {
                 "rest": "one_opponent_character_cost_le_4"
+              },
+              {
+                "conditional": {
+                  "if": {
+                    "self_life_le": 1
+                  },
+                  "do": [
+                    {
+                      "put_top_to_life": 1
+                    }
+                  ]
+                }
               }
             ]
           }
@@ -70656,9 +70723,6 @@
       ],
       "cost": {
         "once_per_turn": true
-      },
-      "if": {
-        "self_life_le": 1
       }
     }
   ],
@@ -70910,10 +70974,23 @@
       "when": "activate_main",
       "do": [
         {
-          "power_pump": {
-            "target": "self",
-            "amount": 5000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_target": {
+                  "name": "ウタ"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 5000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ],
@@ -70949,8 +71026,11 @@
           "optional_cost_then": {
             "cost": [
               {
-                "ko_self_with_filter": {
-                  "power_ge": 6000
+                "ko_self_chara": {
+                  "count": 1,
+                  "filter": {
+                    "power_ge": 6000
+                  }
                 }
               }
             ],
@@ -70996,13 +71076,21 @@
       "when": "main",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -71012,10 +71100,21 @@
       "when": "counter",
       "do": [
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 3000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -71027,9 +71126,6 @@
       "when": "on_play",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
           "play_from_hand": {
             "filter": {
               "cost_le": 4,
@@ -71037,6 +71133,9 @@
             },
             "limit": 1
           }
+        },
+        {
+          "life_to_hand": 1
         }
       ],
       "if": {
@@ -71070,11 +71169,22 @@
       "when": "on_attack",
       "do": [
         {
+          "untap_don": 1
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
           "life_to_hand": 1
         }
       ],
       "if": {
-        "leader_feature": "新魚人海賊団"
+        "leader_feature": "新魚人海賊団",
+        "self_attached_don_ge": 1
       }
     }
   ],
@@ -71084,6 +71194,16 @@
       "when": "on_attack",
       "do": [
         {
+          "untap": "self"
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
           "life_to_hand": 1
         }
       ],
@@ -71091,7 +71211,8 @@
         "once_per_turn": true
       },
       "if": {
-        "leader_feature": "新魚人海賊団"
+        "leader_feature": "新魚人海賊団",
+        "self_attached_don_ge": 1
       }
     }
   ],
@@ -71100,6 +71221,19 @@
       "_text": "OP06-030 on_attack: 自分のリーダーが特徴《新魚人海賊団》を持つ場合、このキャラは、次の自分のターン開始時まで、バトルでKOされずパワー＋2000。その後、自分のライフの上から1枚を",
       "when": "on_attack",
       "do": [
+        {
+          "set_battle_ko_immune": {
+            "target": "self",
+            "duration": "next_self_turn_start"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 2000,
+            "duration": "next_self_turn_start"
+          }
+        },
         {
           "life_to_hand": 1
         }
@@ -71366,7 +71500,8 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 4
+        "self_hand_count_le": 4,
+        "self_attached_don_ge": 2
       }
     }
   ],
@@ -71690,14 +71825,6 @@
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "feature": "FILM"
-            },
-            "limit": 1
-          }
-        },
-        {
           "search_from_trash": {
             "filter": {
               "feature": "FILM",
@@ -71819,8 +71946,11 @@
           "optional_cost_then": {
             "cost": [
               {
-                "ko_self_with_filter": {
-                  "feature": "スリラーバーク海賊団"
+                "ko_self_chara": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "スリラーバーク海賊団"
+                  }
                 }
               }
             ],
@@ -72070,12 +72200,20 @@
       "when": "counter",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "set_battle_ko_immune": {
-            "target": "all_self_chara_cost_le_7",
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_battle_ko_immune": {
+                  "target": "all_self_chara_cost_le_7",
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -72133,9 +72271,11 @@
               {
                 "play_from_trash": {
                   "filter": {
-                    "feature": "スリラーバーク海賊団"
+                    "feature": "スリラーバーク海賊団",
+                    "cost_le": 2
                   },
-                  "limit": 1
+                  "limit": 1,
+                  "rested": true
                 }
               }
             ]
@@ -72716,7 +72856,18 @@
       "when": "opp_attack",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_6cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_6cost"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -72841,6 +72992,7 @@
         }
       ],
       "cost": {
+        "rest_self_don": 1,
         "rest_self": true
       }
     }

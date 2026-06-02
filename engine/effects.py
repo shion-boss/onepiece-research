@@ -5220,6 +5220,9 @@ def _execute_effect_body(
             for t in targets:
                 if duration == "static":
                     t.battle_ko_immune_static = True
+                elif duration in ("next_self_turn_start", "next_opp_turn_end"):
+                    # 「次の自分のターン開始時まで」 = 相手ターンを跨ぐ battle 耐性 (OP06-030)。
+                    t.battle_ko_immune_through_opp_turn = True
                 else:
                     t.battle_ko_immune_until_turn_end = True
             state.push_log(

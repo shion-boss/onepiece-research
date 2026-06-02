@@ -410,7 +410,11 @@ def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
     P-052 ミホーク 「属性(斬)を持つカードとのバトルで KO されない」 等。
     """
     atk_attr = attacker.card.attribute or ""
-    if defender.battle_ko_immune_static or defender.battle_ko_immune_until_turn_end:
+    if (
+        defender.battle_ko_immune_static
+        or defender.battle_ko_immune_until_turn_end
+        or defender.battle_ko_immune_through_opp_turn
+    ):
         return True
     if atk_attr and atk_attr in defender.ko_immune_battle_attributes_in:
         return True
@@ -462,6 +466,7 @@ def _reset_turn_buff(state: GameState) -> None:
         ip.effect_disabled_through_opp_turn = False
         ip.cannot_attack_through_opp_turn = False
         ip.ko_immune_through_opp_turn = False
+        ip.battle_ko_immune_through_opp_turn = False
         ip.cost_minus_through_opp_turn = 0
 
     # 次の(相手|自分)のターン終了時まで タイムドバフ系を applier-tracking でクリア。
