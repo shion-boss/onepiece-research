@@ -5001,6 +5001,13 @@ def _execute_effect_body(
                             break
             me.don_rested += removed
             state.push_log(f"  効果: 付与ドン {removed} 枚 → コストエリアレスト")
+        elif k == "schedule_self_trash_at_turn_end":
+            # 「その後、 このターン終了時、 このキャラをトラッシュに置く」 自己犠牲 (OP03-005 サッチ)。
+            # self_inplay に flag を立て、 turn-end flush で me.trash へ (= 当ターンは場に残り
+            # 強化を活かせる)。 即 trash_self (cost) で書くと登場/起動直後に消える bug だった。
+            if self_inplay is not None:
+                self_inplay.trash_at_self_turn_end = True
+                state.push_log(f"  効果: {self_inplay.card.name} を ターン終了時トラッシュ予約")
         elif k == "schedule_at_self_turn_end":
             # 「このターン終了時に〜」 delayed effect (= 自ターン終了で発動)。
             # OP15-025 クロ等。 me.scheduled_at_self_turn_end に append → END phase で flush。
@@ -8645,6 +8652,15 @@ def trigger_end_of_turn(
             me.don_rested += ip.attached_dons
             ip.attached_dons = 0
         state.push_log(f"  ターン終了時: {ip.card.name} を デッキの下に置く")
+    # 2b. 「このターン終了時、このキャラをトラッシュ」 自己犠牲 (= OP03-005 サッチ)。
+    for ip in [c for c in list(me.characters)
+               if getattr(c, "trash_at_self_turn_end", False)]:
+        me.characters.remove(ip)
+        me.trash.append(ip.card)
+        if ip.attached_dons > 0:
+            me.don_rested += ip.attached_dons
+            ip.attached_dons = 0
+        state.push_log(f"  ターン終了時: {ip.card.name} を トラッシュに置く")
 
     human_optionals: list[dict] = []
 

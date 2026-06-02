@@ -75404,7 +75404,21 @@
       "when": "activate_main",
       "do": [
         {
-          "untap": "self"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 1
+              },
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
+          }
         }
       ],
       "cost": {
@@ -75579,20 +75593,37 @@
       "when": "activate_main",
       "do": [
         {
-          "untap_chara": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "name": "シャーロット・リンリン"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "ko_self_chara": {
+                  "count": 1,
+                  "filter": {
+                    "feature": "ホーミーズ"
+                  },
+                  "exclude_self": true
+                }
+              },
+              {
+                "rest_self": true
               }
-            },
-            "limit": 1
+            ],
+            "effect": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "one_self_chara_filtered",
+                    "filter": {
+                      "name": "シャーロット・リンリン"
+                    }
+                  },
+                  "limit": 1
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "rest_self": true
-      }
+      ]
     },
     {
       "_text": "OP04-111 trigger: このカードを登場させる。",
@@ -75641,27 +75672,6 @@
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
-            "duration": "turn"
-          }
-        }
-      ]
-    },
-    {
-      "_text": "【メイン】自分のライフの上か下から1枚を手札に加えることができる：自分の特徴《ワノ国》を持つキャラ1枚までは、このターン中、【ダブルアタック】を得る。",
-      "when": "main",
-      "cost": {
-        "life_top_or_bottom_to_hand": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "feature": "ワノ国"
-              }
-            },
-            "keyword": "ダブルアタック",
             "duration": "turn"
           }
         }
@@ -75888,11 +75898,13 @@
             "amount": 2000,
             "duration": "turn"
           }
+        },
+        {
+          "schedule_self_trash_at_turn_end": true
         }
       ],
       "cost": {
-        "once_per_turn": true,
-        "trash_self": true
+        "once_per_turn": true
       }
     }
   ],
@@ -76219,16 +76231,25 @@
   ],
   "OP03-051": [
     {
-      "_text": "don×1 on_ko: 自分のデッキの上から3枚をトラッシュに置いてもよい",
-      "when": "on_ko",
+      "_text": "OP03-051 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上7枚trash(任意)",
+      "when": "on_opp_life_taken",
       "do": [
         {
-          "mill_self_top": 3
+          "mill_self_top": 7
         }
       ],
       "if": {
         "self_attached_don_ge": 1
       }
+    },
+    {
+      "_text": "OP03-051 on_ko: デッキ上3枚trash(任意)",
+      "when": "on_ko",
+      "do": [
+        {
+          "mill_self_top": 3
+        }
+      ]
     }
   ],
   "OP03-053": [
@@ -76261,6 +76282,9 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "mill_self_top": 1
         }
       ]
     },
@@ -76419,15 +76443,30 @@
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 1
+              },
+              {
+                "discard_hand_with_filter": {
+                  "category": "CHARACTER",
+                  "cost_eq": 5,
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": "self",
+                  "keyword": "速攻"
+                }
+              }
+            ]
           }
         }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
+      ]
     }
   ],
   "OP03-072": [
@@ -76690,10 +76729,7 @@
             "rested": true
           }
         }
-      ],
-      "if": {
-        "self_attached_don_ge": 1
-      }
+      ]
     },
     {
       "_text": "OP03-090 【ドン!!×1】このキャラは【ブロッカー】を得る。",
@@ -76833,50 +76869,13 @@
       "do": [
         {
           "cost_minus": {
-            "target": "one_opponent_character_any",
+            "target": {
+              "type": "all_opponent_chara_filtered",
+              "filter": {},
+              "limit": 2
+            },
             "amount": 2,
             "duration": "turn"
-          }
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2,
-            "duration": "turn"
-          }
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2,
-            "duration": "turn"
-          }
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2,
-            "duration": "turn"
-          }
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2,
-            "duration": "turn"
-          }
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2,
-            "duration": "turn"
-          }
-        },
-        {
-          "cost_minus": {
-            "target": "one_opponent_character_any",
-            "amount": 2
           }
         }
       ]
@@ -76885,9 +76884,6 @@
       "_text": "OP03-095 trigger: 相手は自身の手札1枚を捨てる。",
       "when": "trigger",
       "do": [
-        {
-          "trash_opp_hand_random": 1
-        },
         {
           "trash_opp_hand_random": 1
         }
@@ -77356,8 +77352,7 @@
         }
       ],
       "if": {
-        "opp_life_ge": 4,
-        "self_life_ge": 4
+        "opp_life_ge": 4
       }
     },
     {
