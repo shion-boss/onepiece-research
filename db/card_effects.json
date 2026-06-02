@@ -63885,7 +63885,16 @@
       "when": "activate_main",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "ジェルマ66"
+              }
+            },
+            "amount": 1000,
+            "duration": "turn"
+          }
         }
       ],
       "cost": {
@@ -63918,15 +63927,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand_with_filter": {
-          "filter": {
-            "feature": "ファイアタンク海賊団"
-          },
-          "count": 1
-        }
-      }
+      ]
     }
   ],
   "OP11-056": [
@@ -64000,10 +64001,18 @@
       "when": "on_play",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -64041,6 +64050,9 @@
       "_text": "OP11-072 activate_main: 【ターン1回】ドン‼-1,このキャラをレストにできる：相手は自身のトラッシュからカード2枚を、好きな順番でデッキの下に置く。その後、自分のライフの上から1枚を手",
       "when": "activate_main",
       "do": [
+        {
+          "opp_trash_to_deck_bottom": 2
+        },
         {
           "life_to_hand": 1
         }
@@ -64268,19 +64280,9 @@
       "when": "on_play",
       "do": [
         {
-          "play_from_trash": {
-            "filter": {
-              "category": "CHARACTER",
-              "name": "カリブー",
-              "cost_le": 4
-            },
-            "limit": 1
-          }
+          "trash_self_hand_random": 1
         }
-      ],
-      "cost": {
-        "discard_hand": 1
-      }
+      ]
     },
     {
       "_text": "OP11-086 activate_main: このキャラをトラッシュに置くことができる：自分のトラッシュからコスト4以下の「カリブー」1枚までを、登場させる。",
@@ -64392,8 +64394,7 @@
       "when": "opp_event_or_trigger_fired",
       "if": {
         "self_turn": true,
-        "opp_life_ge": 2,
-        "self_life_ge": 2
+        "opp_life_ge": 2
       },
       "cost": {
         "once_per_turn": true
@@ -64569,7 +64570,7 @@
                       ]
                     }
                   },
-                  "amount": 2000,
+                  "amount": 1000,
                   "duration": "turn"
                 }
               }
@@ -65384,7 +65385,8 @@
         }
       ],
       "cost": {
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_self_don": 2
       }
     }
   ],
@@ -65886,12 +65888,14 @@
           "life_to_hand": 1
         },
         {
-          "power_pump_multi": {
-            "target_specs": [
-              "one_self_character_any",
-              "one_self_character_any",
-              "one_self_character_any"
-            ],
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "feature": "革命軍"
+              },
+              "limit": 3
+            },
             "amount": 1000,
             "duration": "turn"
           }
@@ -65941,7 +65945,8 @@
         }
       ],
       "if": {
-        "self_life_ge": 3
+        "leader_feature": "超新星",
+        "opp_life_ge": 3
       }
     }
   ],
@@ -67021,10 +67026,18 @@
       "when": "on_play",
       "do": [
         {
-          "life_to_hand": 1
-        },
-        {
-          "add_don": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "add_don": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -67822,26 +67835,6 @@
           }
         }
       ]
-    },
-    {
-      "_text": "【ドン!!×1】【起動メイン】【ターン1回】自分のライフの上から1枚を手札に加えることができる：このキャラは、このターン中、【速攻】を得る。",
-      "when": "activate_main",
-      "if": {
-        "self_inplay_attached_dons_ge": 1
-      },
-      "cost": {
-        "once_per_turn": true,
-        "life_to_hand": 1
-      },
-      "do": [
-        {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "速攻",
-            "duration": "turn"
-          }
-        }
-      ]
     }
   ],
   "OP08-010": [
@@ -67851,10 +67844,15 @@
       "do": [
         {
           "power_pump": {
-            "target": "other_self_chara",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "動物",
+                "exclude_name": "ハイキングベア"
+              }
+            },
             "amount": 1000,
-            "duration": "turn",
-            "feature": "動物"
+            "duration": "turn"
           }
         }
       ],
@@ -67979,12 +67977,12 @@
           }
         },
         {
-          "power_pump_multi": {
-            "target_specs": [
-              "one_self_character_any",
-              "one_self_character_any",
-              "one_self_character_any"
-            ],
+          "power_pump": {
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {},
+              "limit": 3
+            },
             "amount": 1000,
             "duration": "turn"
           }
@@ -68185,7 +68183,8 @@
         }
       ],
       "if": {
-        "self_life_le": 2
+        "self_life_le": 2,
+        "leader_feature_contains": "白ひげ海賊団"
       }
     }
   ],
