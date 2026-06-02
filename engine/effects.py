@@ -5106,6 +5106,22 @@ def _execute_effect_body(
                             break
             me.don_rested += removed
             state.push_log(f"  効果: 付与ドン {removed} 枚 → コストエリアレスト")
+        elif k == "draw_per_self_chara_then_discard":
+            # 「自分の(filter)キャラ1枚につき1引く。 その後、 引いた枚数分自分の手札を捨てる」
+            # (EB04-011 ウロコ等)。 filter 一致の自キャラ数だけ draw → 同数 discard。
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            cnt = sum(1 for c in me.characters if _matches_filter(c.card, filt))
+            if cnt <= 0:
+                state.push_log("  効果: 該当キャラ0 (ドローなし)")
+                return False
+            drawn = me.draw(cnt)
+            nd = len(drawn)
+            for _ in range(nd):
+                if not me.hand:
+                    break
+                me.trash.append(me.hand.pop(state.rng.randrange(len(me.hand))))
+            state.push_log(f"  効果: {cnt}キャラで{nd}ドロー→{nd}捨て")
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))

@@ -3473,7 +3473,11 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "draw_per_self_chara_then_discard": {
+            "filter": {
+              "feature": "海王類"
+            }
+          }
         }
       ]
     }
@@ -24794,15 +24798,12 @@
             "amount": 3000,
             "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP09-059 trigger: カード1枚を引く。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "draw": 1
+          "trash_self_hand_random": 2
+        },
+        {
+          "mill_self_top": 2
         }
       ]
     }
@@ -76610,7 +76611,7 @@
         {
           "give_keyword": {
             "target": "self",
-            "keyword": "速攻"
+            "keyword": "速攻：キャラ"
           }
         }
       ]
