@@ -11987,18 +11987,6 @@
   ],
   "OP15-060": [
     {
-      "_text": "OP15-060 activate_main: ドン‼-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。 [dd-mand]",
-      "when": "activate_main",
-      "do": [
-        {
-          "trash_self_hand_random": 1
-        }
-      ],
-      "cost": {
-        "pay_don": 1
-      }
-    },
-    {
       "_text": "自分の場のドン!!が6枚以下の場合、このキャラは相手の効果で場を離れず、パワー+2000。【起動メイン】ドン!!-1：このキャラは、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。その後、自分の手札1枚を捨てる。",
       "when": "on_attached_don",
       "n": 0,
@@ -61435,10 +61423,33 @@
       "when": "on_play",
       "do": [
         {
-          "schedule_at_self_turn_end": {
-            "do": [
+          "optional_cost_then": {
+            "cost": [
               {
-                "untap_don": 2
+                "reveal_hand_with_filter": {
+                  "filter": {
+                    "or_clauses": [
+                      {
+                        "feature": "音楽"
+                      },
+                      {
+                        "feature": "FILM"
+                      }
+                    ]
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "schedule_at_self_turn_end": {
+                  "do": [
+                    {
+                      "untap_don": 2
+                    }
+                  ]
+                }
               }
             ]
           }
@@ -98229,7 +98240,14 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "self_chara_filtered_count_le": {
+          "filter": {
+            "name": "しらほし",
+            "cost_eq": 2
+          },
+          "count": 1
+        }
       },
       "do": [
         {
@@ -98258,7 +98276,7 @@
       },
       "do": [
         {
-          "peek_self_life_top": 1
+          "flip_life_face_up_effect": 1
         }
       ]
     },
@@ -98267,7 +98285,14 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_turn": true
+        "opp_turn": true,
+        "self_chara_filtered_count_le": {
+          "filter": {
+            "name": "しらほし",
+            "cost_eq": 2
+          },
+          "count": 1
+        }
       },
       "do": [
         {

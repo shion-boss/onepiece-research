@@ -1000,6 +1000,15 @@ def eval_condition(
             count = sum(1 for c in me.characters if _ip_matches(c))
             if count < need:
                 return False
+        elif k == "self_chara_filtered_count_le":
+            # 自場の filter 一致キャラ数が N 以下 (= 「他の<name>がいない場合」 等)。
+            # spec: {"filter": {...}, "count": N}
+            spec = v if isinstance(v, dict) else {}
+            filt = spec.get("filter", {})
+            need = int(spec.get("count", 0))
+            cnt = sum(1 for c in me.characters if _matches_filter(c.card, filt))
+            if cnt > need:
+                return False
         elif k == "opp_chara_filtered_count_ge" and opp is not None:
             # 相手場の キャラ で filter にマッチ する 数 N 以上 (= 「相手のコスト0のキャラがいる場合」 等)。
             # spec: {"filter": {...}, "count": N}
