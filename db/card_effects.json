@@ -89490,10 +89490,28 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
-            "target": "self_leader",
-            "amount": 1000,
-            "duration": "turn"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              },
+              {
+                "power_pump": {
+                  "target": "self_leader",
+                  "amount": 1000,
+                  "duration": "turn"
+                }
+              }
+            ]
           }
         }
       ]
@@ -90569,14 +90587,9 @@
       "when": "on_play",
       "do": [
         {
-          "play_from_hand": {
-            "filter": {
-              "category": "CHARACTER",
-              "power_le": 5000,
-              "color": "黄",
-              "has_trigger": true
-            },
-            "limit": 1
+          "attach_rested_don": {
+            "target": "self_inplay",
+            "count": 1
           }
         }
       ]
@@ -92540,10 +92553,11 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {},
+            "amount_per_discard": 1000,
             "target": "self",
-            "amount": 1000,
-            "duration": "battle"
+            "max": 5
           }
         }
       ]
