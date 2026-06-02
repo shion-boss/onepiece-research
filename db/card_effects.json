@@ -12381,10 +12381,17 @@
             ],
             "effect": [
               {
-                "summon_from_deck": {
+                "play_from_hand": {
                   "filter": {
-                    "feature": "海王類",
-                    "cost_le": 4
+                    "or_clauses": [
+                      {
+                        "feature": "海王類"
+                      },
+                      {
+                        "name": "メガロ"
+                      }
+                    ],
+                    "cost_le_dynamic": "self_don_total"
                   },
                   "limit": 1
                 }
@@ -82712,6 +82719,26 @@
           "give_keyword": {
             "target": "self",
             "keyword": "ブロッカー"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST27-004 static: 黒ひげleaderで トラッシュ4枚につきコスト+1",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta_per": {
+              "source": "self_trash_count",
+              "divisor": 4,
+              "multiplier": 1
+            }
           }
         }
       ]

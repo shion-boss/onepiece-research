@@ -2449,6 +2449,10 @@ def _execute_effect_body(
             # 2026-05-31 fix: card name を log に 出 力 す る と 相 手 view で も 見 え る
             # (= state.log は public)。 count のみ で 隠 ぺ い 情 報 保 護。
             state.push_log(f"  効果: ドロー {n}")
+            # do-primitive の draw は 全て ドローフェイズ以外 (= 効果ドロー) なので
+            # 「ドローフェイズ以外でカードを引いた時」 トリガー発火 (OP05-053)。
+            if drawn and state.effects_overlay:
+                trigger_on_self_draw_non_draw_phase(state, me, opp, state.effects_overlay)
         elif k == "draw_per_self_hand_discarded":
             # OP12-040 クザン等: 「捨てた枚数分カードを引く」 動的 N ドロー。
             # state.last_discard_count を読み取る。 trigger_on_self_hand_discarded で設定済み。
@@ -8852,6 +8856,18 @@ def evaluate_static_effects(
                             for t in targets:
                                 cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
                                 t.base_cost_override = max(0, cur + delta)
+                        elif "delta_per" in spec:
+                            # スケーリング delta (= 「トラッシュ4枚につきコスト+1」 ST27-004)。
+                            dp = spec["delta_per"]
+                            src = dp.get("source", "")
+                            divisor = max(1, int(dp.get("divisor", 1)))
+                            mult = int(dp.get("multiplier", 1))
+                            src_val = len(me.trash) if src == "self_trash_count" else 0
+                            delta = (src_val // divisor) * mult
+                            targets = _resolve_target(target_spec, state, me, opp, inplay)
+                            for t in targets:
+                                cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
+                                t.base_cost_override = max(0, cur + delta)
                         continue
                     # filter 付きの 場のキャラ コスト変更 静的効果 (OP10-042 ウソップ系)
                     # 公式 「自分のコスト2以上の特徴《ドレスローザ》を持つキャラすべてを、 コスト+1」 等。
@@ -9640,6 +9656,35 @@ def trigger_on_self_rested(
             me.once_per_turn_used.add(key)
         for prim in eff.get("do", []):
             execute_effect(prim, state, me, opp, rested_ip)
+
+
+def trigger_on_self_draw_non_draw_phase(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「自分がドローフェイズ以外でカードを引いた時」 (on_self_draw_non_draw_phase)。 OP05-053。
+    me = 引いた player。 場の各キャラの on_self_draw_non_draw_phase を発火。"""
+    if not effects_overlay:
+        return
+    for ip in list(me.characters):
+        bundle = effects_overlay.get(ip.card.card_id)
+        if bundle is None:
+            continue
+        for eff in bundle.effects:
+            if eff.get("when") != "on_self_draw_non_draw_phase":
+                continue
+            if not eval_all_conditions(eff, state, me, ip):
+                continue
+            cost = eff.get("cost", {})
+            if cost.get("once_per_turn"):
+                key = f"_self_draw_nondp_{ip.instance_id}"
+                if key in me.once_per_turn_used:
+                    continue
+                me.once_per_turn_used.add(key)
+            for prim in eff.get("do", []):
+                execute_effect(prim, state, me, opp, ip)
 
 
 def trigger_on_self_battled(
