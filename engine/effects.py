@@ -1989,6 +1989,20 @@ def _resolve_target(
                 sorted_chara = list(sorted_chara) + [opp.leader]
             return sorted_chara[:n]
 
+        # any_opp_rested_chara_cost_le_C_n_N (= 相手のレストのコスト C 以下のキャラ N 体まで)
+        m = re.match(r"any_opp_rested_chara_cost_le_(\d+)_n_(\d+)$", target_spec)
+        if m:
+            cost_cap = int(m.group(1))
+            n = int(m.group(2))
+            cands = [c for c in opp.characters if c.rested and c.card.cost <= cost_cap]
+            if outer_kind and len(cands) > n and _maybe_request_target_pick(
+                state, cands, n, outer_kind, outer_value, self_inplay,
+                description=f"相手レストキャラ(コスト{cost_cap}以下) から {n} 枚 まで 選択",
+            ):
+                return []
+            cands.sort(key=lambda c: -c.power)
+            return cands[:n]
+
         # any_opp_rested_chara_n_N (= 相手のレストのキャラ N 体まで)
         m = re.match(r"any_opp_rested_chara_n_(\d+)$", target_spec)
         if m:

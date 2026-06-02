@@ -81763,10 +81763,7 @@
             "limit": 1
           }
         }
-      ],
-      "if": {
-        "self_attached_don_ge": 2
-      }
+      ]
     },
     {
       "_text": "ST21-015 【ドン‼×2】このキャラは【速攻】を得る。",
@@ -81798,10 +81795,7 @@
             "limit": 1
           }
         }
-      ],
-      "if": {
-        "self_attached_don_ge": 2
-      }
+      ]
     },
     {
       "_text": "ST21-015_p1 【ドン‼×2】このキャラは【速攻】を得る。",
@@ -81819,16 +81813,25 @@
   ],
   "ST21-017": [
     {
-      "_text": "ST21-017 main: 相手のキャラ1枚までを、このターン中、パワー-5000。その後、自分のパワー6000以上のキャラがいる場合、相手のパワー2000以下のキャラ1枚までを、KOする",
+      "_text": "ST21-017 main(1): 相手のキャラ1枚までを、このターン中、パワー-5000。",
       "when": "main",
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_2000",
+            "target": "one_opponent_character_any",
             "amount": -5000,
             "duration": "turn"
           }
-        },
+        }
+      ]
+    },
+    {
+      "_text": "ST21-017 main(2): その後、自分のパワー6000以上のキャラがいる場合、相手のパワー2000以下のキャラ1枚までを、KOする。",
+      "when": "main",
+      "if": {
+        "self_chara_power_ge": 6000
+      },
+      "do": [
         {
           "ko": "one_opponent_character_power_le_2000"
         }
@@ -82724,22 +82727,28 @@
     {
       "_text": "P-058_p1 main: 自分のリーダーが「ウタ」の場合、このターン終了時、自分の特徴《FILM》を持つキャラすべてを、アクティブにする。",
       "when": "main",
-      "do": [
-        {
-          "untap_chara": {
-            "target": {
-              "type": "all_self_chara_filtered",
-              "filter": {
-                "feature": "FILM"
-              }
-            },
-            "limit": 99
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "all_self_chara_filtered",
+                    "filter": {
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 99
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "_text": "P-058_p1 trigger: 自分の特徴《FILM》を持つキャラすべてを、アクティブにする。",
@@ -82748,7 +82757,7 @@
         {
           "untap_chara": {
             "target": {
-              "type": "one_self_chara_or_leader_filtered",
+              "type": "all_self_chara_filtered",
               "filter": {
                 "feature": "FILM"
               }
@@ -88933,22 +88942,28 @@
     {
       "_text": "P-058 main: 自分のリーダーが「ウタ」の場合、このターン終了時、自分の特徴《FILM》を持つキャラすべてを、アクティブにする。",
       "when": "main",
-      "do": [
-        {
-          "untap_chara": {
-            "target": {
-              "type": "all_self_chara_filtered",
-              "filter": {
-                "feature": "FILM"
-              }
-            },
-            "limit": 99
-          }
-        }
-      ],
       "if": {
         "leader_name": "ウタ"
-      }
+      },
+      "do": [
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_chara": {
+                  "target": {
+                    "type": "all_self_chara_filtered",
+                    "filter": {
+                      "feature": "FILM"
+                    }
+                  },
+                  "limit": 99
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "_text": "P-058 trigger: 自分の特徴《FILM》を持つキャラすべてを、アクティブにする。",
@@ -88957,7 +88972,7 @@
         {
           "untap_chara": {
             "target": {
-              "type": "one_self_chara_or_leader_filtered",
+              "type": "all_self_chara_filtered",
               "filter": {
                 "feature": "FILM"
               }
@@ -92384,16 +92399,25 @@
   ],
   "ST21-017_p1": [
     {
-      "_text": "ST21-017_p1 main: 相手のキャラ1枚までを、このターン中、パワー-5000。その後、自分のパワー6000以上のキャラがいる場合、相手のパワー2000以下のキャラ1枚までを、KOする",
+      "_text": "ST21-017_p1 main(1): 相手のキャラ1枚までを、このターン中、パワー-5000。",
       "when": "main",
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_2000",
+            "target": "one_opponent_character_any",
             "amount": -5000,
             "duration": "turn"
           }
-        },
+        }
+      ]
+    },
+    {
+      "_text": "ST21-017_p1 main(2): その後、自分のパワー6000以上のキャラがいる場合、相手のパワー2000以下のキャラ1枚までを、KOする。",
+      "when": "main",
+      "if": {
+        "self_chara_power_ge": 6000
+      },
+      "do": [
         {
           "ko": "one_opponent_character_power_le_2000"
         }
