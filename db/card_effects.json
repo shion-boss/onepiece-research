@@ -70213,9 +70213,13 @@
       "when": "on_play",
       "do": [
         {
+          "mill_self_top": 2
+        },
+        {
           "cost_minus": {
             "target": "one_opponent_character_any",
-            "amount": 2
+            "amount": 2,
+            "duration": "turn"
           }
         }
       ]
@@ -70268,7 +70272,24 @@
       "when": "on_play",
       "do": [
         {
-          "trash_opp_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 1
+              },
+              {
+                "opp_trash_to_deck_bottom": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -71068,12 +71089,18 @@
       "when": "main",
       "do": [
         {
-          "play_from_hand": {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        },
+        {
+          "reveal_top_play": {
             "filter": {
-              "category": "CHARACTER",
               "cost_eq": 2
             },
-            "limit": 1
+            "rest_remain": "top_or_bottom"
           }
         }
       ]
@@ -72288,6 +72315,13 @@
       "when": "counter",
       "do": [
         {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 3000,
+            "duration": "battle"
+          }
+        },
+        {
           "play_from_hand": {
             "filter": {
               "category": "CHARACTER",
@@ -72516,7 +72550,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_cannot_attack": "one_opponent_character_cost_le_7cost"
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_7cost",
+            "duration": "next_opp_turn_end"
+          }
         }
       ]
     }
@@ -72620,7 +72657,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "any_opponent_character_cost_le_2"
+          "return_to_deck_bottom": "any_opponent_character_cost_le_3"
         }
       ]
     },
@@ -73199,10 +73236,21 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 1
-        },
-        {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "stage_to_deck_bottom": 1
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ]
+          }
         }
       ]
     }
