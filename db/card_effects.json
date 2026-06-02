@@ -21205,15 +21205,6 @@
           "stay_rested_next_refresh": "self_just_buffed"
         }
       ]
-    },
-    {
-      "_text": "EB02-021 trigger: 相手のコスト4以下のキャラ1枚までを、レストにする。",
-      "when": "trigger",
-      "do": [
-        {
-          "rest": "one_opponent_character_cost_le_4cost"
-        }
-      ]
     }
   ],
   "EB02-030": [
@@ -23718,16 +23709,28 @@
   ],
   "OP10-005": [
     {
+      "_text": "OP10-005 static: 【自分のターン中】このキャラ+3000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP10-005 on_ko: カード1枚を引く。",
       "when": "on_ko",
       "do": [
         {
           "draw": 1
-        }
-      ],
-      "conditions": [
-        {
-          "self_turn": true
         }
       ]
     }
@@ -23982,7 +23985,23 @@
       "when": "on_play",
       "do": [
         {
-          "return_to_hand": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_hand": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -65785,14 +65804,28 @@
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": {
-              "type": "one_self_chara_filtered",
-              "filter": {
-                "name": "モンキー・D・ルフィ"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_leader_or_stage_filtered": {
+                  "filter": {
+                    "feature": "ドレスローザ"
+                  },
+                  "count": 1
+                }
               }
-            },
-            "keyword": "バニッシュ"
+            ],
+            "effect": [
+              {
+                "give_keyword": {
+                  "target": {
+                    "type": "self_chara_named",
+                    "name": "モンキー・D・ルフィ"
+                  },
+                  "keyword": "バニッシュ"
+                }
+              }
+            ]
           }
         }
       ]
@@ -67862,12 +67895,7 @@
           "negate_effect": "one_opponent_character_any"
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "cost_le": 4
-            }
-          }
+          "ko": "opp_just_negated_cost_le_4"
         }
       ]
     },
@@ -71412,6 +71440,9 @@
     {
       "_text": "don×1 on_attack: このキャラは、次の自分のターン開始時まで、パワー+1000。その後、このターン終了時、自分の特徴《FILM》を持つキャラ",
       "when": "on_attack",
+      "if": {
+        "self_attached_don_ge": 1
+      },
       "do": [
         {
           "power_pump": {
@@ -71419,11 +71450,22 @@
             "amount": 1000,
             "duration": "next_self_turn_start"
           }
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "ko_self_chara": {
+                  "filter": {
+                    "feature": "FILM"
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_attached_don_ge": 1
-      }
+      ]
     }
   ],
   "OP06-009": [
@@ -72401,12 +72443,7 @@
           "negate_effect": "one_opponent_character_any"
         },
         {
-          "ko": {
-            "type": "one_opponent_character_filtered",
-            "filter": {
-              "power_le": 5000
-            }
-          }
+          "ko": "opp_just_negated_power_le_5000"
         }
       ]
     }
@@ -73366,17 +73403,33 @@
     {
       "_text": "OP05-026 on_attack: 【ターン1回】自分のコスト3以上のキャラ1枚をレストにできる：このキャラをアクティブにする。 [don-gate]",
       "when": "on_attack",
-      "do": [
-        {
-          "untap": "self"
-        }
-      ],
       "cost": {
         "once_per_turn": true
       },
       "if": {
         "self_attached_don_ge": 1
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_chara_filtered": {
+                  "filter": {
+                    "cost_ge": 3
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "untap": "self"
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP05-029": [

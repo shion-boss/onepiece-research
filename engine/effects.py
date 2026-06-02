@@ -1633,6 +1633,20 @@ def _resolve_target(
         # state.last_replace_victim を 参照 (= try_replace_ko 等 が セット)。
         vic = getattr(state, "last_replace_victim", None)
         return [vic] if vic is not None else []
+    if isinstance(target_spec, str):
+        # opp_just_negated_power_le_N / _cost_le_N: 直前に negate した相手キャラを、
+        # power/cost 閾値を満たす場合のみ返す (= 「その後、 そのキャラのパワー/コストがX以下ならKO」、
+        # OP06-074/OP09-098)。 元々パワー/コストで判定。
+        m = re.match(r"opp_just_negated_(power|cost)_le_(\d+)$", target_spec)
+        if m:
+            kind = m.group(1); thr = int(m.group(2))
+            iid = getattr(state, "last_negated_iid", None)
+            if iid is not None:
+                for ip in opp.characters:
+                    if ip.instance_id == iid:
+                        val = ip.power if kind == "power" else ip.base_cost
+                        return [ip] if val <= thr else []
+            return []
     if target_spec == "self_just_buffed":
         # soshite (= 「その後、 そのカードを〜」) で直前の power_pump 対象を再参照。
         iid = getattr(state, "last_pumped_iid", None)
@@ -5871,6 +5885,9 @@ def _execute_effect_body(
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="negate_effect", outer_value=target_spec)
             for t in targets:
                 t.granted_keywords.add("効果無効")
+            # soshite (= 「その後、 そのキャラの〜」) 用に直近 negate 対象を記録。
+            if targets:
+                state.last_negated_iid = targets[0].instance_id
             state.push_log(f"  効果: 効果無効付与 → {[t.card.name for t in targets]} (近似)")
         elif k == "other_self_charas_to_deck_bottom":
             # このキャラ以外の自分のキャラすべてをデッキ下へ。
