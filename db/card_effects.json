@@ -25336,6 +25336,9 @@
             "target": "one_opponent_character_any",
             "amount": 2
           }
+        },
+        {
+          "ko": "one_opponent_character_current_cost_le_0"
         }
       ],
       "if": {
@@ -25892,11 +25895,23 @@
       "do": [
         {
           "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 10
+            },
+            "do": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 3
+                }
+              }
+            ]
+          }
         }
-      ],
-      "if": {
-        "self_trash_count_ge": 10
-      }
+      ]
     },
     {
       "_text": "OP07-096 trigger: 相手のコスト3以下のキャラ1枚までを、KOする。",
@@ -26489,14 +26504,23 @@
       "when": "on_attack",
       "do": [
         {
-          "untap_don": 1
+          "rest": "one_opponent_character_cost_le_4cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_4cost"
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
         "leader_feature": "ドンキホーテ海賊団"
+      },
+      "cost": {
+        "rest_self_don": 1
       }
     }
   ],
@@ -26556,6 +26580,9 @@
       "when": "counter",
       "do": [
         {
+          "rest": "one_opponent_inplay_any"
+        },
+        {
           "ko": "one_opponent_rested_character_cost_le_6cost"
         }
       ]
@@ -26575,6 +26602,9 @@
       "do": [
         {
           "rest": "one_opponent_inplay_any"
+        },
+        {
+          "ko": "one_opponent_rested_character_cost_le_6cost"
         }
       ]
     }
@@ -26592,7 +26622,7 @@
           }
         },
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
         }
       ]
     },
@@ -26817,6 +26847,9 @@
       "_text": "OP04-101 trigger: このカードを登場させる。その後、相手のコスト2以下のキャラ1枚までを、KOする。",
       "when": "trigger",
       "do": [
+        {
+          "play_self": true
+        },
         {
           "ko": "one_opponent_character_cost_le_2cost"
         }
@@ -27068,13 +27101,10 @@
       "when": "main",
       "do": [
         {
-          "rest_multi": [
-            "one_opponent_character_cost_le_2cost",
-            "one_opponent_character_cost_le_2cost"
-          ]
-        },
-        {
-          "rest": "one_opponent_character_cost_le_2cost"
+          "rest_multi": {
+            "target": "any_opponent_character_cost_le_2",
+            "count": 2
+          }
         }
       ]
     },
@@ -27535,7 +27565,8 @@
         }
       ],
       "cost": {
-        "discard_hand": 1
+        "discard_hand": 1,
+        "rest_self": true
       }
     }
   ],
@@ -27829,8 +27860,8 @@
         }
       ],
       "if": {
-        "opp_life_ge": 3,
-        "self_life_ge": 3
+        "leader_feature": "ワノ国",
+        "opp_life_ge": 3
       }
     }
   ],
@@ -28213,7 +28244,13 @@
         }
       ],
       "if": {
-        "self_hand_count_le": 6
+        "self_hand_count_le": 6,
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "cost_ge": 8
+          },
+          "count": 1
+        }
       }
     }
   ],
@@ -28504,19 +28541,41 @@
       "when": "activate_main",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              },
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3cost"
+              }
+            ]
+          }
         }
-      ],
-      "cost": {
-        "rest_self": true
-      }
+      ]
     },
     {
       "_text": "ST07-009 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
       "when": "trigger",
       "do": [
         {
-          "trash_self_hand_random": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "play_self": true
+              }
+            ]
+          }
         }
       ]
     }
@@ -28776,7 +28835,9 @@
               {
                 "ko": {
                   "type": "one_opponent_character_filtered",
-                  "filter": {}
+                  "filter": {
+                    "cost_le": 0
+                  }
                 }
               }
             ]
