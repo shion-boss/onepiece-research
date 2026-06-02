@@ -312,6 +312,9 @@ class InPlay:
     # 「このキャラがアタックする場合、相手は【ブロッカー】を発動できない」 (ST21-003 等)。
     # Phase.END でクリア (turn-bound)。
     attacker_prevents_blocker_until_turn_end: bool = False
+    # 「このキャラのアタック中、 相手はパワーN以下のキャラの【ブロッカー】を発動できない」
+    # (OP01-120/OP03-002 等)。 -1 = 制約なし。 ブロッカー選択時に power<=N を除外。
+    attacker_prevents_blocker_power_le: int = -1
     # 「相手の元々のコスト N 以下のキャラへアタックできない」 (OP12-020 リーダー等)。
     # -1 は無効、 0+ は cost 上限。 Phase.END でクリア。
     cannot_attack_target_cost_le_until_turn_end: int = -1

@@ -450,6 +450,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.cannot_attack_until_turn_end = False
             ip.cost_minus_until_turn_end = 0
             ip.attacker_prevents_blocker_until_turn_end = False
+            ip.attacker_prevents_blocker_power_le = -1
             ip.cannot_attack_target_cost_le_until_turn_end = -1
             ip.turn_base_power_override = None
         player.play_cost_reduction = 0

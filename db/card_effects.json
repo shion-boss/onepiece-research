@@ -50563,9 +50563,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]
@@ -50577,9 +50576,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]
@@ -50591,9 +50589,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]
@@ -66841,9 +66838,13 @@
       "when": "on_play",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "disable_blocker": {
+            "target": {
+              "type": "one_opponent_character_filtered",
+              "filter": {
+                "power_le": 4000
+              }
+            }
           }
         }
       ]
@@ -76296,9 +76297,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ],
@@ -80767,9 +80767,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]
@@ -80781,9 +80780,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]
@@ -80795,9 +80793,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]
@@ -88833,9 +88830,8 @@
       "when": "on_attack",
       "do": [
         {
-          "give_keyword": {
-            "target": "self",
-            "keyword": "ブロック不可"
+          "prevent_blocker_for_attacker_power_le": {
+            "amount": 2000
           }
         }
       ]

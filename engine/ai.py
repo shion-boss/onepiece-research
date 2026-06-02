@@ -1462,9 +1462,11 @@ class GreedyAI:
             and not attacker.attacker_prevents_blocker_until_turn_end
         )
         if can_block:
+            _atk_pwr_lock = attacker.attacker_prevents_blocker_power_le
             available = [
                 c for c in defender.characters
                 if not c.rested and not c.summoning_sickness and c.is_blocker_now
+                and not (_atk_pwr_lock >= 0 and c.power <= _atk_pwr_lock)
             ]
             # Tier 1: 自力生存 (= 公式 7-1-4: c.power > atk_p で defender 勝ち)
             safe = [c for c in available if c.power > atk_p]

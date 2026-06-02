@@ -6356,6 +6356,21 @@ def _execute_effect_body(
             state.push_log(
                 f"  効果: ブロッカー発動禁止 (attacker) → {[t.card.name for t in targets]}"
             )
+        elif k == "prevent_blocker_for_attacker_power_le":
+            # 「(アタッカー) のアタック中、 相手はパワーN以下のキャラの【ブロッカー】を発動できない」
+            # (OP01-120/OP03-002 等)。 spec: {"amount": N, "target": <attacker、 既定 self>}。
+            spec_val = v if isinstance(v, dict) else {"amount": int(v)}
+            amount = int(spec_val.get("amount", 0))
+            target_spec = spec_val.get("target", "self")
+            targets = _resolve_target(
+                target_spec, state, me, opp, self_inplay,
+                outer_kind="prevent_blocker_for_attacker_power_le", outer_value=target_spec,
+            )
+            for t in targets:
+                t.attacker_prevents_blocker_power_le = amount
+            state.push_log(
+                f"  効果: パワー{amount}以下ブロッカー発動禁止 (attacker) → {[t.card.name for t in targets]}"
+            )
         elif k == "disable_effect":
             # 公式: 「相手の X 1 枚を、 (このターン中 | 次の相手のターン終了時まで)、 効果を無効にする」
             # spec: {"target": <target_spec>, "duration": "turn"|"next_opp_turn_end",
