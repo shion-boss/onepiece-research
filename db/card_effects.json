@@ -1213,14 +1213,6 @@
               }
             ]
           }
-        },
-        {
-          "return_to_hand": {
-            "type": "one_self_chara_filtered",
-            "filter": {
-              "cost_le": 3
-            }
-          }
         }
       ]
     }
@@ -1245,18 +1237,25 @@
       "when": "on_attack",
       "do": [
         {
-          "trash_self_hand_random": 1
-        },
-        {
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "ワノ国"
+              "or": [
+                {
+                  "feature": "ワノ国"
+                },
+                {
+                  "feature_contains": "白ひげ海賊団"
+                }
+              ]
             },
             "limit": 1,
             "destination": "hand",
             "rest_remain": "bottom"
           }
+        },
+        {
+          "trash_self_hand_random": 1
         }
       ]
     }
@@ -1337,7 +1336,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_0",
+            "target": "one_opponent_character_any",
             "amount": -1000,
             "duration": "turn"
           }
@@ -2709,14 +2708,15 @@
       "when": "on_play",
       "do": [
         {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 1
+          "look_top_reorder": {
+            "depth": 3,
+            "to": "choice"
           }
         },
         {
-          "look_top_reorder": {
-            "depth": 3
+          "attach_rested_don": {
+            "target": "self_inplay_choice",
+            "count": 1
           }
         }
       ]
@@ -3108,7 +3108,8 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "麦わらの一味"
+              "feature": "麦わらの一味",
+              "exclude_name": "ナミ"
             },
             "limit": 1,
             "destination": "hand",
@@ -3537,6 +3538,9 @@
       "_text": "OP01-011 on_play: 自分の手札1枚をデッキの下に置くことができる：カード1枚を引く。",
       "when": "on_play",
       "do": [
+        {
+          "self_hand_to_deck_bottom": 1
+        },
         {
           "draw": 1
         }
