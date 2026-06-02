@@ -22241,6 +22241,22 @@
       ]
     },
     {
+      "_text": "OP13-115 counter(2): その後、相手のライフが2枚以下の場合、+1000(turn)。",
+      "when": "counter",
+      "if": {
+        "opp_life_le": 2
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP13-115 trigger: カード1枚を引く。",
       "when": "trigger",
       "do": [
@@ -59444,10 +59460,21 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 2
-        },
-        {
-          "trash_self_hand_random": 1
+          "reveal_top_then": {
+            "depth": 1,
+            "filter": {
+              "feature_contains": "白ひげ海賊団"
+            },
+            "then": [
+              {
+                "draw": 2
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "rest_remain": "top"
+          }
         }
       ]
     }
@@ -63086,6 +63113,22 @@
       ]
     },
     {
+      "_text": "OP11-019 counter(2): その後、相手のパワー6000以上のキャラがいる場合、+1000(turn)。",
+      "when": "counter",
+      "if": {
+        "exists_opp_chara_power_ge": 6000
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP11-019 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
       "when": "trigger",
       "do": [
@@ -63206,6 +63249,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_chara_only_feature_contains": "ジェルマ"
       }
     }
   ],
@@ -63660,6 +63706,25 @@
           }
         }
       ]
+    },
+    {
+      "_text": "OP11-097 counter(2): その後、自分のトラッシュが10枚以上ある場合、トラッシュからコスト3以下の黒のキャラ1枚までを手札に加える。",
+      "when": "counter",
+      "if": {
+        "self_trash_count_ge": 10
+      },
+      "do": [
+        {
+          "trash_to_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "黒",
+              "cost_le": 3
+            },
+            "limit": 1
+          }
+        }
+      ]
     }
   ],
   "OP11-098": [
@@ -63764,7 +63829,15 @@
         {
           "trash_self_hand_random": 2
         }
-      ]
+      ],
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ケイミー"
+          },
+          "count": 1
+        }
+      }
     }
   ],
   "OP11-114": [
