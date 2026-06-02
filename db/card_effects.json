@@ -9800,14 +9800,31 @@
     {
       "_text": "OP15-023 activate_main: 【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のコストエリアのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "keep_opp_rested_don_next_refresh": 2
-        }
-      ],
       "cost": {
         "once_per_turn": true
-      }
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_opp_don_to_opp_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1,
+                  "from_cost_area": true
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "OP13-118": [
@@ -10794,6 +10811,13 @@
       "when": "on_play",
       "do": [
         {
+          "attach_rested_don": {
+            "target": "one_opponent_character_any",
+            "count": 3,
+            "to_opp": true
+          }
+        },
+        {
           "give_keyword": {
             "target": "self",
             "keyword": "速攻"
@@ -10815,6 +10839,9 @@
       ],
       "cost": {
         "once_per_turn": true
+      },
+      "if": {
+        "self_summoning_sickness": true
       }
     }
   ],
@@ -10827,9 +10854,22 @@
       },
       "do": [
         {
-          "attach_rested_don": {
-            "target": "self_leader",
-            "count": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_opp_don_to_opp_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -12088,11 +12128,18 @@
       "if": {
         "target": "self"
       },
-      "do": [
+      "cost": [
         {
-          "trash_self_hand_random": 1
+          "discard_hand_with_filter": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 6000
+            },
+            "count": 1
+          }
         }
       ],
+      "do": [],
       "optional": true
     },
     {
@@ -12103,9 +12150,22 @@
       },
       "do": [
         {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_opp_don_to_opp_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
       ]
@@ -34088,6 +34148,9 @@
     {
       "_text": "このキャラがKOされる場合、代わりに自分の手札からパワー6000以下のキャラカード1枚を捨てることができる。",
       "when": "replace_ko",
+      "if": {
+        "target": "self"
+      },
       "cost": [
         {
           "discard_hand_with_filter": {
@@ -34110,13 +34173,25 @@
       },
       "do": [
         {
-          "attach_rested_don": {
-            "target": "self_inplay_choice",
-            "count": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "attach_opp_don_to_opp_chara": {
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
           }
         }
-      ],
-      "_note": "公式: 相手キャラに相手レストドン1枚付与 cost は engine 拡張待ち、 現状は cost なしで効果のみ実行"
+      ]
     }
   ],
   "OP15-007_p1": [

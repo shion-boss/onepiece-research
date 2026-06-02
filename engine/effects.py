@@ -4441,6 +4441,22 @@ def _execute_effect_body(
             target_spec = spec.get("target", "self_leader")
             n = int(spec.get("count", 1))
             per_target = bool(spec.get("per_target", False))
+            # to_opp: 「相手のキャラに相手の(レスト/コストエリアの)ドンを付与」 (OP15-008/025/028 等)。
+            # ソースは相手のドン (= opp)、 target も相手キャラ。 相手のドンを拘束する tempo 妨害。
+            to_opp = bool(spec.get("to_opp", False))
+            from_cost_area = bool(spec.get("from_cost_area", False))
+            don_owner = opp if to_opp else me
+
+            def _take_rested(k):
+                # コストエリア指定なら active も使う (= rested 優先)。
+                taken = min(k, don_owner.don_rested)
+                don_owner.don_rested -= taken
+                if from_cost_area and taken < k:
+                    more = min(k - taken, don_owner.don_active)
+                    don_owner.don_active -= more
+                    taken += more
+                return taken
+
             targets = _resolve_target(
                 target_spec, state, me, opp, self_inplay,
                 outer_kind="attach_rested_don", outer_value=v,
@@ -4450,21 +4466,19 @@ def _execute_effect_body(
             if per_target:
                 attached_log: list[str] = []
                 for t in targets:
-                    give = min(n, me.don_rested)
+                    give = _take_rested(n)
                     if give <= 0:
                         break
-                    me.don_rested -= give
                     t.attached_dons += give
                     attached_log.append(f"{t.card.name}+{give}")
                 state.push_log(f"  効果: レストドン付与 (per_target) → {attached_log}")
             else:
-                n = min(n, me.don_rested)
-                if n <= 0:
+                give = _take_rested(n)
+                if give <= 0:
                     continue
                 target = targets[0]
-                me.don_rested -= n
-                target.attached_dons += n
-                state.push_log(f"  効果: レストドン{n}付与 → {target.card.name}")
+                target.attached_dons += give
+                state.push_log(f"  効果: レストドン{give}付与 → {target.card.name}")
         elif k == "power_pump_per_target_attached_don":
             # 公式: 「相手のキャラすべては、 そのキャラに付与されているドン‼1枚につき、
             # このターン中、 パワー-1000。」 (OP15-008 クリーク等)。
@@ -6693,6 +6707,16 @@ def _execute_effect_body(
                     if min(me.face_up_life_count, len(me.life)) < 1:
                         can_pay = False
                         break
+                elif "attach_opp_don_to_opp_chara" in cs:
+                    # 「相手のキャラ1枚に相手の(レストの/コストエリアの)ドンN枚を付与できる：」 cost
+                    # (OP15-003/017/023 等)。 相手にドンと付与先キャラが必要。
+                    ad_spec = cs["attach_opp_don_to_opp_chara"]
+                    ad_n = int(ad_spec.get("count", 1)) if isinstance(ad_spec, dict) else int(ad_spec)
+                    ad_cost_area = isinstance(ad_spec, dict) and ad_spec.get("from_cost_area")
+                    avail_don = opp.don_rested + (opp.don_active if ad_cost_area else 0)
+                    if not opp.characters or avail_don < ad_n:
+                        can_pay = False
+                        break
             # effect が空回りするケースも skip (= 価値なし)
             should_fire = can_pay
             if should_fire:
@@ -6763,6 +6787,21 @@ def _execute_effect_body(
                 if "flip_life_face_down" in cs:
                     me.face_up_life_count = max(0, min(me.face_up_life_count, len(me.life)) - 1)
                     state.push_log("  効果コスト: ライフ上1枚を裏向き")
+                    continue
+                if "attach_opp_don_to_opp_chara" in cs:
+                    ad_spec = cs["attach_opp_don_to_opp_chara"]
+                    ad_n = int(ad_spec.get("count", 1)) if isinstance(ad_spec, dict) else int(ad_spec)
+                    ad_cost_area = isinstance(ad_spec, dict) and ad_spec.get("from_cost_area")
+                    # AI 簡易: 相手の最高 power キャラに付与 (= tempo 妨害だが downside)。
+                    tgt = max(opp.characters, key=lambda c: c.power)
+                    take = min(ad_n, opp.don_rested)
+                    opp.don_rested -= take
+                    if ad_cost_area and take < ad_n:
+                        more = min(ad_n - take, opp.don_active)
+                        opp.don_active -= more
+                        take += more
+                    tgt.attached_dons += take
+                    state.push_log(f"  効果コスト: 相手ドン{take}を相手キャラ{tgt.card.name}に付与")
                     continue
                 if cs.get("rest_self") is True:
                     # rest_self: True 形式 (= self_inplay = ステージ/キャラ を rest)。
