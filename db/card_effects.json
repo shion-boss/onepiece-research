@@ -61520,6 +61520,9 @@
       "do": [
         {
           "untap_don": 2
+        },
+        {
+          "block_chara_play_cost_ge": 5
         }
       ]
     },
@@ -100216,7 +100219,13 @@
           "mill_self_life_to_trash": 1
         }
       ],
-      "optional": true
+      "optional": true,
+      "if": {
+        "target": "self",
+        "either_side_chara_named_absent": {
+          "name": "モンキー・D・ルフィ"
+        }
+      }
     }
   ],
   "OP05-100_p1": [

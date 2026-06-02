@@ -558,6 +558,9 @@ class Player:
     # 「自分は、 このターン中、 リーダーにアタックできない」 (OP06-026 等)。
     # action 生成で AttackLeader を除外。 ターン開始 refresh でクリア。
     cannot_attack_leader_until_turn_end: bool = False
+    # 「このターン中、 元々のコストN以上のキャラを登場できない」 (OP13-023 等)。
+    # -1 = 制限なし。 PlayCharacter action 生成で card.cost >= 閾値 を除外。
+    block_chara_play_cost_ge_threshold: int = -1
     # 次の相手のターン終了時 まで、 自分が play する キャラ の on_play 効果 を 無効化
     # (OP09-081 ティーチ等)。 trigger_on_play で 該当 player の フラグ 確認 → 効果 skip。
     # disable_opp_on_play_through_opp_turn = True で 設定、 設定 player の 次 ターン 開始 時 reset。

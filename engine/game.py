@@ -459,6 +459,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
         player.cannot_attack_leader_until_turn_end = False
+        player.block_chara_play_cost_ge_threshold = -1
         player.prevent_self_life_to_hand_until_turn_end = False
         player.max_event_cost_this_turn = 0
     # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン
@@ -772,11 +773,17 @@ def legal_actions(state: GameState) -> list[Action]:
 
     # キャラ登場禁止 (OP14-020 ミホーク等のペナルティでこのターン中ブロック)
     chara_play_blocked = me.block_chara_play_until_turn_end
+    _cost_block = me.block_chara_play_cost_ge_threshold  # 元々コスト≥閾値 を登場禁止 (-1=なし)
+
+    def _cost_play_blocked(c) -> bool:
+        return _cost_block >= 0 and c.cost >= _cost_block
 
     # 場 5 枚未満: 通常登場
     if me.can_play_character() and not chara_play_blocked:
         for i, c in enumerate(me.hand):
             if c.category != Category.CHARACTER:
+                continue
+            if _cost_play_blocked(c):
                 continue
             if _eff_cost(c) <= me.don_active:
                 actions.append(PlayCharacter(hand_idx=i))
@@ -791,6 +798,8 @@ def legal_actions(state: GameState) -> list[Action]:
         )
         for i, c in enumerate(me.hand):
             if c.category != Category.CHARACTER:
+                continue
+            if _cost_play_blocked(c):
                 continue
             if _eff_cost(c) > me.don_active:
                 continue

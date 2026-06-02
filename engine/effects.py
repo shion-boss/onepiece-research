@@ -640,6 +640,15 @@ def eval_condition(
                 ip.instance_id == iid for ip in opp.characters)
             if bool(v) != present:
                 return False
+        elif k == "either_side_chara_named_absent":
+            # 「キャラの「<name>」がいる場合 この効果は無効」 = 両陣営に該当 name のキャラが
+            # 存在しないか (OP05-100 エネル: ルフィ present で replace 無効)。
+            name = v.get("name", "") if isinstance(v, dict) else str(v)
+            present = any(c.card.name == name for c in me.characters)
+            if opp is not None:
+                present = present or any(c.card.name == name for c in opp.characters)
+            if present:  # いる → 条件不成立 (= 効果無効)
+                return False
         elif k == "self_chara_count_lt_opp":
             # 「自分のキャラが相手のキャラより少ない場合」 (EB04-059 等)。
             if opp is None or len(me.characters) >= len(opp.characters):
@@ -4294,8 +4303,9 @@ def _execute_effect_body(
         elif k == "block_chara_play_cost_ge":
             # このターン中、 元々のコスト N 以上のキャラを登場できない
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 7))
-            me.block_chara_play_until_turn_end = True  # 簡略 (cost 区別なく ブロック)
-            state.push_log(f"  効果: このターン中 cost{n}+ キャラ登場禁止")
+            # 元々のコストN以上 限定で 登場禁止 (= action 生成で除外、 OP13-023)。
+            me.block_chara_play_cost_ge_threshold = n
+            state.push_log(f"  効果: このターン中 元々コスト{n}+ キャラ登場禁止")
         elif k == "ko_opp_stage":
             # 相手のステージ N 枚 KO (cost フィルタオプショナル)
             # cost: int (==), cost_le: int (≤), cost_ge: int (≥)
