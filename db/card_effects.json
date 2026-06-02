@@ -23364,15 +23364,22 @@
             "amount": 2000,
             "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP11-059 trigger: コスト2以下のキャラ1枚までを、持ち主の手札に戻す。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "return_to_hand": "one_opponent_character_cost_le_2cost"
+          "conditional": {
+            "if": {
+              "self_hand_count_le": 4
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_just_buffed",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -71188,18 +71195,21 @@
             "amount": 4000,
             "duration": "battle"
           }
-        }
-      ]
-    },
-    {
-      "_text": "OP07-095 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "power_pump": {
-            "target": "self_inplay",
-            "amount": 1000,
-            "duration": "turn"
+          "conditional": {
+            "if": {
+              "self_trash_count_ge": 10
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_just_buffed",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
           }
         }
       ]

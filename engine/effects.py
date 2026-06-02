@@ -1633,6 +1633,14 @@ def _resolve_target(
         # state.last_replace_victim を 参照 (= try_replace_ko 等 が セット)。
         vic = getattr(state, "last_replace_victim", None)
         return [vic] if vic is not None else []
+    if target_spec == "self_just_buffed":
+        # soshite (= 「その後、 そのカードを〜」) で直前の power_pump 対象を再参照。
+        iid = getattr(state, "last_pumped_iid", None)
+        if iid is not None:
+            for ip in [me.leader, *me.characters]:
+                if ip.instance_id == iid:
+                    return [ip]
+        return []
     if target_spec in (None, "self") and self_inplay is not None:
         return [self_inplay]
     # "self_inplay" は 「自分のリーダーかキャラ 1 枚 まで」 の shorthand
@@ -2699,6 +2707,11 @@ def _execute_effect_body(
                     t.next_self_turn_end_applied_turn = state.turn_number
                 else:
                     t.turn_buff += amount
+            # soshite (= 「その後、 そのカードを〜」) 用に直近 pump 対象を記録。
+            # 「リーダーかキャラ1枚+N。 その後、 そのカードを+M」 (OP07-095/OP11-059 等) で
+            # target=self_just_buffed が この iid を参照する。
+            if targets:
+                state.last_pumped_iid = targets[0].instance_id
             # 静的効果 (= on_attached_don) は evaluate_static_effects で
             # 毎回 リセット → 再加算されるためログ noise になる。 値は正常 (= +amount 一定)。
             if duration != "static":
