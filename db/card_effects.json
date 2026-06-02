@@ -58640,7 +58640,7 @@
                   {
                     "give_keyword": {
                       "target": {
-                        "type": "one_self_chara_or_leader_filtered",
+                        "type": "one_self_character_filtered",
                         "filter": {
                           "feature": "ドレスローザ"
                         }
@@ -58734,8 +58734,13 @@
         {
           "play_from_hand": {
             "filter": {
-              "name_in": [
-                "神兵"
+              "or": [
+                {
+                  "name": "神兵"
+                },
+                {
+                  "feature": "神官"
+                }
               ],
               "cost_eq": 1
             }
@@ -59536,7 +59541,9 @@
       "do": [
         {
           "swap_opp_power": {
-            "target_pair": "one_opponent_character_le_9000"
+            "filter": {
+              "power_le": 9000
+            }
           }
         }
       ]
@@ -59611,6 +59618,9 @@
       "do": [
         {
           "untap_don": 3
+        },
+        {
+          "block_chara_play_turn": true
         }
       ]
     },
@@ -60511,6 +60521,17 @@
       "when": "main",
       "do": [
         {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "モンキー・Ｄ・ルフィ"
+              }
+            },
+            "count": 1
+          }
+        },
+        {
           "power_pump": {
             "target": "one_opponent_character_any",
             "amount": -2000,
@@ -60622,7 +60643,13 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 2
+          "schedule_at_self_turn_end": {
+            "do": [
+              {
+                "untap_don": 2
+              }
+            ]
+          }
         }
       ]
     }
