@@ -75496,7 +75496,7 @@
   ],
   "OP03-081": [
     {
-      "_text": "OP03-081 on_play: カード2枚を引き、自分の手札2枚を捨てる。その後、相手のキャラ1枚までを、このターン中、コスト-2。 [dd-mand]",
+      "_text": "OP03-081 on_play: カード2枚を引き、自分の手札2枚を捨てる。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "on_play",
       "do": [
         {
@@ -75504,13 +75504,20 @@
         },
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
         }
       ]
     }
   ],
   "OP03-081_p1": [
     {
-      "_text": "OP03-081_p1 on_play: カード2枚を引き、自分の手札2枚を捨てる。その後、相手のキャラ1枚までを、このターン中、コスト-2。 [dd-mand]",
+      "_text": "OP03-081_p1 on_play: カード2枚を引き、自分の手札2枚を捨てる。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
       "when": "on_play",
       "do": [
         {
@@ -75518,6 +75525,13 @@
         },
         {
           "trash_self_hand_random": 2
+        },
+        {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 2,
+            "duration": "turn"
+          }
         }
       ]
     }
@@ -75787,11 +75801,22 @@
   ],
   "OP03-102": [
     {
-      "_text": "OP03-102 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [don-gate]",
+      "_text": "OP03-102 on_attack: 【ドン!!×2】自分のライフの上か下から1枚を手札に加えることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_attack",
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ],
       "if": {
@@ -76867,7 +76892,7 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 3
+          "draw_to_hand_size": 3
         },
         {
           "play_from_hand": {
@@ -76889,7 +76914,7 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 3
+          "draw_to_hand_size": 3
         },
         {
           "play_from_hand": {
@@ -86941,11 +86966,22 @@
   ],
   "OP03-102_p1": [
     {
-      "_text": "OP03-102_p1 on_attack: 自分のライフの上か下から1枚を手札に加えることができる：自分のデッキの上から1枚までを、ライフの上に加える。 [don-gate]",
+      "_text": "OP03-102_p1 on_attack: 【ドン!!×2】自分のライフの上か下から1枚を手札に加えることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
       "when": "on_attack",
       "do": [
         {
-          "put_top_to_life": 1
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
         }
       ],
       "if": {

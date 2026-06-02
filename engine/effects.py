@@ -3945,6 +3945,17 @@ def _execute_effect_body(
                 idx = state.rng.randrange(len(me.hand))
                 me.trash.append(me.hand.pop(idx))
             state.push_log(f"  効果: 自手札を {target_size} 枚に")
+        elif k == "draw_to_hand_size":
+            # 自分の手札が N 枚になるようにカードを引く (= 不足分のみドロー、 既に N 枚以上なら 0)。
+            # 公式: OP02-051 イワンコフ 「自分の手札が3枚になるようにカードを引き」。 捨てはしない。
+            target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 3))
+            if getattr(me, "block_self_draw_until_turn_end", False):
+                state.push_log(f"  効果: 手札{target_size}枚ドロー (このターン中ドロー禁止のため不発)")
+            else:
+                need = max(0, target_size - len(me.hand))
+                if need > 0:
+                    me.draw(need)
+                state.push_log(f"  効果: 手札が {target_size} 枚になるようドロー (+{need})")
         elif k == "block_chara_play_cost_ge":
             # このターン中、 元々のコスト N 以上のキャラを登場できない
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 7))
