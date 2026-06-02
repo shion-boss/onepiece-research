@@ -29,10 +29,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -1445,10 +1444,9 @@
           "draw": 2
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -1848,10 +1846,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -2631,10 +2628,9 @@
           "add_rested_don": 4
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 4,
-            "rested": true
+            "count": 4
           }
         }
       ]
@@ -2705,10 +2701,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         },
         {
@@ -4773,10 +4768,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -4846,17 +4840,15 @@
           "trash_self_hand_random": 1
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -9647,10 +9639,9 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -10607,7 +10598,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -10761,7 +10752,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -10775,7 +10766,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -11381,7 +11372,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
             "count": 2
           }
@@ -11938,10 +11929,9 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -12019,10 +12009,9 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -12677,10 +12666,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -13392,10 +13380,9 @@
           "add_rested_don": 4
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 4,
-            "rested": true
+            "count": 4
           }
         }
       ]
@@ -15370,10 +15357,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -16802,10 +16788,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -18005,10 +17990,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -20124,10 +20108,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -21541,10 +21524,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -22305,10 +22287,9 @@
             },
             "do": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 3,
-                  "rested": true
+                  "count": 3
                 }
               }
             ]
@@ -22342,10 +22323,9 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -23204,10 +23184,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               },
               {
@@ -29670,10 +29649,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -32530,7 +32508,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -32563,10 +32541,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -32736,7 +32713,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -32769,10 +32746,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -33784,10 +33760,9 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -34025,10 +34000,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -34094,17 +34068,15 @@
           "trash_self_hand_random": 1
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -34827,17 +34799,15 @@
           "trash_self_hand_random": 1
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "one_self_character_any",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -34876,10 +34846,9 @@
           "draw": 2
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -35472,7 +35441,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -35496,7 +35465,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -35520,7 +35489,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -35544,7 +35513,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -35726,10 +35695,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -36468,10 +36436,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               },
               {
@@ -36855,10 +36822,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -37195,7 +37161,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
             "count": 2
           }
@@ -37583,7 +37549,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
             "count": 2
           }
@@ -41828,7 +41794,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
             "count": 2
           }
@@ -42599,7 +42565,7 @@
       },
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
             "count": 1
           }
@@ -43002,10 +42968,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -43020,10 +42985,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -43038,10 +43002,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -44441,10 +44404,9 @@
             },
             "do": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 3,
-                  "rested": true
+                  "count": 3
                 }
               }
             ]
@@ -44824,10 +44786,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -44842,10 +44803,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -44860,10 +44820,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -46352,7 +46311,7 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
             "count": 2
           }
@@ -47933,10 +47892,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -47951,10 +47909,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -48044,10 +48001,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -48079,10 +48035,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -48526,10 +48481,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -48541,10 +48495,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -49108,10 +49061,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -49214,10 +49166,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -49243,10 +49194,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -49571,10 +49521,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -49592,10 +49541,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -55393,17 +55341,15 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               },
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "one_self_character_any",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -55441,17 +55387,15 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               },
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "one_self_character_any",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -55869,10 +55813,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 3,
-            "rested": true
+            "count": 3
           }
         }
       ],
@@ -55896,10 +55839,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 3,
-            "rested": true
+            "count": 3
           }
         }
       ],
@@ -56171,17 +56113,15 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_leader",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               },
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "one_self_character_any",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -56275,10 +56215,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -56316,10 +56255,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -56357,10 +56295,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         },
         {
@@ -56391,10 +56328,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         },
         {
@@ -56479,10 +56415,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         },
         {
@@ -56503,10 +56438,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         },
         {
@@ -57233,10 +57167,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -57378,10 +57311,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -58535,10 +58467,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -58855,10 +58786,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -58958,10 +58888,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -59049,10 +58978,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -59116,10 +59044,9 @@
       "when": "on_attack",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -60085,10 +60012,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -60742,10 +60668,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -61109,10 +61034,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -61151,10 +61075,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -61193,10 +61116,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -61235,10 +61157,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -61277,10 +61198,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -61523,10 +61443,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -63058,10 +62977,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -64172,10 +64090,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         },
         {
@@ -64197,10 +64114,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         },
         {
@@ -64344,10 +64260,9 @@
                   },
                   "do": [
                     {
-                      "attach_don": {
+                      "attach_rested_don": {
                         "target": "self_inplay_choice",
-                        "count": 1,
-                        "rested": true
+                        "count": 1
                       }
                     }
                   ]
@@ -66236,10 +66151,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -71681,10 +71595,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -74765,10 +74678,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -77818,10 +77730,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -77839,10 +77750,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -80519,10 +80429,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -81201,10 +81110,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -81343,10 +81251,9 @@
             },
             "then": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ],
@@ -81372,10 +81279,9 @@
             },
             "then": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ],
@@ -81597,15 +81503,14 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": {
               "type": "one_self_chara_or_leader_filtered",
               "filter": {
                 "feature": "麦わらの一味"
               }
             },
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -81620,15 +81525,14 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": {
               "type": "one_self_chara_or_leader_filtered",
               "filter": {
                 "feature": "麦わらの一味"
               }
             },
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ],
@@ -81693,10 +81597,9 @@
       "when": "on_attack",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -81708,10 +81611,9 @@
       "when": "on_attack",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -81723,10 +81625,9 @@
       "when": "on_attack",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -81738,10 +81639,9 @@
       "when": "on_attack",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -82035,10 +81935,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -82299,10 +82198,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -82652,10 +82550,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -82928,10 +82825,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -83095,10 +82991,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -85743,7 +85638,18 @@
       "do": [
         {
           "untap_chara": {
-            "target": "one_self_character_any",
+            "target": {
+              "type": "all_self_chara_filtered",
+              "filter": {
+                "cost_le": 5,
+                "feature_in": [
+                  "超新星",
+                  "ハートの海賊団"
+                ]
+              },
+              "rested": true,
+              "limit": 1
+            },
             "limit": 1
           }
         }
@@ -85807,7 +85713,10 @@
             "duration": "static"
           }
         }
-      ]
+      ],
+      "if": {
+        "self_rested": true
+      }
     }
   ],
   "ST02-016": [
@@ -85920,10 +85829,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -86034,7 +85942,13 @@
       "when": "trigger",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_3cost"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le": 3,
+              "blocker": true
+            }
+          }
         }
       ]
     }
@@ -86135,10 +86049,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -86153,10 +86066,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -86776,10 +86688,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         },
         {
@@ -88248,10 +88159,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -88862,10 +88772,11 @@
       "when": "on_attack",
       "do": [
         {
-          "power_pump": {
+          "optional_discard_hand_for_battle_buff": {
+            "filter": {},
+            "amount_per_discard": 1000,
             "target": "self",
-            "amount": 1000,
-            "duration": "battle"
+            "max": 3
           }
         }
       ]
@@ -89095,10 +89006,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -89113,10 +89023,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -89176,10 +89085,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -89566,10 +89474,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -89581,10 +89488,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ]
@@ -89630,10 +89536,9 @@
           "self_hand_to_deck_bottom": 2
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -89651,10 +89556,9 @@
           "self_hand_to_deck_bottom": 2
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -89674,10 +89578,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -89717,10 +89620,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -89789,10 +89691,9 @@
           }
         },
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_leader",
-            "count": 1,
-            "rested": false
+            "count": 1
           }
         }
       ],
@@ -90019,10 +89920,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -90034,10 +89934,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -90049,10 +89948,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -90744,10 +90642,9 @@
       "when": "on_attack",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -90759,10 +90656,9 @@
       "when": "activate_main",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ],
@@ -91467,10 +91363,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -91884,10 +91779,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 1,
-            "rested": true
+            "count": 1
           }
         }
       ]
@@ -92004,10 +91898,9 @@
       "when": "on_play",
       "do": [
         {
-          "attach_don": {
+          "attach_rested_don": {
             "target": "self_inplay_choice",
-            "count": 2,
-            "rested": true
+            "count": 2
           }
         }
       ]
@@ -92350,10 +92243,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -92384,10 +92276,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 1,
-                  "rested": true
+                  "count": 1
                 }
               }
             ]
@@ -92413,10 +92304,9 @@
             ],
             "effect": [
               {
-                "attach_don": {
+                "attach_rested_don": {
                   "target": "self_inplay_choice",
-                  "count": 2,
-                  "rested": true
+                  "count": 2
                 }
               }
             ]
@@ -92880,10 +92770,13 @@
   "EB02-043": [],
   "EB02-055": [
     {
-      "_text": "trigger: 条件 ({'leader_feature': '魚人族》か《人魚族', 'self_life_le': 2}) で 自身登場",
+      "_text": "trigger: 条件 ({'leader_feature': ['魚人族','人魚族'], 'self_life_le': 2}) で 自身登場",
       "when": "trigger",
       "if": {
-        "leader_feature": "魚人族》か《人魚族",
+        "leader_feature": [
+          "魚人族",
+          "人魚族"
+        ],
         "self_life_le": 2
       },
       "do": [
@@ -93855,10 +93748,13 @@
   "ST05-015_r1": [],
   "EB02-055_p1": [
     {
-      "_text": "trigger: 条件 ({'leader_feature': '魚人族》か《人魚族', 'self_life_le': 2}) で 自身登場",
+      "_text": "trigger: 条件 ({'leader_feature': ['魚人族','人魚族'], 'self_life_le': 2}) で 自身登場",
       "when": "trigger",
       "if": {
-        "leader_feature": "魚人族》か《人魚族",
+        "leader_feature": [
+          "魚人族",
+          "人魚族"
+        ],
         "self_life_le": 2
       },
       "do": [

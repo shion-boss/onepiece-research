@@ -1531,6 +1531,7 @@ def _resolve_target(
             attached_don_ge = int(filt.get("attached_don_ge", 0))
             rested_required = bool(filt.get("rested", False))
             active_required = bool(filt.get("active", False))
+            blocker_required = bool(filt.get("blocker", False))
             cands = []
             for ip in opp.characters:
                 if not _matches_filter(ip.card, filt):
@@ -1540,6 +1541,9 @@ def _resolve_target(
                 if rested_required and not ip.rested:
                     continue
                 if active_required and ip.rested:
+                    continue
+                # 公式 「【ブロッカー】を持つキャラ」 (= 付与込みの現在の blocker 状態)
+                if blocker_required and not ip.is_blocker_now:
                     continue
                 if "current_power_le" in filt and ip.power > int(filt["current_power_le"]):
                     continue
