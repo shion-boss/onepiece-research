@@ -78240,8 +78240,14 @@
         },
         {
           "trash_self_hand_random": 1
+        },
+        {
+          "trash_self_hand_random": 3
         }
       ],
+      "cost": {
+        "rest_self": true
+      },
       "if": {
         "leader_name": "エンポリオ・イワンコフ"
       }
@@ -78467,7 +78473,10 @@
         {
           "return_opp_don": 1
         }
-      ]
+      ],
+      "if": {
+        "opp_don_count_ge": 6
+      }
     }
   ],
   "OP02-091": [
@@ -78653,6 +78662,13 @@
       "when": "activate_main",
       "do": [
         {
+          "cost_minus": {
+            "target": "one_opponent_character_any",
+            "amount": 1,
+            "duration": "turn"
+          }
+        },
+        {
           "power_pump": {
             "target": "self_inplay",
             "amount": 1000,
@@ -78710,10 +78726,7 @@
       "when": "counter",
       "do": [
         {
-          "ko_opp_stage": {
-            "cost_le": 3,
-            "limit": 1
-          }
+          "prevent_ko": "one_self_character_any"
         }
       ],
       "cost": {
@@ -79371,22 +79384,6 @@
       "if": {
         "self_attached_don_ge": 1
       }
-    },
-    {
-      "_text": "OP01-049 on_attack: 自分の手札からコスト4以下の「ベポ」以外の特徴《ハートの海賊団》を持つキャラカード1枚までを、登場させる。",
-      "when": "on_attack",
-      "do": [
-        {
-          "play_from_hand": {
-            "filter": {
-              "cost_le": 4,
-              "feature": "ハートの海賊団",
-              "exclude_name": "ベポ"
-            },
-            "limit": 1
-          }
-        }
-      ]
     }
   ],
   "OP01-050": [
@@ -79499,15 +79496,7 @@
             ]
           }
         }
-      ],
-      "cost": {
-        "discard_hand_with_filter": {
-          "filter": {
-            "feature": "ワノ国"
-          },
-          "count": 1
-        }
-      }
+      ]
     }
   ],
   "OP01-063": [
@@ -79587,9 +79576,6 @@
       "_text": "OP01-071 on_play: コスト3以下のキャラ1枚までを、持ち主のデッキの下に置く。",
       "when": "on_play",
       "do": [
-        {
-          "return_to_deck_bottom": "one_opponent_character_any"
-        },
         {
           "return_to_deck_bottom": "one_opponent_character_cost_le_3cost"
         }
@@ -79755,7 +79741,8 @@
         }
       ],
       "if": {
-        "leader_feature": "B・W"
+        "leader_feature": "B・W",
+        "self_turn": true
       }
     }
   ],
@@ -79815,6 +79802,12 @@
             "amount": 2000,
             "duration": "battle"
           }
+        },
+        {
+          "look_top_reorder": {
+            "depth": 3,
+            "to": "choice"
+          }
         }
       ]
     },
@@ -79827,21 +79820,6 @@
         },
         {
           "trash_self_hand_random": 1
-        }
-      ]
-    },
-    {
-      "_text": "on_play: search_top_n 補完",
-      "when": "on_play",
-      "do": [
-        {
-          "search_top_n": {
-            "depth": 3,
-            "filter": {},
-            "limit": 1,
-            "destination": "hand",
-            "rest_remain": "top"
-          }
         }
       ]
     }
