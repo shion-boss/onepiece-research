@@ -21245,27 +21245,18 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_power_le_3000"
-        },
-        {
-          "power_pump_multi": {
-            "target_specs": [
-              "all_self_team",
-              "all_self_team",
-              "all_self_team"
-            ],
+          "power_pump": {
+            "target": {
+              "type": "all_self_team_filtered",
+              "filter": {},
+              "limit": 3
+            },
             "amount": 1000,
             "duration": "turn"
           }
-        }
-      ]
-    },
-    {
-      "_text": "EB02-007 trigger: 相手のパワー4000以下のキャラ1枚までを、KOする。",
-      "when": "trigger",
-      "do": [
+        },
         {
-          "ko": "one_opponent_character_power_le_4000"
+          "ko": "one_opponent_character_power_le_3000"
         }
       ]
     }
@@ -59555,13 +59546,54 @@
   ],
   "OP15-080": [
     {
+      "_text": "OP15-080 static: モリア(P10000+)在+他オーズなしで+7000",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "name": "ゲッコー・モリア"
+          },
+          "count": 1
+        },
+        "self_chara_filtered_count_le": {
+          "filter": {
+            "name": "オーズ"
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 7000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP15-080 on_ko: 自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことができる：このキャラカードをトラッシュから登場させる。",
       "when": "on_ko",
       "do": [
         {
-          "play_self": {
-            "from": "trash",
-            "rested": true
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 3
+                }
+              }
+            ],
+            "effect": [
+              {
+                "play_self": {
+                  "from": "trash",
+                  "rested": true
+                }
+              }
+            ]
           }
         }
       ]
@@ -70159,6 +70191,28 @@
             "target": "self_inplay",
             "amount": 4000,
             "duration": "battle"
+          }
+        },
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "hand_to_self_life": {
+                  "filter": {
+                    "feature": "シャンドラの戦士"
+                  },
+                  "count": 1
+                }
+              },
+              {
+                "flip_life_face_up_effect": 1
+              }
+            ]
           }
         }
       ]

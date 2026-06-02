@@ -1554,10 +1554,14 @@ def _resolve_target(
                 return cands[:int(limit)]
             return cands
         if t == "all_self_team_filtered":
-            # 自リーダー + キャラ全員 (filter マッチ)
+            # 自リーダー + キャラ全員 (filter マッチ)。 limit 指定で上限 (= 「合計N枚まで」、
+            # EB02-007 等)。 AI は power 高い順に limit 枚。
             filt = target_spec.get("filter", {})
-            return [ip for ip in [me.leader, *me.characters]
-                    if _matches_filter(ip.card, filt)]
+            cands = [ip for ip in [me.leader, *me.characters]
+                     if _matches_filter(ip.card, filt)]
+            if "limit" in target_spec:
+                cands = sorted(cands, key=lambda ip: -ip.power)[:int(target_spec["limit"])]
+            return cands
         if t == "one_opponent_character_filtered":
             # 相手キャラから filter にマッチする 1 枚 (= パワー高い順、 attached_don 等の属性条件も追加サポート)
             filt = target_spec.get("filter", {})
