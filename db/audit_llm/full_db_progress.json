@@ -1,7 +1,7 @@
 {
  "_RESUME": {
   "これは何": "全4518カード効果 inline 監査の【共通管理ファイル】。 セッションクリア後に ohtsuki さんが『再開』 と言ったら、 まずこの _RESUME を読んで cluster grind を続行する。 監査の進捗・手順・defer は全てこのファイルに集約する。",
-  "現状": "verified 3709/4518 (82.1%、 重複排除後)。 【complexity-tier sweep 進行中 2026-06-02 batch41-51】 detector-flagged 77枚完了後、 simple tier (条件/コスト無 342枚) を grind 中: 11 batch / 242枚処理 (74 fixed / 143 FP-clean / 25 defer)。 simple tier 残 98/342。 ⚠simple tier も バグ密度 ~30-40%: search filter の OR/category/color/exclude_name 欠落・『登場させる』 を destination:hand 誤(正=play)・第2効果/cost丸ごと欠落・target self_leader(正=self_inplay)・rest/return個数 copy-paste誤・KO/return filter空(正=元々パワー/コスト指定)・per-don pump 誤(正=flat)・EVENTの『その後』 を on_play誤配置(EVENTはon_play発火せず dead→counter/mainへ)・set_base_cost_timed(next_opp_turn_end専用)を turn に誤用(正=cost_minus)。 ⭐確立知見(誤検知回避): or_clauses/rested/current_power_le/feature_or_name/no_effect/feature_contains は filter で honored・『パワー0』=-99999慣例・self(他)キャラ→デッキ下 cost は primitive不在で省略慣例(P-033/OP05-056/OP10-088)・rest_self_target は name専用(feature不可)・swap_opp_power は filter キー(target_pair はdead、 default power_le9000)・trash_self_hand_random 手札超過で全捨て・destination:play で登場・total_life_le/chara_diff_le 実在。 主defer: face-up life cost・rest-leader/stage/feature-char cost・opp-draw/reveal-hand-as-cost primitive不在・動的cost(ライフ/同名)target・self static cost+N・declare機構・同一target参照(soshite)。 ⭐次= simple tier 残 98枚 継続 (queue= db/audit_llm/_simple_queue.json、 aud/dfr除外で先頭22ずつ dump→1:1照合→fix→smoke+pytest→mark+commit、 parallel ‼/!!分離は mark後 unhandled check)。 simple完了後 medium tier (条件C/コスト$、 ~580枚)。 全actionable残 813。 rush厳禁・mark前text照合必須。",
+  "現状": "verified 3715/4518 (82.2%、 重複排除後)。 【✅simple tier (条件/コスト無 342枚) 完了 batch41-56】 detector-flagged 77 + simple 342 全処理。 simple での fixed 計 ~95枚 (cost踏み倒し/効果欠落/silent-noop target/missing条件 が主因、 バグ密度~35%実証)。 ⭐次= 残 704 cluster (804枚、 medium/complex tier) を signature_clusters.json から grind (size>=2 優先、 deferred ~136枚 skip)。 ⚠simple tier も バグ密度 ~30-40%: search filter の OR/category/color/exclude_name 欠落・『登場させる』 を destination:hand 誤(正=play)・第2効果/cost丸ごと欠落・target self_leader(正=self_inplay)・rest/return個数 copy-paste誤・KO/return filter空(正=元々パワー/コスト指定)・per-don pump 誤(正=flat)・EVENTの『その後』 を on_play誤配置(EVENTはon_play発火せず dead→counter/mainへ)・set_base_cost_timed(next_opp_turn_end専用)を turn に誤用(正=cost_minus)。 ⭐確立知見(誤検知回避): or_clauses/rested/current_power_le/feature_or_name/no_effect/feature_contains は filter で honored・『パワー0』=-99999慣例・self(他)キャラ→デッキ下 cost は primitive不在で省略慣例(P-033/OP05-056/OP10-088)・rest_self_target は name専用(feature不可)・swap_opp_power は filter キー(target_pair はdead、 default power_le9000)・trash_self_hand_random 手札超過で全捨て・destination:play で登場・total_life_le/chara_diff_le 実在。 主defer: face-up life cost・rest-leader/stage/feature-char cost・opp-draw/reveal-hand-as-cost primitive不在・動的cost(ライフ/同名)target・self static cost+N・declare機構・同一target参照(soshite)。 ⭐次= simple tier 残 98枚 継続 (queue= db/audit_llm/_simple_queue.json、 aud/dfr除外で先頭22ずつ dump→1:1照合→fix→smoke+pytest→mark+commit、 parallel ‼/!!分離は mark後 unhandled check)。 simple完了後 medium tier (条件C/コスト$、 ~580枚)。 全actionable残 813。 rush厳禁・mark前text照合必須。",
   "再開手順": [
    "1. db/audit_llm/signature_clusters.json を読む (rep の text+overlay を dump 照合)。 ただし rep が meta.deferred_cards (architectural、 現20件) に含まれる cluster は skip (= 直せないので queue 上位に滞留する)。 size>=2 の multi-card を優先 (1代表監査で cluster 全メンバー = parallel/再録/同効果 をカバー)。 single-card (size=1) は 1:1 で遅い tail。",
    "2. 各 cluster の rep について、 db/cards.json の text(+trigger) と db/card_effects.json の overlay(do/when/cost/if) を1枚ずつ照合。 公式text忠実主義で、 自動detector が見逃す text↔overlay の微差 (効果違い/destination違い/条件欠落・余分/cost欠落/base-gate/filter部分欠落) を探す。",
@@ -183,12 +183,12 @@
    "equivalence_verified": 216,
    "effect_cards": 4069,
    "unique_sig": 2334,
-   "remaining_unique_sig": 710,
-   "remaining_cards": 810,
+   "remaining_unique_sig": 704,
+   "remaining_cards": 804,
    "queue": "db/audit_llm/signature_clusters.json (size 降順、 1代表監査で cluster 全体確認)",
    "note": "ohtsuki さん指摘: 同効果カードは等価で簡単確認。 効果4069→ユニーク2334署名。 audited626が475署名カバー。 vanilla449は効果マーカー0で確定。 残1859署名(=3231枚)が実作業。"
   },
-  "total_verified": 3709,
+  "total_verified": 3715,
   "total_cards": 4518,
   "double_discard_fix": {
    "opt型": 121,
@@ -345,6 +345,7 @@
    "P-097",
    "P-105",
    "P-106",
+   "P-120",
    "PRB02-015",
    "PRB02-015_p1",
    "PRB02-018",
@@ -1145,6 +1146,7 @@
   "OP01-097",
   "OP01-097_p1",
   "OP01-098",
+  "OP01-099",
   "OP01-102",
   "OP01-102_p1",
   "OP01-104",
@@ -1264,6 +1266,8 @@
   "OP02-072_p1",
   "OP02-073",
   "OP02-073_p1",
+  "OP02-074",
+  "OP02-075",
   "OP02-083",
   "OP02-085",
   "OP02-085_p1",
@@ -1365,6 +1369,7 @@
   "OP03-028",
   "OP03-029",
   "OP03-030",
+  "OP03-032",
   "OP03-033",
   "OP03-033_p1",
   "OP03-034",
@@ -2925,6 +2930,7 @@
   "OP14-001",
   "OP14-001_p1",
   "OP14-002",
+  "OP14-003",
   "OP14-005",
   "OP14-010",
   "OP14-011",
@@ -3484,6 +3490,7 @@
   "ST08-008",
   "ST08-009",
   "ST08-015",
+  "ST09-002",
   "ST09-005",
   "ST09-007",
   "ST09-009",
@@ -4394,6 +4401,10 @@
   {
    "card": "P-097",
    "reason": "『相手はこのターン中ブロッカー発動できない』 global blocker-lock primitive 不在。 prevent_blocker_for_attacker self で自(シャンクス)アタック時のみ近似 (on_attack 正、 on_play は全アタック unblockable が self-scope 近似)。 要 turn-scoped opp-no-blocker flag"
+  },
+  {
+   "card": "P-120",
+   "reason": "『相手のライフが離れているターン中』 = opp_life_lost_this_turn 条件が engine 未配線 → in_hand_cost_minus 2 を常時適用の近似 (_doc 注記済)。 cost-2 primitive 自体は別経路で wired。 要 turn-scoped opp-life-left フラグ"
   }
  ],
  "false_positive": [
