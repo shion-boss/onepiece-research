@@ -73393,7 +73393,12 @@
       "when": "main",
       "do": [
         {
-          "ko": "one_opponent_character_any"
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "cost_le_dynamic": "opp_life_count"
+            }
+          }
         }
       ]
     },
@@ -73824,7 +73829,18 @@
       "when": "opp_attack",
       "do": [
         {
-          "rest": "one_opponent_character_cost_le_4cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self_don": 2
+              }
+            ],
+            "effect": [
+              {
+                "rest": "one_opponent_character_cost_le_4cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -73949,6 +73965,18 @@
       "when": "on_play",
       "do": [
         {
+          "power_pump": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "attribute": "斬"
+              }
+            },
+            "amount": 3000,
+            "duration": "turn"
+          }
+        },
+        {
           "mill_self_top": 1
         }
       ]
@@ -73987,7 +74015,7 @@
       "when": "on_play",
       "do": [
         {
-          "shuffle_self_deck": true
+          "draw_per_hand_to_deck_bottom": true
         }
       ]
     }
@@ -76180,11 +76208,10 @@
       "when": "on_play",
       "do": [
         {
-          "set_base_cost": {
-            "target": {
-              "type": "one_opp_chara_no_effect"
-            },
-            "amount": 0
+          "set_base_cost_timed": {
+            "target": "one_opp_chara_no_effect",
+            "amount": 0,
+            "duration": "next_opp_turn_end"
           }
         }
       ]

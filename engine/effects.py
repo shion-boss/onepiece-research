@@ -1687,6 +1687,23 @@ def _resolve_target(
             return []
         cands.sort(key=lambda c: -c.power)
         return cands[:1]
+    if target_spec == "one_opp_chara_no_effect":
+        # 「相手の元々の効果のないキャラ 1 枚」 (= OP03-091 等)。 one_self_chara_no_effect の相手版。
+        # ⚠ no_effect は _matches_filter で honor されない (state 依存) ため、 filter ではなく
+        # 専用 target type で解決する必要がある (one_opponent_character_filtered + filter:no_effect は
+        # silent に全キャラ対象になる bug)。
+        overlay_map = state.effects_overlay or {}
+        def _no_effect_opp(card):
+            bundle = overlay_map.get(card.card_id)
+            return bundle is None or len(bundle.effects) == 0
+        cands = [c for c in opp.characters if _no_effect_opp(c.card)]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="相手キャラ から 1 枚 選択 (元々の効果なし)",
+        ):
+            return []
+        cands.sort(key=lambda c: -_opp_value(c))
+        return cands[:1]
     if target_spec == "opponent_attacker":
         # 公式 「相手のアタックしているリーダーかキャラ」 (= opp_attack コンテキスト)。
         # state.current_attacker_iid から 引く。 OP04-069 等。
