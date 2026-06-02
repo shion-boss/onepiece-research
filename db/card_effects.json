@@ -20234,16 +20234,33 @@
   ],
   "ST14-017": [
     {
+      "_text": "ST14-017 static: 自黒麦わらキャラ全コスト+1",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_base_cost_filtered_static": {
+            "filter": {
+              "color": "黒",
+              "feature": "麦わらの一味"
+            },
+            "delta": 1,
+            "scope": "self"
+          }
+        }
+      ]
+    },
+    {
       "_text": "ST14-017 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、カード1枚を引く。",
       "when": "on_play",
+      "if": {
+        "leader_feature": "麦わらの一味"
+      },
       "do": [
         {
           "draw": 1
         }
-      ],
-      "if": {
-        "leader_feature": "麦わらの一味"
-      }
+      ]
     }
   ],
   "ST15-002": [
@@ -20440,16 +20457,33 @@
   ],
   "OP02-121": [
     {
-      "_text": "OP02-121 on_play: 相手のコスト0のキャラ1枚までを、KOする。",
-      "when": "on_play",
+      "_text": "OP02-121 static: 【自分のターン中】相手キャラ全コスト-5",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_turn": true
+      },
       "do": [
         {
-          "ko": "one_opponent_character_cost_eq_0"
+          "set_base_cost_filtered_static": {
+            "filter": {},
+            "delta": -5,
+            "scope": "opp"
+          }
         }
-      ],
+      ]
+    },
+    {
+      "_text": "OP02-121 on_play: 相手のコスト0のキャラ1枚までを、KOする。",
+      "when": "on_play",
       "conditions": [
         {
           "self_turn": true
+        }
+      ],
+      "do": [
+        {
+          "ko": "one_opponent_character_current_cost_le_0"
         }
       ]
     }
@@ -26103,6 +26137,9 @@
         },
         {
           "reveal_opp_hand": true
+        },
+        {
+          "force_opp_draw": 1
         }
       ]
     }
@@ -91403,7 +91440,9 @@
       "when": "on_attack",
       "do": [
         {
-          "prevent_blocker_for_attacker": "self"
+          "disable_blocker": {
+            "target": "all_opponent_characters"
+          }
         }
       ]
     },
@@ -91412,7 +91451,9 @@
       "when": "on_play",
       "do": [
         {
-          "prevent_blocker_for_attacker": "self"
+          "disable_blocker": {
+            "target": "all_opponent_characters"
+          }
         }
       ]
     }

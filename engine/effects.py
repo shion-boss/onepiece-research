@@ -5092,6 +5092,11 @@ def _execute_effect_body(
                             break
             me.don_rested += removed
             state.push_log(f"  効果: 付与ドン {removed} 枚 → コストエリアレスト")
+        elif k == "force_opp_draw":
+            # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
+            n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
+            drawn = opp.draw(n)
+            state.push_log(f"  効果: 相手が{len(drawn)}枚ドロー")
         elif k == "set_all_life_face_down":
             # 「自分のライフすべてを裏向きにする」 (EB03-051/OP08-075 等)。 face-up 枚数 0 化。
             me.face_up_life_count = 0
