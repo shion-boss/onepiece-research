@@ -4230,7 +4230,7 @@
       "do": [
         {
           "power_pump": {
-            "target": "one_opponent_character_power_le_0",
+            "target": "one_opponent_character_any",
             "amount": -3000,
             "duration": "turn"
           }
@@ -4359,10 +4359,12 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 1
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "schedule_at_self_turn_end": {
+            "untap_don": 1
+          }
         }
       ],
       "if": {
@@ -4467,7 +4469,8 @@
         }
       ],
       "cost": {
-        "rest_self": true
+        "rest_self": true,
+        "rest_self_don": 2
       }
     },
     {
@@ -5467,8 +5470,7 @@
       ],
       "if": {
         "opp_life_le": 3,
-        "leader_multicolor": true,
-        "self_life_le": 3
+        "leader_multicolor": true
       }
     },
     {
@@ -7800,13 +7802,7 @@
             },
             "limit": 1,
             "destination": "hand",
-            "rest_remain": "trash"
-          }
-        },
-        {
-          "look_top_reorder": {
-            "depth": 3,
-            "to": "bottom"
+            "rest_remain": "bottom"
           }
         }
       ]
@@ -7814,19 +7810,11 @@
     {
       "_text": "OP15-026 activate_main: このキャラをトラッシュに置くことができる：相手のキャラ1枚に相手のレストのドン‼1枚までを、付与する。",
       "when": "activate_main",
-      "do": [
-        {
-          "attach_rested_don": {
-            "target": "one_opponent_character_any",
-            "count": 1,
-            "rested": true,
-            "to_opp": true
-          }
-        }
-      ],
+      "do": [],
       "cost": {
         "trash_self": true
-      }
+      },
+      "_missing_effect": "『相手のキャラに相手のレストのドン1枚を付与』 = attach_rested_don の to_opp(相手don→相手char) 非対応。 現状 fallback は自don→相手char で有害 → 無効化。 要 to_opp attach 対応"
     }
   ],
   "OP15-037": [
@@ -8353,10 +8341,12 @@
       "when": "on_play",
       "do": [
         {
-          "untap_don": 1
+          "rest": "one_opponent_character_cost_le_5cost"
         },
         {
-          "rest": "one_opponent_character_cost_le_5cost"
+          "schedule_at_self_turn_end": {
+            "untap_don": 1
+          }
         }
       ],
       "if": {
@@ -8881,7 +8871,7 @@
       "when": "main",
       "do": [
         {
-          "return_to_deck_bottom": "one_opponent_character_any"
+          "return_to_deck_bottom": "one_opponent_character_power_le_3000"
         }
       ],
       "cost": {
@@ -10717,7 +10707,12 @@
       "do": [
         {
           "give_keyword": {
-            "target": "self",
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "アラバスタ王国"
+              }
+            },
             "keyword": "ブロック不可"
           }
         }
