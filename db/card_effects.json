@@ -25122,7 +25122,24 @@
       "when": "on_attack",
       "do": [
         {
-          "ko": "one_opponent_character_cost_eq_0"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "limit": 3,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_eq_0"
+              }
+            ]
+          }
         }
       ]
     }
@@ -25346,7 +25363,8 @@
                 "search_top_n": {
                   "depth": 5,
                   "filter": {
-                    "category": "CHARACTER"
+                    "category": "CHARACTER",
+                    "power_le": 2000
                   },
                   "limit": 1,
                   "destination": "hand",
@@ -25497,7 +25515,14 @@
           "search_top_n": {
             "depth": 5,
             "filter": {
-              "feature": "アマゾン・リリー",
+              "or": [
+                {
+                  "feature": "アマゾン・リリー"
+                },
+                {
+                  "feature": "九蛇海賊団"
+                }
+              ],
               "exclude_name": "グロリオーサ(ニョン婆)"
             },
             "limit": 1,
@@ -25689,7 +25714,10 @@
       "when": "on_play",
       "do": [
         {
-          "draw": 1
+          "trash_opp_hand_random": 1
+        },
+        {
+          "reveal_opp_hand": true
         }
       ]
     }
@@ -25700,7 +25728,24 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_1cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "filter": {
+                    "feature_contains": "CP"
+                  },
+                  "limit": 2,
+                  "to": "bottom"
+                }
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_1cost"
+              }
+            ]
+          }
         }
       ]
     }
@@ -25787,7 +25832,18 @@
       "when": "on_play",
       "do": [
         {
-          "ko": "one_opponent_character_cost_le_2cost"
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_2cost"
+              }
+            ]
+          }
         }
       ]
     },
@@ -25798,7 +25854,10 @@
         {
           "play_self": true
         }
-      ]
+      ],
+      "if": {
+        "leader_name": "ベガパンク"
+      }
     }
   ],
   "OP07-113": [
@@ -25883,7 +25942,7 @@
       "do": [
         {
           "give_keyword": {
-            "target": "self_leader",
+            "target": "self_inplay",
             "keyword": "バニッシュ"
           }
         }
@@ -25993,12 +26052,6 @@
               },
               {
                 "rest": "one_opponent_character_cost_le_2"
-              },
-              {
-                "rest": "one_opponent_character_cost_le_2"
-              },
-              {
-                "rest": "one_opponent_character_cost_le_2cost"
               }
             ]
           }
