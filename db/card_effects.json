@@ -16437,13 +16437,25 @@
   ],
   "OP02-025": [
     {
-      "_text": "OP02-025 【起動メイン】【ターン1回】自分のキャラが1枚以下の場合、このターン中、次に自分が手札から登場させるコスト3以上の特徴《ワノ国》を持つキャラカードの支払うコストは1少なくなる。",
+      "_text": "OP02-025 activate_main: 自キャラ1以下で次のワノ国cost3+のコスト-1",
       "when": "activate_main",
       "cost": {
         "once_per_turn": true
       },
-      "do": [],
-      "_missing_effect": "次に手札から登場させるコスト3以上《ワノ国》のコスト-1 (= filtered next-play cost、 deferred [[project_full_db_audit_phase]])"
+      "if": {
+        "self_chara_count_le": 1
+      },
+      "do": [
+        {
+          "reduce_play_cost_filtered_turn": {
+            "filter": {
+              "feature": "ワノ国",
+              "cost_ge": 3
+            },
+            "amount": 1
+          }
+        }
+      ]
     }
   ],
   "OP02-025_p1": [

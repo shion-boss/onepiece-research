@@ -553,6 +553,9 @@ class Player:
     # 各要素: {"filter": {...}, "amount": int}。 evaluate_static_effects で再構築。
     # OP05-097 「コスト2以上の天竜人キャラの支払うコストは1少なくなる」 等
     play_cost_reductions_filtered: list = field(default_factory=list)
+    # ターン限定の filter 付き登場コスト軽減 (OP02-025 等)。 静的eval でクリアされず
+    # ターン refresh でクリア。 _eff_cost に加算。
+    play_cost_reductions_filtered_turn: list = field(default_factory=list)
     # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
     block_chara_play_until_turn_end: bool = False
     # 「自分は、 このターン中、 リーダーにアタックできない」 (OP06-026 等)。

@@ -5225,6 +5225,15 @@ def _execute_effect_body(
                     break
                 me.trash.append(me.hand.pop(state.rng.randrange(len(me.hand))))
             state.push_log(f"  効果: {cnt}キャラで{nd}ドロー→{nd}捨て")
+        elif k == "reduce_play_cost_filtered_turn":
+            # 「このターン中、 次に登場させる(filter)キャラの支払うコストは N 少なくなる」
+            # (OP02-025 等)。 ターン限定 filter 付き軽減を追加 (近似: 当ターン中の該当全play)。
+            spec_val = v if isinstance(v, dict) else {}
+            me.play_cost_reductions_filtered_turn.append({
+                "filter": spec_val.get("filter", {}),
+                "amount": int(spec_val.get("amount", 1)),
+            })
+            state.push_log("  効果: このターン中 登場コスト軽減 (filter)")
         elif k == "block_self_attack_leader_turn":
             # 「自分は、 このターン中、 (相手の) リーダーにアタックできない」 (OP06-026)。
             me.cannot_attack_leader_until_turn_end = True
