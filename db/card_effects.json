@@ -61915,6 +61915,20 @@
   ],
   "OP13-064": [
     {
+      "_text": "OP13-064 static: 自陣のロジャー海賊団以外キャラ 効果無効",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_effect_negate_filtered_static": {
+            "exclude_filter": {
+              "feature_contains": "ロジャー海賊団"
+            }
+          }
+        }
+      ]
+    },
+    {
       "_text": "OP13-064 on_play: ドン‼-3：自分のリーダーを、次の相手のエンドフェイズ終了時まで、パワー+2000。その後、相手のキャラすべてを、次の相手のエンドフェイズ終了時まで、パワー-2",
       "when": "on_play",
       "do": [
@@ -91623,6 +91637,31 @@
       "do": [
         {
           "set_cannot_attack_static": "self"
+        }
+      ]
+    },
+    {
+      "_text": "P-084 static: leaderバギーで コスト3,4キャラ全アタック不可",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_name": "バギー"
+      },
+      "do": [
+        {
+          "set_cannot_attack_filtered_static": {
+            "filter": {
+              "or_clauses": [
+                {
+                  "cost_eq": 3
+                },
+                {
+                  "cost_eq": 4
+                }
+              ]
+            },
+            "scope": "both"
+          }
         }
       ]
     },

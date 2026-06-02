@@ -8709,6 +8709,26 @@ def evaluate_static_effects(
                         for t in targets:
                             t.cannot_attack_static = True
                         continue
+                    if "set_cannot_attack_filtered_static" in primitive:
+                        spec = primitive["set_cannot_attack_filtered_static"]
+                        filt = spec.get("filter", {})
+                        scope = spec.get("scope", "both")
+                        pools = []
+                        if scope in ("self", "both"):
+                            pools += list(me.characters)
+                        if scope in ("opp", "both"):
+                            pools += list(opp.characters)
+                        for t in pools:
+                            if _matches_filter(t.card, filt):
+                                t.cannot_attack_static = True
+                        continue
+                    if "set_effect_negate_filtered_static" in primitive:
+                        spec = primitive["set_effect_negate_filtered_static"]
+                        excl = spec.get("exclude_filter", {})
+                        for t in list(me.characters):
+                            if not _matches_filter(t.card, excl):
+                                t.static_granted_keywords.add("効果無効")
+                        continue
                     # 「相手キャラは自分の効果で離れない」常在 (OP14-079 黒クロコ)
                     # opponent の全キャラに protect_from_opp_effect=True をセット
                     if "set_opp_protect_static" in primitive:
