@@ -734,10 +734,37 @@ def search_turn_plan(
             return -3000  # leader 1 体 残し で -3000 (= 重く 抑制)
         return 0.0
 
+    # === post-opp re-rank (= 2026-06-04、 ONEPIECE_POSTOPP_EVAL=1): 完了プランを ===
+    # 「自ターン終了 → 相手 (= deterministic greedy) のターンを sim → その後の盤面」 で eval。
+    # beam の myopia (= end-of-my-turn eval は opp 除去前で over-value) を最終選択だけ補正。
+    # 完了プランは ~beam_width 個なので opp-sim は数回だけ (= per-node でなく安い)。
+    # receding-horizon は維持 (= caller は best_plan[0] を取り再計画) なので robust。
+    _postopp = _os.environ.get("ONEPIECE_POSTOPP_EVAL") == "1"
+    _postopp_cap = int(_os.environ.get("ONEPIECE_POSTOPP_CAP", "30"))
+    _postopp_ai = None
+    if _postopp:
+        _postopp_ai = GreedyAI(rng=getattr(state, "rng", None))
+
+    def _eval_state(cur_state, plan):
+        if not _postopp or cur_state.game_over:
+            return compute_score(cur_state, me_idx)
+        ev = fast_clone(cur_state)
+        try:
+            from .game import EndPhase as _EP, apply_action as _apply
+            apply_action_fn = _apply
+            if ev.phase == Phase.MAIN and ev.turn_player_idx == me_idx:
+                apply_action_fn(ev, _EP())
+            if not ev.game_over and ev.turn_player_idx == opp_idx:
+                _simulate_opp_turn(ev, opp_idx, _postopp_ai, _postopp_ai,
+                                   hard_cap_actions=_postopp_cap)
+        except Exception:
+            return compute_score(cur_state, me_idx)
+        return compute_score(ev, me_idx)
+
     best_plan: list = []
     best_score = -float("inf")
     for cur_state, plan in completed:
-        s = compute_score(cur_state, me_idx)
+        s = _eval_state(cur_state, plan)
         s += _unused_attached_don_penalty(cur_state, plan)
         s += _unused_attacker_penalty_strong(cur_state, plan)
         if s > best_score:
