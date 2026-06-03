@@ -263,6 +263,7 @@ def search_turn_plan(
                 recursion_depth=caller_depth + 1,
                 beam_width=1,
                 max_depth=1,
+                pure_lookup=False,  # 内部 opp_sim は beam 維持 (= explicit beam caller の挙動保存)
             )
         elif _light_opp:
             opp_sim_ai = GreedyAI(rng=getattr(state, "rng", None))

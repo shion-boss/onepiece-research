@@ -115,6 +115,10 @@ onepiece_research/
 - [x] **Phase 3 完了**: AI 階層 + 対戦ハーネス
   - AI クラス: `RandomAI` / `GreedyAI` / `LookaheadAI` / `MCTSAI` / `PlanningAI` / `GoalDirectedAI`
     - **default は `GoalDirectedAI`** (= Plan H、 archetype 別 bonus + 3-tier fallback)
+    - **AI 実行モード (2026-06-03〜、 [[feedback_eval_specs_in_pure_lookup]])**: GoalDirectedAI は target spec を 2 モードで使う。
+      - **pure_lookup (= 既定)**: `_choose_action_pure_lookup` で spec bonus argmax、 beam を bypass (~50ms/手)。 実走 (harness/spectate)・corpus 収集・online 学習 とも これ。 spec が policy そのもの。 spec coverage 不足の局面のみ GreedyAI fallback (= 実測 88% は spec hit)
+      - **beam plan_search (= opt-out)**: `pure_lookup=False` or env `ONEPIECE_PURE_LOOKUP=0` で PlanningAI の beam(4/6) を使い、 spec を葉 eval に bonus 加算。 `scripts/eval_goal_directed_mirror.py` (beam 強度測定) と plan_search 内部 opp_sim のみ
+      - ⚠ **spec の A/B は pure_lookup で測る** (`scripts/eval_pure_lookup_ab.py`)。 beam は spec が board_eval に薄まり差が出ない。 「deployed 絶対強さ」測定時のみ beam
   - **共通基盤**: lethal_planner / hand_estimator (= 隠匿情報モデル) / アーキタイプ別ヒューリスティック (= `decks/<slug>.analysis.json` を読込)
   - **静的解析**: `decks/<slug>.analysis.json` の `mulligan_keep_card_ids` / `ai_hint_signals` を全 AI で参照
   - **RuleReferee**: AI vs AI 対戦中のルール違反監視。 matchup matrix 計算で違反ゼロ
@@ -146,7 +150,7 @@ onepiece_research/
 - [x] **Phase 4.5 完了 (R70+R71)**: **PlanningAI** (ターン全体プラン beam search)
   - `engine/plan_search.py`: beam search + fast_clone (= CardDef/InPlay の __deepcopy__ 共有で 3.3x 高速化)
   - `engine/ai.py:PlanningAI` (= GreedyAI を継承、 beam=4 / depth=6)
-  - PlanningAI は `GoalDirectedAI` の親クラスとして 現役 (= 直接 default ではないが内部で使用)
+  - PlanningAI は `GoalDirectedAI` の親クラスとして 現役 (= beam plan_search の実体)。 ただし **GoalDirectedAI の既定は pure_lookup** (= beam bypass、 2026-06-03〜)。 beam は `pure_lookup=False` / env opt-out 時のみ (= eval ツール / 内部 opp_sim)。 上記「AI 実行モード」参照
 - [x] **メタデッキ Phase 4 拡張 (= tcg-portal 化、 2026-05-14)**: 16 デッキ pool。
   - cardrush 10 件 (= 個別優勝レシピ、 3 ヶ月集計から代表選出)
     + tcg-portal 6 件 (= cardrush 不在の leader を集計合成で補完)

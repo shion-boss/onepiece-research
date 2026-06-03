@@ -68,6 +68,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         exploration_eps: float = 0.0,
         explore_bonus_threshold: float = 0.0,
         explore_prob_when_low: float = 0.0,
+        pure_lookup: bool = True,
         **kwargs,
     ):
         """
@@ -112,6 +113,9 @@ class GoalDirectedAI(_NoNNPlanningBase):
         # 0.0 = off (= eval/実戦)。 corpus 収集 中 のみ ON。
         self._explore_bonus_threshold = float(explore_bonus_threshold)
         self._explore_prob_when_low = float(explore_prob_when_low)
+        # pure_lookup = default policy mode (2026-06-03、 ohtsuki 方針)。 spec=policy。
+        # beam は明示 opt-out (= pure_lookup=False or env ONEPIECE_PURE_LOOKUP=0) のみ。
+        self._pure_lookup = bool(pure_lookup)
 
     # _compute_adaptive_params override は 削除 (= 2026-05-28)。
     # strong mode で beam+1 すると mid/late 計算量 倍以上 で 実用 不能。
@@ -250,8 +254,11 @@ class GoalDirectedAI(_NoNNPlanningBase):
         if self.recursion_depth >= 2:
             from .ai import GreedyAI
             return GreedyAI.choose_action(self, state)
-        # pure lookup mode (= 2026-05-30): beam search bypass
-        if os.environ.get("ONEPIECE_PURE_LOOKUP", "0") == "1":
+        # pure_lookup は default policy mode (= 2026-06-03、 実走/収集/学習 とも lookup)。
+        # 解決順: env override (ONEPIECE_PURE_LOOKUP=0/1) > instance flag (self._pure_lookup)。
+        _pl_env = os.environ.get("ONEPIECE_PURE_LOOKUP")
+        _use_pure_lookup = self._pure_lookup if _pl_env is None else (_pl_env == "1")
+        if _use_pure_lookup:
             try:
                 return self._choose_action_pure_lookup(state)
             except Exception as e:

@@ -329,7 +329,8 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     da = DeckList.from_json(path_a, repo)
     db = DeckList.from_json(path_b, repo)
 
-    # spectate 用 GoalDirectedAI 軽量モード = adaptive=False + beam=2 depth=4 (Vercel memory 対策)
+    # spectate 用 GoalDirectedAI = pure_lookup default (= 2026-06-03、 ~50ms/手で Vercel memory 最軽量)。
+    # beam_width/max_depth は pure_lookup 失敗 (= spec coverage 不足) 時の fallback 用にのみ残す。
     def _spectate_ai_factory(rng, deck_analysis=None):
         return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=False, spec_version="v1", beam_width=2, max_depth=4)
 

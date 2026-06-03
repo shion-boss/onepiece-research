@@ -25,6 +25,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+# このスクリプトは beam eval ツール (= beam_width/max_depth を測る)。 GoalDirectedAI の
+# default が pure_lookup になった (2026-06-03) 後も beam を測れるよう、 env 未指定なら beam に固定。
+# (= pure_lookup eval をしたい時は ONEPIECE_PURE_LOOKUP=1 を渡す。 spec 比較は eval_pure_lookup_ab.py)
+import os as _os_eval
+_os_eval.environ.setdefault("ONEPIECE_PURE_LOOKUP", "0")
+
 # stdout を line-buffered に (= pipe 経由でも flush 即時)
 try:
     sys.stdout.reconfigure(line_buffering=True)
