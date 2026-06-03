@@ -347,6 +347,7 @@ def build_specs(
     tier3_min_winrate: float = 0.5,
     tier3_baseline_factor: float = 0.5,
     min_winrate: float = 0.0,
+    shrink_k: float = 0.0,
 ) -> dict[str, list[dict]]:
     """deck_slug → entries list (= Tier 1 + Tier 3)。
 
@@ -366,7 +367,10 @@ def build_specs(
         win_rate = s["n_won"] / s["n_total"]
         if win_rate < min_winrate:
             continue  # 敗 北 action の spec 化 を 防 ぐ (= 2026-05-30)
-        ratio = max(win_rate, 0.05) / 0.5
+        # 信頼度シュリンク (= 2026-06-03、 低 n を baseline=0.5 へ縮約)。
+        # k 個の疑似 0.5-勝率 観測を足す → n が小さいほど bonus が baseline へ寄る。
+        shrunk_wr = (s["n_won"] + shrink_k * 0.5) / (s["n_total"] + shrink_k)
+        ratio = max(shrunk_wr, 0.05) / 0.5
         bonus = round(baseline * (ratio ** scale))
         bonus = max(bonus_clamp_min, min(bonus_clamp_max, bonus))
         by_entry[(deck_slug, v1_key)].append({
@@ -456,7 +460,8 @@ def build_specs(
         if total_n < min_count:
             continue
         cross_wr = total_w / total_n
-        ratio = max(cross_wr, 0.05) / 0.5
+        shrunk_wr = (total_w + shrink_k * 0.5) / (total_n + shrink_k)
+        ratio = max(shrunk_wr, 0.05) / 0.5
         bonus = round(baseline * tier3_baseline_factor * (ratio ** scale))
         bonus = max(bonus_clamp_min, min(bonus_clamp_max, bonus))
         tier3_entries_by_deck[deck_slug][(turn, self_cond)].append({
@@ -538,7 +543,8 @@ def write_specs(deck_to_entries: dict[str, list[dict]], output_dir: Path,
                 f"corpus={args_summary.get('corpus_dir')}, "
                 f"min_count={args_summary.get('min_count')}, "
                 f"baseline={args_summary.get('baseline')}, "
-                f"scale={args_summary.get('scale')}"
+                f"scale={args_summary.get('scale')}, "
+                f"shrink_k={args_summary.get('shrink_k')}"
             ),
             "entries": entries,
         }
@@ -563,6 +569,8 @@ def main() -> None:
     ap.add_argument("--bonus-clamp-max", type=int, default=3000)
     ap.add_argument("--min-winrate", type=float, default=0.0,
                     help="(state, action) の win_rate が この 値 未満 なら entry に 入れない (= 敗 北 行 動 除外)")
+    ap.add_argument("--shrink-k", type=float, default=0.0,
+                    help="信頼度シュリンク疑似カウント (= 低 n を baseline=0.5 勝率へ縮約、 0=off)")
     ap.add_argument("--tier3-min-opp-count", type=int, default=8,
                     help="Tier 3 採用 閾値: action が 何 個 の opp_leader で 過半勝率 を 達成 した か")
     ap.add_argument("--tier3-min-winrate", type=float, default=0.5,
@@ -596,6 +604,7 @@ def main() -> None:
         tier3_min_winrate=args.tier3_min_winrate,
         tier3_baseline_factor=args.tier3_baseline_factor,
         min_winrate=args.min_winrate,
+        shrink_k=args.shrink_k,
     )
     print(f"[build_spec] decks with entries: {len(deck_to_entries)}", flush=True)
     for slug, entries in sorted(deck_to_entries.items()):
@@ -615,6 +624,7 @@ def main() -> None:
         "min_count": args.min_count,
         "baseline": args.baseline,
         "scale": args.scale,
+        "shrink_k": args.shrink_k,
     }
     n_written = write_specs(deck_to_entries, args.output_dir, scan, args_summary)
     print(f"[build_spec] wrote {n_written} target_v1.json files to {args.output_dir}",

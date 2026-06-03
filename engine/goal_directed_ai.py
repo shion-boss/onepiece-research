@@ -66,6 +66,8 @@ class GoalDirectedAI(_NoNNPlanningBase):
         recursion_depth: int = 0,
         strong: bool = False,
         exploration_eps: float = 0.0,
+        explore_bonus_threshold: float = 0.0,
+        explore_prob_when_low: float = 0.0,
         **kwargs,
     ):
         """
@@ -103,6 +105,13 @@ class GoalDirectedAI(_NoNNPlanningBase):
         # base_eval が 推さない 行動 を ε で 試行 → corpus に 多様 性 注入 →
         # build_spec が 「base_eval-conflicting winning action」 を 学習 可能 に なる。
         self._exploration_eps = float(exploration_eps)
+        # 閾値ゲート探索 (= 2026-06-03、 ohtsuki 案、 不確実性ベース)。
+        # 最善手の bonus が explore_bonus_threshold 未満 (= spec が 自信 を 持てない 局面) の とき
+        # explore_prob_when_low の 確率 で 別の手 を 打つ。 uniform ε より sample 効率 が 高い
+        # (= 手薄 な 局面 に 探索 を 集中、 自信 ある 局面 は exploit で on-distribution 維持)。
+        # 0.0 = off (= eval/実戦)。 corpus 収集 中 のみ ON。
+        self._explore_bonus_threshold = float(explore_bonus_threshold)
+        self._explore_prob_when_low = float(explore_prob_when_low)
 
     # _compute_adaptive_params override は 削除 (= 2026-05-28)。
     # strong mode で beam+1 すると mid/late 計算量 倍以上 で 実用 不能。
@@ -204,6 +213,16 @@ class GoalDirectedAI(_NoNNPlanningBase):
 
         action_scores = [(a, _action_bonus(a)) for a in legal]
         max_score = max(s for _, s in action_scores)
+
+        # === 閾値ゲート探索 (= 2026-06-03、 ohtsuki 案、 収集時のみ) ===
+        # 最善手の bonus すら 閾値 未満 = spec が 自信 を 持てない 局面 → 別の手 を 試す。
+        # 不確実性ベース: 手薄 な 局面 に 探索 を 集中、 自信 ある 局面 (= max_score≥閾値) は
+        # 下 の argmax で exploit (= on-distribution 維持)。 eval/実戦 は threshold=0 で no-op。
+        if (self._explore_bonus_threshold > 0
+                and max_score < self._explore_bonus_threshold
+                and self.rng.random() < self._explore_prob_when_low):
+            cands = [a for a in legal if a.__class__.__name__ != "EndPhase"] or legal
+            return self.rng.choice(cands)
 
         # === fallback: spec 不 足 で 全 bonus=0 なら GreedyAI に 委 譲 (= 2026-05-30) ===
         # pure_lookup mode で 「spec coverage 不 足」 = 全 entry mismatch or 全 bonus 0

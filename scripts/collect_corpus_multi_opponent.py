@@ -92,10 +92,14 @@ def _make_ai_factory(kind: str):
     if kind == "mirror":
         from engine.goal_directed_ai import GoalDirectedAI
         _eps = float(os.environ.get("ONEPIECE_EXPLORATION_EPS", "0"))
+        _ethr = float(os.environ.get("ONEPIECE_EXPLORE_BONUS_THRESHOLD", "0"))
+        _eprob = float(os.environ.get("ONEPIECE_EXPLORE_PROB_LOW", "0"))
         def factory(rng, deck_analysis=None):
             return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis,
                                    beam_width=2, max_depth=4,
-                                   exploration_eps=_eps)
+                                   exploration_eps=_eps,
+                                   explore_bonus_threshold=_ethr,
+                                   explore_prob_when_low=_eprob)
         factory.__name__ = "GoalDirectedAI_factory_mirror"
         factory._corpus_ai_class = "GoalDirectedAI"
         return factory
@@ -109,10 +113,14 @@ def _make_goal_factory():
     """
     from engine.goal_directed_ai import GoalDirectedAI
     _eps = float(os.environ.get("ONEPIECE_EXPLORATION_EPS", "0"))
+    _ethr = float(os.environ.get("ONEPIECE_EXPLORE_BONUS_THRESHOLD", "0"))
+    _eprob = float(os.environ.get("ONEPIECE_EXPLORE_PROB_LOW", "0"))
     def factory(rng, deck_analysis=None):
         return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis,
                                beam_width=2, max_depth=4,
-                               exploration_eps=_eps)
+                               exploration_eps=_eps,
+                               explore_bonus_threshold=_ethr,
+                               explore_prob_when_low=_eprob)
     factory.__name__ = "GoalDirectedAI_factory_main"
     factory._corpus_ai_class = "GoalDirectedAI"
     return factory
