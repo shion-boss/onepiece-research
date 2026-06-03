@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import multiprocessing as mp
+import os
 import pickle
 import random
 import sys
@@ -42,6 +43,10 @@ def _winit(slug: str) -> None:
 
 
 def _make_beam(seed: int):
+    # policy iteration: ONEPIECE_GBM_COLLECT_POLICY=exploitbeam で強いAI自身でデータ生成。
+    if os.environ.get("ONEPIECE_GBM_COLLECT_POLICY") == "exploitbeam":
+        from engine.exploit_beam_ai import ExploitBeamAI
+        return ExploitBeamAI(rng=random.Random(seed * 5 + 1), beam_width=16, max_depth=10)
     ai = DeepPlanningAI(rng=random.Random(seed * 5 + 1), beam_width=8, max_depth=8,
                         adaptive=False, max_turns=1)
     ai.set_ai_opp(GreedyAI(rng=random.Random(seed * 7 + 3)))

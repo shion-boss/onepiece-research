@@ -113,8 +113,14 @@ onepiece_research/
       draw_per_hand_to_deck_bottom / return_self_to_deck_bottom_if_condition / trash_to_deck /
       opp_trash_to_deck_bottom / static_swords_attack_chara / 他
 - [x] **Phase 3 完了**: AI 階層 + 対戦ハーネス
-  - AI クラス: `RandomAI` / `GreedyAI` / `LookaheadAI` / `MCTSAI` / `PlanningAI` / `GoalDirectedAI`
+  - AI クラス: `RandomAI` / `GreedyAI` / `LookaheadAI` / `MCTSAI` / `PlanningAI` / `GoalDirectedAI` / `ExploitBeamAI`
     - **default は `GoalDirectedAI`** (= Plan H、 archetype 別 bonus + 3-tier fallback)
+    - **`ExploitBeamAI` (= 2026-06-04、 vs GreedyAI 最強、 [[project_70pct_vs_greedy]])**: beam(16/10) +
+      post-opp 再ランク (`ONEPIECE_POSTOPP_EVAL`、 完了プランを「自ターン終了→相手greedyのターンsim→その後」で
+      eval) + 学習 GBM value (`engine/gbm_value.py`、 post-opp盤面=自次ターン開始=GBM学習分布で正確)。
+      **vs GreedyAI on cardrush_1342 = 72.7% (N=300)**。 GBM は `db/value_gbm_<slug>.pkl` を deck別に
+      `scripts/train_value_gbm.py` で学習 (無ければ board_eval に degrade)。 教訓: 学習valueは正しい分布で使え /
+      探索のmyopiaは deterministic opp の sim で補正。 `scripts/bench_ais_vs_greedy.py` で測定
     - **AI 実行モード (2026-06-03〜、 [[feedback_eval_specs_in_pure_lookup]])**: GoalDirectedAI は target spec を 2 モードで使う。
       - **pure_lookup (= 既定)**: `_choose_action_pure_lookup` で spec bonus argmax、 beam を bypass (~50ms/手)。 実走 (harness/spectate)・corpus 収集・online 学習 とも これ。 spec が policy そのもの。 spec coverage 不足の局面のみ GreedyAI fallback (= 実測 88% は spec hit)
       - **beam plan_search (= opt-out)**: `pure_lookup=False` or env `ONEPIECE_PURE_LOOKUP=0` で PlanningAI の beam(4/6) を使い、 spec を葉 eval に bonus 加算。 `scripts/eval_goal_directed_mirror.py` (beam 強度測定) と plan_search 内部 opp_sim のみ
