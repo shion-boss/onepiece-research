@@ -1324,6 +1324,16 @@ def compute_score(
     適応的設計。 学習前 (= 全 dim 重み 0) は base 8 dim 速度で動作。
     snapshot 用 full 73 dim は compute_breakdown を引き続き使う。
     """
+    # === GBM 学習 value (= 2026-06-04、 ONEPIECE_GBM_VALUE_PATH set 時 leaf eval 置換) ===
+    import os as _os_gbm
+    if weights is None and _os_gbm.environ.get("ONEPIECE_GBM_VALUE_PATH"):
+        try:
+            from .gbm_value import gbm_score as _gbm_score
+            _gv = _gbm_score(state, me_idx)
+            if _gv is not None:
+                return _gv
+        except Exception:
+            pass
     # === Plan Step 3: NN backend (= model file 存在で auto 有効化) ===
     # ONEPIECE_NN_DISABLE 環境変数で 強制 fallback (= 線形)。
     # 明示的に weights が渡された場合 (= 学習 / テスト / 重み比較) は NN を bypass
