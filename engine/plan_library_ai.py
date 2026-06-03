@@ -21,7 +21,10 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+from collections import Counter
+
 from .ai import GreedyAI
+from .core import Phase
 from .game import EndPhase, legal_actions
 from .plan_library import (
     _CELL_AXES_COARSE,
@@ -29,6 +32,7 @@ from .plan_library import (
     cell_key_from_state,
     multiset_key,
 )
+from .plan_search import _apply_with_defense, fast_clone
 
 
 class PlanLibraryAI(GreedyAI):
@@ -62,6 +66,10 @@ class PlanLibraryAI(GreedyAI):
         self._committed: list = []
         self._greedy_rest = False
         self._chosen: Optional[tuple] = None  # (cell, mk) of 採用プラン (= 直近)
+        # greedy anchor 用 (= cold-start prior。 board_eval は死に手 prior なので使わない)。
+        self._anchor_ai = GreedyAI(rng=self.rng, deck_analysis=self.deck_analysis)
+        self.debug = False
+        self.debug_log: list = []
 
     # --- opp archetype (= cell 計算用) ---
     def _opp_archetype(self, state: Any, me_idx: int) -> str:
@@ -83,38 +91,93 @@ class PlanLibraryAI(GreedyAI):
                 return
         store.setdefault(me_idx, []).append((cell, mk))
 
+    def _greedy_anchor(self, state: Any, me_idx: int) -> tuple:
+        """GreedyAI のターンを sim → (multiset_key, 具体 action 列)。
+
+        cold-start prior = 「greedy が打つプラン」。 board_eval prior は end-of-turn の
+        失効 DON / 場 power を過大評価し死に手を選ぶ (= 実測 vs Greedy 2%) ので使わない。
+        """
+        from .turn_plan_enumerator import abstract_token
+
+        sim = fast_clone(state)
+        g = self._anchor_ai
+        tokens: list = []
+        seq: list = []
+        guard = 0
+        while (not sim.game_over and sim.turn_player_idx == me_idx
+               and sim.phase == Phase.MAIN and guard < 40):
+            try:
+                a = g.choose_action(sim)
+            except Exception:
+                break
+            if isinstance(a, EndPhase):
+                break
+            tokens.append(abstract_token(a, sim, me_idx))
+            seq.append(a)
+            try:
+                _apply_with_defense(sim, a, g)
+            except Exception:
+                break
+            guard += 1
+        return frozenset(Counter(tokens).items()), seq
+
     def _select_plan(self, state: Any, me_idx: int) -> list:
-        """enumerate → score → argmax。 採用プランの concrete action 列を返す。"""
+        """enumerate → greedy-anchor prior + 学習 bonus で argmax → commit 列。"""
         from .turn_plan_enumerator import enumerate_turn_plans
 
         try:
-            plans, _stats = enumerate_turn_plans(
-                state, me_idx, node_cap=self._node_cap,
-            )
+            plans, _stats = enumerate_turn_plans(state, me_idx, node_cap=self._node_cap)
         except Exception:
             plans = []
-        if not plans:
-            self._chosen = None
-            return []
 
         opp_arch = self._opp_archetype(state, me_idx)
         cell = cell_key_from_state(state, me_idx, opp_arch, self._cell_axes)
+        anchor_mk, anchor_seq = self._greedy_anchor(state, me_idx)
 
-        def _score(p) -> float:
-            mk = multiset_key(p.signature)
-            return self.bonus_table.value(cell, mk, p.eval_score)
+        n = len(plans)
+        mks = [multiset_key(p.signature) for p in plans]
+        mkset = set(mks)
 
-        # プランレベル ε 探索 (= 収集時のみ)。 未学習プランを試して corpus に多様性注入。
+        # anchor が enumerate に無い (= rare) → greedy 実シーケンスをそのまま commit (= base 保証)。
+        if not plans or anchor_mk not in mkset:
+            self._chosen = (cell, anchor_mk)
+            self._record_choice(state, me_idx, cell, anchor_mk)
+            if getattr(self, "debug", False):
+                self.debug_log.append({
+                    "turn": state.turn_number, "n_plans": n, "is_anchor": True,
+                    "chosen_sig": ["<greedy-anchor>"], "n_attacks": -1,
+                    "chosen_n_learned": self.bonus_table.get_counts(cell, anchor_mk)[0],
+                    "value": -1})
+            return list(anchor_seq)
+
+        # prior: anchor=1.0、 その他=board_eval percentile×0.01 (= 微弱 tiebreak のみ、 学習が主)。
+        order = sorted(range(n), key=lambda i: plans[i].eval_score)
+        ev_pct = [0.0] * n
+        for rank, i in enumerate(order):
+            ev_pct[i] = rank / (n - 1) if n > 1 else 0.5
+        prior = [1.0 if mks[i] == anchor_mk else 0.01 * ev_pct[i] for i in range(n)]
+        scores = [self.bonus_table.value_with_prior(cell, mks[i], prior[i]) for i in range(n)]
+
         if self._plan_eps > 0 and self.rng.random() < self._plan_eps:
-            chosen = self.rng.choice(plans)
+            ci = self.rng.randrange(n)
         else:
-            best = max(_score(p) for p in plans)
-            top = [p for p in plans if _score(p) >= best - 1e-9]
-            chosen = top[0] if len(top) == 1 else self.rng.choice(top)
-
-        mk = multiset_key(chosen.signature)
+            best = max(scores)
+            top = [i for i in range(n) if scores[i] >= best - 1e-9]
+            ci = top[0] if len(top) == 1 else self.rng.choice(top)
+        chosen = plans[ci]
+        mk = mks[ci]
         self._chosen = (cell, mk)
         self._record_choice(state, me_idx, cell, mk)
+        if getattr(self, "debug", False):
+            n_tot, _ = self.bonus_table.get_counts(cell, mk)
+            n_atk = sum(1 for t in chosen.signature if t and t[0] == "attack")
+            self.debug_log.append({
+                "turn": state.turn_number, "n_plans": n, "is_anchor": (mk == anchor_mk),
+                "chosen_sig": [list(t) for t in chosen.signature], "n_attacks": n_atk,
+                "chosen_n_learned": n_tot, "value": round(scores[ci], 3)})
+        # anchor を選んだ時は greedy の実シーケンス (= 順序/対象も忠実) を commit。
+        if mk == anchor_mk:
+            return list(anchor_seq)
         return list(chosen.concrete_template)
 
     def choose_action(self, state: Any):

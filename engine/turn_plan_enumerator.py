@@ -167,7 +167,9 @@ def abstract_token(action: Any, state: Any, me_idx: int) -> tuple:
     if isinstance(action, AttachDonToCharacter):
         return ("attach_don", "chara", int(action.n))
     if isinstance(action, ActivateMain):
-        return ("activate", _resolve_iid_card_id(state, me_idx, action.source_iid))
+        # corpus snapshot は field に instance_id を持たず source_iid→card_id を解決できない。
+        # corpus と一致させるため card 識別を落とした bare marker にする (= ActivateMain は少数)。
+        return ("activate",)
     if isinstance(action, AttackLeader):
         return ("attack", "leader_face")
     if isinstance(action, AttackCharacter):
@@ -186,6 +188,34 @@ def _is_main(state: Any, me_idx: int) -> bool:
         and state.phase == Phase.MAIN
         and state.turn_player_idx == me_idx
     )
+
+
+def _unused_attached_don_penalty(child: Any, me_idx: int, plan: tuple,
+                                 w_attached_don: float) -> float:
+    """plan_search._unused_attached_don_penalty と同ロジック。
+
+    attached DON は次の相手ターンで失効する (= +1000 が反映されない)。 plan 中で攻撃に
+    使われていない (= 非 rested で attacker でない) キャラ/リーダーの attached DON は死に投資。
+    board_eval の +W_ATTACHED_DON を帳消し + 追加 penalty で抑制 (= 「attach するなら attack も」)。
+
+    これが無いと enumerate の max-board_eval プランが「DON 全部キャラに乗せて end」 の死に手に
+    なる (= 2026-06-04 実測: 未適用で vs Greedy 2%)。
+    """
+    me = child.players[me_idx]
+    attacked: set = set()
+    for a in plan:
+        if isinstance(a, (AttackLeader, AttackCharacter)):
+            attacked.add(getattr(a, "attacker_iid", -1))
+    wasted = 0
+    for ip in [me.leader, *me.characters]:
+        if getattr(ip, "attached_dons", 0) <= 0:
+            continue
+        if getattr(ip, "rested", False):
+            continue  # rested = 攻撃済 = OK
+        if getattr(ip, "instance_id", None) in attacked:
+            continue
+        wasted += ip.attached_dons
+    return -wasted * (w_attached_don + 1000)
 
 
 def enumerate_turn_plans(
@@ -234,6 +264,12 @@ def enumerate_turn_plans(
                     "start_legal": 0}
 
     start_don = int(getattr(start.players[me_idx], "don_active", 0))
+    # plan-level penalty 用 W (= 1 回だけ取得)
+    try:
+        from .eval import BoardEvalWeights
+        _w_adon = float(BoardEvalWeights().W_ATTACHED_DON)
+    except Exception:
+        _w_adon = 400.0
 
     # === multiset signature dedup (= 2026-06-03 実測知見) ===
     # 2 つの爆発を実測で切り分け:
@@ -289,6 +325,7 @@ def enumerate_turn_plans(
             cost_used = start_don - int(getattr(child.players[me_idx], "don_active", 0))
             try:
                 escore = float(compute_score(child, me_idx))
+                escore += _unused_attached_don_penalty(child, me_idx, new_plan, _w_adon)
             except Exception:
                 escore = 0.0
             out[mkey] = (new_sig, new_plan, bsig, cost_used, len(new_plan), escore)

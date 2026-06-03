@@ -33,7 +33,9 @@ from .axis_compute import ENTRY_AXES_KEYS, compute_axes_from_state
 _CELL_AXES_FINE = tuple(k for k in ENTRY_AXES_KEYS if k != "self_condition")
 # coarse = PoC 用 (= 学習サンプル密度を確保。 fine だと (cell,plan) が n≈1 で value≈prior
 # = board_eval から動かず学習しない。 production は cascade で fine→coarse 緩和する想定)。
-_CELL_AXES_COARSE = ("turn", "opp_archetype", "self_life_bucket", "opp_life_bucket")
+# opp_leader_id を使う (= archetype は live=JP/corpus=EN 正規化でズレ得る; leader_id は card_id で
+# compute_axes_from_state / _from_snapshot 双方一致)。
+_CELL_AXES_COARSE = ("turn", "opp_leader_id", "self_life_bucket", "opp_life_bucket")
 
 
 def cell_key_from_state(state: Any, me_idx: int,
@@ -73,8 +75,22 @@ def fuse_value(eval_score: float, n_total: int, n_won: int,
 
     prior = sigmoid(eval_score / temp) (= 盤面 value を擬似勝率化)。
     n_total=0 で value=prior、 n_total→∞ で value→実勝率。
+
+    ⚠ board_eval は数万スケールに振れる (= temp 固定の sigmoid は飽和して全 plan が prior≈1)。
+    推論時は候補集合内の **相対 prior** (= eval percentile) を使う fuse_value_with_prior を
+    使うこと。 これは単体テスト / スカラー用途のみ。
     """
     prior = _sigmoid(eval_score / temp)
+    return (n_won + shrink_k * prior) / (n_total + shrink_k)
+
+
+def fuse_value_with_prior(prior: float, n_total: int, n_won: int,
+                          *, shrink_k: float = 6.0) -> float:
+    """prior (= 候補集合内の board_eval 相対順位 [0,1]) を直接渡す版。
+
+    value = (n_won + k*prior) / (n_total + k)。 n=0 で value=prior (= board_eval 順)、
+    n 大で実勝率へ。 飽和しない (= 候補内 percentile を使うので常に discriminate)。
+    """
     return (n_won + shrink_k * prior) / (n_total + shrink_k)
 
 
@@ -113,6 +129,11 @@ class PlanBonusTable:
         n_total, n_won = self.get_counts(cell, mk)
         return fuse_value(eval_score, n_total, n_won,
                           temp=self.temp, shrink_k=self.shrink_k)
+
+    def value_with_prior(self, cell: tuple, mk: frozenset, prior: float) -> float:
+        """prior (= 候補内 board_eval percentile [0,1]) を使う飽和しない版 (= 推論で使う)。"""
+        n_total, n_won = self.get_counts(cell, mk)
+        return fuse_value_with_prior(prior, n_total, n_won, shrink_k=self.shrink_k)
 
     def is_learned(self, cell: tuple, mk: frozenset, min_n: int = 1) -> bool:
         n_total, _ = self.get_counts(cell, mk)

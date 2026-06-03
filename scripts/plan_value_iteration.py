@@ -181,6 +181,8 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--temp", type=float, default=2000.0)
     ap.add_argument("--shrink-k", type=float, default=6.0)
+    ap.add_argument("--init-table", type=Path, default=None,
+                    help="起点 table (= corpus warm-start)。 --rounds 0 で eval のみ")
     ap.add_argument("--out", type=Path, default=REPO_ROOT / "db" / "plan_tables" / "poc.json")
     args = ap.parse_args()
 
@@ -191,11 +193,19 @@ def main() -> None:
           f"workers={args.workers} plan_eps={args.plan_eps} node_cap={args.node_cap} "
           f"cell_axes={cell_axes}", flush=True)
 
-    table = PlanBonusTable(temp=args.temp, shrink_k=args.shrink_k)
+    if args.init_table and args.init_table.exists():
+        table = PlanBonusTable.load(args.init_table)
+        table.temp = args.temp
+        table.shrink_k = args.shrink_k
+        print(f"[init] loaded warm-start table: {len(table)} plans from {args.init_table}",
+              flush=True)
+    else:
+        table = PlanBonusTable(temp=args.temp, shrink_k=args.shrink_k)
 
     t0 = time.perf_counter()
     base = eval_ab(slug, table, args.eval_games, args.node_cap, cell_axes, args.workers, 900000)
-    print(f"\n[R0 baseline / board_eval のみ] vs Greedy: winrate={base['winrate']:.1%} "
+    _r0lbl = f"warm-start table={len(table)}" if len(table) else "board_eval のみ"
+    print(f"\n[R0 / {_r0lbl}] vs Greedy: winrate={base['winrate']:.1%} "
           f"W{base['wins']}-L{base['losses']} D{base['draws']} err{base['errors']} "
           f"({time.perf_counter()-t0:.0f}s)", flush=True)
     history = [{"round": 0, "table_size": 0, **base}]
