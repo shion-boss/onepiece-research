@@ -1796,8 +1796,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         else:
             state.push_log("  survived")
-        # バトル終了時処理: char vs char バトル (= blocked) なら on_self_battled 発火 (ST02-010)。
-        if is_blocked and state.effects_overlay and attacker in [me.leader, *me.characters]:
+        # バトル終了時処理: AttackCharacter は常に char vs char バトル → on_self_battled 発火 (ST02-010)。
+        # NOTE: is_blocked は AttackLeader 専用ローカルで此処では未定義 (= 旧 UnboundLocalError bug)。
+        # AttackCharacter では target/blocker いずれも キャラ なので battle 成立時は常に発火で正しい。
+        if state.effects_overlay and attacker in [me.leader, *me.characters]:
             # バトルした相手キャラ (= ブロッカー) を記録 (ST08-013 opp_just_battled 用)。
             # 既にバトルKO されていれば opp.characters から消えており target 解決で [] になる。
             state.last_battled_opp_iid = actual_target.instance_id
