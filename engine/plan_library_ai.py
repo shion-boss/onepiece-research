@@ -249,14 +249,31 @@ class PlanLibraryAI(GreedyAI):
         """防御 signature を PlanBonusTable 互換の multiset key に (= 単元素)。"""
         return frozenset([(sig, 1)])
 
-    def _defense_cell(self, state: Any, defender: Any, is_leader_attack: bool,
-                      atk_p: int) -> tuple:
-        from .axis_compute import life_bucket
-        opp_leader = state.players[state.turn_player_idx].leader.card.card_id
+    def _defense_cell(self, state: Any, defender: Any, target: Any,
+                      is_leader_attack: bool, atk_p: int) -> tuple:
+        """防御 context (= ohtsuki の状況別判断を軸化):
+        - self_hand: 手札少 → 受けてライフ→手札で増やす価値 (= 毎回止めなくて良い)。
+        - opp_life: 相手ライフ低 → こちらの詰め筋 → キャラを守る価値↑ (= 全手札切ってでも)。
+        - tgt_role: 攻撃されたキャラの role (= 守る価値のあるキャラか)。
+        - self_life: 受けた時の損 + 残ライフ。
+        """
+        from .axis_compute import life_bucket, hand_bucket
+        from .turn_plan_enumerator import _card_role
+        attacker_owner = state.players[state.turn_player_idx]
+        opp_leader = attacker_owner.leader.card.card_id
+        if is_leader_attack:
+            tgt_role = "leader"
+        elif target is not None:
+            tgt_role = "c_" + _card_role(target.card, state.effects_overlay)
+        else:
+            tgt_role = "c_unk"
         return (
             ("is_leader", bool(is_leader_attack)),
             ("atk_bucket", self._atk_bucket(atk_p)),
             ("self_life", life_bucket(len(defender.life))),
+            ("self_hand", hand_bucket(len(defender.hand))),
+            ("opp_life", life_bucket(len(attacker_owner.life))),
+            ("tgt_role", tgt_role),
             ("opp_leader", opp_leader),
         )
 
@@ -351,7 +368,7 @@ class PlanLibraryAI(GreedyAI):
 
         defender_idx = 1 - state.turn_player_idx
         anchor_sig = self._defense_sig_of(g_block, g_counters, defender, atk_p)
-        cell = self._defense_cell(state, defender, is_leader_attack, atk_p)
+        cell = self._defense_cell(state, defender, target, is_leader_attack, atk_p)
         sigs = [c[2] for c in cands]
         if anchor_sig not in set(sigs):
             cands.append((g_block, g_counters, anchor_sig))

@@ -151,10 +151,42 @@ def _resolve_iid_card_id(state: Any, me_idx: int, iid: int) -> Optional[str]:
     return None
 
 
+# card_id → primary_role cache (= 「攻撃=防御」 の対象 role を署名に入れる、 ohtsuki 2026-06-04)。
+_ROLE_CACHE: dict = {}
+
+
+def _card_role(card: Any, overlay: Any) -> str:
+    cid = getattr(card, "card_id", None)
+    if cid in _ROLE_CACHE:
+        return _ROLE_CACHE[cid]
+    try:
+        from .card_role import derive_card_role
+        r = derive_card_role(card, overlay).primary_role
+    except Exception:
+        r = "unk"
+    _ROLE_CACHE[cid] = r
+    return r
+
+
+def _enemy_role(state: Any, me_idx: int, iid: int) -> str:
+    for c in state.players[1 - me_idx].characters:
+        if getattr(c, "instance_id", None) == iid:
+            return _card_role(c.card, state.effects_overlay)
+    return "unk"
+
+
+def _own_chara_role(state: Any, me_idx: int, iid: int) -> str:
+    for c in state.players[me_idx].characters:
+        if getattr(c, "instance_id", None) == iid:
+            return _card_role(c.card, state.effects_overlay)
+    return "unk"
+
+
 def abstract_token(action: Any, state: Any, me_idx: int) -> tuple:
     """concrete action + その action を取る直前の state → 抽象トークン。
 
-    対象 iid は落とす (= 抽象)。 攻撃は leader_face / enemy_chara の粗分類 (= role は後続カット)。
+    対象 iid は落とすが **role は残す** (= ohtsuki「攻撃も一つの防御」: どの role の敵を攻撃/
+    除去するか、 どの role の自陣を強化するかが防御スキル。 「enemy_chara」 一括だと潰れる)。
     """
     if isinstance(action, PlayCharacter):
         return ("play", _resolve_hand_card_id(state, me_idx, action.hand_idx))
@@ -165,15 +197,15 @@ def abstract_token(action: Any, state: Any, me_idx: int) -> tuple:
     if isinstance(action, AttachDonToLeader):
         return ("attach_don", "leader", int(action.n))
     if isinstance(action, AttachDonToCharacter):
-        return ("attach_don", "chara", int(action.n))
+        # どの role の自陣キャラを強化するか (= 打点を作る vs blocker を守る)
+        return ("attach_don", "c_" + _own_chara_role(state, me_idx, action.target_iid), int(action.n))
     if isinstance(action, ActivateMain):
-        # corpus snapshot は field に instance_id を持たず source_iid→card_id を解決できない。
-        # corpus と一致させるため card 識別を落とした bare marker にする (= ActivateMain は少数)。
         return ("activate",)
     if isinstance(action, AttackLeader):
         return ("attack", "leader_face")
     if isinstance(action, AttackCharacter):
-        return ("attack", "enemy_chara")
+        # どの role の敵を攻撃/除去するか (= サーチ/ブロッカー/打点 を どかす = 防御)
+        return ("attack", "e_" + _enemy_role(state, me_idx, action.target_iid))
     return (action.__class__.__name__,)
 
 
