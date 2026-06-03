@@ -30,6 +30,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from .eval import compute_score
 from .game import (
     AttachDonToCharacter,
     AttachDonToLeader,
@@ -64,6 +65,8 @@ class AbstractPlan:
             signature から plan_binding が再束縛する。
         cost_used: 消費 DON (= feasibility 確認 / 分析用)。
         depth: 行動数 (= EndPhase 除く)。
+        eval_score: 到達盤面 (= canonical 束縛) の compute_score (= 層3 の value 補完用)。
+            学習 bonus が無い局面で argmax の基準になる (= Q1「勝率bonus主 + 盤面value補完」)。
     """
 
     signature: tuple
@@ -71,6 +74,7 @@ class AbstractPlan:
     concrete_template: tuple
     cost_used: int
     depth: int
+    eval_score: float = 0.0
 
 
 # ===========================================================================
@@ -283,13 +287,17 @@ def enumerate_turn_plans(
             bsig = board_signature(child, me_idx)
             board_sigs.add(bsig)
             cost_used = start_don - int(getattr(child.players[me_idx], "don_active", 0))
-            out[mkey] = (new_sig, new_plan, bsig, cost_used, len(new_plan))
+            try:
+                escore = float(compute_score(child, me_idx))
+            except Exception:
+                escore = 0.0
+            out[mkey] = (new_sig, new_plan, bsig, cost_used, len(new_plan), escore)
             q.append((child, new_plan, new_sig))
         if capped:
             break
 
     plans: list[AbstractPlan] = []
-    for mkey, (sig, plan, bsig, cost_used, depth) in out.items():
+    for mkey, (sig, plan, bsig, cost_used, depth, escore) in out.items():
         plans.append(
             AbstractPlan(
                 signature=sig,
@@ -297,6 +305,7 @@ def enumerate_turn_plans(
                 concrete_template=plan,
                 cost_used=cost_used,
                 depth=depth,
+                eval_score=escore,
             )
         )
 
