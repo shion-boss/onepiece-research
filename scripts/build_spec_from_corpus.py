@@ -224,107 +224,187 @@ def _resolve_side_idx(game: dict) -> tuple[int, int]:
     return (0, 1) if fp == 0 else (1, 0)
 
 
-def scan_corpus(corpus_dir: Path) -> dict:
-    """全 game scan、 (actor_deck_slug, v1_axes_key, action_key) → {n_total, n_won}。
+def _process_game(game: dict, leader_to_deck: dict, deck_to_archetype: dict,
+                  stats: dict) -> int:
+    """1 game を処理して stats を mutate、 処理した action 数を返す。
 
-    actor_deck_slug = 「この spec を 適用 する 視点 deck」 (= 我々 が AI に なる 側)。
+    scan_corpus (serial) と _scan_chunk (parallel) で共有 = ロジック分岐を防ぐ。
     両 side を 抽出 (= side A win → side A 行動 が +、 side B win → side B 行動 が +)。
     """
+    from engine.axis_compute import compute_axes_from_snapshot as _ax
+    winner_for_a = (game.get("result") or {}).get("winner_for_deck_a", -1)
+    if winner_for_a == -1:
+        return 0
+    side_a_idx, side_b_idx = _resolve_side_idx(game)
+    n_actions = 0
+
+    for action in game.get("actions", []):
+        actor_idx = action.get("active_player")
+        if actor_idx not in (0, 1):
+            continue
+        opp_idx = 1 - actor_idx
+        sb = action.get("state_before") or {}
+        players = sb.get("players")
+        if not players or len(players) != 2:
+            continue
+        actor_p = players[actor_idx]
+        opp_p = players[opp_idx]
+
+        actor_leader = actor_p.get("leader", {}).get("card_id")
+        opp_leader = opp_p.get("leader", {}).get("card_id")
+        if not actor_leader or not opp_leader:
+            continue
+
+        actor_deck = leader_to_deck.get(actor_leader)
+        if not actor_deck:
+            continue  # 我々 が 管理 しない deck
+
+        # v1 axes (= side actor 視点、 engine と 完全 同 logic で 計算)
+        turn = sb.get("turn_number", 0)
+        self_cond = _self_condition_from_snapshot(actor_p, opp_p)
+        opp_deck = leader_to_deck.get(opp_leader)
+        opp_archetype = _normalize_archetype(
+            deck_to_archetype.get(opp_deck) if opp_deck else None
+        )
+
+        # === rich 12 軸 (= actor の view、 opp は target) ===
+        actor_idx_for_axes = action.get("active_player", 0)
+        target_idx_for_axes = 1 - actor_idx_for_axes
+        rich_axes = _ax(sb, actor_idx_for_axes, target_idx_for_axes, opp_archetype)
+
+        # v2 key = turn + opp_leader + opp_archetype + self_cond + rich 8 軸
+        v1_key = (
+            turn, opp_leader, opp_archetype, self_cond,
+            rich_axes.get("opp_life_bucket", "full"),
+            rich_axes.get("opp_hand_bucket", "mid"),
+            rich_axes.get("opp_field_bucket", "empty"),
+            rich_axes.get("opp_threat_bucket", "low"),
+            rich_axes.get("self_life_bucket", "full"),
+            rich_axes.get("self_hand_bucket", "mid"),
+            rich_axes.get("self_field_bucket", "empty"),
+            rich_axes.get("self_don_bucket", "tight"),
+        )
+        action_dict = action.get("action", {})
+        action_kind = action_dict.get("kind", "?")
+        # card_id 解決 (= hand_idx → actor の hand_card_ids、 旧 corpus 互換)
+        card_id = resolve_card_id(action_dict, actor_p)
+        action_key = (action_kind, card_id)
+        if action_kind == "EndPhase":
+            continue  # 「何 も しない」 は target に しない
+
+        full_key = (actor_deck, v1_key, action_key)
+        s = stats[full_key]
+        s["n_total"] += 1
+        # 勝敗: actor が 勝った か
+        actor_won = (actor_idx == side_a_idx and winner_for_a == 0) or \
+                    (actor_idx == side_b_idx and winner_for_a == 1)
+        if actor_won:
+            s["n_won"] += 1
+        n_actions += 1
+    return n_actions
+
+
+def scan_corpus(corpus_dir: Path) -> dict:
+    """全 game scan (serial)。 (actor_deck_slug, v1_axes_key, action_key) → {n_total, n_won}。"""
     leader_to_deck, deck_to_archetype, _ = build_leader_maps()
     stats: dict[tuple, dict] = defaultdict(lambda: {"n_total": 0, "n_won": 0})
     n_games = 0
     n_actions_total = 0
-
     for game_path in sorted(corpus_dir.rglob("game_*.json")):
         try:
             game = json.loads(game_path.read_text(encoding="utf-8"))
         except Exception:
             continue
         n_games += 1
-        winner_for_a = (game.get("result") or {}).get("winner_for_deck_a", -1)
-        if winner_for_a == -1:
-            continue
-        side_a_idx, side_b_idx = _resolve_side_idx(game)
-
-        for action in game.get("actions", []):
-            actor_idx = action.get("active_player")
-            if actor_idx not in (0, 1):
-                continue
-            opp_idx = 1 - actor_idx
-            sb = action.get("state_before") or {}
-            players = sb.get("players")
-            if not players or len(players) != 2:
-                continue
-            actor_p = players[actor_idx]
-            opp_p = players[opp_idx]
-
-            actor_leader = actor_p.get("leader", {}).get("card_id")
-            opp_leader = opp_p.get("leader", {}).get("card_id")
-            if not actor_leader or not opp_leader:
-                continue
-
-            actor_deck = leader_to_deck.get(actor_leader)
-            if not actor_deck:
-                continue  # 我々 が 管理 しない deck
-
-            # v1 axes (= side actor 視点、 engine と 完全 同 logic で 計算)
-            turn = sb.get("turn_number", 0)
-            self_cond = _self_condition_from_snapshot(actor_p, opp_p)
-            opp_deck = leader_to_deck.get(opp_leader)
-            opp_archetype = _normalize_archetype(
-                deck_to_archetype.get(opp_deck) if opp_deck else None
-            )
-
-            # === rich axes (= 2026-05-30 拡 張、 [[project_corpus_methodology_dead_end]] 後) ===
-            from engine.axis_compute import compute_axes_from_snapshot
-            rich_axes = compute_axes_from_snapshot(sb, side_b_idx, side_a_idx, opp_archetype) \
-                if action.get("active_player") == side_b_idx else \
-                compute_axes_from_snapshot(sb, side_a_idx, side_b_idx, opp_archetype)
-            # 注: 上 は side B 視 点 と side A 視 点 で 軸 が opp_/self_ 逆 転 する
-            # actor_idx と target_idx の 関 係 で 計 算 必 要
-            from engine.axis_compute import compute_axes_from_snapshot as _ax
-            # actor の view (= 我々 spec 主)、 opp は target
-            actor_idx_for_axes = action.get("active_player", 0)
-            target_idx_for_axes = 1 - actor_idx_for_axes
-            rich_axes = _ax(sb, actor_idx_for_axes, target_idx_for_axes, opp_archetype)
-
-            # === v2 axes (= 2026-05-30 拡 張): rich 12 軸 で entry 細 分 化 ===
-            # 旧 v1 = (turn, opp_leader, opp_archetype, self_cond) の 4 軸
-            # 新 v2 = + opp_life/hand/field/threat + self_life/hand/field/don の 12 軸
-            # rich_axes は 既 上 で 計 算 済 み
-            v2_key = (
-                turn, opp_leader, opp_archetype, self_cond,
-                rich_axes.get("opp_life_bucket", "full"),
-                rich_axes.get("opp_hand_bucket", "mid"),
-                rich_axes.get("opp_field_bucket", "empty"),
-                rich_axes.get("opp_threat_bucket", "low"),
-                rich_axes.get("self_life_bucket", "full"),
-                rich_axes.get("self_hand_bucket", "mid"),
-                rich_axes.get("self_field_bucket", "empty"),
-                rich_axes.get("self_don_bucket", "tight"),
-            )
-            v1_key = v2_key  # build_specs 後 段 と 整 合
-            action_dict = action.get("action", {})
-            action_kind = action_dict.get("kind", "?")
-            # card_id 解決 (= hand_idx → actor の hand_card_ids、 旧 corpus 互換)
-            card_id = resolve_card_id(action_dict, actor_p)
-            action_key = (action_kind, card_id)
-            if action_kind == "EndPhase":
-                continue  # 「何 も しない」 は target に しない
-
-            full_key = (actor_deck, v1_key, action_key)
-            stats[full_key]["n_total"] += 1
-            # 勝敗: actor が 勝った か
-            actor_won = (actor_idx == side_a_idx and winner_for_a == 0) or \
-                        (actor_idx == side_b_idx and winner_for_a == 1)
-            if actor_won:
-                stats[full_key]["n_won"] += 1
-            n_actions_total += 1
-
+        n_actions_total += _process_game(game, leader_to_deck, deck_to_archetype, stats)
     return {
         "stats": stats,
         "n_games": n_games,
         "n_actions": n_actions_total,
+        "leader_to_deck": leader_to_deck,
+        "deck_to_archetype": deck_to_archetype,
+    }
+
+
+# parallel scan の worker 側 マップ (= initializer で 1 回 固定、 per-task pickle を 避ける)
+_WORKER_L2D: dict | None = None
+_WORKER_D2A: dict | None = None
+
+
+def _scan_init(leader_to_deck: dict, deck_to_archetype: dict) -> None:
+    """Pool worker initializer: leader/archetype マップを worker global に固定。"""
+    global _WORKER_L2D, _WORKER_D2A
+    _WORKER_L2D = leader_to_deck
+    _WORKER_D2A = deck_to_archetype
+
+
+def _scan_chunk(files: list) -> tuple:
+    """parallel worker: 小さい file chunk → (stats_dict, n_games, n_actions)。
+
+    ⚠ chunk は **小さく** 保つ (= chunk_size game 分)。 こうすると worker の stats dict も
+    小さく、 親側 streaming merge で peak memory ≈ serial (= merged 1 個) + 定数 に収まる。
+    旧実装は worker 毎に「corpus 全体 ÷ workers」 の巨大 dict を抱え、 pool.map で
+    workers 個を同時保持 → 14x で OOM (= 239GB corpus が 15GB RAM を即死させた真因)。
+    """
+    stats: dict[tuple, dict] = defaultdict(lambda: {"n_total": 0, "n_won": 0})
+    n_games = 0
+    n_actions = 0
+    for fp in files:
+        try:
+            game = json.loads(Path(fp).read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        n_games += 1
+        n_actions += _process_game(game, _WORKER_L2D, _WORKER_D2A, stats)
+    return dict(stats), n_games, n_actions
+
+
+def scan_corpus_parallel(corpus_dir: Path, workers: int, chunk_size: int = 250) -> dict:
+    """scan_corpus の並列版 (= streaming map-reduce)。 結果は serial と **完全一致**
+    (= per-key の n_total/n_won 合算は結合的・可換 → imap_unordered の順不同でも同値)。
+
+    memory: 親は merged dict 1 個 (= serial 同等) のみ常駐。 worker は chunk_size game
+    分の小 dict だけ → 同時 in-flight = workers 個の小 dict。 小 chunk + imap_unordered で
+    巨大 corpus でも peak RAM をほぼ serial に抑える (= 旧 round-robin OOM の解消)。
+    """
+    import multiprocessing
+
+    leader_to_deck, deck_to_archetype, _ = build_leader_maps()
+    files = [str(p) for p in sorted(corpus_dir.rglob("game_*.json"))]
+    if not files:
+        return {"stats": {}, "n_games": 0, "n_actions": 0,
+                "leader_to_deck": leader_to_deck, "deck_to_archetype": deck_to_archetype}
+
+    # 小 chunk に分割 (= worker dict を小さく保つ。 worker 数ではなく chunk_size で割る)
+    chunks = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
+    n_chunks = len(chunks)
+    merged: dict[tuple, dict] = defaultdict(lambda: {"n_total": 0, "n_won": 0})
+    tot_games = 0
+    tot_actions = 0
+    done = 0
+    print(f"[build_spec] parallel scan: {len(files):,} files / {n_chunks:,} chunks / "
+          f"{workers} workers (chunk_size={chunk_size})", flush=True)
+    with multiprocessing.Pool(
+        workers,
+        initializer=_scan_init,
+        initargs=(leader_to_deck, deck_to_archetype),
+        maxtasksperchild=50,  # worker を定期 recycle (= allocator 断片化を防ぐ安全網)
+    ) as pool:
+        for st, ng, na in pool.imap_unordered(_scan_chunk, chunks, chunksize=1):
+            tot_games += ng
+            tot_actions += na
+            for k, v in st.items():
+                m = merged[k]
+                m["n_total"] += v["n_total"]
+                m["n_won"] += v["n_won"]
+            done += 1
+            if done % 50 == 0 or done == n_chunks:
+                print(f"  [scan] {done}/{n_chunks} chunks  games={tot_games:,}  "
+                      f"keys={len(merged):,}", flush=True)
+    return {
+        "stats": merged,
+        "n_games": tot_games,
+        "n_actions": tot_actions,
         "leader_to_deck": leader_to_deck,
         "deck_to_archetype": deck_to_archetype,
     }
@@ -577,6 +657,10 @@ def main() -> None:
                     help="Tier 3 採用 閾値: 各 opp_leader での 最低 win_rate")
     ap.add_argument("--tier3-baseline-factor", type=float, default=0.5,
                     help="Tier 3 bonus baseline 倍率 (= Tier 1 の 何 % で 弱める か)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="scan 並列度 (= 1 で serial、 >1 で map-reduce 並列、 結果は serial と同一)")
+    ap.add_argument("--chunk-size", type=int, default=250,
+                    help="parallel scan の 1 chunk あたり game 数 (= 小さいほど worker memory 小、 OOM 耐性↑)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -584,8 +668,9 @@ def main() -> None:
         print(f"ERROR: corpus dir not found: {args.corpus_dir}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"[build_spec] scanning {args.corpus_dir} ...", flush=True)
-    scan = scan_corpus(args.corpus_dir)
+    print(f"[build_spec] scanning {args.corpus_dir} (workers={args.workers}) ...", flush=True)
+    scan = (scan_corpus_parallel(args.corpus_dir, args.workers, args.chunk_size)
+            if args.workers > 1 else scan_corpus(args.corpus_dir))
     print(f"[build_spec] games={scan['n_games']:,} actions={scan['n_actions']:,} clusters={len(scan['stats']):,}",
           flush=True)
 
