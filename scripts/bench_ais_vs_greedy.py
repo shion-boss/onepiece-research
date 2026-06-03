@@ -33,6 +33,10 @@ def _build_ai(kind: str, params: dict, seed: int):
         return MCTSAI(rng=rng, n_simulations=params.get("n", 50),
                       rollout_depth=params.get("depth", 12),
                       c_uct=params.get("c", 1.41))
+    if kind == "exploitbeam":
+        from engine.exploit_beam_ai import ExploitBeamAI
+        return ExploitBeamAI(rng=rng, beam_width=params.get("w", 16),
+                             max_depth=params.get("d", 10))
     if kind == "exploit":
         from engine.exploit_greedy_ai import ExploitGreedyAI
         return ExploitGreedyAI(rng=rng, node_cap=params.get("node_cap", 1500),
@@ -85,6 +89,7 @@ def run_cfg(slug: str, cfg: dict, n: int, workers: int) -> dict:
 # 探索する config 群
 CONFIGS = [
     {"name": "greedy", "kind": "greedy"},
+    {"name": "exploitbeam", "kind": "exploitbeam", "params": {"w": 16, "d": 10}},
     {"name": "lookahead", "kind": "lookahead"},
     {"name": "beam_4_6_1", "kind": "beam", "params": {"w": 4, "d": 6, "mt": 1}},
     {"name": "beam_8_8_1", "kind": "beam", "params": {"w": 8, "d": 8, "mt": 1}},
