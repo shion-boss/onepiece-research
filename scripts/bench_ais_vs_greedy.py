@@ -33,6 +33,11 @@ def _build_ai(kind: str, params: dict, seed: int):
         return MCTSAI(rng=rng, n_simulations=params.get("n", 50),
                       rollout_depth=params.get("depth", 12),
                       c_uct=params.get("c", 1.41))
+    if kind == "exploit":
+        from engine.exploit_greedy_ai import ExploitGreedyAI
+        return ExploitGreedyAI(rng=rng, node_cap=params.get("node_cap", 1500),
+                               top_k=params.get("top_k", 10),
+                               rollouts=params.get("rollouts", 4))
     if kind == "beam":
         ai = DeepPlanningAI(
             rng=rng, beam_width=params.get("w", 4), max_depth=params.get("d", 6),
@@ -83,6 +88,10 @@ CONFIGS = [
     {"name": "lookahead", "kind": "lookahead"},
     {"name": "beam_4_6_1", "kind": "beam", "params": {"w": 4, "d": 6, "mt": 1}},
     {"name": "beam_8_8_1", "kind": "beam", "params": {"w": 8, "d": 8, "mt": 1}},
+    {"name": "beam_8_8_1_dyn", "kind": "beam", "params": {"w": 8, "d": 8, "mt": 1},
+     "env": {"ONEPIECE_DYNAMIC_WEIGHTS": "1"}},
+    {"name": "beam_8_8_1_az", "kind": "beam", "params": {"w": 8, "d": 8, "mt": 1},
+     "env": {"ONEPIECE_AZ_VALUE_NN": "1"}},
     {"name": "beam_12_10_1", "kind": "beam", "params": {"w": 12, "d": 10, "mt": 1}},
     {"name": "beam_16_12_1", "kind": "beam", "params": {"w": 16, "d": 12, "mt": 1}},
     {"name": "beam_24_14_1", "kind": "beam", "params": {"w": 24, "d": 14, "mt": 1}},
@@ -90,6 +99,10 @@ CONFIGS = [
      "env": {"ONEPIECE_LIGHT_OPP_SIM": "1"}},
     {"name": "beam_8_12_3_greedyopp", "kind": "beam", "params": {"w": 8, "d": 12, "mt": 3},
      "env": {"ONEPIECE_LIGHT_OPP_SIM": "1"}},
+    {"name": "exploit_k10_r4", "kind": "exploit",
+     "params": {"top_k": 10, "rollouts": 4, "node_cap": 1500}},
+    {"name": "exploit_k8_r8", "kind": "exploit",
+     "params": {"top_k": 8, "rollouts": 8, "node_cap": 1500}},
     {"name": "mcts_50", "kind": "mcts", "params": {"n": 50}},
     {"name": "mcts_150", "kind": "mcts", "params": {"n": 150}},
     {"name": "mcts_400", "kind": "mcts", "params": {"n": 400}},
