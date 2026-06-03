@@ -51,12 +51,19 @@ class PlanLibraryAI(GreedyAI):
         min_n: int = 1,
         record_choices: bool = True,
         cell_axes: tuple = _CELL_AXES_COARSE,
+        def_table: Optional[PlanBonusTable] = None,
+        def_eps: float = 0.0,
+        record_def_choices: bool = False,
         **kwargs,
     ):
         super().__init__(rng=rng, deck_analysis=deck_analysis, **kwargs)
         self.bonus_table = bonus_table if bonus_table is not None else PlanBonusTable()
         self._node_cap = node_cap
         self._cell_axes = cell_axes
+        # 相手ターン防御 (= ブロック/カウンター) の学習 bonus (= 別テーブル)。
+        self.def_table = def_table if def_table is not None else PlanBonusTable()
+        self._def_eps = float(def_eps)
+        self._record_def = record_def_choices
         # plan_eps = プランレベル ε 探索 (= 収集時のみ >0、 未学習プランへ sample 注入)。
         self._plan_eps = float(plan_eps)
         self._min_n = min_n
@@ -180,6 +187,10 @@ class PlanLibraryAI(GreedyAI):
             return list(anchor_seq)
         return list(chosen.concrete_template)
 
+    def _main_active(self) -> bool:
+        """自ターン塊プランの学習/探索が有効か。 無効なら enumerate を skip して greedy 動作。"""
+        return len(self.bonus_table) > 0 or self._record_choices or self._plan_eps > 0
+
     def choose_action(self, state: Any):
         me_idx = state.turn_player_idx
         actions = legal_actions(state)
@@ -187,6 +198,11 @@ class PlanLibraryAI(GreedyAI):
             return EndPhase()
         if len(actions) == 1:
             return actions[0]
+
+        # main table 空 + 非記録 + eps0 = main は純 greedy → enumerate を skip して高速化
+        # (= defense のみ学習する実験で 列挙コストを払わない。 choose_defense は別途学習適用)。
+        if not self._main_active():
+            return super().choose_action(state)
 
         turn_key = (state.turn_number, me_idx)
         if turn_key != self._turn_key:
@@ -211,3 +227,146 @@ class PlanLibraryAI(GreedyAI):
 
         # プラン完遂 → ターン終了
         return EndPhase()
+
+    # ===================================================================
+    # 相手ターン防御 (= ブロック/カウンター) の学習 bonus (= ohtsuki 2026-06-04)
+    # enumerate 防御応手 → greedy-anchor prior + 学習 bonus で argmax。
+    # 「greedy の受けの甘さ」 を学習で突けば beam(59%) 超えの候補。
+    # ===================================================================
+
+    @staticmethod
+    def _atk_bucket(p: int) -> str:
+        if p <= 3000:
+            return "lo"
+        if p <= 5000:
+            return "mid"
+        if p <= 7000:
+            return "hi"
+        return "xhi"
+
+    @staticmethod
+    def _def_mk(sig: tuple) -> frozenset:
+        """防御 signature を PlanBonusTable 互換の multiset key に (= 単元素)。"""
+        return frozenset([(sig, 1)])
+
+    def _defense_cell(self, state: Any, defender: Any, is_leader_attack: bool,
+                      atk_p: int) -> tuple:
+        from .axis_compute import life_bucket
+        opp_leader = state.players[state.turn_player_idx].leader.card.card_id
+        return (
+            ("is_leader", bool(is_leader_attack)),
+            ("atk_bucket", self._atk_bucket(atk_p)),
+            ("self_life", life_bucket(len(defender.life))),
+            ("opp_leader", opp_leader),
+        )
+
+    def _enum_defense(self, state: Any, attacker: Any, target: Any,
+                      is_leader_attack: bool, defender: Any, atk_p: int) -> list:
+        """防御応手を列挙: take / counter-survive / block_safe / block_sac / block_counter。"""
+        tp = defender.leader.power if is_leader_attack else target.power
+        gap = atk_p - tp
+        cands = [(None, (), ("take",))]
+        if gap >= 0:
+            combo = self._optimal_counter_combo(defender.hand, gap)
+            if combo:
+                cands.append((None, tuple(combo), ("counter", len(combo))))
+        can_block = (
+            is_leader_attack
+            and not getattr(attacker, "has_no_block_now", False)
+            and not getattr(attacker, "attacker_prevents_blocker_until_turn_end", False)
+        )
+        if can_block:
+            lock = getattr(attacker, "attacker_prevents_blocker_power_le", -1)
+            avail = [
+                c for c in defender.characters
+                if not c.rested and not c.summoning_sickness and c.is_blocker_now
+                and not (lock >= 0 and c.power <= lock)
+            ]
+            safe = [c for c in avail if c.power > atk_p]
+            if safe:
+                b = max(safe, key=lambda c: c.power)
+                cands.append((b.instance_id, (), ("block_safe",)))
+            if avail:
+                b = max(avail, key=lambda c: c.power)
+                cands.append((b.instance_id, (), ("block_sac",)))
+                bgap = atk_p - b.power
+                if bgap >= 0:
+                    combo = self._optimal_counter_combo(defender.hand, bgap)
+                    if combo:
+                        cands.append((b.instance_id, tuple(combo), ("block_counter", len(combo))))
+        seen: set = set()
+        out: list = []
+        for c in cands:
+            if c[2] in seen:
+                continue
+            seen.add(c[2])
+            out.append(c)
+        return out
+
+    def _defense_sig_of(self, g_block, g_counters, defender: Any, atk_p: int) -> tuple:
+        """GreedyAI の防御 (= anchor) を signature に写像。"""
+        if g_block is None:
+            return ("counter", len(g_counters)) if g_counters else ("take",)
+        if g_counters:
+            return ("block_counter", len(g_counters))
+        blk = next((c for c in defender.characters if c.instance_id == g_block), None)
+        if blk is not None and blk.power > atk_p:
+            return ("block_safe",)
+        return ("block_sac",)
+
+    def _record_def_choice(self, state: Any, defender_idx: int, cell: tuple, sig: tuple) -> None:
+        if not self._record_def:
+            return
+        store = getattr(state, "_defense_choices", None)
+        if store is None:
+            store = {0: [], 1: []}
+            try:
+                state._defense_choices = store  # type: ignore[attr-defined]
+            except Exception:
+                return
+        store.setdefault(defender_idx, []).append((cell, self._def_mk(sig)))
+
+    def choose_defense(self, state: Any, attacker: Any, target: Any,
+                       is_leader_attack: bool, defender: Any):
+        # greedy anchor (= cold-start)。 必ず先に取得 (= matchup override 等の副作用込み)。
+        g_block, g_counters = super().choose_defense(
+            state, attacker, target, is_leader_attack, defender)
+        g_counters = tuple(g_counters)
+
+        est_buff = 0
+        if state.effects_overlay:
+            try:
+                from .effects import estimate_attacker_self_buff
+                est_buff = estimate_attacker_self_buff(state, attacker, state.effects_overlay)
+            except Exception:
+                est_buff = 0
+        atk_p = attacker.power + est_buff
+
+        try:
+            cands = self._enum_defense(state, attacker, target, is_leader_attack, defender, atk_p)
+        except Exception:
+            return g_block, g_counters
+        if len(cands) <= 1:
+            return g_block, g_counters
+
+        defender_idx = 1 - state.turn_player_idx
+        anchor_sig = self._defense_sig_of(g_block, g_counters, defender, atk_p)
+        cell = self._defense_cell(state, defender, is_leader_attack, atk_p)
+        sigs = [c[2] for c in cands]
+        if anchor_sig not in set(sigs):
+            cands.append((g_block, g_counters, anchor_sig))
+            sigs.append(anchor_sig)
+        n = len(cands)
+        prior = [1.0 if sigs[i] == anchor_sig else 0.01 for i in range(n)]
+        scores = [self.def_table.value_with_prior(cell, self._def_mk(sigs[i]), prior[i])
+                  for i in range(n)]
+
+        if self._def_eps > 0 and self.rng.random() < self._def_eps:
+            ci = self.rng.randrange(n)
+        else:
+            best = max(scores)
+            top = [i for i in range(n) if scores[i] >= best - 1e-9]
+            ci = top[0] if len(top) == 1 else self.rng.choice(top)
+        chosen = cands[ci]
+        self._record_def_choice(state, defender_idx, cell, sigs[ci])
+        return chosen[0], tuple(chosen[1])
