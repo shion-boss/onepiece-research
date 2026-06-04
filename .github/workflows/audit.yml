@@ -21,6 +21,7 @@ on:
       - 'tests/test_human_*.py'
       - 'tests/test_fuzz_*.py'
       - 'tests/test_human_path_conformance.py'
+      - 'tests/test_cost_payment_oracle.py'
       - 'scripts/diff_human_vs_ai_path.py'
   pull_request:
     paths:
@@ -34,6 +35,7 @@ on:
       - 'tests/test_human_*.py'
       - 'tests/test_fuzz_*.py'
       - 'tests/test_human_path_conformance.py'
+      - 'tests/test_cost_payment_oracle.py'
       - 'scripts/diff_human_vs_ai_path.py'
   schedule:
     - cron: '0 18 * * *'  # nightly 03:00 JST
@@ -62,6 +64,8 @@ jobs:
         run: .venv/bin/python -m pytest tests/test_human_ui_contracts.py tests/test_fuzz_human_play_invariants.py -q
       - name: Human-path ルール適合 ゲート (= 召喚が効果の制約 filter/unique_name/no_effect/limit を守る)
         run: .venv/bin/python -m pytest tests/test_human_path_conformance.py -q
+      - name: コスト支払い ゲート (= 効果発火したのにコスト未払い=踏み倒し が 0、 オラクル非空振りも検証)
+        run: .venv/bin/python -m pytest tests/test_cost_payment_oracle.py -q
       - name: Generate issue files
         run: .venv/bin/python scripts/audit_issue_generator.py --layer 1 --clear
       - name: Auto-fix L1 / L5 / L7 low-risk (= dry-run on PR、 commit on main push)
