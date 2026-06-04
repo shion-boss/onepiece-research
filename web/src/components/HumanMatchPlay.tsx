@@ -161,6 +161,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   // 防御 中、 場 の カード を クリック で 「相手のアタック時」 効果 発動 確認 modal を 出す。
   // 該当 iid を 保持。 null = modal 閉。
   const [oppAttackEffectModalIid, setOppAttackEffectModalIid] = useState<number | null>(null);
+  // 防御中、 ブロッカーのカードをクリックした時に出す「ブロックするか」確認 modal の対象 iid。
+  const [blockConfirmIid, setBlockConfirmIid] = useState<number | null>(null);
   // life_taken_choice modal を 表示 する まで の delay (= life flash anim を 先 に 見せる)。
   // pending_payload が life_taken_choice に なった 瞬間 から ~1 秒 待ってから modal 表示。
   const [lifeTakenModalReady, setLifeTakenModalReady] = useState(false);
@@ -1037,11 +1039,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   }
 
   function clickSelfChara(iid: number) {
-    // 防御 pending 中: 該当 キャラ に opp_attack 効果 あれば modal
+    // 防御 pending 中: 該当 キャラ に opp_attack 効果 あれば その modal、
+    // なければ アクティブな ブロッカー (legal_blocker_iids) なら ブロック確認 modal。
     if (isDefensePending) {
       const effs = oppAttackEffectsByIid.get(iid);
       if (effs && effs.length > 0) {
         setOppAttackEffectModalIid(iid);
+        return;
+      }
+      const lbi =
+        (state?.pending_payload?.legal_blocker_iids as
+          | number[]
+          | undefined) ?? [];
+      if (lbi.includes(iid)) {
+        setBlockConfirmIid(iid);
       }
       return;
     }
@@ -1620,6 +1631,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             oppAttackEffectAvailableIids={
               new Set(oppAttackEffectsByIid.keys())
             }
+            blockableIids={
+              isDefensePending
+                ? new Set(
+                    (state?.pending_payload?.legal_blocker_iids as
+                      | number[]
+                      | undefined) ?? [],
+                  )
+                : undefined
+            }
           />
         </div>
 
@@ -1770,6 +1790,61 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           />
         );
       })()}
+
+      {/* ブロッカーのカードクリック → 「ブロックするか」 確認 modal (= 防御中)。
+          確定すると blockerIid を選択した状態になり、 続けて DefensePanel で
+          カウンターカードを足して submit できる。 */}
+      {isDefensePending &&
+        blockConfirmIid !== null &&
+        (() => {
+          const ch = me.characters.find(
+            (c) => c.instance_id === blockConfirmIid,
+          );
+          if (!ch) return null;
+          const already = blockerIid === blockConfirmIid;
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={() => setBlockConfirmIid(null)}
+            >
+              <div
+                className="w-80 rounded-lg border border-zinc-300 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {already
+                    ? "ブロックを解除しますか？"
+                    : "このキャラでブロックしますか？"}
+                </div>
+                <div className="mb-4 text-xs text-zinc-600 dark:text-zinc-400">
+                  ブロッカー: {ch.name}
+                  {!already && (
+                    <span className="mt-1 block">
+                      ブロック後、 カウンターカードも続けて使えます。
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    onClick={() => setBlockConfirmIid(null)}
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                    onClick={() => {
+                      setBlockerIid(already ? null : blockConfirmIid);
+                      setBlockConfirmIid(null);
+                    }}
+                  >
+                    {already ? "ブロック解除" : "ブロックする"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* 矢印 へし折り 演出 (= 防御 成功 と 同時 に 攻撃 矢印 を 真ん中 で 割る) */}
       <ArrowBreakOverlay />
@@ -2509,6 +2584,7 @@ function PlayerMat({
   onTrashClick,
   lifeDamageTickId,
   oppAttackEffectAvailableIids,
+  blockableIids,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -2529,6 +2605,7 @@ function PlayerMat({
   onTrashClick: () => void;
   lifeDamageTickId?: number;
   oppAttackEffectAvailableIids?: Set<number>;
+  blockableIids?: Set<number>;
 }) {
   // どの drag を 受け入れる か
   const acceptHandDrop = isMe && drag?.kind === "hand";
@@ -2623,6 +2700,7 @@ function PlayerMat({
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             oppAttackEffectAvailableIids={oppAttackEffectAvailableIids}
+            blockableIids={blockableIids}
           />
         )}
 
@@ -3082,6 +3160,7 @@ function CharacterRow({
   onDragStart,
   onDragEnd,
   oppAttackEffectAvailableIids,
+  blockableIids,
 }: {
   chars: CharSnapshot[];
   attackerIid: number | null;
@@ -3097,6 +3176,7 @@ function CharacterRow({
   onDragStart?: (p: DragPayload) => void;
   onDragEnd?: () => void;
   oppAttackEffectAvailableIids?: Set<number>;
+  blockableIids?: Set<number>;
 }) {
   const slots: (CharSnapshot | null)[] = [...chars];
   while (slots.length < 5) slots.push(null);
@@ -3142,7 +3222,9 @@ function CharacterRow({
           }
           const isAttacker = attackerIid === c.instance_id;
           const isActable =
-            canAct && (actionsByIid.get(c.instance_id)?.length ?? 0) > 0;
+            (canAct && (actionsByIid.get(c.instance_id)?.length ?? 0) > 0) ||
+            // 防御中: アクティブな ブロッカー は クリック で ブロック modal が 出る → 強調。
+            (blockableIids?.has(c.instance_id) ?? false);
           const isSelected =
             selection?.kind === "self_chara" && selection.iid === c.instance_id;
 
