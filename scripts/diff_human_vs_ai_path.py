@@ -134,6 +134,24 @@ def run(slug, seed, divergences):
                 for viol in _check_card_conformance(sess.state, new_cards, choice):
                     divergences.append({"slug": slug, "seed": seed, "kind": kind,
                                         "viol": viol})
+            elif kind == "target_pick" and choice.get("candidates"):
+                # target系 (KO/バウンス等): 全候補を選ぶ → 場を離れた候補数 ≤ limit を照合。
+                # (= 除去 over-application バグを捕捉。 非除去 rest/pump は離脱0で誤検出なし)。
+                cands = choice.get("candidates") or []
+                limit = int(choice.get("limit", 1) or 1)
+                cand_iids = {c["iid"] for c in cands}
+                field_before = {ip.instance_id for p in sess.state.players
+                                for ip in [p.leader, *p.characters, *p.stages]}
+                sess.apply_human_choice(list(range(len(cands))))
+                field_after = {ip.instance_id for p in sess.state.players
+                               for ip in [p.leader, *p.characters, *p.stages]}
+                removed = cand_iids & (field_before - field_after)
+                n_compared += 1
+                if len(removed) > limit:
+                    divergences.append({
+                        "slug": slug, "seed": seed, "kind": "target_pick",
+                        "viol": f"除去 limit違反: {len(removed)}体除去 > 上限{limit} "
+                                f"(prim={choice.get('primitive_kind')})"})
             else:
                 _pick_noncompare(sess)
         elif pk == "defense":

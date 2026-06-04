@@ -19,6 +19,7 @@ CASES = [
     ("cardrush_1385", 5),   # play_from_trash
     ("cardrush_1455", 5),   # play_from_hand
     ("cardrush_1392", 4),   # イム / 五老星
+    ("cardrush_1342", 5),   # target_pick (KO) 多い
     ("tcgportal_op13_luffy", 4),
 ]
 

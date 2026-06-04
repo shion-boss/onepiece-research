@@ -7548,9 +7548,18 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
 
     if kind == "target_pick":
         # target_pick: choices[i] → 該当 iid を 抜き出し、 _iid_picks を 渡して 再実行
+        # ⚠ limit で cap + 重複除去 する (= 人間が上限超/重複を送っても防御。 各 target
+        #   primitive (ko/return/rest/pump 等) は _iid_picks 全件に適用するため、 ここで
+        #   絞らないと「KO1体」 効果で複数 KO できてしまう。 2026-06-04 修正)。
         candidates = choice.get("candidates", [])
-        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
-        picked_iids = [candidates[i]["iid"] for i in valid_picks]
+        limit = int(choice.get("limit", 1) or 1)
+        seen_pi: set[int] = set()
+        uniq_picks: list[int] = []
+        for i in picks:
+            if 0 <= i < len(candidates) and i not in seen_pi:
+                seen_pi.add(i)
+                uniq_picks.append(i)
+        picked_iids = [candidates[i]["iid"] for i in uniq_picks[:limit]]
         primitive_kind = choice.get("primitive_kind", "")
         primitive_value = choice.get("primitive_value") or {}
         self_inplay_iid = choice.get("self_inplay_iid")
