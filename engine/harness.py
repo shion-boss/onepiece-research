@@ -310,6 +310,7 @@ def run_matchup(
     only_game_index: Optional[int] = None,
     enforce_rules: bool = True,
     referee_strict: bool = False,
+    referee_factory=None,
     deck1_analysis: Optional[dict] = None,
     deck2_analysis: Optional[dict] = None,
     record_replays: bool = False,
@@ -412,14 +413,18 @@ def run_matchup(
             if hasattr(ai, "set_ai_opp"):
                 ai.set_ai_opp(ais[1 - i])
 
-        # ルール違反監視 referee (オプション)
+        # ルール違反監視 referee (オプション)。 referee_factory 指定時はそれで生成
+        # (= 例: SemanticReferee で カード保存則も監視。 未指定は従来の RuleReferee)。
         referee = None
         if enforce_rules:
-            from .referee import RuleReferee
-            referee = RuleReferee(
-                strict=referee_strict,
-                log_fn=(print if verbose else None),
-            )
+            if referee_factory is not None:
+                referee = referee_factory()
+            else:
+                from .referee import RuleReferee
+                referee = RuleReferee(
+                    strict=referee_strict,
+                    log_fn=(print if verbose else None),
+                )
 
         actions = 0
         # 公式 floor_rule II. 時間切れ proxy: time_limit_turns 到達後の effective cap

@@ -23,6 +23,7 @@ on:
       - 'tests/test_human_path_conformance.py'
       - 'tests/test_cost_payment_oracle.py'
       - 'tests/test_effect_conformance.py'
+      - 'tests/test_semantic_referee.py'
       - 'scripts/diff_human_vs_ai_path.py'
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - 'tests/test_human_path_conformance.py'
       - 'tests/test_cost_payment_oracle.py'
       - 'tests/test_effect_conformance.py'
+      - 'tests/test_semantic_referee.py'
       - 'scripts/diff_human_vs_ai_path.py'
   schedule:
     - cron: '0 18 * * *'  # nightly 03:00 JST
@@ -70,6 +72,8 @@ jobs:
         run: .venv/bin/python -m pytest tests/test_cost_payment_oracle.py -q
       - name: 効果意味ジャッジ ゲート (= 宣言した do を engine が実際に起こすか、 draw/mill 空振り 0)
         run: .venv/bin/python -m pytest tests/test_effect_conformance.py -q
+      - name: 効果ランタイム・レフェリー ゲート (= 実対戦のカード保存則 + 複製/消失の非空振り証明)
+        run: .venv/bin/python -m pytest tests/test_semantic_referee.py -q
       - name: Generate issue files
         run: .venv/bin/python scripts/audit_issue_generator.py --layer 1 --clear
       - name: Auto-fix L1 / L5 / L7 low-risk (= dry-run on PR、 commit on main push)
