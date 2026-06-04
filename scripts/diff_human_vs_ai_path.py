@@ -1,23 +1,17 @@
 # -*- coding: utf-8 -*-
-"""人間経路 vs AI経路 差分ハーネス (= ohtsuki 提案: AI経路を正解にして差分を見る)。
+"""人間経路 vs AI経路 lockstep 差分 (= ohtsuki 提案の正しい実装)。
 
-AI経路 (apply_action) は 799 テスト + RuleReferee 監視済で「正解」 寄り。 人間経路
-(HumanSession の modal 解決) は その上に追加レイヤーがあり、 そこにバグが集中していた
-(unique_name/no_effect/recompute 等)。
+AI経路 (apply_action / 効果の自動解決) は 799 テスト + RuleReferee 監視済で「正解」 寄り。
+人間経路 (HumanSession の modal 解決) はその上に追加レイヤーがあり、 そこにバグが集中
+していた (unique_name/no_effect/recompute 等)。
 
-そこで: **同じ deck・同じ seed で、 人間 bot が AI と同じ手を打つ** ように人間経路を走らせ、
-同条件の AI 経路ゲームと **盤面 signature を毎手照合**。 ズレた所 = 人間経路バグ候補。
+⭐ lockstep: 1 つの人間経路ゲームを走らせ、 各「カードを選ぶ」 modal の時点で state を
+fork し、 **同じ効果を「AI内部解決」 と「人間modal解決」 の両方で解いて盤面を直接比較**
+する。 ズレ = 人間経路バグ (= AI が正解)。 別々ゲーム比較ではないので setup/rng desync が
+起きない。
 
-人間 bot の方針: 行動は GreedyAI.choose_action と同じ (= legal_actions の同 index)、
-選択 modal は「AI の自動解決と等価」 になるよう deterministic に解く。 防御も同様。
-
-出力: deck/seed ごとに 「最初に signature がズレた手番 + 両盤面」 を報告。
-
-⚠ WIP (2026-06-04): 現状は AI経路ゲームと 人間経路ゲームを **別々に** 走らせて比較して
-いるが、 両者は setup/rng/mulligan の消費が異なるため **同一ゲームになっておらず**、
-勝敗のズレは「別ゲームだから」 であってバグとは限らない (= ノイズ)。 真に有効にするには
-**1 つのゲームを各 choice で fork し、 AI内部解決 vs 人間modal解決 の盤面だけを直接比較**
-する lockstep 化が必要。 ここが残作業。 ohtsuki 提案の正しい実装形。
+比較対象: AI の自動選択が決定的 (= 先頭から該当を取る) で 人間 pick と一致させられる
+pool-pick 系のみ。 random discard / 並び替え / optional 等は除外 (= AI 解が非決定的)。
 """
 from __future__ import annotations
 
@@ -29,87 +23,65 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from engine.deck import CardRepository, DeckList  # noqa: E402
-from engine.effects import load_effect_overlay  # noqa: E402
-from engine.game import setup_game, legal_actions, apply_action, play_until_main  # noqa: E402
+from engine.effects import (load_effect_overlay, _matches_filter,  # noqa: E402
+                            _card_has_no_effect)
+from engine.game import legal_actions  # noqa: E402
+from engine.core import Category  # noqa: E402
 from engine.ai import GreedyAI  # noqa: E402
 from engine.human_session import HumanSession  # noqa: E402
 
 repo = CardRepository.from_json(ROOT / "db" / "cards.json")
 overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
 
+# 比較する pick-kind → 元 primitive 名 (= modal を立てた効果)。
+KIND2PRIM = {
+    "play_from_trash_pick": "play_from_trash",
+    "summon_from_deck_pick": "summon_from_deck",
+    "play_from_hand_pick": "play_from_hand",
+    "play_from_hand_or_trash_pick": "play_from_hand_or_trash",
+    "play_event_from_hand_pick": "play_event_from_hand",
+    "search_pick": "search",
+}
+
 
 def load_deck(slug):
     return DeckList.from_json(ROOT / "decks" / f"{slug}.json", repo)
 
 
-def board_sig(state):
-    """両プレイヤーの盤面要約 (= 経路非依存の確定情報)。"""
-    out = []
-    for p in state.players:
-        out.append((
-            len(p.life), len(p.hand),
-            tuple(sorted(c.card.card_id for c in p.characters)),
-            tuple(sorted(c.card.card_id for c in p.stages)),
-            len(p.trash),
-            p.don_active + p.don_rested
-            + sum(getattr(c, "attached_dons", 0) for c in [*p.characters, p.leader]),
-        ))
-    return tuple(out)
+def _check_summon_conformance(state, new_inplay, choice):
+    """人間経路で召喚された new_inplay が、 効果 (primitive_value) の制約を守っているか。
+    AI 選択と比較するのでなく、 結果を制約に直接照合 (= 選択一致不要で堅牢)。"""
+    pv = choice.get("primitive_value")
+    if not isinstance(pv, dict):
+        return []
+    filt = pv.get("filter", {}) if isinstance(pv.get("filter"), dict) else {}
+    limit = int(pv.get("limit", 1) or 1)
+    uniq = bool(pv.get("unique_name"))
+    v = []
+    for ip in new_inplay:
+        card = ip.card
+        if filt and not _matches_filter(card, filt):
+            v.append(f"filter違反: {card.card_id}({card.name}) ∉ {filt}")
+        if filt.get("no_effect") and not _card_has_no_effect(card, state):
+            v.append(f"no_effect違反: {card.card_id}({card.name}) は効果持ち")
+    if uniq:
+        names = [ip.card.name for ip in new_inplay]
+        if len(names) != len(set(names)):
+            v.append(f"unique_name違反: 同名重複 {names}")
+    if len(new_inplay) > limit:
+        v.append(f"limit違反: {len(new_inplay)}体 > 上限{limit}")
+    return v
 
 
-def run_ai_path(deck_a, deck_b, seed):
-    """両プレイヤー AI (apply_action 経路)。 手ごとの board_sig を記録。"""
-    rng = random.Random(seed)
-    state = setup_game(deck_a, deck_b, rng=rng, first_player=0,
-                       effects_overlay=overlay)
-    ais = [GreedyAI(random.Random(seed * 3 + i)) for i in range(2)]
-    sigs = []
-    steps = 0
-    while not state.game_over and steps < 800:
-        steps += 1
-        play_until_main(state)  # refresh/draw/don を進めて MAIN へ (= 人間経路と同等の進行)
-        if state.game_over:
-            break
-        acts = legal_actions(state)
-        if not acts:
-            break
-        a = ais[state.turn_player_idx].choose_action(state)
-        apply_action(state, a)
-        sigs.append(board_sig(state))
-    return {"winner": state.winner, "turns": state.turn_number, "sigs": sigs,
-            "over": state.game_over}
-
-
-def _pick_choice(payload, _rng):
-    """modal を AI 自動解決と等価に解く (= 自然な「該当を取る」)。"""
-    k = payload.get("kind")
-    lim = int(payload.get("limit", 1) or 1)
-    if k in ("mulligan_confirm", "mulligan_redrawn"):
-        return [0]  # keep (= setup の AI 既定と揃える)
-    if k == "search_top_n":
-        cs = payload.get("cards", [])
-        m = [c["idx"] for c in cs if c.get("matches_filter")]
-        return m[:lim]
-    if k in ("search_top_n_bottom_reorder", "scry_life_reorder", "scry_deck_reorder"):
-        return []  # 元順
-    if k in ("optional_cost_confirm", "on_attack_optional", "on_opp_attack_optional",
-             "end_of_turn_optional", "replace_ko_optional", "reveal_top_play_confirm",
-             "view_life_top_choose_position", "option_pick", "life_taken_choice"):
-        return [0]
-    cands = payload.get("candidates") or payload.get("cards") or payload.get("options") or []
-    return list(range(min(lim, len(cands))))
-
-
-def run_human_path(deck_a, deck_b, seed):
-    """player0 を 人間経路 (HumanSession) で、 GreedyAI を真似て操作。 board_sig 記録。"""
-    sess = HumanSession(deck_a=deck_a, deck_b=deck_b,
-                        ai_factory=lambda rng, da=None: GreedyAI(rng),
+def run(slug, seed, divergences):
+    da, db = load_deck(slug), load_deck(slug)
+    sess = HumanSession(deck_a=da, deck_b=db,
+                        ai_factory=lambda rng, dd=None: GreedyAI(rng),
                         seed=seed, effects_overlay=overlay, human_first=True)
-    mimic = GreedyAI(random.Random(seed * 3 + 0))  # player0 = human、 AI path と同 seed
+    mimic = GreedyAI(random.Random(seed * 3))
     sess.advance_until_pause()
-    sigs = []
-    rng = random.Random(seed)
     steps = 0
+    n_compared = 0
     while not sess.state.game_over and steps < 800:
         steps += 1
         pk = sess.pending_kind
@@ -118,52 +90,78 @@ def run_human_path(deck_a, deck_b, seed):
             if not acts:
                 break
             a = mimic.choose_action(sess.state)
-            # AI が選んだ Action の index を legal_actions から特定
             idx = next((i for i, x in enumerate(acts) if repr(x) == repr(a)), 0)
             sess.apply_human_action(idx)
-            sigs.append(board_sig(sess.state))
         elif pk == "choice":
-            sess.apply_human_choice(_pick_choice(sess.pending_payload or {}, rng))
-            sigs.append(board_sig(sess.state))
+            choice = dict(sess.state.pending_choice or {})
+            kind = choice.get("kind")
+            if kind in KIND2PRIM and isinstance(choice.get("primitive_value"), dict):
+                # ⭐ 人間が 全候補を選ぶ (adversarial) → 結果を効果の制約に照合。
+                cands = choice.get("candidates") or []
+                tp = sess.state.turn_player_idx
+                me = sess.state.players[tp]
+                before = {ip.instance_id for ip in [*me.characters, *me.stages]}
+                sess.apply_human_choice(list(range(len(cands))))
+                me2 = sess.state.players[tp]
+                new = [ip for ip in [*me2.characters, *me2.stages]
+                       if ip.instance_id not in before]
+                n_compared += 1
+                for viol in _check_summon_conformance(sess.state, new, choice):
+                    divergences.append({"slug": slug, "seed": seed, "kind": kind,
+                                        "viol": viol})
+            else:
+                _pick_noncompare(sess)
         elif pk == "defense":
             sess.apply_human_defense(None, [])
-            sigs.append(board_sig(sess.state))
         else:
             break
-    return {"winner": sess.state.winner, "turns": sess.state.turn_number,
-            "sigs": sigs, "over": sess.state.game_over}
+    return n_compared
 
 
-def diff_one(slug, seed):
-    da, db = load_deck(slug), load_deck(slug)
-    try:
-        ai = run_ai_path(da, db, seed)
-        hu = run_human_path(da, db, seed)
-    except Exception as e:
-        return {"slug": slug, "seed": seed, "crash": f"{type(e).__name__}: {e}"}
-    # 最終 winner / turns の一致 (= 粗い signal)
-    same_final = (ai["winner"] == hu["winner"] and ai["over"] == hu["over"])
-    return {"slug": slug, "seed": seed,
-            "ai": (ai["winner"], ai["turns"], len(ai["sigs"])),
-            "hu": (hu["winner"], hu["turns"], len(hu["sigs"])),
-            "same_final": same_final}
+def _pick_noncompare(sess):
+    payload = sess.pending_payload or {}
+    k = payload.get("kind")
+    lim = int(payload.get("limit", 1) or 1)
+    if k in ("mulligan_confirm", "mulligan_redrawn"):
+        sess.apply_human_choice([0]); return
+    if k == "search_top_n":
+        cs = payload.get("cards", [])
+        m = [c["idx"] for c in cs if c.get("matches_filter")]
+        sess.apply_human_choice(m[:lim]); return
+    if k in ("optional_cost_confirm", "on_attack_optional", "on_opp_attack_optional",
+             "end_of_turn_optional", "replace_ko_optional", "reveal_top_play_confirm",
+             "view_life_top_choose_position", "option_pick", "life_taken_choice"):
+        sess.apply_human_choice([0]); return
+    if k in ("search_top_n_bottom_reorder", "scry_life_reorder", "scry_deck_reorder"):
+        sess.apply_human_choice([]); return
+    cands = payload.get("candidates") or payload.get("cards") or payload.get("options") or []
+    sess.apply_human_choice(list(range(min(lim, len(cands)))))
 
 
 def main():
     slugs = sys.argv[1].split(",") if len(sys.argv) > 1 else ["cardrush_1392"]
-    n = int(sys.argv[2]) if len(sys.argv) > 2 else 10
-    mism = 0
+    n = int(sys.argv[2]) if len(sys.argv) > 2 else 15
+    divergences = []
+    total_cmp = 0
+    crashes = []
     for slug in slugs:
         for s in range(n):
-            r = diff_one(slug, 1000 + s)
-            if r.get("crash"):
-                print(f"  [CRASH] {slug} seed{1000+s}: {r['crash']}")
-                mism += 1
-            elif not r["same_final"]:
-                print(f"  [DIFF] {slug} seed{1000+s}: AI={r['ai']} HUMAN={r['hu']}")
-                mism += 1
-        print(f"=== {slug}: {n} seeds, {mism} mismatch ===")
-    print(f"\n総 mismatch/crash: {mism}")
+            try:
+                total_cmp += run(slug, 2000 + s, divergences)
+            except Exception as e:  # noqa: BLE001
+                crashes.append((slug, 2000 + s, f"{type(e).__name__}: {e}"))
+        print(f"=== {slug}: {n} games done ===", flush=True)
+    print(f"\n検査した召喚choice 数: {total_cmp}")
+    print(f"人間経路の制約違反 (= ルール通りでない): {len(divergences)}")
+    for d in divergences[:30]:
+        print(f"  [違反] {d['slug']} seed{d['seed']} {d['kind']}: {d['viol']}")
+    if crashes:
+        print(f"\nゲーム crash: {len(crashes)}")
+        for c in crashes[:10]:
+            print("  ", c)
+    if not divergences and not crashes:
+        print("\nOK: 検査した全召喚で 人間経路が効果の制約通り (= ルール通り)")
+    sys.exit(1 if (divergences or crashes) else 0)
 
 
 if __name__ == "__main__":

@@ -3995,8 +3995,12 @@ def _execute_effect_body(
                     return True
                 # picks 指定 or AI or 候補 <= limit → 既存挙動
                 if picks_idx is not None:
+                    # ⚠ 候補 (= filter/no_effect 通過済) に限定 + limit で cap する
+                    #   (= AI path と同等。 人間が候補外/上限超を送っても防御。 2026-06-04 修正:
+                    #   旧実装は picks をそのまま全召喚で limit/filter を無視していた)。
+                    valid_hand_idxs = {i for i, _ in candidates}
                     chosen_indexes = sorted(
-                        [i for i in picks_idx if 0 <= i < len(me.hand)],
+                        [i for i in picks_idx if i in valid_hand_idxs][:limit],
                         reverse=True,
                     )
                 else:

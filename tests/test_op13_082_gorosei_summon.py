@@ -118,6 +118,28 @@ def test_play_from_trash_no_effect_filter_human_pick():
     assert len(me.characters) == 1
 
 
+def test_play_from_hand_human_pick_respects_limit():
+    """play_from_hand の人間 pick が limit を超えて召喚しない (= AI path と同等)。
+
+    bug (2026-06-04 修正前、 適合ハーネスが発見): picks_idx 経路が [:limit] せず、
+    人間が候補を limit 超で選ぶと全部召喚できた (cardrush_1455 で limit違反 検出)。
+    """
+    from engine.effects import execute_effect
+    repo, overlay = T._repo(), T._overlay()
+    state = T._make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    state.turn_player_idx = 0
+    state.turn_number = 5
+    me.characters = []
+    me.don_active = 10
+    # 手札に CHARACTER 2 枚 (= 候補)。 limit=1 で 2 枚選んでも 1 体のみ
+    me.hand = [repo.get("OP04-077"), repo.get("OP04-077")]  # イデオ x2
+    spec = {"filter": {"category": "CHARACTER", "cost_le": 10}, "limit": 1,
+            "_picks_idx": [0, 1]}  # 2 枚選ぶ
+    execute_effect({"play_from_hand": spec}, state, me, state.players[1], None)
+    assert len(me.characters) == 1, f"limit=1 なのに {len(me.characters)} 体召喚した"
+
+
 def test_gorosei_summoned_have_summoning_sickness():
     """OP13-082 は速攻を付与しない → 登場キャラは召喚酔い (= 当ターン攻撃不可)。"""
     state, me, opp, repo = _setup()
