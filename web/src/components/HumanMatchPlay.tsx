@@ -3357,14 +3357,6 @@ function StatBadge({
   );
 }
 
-function SelfInfoPanel({ me }: { me: PlayerSnapshot }) {
-  return (
-    <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
-      <StatBadge player={me} label="YOU" color="bg-emerald-700 text-white" />
-    </div>
-  );
-}
-
 function OpponentInfoPanel({
   opp,
   reveal,
