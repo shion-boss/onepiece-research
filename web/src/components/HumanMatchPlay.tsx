@@ -2147,7 +2147,15 @@ type HumanPlayStats = {
   by_matchup: HumanPlayMatchup[];
 };
 
-function ContributionPanel({ decks }: { decks: DeckOption[] }) {
+function ContributionPanel({
+  decks,
+  deckA,
+  deckB,
+}: {
+  decks: DeckOption[];
+  deckA: string;
+  deckB: string;
+}) {
   const [stats, setStats] = useState<HumanPlayStats | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -2170,6 +2178,13 @@ function ContributionPanel({ decks }: { decks: DeckOption[] }) {
   const nextUp = [...stats.by_matchup]
     .filter((m) => m.games < thr)
     .sort((a, b) => b.games - a.games)[0];
+  // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
+  const selected = stats.by_matchup.find(
+    (m) => m.human_deck === deckA && m.ai_deck === deckB,
+  );
+  const selGames = selected?.games ?? 0;
+  const selPct = selected?.progress_pct ?? 0;
+  const selWr = selected && selGames ? Math.round(selected.human_winrate * 100) : null;
 
   return (
     <section className="rounded-2xl border border-cyan-300 bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-6 shadow-sm dark:border-cyan-800 dark:from-cyan-950/30 dark:via-zinc-900 dark:to-emerald-950/30">
@@ -2185,6 +2200,41 @@ function ContributionPanel({ decks }: { decks: DeckOption[] }) {
         あなたの 1 戦は、 AI が「人間の打ち方」 を学ぶデータになります。
         対戦する人が増えるほど、 この AI は人間に強くなります。
       </p>
+
+      {/* いま選択中の対戦 = あなたの貢献先 (デッキ変更に追従) */}
+      <div className="mt-3 rounded-xl border-2 border-cyan-400 bg-white/70 p-3 dark:border-cyan-600 dark:bg-zinc-900/70">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+            選択中の対戦: {nameOf(deckA)}{" "}
+            <span className="text-zinc-400">(あなた) vs</span> {nameOf(deckB)}{" "}
+            <span className="text-zinc-400">(AI)</span>
+          </span>
+          <span className="shrink-0 tabular-nums text-zinc-500">
+            {selGames}/{thr} 戦
+          </span>
+        </div>
+        <div className="relative mt-2 h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <div
+            className={
+              "absolute inset-y-0 left-0 rounded-full " +
+              (selGames >= thr ? "bg-emerald-500" : "bg-cyan-500")
+            }
+            style={{ width: `${selPct}%` }}
+          />
+        </div>
+        <div className="mt-1.5 text-xs text-cyan-800 dark:text-cyan-200">
+          {selGames === 0
+            ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
+            : selGames >= thr
+              ? `学習ライン到達済み（${thr}戦）。 さらに対戦すると精度が上がります。`
+              : `あと ${thr - selGames} 戦で この組み合わせが学習ラインに到達します。`}
+          {selWr !== null && (
+            <span className="ml-1 text-zinc-500">
+              ／ この組合せの人間勝率 {selWr}%
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
@@ -2288,8 +2338,6 @@ function StartPanel({
         </p>
       </header>
 
-      {/* コミュニティ貢献パネル: 対戦が AI 作りを前進させていることを可視化 */}
-      <ContributionPanel decks={decks} />
 
       {/* VS panel: 2 deck cards + center VS */}
       <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
@@ -2429,6 +2477,10 @@ function StartPanel({
           {error}
         </div>
       )}
+
+      {/* コミュニティ貢献パネル: 対戦が AI 作りを前進させていることを可視化。
+          対戦開始ボタンの下に配置 (= 全体集計 + 選択中マッチアップの貢献度)。 */}
+      <ContributionPanel decks={decks} deckA={deckA} deckB={deckB} />
     </div>
   );
 }
