@@ -180,6 +180,41 @@ def _rest_opp_active_iids(eff, state, me, opp, src):
     return iids
 
 
+def _power_pump_targets(eff, state, me, opp, src):
+    """do の power_pump (固定 amount) の対象を resolver で確定し [(iid, power_before, sign)] を返す。
+    fire 後、 その対象 (場に残れば) の power が sign 方向に動くはず。 amount 動的/0 は対象外。
+    set_base_power 系で上書きされる do は masking 除外 (= 後段)。"""
+    from engine.effects import _resolve_target
+    out = []
+    for p in eff.get("do", []):
+        if not isinstance(p, dict) or "if" in p or "power_pump" not in p:
+            continue
+        spec = p["power_pump"]
+        if not isinstance(spec, dict):
+            continue
+        amt = spec.get("amount")
+        if not isinstance(amt, int) or amt == 0:
+            continue
+        tgt = spec.get("target")
+        # 動的対象 (= 同 do の前段 primitive で対象プールが変わる) は fire 前解決と不一致になる
+        # → 照合不能なので除外 (= false positive 回避)。 attached_don 依存が代表例 (OP15-015)。
+        if isinstance(tgt, str) and "attached_don" in tgt:
+            continue
+        try:
+            targets = _resolve_target(tgt, state, me, opp, src,
+                                      outer_kind="power_pump", outer_value=tgt)
+        except Exception:
+            continue
+        sign = 1 if amt > 0 else -1
+        for t in targets:
+            out.append((t.instance_id, t.power, sign))
+    return out
+
+
+# power_pump の符号デルタを打ち消しうる primitive (= masking → power_pump 照合を抑止)。
+POWER_OVERRIDE = {"set_base_power", "set_base_power_timed", "set_base_power_copy",
+                  "swap_opp_power", "power_pump_per_target_attached_don"}
+
 _LEAD_BY_FEAT: dict = {}
 _LEAD_BY_NAME: dict = {}
 
@@ -249,7 +284,9 @@ def audit_card(repo, overlay, card_id):
             isinstance(p, dict) and "if" not in p and (set(p) & set(OPP_LEAVE_PRIMS))
             for p in do0)
         has_rest = any(isinstance(p, dict) and "if" not in p and "rest" in p for p in do0)
-        if not modeled and not has_opp_leave and not has_rest:
+        do_keys0 = {k for p in do0 if isinstance(p, dict) for k in p}
+        has_pp = ("power_pump" in do_keys0) and not (do_keys0 & POWER_OVERRIDE)
+        if not modeled and not has_opp_leave and not has_rest and not has_pp:
             continue
         state = smoke.make_state(repo, overlay, card_id)
         me = state.players[0]
@@ -280,6 +317,7 @@ def audit_card(repo, overlay, card_id):
         #     解決されるのと同じ。 ここでは cost が opp 盤面を変えないので一致する)。
         opp_leave_n = _opp_leave_count(eff, state, me, opp, src_inplay) if has_opp_leave else 0
         rest_iids = _rest_opp_active_iids(eff, state, me, opp, src_inplay) if has_rest else set()
+        pp_targets = _power_pump_targets(eff, state, me, opp, src_inplay) if has_pp else []
         b = costoracle._snap(me, opp, src_inplay)
         try:
             smoke.fire_one_effect(state, card, src_inplay, eff, repo)
@@ -312,6 +350,25 @@ def audit_card(repo, overlay, card_id):
                     "miss": f"rest: 対象がレストされていない ({len(still_active)}/{len(rest_iids)})",
                     "text": (eff.get("_text", "") or "")[:70],
                 })
+        # power_pump: 解決した対象が (場に残れば) amount の符号方向に power が動くはず。
+        if pp_targets:
+            allip = {ip.instance_id: ip for ip in
+                     [me.leader, *me.characters, *me.stages,
+                      opp.leader, *opp.characters, *opp.stages]}
+            for iid, pwr_before, sign in pp_targets:
+                ip = allip.get(iid)
+                if ip is None:
+                    continue  # 対象が場を離れた → 照合不能
+                delta = ip.power - pwr_before
+                if (sign > 0 and delta <= 0) or (sign < 0 and delta >= 0):
+                    flags.append({
+                        "card_id": card_id, "name": card.name, "idx": idx,
+                        "when": when,
+                        "miss": f"power_pump: パワーが{'上' if sign > 0 else '下'}がっていない "
+                                f"(delta={delta})",
+                        "text": (eff.get("_text", "") or "")[:70],
+                    })
+                    break
     return flags
 
 
