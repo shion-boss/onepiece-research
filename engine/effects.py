@@ -7431,13 +7431,21 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         return
     cont = choice.get("_continuation")
     _resolve_pending_choice_inner(state, picks)
+    # 召喚等で場が変わった可能性 → 常在効果を再計算する。 apply_action は finally で
+    # _recompute_static するが、 人間 modal 解決 (= play_from_trash 等) はその境界の外で
+    # 起きるため、 召喚キャラの静的能力 (条件付き速攻・KO耐性等) が反映されない。
+    # 例: OP13-080 イーザンバロン (自trash7+で速攻) を OP13-082 で召喚 → 再計算しないと
+    # is_rush_now=False のままで「速攻なのに攻撃できない」 (2026-06-04 修正)。
+    from .game import _recompute_static
     if state.pending_choice is not None:
         # 解決で新たな pending_choice が連鎖 → continuation を引き継ぐ
         if cont is not None and "_continuation" not in state.pending_choice:
             state.pending_choice["_continuation"] = cont
+        _recompute_static(state)
         return
     if cont is not None:
         _run_continuation(state, cont)
+    _recompute_static(state)
 
 
 def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
