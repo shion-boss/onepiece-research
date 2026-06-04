@@ -99,19 +99,22 @@ class HumanAI:
                 is_leader_attack = new_is_leader
         # 未設定 → pause
         # blocker 候補 = defender.characters の中 で is_blocker_now かつ active な もの
-        # (= 公式: ブロッカー キーワード 持ち + アクティブ + 召喚酔いなし)
+        # (= 公式 10-1-4: ブロッカー キーワード 持ち + アクティブ (= レスト で ない)。
+        #  召喚酔い は ブロック を 妨げ ない ＝ 条件 に 含め ない。 発動不可 効果 のみ 除外)
         # is_leader_attack が False (= キャラ 攻撃) なら blocker は 通常 不可 だが redirect 後 は
         # blocker step 不要 (= 既に target 確定)。 簡略 で blocker 候補 を 出さない。
         if is_leader_attack:
             blocker_iids = [
                 b.instance_id for b in defender.characters
-                if b.is_blocker_now and not b.rested and not b.summoning_sickness
+                if b.is_blocker_now and not b.rested
+                and not b.blocker_disabled_until_turn_end
                 and b.instance_id != getattr(target, "instance_id", None)
             ]
         else:
             blocker_iids = [
                 b.instance_id for b in defender.characters
-                if b.is_blocker_now and not b.rested and not b.summoning_sickness
+                if b.is_blocker_now and not b.rested
+                and not b.blocker_disabled_until_turn_end
                 and b.instance_id != getattr(target, "instance_id", None)
             ]
         # counter 候補: hand の counter 持ち + 各 idx の counter 値

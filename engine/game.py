@@ -1458,11 +1458,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             elif (
                 blocker.rested
                 or not blocker.is_blocker_now
-                or blocker.summoning_sickness
                 or blocker.blocker_disabled_until_turn_end
             ):
+                # 公式 10-1-4: ブロッカー は アクティブ で あれば 発動 可。
+                # 召喚酔い (= 登場ターン) は アタック のみ 制限 し、 ブロック は 妨げ ない
+                # (= 自ターン に 出した ブロッカー も 次の 相手ターン に ブロック 可能)。
                 state.push_log(
-                    f"  ブロッカー無効: {blocker.card.name} (rested/sickness/blocker特性なし)"
+                    f"  ブロッカー無効: {blocker.card.name} (rested/blocker特性なし/発動不可)"
                 )
             else:
                 blocker.rested = True
@@ -1698,12 +1700,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             elif (
                 blocker.rested
                 or not blocker.is_blocker_now
-                or blocker.summoning_sickness
                 or blocker.blocker_disabled_until_turn_end
             ):
-                # 不正ブロッカーは無視 (KO してきた可能性等)
+                # 不正ブロッカーは無視 (KO してきた可能性等)。
+                # 召喚酔い は ブロック を 妨げ ない (公式 10-1-4、 アクティブ のみ が 条件)。
                 state.push_log(
-                    f"  ブロッカー無効: {blocker.card.name} (rested/sickness/blocker特性なし)"
+                    f"  ブロッカー無効: {blocker.card.name} (rested/blocker特性なし/発動不可)"
                 )
                 blocker = None
             if blocker is not None:

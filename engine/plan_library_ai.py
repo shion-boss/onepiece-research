@@ -296,7 +296,8 @@ class PlanLibraryAI(GreedyAI):
             lock = getattr(attacker, "attacker_prevents_blocker_power_le", -1)
             avail = [
                 c for c in defender.characters
-                if not c.rested and not c.summoning_sickness and c.is_blocker_now
+                if not c.rested and c.is_blocker_now
+                and not getattr(c, "blocker_disabled_until_turn_end", False)
                 and not (lock >= 0 and c.power <= lock)
             ]
             safe = [c for c in avail if c.power > atk_p]
