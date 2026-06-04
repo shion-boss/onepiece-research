@@ -3823,11 +3823,13 @@ function RightPanel({
           <DefensePanel
             payload={defensePayload}
             me={defenseMe}
+            blockerIid={defenseBlockerIid}
+            setBlockerIid={defenseSetBlockerIid}
             counterIdxs={defenseCounterIdxs}
             setCounterIdxs={defenseSetCounterIdxs}
             onSubmit={defenseOnSubmit}
             busy={defenseBusy}
-            onUseOppAttackEffect={defenseOnUseOppAttackEffect}
+            onHover={defenseOnHover}
           />
         )}
         {isHumanTurn && !selection && (
@@ -6819,46 +6821,55 @@ function TrashViewer({
 function DefensePanel({
   payload,
   me,
+  blockerIid,
+  setBlockerIid,
   counterIdxs,
   setCounterIdxs,
   onSubmit,
   busy,
-  onUseOppAttackEffect,
+  onHover,
 }: {
   payload: Record<string, unknown>;
   me: PlayerSnapshot;
+  blockerIid: number | null;
+  setBlockerIid: (v: number | null) => void;
   counterIdxs: number[];
   setCounterIdxs: (v: number[]) => void;
   onSubmit: () => void;
   busy: boolean;
-  onUseOppAttackEffect?: (source_iid: number, effect_idx: number) => void;
+  onHover?: (h: HoverInfo) => void;
 }) {
-  type OppAttackEff = {
-    source_iid: number;
-    card_id: string;
-    card_name: string;
-    effect_idx: number;
-    effect_text: string;
-    when_key: string;
-    pay_don: number;
-    rest_self_don: number;
-    discard_hand: number;
-  };
-  const availableEffects =
-    (payload.available_opp_attack_effects as OppAttackEff[] | undefined) ?? [];
   const isLeaderAttack = !!payload.is_leader_attack;
   const atkPower = Number(payload.attacker_power ?? 0);
-  // defender base power: leader or 該当 chara
-  let defBase = 0;
-  if (isLeaderAttack) {
+  const targetIid = payload.target_iid as number | undefined;
+  // ブロッカー候補 (= engine が legal_blocker_iids で 渡す アクティブな ブロッカー)
+  const blockerIids =
+    (payload.legal_blocker_iids as number[] | undefined) ?? [];
+  const blockerOptions = me.characters.filter((c) =>
+    blockerIids.includes(c.instance_id),
+  );
+  const selectedBlocker =
+    blockerIid != null
+      ? me.characters.find((c) => c.instance_id === blockerIid)
+      : null;
+  // 守る対象の base power: ブロック時=ブロッカー、 それ以外=リーダー or 対象キャラ
+  let defBase: number;
+  let defLabel: string;
+  let defKind: "leader" | "chara" | "blocker";
+  if (selectedBlocker) {
+    defBase = selectedBlocker.power;
+    defLabel = `ブロッカー ${selectedBlocker.name}`;
+    defKind = "blocker";
+  } else if (isLeaderAttack) {
     defBase = me.leader.power;
+    defLabel = "自リーダー";
+    defKind = "leader";
   } else {
-    const targetIid = payload.target_iid as number | undefined;
     const ch = me.characters.find((c) => c.instance_id === targetIid);
     defBase = ch?.power ?? me.leader.power;
+    defLabel = ch ? ch.name : "対象キャラ";
+    defKind = "chara";
   }
-  // counter 加算 = 各 counter idx の card.counter (= hand string id だけなので 推定不可、
-  //   payload に counter_values 含む場合 そこから、 無ければ 1000/枚 を 仮定)
   const counterValues =
     (payload.counter_values as Record<number, number> | undefined) ?? null;
   let counterTotal = 0;
@@ -6866,12 +6877,85 @@ function DefensePanel({
     counterTotal += counterValues?.[idx] ?? 1000;
   }
   const defTotal = defBase + counterTotal;
-  const blocked = defTotal >= atkPower;
+  // 公式: アタックは attacker >= defended で成立。 生存/無効には defended > attacker。
+  const survives = defTotal > atkPower;
+  const needed = atkPower - defTotal + 1;
+  const consequence =
+    defKind === "leader"
+      ? "ライフ -1"
+      : defKind === "blocker"
+        ? "ブロッカー KO (リーダー無傷)"
+        : "このキャラ KO";
+  const surviveLabel =
+    defKind === "leader"
+      ? "ライフ減らない"
+      : defKind === "blocker"
+        ? "ブロッカー生存 (リーダー無傷)"
+        : "キャラ生存";
+
   return (
     <div className="flex flex-col gap-2 rounded border-2 border-amber-400 bg-amber-950/70 p-3">
       <div className="text-sm font-bold text-amber-200">
         {isLeaderAttack ? "リーダー" : "キャラ"} 防御
       </div>
+
+      {/* ブロッカー選択 (= 候補が あれば)。 公式 10-1-4: アクティブな ブロッカーで 受ける。 */}
+      {blockerOptions.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs font-semibold text-amber-200">
+            ブロッカーで受ける
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlockerIid(null);
+              }}
+              className={
+                "rounded px-2 py-1 text-xs font-bold " +
+                (blockerIid === null
+                  ? "bg-amber-500 text-white"
+                  : "border border-amber-400 bg-amber-900/40 text-amber-100 hover:bg-amber-800/60")
+              }
+            >
+              使わない
+            </button>
+            {blockerOptions.map((c) => (
+              <button
+                key={c.instance_id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBlockerIid(c.instance_id);
+                }}
+                onMouseEnter={() =>
+                  onHover?.({ kind: "hand", cardId: c.card_id })
+                }
+                onMouseLeave={() => onHover?.(null)}
+                className={
+                  "relative rounded transition " +
+                  (blockerIid === c.instance_id
+                    ? "ring-4 ring-amber-400"
+                    : "ring-1 ring-amber-600 hover:ring-amber-400")
+                }
+                title={`${c.name} (P${c.power})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-20 w-auto rounded"
+                />
+                <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1 text-[10px] font-bold text-white">
+                  P{c.power}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* パワー計算: 相手アタック vs こちらの守り(+カウンター) */}
       <div className="flex items-center justify-between text-sm text-amber-100">
         <span>相手 攻撃 P</span>
         <span className="text-2xl font-bold text-rose-300">
@@ -6879,18 +6963,28 @@ function DefensePanel({
         </span>
       </div>
       <div className="flex items-center justify-between text-sm text-amber-100">
-        <span>
-          自防御 P{counterTotal > 0 ? ` (+${counterTotal})` : ""}
+        <span className="truncate pr-2">
+          {defLabel}
+          {counterTotal > 0 ? ` (+${counterTotal})` : ""}
         </span>
         <span
           className={
             "text-2xl font-bold " +
-            (blocked ? "text-emerald-300" : "text-rose-300")
+            (survives ? "text-emerald-300" : "text-rose-300")
           }
         >
           {defTotal}
         </span>
       </div>
+      <div
+        className={
+          "rounded px-2 py-1 text-center text-sm font-bold " +
+          (survives ? "bg-emerald-600 text-white" : "bg-rose-600 text-white")
+        }
+      >
+        {survives ? surviveLabel : `${consequence}（あと ${needed} で耐える）`}
+      </div>
+
       {counterIdxs.length > 0 && (
         <button
           type="button"
@@ -6914,232 +7008,6 @@ function DefensePanel({
       >
         防御 確定
       </button>
-    </div>
-  );
-}
-
-function DefenseOverlay({
-  payload,
-  me,
-  blockerIid,
-  setBlockerIid,
-  counterIdxs,
-  setCounterIdxs,
-  onSubmit,
-  busy,
-  onHover,
-}: {
-  payload: Record<string, unknown> | null;
-  me: PlayerSnapshot;
-  blockerIid: number | null;
-  setBlockerIid: (v: number | null) => void;
-  counterIdxs: number[];
-  setCounterIdxs: (v: number[]) => void;
-  onSubmit: () => void;
-  busy: boolean;
-  onHover: (h: HoverInfo) => void;
-}) {
-  const blockerIids =
-    (payload?.legal_blocker_iids as number[] | undefined) ?? [];
-  const counterIdxsAvail =
-    (payload?.legal_counter_card_idxs as number[] | undefined) ?? [];
-  const isLeaderAttack = !!payload?.is_leader_attack;
-
-  function toggleCounter(idx: number) {
-    if (counterIdxs.includes(idx)) {
-      setCounterIdxs(counterIdxs.filter((x) => x !== idx));
-    } else {
-      setCounterIdxs([...counterIdxs, idx]);
-    }
-  }
-
-  const blockerOptions = me.characters.filter((c) =>
-    blockerIids.includes(c.instance_id),
-  );
-
-  // --- パワー計算サマリ (= 防御判断の核心情報) ---------------------------- //
-  // 公式: アタックは attacker.power >= defended.power で成立。 耐える(無効/生存)には
-  // defended.power > attacker.power が必要。 守る対象は ブロック時=ブロッカー、
-  // それ以外は リーダー(リーダー攻撃) or 対象キャラ。
-  const attackerPower = Number(payload?.attacker_power ?? 0);
-  const targetIid = payload?.target_iid as number | null | undefined;
-  const counterValues =
-    (payload?.counter_values as Record<string, number> | undefined) ?? {};
-  const selectedBlocker =
-    blockerIid != null
-      ? me.characters.find((c) => c.instance_id === blockerIid)
-      : null;
-  let defendedLabel: string;
-  let defendedBase: number;
-  let defendedKind: "leader" | "chara" | "blocker";
-  if (selectedBlocker) {
-    defendedLabel = `ブロッカー ${selectedBlocker.name}`;
-    defendedBase = selectedBlocker.power;
-    defendedKind = "blocker";
-  } else if (isLeaderAttack) {
-    defendedLabel = "自リーダー";
-    defendedBase = me.leader?.power ?? 0;
-    defendedKind = "leader";
-  } else {
-    const tgt = me.characters.find((c) => c.instance_id === targetIid);
-    defendedLabel = tgt ? tgt.name : "対象キャラ";
-    defendedBase = tgt?.power ?? 0;
-    defendedKind = "chara";
-  }
-  const counterTotal = counterIdxs.reduce(
-    (s, idx) => s + (counterValues[String(idx)] ?? 0),
-    0,
-  );
-  const finalPower = defendedBase + counterTotal;
-  const survives = finalPower > attackerPower;
-  const needed = attackerPower - finalPower + 1; // 耐えるのに あと何 power
-  // 攻撃が通った時の結果文言
-  const hitConsequence =
-    defendedKind === "leader"
-      ? "ライフ -1"
-      : defendedKind === "blocker"
-        ? "ブロッカー KO (リーダーは無傷)"
-        : "このキャラ KO";
-  const surviveLabel =
-    defendedKind === "leader" ? "ライフ減らない (攻撃無効)" : "生存";
-
-  return (
-    <div
-      onClick={(e) => e.stopPropagation()}
-      className="absolute inset-x-4 bottom-4 z-50 rounded-lg border-2 border-amber-400 bg-amber-950/95 p-3 shadow-xl backdrop-blur"
-    >
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-base font-bold text-amber-200">
-          相手が {isLeaderAttack ? "リーダー" : "キャラ"} を攻撃中 — 防御
-        </span>
-        {/* パワー計算: 相手アタック vs こちらの守り(+カウンター) */}
-        <span className="flex items-center gap-2 rounded bg-amber-900/60 px-2 py-0.5 text-sm">
-          <span className="text-rose-300">
-            相手 <span className="font-bold">{attackerPower}</span>
-          </span>
-          <span className="text-amber-400">vs</span>
-          <span className="text-emerald-200">
-            {defendedLabel}{" "}
-            <span className="font-bold">{defendedBase}</span>
-            {counterTotal > 0 && (
-              <span className="text-cyan-300">
-                {" +"}
-                {counterTotal}
-              </span>
-            )}
-            {counterTotal > 0 && (
-              <span className="font-bold">{" = "}{finalPower}</span>
-            )}
-          </span>
-          <span
-            className={
-              "rounded px-1.5 py-0.5 text-xs font-bold " +
-              (survives
-                ? "bg-emerald-600 text-white"
-                : "bg-rose-600 text-white")
-            }
-          >
-            {survives
-              ? surviveLabel
-              : `${hitConsequence}（あと ${needed} で耐える）`}
-          </span>
-        </span>
-      </div>
-      <div className="flex gap-4">
-        <div>
-          <div className="text-sm font-semibold text-amber-200">Blocker</div>
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setBlockerIid(null)}
-              className={
-                "rounded px-2 py-1 text-sm " +
-                (blockerIid === null
-                  ? "bg-amber-500 text-white"
-                  : "border border-amber-400 bg-amber-900/40 text-amber-100")
-              }
-            >
-              No Blocker
-            </button>
-            {blockerOptions.map((c) => (
-              <button
-                key={c.instance_id}
-                type="button"
-                onClick={() => setBlockerIid(c.instance_id)}
-                onMouseEnter={() =>
-                  onHover({
-                    kind: "chara",
-                    cardId: c.card_id,
-                    name: c.name,
-                    power: c.power,
-                    attached_dons: c.attached_dons,
-                    rested: c.rested,
-                    keywords: c.keywords,
-                    isLeader: false,
-                  })
-                }
-                onMouseLeave={() => onHover(null)}
-                className={
-                  "rounded transition " +
-                  (blockerIid === c.instance_id
-                    ? "ring-4 ring-amber-400"
-                    : "ring-1 ring-amber-600 hover:ring-amber-400")
-                }
-                title={c.name}
-              >
-                <CardImage
-                  cardId={c.card_id}
-                  alt={c.name}
-                  className="h-28 w-auto rounded"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1">
-          <div className="text-sm font-semibold text-amber-200">
-            Counter ({counterIdxs.length})
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {counterIdxsAvail.length === 0 && (
-              <span className="text-sm text-amber-300">
-                手札に counter 無し
-              </span>
-            )}
-            {counterIdxsAvail.map((idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => toggleCounter(idx)}
-                onMouseEnter={() =>
-                  onHover({ kind: "hand", cardId: me.hand[idx] })
-                }
-                onMouseLeave={() => onHover(null)}
-                className={
-                  "rounded transition " +
-                  (counterIdxs.includes(idx)
-                    ? "ring-4 ring-amber-400"
-                    : "ring-1 ring-amber-600 hover:ring-amber-400")
-                }
-              >
-                <CardImage
-                  cardId={me.hand[idx]}
-                  alt={me.hand[idx]}
-                  className="h-28 w-auto rounded"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={busy}
-          className="self-end rounded bg-amber-500 px-4 py-2 text-base font-bold text-white hover:bg-amber-400 disabled:opacity-50"
-        >
-          防御確定
-        </button>
-      </div>
     </div>
   );
 }
