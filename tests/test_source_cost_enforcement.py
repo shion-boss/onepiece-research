@@ -152,6 +152,37 @@ def test_opp_attack_rest_self_cost():
     assert koala.rested, "opp_attack の rest_self コストが払われていない (= 自レストせず)"
 
 
+def test_on_attack_discard_cost_paid():
+    """OP14-080 モリア アタック時: 手札3枚捨てる → デッキ上1枚をライフに。
+
+    bug (2026-06-04 audit_cost_payment.py が発見): trigger_on_attack の AI 支払いが
+    pay_don/once_per_turn のみ inline で、 discard_hand を踏み倒していた (= 手札3枚捨てずに
+    ライフ追加できた)。 "on_attack" は _execute_event のコスト強制 when にも無く 誰も払わなかった。
+    """
+    from engine.effects import trigger_on_attack
+    s, me, opp, repo, overlay = _fresh()
+    me.hand = [repo.get("OP01-016") for _ in range(5)]
+    h0, tr0, lf0 = len(me.hand), len(me.trash), len(me.life)
+    src = InPlay.of(repo.get("OP14-080"), sickness=False)
+    me.characters.append(src)
+    trigger_on_attack(s, me, opp, src, overlay)
+    assert len(me.hand) == h0 - 3, "手札3枚が捨てられていない (= discard コスト踏み倒し)"
+    assert len(me.trash) == tr0 + 3, "捨てた3枚がトラッシュに無い"
+    assert len(me.life) == lf0 + 1, "効果 (ライフ追加) が発動していない"
+
+
+def test_on_attack_discard_feasibility():
+    """OP14-080: 手札が3枚未満なら コスト払えず効果不発 (= ライフ増えない)。"""
+    from engine.effects import trigger_on_attack
+    s, me, opp, repo, overlay = _fresh()
+    me.hand = [repo.get("OP01-016") for _ in range(2)]  # 2 < 3
+    lf0 = len(me.life)
+    src = InPlay.of(repo.get("OP14-080"), sickness=False)
+    me.characters.append(src)
+    trigger_on_attack(s, me, opp, src, overlay)
+    assert len(me.life) == lf0, "手札不足でコスト払えないのに効果が発動した"
+
+
 def test_human_opp_attack_rest_self_paid():
     """人間 defender が opp_attack 効果 (OP07-024 rest_self) を発動 → 自レスト (踏み倒さない)。
 
