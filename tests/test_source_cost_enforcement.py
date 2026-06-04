@@ -150,3 +150,42 @@ def test_opp_attack_rest_self_cost():
     opp.characters.append(atk)
     trigger_on_opp_attack(s, me, opp, atk, overlay)
     assert koala.rested, "opp_attack の rest_self コストが払われていない (= 自レストせず)"
+
+
+def test_human_opp_attack_rest_self_paid():
+    """人間 defender が opp_attack 効果 (OP07-024 rest_self) を発動 → 自レスト (踏み倒さない)。
+
+    bug (2026-06-04 修正前): apply_human_use_opp_attack_effect も pay_don/rest_self_don/
+    discard_hand のみ inline 支払で source 系コストを踏み倒していた。
+    """
+    import json
+    from pathlib import Path
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.human_session import HumanSession
+    from engine.ai import GreedyAI
+    root = Path(__file__).resolve().parent.parent
+    repo = CardRepository.from_json(root / "db" / "cards.json")
+    overlay = load_effect_overlay(root / "db" / "card_effects.json")
+    deck_json = json.loads((root / "decks" / "cardrush_1456.json").read_text(encoding="utf-8"))
+    da = make_deck_from_dict(deck_json, repo)
+    db = make_deck_from_dict(deck_json, repo)
+    session = HumanSession(
+        deck_a=da, deck_b=db,
+        ai_factory=lambda rng, deck_analysis=None: GreedyAI(rng=rng),
+        seed=1, effects_overlay=overlay, human_first=True)
+    session.advance_until_pause()
+    state = session.state
+    defender = state.players[session.human_idx]
+    koala = InPlay.of(repo.get("OP07-024"), sickness=False, rested=False)
+    defender.characters.append(koala)
+    bundle = overlay.get("OP07-024")
+    idx = next(i for i, e in enumerate(bundle.effects) if e.get("when") == "opp_attack")
+    state._available_opp_attack_effects = [{
+        "source_iid": koala.instance_id, "card_id": "OP07-024", "effect_idx": idx,
+        "when_key": "opp_attack", "pay_don": 0, "rest_self_don": 0, "discard_hand": 0,
+        "rest_self": True, "trash_self": False, "discard_hand_with_filter": False,
+    }]
+    session.pending_kind = "defense"
+    session.apply_human_use_opp_attack_effect(koala.instance_id, idx)
+    assert koala.rested, "人間 opp_attack の rest_self コストが払われていない"

@@ -9777,6 +9777,10 @@ def _enqueue_opp_attack_with_cost(
                 "pay_don": int(cost.get("pay_don", 0)),
                 "rest_self_don": int(cost.get("rest_self_don", 0)),
                 "discard_hand": int(cost.get("discard_hand", 0)),
+                # source 系コストも露出 (= UI で「自レスト/自トラッシュ」 等を表示できるよう)。
+                "rest_self": bool(cost.get("rest_self")),
+                "trash_self": bool(cost.get("trash_self")),
+                "discard_hand_with_filter": bool(cost.get("discard_hand_with_filter")),
             })
         # 既存 list と 統合 (= opp_attack / on_leader / on_chara 各 when_key から 追加)
         if not hasattr(state, "_available_opp_attack_effects"):

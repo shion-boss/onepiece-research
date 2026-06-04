@@ -552,24 +552,6 @@ class HumanSession:
                 break
         if source is None:
             raise ValueError(f"source iid not found: {source_iid}")
-        pay_don = int(match.get("pay_don", 0))
-        rest_don = int(match.get("rest_self_don", 0))
-        discard_n = int(match.get("discard_hand", 0))
-        if pay_don > 0:
-            # ドン!!-N: don_active から N 枚 を don_remaining_in_deck に 戻す
-            taken = min(pay_don, defender.don_active)
-            defender.don_active -= taken
-            defender.don_remaining_in_deck += taken
-            rest_more = min(pay_don - taken, defender.don_rested)
-            defender.don_rested -= rest_more
-            defender.don_remaining_in_deck += rest_more
-        if rest_don > 0:
-            defender.don_active -= rest_don
-            defender.don_rested += rest_don
-        if discard_n > 0:
-            for _ in range(min(discard_n, len(defender.hand))):
-                i = self.rng.randrange(len(defender.hand))
-                defender.trash.append(defender.hand.pop(i))
         bundle = self.state.effects_overlay.get(source.card.card_id) if self.state.effects_overlay else None
         if bundle is None:
             return
@@ -577,6 +559,16 @@ class HumanSession:
         if eff is None:
             return
         cost = eff.get("cost") or {}
+        # cost 支払い: 全 cost キーを _pay_counter_cost に委譲して AI 経路と統一する
+        # (= 旧実装は pay_don/rest_self_don/discard_hand のみ inline で、 rest_self/trash_self/
+        #   discard_hand_with_filter 等を踏み倒していた。 2026-06-04 修正)。
+        from .effects import _pay_counter_cost, _can_pay_counter_cost
+        real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
+        opp_pl = self.state.players[1 - defender_idx]
+        if real_cost and not _can_pay_counter_cost(self.state, defender, source, real_cost):
+            raise ValueError("cannot pay opp_attack effect cost")
+        if real_cost:
+            _pay_counter_cost(self.state, defender, opp_pl, source, real_cost)
         if cost.get("once_per_turn"):
             setattr(source, f"_opp_attack_used_{effect_idx}", True)
         when_key = str(match.get("when_key") or "opp_attack")
