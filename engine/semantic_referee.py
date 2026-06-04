@@ -42,6 +42,7 @@ class SemanticReferee(RuleReferee):
         super().__init__(strict=strict, log_fn=log_fn)
         self._baseline: Optional[list[int]] = None
         self._last_action_label: str = "(初手前)"
+        self.observations: int = 0  # observe() で 保存則を 実検査 した 回数 (= 非空振り確認用)
 
     # baseline を 最初の before_action (= 既知正常な初期状態) で確定。
     def before_action(self, state: GameState, action: Action) -> None:
@@ -56,6 +57,24 @@ class SemanticReferee(RuleReferee):
 
     def _capture_baseline(self, state: GameState) -> None:
         self._baseline = [main_card_count(p) for p in state.players]
+
+    def observe(self, state: GameState, action_label: str = "") -> int:
+        """外部ループ (= HumanSession / fuzzer 等、 harness 以外) から **settled 境界**
+        (= modal/防御が無く 1 action 完了した時点) で呼ぶ read-only チェック。
+
+        baseline を遅延確定し、 カード保存則を検査。 違反は self.violations に積む。
+        戻り値 = この呼び出しで新たに増えた違反数 (= 呼び出し側が 0 か確認できる)。
+        ⚠ mid-effect (= pending_choice 中) では呼ばないこと (= 一時的不均衡で誤検出する)。
+        """
+        before = len(self.violations)
+        if self._baseline is None:
+            self._capture_baseline(state)
+            return 0
+        if action_label:
+            self._last_action_label = action_label
+        self.observations += 1
+        self._check_card_conservation(state)
+        return len(self.violations) - before
 
     def _check_card_conservation(self, state: GameState) -> None:
         if self._baseline is None:

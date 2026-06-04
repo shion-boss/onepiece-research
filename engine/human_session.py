@@ -208,6 +208,12 @@ class HumanSession:
             do_mulligan_and_finalize=False,
         )
         self.state.record_snapshots = True
+        # 効果ランタイム・レフェリー (= カード保存則を read-only 監視、 誤検出ゼロ)。
+        # 人間 vs AI の実プレイ中、 効果がカードを複製/消失させたら settled 境界で検出する。
+        from .semantic_referee import SemanticReferee
+        self.referee = SemanticReferee(strict=False)
+        self.referee.observe(self.state)  # baseline 確定 (= setup 直後 = 各50枚)
+        self.referee_violations: list[str] = []
         # human_idx は human_first から 直接 算出 (= setup_game で first_player=0 強制)
         self.human_idx = 0 if human_first else 1
         self.ai_idx = 1 - self.human_idx
@@ -295,10 +301,10 @@ class HumanSession:
             try:
                 if tp == self.ai_idx:
                     # AI ターン: 通常 進行 (= AI が action 選び 適用)
-                    play_one_action(self.state, self.ai, self.human_ai)
+                    _act = play_one_action(self.state, self.ai, self.human_ai)
                 else:
                     # 人間 ターン: HumanAI が PauseSignal を 投げる
-                    play_one_action(self.state, self.human_ai, self.ai)
+                    _act = play_one_action(self.state, self.human_ai, self.ai)
             except PauseSignal as p:
                 self.pending_kind = p.kind
                 self.pending_payload = p.payload
@@ -309,10 +315,22 @@ class HumanSession:
                 self.pending_kind = None
                 self.pending_payload = None
                 return
+            # 1 action 完了 (= settled、 modal なし) → カード保存則を read-only 監視。
+            if self.state.pending_choice is None:
+                self._observe_conservation(type(_act).__name__ if _act is not None else "")
         # max_actions に 到達
         self.state.declare_winner(-1, "max_actions reached")
         self.pending_kind = None
         self.pending_payload = None
+
+    def _observe_conservation(self, action_label: str = "") -> None:
+        """settled 境界で カード保存則を read-only 監視。 違反は log + referee_violations に記録
+        (= strict=False なので 試合は止めない、 後で 解析素材 になる)。"""
+        n = self.referee.observe(self.state, action_label)
+        if n > 0:
+            for v in self.referee.violations[-n:]:
+                self.referee_violations.append(v)
+                self.state.push_log(f"[保存則違反] {v}")
 
     def apply_human_choice(self, picks: list[int]) -> None:
         """人間 の interactive 選択 (= search_top_n 等) を 適用 → 進行 再開。"""
@@ -663,6 +681,9 @@ class HumanSession:
             "snapshots": [dict(s) for s in self.state.snapshots],
             "action_evals": list(self.state.action_evals),
             "log_comments": list(self.log_comments),
+            # 効果ランタイム・レフェリーの検出 (= カード保存則違反、 通常は空)。
+            # 実プレイで非空なら 効果バグの確証 → Blob 解析素材になる。
+            "referee_violations": list(getattr(self, "referee_violations", [])),
         }
 
     def add_log_comment(
