@@ -1,0 +1,17 @@
+{
+  "sample_size": 8,
+  "defense_activity": 0.4235,
+  "counter_value_avg": 1314.3,
+  "aggression": 0.0,
+  "mulligan_keep_rate": 0.0,
+  "avg_turns": 10.62,
+  "human_winrate_vs_ai": 0.75,
+  "_raw_totals": {
+    "def_counters": 35,
+    "def_blocks": 1,
+    "attacks_face": 0,
+    "attacks_chara": 0,
+    "turns": 85
+  },
+  "_note": "sample_size が小さい間は HumanModelAI は greedy に近い (= データ量でスケール)。 公開サーバの試合が増えるほど精度向上。"
+}
