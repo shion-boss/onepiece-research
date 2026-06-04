@@ -60,20 +60,28 @@ def _collect_game(seed: int) -> list:
                        first_player=fp, effects_overlay=_OVERLAY)
     play_until_main(state)
     test_idx = 0 if fp == 0 else 1
+    selfplay = os.environ.get("ONEPIECE_GBM_SELFPLAY") == "1"
+    record_all = os.environ.get("ONEPIECE_GBM_RECORD_ALL") == "1"
     ais = [None, None]
-    ais[test_idx] = _make_beam(seed)        # beam = 我々 (= value を使う側)
-    ais[1 - test_idx] = GreedyAI(rng=random.Random(seed * 5 + 2))
+    ais[test_idx] = _make_beam(seed)        # = value を使う側
+    # self-play: 相手も同じ強いAI (= ExploitBeam)。 さもなくば greedy。
+    if selfplay:
+        ais[1 - test_idx] = _make_beam(seed * 3 + 99)
+    else:
+        ais[1 - test_idx] = GreedyAI(rng=random.Random(seed * 5 + 2))
     feats: list = []
     seen_turns: set = set()
     n = 0
     while not state.game_over and state.turn_number < 50 and n < 1500:
         cur = state.turn_player_idx
-        if cur == test_idx and state.phase == Phase.MAIN and state.turn_number not in seen_turns:
-            seen_turns.add(state.turn_number)
-            try:
-                feats.append(features(state, test_idx))
-            except Exception:
-                pass
+        # record_all: 自ターン中の全盤面 (= beam の葉分布をカバー)。 さもなくば MAIN 開始のみ。
+        if cur == test_idx and state.phase == Phase.MAIN:
+            if record_all or state.turn_number not in seen_turns:
+                seen_turns.add(state.turn_number)
+                try:
+                    feats.append(features(state, test_idx))
+                except Exception:
+                    pass
         try:
             play_one_action(state, ais[cur], ais[1 - cur])
         except Exception:

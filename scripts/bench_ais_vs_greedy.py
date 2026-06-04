@@ -52,18 +52,26 @@ def _build_ai(kind: str, params: dict, seed: int):
     raise ValueError(kind)
 
 
-def _winit(slug: str, cfg: dict) -> None:
+def _winit(slug: str, cfg: dict, opp_kind: str = "greedy") -> None:
     _W["slug"] = slug
     _W["cfg"] = cfg
+    _W["opp"] = opp_kind
     for k, v in cfg.get("env", {}).items():
         os.environ[k] = v
 
 
-def _wgame(seed: int) -> str:
+def _make_opp(seed: int):
     from engine.ai import GreedyAI
+    if _W.get("opp") == "exploitbeam":
+        from engine.exploit_beam_ai import ExploitBeamAI
+        return ExploitBeamAI(rng=random.Random(seed * 5 + 2))
+    return GreedyAI(random.Random(seed * 5 + 2))
+
+
+def _wgame(seed: int) -> str:
     cfg = _W["cfg"]
     ai = _build_ai(cfg["kind"], cfg.get("params", {}), seed)
-    opp = GreedyAI(random.Random(seed * 5 + 2))
+    opp = _make_opp(seed)
     res = play_game(_load(_W["slug"]), _load(_W["slug"]), ai, opp, seed)
     if res["error"]:
         return "error"
@@ -73,10 +81,10 @@ def _wgame(seed: int) -> str:
     return "win" if w == res["test_idx"] else "loss"
 
 
-def run_cfg(slug: str, cfg: dict, n: int, workers: int) -> dict:
+def run_cfg(slug: str, cfg: dict, n: int, workers: int, opp_kind: str = "greedy") -> dict:
     seeds = list(range(700000, 700000 + n))
     t0 = time.perf_counter()
-    with mp.Pool(workers, initializer=_winit, initargs=(slug, cfg)) as pool:
+    with mp.Pool(workers, initializer=_winit, initargs=(slug, cfg, opp_kind)) as pool:
         out = list(pool.imap_unordered(_wgame, seeds, chunksize=1))
     win = out.count("win")
     loss = out.count("loss")
@@ -114,6 +122,13 @@ CONFIGS = [
     {"name": "beam_16_10_1_postopp_gbmv2", "kind": "beam", "params": {"w": 16, "d": 10, "mt": 1},
      "env": {"ONEPIECE_POSTOPP_EVAL": "1",
              "ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342_v2.pkl"}},
+    # self-play value (= V_sp) を beam の葉で直接使う (post-opp 無し、 AlphaZero型)
+    {"name": "beam_8_8_1_vsp", "kind": "beam", "params": {"w": 8, "d": 8, "mt": 1},
+     "env": {"ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342_sp.pkl"}},
+    {"name": "beam_16_10_1_vsp", "kind": "beam", "params": {"w": 16, "d": 10, "mt": 1},
+     "env": {"ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342_sp.pkl"}},
+    # ExploitBeam (= v1, 72.7%) を相手にする汎化テスト用にも使える config
+    {"name": "exploitbeam_t", "kind": "exploitbeam", "params": {"w": 16, "d": 10}},
     {"name": "beam_12_8_1_gbm", "kind": "beam", "params": {"w": 12, "d": 8, "mt": 1},
      "env": {"ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342.pkl"}},
     {"name": "beam_12_10_1", "kind": "beam", "params": {"w": 12, "d": 10, "mt": 1}},
@@ -144,13 +159,15 @@ def main() -> None:
     ap.add_argument("--n", type=int, default=80)
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--only", nargs="*", default=None, help="config 名で絞る")
+    ap.add_argument("--opp", default="greedy", choices=["greedy", "exploitbeam"],
+                    help="対戦相手 (= 汎化テストは exploitbeam)")
     args = ap.parse_args()
 
     cfgs = CONFIGS if not args.only else [c for c in CONFIGS if c["name"] in args.only]
-    print(f"=== bench vs GreedyAI on {args.deck} (N={args.n}/config) ===", flush=True)
+    print(f"=== bench vs {args.opp} on {args.deck} (N={args.n}/config) ===", flush=True)
     results = []
     for cfg in cfgs:
-        r = run_cfg(args.deck, cfg, args.n, args.workers)
+        r = run_cfg(args.deck, cfg, args.n, args.workers, args.opp)
         results.append(r)
         print(f"  {r['name']:26s} winrate={r['winrate']:5.1%}  "
               f"W{r['wins']:3d}-L{r['losses']:3d} D{r['draws']} err{r['errors']}  "
