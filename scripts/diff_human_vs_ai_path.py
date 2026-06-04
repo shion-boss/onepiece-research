@@ -16,6 +16,7 @@ pool-pick 系のみ。 random discard / 並び替え / optional 等は除外 (= 
 from __future__ import annotations
 
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -135,23 +136,24 @@ def run(slug, seed, divergences):
                     divergences.append({"slug": slug, "seed": seed, "kind": kind,
                                         "viol": viol})
             elif kind == "target_pick" and choice.get("candidates"):
-                # target系 (KO/バウンス等): 全候補を選ぶ → 場を離れた候補数 ≤ limit を照合。
-                # (= 除去 over-application バグを捕捉。 非除去 rest/pump は離脱0で誤検出なし)。
+                # target系 (KO/バウンス/レスト等): 全候補を選ぶ → この modal の primitive が
+                # ログに記録する「対象 N 枚」 が limit 以下かを照合 (= 解決の picked_iids cap
+                # の regression guard)。 盤面 delta 方式は do-list 複数 primitive の連鎖
+                # (OP12-037「2枚まで」=rest×2 等) を 1 modal に誤計上する偽陽性があるため、
+                # その modal が直接処理した枚数 (= ログの「人間選択 → prim 対象 N 枚」) で照合。
                 cands = choice.get("candidates") or []
                 limit = int(choice.get("limit", 1) or 1)
-                cand_iids = {c["iid"] for c in cands}
-                field_before = {ip.instance_id for p in sess.state.players
-                                for ip in [p.leader, *p.characters, *p.stages]}
+                log_before = len(sess.state.log)
                 sess.apply_human_choice(list(range(len(cands))))
-                field_after = {ip.instance_id for p in sess.state.players
-                               for ip in [p.leader, *p.characters, *p.stages]}
-                removed = cand_iids & (field_before - field_after)
                 n_compared += 1
-                if len(removed) > limit:
-                    divergences.append({
-                        "slug": slug, "seed": seed, "kind": "target_pick",
-                        "viol": f"除去 limit違反: {len(removed)}体除去 > 上限{limit} "
-                                f"(prim={choice.get('primitive_kind')})"})
+                for ln in sess.state.log[log_before:]:
+                    m = re.search(r"人間選択 → .+ 対象 (\d+) ?枚", ln)
+                    if m and int(m.group(1)) > limit:
+                        divergences.append({
+                            "slug": slug, "seed": seed, "kind": "target_pick",
+                            "viol": f"対象 limit違反: {m.group(1)}枚に適用 > 上限{limit} "
+                                    f"(prim={choice.get('primitive_kind')})"})
+                        break
             else:
                 _pick_noncompare(sess)
         elif pk == "defense":
