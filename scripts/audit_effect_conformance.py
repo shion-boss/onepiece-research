@@ -49,7 +49,7 @@ DECK_ADD = {
     "return_to_deck_top", "return_to_deck_bottom_multi", "trash_to_deck",
     "put_hand_to_deck", "draw_per_hand_to_deck_bottom", "return_self_to_deck_bottom",
     "return_self_to_deck_bottom_if_condition", "opp_trash_to_deck_bottom",
-    "look_top_reorder", "scry_deck_reorder",
+    "look_top_reorder", "scry_deck_reorder", "hand_to_deck_bottom", "hand_to_deck_top",
 }
 # ライフを増やす primitive (= life_to_hand の「ライフ減」 を相殺して masking する)。
 LIFE_ADD = {
@@ -160,6 +160,79 @@ def _opp_leave_count(eff, state, me, opp, src):
     return n
 
 
+def _rest_opp_active_iids(eff, state, me, opp, src):
+    """do の rest が opp 側に解決する **現在アクティブな** 対象の iid 集合 (= resolver で確定)。
+    fire 後、 これらが (場に残るなら) rested になっているはず。"""
+    from engine.effects import _resolve_target
+    iids = set()
+    for p in eff.get("do", []):
+        if not isinstance(p, dict) or "if" in p or "rest" not in p:
+            continue
+        v = p["rest"]
+        try:
+            targets = _resolve_target(v, state, me, opp, src,
+                                      outer_kind="rest", outer_value=v)
+        except Exception:
+            continue
+        for t in targets:
+            if t in opp.characters and not t.rested:
+                iids.add(t.instance_id)
+    return iids
+
+
+_LEAD_BY_FEAT: dict = {}
+_LEAD_BY_NAME: dict = {}
+
+
+def _build_leader_maps(repo):
+    if _LEAD_BY_FEAT:
+        return
+    for c in repo._by_id.values():
+        if c.category == Category.LEADER:
+            for f in (c.features or ()):
+                _LEAD_BY_FEAT.setdefault(f, c)
+            _LEAD_BY_NAME.setdefault(c.name, c)
+
+
+def _satisfy_conditions(eff, state, me, opp, src, card, repo):
+    """eff の if/conditions を満たすよう state を調整 (= leader/life/don/hand gate された効果も
+    silent no-op 検査の対象にする)。 満たせたら True、 未対応条件は False (= 検査しない)。"""
+    _build_leader_maps(repo)
+    ifc = dict(eff.get("if") or {})
+    for c in (eff.get("conditions") or []):
+        if isinstance(c, dict):
+            ifc.update(c)
+    if not ifc:
+        return True
+    for k, v in ifc.items():
+        if k in ("leader_feature", "leader_features_any", "leader_name"):
+            if k == "leader_name":
+                ld = _LEAD_BY_NAME.get(v)
+            elif k == "leader_features_any":
+                ld = next((_LEAD_BY_FEAT.get(f) for f in (v or []) if _LEAD_BY_FEAT.get(f)), None)
+            else:
+                ld = _LEAD_BY_FEAT.get(v)
+            if ld is None:
+                return False
+            if card.category != Category.LEADER:
+                me.leader = InPlay.of(ld, sickness=False)
+        elif k == "self_life_le":
+            me.life = me.life[:int(v)]
+        elif k == "self_hand_count_le":
+            n = int(v)
+            keep = [c for c in me.hand if c is card][:1]  # source event は残す (main 発火に必要)
+            others = [c for c in me.hand if c is not card]
+            me.hand = keep + others[:max(0, n - len(keep))]
+        elif k == "self_attached_don_ge":
+            if src is not None:
+                src.attached_dons = max(src.attached_dons, int(v))
+        elif k == "opp_life_le":
+            opp.life = opp.life[:int(v)]
+        else:
+            return False  # 未対応条件 → 諦める (= false positive を出さない)
+    return eval_all_conditions(eff, state, me, src)
+
+
 def audit_card(repo, overlay, card_id):
     card = repo._by_id[card_id]
     bundle = overlay.get(card_id)
@@ -171,10 +244,12 @@ def audit_card(repo, overlay, card_id):
         if when not in FIRED_WHENS:
             continue  # harness が me 側で発火させない when は対象外 (artifact 防止)
         modeled = _modeled_prims(eff)
+        do0 = eff.get("do", [])
         has_opp_leave = any(
             isinstance(p, dict) and "if" not in p and (set(p) & set(OPP_LEAVE_PRIMS))
-            for p in eff.get("do", []))
-        if not modeled and not has_opp_leave:
+            for p in do0)
+        has_rest = any(isinstance(p, dict) and "if" not in p and "rest" in p for p in do0)
+        if not modeled and not has_opp_leave and not has_rest:
             continue
         state = smoke.make_state(repo, overlay, card_id)
         me = state.players[0]
@@ -196,12 +271,15 @@ def audit_card(repo, overlay, card_id):
         if isinstance(_cost, dict):
             costoracle._make_payable(me, repo, _cost)
         _make_do_feasible(me, opp, repo, eff.get("do", []))
-        # 効果の if/conditions が満たされていなければ do を期待できない (= 正当な不発)。
+        # 効果の if/conditions が満たされていなければ、 充足できるなら満たして検査対象にする
+        # (= leader/life/don gate された効果も silent no-op を検出。 充足不能なら skip)。
         if not eval_all_conditions(eff, state, me, src_inplay):
-            continue
+            if not _satisfy_conditions(eff, state, me, opp, src_inplay, card, repo):
+                continue
         # ko/return: fire 前に engine resolver で opp 退場対象数を確定 (= cost 適用前の盤面で
         #     解決されるのと同じ。 ここでは cost が opp 盤面を変えないので一致する)。
         opp_leave_n = _opp_leave_count(eff, state, me, opp, src_inplay) if has_opp_leave else 0
+        rest_iids = _rest_opp_active_iids(eff, state, me, opp, src_inplay) if has_rest else set()
         b = costoracle._snap(me, opp, src_inplay)
         try:
             smoke.fire_one_effect(state, card, src_inplay, eff, repo)
@@ -223,6 +301,17 @@ def audit_card(repo, overlay, card_id):
                 "when": when, "miss": f"ko/return: 相手キャラが減っていない (解決対象 {opp_leave_n})",
                 "text": (eff.get("_text", "") or "")[:70],
             })
+        # rest: 解決した opp アクティブ対象が、 場に残るなら rested になっているはず。
+        if rest_iids:
+            still_active = [t for t in opp.characters
+                            if t.instance_id in rest_iids and not t.rested]
+            if still_active:
+                flags.append({
+                    "card_id": card_id, "name": card.name, "idx": idx,
+                    "when": when,
+                    "miss": f"rest: 対象がレストされていない ({len(still_active)}/{len(rest_iids)})",
+                    "text": (eff.get("_text", "") or "")[:70],
+                })
     return flags
 
 

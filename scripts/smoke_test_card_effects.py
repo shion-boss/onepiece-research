@@ -200,11 +200,13 @@ def fire_one_effect(
         # ここでは me が src を持ってる想定で me 視点 trigger
         trigger_on_opp_attack(state, me, opp, opp.leader, overlay)
     elif when == "on_ko":
-        # src が KO された想定 (= trash に既に行ってる)
+        # src が KO された想定 (= trash に既に行ってる)。 付与ドンは engine 同様に渡す
+        # (= 【ドン‼×N】【KO時】 の self_attached_don_ge が評価できるよう)。
+        vdon = src_inplay.attached_dons
         if src_inplay in me.characters:
             me.characters.remove(src_inplay)
             me.trash.append(src_inplay.card)
-        trigger_on_ko(state, me, opp, src_inplay.card, overlay)
+        trigger_on_ko(state, me, opp, src_inplay.card, overlay, victim_attached_don=vdon)
     elif when == "activate_main":
         # cost を強制無視で発動
         try:
