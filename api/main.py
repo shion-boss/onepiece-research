@@ -3080,9 +3080,25 @@ def _load_deck_analysis(slug: str) -> Optional[dict]:
 
 
 def _build_default_ai_factory(deck_slug: str):
-    """harness default factory (= GoalDirectedAI v1) を 構築。"""
-    from engine.harness import _default_ai_factory  # lazy import
-    return _default_ai_factory
+    """人間の対戦相手 AI factory。 SmartOpponentAI (= deck別に ExploitBeam/greedy 自動切替、
+    [[project_70pct_vs_greedy]]) を 既定 に。 ExploitBeam は vs greedy 70-86% (= 手強い)、
+    検証で弱い deck は greedy fallback。 import/load 失敗時は GoalDirectedAI に degrade。
+
+    ⚠ Vercel: ExploitBeam は sklearn + GBM load。 deploy 環境で重い場合は
+    env ONEPIECE_HUMAN_AI=light で GoalDirectedAI に切替可。"""
+    import os as _os
+    if _os.environ.get("ONEPIECE_HUMAN_AI") == "light":
+        from engine.harness import _default_ai_factory
+        return _default_ai_factory
+    try:
+        from engine.smart_opponent_ai import SmartOpponentAI
+
+        def _smart_factory(rng, deck_analysis=None):
+            return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=deck_slug)
+        return _smart_factory
+    except Exception:
+        from engine.harness import _default_ai_factory
+        return _default_ai_factory
 
 
 def _build_human_session(spec: HumanSessionSpec):

@@ -31,15 +31,19 @@ class SmartOpponentAI:
     name = "SmartOpponent"
 
     def __init__(self, rng=None, deck_analysis: Optional[dict] = None, *,
-                 threshold: float = 0.55, results: Optional[dict] = None, **kwargs):
+                 threshold: float = 0.55, results: Optional[dict] = None,
+                 deck_slug: Optional[str] = None, **kwargs):
         import random
         self.rng = rng or random.Random()
         self.deck_analysis = deck_analysis
         self._threshold = threshold
         self._results = results if results is not None else _load_results()
+        self._deck_slug = deck_slug  # 明示指定 (= factory が deck_b_slug を渡す)
         self._inner = None  # lazy (= deck_slug が要る)
 
     def _resolve_slug(self, state: Any) -> Optional[str]:
+        if self._deck_slug:
+            return self._deck_slug
         if isinstance(self.deck_analysis, dict) and self.deck_analysis.get("deck_slug"):
             return self.deck_analysis["deck_slug"]
         slugs = getattr(state, "deck_slugs", None)
