@@ -630,7 +630,7 @@ def _pay_counter_cost(
             if state.effects_overlay:
                 if is_ko:
                     trigger_on_ko(state, me, opp, src.card, state.effects_overlay,
-                                  by_opp_effect=False)
+                                  by_opp_effect=False, victim_attached_don=src.attached_dons)
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay,
                                              victim_card=src.card)
                 else:
@@ -1326,6 +1326,11 @@ def eval_condition(
         elif k == "self_attached_don_ge":
             # 自分のリーダー or キャラに合計 N 枚以上のドンが付与されている
             total = me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
+            # 【ドン‼×N】【KO時】 等、 source が場を離れた後 (self_inplay=None) は その付与ドンが
+            # sum に含まれない → KO 時に退避した枚数を足し戻す (= 常に False になるバグ修正、
+            # OP01-038/OP14-051/ST21-004。 2026-06-05)。
+            if self_inplay is None:
+                total += int(getattr(state, "_on_ko_victim_attached_don", 0) or 0)
             if total < int(v):
                 return False
         elif k == "self_chara_unique_name":
@@ -2769,7 +2774,7 @@ def _execute_effect_body(
                     if state.effects_overlay:
                         # 効果による KO も【KO時】を発動 (10-2-1-3)
                         # KO 側 から 見ると 「相手 (= me) の効果」 由来 なので by_opp_effect=True
-                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
+                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
                         # 「相手のキャラが KO された時」 (= 自分の効果で KO した側)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         # 「自分のキャラが KO された時」 (= KO された側の場効果)
@@ -2805,7 +2810,7 @@ def _execute_effect_body(
                 _ksc_any = True
                 if state.effects_overlay:
                     # 効果による KO も【KO時】を発動 (10-2-1-3)。 自分の効果なので by_opp_effect=False。
-                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons)
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ksc_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
@@ -2827,7 +2832,7 @@ def _execute_effect_body(
                     me.don_rested += tch.attached_dons
                 ko_count += 1
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=tch.attached_dons)
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if ko_count > 0:
                 execute_effect({"power_pump": {"target": "self_leader",
@@ -6084,7 +6089,7 @@ def _execute_effect_body(
                         _kao_any = True
                         if state.effects_overlay:
                             # me 側 victim、 me 側 effect → by_opp_effect=False (= 自爆)
-                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False)
+                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons)
                             trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 else:
                     # 相手キャラ KO 経路
@@ -6111,7 +6116,7 @@ def _execute_effect_body(
                         _kao_any = True
                         if state.effects_overlay:
                             # opp 側 victim、 me 側 effect → victim から 見れば by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kao_any and state.effects_overlay:
@@ -6161,7 +6166,7 @@ def _execute_effect_body(
                         _kom_any = True
                         if state.effects_overlay:
                             # opp 側 victim、 me 側 effect → by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -6213,7 +6218,7 @@ def _execute_effect_body(
                 state.push_log(f"  効果: KO {t.card.name} (合計power<={cap})")
                 _kom_any = True
                 if state.effects_overlay:
-                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True)
+                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
                     trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                     trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -6396,7 +6401,7 @@ def _execute_effect_body(
                 _ost_any = True
                 if state.effects_overlay:
                     # me 側 victim、 me 側 effect → by_opp_effect=False (= 自分の効果による自陣KO)
-                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=ip.attached_dons)
                     # 自KO なので on_self_chara_ko (= me 側) を発火
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ost_any and state.effects_overlay:
@@ -8020,7 +8025,8 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             state.push_log(f"  効果: KO {victim.card.name} (= replace 不使用 経路)")
             if state.effects_overlay:
                 trigger_on_ko(state, owner, opp_player, victim.card,
-                              state.effects_overlay, by_opp_effect=bool(choice.get("by_opp_effect")))
+                              state.effects_overlay, by_opp_effect=bool(choice.get("by_opp_effect")),
+                              victim_attached_don=victim.attached_dons)
                 trigger_on_opp_chara_ko(state, opp_player, owner, state.effects_overlay)
                 trigger_on_self_chara_ko(state, owner, opp_player, state.effects_overlay)
         elif leave_kind == "return_to_hand":
@@ -9369,7 +9375,7 @@ def _pay_end_of_turn_cost(
                     me.don_rested += c.attached_dons
                 state.push_log(f"  ターン終了コスト: 自KO {c.card.name}")
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False)
+                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=c.attached_dons)
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 break
     # once_per_turn フラグ
@@ -10594,6 +10600,7 @@ def trigger_on_ko(
     ko_card: CardDef,
     effects_overlay: dict[str, CardEffectBundle],
     by_opp_effect: bool = False,
+    victim_attached_don: int = 0,
 ) -> None:
     """【KO時】を enqueue。 ko_card は既にトラッシュへ (10-2-17-2)。
     source_iid=None: 場から既に消えているので、 _execute_event 内では self_inplay=None で実行。
@@ -10603,6 +10610,8 @@ def trigger_on_ko(
 
     by_opp_effect: True = 相手の効果由来 KO、 False = バトル / 自分の効果 / cost KO。
         eval_condition で `by_opp_effect` / `by_battle` 条件と突合される。
+    victim_attached_don: KO された キャラに付与されていたドン枚数。 【ドン‼×N】【KO時】 の
+        self_attached_don_ge 条件で 足し戻す (= source 不在で常に False になるのを防ぐ)。
     """
     # payload-aware 条件用 context を先に設定 (= trigger_on_self_chara_ko より先に呼ばれる場合に備える)
     state.last_chara_ko_victim_card = ko_card
@@ -10612,15 +10621,21 @@ def trigger_on_ko(
     if not any(e.get("when") == "on_ko" for e in bundle.effects):
         return
     owner_idx = state.players.index(owner)
-    enqueue_event(
-        state,
-        when="on_ko",
-        owner_idx=owner_idx,
-        source_card_id=ko_card.card_id,
-        source_iid=None,
-        payload={"by_opp_effect": bool(by_opp_effect)},
-    )
-    _maybe_resolve(state)
+    # KO時の付与ドンを退避 (= self_attached_don_ge が self_inplay=None で読む)。 cascade 安全に save/restore。
+    prev_vdon = getattr(state, "_on_ko_victim_attached_don", 0)
+    state._on_ko_victim_attached_don = int(victim_attached_don or 0)
+    try:
+        enqueue_event(
+            state,
+            when="on_ko",
+            owner_idx=owner_idx,
+            source_card_id=ko_card.card_id,
+            source_iid=None,
+            payload={"by_opp_effect": bool(by_opp_effect)},
+        )
+        _maybe_resolve(state)
+    finally:
+        state._on_ko_victim_attached_don = prev_vdon
 
 
 def trigger_on_life_zero(
@@ -11481,7 +11496,7 @@ def fire_activate_main(
             state.push_log(f"  起動メインコスト: 自KO {target.card.name}")
             if state.effects_overlay:
                 # me 側 victim、 me 側 cost (= 自爆 cost) → by_opp_effect=False
-                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False)
+                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=target.attached_dons)
                 # 自KO なので on_self_chara_ko (= me 側) を発火
                 trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
     # rest_self_target_name: 自場の name 一致キャラ/ステージを 1 枚 rest
