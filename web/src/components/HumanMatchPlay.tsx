@@ -104,6 +104,26 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
   const [busy, setBusy] = useState(false);
   // 「対戦開始」 押下 から CardPreloader 完了まで の preload phase
   const [preloading, setPreloading] = useState(false);
+  // AI ターン 再生 速度 (= フレーム 待ち時間 を 1/speed)。 多ターンの観戦テンポを上げる。
+  // ref で playFrames (async) が 実行中でも 即時 反映 する。
+  const [speed, setSpeed] = useState<1 | 2 | 4>(1);
+  const speedRef = useRef<number>(1);
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
+  // AI 思考中 インジケータ: フレーム再生 (replaying) で ない busy = サーバ側 AI 計算中。
+  // 速い 人間操作 で ちらつかせ ない よう 400ms 遅延 で 表示。
+  const [replaying, setReplaying] = useState(false);
+  const [showThinking, setShowThinking] = useState(false);
+  useEffect(() => {
+    const thinking = busy && !replaying;
+    if (!thinking) {
+      setShowThinking(false);
+      return;
+    }
+    const t = setTimeout(() => setShowThinking(true), 400);
+    return () => clearTimeout(t);
+  }, [busy, replaying]);
   const [selection, setSelection] = useState<Selection>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
     null,
@@ -192,6 +212,8 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       setState(final);
       return;
     }
+    // フレーム到着 = ここから 再生 (= AI思考インジケータ を 消す)。
+    setReplaying(true);
     // 各 frame で snapshot (= board) は 中間状態 を 表示 する が、
     // log は 「baseLog + frame[0..i].log」 で frame 進行 に 同期 した progressive 表示。
     // → EffectToastOverlay が log の 1 行 ずつ 検出 → 各効果 toast が frame の wait に
@@ -232,7 +254,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         if (isMediumHeavy) wait = 800;
         if (isCounter) wait = 2800; // AI の counter は ちゃんと 見せる
         prevTurn = curTurn;
-        await new Promise((resolve) => setTimeout(resolve, wait));
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.round(wait / speedRef.current)),
+        );
         continue;
       }
       // 優先順 で wait 決定 (= 高い ほう を 採用、 AI ターン frame)
@@ -248,9 +272,12 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       if (isCounter) wait = Math.max(wait, 2800);
       if (turnChanged) wait = Math.max(wait, 4000);
       prevTurn = curTurn;
-      await new Promise((resolve) => setTimeout(resolve, wait));
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.round(wait / speedRef.current)),
+      );
     }
     setState(final);
+    setReplaying(false);
   }
 
   // 「対戦開始」 押下 → CardPreloader 表示 → 完了で beginMatch を 呼ぶ flow。
@@ -1392,6 +1419,43 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       >
         対戦終了
       </button>
+
+      {/* 左上 再生速度 コントロール (= AI ターン演出を 1x/2x/4x で早送り)。 */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute top-2 left-2 z-40 flex items-center gap-1 rounded-lg border border-amber-400/60 bg-zinc-900/80 px-2 py-1 shadow-lg backdrop-blur"
+      >
+        <span className="px-1 text-xs font-semibold text-amber-200">速度</span>
+        {([1, 2, 4] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSpeed(s);
+            }}
+            className={
+              "rounded px-2 py-0.5 text-xs font-bold transition " +
+              (speed === s
+                ? "bg-amber-500 text-white"
+                : "text-amber-200 hover:bg-amber-900/60")
+            }
+          >
+            {s}x
+          </button>
+        ))}
+      </div>
+
+      {/* AI 思考中 インジケータ (= サーバ側 で AI が手を計算中、 フリーズ誤認を防ぐ)。 */}
+      {showThinking && (
+        <div className="pointer-events-none absolute top-2 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-cyan-400/70 bg-zinc-900/90 px-4 py-1.5 shadow-lg backdrop-blur">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-500" />
+          </span>
+          <span className="text-sm font-bold text-cyan-200">AI 思考中…</span>
+        </div>
+      )}
 
       {error && (
         <div className="shrink-0 rounded border border-red-500 bg-red-950/80 p-2 text-sm text-red-100">
@@ -6856,13 +6920,93 @@ function DefenseOverlay({
     blockerIids.includes(c.instance_id),
   );
 
+  // --- パワー計算サマリ (= 防御判断の核心情報) ---------------------------- //
+  // 公式: アタックは attacker.power >= defended.power で成立。 耐える(無効/生存)には
+  // defended.power > attacker.power が必要。 守る対象は ブロック時=ブロッカー、
+  // それ以外は リーダー(リーダー攻撃) or 対象キャラ。
+  const attackerPower = Number(payload?.attacker_power ?? 0);
+  const targetIid = payload?.target_iid as number | null | undefined;
+  const counterValues =
+    (payload?.counter_values as Record<string, number> | undefined) ?? {};
+  const selectedBlocker =
+    blockerIid != null
+      ? me.characters.find((c) => c.instance_id === blockerIid)
+      : null;
+  let defendedLabel: string;
+  let defendedBase: number;
+  let defendedKind: "leader" | "chara" | "blocker";
+  if (selectedBlocker) {
+    defendedLabel = `ブロッカー ${selectedBlocker.name}`;
+    defendedBase = selectedBlocker.power;
+    defendedKind = "blocker";
+  } else if (isLeaderAttack) {
+    defendedLabel = "自リーダー";
+    defendedBase = me.leader?.power ?? 0;
+    defendedKind = "leader";
+  } else {
+    const tgt = me.characters.find((c) => c.instance_id === targetIid);
+    defendedLabel = tgt ? tgt.name : "対象キャラ";
+    defendedBase = tgt?.power ?? 0;
+    defendedKind = "chara";
+  }
+  const counterTotal = counterIdxs.reduce(
+    (s, idx) => s + (counterValues[String(idx)] ?? 0),
+    0,
+  );
+  const finalPower = defendedBase + counterTotal;
+  const survives = finalPower > attackerPower;
+  const needed = attackerPower - finalPower + 1; // 耐えるのに あと何 power
+  // 攻撃が通った時の結果文言
+  const hitConsequence =
+    defendedKind === "leader"
+      ? "ライフ -1"
+      : defendedKind === "blocker"
+        ? "ブロッカー KO (リーダーは無傷)"
+        : "このキャラ KO";
+  const surviveLabel =
+    defendedKind === "leader" ? "ライフ減らない (攻撃無効)" : "生存";
+
   return (
     <div
       onClick={(e) => e.stopPropagation()}
       className="absolute inset-x-4 bottom-4 z-50 rounded-lg border-2 border-amber-400 bg-amber-950/95 p-3 shadow-xl backdrop-blur"
     >
-      <div className="mb-2 text-base font-bold text-amber-200">
-        相手が {isLeaderAttack ? "リーダー" : "キャラ"} を攻撃中 — 防御
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-base font-bold text-amber-200">
+          相手が {isLeaderAttack ? "リーダー" : "キャラ"} を攻撃中 — 防御
+        </span>
+        {/* パワー計算: 相手アタック vs こちらの守り(+カウンター) */}
+        <span className="flex items-center gap-2 rounded bg-amber-900/60 px-2 py-0.5 text-sm">
+          <span className="text-rose-300">
+            相手 <span className="font-bold">{attackerPower}</span>
+          </span>
+          <span className="text-amber-400">vs</span>
+          <span className="text-emerald-200">
+            {defendedLabel}{" "}
+            <span className="font-bold">{defendedBase}</span>
+            {counterTotal > 0 && (
+              <span className="text-cyan-300">
+                {" +"}
+                {counterTotal}
+              </span>
+            )}
+            {counterTotal > 0 && (
+              <span className="font-bold">{" = "}{finalPower}</span>
+            )}
+          </span>
+          <span
+            className={
+              "rounded px-1.5 py-0.5 text-xs font-bold " +
+              (survives
+                ? "bg-emerald-600 text-white"
+                : "bg-rose-600 text-white")
+            }
+          >
+            {survives
+              ? surviveLabel
+              : `${hitConsequence}（あと ${needed} で耐える）`}
+          </span>
+        </span>
       </div>
       <div className="flex gap-4">
         <div>
