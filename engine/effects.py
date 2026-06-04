@@ -412,6 +412,33 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                             f"  {when} コスト: 手札 {discard_n} 枚 捨てる 対象 を 選択 待ち"
                         )
                         return
+                    # discard_hand_with_filter (= 特定カード捨て、 例 OP10-072 イベント1枚)。
+                    # 人間 acting なら どのカードを捨てるか modal で 選ばせる (= 該当のみ候補、
+                    # 0 枚 = skip で 任意コスト 見送り も 可)。 2026-06-04 追加。
+                    dwf = real_cost.get("discard_hand_with_filter")
+                    if isinstance(dwf, dict) and _should_human_pick(state):
+                        df = dwf.get("filter", {}) if isinstance(dwf.get("filter"), dict) else {}
+                        dcnt = int(dwf.get("count", 1))
+                        matching = [(i, c) for i, c in enumerate(me.hand)
+                                    if _matches_filter(c, df)]
+                        if len(matching) >= dcnt:
+                            cand_list = [
+                                {"hand_idx": i, "card_id": c.card_id, "name": c.name,
+                                 "cost": int(c.cost) if c.cost is not None else 0,
+                                 "power": int(c.power) if c.power is not None else 0}
+                                for i, c in matching
+                            ]
+                            state.pending_choice = {
+                                "kind": "counter_discard_pick", "when_key": when,
+                                "card_id": evt.source_card_id, "owner_idx": evt.owner_idx,
+                                "source_iid": evt.source_iid, "effect_idx": idx,
+                                "discard_n": dcnt, "cost": real_cost,
+                                "candidates": cand_list, "limit": dcnt,
+                            }
+                            state.push_log(
+                                f"  {when} コスト: 該当手札 {dcnt} 枚 捨てる 対象 を 選択 待ち"
+                            )
+                            return
                     _pay_counter_cost(state, me, opp, self_inplay, real_cost)
             run_do_array(eff.get("do", []), state, me, opp, self_inplay)
     finally:
@@ -443,6 +470,16 @@ def _can_pay_counter_cost(
     rest_don = int(cost.get("rest_self_don", 0))
     if rest_don > 0 and me.don_active < rest_don:
         return False
+    # discard_hand_with_filter (= 「手札から特定カードを捨てる」 例: OP10-072 イベント1枚):
+    # 該当カードが count 枚 未満なら 払えない (= 効果不発)。 旧実装は未チェックで効果が
+    # コスト無視で発動していた (2026-06-04 修正)。
+    dwf = cost.get("discard_hand_with_filter")
+    if isinstance(dwf, dict):
+        f = dwf.get("filter", {}) if isinstance(dwf.get("filter"), dict) else {}
+        cnt = int(dwf.get("count", 1))
+        matching = sum(1 for c in me.hand if _matches_filter(c, f))
+        if matching < cnt:
+            return False
     return True
 
 
@@ -488,6 +525,21 @@ def _pay_counter_cost(
         me.don_active -= actual
         me.don_rested += actual
         state.push_log(f"  counter コスト: アクティブドン {actual} レスト")
+    # discard_hand_with_filter (= 特定カードを捨てる、 例: OP10-072 イベント1枚)。
+    # 旧実装は未処理で コスト払わず 効果だけ発動していた (2026-06-04 修正)。
+    dwf = cost.get("discard_hand_with_filter")
+    if isinstance(dwf, dict):
+        f = dwf.get("filter", {}) if isinstance(dwf.get("filter"), dict) else {}
+        cnt = int(dwf.get("count", 1))
+        matching_idxs = [i for i, c in enumerate(me.hand) if _matches_filter(c, f)]
+        chosen = sorted(matching_idxs[:cnt], reverse=True)
+        for i in chosen:
+            me.trash.append(me.hand.pop(i))
+        if chosen:
+            state.push_log(f"  cost: 手札から該当 {len(chosen)} 枚 捨て")
+            if state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, me, opp, self_inplay, len(chosen), state.effects_overlay)
 
 
 def _check_and_set_once_per_turn(
@@ -8063,7 +8115,10 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             trigger_on_self_hand_discarded(
                 state, owner, opp_for_pay, None, discard_n, state.effects_overlay
             )
-        remaining_cost = {k: v for k, v in cost.items() if k != "discard_hand"}
+        # discard_hand / discard_hand_with_filter は ここで 人間選択分を 捨て済 → 残コストから除外
+        # (= 除外しないと _pay_counter_cost で二重に捨てる。 2026-06-04 修正)。
+        remaining_cost = {k: v for k, v in cost.items()
+                          if k not in ("discard_hand", "discard_hand_with_filter")}
         if remaining_cost:
             _pay_counter_cost(state, owner, opp_for_pay, None, remaining_cost)
         if eff_idx >= 0:
