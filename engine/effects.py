@@ -3800,8 +3800,17 @@ def _execute_effect_body(
                     reverse=True,
                 )
                 played_count = 0
-                for i in chosen_indexes[:limit]:
+                seen_names: set[str] = set()
+                for i in chosen_indexes:
+                    if played_count >= limit:
+                        break
                     card = me.trash[i]
+                    # 公式「カード名の異なる」: unique_name 指定時は重複名を登場させない。
+                    # ⚠ 人間 pick path でも 強制 する (= 旧実装は AI path のみ enforce で、
+                    #   人間が modal で 同名を複数選ぶと 重複登場できてしまうバグがあった)。
+                    if unique_name and card.name in seen_names:
+                        state.push_log(f"  効果: {card.name} は同名重複のため登場せず (カード名の異なる)")
+                        continue
                     if target_category == Category.STAGE:
                         # 既 ステージ ある なら 入れ替え (= 公式 上限 1)。
                         if me.stages:
@@ -3813,7 +3822,6 @@ def _execute_effect_body(
                         me.trash.pop(i)
                         ip = InPlay.of(card, rested=False, sickness=False)
                         me.stages.append(ip)
-                        played_count += 1
                         state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
                     else:
                         if not me.can_play_character():
@@ -3824,11 +3832,12 @@ def _execute_effect_body(
                         me.characters.append(ip)
                         if pk_grant:
                             ip.granted_keywords.add(str(pk_grant))
-                        played_count += 1
                         label = "レストで" if rested else ""
                         state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
                         if state.effects_overlay:
                             trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                    seen_names.add(card.name)
+                    played_count += 1
                 if played_count == 0:
                     return False
                 continue
