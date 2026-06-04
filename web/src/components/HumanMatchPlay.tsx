@@ -1420,10 +1420,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         対戦終了
       </button>
 
-      {/* 左上 再生速度 コントロール (= AI ターン演出を 1x/2x/4x で早送り)。 */}
+      {/* 右上 再生速度 コントロール (= AI ターン演出を 1x/2x/4x で早送り)。
+          対戦終了ボタンの下に配置 (= 左上だと相手の数値パネルに被るため)。 */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-2 left-2 z-40 flex items-center gap-1 rounded-lg border border-amber-400/60 bg-zinc-900/80 px-2 py-1 shadow-lg backdrop-blur"
+        className="absolute top-14 right-2 z-40 flex items-center gap-1 rounded-lg border border-amber-400/60 bg-zinc-900/80 px-2 py-1 shadow-lg backdrop-blur"
       >
         <span className="px-1 text-xs font-semibold text-amber-200">速度</span>
         {([1, 2, 4] as const).map((s) => (
