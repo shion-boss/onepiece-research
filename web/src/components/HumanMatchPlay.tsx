@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -3500,33 +3500,70 @@ function LogSidebar({
         ref={scrollRef}
         className="log-scroll flex-1 overflow-y-auto font-mono"
       >
-        {log.map((line, i) => {
-          const shown = sanitizeLogLine(line, aiIdx);
-          const isMasked = shown !== line;
-          const hasComment = commentedIndexes.has(i);
-          return (
-            <div
-              key={i}
-              className={
-                "cursor-context-menu border-b border-zinc-700/50 py-0.5 transition-colors hover:bg-zinc-700/30 " +
-                (isMasked ? "text-zinc-400 italic " : "") +
-                (hasComment ? "border-l-2 border-l-amber-400 pl-1 " : "")
-              }
-              title={
-                hasComment
-                  ? `${shown} (コメント済)`
-                  : `${shown} — 右クリックで メモ`
-              }
-              onContextMenu={(e) => {
-                if (!sessionId) return;
-                e.preventDefault();
-                setCommentTarget({ index: i, text: shown });
-              }}
-            >
-              {shown}
-            </div>
-          );
-        })}
+        {(() => {
+          // 各行は engine で 「T{turn} P{idx}: {msg}」 の形。 idx で 手番 (あなた/相手) を
+          // 判定し 色分け、 turn/手番 が 変わる 境界 に 区切りを 挿入、 サブイベント
+          // (= 行頭スペース) は indent + dim で 主行動 と 区別 する。
+          const humanIdx = aiIdx === 0 ? 1 : 0;
+          let lastSeg = "";
+          const rows: ReactNode[] = [];
+          log.forEach((line, i) => {
+            const shown = sanitizeLogLine(line, aiIdx);
+            const isMasked = shown !== line;
+            const hasComment = commentedIndexes.has(i);
+            const m = shown.match(/^T(\d+) P(\d+):\s?(.*)$/);
+            const turn = m ? m[1] : "";
+            const pidx = m ? Number(m[2]) : -1;
+            const body = m ? m[3] : shown;
+            const isHuman = pidx === humanIdx;
+            const isAI = pidx === aiIdx;
+            const isSub = /^\s/.test(body); // 「  効果:」 等 の 従属イベント
+            const seg = `${turn}:${pidx}`;
+            if (m && seg !== lastSeg) {
+              lastSeg = seg;
+              rows.push(
+                <div
+                  key={`sep-${i}`}
+                  className={
+                    "mt-1 mb-0.5 flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-bold " +
+                    (isHuman
+                      ? "bg-emerald-900/50 text-emerald-200"
+                      : "bg-rose-900/50 text-rose-200")
+                  }
+                >
+                  <span className="opacity-70">T{turn}</span>
+                  <span>{isHuman ? "あなたのターン" : "相手のターン"}</span>
+                </div>,
+              );
+            }
+            rows.push(
+              <div
+                key={i}
+                className={
+                  "cursor-context-menu border-b border-zinc-700/40 py-0.5 transition-colors hover:bg-zinc-700/30 " +
+                  (isSub ? "pl-4 text-zinc-400 " : "") +
+                  (!isSub && isAI ? "text-rose-100 " : "") +
+                  (!isSub && isHuman ? "text-emerald-100 " : "") +
+                  (isMasked ? "text-zinc-400 italic " : "") +
+                  (hasComment ? "border-l-2 border-l-amber-400 pl-1 " : "")
+                }
+                title={
+                  hasComment
+                    ? `${shown} (コメント済)`
+                    : `${shown} — 右クリックで メモ`
+                }
+                onContextMenu={(e) => {
+                  if (!sessionId) return;
+                  e.preventDefault();
+                  setCommentTarget({ index: i, text: shown });
+                }}
+              >
+                {isSub ? body.replace(/^\s+/, "") : body || shown}
+              </div>,
+            );
+          });
+          return rows;
+        })()}
       </div>
       {commentTarget && sessionId && (
         <LogCommentModal
