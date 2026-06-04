@@ -33,6 +33,9 @@ def _build_ai(kind: str, params: dict, seed: int):
         return MCTSAI(rng=rng, n_simulations=params.get("n", 50),
                       rollout_depth=params.get("depth", 12),
                       c_uct=params.get("c", 1.41))
+    if kind == "smart":
+        from engine.smart_opponent_ai import SmartOpponentAI
+        return SmartOpponentAI(rng=rng, threshold=params.get("threshold", 0.55))
     if kind == "azmcts":
         from engine.az_mcts import AZMctsAI
         vf = None
@@ -139,6 +142,7 @@ CONFIGS = [
      "env": {"ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342_sp.pkl"}},
     # ExploitBeam (= v1, 72.7%) を相手にする汎化テスト用にも使える config
     {"name": "exploitbeam_t", "kind": "exploitbeam", "params": {"w": 16, "d": 10}},
+    {"name": "smart", "kind": "smart", "params": {"threshold": 0.55}},
     {"name": "azmcts_120", "kind": "azmcts", "params": {"n": 120}},
     {"name": "azmcts_240", "kind": "azmcts", "params": {"n": 240}},
     {"name": "beam_12_8_1_gbm", "kind": "beam", "params": {"w": 12, "d": 8, "mt": 1},
