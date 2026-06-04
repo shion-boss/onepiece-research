@@ -111,16 +111,25 @@ def run(slug, seed, divergences):
                 sess.apply_human_choice(list(range(len(cands))))
                 me2 = sess.state.players[tp]
                 if dest == "field":
-                    new_cards = [ip.card for ip in [*me2.characters, *me2.stages]
-                                 if ip.instance_id not in before]
+                    raw_new = [ip.card for ip in [*me2.characters, *me2.stages]
+                               if ip.instance_id not in before]
                 else:
                     added = Counter(c.card_id for c in me2.hand) - before
-                    new_cards = []
+                    raw_new = []
                     for cid, cnt in added.items():
                         try:
-                            new_cards.extend([repo.get(cid)] * cnt)
+                            raw_new.extend([repo.get(cid)] * cnt)
                         except Exception:
                             pass
+                # ⚠ この効果の候補 (card_id) に限定 → 召喚キャラの on_play が別効果で
+                #   召喚した下流カードを除外 (= 偽陽性防止)。
+                cand_ids = Counter(c.get("card_id") for c in (choice.get("candidates") or []))
+                used: Counter = Counter()
+                new_cards = []
+                for card in raw_new:
+                    if used[card.card_id] < cand_ids.get(card.card_id, 0):
+                        used[card.card_id] += 1
+                        new_cards.append(card)
                 n_compared += 1
                 for viol in _check_card_conformance(sess.state, new_cards, choice):
                     divergences.append({"slug": slug, "seed": seed, "kind": kind,
