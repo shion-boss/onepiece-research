@@ -140,6 +140,26 @@ def test_play_from_hand_human_pick_respects_limit():
     assert len(me.characters) == 1, f"limit=1 なのに {len(me.characters)} 体召喚した"
 
 
+def test_search_human_pick_respects_limit():
+    """search (デッキ検索) の人間 pick が limit を超えて手札に加えない。
+
+    bug (2026-06-04 修正前、 適合ハーネスが発見): picks_idx 経路が [:limit] せず、
+    人間が候補を limit 超で選ぶと全部手札へ (cardrush_1385 で 14-18枚 検出)。
+    """
+    from engine.effects import execute_effect
+    repo, overlay = T._repo(), T._overlay()
+    state = T._make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    state.turn_player_idx = 0
+    hand0 = len(me.hand)
+    # デッキ先頭に CHARACTER 3 枚
+    me.deck = [repo.get("OP04-077"), repo.get("OP04-077"), repo.get("OP04-077")] + list(me.deck)
+    spec = {"filter": {"category": "CHARACTER"}, "limit": 1,
+            "_picked_deck_idxs": [0, 1, 2]}  # 3 枚選ぶ
+    execute_effect({"search": spec}, state, me, state.players[1], None)
+    assert len(me.hand) == hand0 + 1, f"limit=1 なのに手札 +{len(me.hand)-hand0} 枚"
+
+
 def test_gorosei_summoned_have_summoning_sickness():
     """OP13-082 は速攻を付与しない → 登場キャラは召喚酔い (= 当ターン攻撃不可)。"""
     state, me, opp, repo = _setup()

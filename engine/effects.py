@@ -3500,11 +3500,18 @@ def _execute_effect_body(
                 return True
             # picks_idx 指定時 = 人間 選 択 解 決 後 の 再実行
             if picks_idx is not None:
-                picked_idxs = sorted(set(picks_idx), reverse=True)
-                picked: list[CardDef] = []
-                for i in picked_idxs:
-                    if 0 <= i < len(me.deck):
-                        picked.append(me.deck.pop(i))
+                # ⚠ filter 該当のみ + limit で cap + 重複除去 (= 人間が候補超/非該当/重複を
+                #   送っても防御。 AI path と同等。 2026-06-04 修正: 旧実装は picks をそのまま
+                #   全件手札へで limit/filter 無視だった)。
+                seen_i: set[int] = set()
+                ordered_i: list[int] = []
+                for i in picks_idx:
+                    if (isinstance(i, int) and 0 <= i < len(me.deck)
+                            and i not in seen_i and _matches_filter(me.deck[i], filt)):
+                        seen_i.add(i)
+                        ordered_i.append(i)
+                chosen_i = ordered_i[:limit]
+                picked: list[CardDef] = [me.deck.pop(i) for i in sorted(chosen_i, reverse=True)]
             else:
                 # AI / 候補 ≤ limit: 旧 自動 pick (= filter マッチ 先頭 N 枚)
                 found = 0
@@ -4086,8 +4093,11 @@ def _execute_effect_body(
                 return True
             # picks 指定 / AI / 候補 <= limit → 既存 ヒューリスティック
             if picks_idx is not None:
+                # ⚠ 候補限定 + limit cap (= 人間が候補外/上限超を送っても防御。 AI path と同等。
+                #   2026-06-04 修正: 旧実装は cap/filter 無視だった)。
+                valid_hand_idxs = {i for i, _ in candidates}
                 chosen_indexes = sorted(
-                    [i for i in picks_idx if 0 <= i < len(me.hand)],
+                    [i for i in picks_idx if i in valid_hand_idxs][:limit],
                     reverse=True,
                 )
             else:
