@@ -2,12 +2,15 @@
 """効果意味ジャッジ (do 側) の CI ゲート。
 
 audit_effect_conformance.py が「効果が宣言した do を engine が実際に起こしたか」 を検証
-(= cost ジャッジ audit_cost_payment.py の do 側姉妹)。 v1 は MANDATORY 系 draw/mill_self_top:
-発火したのにデッキ/トラッシュが 1 枚も動かない = silent no-op (未実装/誤dispatch/条件で
-誤って全 block) を検出。 毎 pytest 2 つを保証:
+(= cost ジャッジ audit_cost_payment.py の do 側姉妹)。 対象 primitive:
+  draw / mill_self_top / add_don / add_rested_don / life_to_hand / ko。
+発火したのに 期待 footprint (デッキ減/ドン増/ライフ減/相手キャラ減) が 1 枚も動かない =
+silent no-op (未実装/誤dispatch/条件で誤って全 block) を検出。 各 primitive は feasibility を
+確定 (= 資源注入 / ko は resolver で対象実在を確認) してから照合 → false positive ゼロ。
 
-1. 実 DB で draw/mill の silent no-op 0 (= 退行検出)。
-2. ジャッジ自身が機能する (= 発火を no-op 化すると検出する) → 非空振り証明。
+毎 pytest で保証:
+1. 実 DB で silent no-op 0 (= 退行検出)。
+2. ジャッジ自身が機能する (= 発火を no-op 化すると draw / ko を検出する) → 非空振り証明。
 """
 from __future__ import annotations
 
@@ -31,8 +34,9 @@ def _ids(repo):
             if not c.endswith(("_p1", "_p2", "_p3", "_p4", "_r1", "_r2"))]
 
 
-def test_no_draw_mill_silent_noop():
-    """全カードで draw/mill が発火したのに山/トラッシュが動かない (= 空振り) ものが 0。"""
+def test_no_silent_noop_in_db():
+    """全カードで モデル化 primitive (draw/mill/add_don/life/ko) が発火したのに
+    期待 footprint が動かない (= 空振り) ものが 0。"""
     repo, overlay = _load()
     flags = []
     for cid in _ids(repo):
@@ -73,3 +77,29 @@ def test_judge_detects_noop(monkeypatch):
     flags = judge.audit_card(repo, overlay, draw_card)
     assert flags and any("draw" in f["miss"] for f in flags), \
         "発火を壊してもジャッジが検出しない (= 空振り)"
+
+
+def test_judge_detects_ko_noop(monkeypatch):
+    """ko を含む効果で 発火を no-op 化すると 相手キャラが減らず検出する (= ko 照合の非空振り)。
+
+    ko は engine resolver で opp 対象実在を確認した時だけ照合する → 対象が解決できた
+    ko カードを no-op 発火すると「相手キャラが減っていない」 を必ず検出するはず。
+    """
+    repo, overlay = _load()
+    monkeypatch.setattr(judge.smoke, "fire_one_effect", lambda *a, **k: None)
+    found = False
+    for cid in _ids(repo):
+        b = overlay.get(cid)
+        if not b:
+            continue
+        has_ko = any(
+            x.get("when") in judge.FIRED_WHENS and any(
+                isinstance(p, dict) and "if" not in p and "ko" in p for p in x.get("do", []))
+            for x in b.effects)
+        if not has_ko:
+            continue
+        flags = judge.audit_card(repo, overlay, cid)
+        if any("ko" in f["miss"] for f in flags):
+            found = True
+            break
+    assert found, "no-op 発火で ko 踏み倒しを 1 枚も検出しない (= ko 照合が空振り)"

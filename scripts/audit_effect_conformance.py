@@ -30,8 +30,13 @@ from engine.core import Category, InPlay  # noqa: E402
 from engine.deck import CardRepository  # noqa: E402
 from engine.effects import load_effect_overlay, eval_all_conditions  # noqa: E402
 
-# v1 でジャッジする do-primitive (= 発火すれば必ず観測可能な footprint を残す MANDATORY 系)。
-MODELED = {"draw", "mill_self_top"}
+# ジャッジする do-primitive (= 発火すれば必ず観測可能な footprint を残す系)。
+# 各 primitive は feasibility を確定 (= 資源/対象を注入) してから footprint を照合 → false positive ゼロ。
+MODELED = {
+    "draw", "mill_self_top",            # デッキ減 (v1)
+    "add_don", "add_don_active", "add_rested_don",  # 場ドン増 (v2)
+    "life_to_hand",                     # ライフ減 (v2)
+}
 
 # harness (fire_one_effect) が **me 側で素直に発火** させる when のみ対象。
 # counter/opp_attack/trigger/on_*_ko 反応 等は battle/opp 文脈 or 未発火で artifact になるため除外。
@@ -46,6 +51,12 @@ DECK_ADD = {
     "return_self_to_deck_bottom_if_condition", "opp_trash_to_deck_bottom",
     "look_top_reorder", "scry_deck_reorder",
 }
+# ライフを増やす primitive (= life_to_hand の「ライフ減」 を相殺して masking する)。
+LIFE_ADD = {
+    "put_top_to_life", "hand_to_self_life", "chara_to_self_life", "put_hand_to_life",
+}
+# 場のドンを減らす key (cost/do どちらも、 = add_don の「ドン増」 を相殺して masking する)。
+DON_REMOVE = {"pay_don", "return_self_don_to_deck"}
 
 
 def _fixed_amount(v):
@@ -65,8 +76,11 @@ def _modeled_prims(eff):
     """eff.do の トップレベル (= inner if なし) の MODELED primitive を [(key, amount)] で返す。
     draw は deck-add 系 (mdraw) が同じ do にあると デッキ枚数 masking で判定不能 → 抑止。"""
     do = eff.get("do", [])
-    all_keys = {k for p in do if isinstance(p, dict) for k in p}
-    has_deck_add = bool(all_keys & DECK_ADD)
+    do_keys = {k for p in do if isinstance(p, dict) for k in p}
+    cost_keys = set(eff.get("cost")) if isinstance(eff.get("cost"), dict) else set()
+    has_deck_add = bool(do_keys & DECK_ADD)
+    has_life_add = bool(do_keys & LIFE_ADD)
+    has_don_remove = bool((do_keys | cost_keys) & DON_REMOVE)
     out = []
     for p in do:
         if not isinstance(p, dict) or "if" in p:
@@ -74,12 +88,29 @@ def _modeled_prims(eff):
         for k, v in p.items():
             if k not in MODELED:
                 continue
+            # masking 抑止: cost/do の相殺 primitive があると 枚数判定が無効。
             if k == "draw" and has_deck_add:
-                continue  # mdraw: デッキ枚数で判定できない
+                continue
+            if k == "life_to_hand" and has_life_add:
+                continue
+            if k in ("add_don", "add_don_active", "add_rested_don") and has_don_remove:
+                continue
             amt = _fixed_amount(v)
             if amt is not None and amt >= 1:
                 out.append((k, amt))
     return out
+
+
+def _make_do_feasible(me, opp, repo, do):
+    """do primitive が実際に作用できるよう資源を注入 (= feasibility 確定で false positive 回避)。
+    フィルタ無しで完全制御できる資源系のみ (= 対象選択系 ko/play は別途 confirm-or-skip)。"""
+    keys = {k for p in do if isinstance(p, dict) for k in p}
+    if keys & {"add_don", "add_don_active", "add_rested_don"}:
+        # make_state は don_remaining=0 → add_don が作用できない。 ドンデッキに残を作る (total 10 維持)。
+        me.don_remaining_in_deck = 5
+        me.don_active = 3
+        me.don_rested = 2
+    # life_to_hand は make_state の life=4 で足りる (= 追加注入不要)。
 
 
 def _missing(prim_key, b, a):
@@ -90,7 +121,43 @@ def _missing(prim_key, b, a):
     elif prim_key == "mill_self_top":
         if b["deck"] > 0 and a["deck"] >= b["deck"] and a["trash"] <= b["trash"]:
             return "mill_self_top: デッキ/トラッシュが動いていない"
+    elif prim_key in ("add_don", "add_don_active"):
+        if b["don_deck"] > 0 and a["don_field"] <= b["don_field"]:
+            return "add_don: 場のドンが増えていない"
+    elif prim_key == "add_rested_don":
+        if b["don_deck"] > 0 and a["don_rested"] <= b["don_rested"]:
+            return "add_rested_don: レストドンが増えていない"
+    elif prim_key == "life_to_hand":
+        if b["life"] > 0 and a["life"] >= b["life"]:
+            return "life_to_hand: ライフが減っていない"
     return None
+
+
+# opp のキャラを場から退場させる primitive (= 発火後に opp.characters が減るはず)。
+OPP_LEAVE_PRIMS = ("ko", "ko_multi", "return_to_hand", "return_to_hand_multi",
+                   "return_to_deck_bottom", "chara_to_opp_life")
+
+
+def _opp_leave_count(eff, state, me, opp, src):
+    """do の ko/return 系が **opp 側に解決する対象数** を engine の resolver で求める。
+    >0 なら fire 後に opp.characters が減るはず。 解決失敗/0 なら期待しない (= feasibility
+    未確定では照合しない = false positive を出さない)。"""
+    from engine.effects import _resolve_target
+    n = 0
+    for p in eff.get("do", []):
+        if not isinstance(p, dict) or "if" in p:
+            continue
+        for k in OPP_LEAVE_PRIMS:
+            if k not in p:
+                continue
+            v = p[k]
+            try:
+                targets = _resolve_target(v, state, me, opp, src,
+                                          outer_kind=k, outer_value=v)
+            except Exception:
+                continue
+            n += sum(1 for t in targets if t in opp.characters)
+    return n
 
 
 def audit_card(repo, overlay, card_id):
@@ -104,7 +171,10 @@ def audit_card(repo, overlay, card_id):
         if when not in FIRED_WHENS:
             continue  # harness が me 側で発火させない when は対象外 (artifact 防止)
         modeled = _modeled_prims(eff)
-        if not modeled:
+        has_opp_leave = any(
+            isinstance(p, dict) and "if" not in p and (set(p) & set(OPP_LEAVE_PRIMS))
+            for p in eff.get("do", []))
+        if not modeled and not has_opp_leave:
             continue
         state = smoke.make_state(repo, overlay, card_id)
         me = state.players[0]
@@ -125,9 +195,13 @@ def audit_card(repo, overlay, card_id):
         _cost = eff.get("cost")
         if isinstance(_cost, dict):
             costoracle._make_payable(me, repo, _cost)
+        _make_do_feasible(me, opp, repo, eff.get("do", []))
         # 効果の if/conditions が満たされていなければ do を期待できない (= 正当な不発)。
         if not eval_all_conditions(eff, state, me, src_inplay):
             continue
+        # ko/return: fire 前に engine resolver で opp 退場対象数を確定 (= cost 適用前の盤面で
+        #     解決されるのと同じ。 ここでは cost が opp 盤面を変えないので一致する)。
+        opp_leave_n = _opp_leave_count(eff, state, me, opp, src_inplay) if has_opp_leave else 0
         b = costoracle._snap(me, opp, src_inplay)
         try:
             smoke.fire_one_effect(state, card, src_inplay, eff, repo)
@@ -142,6 +216,13 @@ def audit_card(repo, overlay, card_id):
                     "when": when, "miss": miss,
                     "text": (eff.get("_text", "") or "")[:70],
                 })
+        # ko/return: 解決した opp 退場対象 ≥1 なら fire 後に opp.characters が減るはず。
+        if opp_leave_n > 0 and a["opp_chars"] >= b["opp_chars"]:
+            flags.append({
+                "card_id": card_id, "name": card.name, "idx": idx,
+                "when": when, "miss": f"ko/return: 相手キャラが減っていない (解決対象 {opp_leave_n})",
+                "text": (eff.get("_text", "") or "")[:70],
+            })
     return flags
 
 
