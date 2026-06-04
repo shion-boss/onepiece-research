@@ -112,3 +112,41 @@ def test_reveal_hand_cost_feasibility():
     me.characters.append(src)
     trigger_on_play(s, me, opp, src, overlay)
     assert not victim.rested, "公開コスト払えないのに効果 (相手レスト) が発動した"
+
+
+def test_activate_main_trash_to_deck_cost():
+    """OP05-082 起動メイン: rest_self + trash_to_deck=2。 trash 不足なら払えず、
+    足りれば 2 枚デッキ下へ (= activate_main 経路の trash_to_deck 踏み倒し回帰)。"""
+    import json
+    from engine.effects import fire_activate_main, _can_pay_activate_cost
+    s, me, opp, repo, overlay = _fresh()
+    am = [x for x in json.load(open("db/card_effects.json"))["OP05-082"]
+          if isinstance(x, dict) and x.get("when") == "activate_main"][0]
+    src = InPlay.of(repo.get("OP05-082"), sickness=False, rested=False)
+    me.characters.append(src)
+    me.trash = [repo.get("OP04-077")]  # 1 枚 < 2
+    assert not _can_pay_activate_cost(s, me, src, am["cost"]), "trash<2 なのに払える判定"
+    me.trash = [repo.get("OP04-077") for _ in range(6)]
+    assert _can_pay_activate_cost(s, me, src, am["cost"])
+    tr0, dk0 = len(me.trash), len(me.deck)
+    fire_activate_main(s, me, opp, src, am)
+    assert src.rested, "rest_self が払われていない"
+    assert len(me.trash) == tr0 - 2, "trash_to_deck=2 が払われていない"
+    assert len(me.deck) == dk0 + 2, "デッキに 2 枚戻っていない"
+
+
+def test_opp_attack_rest_self_cost():
+    """OP07-024 コアラ 相手アタック時: rest_self コスト。 AI defender は即時支払 (= 自レスト)。
+
+    bug (2026-06-04 修正前): opp_attack の AI 支払いが pay_don/rest_self_don/discard_hand のみ
+    inline で、 rest_self/trash_self/discard_hand_with_filter を踏み倒していた。
+    """
+    from engine.effects import trigger_on_opp_attack
+    s, me, opp, repo, overlay = _fresh()
+    s.turn_player_idx = 1  # 相手ターン
+    koala = InPlay.of(repo.get("OP07-024"), sickness=False, rested=False)
+    me.characters.append(koala)
+    atk = InPlay.of(repo.get("OP04-077"), sickness=False, rested=False)
+    opp.characters.append(atk)
+    trigger_on_opp_attack(s, me, opp, atk, overlay)
+    assert koala.rested, "opp_attack の rest_self コストが払われていない (= 自レストせず)"

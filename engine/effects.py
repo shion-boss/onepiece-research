@@ -9735,25 +9735,16 @@ def _enqueue_opp_attack_with_cost(
             # AI: EV 判定 → 発動 価値 低い なら skip (= 旧 「常 fire」 から 改善)
             if not _ai_should_fire_opp_attack_cost(state, me, source_inplay, eff, attacker):
                 continue
-            # AI: 即時 支払 + fire
-            # pay_don: ドン!!-N → don_active から N 枚 を don_remaining_in_deck に 戻す
-            # (= fire_activate_main と 同 semantics)。
-            if pay_don > 0:
-                taken = min(pay_don, me.don_active)
-                me.don_active -= taken
-                me.don_remaining_in_deck += taken
-                rest_more = min(pay_don - taken, me.don_rested)
-                me.don_rested -= rest_more
-                me.don_remaining_in_deck += rest_more
-            if rest_don > 0:
-                me.don_active -= rest_don
-                me.don_rested += rest_don
-            if discard_n > 0:
-                import random as _rng
-                rng = state.rng or _rng.Random()
-                for _ in range(min(discard_n, len(me.hand))):
-                    i = rng.randrange(len(me.hand))
-                    me.trash.append(me.hand.pop(i))
+            # AI: 即時 支払 + fire。 全 cost キーを _pay_counter_cost に委譲して漏れなく支払う
+            # (= 旧実装は pay_don/rest_self_don/discard_hand のみ inline で、 rest_self/trash_self/
+            #   discard_hand_with_filter 等を踏み倒していた。 discard/don の派生トリガも未発火だった。
+            #   2026-06-04 修正)。
+            real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
+            opp_pl = state.players[1 - me_idx]
+            if real_cost and not _can_pay_counter_cost(state, me, source_inplay, real_cost):
+                continue  # 払えないなら発動しない (公式 4-10)
+            if real_cost:
+                _pay_counter_cost(state, me, opp_pl, source_inplay, real_cost)
             if cost.get("once_per_turn"):
                 setattr(source_inplay, per_turn_key, True)
             eff_indexes_to_fire.append(idx)
@@ -10927,6 +10918,10 @@ def _can_pay_activate_cost(
     rest_self_don = int(cost.get("rest_self_don", 0))
     if rest_self_don > 0 and me.don_active < rest_self_don:
         return False
+    # trash_to_deck N (= トラッシュ N 枚をデッキに戻す、 例 OP05-082): トラッシュ不足なら払えない。
+    ttd_n = int(cost.get("trash_to_deck", 0) or 0)
+    if ttd_n > 0 and len(me.trash) < ttd_n:
+        return False
     if cost.get("return_self_to_hand"):
         # self を 手札に 戻す cost: self が 場 (chara) に いる + 手札 余裕 (= 10 枚未満)
         if inplay not in me.characters:
@@ -11251,6 +11246,15 @@ def fire_activate_main(
             me.don_active -= actual
             me.don_rested += actual
             state.push_log(f"  起動メインコスト: アクティブドン {actual} レスト")
+        # trash_to_deck N: トラッシュ上から N 枚をデッキ下へ (= 起動コスト、 例 OP05-082。
+        # 旧実装は未払いで trash_to_deck 分の cost を踏み倒していた、 2026-06-04 修正)
+        ttd_act = int(cost.get("trash_to_deck", 0) or 0)
+        if ttd_act > 0:
+            moved = min(ttd_act, len(me.trash))
+            for _ in range(moved):
+                me.deck.append(me.trash.pop(0))
+            if moved:
+                state.push_log(f"  起動メインコスト: トラッシュ {moved} 枚をデッキ下に")
         # return_self_to_hand: self を 場 から 手札 に 戻す
         if cost.get("return_self_to_hand") and inplay in me.characters:
             me.characters.remove(inplay)
