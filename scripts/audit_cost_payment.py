@@ -40,7 +40,7 @@ RESOURCE_COST_KEYS = {
 SKIP_KEYS = {"once_per_turn", "reveal_hand_with_filter"}
 
 
-def _snap(me, src_inplay):
+def _snap(me, opp, src_inplay):
     return {
         "hand": len(me.hand),
         "don_field": me.don_active + me.don_rested,
@@ -49,12 +49,34 @@ def _snap(me, src_inplay):
         "don_deck": me.don_remaining_in_deck,
         "life": len(me.life),
         "trash": len(me.trash),
+        "deck": len(me.deck),
         "src_rested": bool(src_inplay.rested) if src_inplay else None,
         "src_in_field": bool(src_inplay in me.characters or src_inplay in me.stages)
         if src_inplay else None,
         "n_chars": len(me.characters),
         "n_chars_rested": sum(1 for c in me.characters if c.rested),
+        "opp_chars": len(opp.characters),
+        "opp_life": len(opp.life),
+        "opp_hand": len(opp.hand),
     }
+
+
+def _do_fired(b, a):
+    """効果の『do』 が実際に何かを起こしたか (= cost 支払いや source 除去とは別の盤面変化)。
+
+    on_ko で harness が src を trash に移すと global signature は変わるが それは『do 発火』 では
+    ない。 do の footprint (= 召喚で自場増 / draw で手札増&デッキ減 / 相手盤面変化 / ライフ変化) を
+    見て、 条件未達で発火しなかったケースを除外する。
+    """
+    return (
+        a["n_chars"] > b["n_chars"]      # 召喚 (自場増)
+        or a["hand"] > b["hand"]          # draw/手札追加
+        or a["deck"] < b["deck"]          # draw/サーチ/召喚 (デッキ減)
+        or a["life"] != b["life"]         # ライフ操作
+        or a["opp_chars"] != b["opp_chars"]   # 相手 KO/バウンス
+        or a["opp_life"] != b["opp_life"]     # 相手ライフ操作
+        or a["opp_hand"] != b["opp_hand"]     # 相手手札操作
+    )
 
 
 def _make_payable(me, repo, cost):
@@ -161,6 +183,7 @@ def audit_card(repo, overlay, card_id):
             continue  # 検査対象の資源コストなし (once_per_turn のみ等)
         state = smoke.make_state(repo, overlay, card_id)
         me = state.players[0]
+        opp = state.players[1]
         if card.category == Category.LEADER:
             me.leader = InPlay.of(card, sickness=False)
             src_inplay = me.leader
@@ -175,16 +198,17 @@ def audit_card(repo, overlay, card_id):
             src_inplay = InPlay.of(card, sickness=False)
             me.characters.append(src_inplay)
         _make_payable(me, repo, cost)
-        b = _snap(me, src_inplay)
-        sig_before = smoke.state_signature(state)
+        # harness は trigger (ライフトリガー) を opp 側で発火する → actor は opp。
+        when = eff.get("when")
+        actor, actor_opp = (opp, me) if when == "trigger" else (me, opp)
+        b = _snap(actor, actor_opp, src_inplay)
         try:
             smoke.fire_one_effect(state, card, src_inplay, eff, repo)
         except Exception:
             continue  # ERROR は smoke 側の責務、 ここでは無視
-        sig_after = smoke.state_signature(state)
-        if sig_before == sig_after:
-            continue  # 効果が発火せず (条件未達等) → inconclusive
-        a = _snap(me, src_inplay)
+        a = _snap(actor, actor_opp, src_inplay)
+        if not _do_fired(b, a):
+            continue  # do が発火せず (条件未達等) → inconclusive (= cost も払わなくて正しい)
         unpaid = _unpaid_keys(cost, b, a)
         if unpaid:
             flags.append({
