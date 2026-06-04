@@ -33,6 +33,16 @@ def _build_ai(kind: str, params: dict, seed: int):
         return MCTSAI(rng=rng, n_simulations=params.get("n", 50),
                       rollout_depth=params.get("depth", 12),
                       c_uct=params.get("c", 1.41))
+    if kind == "azmcts":
+        from engine.az_mcts import AZMctsAI
+        vf = None
+        if params.get("value_nn"):
+            from engine.value_nn_alphazero import compute_value_az
+            def vf(state, to_move, _c=compute_value_az):
+                p = _c(state, to_move)
+                return p if p is not None else 0.5
+        return AZMctsAI(rng=rng, n_sim=params.get("n", 120),
+                        c_puct=params.get("c", 1.5), value_fn=vf)
     if kind == "exploitbeam":
         from engine.exploit_beam_ai import ExploitBeamAI
         return ExploitBeamAI(rng=rng, beam_width=params.get("w", 16),
@@ -129,6 +139,8 @@ CONFIGS = [
      "env": {"ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342_sp.pkl"}},
     # ExploitBeam (= v1, 72.7%) を相手にする汎化テスト用にも使える config
     {"name": "exploitbeam_t", "kind": "exploitbeam", "params": {"w": 16, "d": 10}},
+    {"name": "azmcts_120", "kind": "azmcts", "params": {"n": 120}},
+    {"name": "azmcts_240", "kind": "azmcts", "params": {"n": 240}},
     {"name": "beam_12_8_1_gbm", "kind": "beam", "params": {"w": 12, "d": 8, "mt": 1},
      "env": {"ONEPIECE_GBM_VALUE_PATH": "db/value_gbm_cardrush_1342.pkl"}},
     {"name": "beam_12_10_1", "kind": "beam", "params": {"w": 12, "d": 10, "mt": 1}},
