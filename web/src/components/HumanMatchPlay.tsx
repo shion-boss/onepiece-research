@@ -1837,6 +1837,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             <div className="mt-3 text-base text-zinc-200">
               T{state.turn} で 試合 終了
             </div>
+            <div className="mt-2 text-sm font-semibold text-cyan-200">
+              この 1 戦も AI の学習データになりました — ご協力ありがとうございます
+            </div>
           </motion.div>
         </div>
       )}
@@ -2117,6 +2120,132 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 // StartPanel (= heading 内蔵)
 // ========================================================================== //
 
+// ========================================================================== //
+// ContributionPanel: 「対戦が OPTCG の AI 作りを前進させている」 を可視化。
+// 公開サーバで有志が対戦 → そのデータが AI の相手モデル学習に使われる (= Phase 9
+// 集合知)。 通算対戦数・学習可能マッチアップ進捗・次の貢献先を見せて、 プレイヤーに
+// 「自分が貢献している」 実感を与える。 取得失敗時は静かに非表示 (= 邪魔しない)。
+// ========================================================================== //
+
+type HumanPlayMatchup = {
+  human_deck: string;
+  ai_deck: string;
+  games: number;
+  human_wins: number;
+  ai_wins: number;
+  human_winrate: number;
+  progress_pct: number;
+};
+type HumanPlayStats = {
+  total_games: number;
+  human_wins: number;
+  ai_wins: number;
+  human_winrate: number;
+  training_threshold: number;
+  matchups_tracked: number;
+  matchups_ready: number;
+  by_matchup: HumanPlayMatchup[];
+};
+
+function ContributionPanel({ decks }: { decks: DeckOption[] }) {
+  const [stats, setStats] = useState<HumanPlayStats | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+    let alive = true;
+    fetch(`${API}/api/human_match/stats`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => alive && setStats(d))
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (failed || !stats) return null;
+
+  const nameOf = (slug: string) =>
+    decks.find((d) => d.slug === slug)?.name ?? slug;
+  const thr = stats.training_threshold;
+  // 学習ラインに最も近い (未到達) マッチアップ = 次の貢献先
+  const nextUp = [...stats.by_matchup]
+    .filter((m) => m.games < thr)
+    .sort((a, b) => b.games - a.games)[0];
+
+  return (
+    <section className="rounded-2xl border border-cyan-300 bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-6 shadow-sm dark:border-cyan-800 dark:from-cyan-950/30 dark:via-zinc-900 dark:to-emerald-950/30">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+          みんなで育てる OPTCG AI
+        </h2>
+        <span className="rounded-full bg-cyan-600 px-2.5 py-0.5 text-xs font-bold text-white">
+          分散研究
+        </span>
+      </div>
+      <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+        あなたの 1 戦は、 AI が「人間の打ち方」 を学ぶデータになります。
+        対戦する人が増えるほど、 この AI は人間に強くなります。
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="text-2xl font-extrabold text-cyan-700 dark:text-cyan-300">
+            {stats.total_games.toLocaleString()}
+          </div>
+          <div className="text-xs text-zinc-500">みんなの対戦数 (= 学習データ)</div>
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">
+            {stats.matchups_ready}
+            <span className="text-base text-zinc-400">/{stats.matchups_tracked}</span>
+          </div>
+          <div className="text-xs text-zinc-500">
+            学習到達マッチアップ (各 {thr} 戦)
+          </div>
+        </div>
+        <div className="col-span-2 rounded-lg border border-zinc-200 bg-white p-3 sm:col-span-1 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="text-2xl font-extrabold text-rose-600 dark:text-rose-300">
+            {Math.round(stats.human_winrate * 100)}%
+          </div>
+          <div className="text-xs text-zinc-500">人間の勝率 (= AI の伸びしろ)</div>
+        </div>
+      </div>
+
+      {nextUp && (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          あと <b>{thr - nextUp.games}</b> 戦で「{nameOf(nextUp.human_deck)} vs{" "}
+          {nameOf(nextUp.ai_deck)}」 が学習ラインに到達。 この組み合わせで対戦すると
+          貢献度が大きいです。
+        </div>
+      )}
+
+      {stats.by_matchup.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {stats.by_matchup.slice(0, 5).map((m, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <span className="w-1/2 truncate text-zinc-600 dark:text-zinc-300">
+                {nameOf(m.human_deck)} <span className="text-zinc-400">vs</span>{" "}
+                {nameOf(m.ai_deck)}
+              </span>
+              <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                <div
+                  className={
+                    "absolute inset-y-0 left-0 rounded-full " +
+                    (m.games >= thr ? "bg-emerald-500" : "bg-cyan-500")
+                  }
+                  style={{ width: `${m.progress_pct}%` }}
+                />
+              </div>
+              <span className="w-12 shrink-0 text-right tabular-nums text-zinc-500">
+                {m.games}/{thr}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function StartPanel({
   decks,
   deckA,
@@ -2158,6 +2287,9 @@ function StartPanel({
           deploy、 自キャラ → 相手 で attack、 DON → 自リーダー/キャラ で attach。
         </p>
       </header>
+
+      {/* コミュニティ貢献パネル: 対戦が AI 作りを前進させていることを可視化 */}
+      <ContributionPanel decks={decks} />
 
       {/* VS panel: 2 deck cards + center VS */}
       <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">

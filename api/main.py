@@ -3252,6 +3252,105 @@ def _human_match_response(
     return payload
 
 
+# 1 マッチアップが「相手モデル学習に使える」 目安件数 (= MIN_SAMPLES と整合)。
+_HUMAN_PLAY_THRESHOLD = 40
+
+
+def _parse_play_log_name(name: str):
+    """log ファイル名 → (human_deck, ai_deck, winner_tag) or None。
+
+    形式: '[human_play/]{ts}_{human}_vs_{ai}_{tag}_{sid}[-suffix].json'。
+    deck slug に '_' を含むため '_vs_' 分割 + 末尾 rsplit で頑健に。
+    """
+    base = name.rsplit("/", 1)[-1]
+    if base.endswith(".json"):
+        base = base[:-5]
+    if "_" not in base or "_vs_" not in base:
+        return None
+    _ts, rest = base.split("_", 1)
+    if "_vs_" not in rest:
+        return None
+    human, right = rest.split("_vs_", 1)
+    parts = right.rsplit("_", 2)  # [ai, tag, sid(-suffix)]
+    if len(parts) < 3:
+        return None
+    return human, parts[0], parts[1]
+
+
+def _aggregate_human_play_stats() -> dict:
+    """人間vsAI の蓄積 log を集計 (= 貢献度可視化 + 学習進捗)。
+
+    Blob 設定時 (= 公開サーバ) は Blob 一覧、 さもなくば local cache を走査。
+    ファイル名のみで matchup/勝敗を判定 (= 個別 download 不要 = 高速)。
+    """
+    from collections import defaultdict
+    names: list[str] = []
+    source = "local"
+    try:
+        from api.blob_storage import list_jsons, is_configured
+        if is_configured():
+            source = "blob"
+            names = [b.get("pathname") or b.get("url") or ""
+                     for b in list_jsons(prefix="human_play/")]
+    except Exception:
+        source = "local"
+    if source == "local":
+        log_dir = ROOT / "db" / "human_play_log"
+        if log_dir.exists():
+            names = [p.name for p in log_dir.glob("*.json")]
+
+    mm: dict = defaultdict(lambda: {"games": 0, "human_wins": 0, "ai_wins": 0})
+    total = hw = aw = abandoned = 0
+    for n in names:
+        parsed = _parse_play_log_name(n)
+        if not parsed:
+            continue
+        human, ai, tag = parsed
+        if tag == "abandoned":
+            abandoned += 1
+            continue
+        v = mm[(human, ai)]
+        v["games"] += 1
+        total += 1
+        if tag == "humanW":
+            v["human_wins"] += 1
+            hw += 1
+        elif tag == "aiW":
+            v["ai_wins"] += 1
+            aw += 1
+
+    by_matchup = []
+    ready = 0
+    for (human, ai), v in sorted(mm.items(), key=lambda kv: -kv[1]["games"]):
+        g = v["games"]
+        if g >= _HUMAN_PLAY_THRESHOLD:
+            ready += 1
+        by_matchup.append({
+            "human_deck": human, "ai_deck": ai, "games": g,
+            "human_wins": v["human_wins"], "ai_wins": v["ai_wins"],
+            "human_winrate": round(v["human_wins"] / g, 3) if g else 0.0,
+            "progress_pct": min(100, round(g / _HUMAN_PLAY_THRESHOLD * 100)),
+        })
+    return {
+        "total_games": total,
+        "human_wins": hw,
+        "ai_wins": aw,
+        "abandoned": abandoned,
+        "human_winrate": round(hw / total, 3) if total else 0.0,
+        "training_threshold": _HUMAN_PLAY_THRESHOLD,
+        "matchups_tracked": len(by_matchup),
+        "matchups_ready": ready,
+        "by_matchup": by_matchup,
+        "source": source,
+    }
+
+
+@app.get("/api/human_match/stats")
+def human_match_stats():
+    """人間vsAI の蓄積データ集計 (= 「対戦が AI 作りを前に進めている」 を見せる)。"""
+    return _aggregate_human_play_stats()
+
+
 @app.get("/api/human_match/{sid}")
 def human_match_status(sid: str):
     cached = _HUMAN_SESSIONS.get(sid)
