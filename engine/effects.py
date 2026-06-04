@@ -7451,15 +7451,23 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         # state.search_top_n_pending_remaining に 退 避 した CardDef list を 順 序 通 り に
         # deck.extend する。
         remaining = getattr(state, "search_top_n_pending_remaining", None) or []
-        candidates = choice.get("candidates", [])
-        # picks (= candidates idx list 順) で remaining を 並 び 替 え
-        # 空 picks or 不 正 idx は ID 順 fallback (= 旧 動 作 相 当)
-        valid_picks = [i for i in picks if 0 <= i < len(remaining)]
-        if len(valid_picks) != len(remaining):
-            # 一 部 だ け 指 定 → 残 り を 末 尾 に
-            missing = [i for i in range(len(remaining)) if i not in valid_picks]
-            valid_picks = valid_picks + missing
-        ordered = [remaining[i] for i in valid_picks]
+        n = len(remaining)
+        # picks を remaining の 過不足 ない permutation に 正 規 化 する。
+        # ⚠ UI (= ScryDeckReorderModal 流用) は 並び順 の 後 ろ に 「上/下」 位置フラグ を
+        #   1 要素 付加 して 送る が、 search_top_n は 常 に デッキ底 固定 な の で フラグ は 無視。
+        #   フラグ値 (0/1) は 並び順 idx と 衝突 し う る ので、 重複 idx を 除去 +
+        #   未指定 idx を 元順序 で 補完 → 必ず n 枚 ちょうど (= カード 複製/欠落 を 防ぐ)。
+        #   空 picks or 全 不正 idx は 元順序 fallback (= 旧 動作 相当)。
+        seen_idx: set[int] = set()
+        ordered_idx: list[int] = []
+        for i in picks:
+            if isinstance(i, int) and 0 <= i < n and i not in seen_idx:
+                ordered_idx.append(i)
+                seen_idx.add(i)
+        for i in range(n):
+            if i not in seen_idx:
+                ordered_idx.append(i)
+        ordered = [remaining[i] for i in ordered_idx]
         me.deck.extend(ordered)
         state.search_top_n_pending_remaining = None
         state.pending_choice = None
@@ -8373,6 +8381,8 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                     "name": c.name,
                     "cost": int(getattr(c, "cost", 0) or 0),
                     "power": int(getattr(c, "power", 0) or 0),
+                    "counter": int(getattr(c, "counter", 0) or 0),
+                    "trigger": bool(getattr(c, "trigger", None)),
                 }
                 for c in remaining
             ],

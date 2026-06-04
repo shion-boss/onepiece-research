@@ -1811,8 +1811,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           />
         ) : state.pending_payload.kind === "search_top_n_bottom_reorder" ? (
           // search_top_n で 残 り を デッキ 底 に 戻 す 順 番 選 択 (= 2026-05-31 ohtsuki さん 要望)。
-          // 既 ScryDeckReorderModal を 流 用 (= candidates 並 び 替 え UI)。
-          <ScryDeckReorderModal
+          // 専用 modal: candidates を 読み、 必ず デッキ 底 (= 上/下 選択 なし) へ
+          // 並び順 (= flag 無し) を 送る。 ScryDeckReorderModal (scry 用、 末尾 に 上/下 flag を
+          // 付加) を 流用 する と payload キー mismatch (cards vs candidates) + flag 混入 で
+          // 残り カード が 壊れる ため 分離 (= 2026-06-04 修正)。
+          <SearchTopNReorderModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}
             onHover={setHovered}
@@ -6224,6 +6227,158 @@ function ScryDeckReorderModal({
             className="rounded bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-500 disabled:opacity-50"
           >
             デッキ 下 へ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// search_top_n_bottom_reorder: search_top_n (= デッキ上 N 見て 一部 取得) の
+// 残り を 「好きな順番で デッキの下に置く」 専用 modal (= OP10-065 シュガー 等)。
+// ⚠ ScryDeckReorderModal (scry 用) と は 分離: (1) payload は candidates キー、
+//   (2) 置き先 は 常に デッキ底 固定 (上/下 選択 なし)、 (3) 送る picks は 並び順 の
+//   permutation のみ (= 末尾 に 位置フラグ を 付けない)。 流用 する と engine が フラグ を
+//   index と 誤解釈 し て カード 複製/欠落 する (= 2026-06-04 修正)。
+// ========================================================================== //
+
+function SearchTopNReorderModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const cards =
+    (payload.candidates as
+      | {
+          card_id: string;
+          name: string;
+          cost?: number;
+          power?: number;
+          counter?: number;
+          trigger?: boolean;
+        }[]
+      | undefined) ?? [];
+  const [order, setOrder] = useState<number[]>([]);
+
+  function appendPick(idx: number) {
+    if (order.includes(idx)) return;
+    if (order.length >= cards.length) return;
+    setOrder([...order, idx]);
+  }
+  function reset() {
+    setOrder([]);
+  }
+
+  const orderRank: Record<number, number> = {};
+  order.forEach((idx, rank) => {
+    orderRank[idx] = rank + 1;
+  });
+  const ready = order.length === cards.length;
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-cyan-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-cyan-200">
+            残り {cards.length} 枚 を デッキの下に置く 順番
+          </h3>
+          <span className="text-sm text-zinc-300">
+            #1 → #{cards.length} の 順 に クリック (= #1 が 先 に 底 へ)
+          </span>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {order.length} / {cards.length}
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {cards.map((c, idx) => {
+            const rank = orderRank[idx];
+            const isPicked = rank !== undefined;
+            return (
+              <button
+                key={`${c.card_id}-${idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  appendPick(idx);
+                }}
+                onMouseEnter={() => onHover({ kind: "hand", cardId: c.card_id })}
+                onMouseLeave={() => onHover(null)}
+                disabled={isPicked}
+                className={
+                  "relative rounded transition " +
+                  (isPicked
+                    ? "ring-4 ring-cyan-400 -translate-y-2 opacity-90"
+                    : "ring-2 ring-emerald-400 hover:ring-emerald-300")
+                }
+                title={`${c.name} (P=${c.power ?? 0}, C=${c.counter ?? 0}${c.trigger ? ", trigger" : ""})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-64 w-auto rounded shadow-xl"
+                />
+                {isPicked && (
+                  <span className="absolute top-0 left-0 rounded-br bg-cyan-500 px-2 text-base font-bold text-white">
+                    #{rank}
+                  </span>
+                )}
+                {c.trigger && (
+                  <span className="absolute top-0 right-0 rounded-bl bg-rose-600 px-1 text-[10px] font-bold text-white">
+                    TRG
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1.5 text-xs font-bold text-white">
+                  P{c.power ?? 0}/C{c.counter ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              reset();
+            }}
+            disabled={busy || order.length === 0}
+            className="rounded bg-zinc-700 px-3 py-1.5 text-xs text-white hover:bg-zinc-600 disabled:opacity-50"
+          >
+            リセット
+          </button>
+          <span className="text-xs text-zinc-400">#1 が 一番 上 に 戻る (= 底 の中で)</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([]); // 空 = engine 側 で 元順序 のまま 底 へ
+            }}
+            disabled={busy}
+            className="ml-auto rounded bg-zinc-600 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-500 disabled:opacity-50"
+          >
+            おまかせ (元の順)
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(order); // 並び順 のみ (= 末尾 フラグ なし)
+            }}
+            disabled={busy || !ready}
+            className="rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            この順で デッキの下へ
           </button>
         </div>
       </div>
