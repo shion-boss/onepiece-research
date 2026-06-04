@@ -92,6 +92,32 @@ def test_summoned_conditional_rush_applies_via_human_modal():
     assert (not ez.summoning_sickness) or ez.is_rush_now
 
 
+def test_play_from_trash_no_effect_filter_human_pick():
+    """play_from_trash の no_effect (=「元々効果のないキャラ」) を 人間 pick path でも enforce。
+
+    bug (2026-06-04 修正前): 候補生成が _matches_filter のみで no_effect を見ず、 効果持ち
+    キャラを人間が選んで登場できた (EB03-039 等)。 候補生成 + pick path 両方で弾くよう修正。
+    """
+    from engine.effects import execute_effect
+    repo, overlay = T._repo(), T._overlay()
+    state = T._make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    state.turn_player_idx = 0
+    state.turn_number = 5
+    me.characters = []
+    # トラッシュ: 効果なし(イデオ) + 効果あり(キャベンディッシュ)
+    me.trash = [repo.get("OP04-077"), repo.get("EB01-012")]
+    spec = {
+        "filter": {"no_effect": True, "category": "CHARACTER", "power_le": 6000},
+        "limit": 2, "_picks_idx": [0, 1],  # 効果あり(idx1)も含めて選ぶ
+    }
+    execute_effect({"play_from_trash": spec}, state, me, opp_unused := state.players[1], None)
+    names = [ip.card.card_id for ip in me.characters]
+    assert "OP04-077" in names, "効果なしキャラ(イデオ)が登場していない"
+    assert "EB01-012" not in names, "効果持ちキャラ(キャベンディッシュ)が登場した (no_effect 違反)"
+    assert len(me.characters) == 1
+
+
 def test_gorosei_summoned_have_summoning_sickness():
     """OP13-082 は速攻を付与しない → 登場キャラは召喚酔い (= 当ターン攻撃不可)。"""
     state, me, opp, repo = _setup()

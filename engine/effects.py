@@ -3760,9 +3760,12 @@ def _execute_effect_body(
             except KeyError:
                 target_category = Category.CHARACTER
             # 候補 抽出 (= trash idx + CardDef)。 category は filter 指定 を 優先。
+            # no_effect (= 元々効果なし) も ここで除外 (= _matches_filter は no_effect を
+            # 見ないので、 modal に効果持ちを出さないため明示的に弾く)。
             candidates: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.trash)
                 if c.category == target_category and _matches_filter(c, filt)
+                and not (filt.get("no_effect") and not _card_has_no_effect(c, state))
             ]
             # 人間 acting + 候補 > limit + picks 未指定 → modal
             if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
@@ -3805,9 +3808,15 @@ def _execute_effect_body(
                     if played_count >= limit:
                         break
                     card = me.trash[i]
+                    # ⚠ pick path でも AI path と同じ制約を全て enforce する
+                    #   (= 人間経路だけ制約が抜けるバグ類型の根絶)。
+                    # filter / category / no_effect (= 元々効果なし) を確認。
+                    if card.category != target_category or not _matches_filter(card, filt):
+                        continue
+                    if filt.get("no_effect") and not _card_has_no_effect(card, state):
+                        state.push_log(f"  効果: {card.name} は効果持ちのため登場せず (元々効果のないキャラ)")
+                        continue
                     # 公式「カード名の異なる」: unique_name 指定時は重複名を登場させない。
-                    # ⚠ 人間 pick path でも 強制 する (= 旧実装は AI path のみ enforce で、
-                    #   人間が modal で 同名を複数選ぶと 重複登場できてしまうバグがあった)。
                     if unique_name and card.name in seen_names:
                         state.push_log(f"  効果: {card.name} は同名重複のため登場せず (カード名の異なる)")
                         continue
