@@ -101,9 +101,64 @@ def pick_for(payload, rng):
         matching = [c["idx"] for c in cs if c.get("matches_filter")]
         return matching[:lim] if matching else ([cs[0]["idx"]] if cs and rng.random() < 0.5 else [])
     if kind in ("search_top_n_bottom_reorder", "scry_life_reorder", "scry_deck_reorder"):
-        return []  # ID順 fallback
+        # 実 UI (ScryDeckReorderModal) は 「並び順 permutation + 末尾 位置フラグ(0/1)」 を
+        # 送る。 おまかせ([]) / 正規 perm / perm+末尾flag を 混ぜて 現実的に exercise する。
+        # ※ perm+flag は search_top_n の複製バグを踏む形 (= engine が正規化してなければ
+        #   INV1 が捕捉)。 conservation はどの形でも 成立 すべき。
+        cards = payload.get("candidates") or payload.get("cards") or []
+        n = len(cards)
+        if n == 0:
+            return []
+        r = rng.random()
+        if r < 0.3:
+            return []
+        order = list(range(n))
+        rng.shuffle(order)
+        if r < 0.6:
+            return order
+        return order + [rng.choice([0, 1])]  # perm + 末尾フラグ (= 実UI形)
     cs = payload.get("candidates") or payload.get("cards") or []
     return [rng.choice(range(len(cs)))] if cs and rng.random() < 0.8 else []
+
+
+# --------------------------------------------------------------------------- #
+# 不変条件 (= crash/stuck だけでなく 「静かな状態破壊」 を捕まえる。 2026-06-04 追加)
+#   INV1 カード保存則: 両プレイヤーの メインデッキ札 総数 (deck+hand+trash+life
+#         +characters+stages) が 初期 100 を 超えない (複製禁止) かつ 下回らない
+#         (欠落禁止)。 ※ シュガー複製/search 欠落バグを 即検出。 leader は別(各1)、
+#         DON は int カウンタで別資源 なので 除外。
+#   INV2 instance_id 重複なし: 場 (characters+stages+leader) に 同一 iid が二重に
+#         存在しない (= 複製キャラ)。
+# 検査は 安定点 (= action 待ち / game_over) のみ。 効果解決中 (choice pending) は
+# カードが一時的に zone 外 (= search_top_n_pending_remaining 等) に居るため検査しない。
+# --------------------------------------------------------------------------- #
+INITIAL_TOTAL = 100  # 2 player × 50 main-deck cards
+
+
+def _maindeck_total(state):
+    t = 0
+    for p in state.players:
+        t += len(p.deck) + len(p.hand) + len(p.trash) + len(p.life)
+        t += len(p.characters) + len(p.stages)
+    return t
+
+
+def check_invariants(state, where):
+    """安定点で 不変条件 を 検査。 違反メッセージ list を返す (空 = OK)。"""
+    v = []
+    total = _maindeck_total(state)
+    if total > INITIAL_TOTAL:
+        v.append(f"INV1 カード複製: メインデッキ札 {total} > {INITIAL_TOTAL} @{where}")
+    elif total < INITIAL_TOTAL:
+        v.append(f"INV1 カード欠落: メインデッキ札 {total} < {INITIAL_TOTAL} @{where}")
+    ids = []
+    for p in state.players:
+        ids.append(p.leader.instance_id)
+        ids.extend(ip.instance_id for ip in [*p.characters, *p.stages])
+    if len(ids) != len(set(ids)):
+        dup = sorted({i for i in ids if ids.count(i) > 1})
+        v.append(f"INV2 instance_id 重複: 場に iid {dup} 二重 @{where}")
+    return v
 
 
 def play_one(a, b, seed, human_first, rng, seen):
@@ -129,6 +184,10 @@ def play_one(a, b, seed, human_first, rng, seen):
         if pk == "choice":
             s.apply_human_choice(pick_for(pl, rng))
         elif pk == "action":
+            # 安定点: 不変条件 検査 (= 静かなカード複製/欠落を捕捉)
+            inv = check_invariants(s.state, f"step{steps}")
+            if inv:
+                return ("INV", steps, inv[0])
             acts = s.legal_actions_for_human()
             if not acts:
                 return ("NO_ACT", steps, (s.state.phase.name if hasattr(s.state.phase, "name") else str(s.state.phase)))
@@ -153,15 +212,54 @@ def play_one(a, b, seed, human_first, rng, seen):
                 s.apply_human_defense(bid, cids)
         else:
             break
-    return ("OK" if s.state.game_over else "TIMEOUT", steps, None)
+    if s.state.game_over:
+        inv = check_invariants(s.state, "game_over")
+        if inv:
+            return ("INV", steps, inv[0])
+        return ("OK", steps, None)
+    return ("TIMEOUT", steps, None)
+
+
+def _save_failure(status, a, b, seed, hf, steps, info):
+    """失敗を seed 付きで保存 → そのまま回帰ケース / 手動 reproduce 可能 (再現性)。"""
+    faildir = os.path.join(ROOT, "db", "fuzz_failures")
+    os.makedirs(faildir, exist_ok=True)
+    rec = {"status": status, "deck_a": a, "deck_b": b, "seed": seed,
+           "human_first": hf, "steps": steps, "info": info,
+           "reproduce": f"python scripts/fuzz_human_play.py --replay-case {a} {b} {seed} {int(hf)}"}
+    fn = f"{status}_{a}_vs_{b}_seed{seed}.json"
+    path = os.path.join(faildir, fn)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(rec, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def _replay_case():
+    """--replay-case <a> <b> <seed> <hf> で 1 ケースだけ 決定論的 再走。"""
+    i = sys.argv.index("--replay-case")
+    a, b, seed, hf = sys.argv[i + 1], sys.argv[i + 2], int(sys.argv[i + 3]), bool(int(sys.argv[i + 4]))
+    _setup()
+    seen = set()
+    rng = random.Random(seed)
+    try:
+        status, steps, info = play_one(a, b, seed, hf, rng, seen)
+    except Exception as e:
+        print(f"CRASH {a} vs {b} seed={seed}: {e}")
+        print(traceback.format_exc())
+        sys.exit(1)
+    print(f"{status} {a} vs {b} seed={seed} steps={steps} info={info}")
+    sys.exit(0 if status == "OK" else 1)
 
 
 def main():
+    if "--replay-case" in sys.argv:
+        _replay_case()
+        return
     _setup()
     rng = random.Random(7)
     crashes = []
     seen = set()
-    results = {"OK": 0, "TIMEOUT": 0, "STUCK": 0, "NO_ACT": 0, "CRASH": 0}
+    results = {"OK": 0, "TIMEOUT": 0, "STUCK": 0, "NO_ACT": 0, "CRASH": 0, "INV": 0}
     for g in range(N_GAMES):
         a = DECKS[g % len(DECKS)]
         b = rng.choice([d for d in DECKS if d != a])
@@ -172,10 +270,12 @@ def main():
             results[status] = results.get(status, 0) + 1
             if status != "OK":
                 crashes.append((status, a, b, seed, hf, steps, info))
+                _save_failure(status, a, b, seed, hf, steps, info)
             print(f"  game {g+1}/{N_GAMES} {status} {a} vs {b} steps={steps}", flush=True)
         except Exception as e:
             results["CRASH"] += 1
             crashes.append(("CRASH", a, b, seed, hf, str(e), traceback.format_exc()))
+            _save_failure("CRASH", a, b, seed, hf, -1, str(e))
             print(f"  game {g+1}/{N_GAMES} CRASH {a} vs {b} seed={seed} hf={hf}: {e}", flush=True)
             print(traceback.format_exc(), flush=True)
     print(f"=== fuzz {N_GAMES} games ({'prod GoalDirectedAI' if PROD else 'RandomAI'}) ===")
@@ -190,8 +290,9 @@ def main():
             print("  ", c[:7])
             if c[0] == "CRASH" and len(c) > 6:
                 print("    ", c[6].splitlines()[-1])
+        print(f"\n  失敗ケースは db/fuzz_failures/ に保存済 (--replay-case で再走可)")
         sys.exit(1)
-    print("\n✓ crash/stuck/NO_ACT なし")
+    print("\nOK: crash/stuck/NO_ACT/INV(カード保存則・instance重複) なし")
 
 
 if __name__ == "__main__":
