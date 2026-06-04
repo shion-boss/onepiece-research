@@ -15,12 +15,22 @@ on:
       - 'db/card_effects.json'
       - 'engine/**'
       - 'scripts/audit_*.py'
+      - 'scripts/lint_human_ui_contracts.py'
+      - 'scripts/fuzz_human_play.py'
+      - 'web/src/components/HumanMatchPlay.tsx'
+      - 'tests/test_human_*.py'
+      - 'tests/test_fuzz_*.py'
   pull_request:
     paths:
       - 'db/cards.json'
       - 'db/card_effects.json'
       - 'engine/**'
       - 'scripts/audit_*.py'
+      - 'scripts/lint_human_ui_contracts.py'
+      - 'scripts/fuzz_human_play.py'
+      - 'web/src/components/HumanMatchPlay.tsx'
+      - 'tests/test_human_*.py'
+      - 'tests/test_fuzz_*.py'
   schedule:
     - cron: '0 18 * * *'  # nightly 03:00 JST
     - cron: '0 18 * * 0'  # weekly Sun 03:00 JST (= Phase 3)
@@ -42,6 +52,10 @@ jobs:
         run: .venv/bin/python scripts/audit_overlay_static.py
       - name: Run primitive coverage lint (= overlay vs engine 整合)
         run: .venv/bin/python scripts/audit_primitive_coverage.py
+      - name: Human-play UI 契約 lint (= dead component / payload キー不一致)
+        run: .venv/bin/python scripts/lint_human_ui_contracts.py
+      - name: Human-play 不変条件 ゲート (= fuzz カード保存則 + UI 契約 pytest)
+        run: .venv/bin/python -m pytest tests/test_human_ui_contracts.py tests/test_fuzz_human_play_invariants.py -q
       - name: Generate issue files
         run: .venv/bin/python scripts/audit_issue_generator.py --layer 1 --clear
       - name: Auto-fix L1 / L5 / L7 low-risk (= dry-run on PR、 commit on main push)
