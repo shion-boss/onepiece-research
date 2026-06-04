@@ -480,6 +480,36 @@ def _can_pay_counter_cost(
         matching = sum(1 for c in me.hand if _matches_filter(c, f))
         if matching < cnt:
             return False
+    # --- source 系/特殊コスト (= 旧実装で未処理 → コスト踏み倒しだった、 2026-06-04 修正) ---
+    # rest_self (= このキャラ/ステージをレスト): 既にレスト or source 不在なら払えない。
+    if cost.get("rest_self"):
+        if self_inplay is None or getattr(self_inplay, "rested", False):
+            return False
+    # return_self_don_to_deck N (= 場のドン N 枚をドンデッキに戻す)
+    rdon = int(cost.get("return_self_don_to_deck", 0) or 0)
+    if rdon > 0 and (me.don_active + me.don_rested) < rdon:
+        return False
+    # life → hand 系 (= ライフ上から N 枚を手札に): ライフ不足なら払えない。
+    lth = int(cost.get("life_to_hand", 0) or 0)
+    if lth > 0 and len(me.life) < lth:
+        return False
+    ltob = int(cost.get("life_top_or_bottom_to_hand", 0) or 0)
+    if ltob > 0 and len(me.life) < ltob:
+        return False
+    # trash_to_deck N (= トラッシュ N 枚をデッキに): トラッシュ不足なら払えない。
+    ttd = int(cost.get("trash_to_deck", 0) or 0)
+    if ttd > 0 and len(me.trash) < ttd:
+        return False
+    # reveal_hand_with_filter (= 手札から該当を N 枚見せる、 情報コスト): 該当不足なら払えない。
+    rhf = cost.get("reveal_hand_with_filter")
+    if isinstance(rhf, dict):
+        f = rhf.get("filter", {}) if isinstance(rhf.get("filter"), dict) else {}
+        cnt = int(rhf.get("count", 1))
+        if sum(1 for c in me.hand if _matches_filter(c, f)) < cnt:
+            return False
+    # trash_self / self_ko (= このキャラ自身をトラッシュ/KO): source 不在なら払えない。
+    if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is None:
+        return False
     return True
 
 
@@ -540,6 +570,72 @@ def _pay_counter_cost(
             if state.effects_overlay:
                 trigger_on_self_hand_discarded(
                     state, me, opp, self_inplay, len(chosen), state.effects_overlay)
+    # --- source 系/特殊コスト (= 旧実装で未処理 → 効果だけ無償発動だった、 2026-06-04 修正) ---
+    # rest_self: source をレスト (= このキャラ/ステージ自身)。
+    if cost.get("rest_self") and self_inplay is not None:
+        self_inplay.rested = True
+        state.push_log(f"  cost: {self_inplay.card.name} をレスト")
+    # return_self_don_to_deck N: 場のドン (active 優先 → rested) を N 枚 ドンデッキへ。
+    rdon = int(cost.get("return_self_don_to_deck", 0) or 0)
+    if rdon > 0:
+        from_active = min(me.don_active, rdon)
+        me.don_active -= from_active
+        me.don_remaining_in_deck += from_active
+        from_rested = min(rdon - from_active, me.don_rested)
+        me.don_rested -= from_rested
+        me.don_remaining_in_deck += from_rested
+        moved = from_active + from_rested
+        if moved:
+            state.push_log(f"  cost: 自ドン {moved} 枚をドンデッキに戻す")
+            if state.effects_overlay:
+                trigger_on_self_don_returned_to_deck(
+                    state, me, opp, state.effects_overlay, count=moved)
+    # life → hand 系: ライフ上から N 枚を手札へ (top を取る)。
+    lth_total = int(cost.get("life_to_hand", 0) or 0) + int(cost.get("life_top_or_bottom_to_hand", 0) or 0)
+    if lth_total > 0:
+        actual = min(lth_total, len(me.life))
+        for _ in range(actual):
+            me.hand.append(me.life.pop(0))
+        if actual:
+            state.push_log(f"  cost: ライフ上から {actual} 枚を手札に")
+    # trash_to_deck N: トラッシュ上から N 枚をデッキ下へ。
+    ttd = int(cost.get("trash_to_deck", 0) or 0)
+    if ttd > 0:
+        actual = min(ttd, len(me.trash))
+        for _ in range(actual):
+            me.deck.append(me.trash.pop(0))
+        if actual:
+            state.push_log(f"  cost: トラッシュ {actual} 枚をデッキ下に")
+    # reveal_hand_with_filter: 情報コスト (= 見せるだけ、 札は移動しない)。
+    rhf = cost.get("reveal_hand_with_filter")
+    if isinstance(rhf, dict):
+        cnt = int(rhf.get("count", 1))
+        state.push_log(f"  cost: 手札から該当 {cnt} 枚を公開")
+    # trash_self / self_ko: source 自身を 場から除去 → トラッシュ。
+    if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is not None:
+        is_ko = bool(cost.get("self_ko"))
+        src = self_inplay
+        removed = False
+        if src in me.characters:
+            me.characters.remove(src); removed = True
+        elif src in me.stages:
+            me.stages.remove(src); removed = True
+        if removed:
+            me.trash.append(src.card)
+            if src.attached_dons > 0:  # 6-5-5-4: 付与ドンはレストで戻る
+                me.don_rested += src.attached_dons
+                src.attached_dons = 0
+            state.push_log(
+                f"  cost: {src.card.name} を{'KO' if is_ko else 'トラッシュに置く'}")
+            if state.effects_overlay:
+                if is_ko:
+                    trigger_on_ko(state, me, opp, src.card, state.effects_overlay,
+                                  by_opp_effect=False)
+                    trigger_on_self_chara_ko(state, me, opp, state.effects_overlay,
+                                             victim_card=src.card)
+                else:
+                    trigger_on_self_chara_leave_by_self_effect(
+                        state, me, opp, state.effects_overlay)
 
 
 def _check_and_set_once_per_turn(
