@@ -320,3 +320,36 @@ def test_human_play_structural_invariants_field_flood(repo, overlay):
                 f"{a} vs {b} seed={seed}: 構造違反 {viol[:2]} "
                 f"(= フィールド超過 / キャラエリアに非CHARACTER 等の回帰)"
             )
+
+
+def test_stale_counter_event_idx_graceful(repo, overlay):
+    """回帰: 防御 payload の counter_event_idxs が hand 変化後に stale (= 別カードの index を
+    指す) になり、 それを click すると `ValueError: hand[i]=X is not EVENT` で session が落ちる
+    バグ。 2026-06-05 広デッキプール fuzz (cardrush_1276) が検出。
+
+    consumer (apply_human_use_counter_event) を graceful skip + payload 再構築に変更。
+    """
+    deck_json = json.loads((ROOT / "decks" / "cardrush_1456.json").read_text(encoding="utf-8"))
+    session = HumanSession(
+        deck_a=make_deck_from_dict(deck_json, repo),
+        deck_b=make_deck_from_dict(deck_json, repo),
+        ai_factory=_greedy_factory, seed=42, effects_overlay=overlay, human_first=True)
+
+    me = session.state.players[session.human_idx]
+    # hand[0] を 非EVENT (= キャラ) にして、 stale counter_event_idxs=[0] を仕込む
+    me.hand = [repo.get("OP01-013")] + list(me.hand)  # 先頭に素キャラ
+    session.pending_kind = "defense"
+    session.pending_payload = {
+        "attacker_iid": session.state.players[session.ai_idx].leader.instance_id,
+        "attacker_power": 5000,
+        "is_leader_attack": True,
+        "legal_blocker_iids": [],
+        "legal_counter_card_idxs": [0],
+        "counter_values": {0: 0},
+        "counter_event_idxs": [0],  # stale: hand[0] は非EVENT
+        "available_opp_attack_effects": [],
+    }
+    # 旧実装は ValueError で落ちる。 graceful skip で 落ちない + payload 再構築される。
+    session.apply_human_use_counter_event(0)
+    assert 0 not in (session.pending_payload or {}).get("counter_event_idxs", []), \
+        "stale な非EVENT index が counter_event_idxs から除去されていない"
