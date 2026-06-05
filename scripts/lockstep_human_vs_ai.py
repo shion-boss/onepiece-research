@@ -39,7 +39,7 @@ overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
 
 POOL_PICK = {
     "play_from_hand_pick", "play_from_trash_pick", "summon_from_deck_pick",
-    "play_from_hand_or_trash_pick", "search_pick",
+    "play_from_hand_or_trash_pick", "search_pick", "search_from_trash_pick",
 }
 
 # choice.kind → primitive 名 (= AI inline 再実行で使う)
@@ -49,6 +49,18 @@ KIND2PRIM = {
     "summon_from_deck_pick": "summon_from_deck",
     "play_from_hand_or_trash_pick": "play_from_hand_or_trash",
     "search_pick": "search",
+    "search_from_trash_pick": "search_from_trash",
+}
+
+# target_pick (= KO/return/rest 等の対象選択) は別扱い: primitive_kind + iid alignment。
+TARGET_PICK = {"target_pick"}
+# ⚠ target_pick 比較は **退場/rest の signature が一意な primitive のみ** に限定。
+# power_pump (debuff -1000 → power0 → 下流KO cascade) 等は「どの対象が変化したか」 が
+# rng/順序依存で alignment が曖昧 = FP源 なので除外 (= cry-wolf 回避、 非空振り原則)。
+SAFE_TARGET_PRIMS = {
+    "ko", "ko_multi", "ko_all_others", "return_to_hand", "return_to_hand_multi",
+    "return_to_deck_bottom", "return_to_deck_bottom_multi", "rest", "rest_multi",
+    "chara_to_self_life", "chara_to_opp_life",
 }
 
 
@@ -83,14 +95,20 @@ def board_digest(state):
 def _resolve_inline_on_fork(state, choice):
     """fork 上で AI inline 解決 (= modal を出さず auto-pick)。 解決後の state を返す。"""
     kind = choice.get("kind")
-    prim = KIND2PRIM[kind]
+    if kind == "target_pick":
+        prim = choice.get("primitive_kind")
+        source_key = "self_inplay_iid"
+    else:
+        prim = KIND2PRIM.get(kind)
+        source_key = "source_iid"
     prim_val = choice.get("primitive_value")
     actor_idx = choice.get("_actor_idx")
-    if actor_idx is None or not isinstance(prim_val, (dict, int)):
+    # target_pick の primitive_value は str (target spec) もありうるので型制限を緩める。
+    if actor_idx is None or prim is None or not isinstance(prim_val, (dict, int, str)):
         return None
     me = state.players[actor_idx]
     opp = state.players[1 - actor_idx]
-    source_iid = choice.get("source_iid")
+    source_iid = choice.get(source_key)
     self_inplay = None
     if source_iid is not None:
         for ip in [*me.characters, me.leader, *me.stages, *opp.characters, opp.leader, *opp.stages]:
@@ -103,7 +121,8 @@ def _resolve_inline_on_fork(state, choice):
     # primitive_value は filter/limit を持つ元 spec (= _picks なし)。 dict を copy して再実行。
     spec = dict(prim_val) if isinstance(prim_val, dict) else prim_val
     if isinstance(spec, dict):
-        for k in ("_picks", "_picks_idx", "_picked_deck_idxs", "_picked_hand_idxs"):
+        for k in ("_picks", "_picks_idx", "_picked_deck_idxs", "_picked_hand_idxs",
+                  "_picked_trash_idxs", "_iid_picks"):
             spec.pop(k, None)
     try:
         execute_effect({prim: spec}, state, me, opp, self_inplay)
@@ -120,6 +139,33 @@ def _resolve_inline_on_fork(state, choice):
     return state
 
 
+def _iid_signature(state, iid):
+    """場の iid の「変化検出用 signature」 (= 無ければ None=退場)。 KO/bounce→None、
+    rest→rested 変化、 pump→power 変化、 免疫→ko_immune 変化 を捕捉。"""
+    for p in state.players:
+        for ip in [p.leader, *p.characters, *p.stages]:
+            if ip.instance_id == iid:
+                return (int(getattr(ip, "power", 0) or 0), bool(getattr(ip, "rested", False)),
+                        int(getattr(ip, "attached_dons", 0) or 0),
+                        bool(getattr(ip, "static_ko_immune", False)),
+                        bool(getattr(ip, "ko_immune_until_turn_end", False)))
+    return None
+
+
+def _target_pick_alignment(choice, pre_state, ref_state):
+    """AI inline (ref_state) が 実際に 効果を当てた candidate iid の index を返す。
+    候補 iid の signature を pre_state (解決前) と ref_state (S_ai 解決後) で比較し、
+    変化 (退場/rest/power/免疫) した候補 = AI の対象。"""
+    candidates = choice.get("candidates", [])
+    limit = int(choice.get("limit", 1) or 1)
+    picks = []
+    for i, c in enumerate(candidates):
+        iid = c.get("iid")
+        if _iid_signature(pre_state, iid) != _iid_signature(ref_state, iid):
+            picks.append(i)
+    return picks[:limit]
+
+
 def _human_picks_matching(choice, ref_state, pre_digest):
     """AI inline (ref_state) が実際に動かしたカードに揃う 人間 candidate index を返す。
 
@@ -132,8 +178,8 @@ def _human_picks_matching(choice, ref_state, pre_digest):
     post = board_digest(ref_state)[actor_idx]
     cands = choice.get("candidates", [])
     cand_ids = Counter(c.get("card_id") for c in cands)
-    if choice.get("kind") == "search_pick":
-        gained = Counter(post[0]) - Counter(pre[0])  # deck → hand
+    if choice.get("kind") in ("search_pick", "search_from_trash_pick"):
+        gained = Counter(post[0]) - Counter(pre[0])  # deck/trash → hand
     else:
         gained = ((Counter(cid for cid, *_ in post[4]) + Counter(post[5]))
                   - (Counter(cid for cid, *_ in pre[4]) + Counter(pre[5])))  # → field
@@ -224,6 +270,44 @@ def run(slug_a, slug_b, seed, divergences, stats):
                                         "kind": kind, "picks": picks,
                                         "div": f"盤面差: {' '.join(diff)[:180]}"})
                 # 原ゲームは 人間 modal で進める (= 進行用、 比較は fork で済)
+                sess.apply_human_choice(picks)
+            elif kind in TARGET_PICK and choice.get("primitive_kind") in SAFE_TARGET_PRIMS \
+                    and choice.get("_actor_idx") is not None:
+                # target_pick (KO/return/rest/pump 等): iid signature 変化で AI の対象を逆引きし
+                # 人間にも同じ対象を pick させて 効果適用結果の盤面を比較。
+                S_ai = fast_clone(sess.state)
+                ref = _resolve_inline_on_fork(S_ai, choice)
+                # ERR (= primitive_value が target spec のみで {primitive_kind:value} 再実行不能、
+                #   cost_minus/power_pump 等 dict 値 primitive) は **methodology 限界** なので
+                #   比較 skip (= エンジンバグでない、 報告しない)。 ko/return/rest 等 string-target
+                #   primitive のみ比較できる。
+                if (isinstance(ref, tuple) and ref and ref[0] == "ERR") or ref is None:
+                    _pick_noncompare(sess); continue
+                picks = _target_pick_alignment(choice, sess.state, ref)
+                # AI が盤面を変えたのに alignment が 0 件 = signature 外の効果 → 整合不能で比較 skip。
+                if not picks and board_digest(ref) != board_digest(sess.state):
+                    _pick_noncompare(sess); continue
+                stats["compared"] += 1
+                from engine.effects import resolve_pending_choice
+                S_human = fast_clone(sess.state)
+                try:
+                    resolve_pending_choice(S_human, picks)
+                except Exception as e:  # noqa: BLE001
+                    divergences.append({"slug": f"{slug_a} vs {slug_b}", "seed": seed,
+                                        "kind": "target_pick", "div": f"人間解決 例外: {type(e).__name__}: {str(e)[:60]}"})
+                    _pick_noncompare(sess); continue
+                h_dig = board_digest(S_human)
+                r_dig = board_digest(ref)
+                if h_dig != r_dig:
+                    diff = []
+                    znames = ["hand", "deck", "trash", "life", "chars", "stages", "don", "leader"]
+                    for pi in range(2):
+                        for zi, zn in enumerate(znames):
+                            if h_dig[pi][zi] != r_dig[pi][zi]:
+                                diff.append(f"p{pi}.{zn}")
+                    divergences.append({"slug": f"{slug_a} vs {slug_b}", "seed": seed,
+                                        "kind": f"target_pick/{choice.get('primitive_kind')}",
+                                        "picks": picks, "div": f"盤面差: {' '.join(diff)[:160]}"})
                 sess.apply_human_choice(picks)
             else:
                 _pick_noncompare(sess)
