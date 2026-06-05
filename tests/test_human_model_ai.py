@@ -56,3 +56,53 @@ def test_loads_real_model_file():
     """db/human_model.json を実ロードでき、 sample_size を読める (= 配管疎通)。"""
     hm = HumanModelAI(rng=__import__("random").Random(1))
     assert hm._sample >= 0  # ファイル有れば >0、 無くても落ちない
+
+
+def _setup_own_attack_turn():
+    """player0 の手番、 active な attacker 1 体 (= リーダー攻撃が legal)。"""
+    from engine.game import legal_actions, AttackLeader
+    repo, overlay = T._repo(), T._overlay()
+    state = T._make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    state.turn_number = 3
+    state.turn_player_idx = 0
+    atk = InPlay.of(repo.get("EB01-012"), sickness=False, rested=False)
+    me.characters = [atk]
+    me.don_active = 5
+    assert any(isinstance(a, AttackLeader) for a in legal_actions(state))
+    return state, atk
+
+
+def test_aggressive_human_redirects_char_attack_to_face(monkeypatch):
+    """顔詰め型 (sample≥30 & aggression≥0.6): greedy がキャラ攻撃を選んだら リーダーへ寄せる。"""
+    from engine.game import AttackLeader, AttackCharacter
+    state, atk = _setup_own_attack_turn()
+    monkeypatch.setattr(GreedyAI, "choose_action",
+                        lambda self, st: AttackCharacter(atk.instance_id, 999))
+    hm = HumanModelAI(rng=__import__("random").Random(1),
+                      model={"sample_size": 100, "aggression": 0.96})
+    action = hm.choose_action(state)
+    assert isinstance(action, AttackLeader), f"顔へ redirect されてない: {action}"
+    assert action.attacker_iid == atk.instance_id
+
+
+def test_balanced_human_keeps_char_attack(monkeypatch):
+    """均衡型 (aggression < 0.6): redirect せず greedy のキャラ攻撃のまま (= degrade)。"""
+    from engine.game import AttackCharacter
+    state, atk = _setup_own_attack_turn()
+    char_atk = AttackCharacter(atk.instance_id, 999)
+    monkeypatch.setattr(GreedyAI, "choose_action", lambda self, st: char_atk)
+    hm = HumanModelAI(rng=__import__("random").Random(1),
+                      model={"sample_size": 100, "aggression": 0.40})
+    assert hm.choose_action(state) is char_atk
+
+
+def test_aggression_gate_requires_min_samples(monkeypatch):
+    """データ薄 (sample < 30) なら aggression が高くても redirect しない (= 正直)。"""
+    from engine.game import AttackCharacter
+    state, atk = _setup_own_attack_turn()
+    char_atk = AttackCharacter(atk.instance_id, 999)
+    monkeypatch.setattr(GreedyAI, "choose_action", lambda self, st: char_atk)
+    hm = HumanModelAI(rng=__import__("random").Random(1),
+                      model={"sample_size": 10, "aggression": 0.96})
+    assert hm.choose_action(state) is char_atk

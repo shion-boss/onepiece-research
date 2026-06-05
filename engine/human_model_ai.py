@@ -35,8 +35,12 @@ def _load_model() -> dict:
 class HumanModelAI(GreedyAI):
     """人間挙動パラメータで GreedyAI をバイアスした相手モデル。
 
-    現状モデル化している差分は **防御の手厚さ** のみ (= robust に抽出できた信号)。
-    攻撃性/マリガン等は log 抽出の精度が上がり次第追加。
+    モデル化している差分:
+      - **防御の手厚さ** (defense_activity): greedy が通すリーダー被弾を手札 counter で防ぐ。
+      - **攻撃志向** (aggression): 顔詰め型の人間は greedy がキャラ trade を選ぶ場面でも
+        リーダー攻撃を選ぶ → AttackCharacter を AttackLeader に redirect (= 2026-06-05、
+        build_human_model の攻撃抽出 fix で aggression が robust に取れるようになり追加)。
+    マリガン傾向は今後 mulligan_keep_rate を反映予定。
     """
 
     name = "HumanModel"
@@ -44,16 +48,42 @@ class HumanModelAI(GreedyAI):
     MIN_SAMPLES = 30
     # defense_activity (= 1 ターンあたり防御アクション数) がこの値以上なら「防御手厚い人間」。
     DEFENSE_ACTIVE_THRESHOLD = 0.30
+    # aggression (= 顔狙い攻撃比率) がこの値以上なら「顔詰め型」 → キャラ攻撃を顔へ寄せる。
+    AGGRO_THRESHOLD = 0.60
 
     def __init__(self, *args, model: Optional[dict] = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._model = model if model is not None else _load_model()
         self._sample = int(self._model.get("sample_size", 0) or 0)
         self._defense_activity = float(self._model.get("defense_activity", 0.0) or 0.0)
+        self._aggression = float(self._model.get("aggression", 0.0) or 0.0)
 
     def _human_defends_heavily(self) -> bool:
         return (self._sample >= self.MIN_SAMPLES
                 and self._defense_activity >= self.DEFENSE_ACTIVE_THRESHOLD)
+
+    def _human_rushes_face(self) -> bool:
+        return (self._sample >= self.MIN_SAMPLES
+                and self._aggression >= self.AGGRO_THRESHOLD)
+
+    def choose_action(self, state):
+        action = super().choose_action(state)
+        # 顔詰め型の人間モデル: greedy が キャラ攻撃 (trade) を選んだ場面で リーダー攻撃が
+        # legal なら 顔へ寄せる (= aggression を相手モデルの offense に反映)。 データ薄 or
+        # 攻撃志向が低ければ greedy のまま (degrade)。
+        if not self._human_rushes_face():
+            return action
+        from .game import legal_actions, AttackLeader, AttackCharacter
+        if isinstance(action, AttackCharacter):
+            # 同じ攻撃者でリーダーを殴れるなら そちらへ (= 攻撃者を保ったまま顔へ寄せる)。
+            # 無ければ 任意のリーダー攻撃。
+            las = legal_actions(state)
+            same = next((a for a in las if isinstance(a, AttackLeader)
+                         and a.attacker_iid == action.attacker_iid), None)
+            face = same or next((a for a in las if isinstance(a, AttackLeader)), None)
+            if face is not None:
+                return face
+        return action
 
     def choose_defense(self, state, attacker, target, is_leader_attack, defender):
         block_iid, counters = super().choose_defense(
