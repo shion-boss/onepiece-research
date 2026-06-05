@@ -34,6 +34,12 @@ for col, cl in chars.items():
     if col not in leaders or not leaders[col]:
         continue
     leader = leaders[col][0]
+    # arrange seed (= 第2引数) で per-color カードをシャッフル → 異なる50枚デッキ構成
+    # (= カード相互作用の網羅を上げる)。 0 (既定) は order そのまま (= 各カード1度の確実網羅)。
+    _arr = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+    if _arr:
+        cl = list(cl)
+        random.Random(_arr * 131 + hash(col) % 1000).shuffle(cl)
     for ci in range(0, len(cl), 50):
         chunk = cl[ci:ci + 50]
         if len(chunk) < 50:
