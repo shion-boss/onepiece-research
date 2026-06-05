@@ -4042,46 +4042,50 @@ def _execute_effect_body(
                 if played_count == 0:
                     return False
                 continue
-            # AI / 候補 <= limit: 既存 挙動 (= 先頭 から filter 一致 を 登場)
+            # AI / 候補 <= limit: 先頭から filter 一致を 登場。
+            # ⚠ 公式: 「登場でトラッシュを離れて**から** on_play」。 旧実装は me.trash[:] = new_trash を
+            # loop 後に行い、 trigger_on_play が「登場済カードがまだ trash にいる」 stale を見ていた
+            # → source-zone を触る on_play (= OP06-090 ホグバック の trash_to_deck+登場 等) で 人間 pick
+            # 経路 (= pop 後 on_play で正しい) と divergence。 2026-06-05 wide lockstep が検出。
+            # ⇒ **先に play 対象を選定して me.trash から除去** してから append + on_play する。
             found = 0
             seen_names: set[str] = set()
-            new_trash = []
+            to_play = []
+            remaining = []
             for card in me.trash:
                 if (found < limit and card.category == target_category
                         and _matches_filter(card, filt)
-                        and not (filt.get("no_effect") and not _card_has_no_effect(card, state))):
-                    if unique_name and card.name in seen_names:
-                        new_trash.append(card)
-                        continue
-                    if target_category == Category.STAGE:
-                        if me.stages:
-                            old = me.stages.pop(0)
-                            me.trash.append(old.card)
-                            if old.attached_dons > 0:
-                                me.don_rested += old.attached_dons
-                            state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
-                        ip = InPlay.of(card, rested=False, sickness=False)
-                        me.stages.append(ip)
-                        found += 1
-                        seen_names.add(card.name)
-                        state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
-                        continue
-                    if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
-                    ip = InPlay.of(card, rested=rested, sickness=True)
-                    ip.return_to_deck_bottom_at_turn_end = want_return_eot
-                    me.characters.append(ip)
-                    if pk_grant:
-                        ip.granted_keywords.add(str(pk_grant))
+                        and not (filt.get("no_effect") and not _card_has_no_effect(card, state))
+                        and not (unique_name and card.name in seen_names)):
+                    to_play.append(card)
                     found += 1
                     seen_names.add(card.name)
-                    label = "レストで" if rested else ""
-                    state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
-                    if state.effects_overlay:
-                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 else:
-                    new_trash.append(card)
-            me.trash[:] = new_trash
+                    remaining.append(card)
+            me.trash[:] = remaining  # 先に trash 更新 (= 登場でトラッシュを離れる)
+            for card in to_play:
+                if target_category == Category.STAGE:
+                    if me.stages:
+                        old = me.stages.pop(0)
+                        me.trash.append(old.card)
+                        if old.attached_dons > 0:
+                            me.don_rested += old.attached_dons
+                        state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
+                    ip = InPlay.of(card, rested=False, sickness=False)
+                    me.stages.append(ip)
+                    state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
+                    continue
+                if not me.can_play_character():
+                    me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+                ip = InPlay.of(card, rested=rested, sickness=True)
+                ip.return_to_deck_bottom_at_turn_end = want_return_eot
+                me.characters.append(ip)
+                if pk_grant:
+                    ip.granted_keywords.add(str(pk_grant))
+                label = "レストで" if rested else ""
+                state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
         elif k == "bounce_self_chara_then_play_diff_color":
             # 「自分のキャラ1枚を持ち主の手札に戻し、 戻したキャラと異なる色のコストN以下の
             # キャラ1枚までを登場させる」 (EB01-020/OP01-002)。 戻したキャラの色を動的除外。

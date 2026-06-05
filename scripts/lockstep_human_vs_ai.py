@@ -54,14 +54,12 @@ KIND2PRIM = {
 
 # target_pick (= KO/return/rest 等の対象選択) は別扱い: primitive_kind + iid alignment。
 TARGET_PICK = {"target_pick"}
-# ⚠ target_pick 比較は **退場/rest の signature が一意な primitive のみ** に限定。
-# power_pump (debuff -1000 → power0 → 下流KO cascade) 等は「どの対象が変化したか」 が
-# rng/順序依存で alignment が曖昧 = FP源 なので除外 (= cry-wolf 回避、 非空振り原則)。
-SAFE_TARGET_PRIMS = {
-    "ko", "ko_multi", "ko_all_others", "return_to_hand", "return_to_hand_multi",
-    "return_to_deck_bottom", "return_to_deck_bottom_multi", "rest", "rest_multi",
-    "chara_to_self_life", "chara_to_opp_life",
-}
+# ⚠ **target_pick 比較は無効化** (= SAFE_TARGET_PRIMS 空)。 iid signature alignment は
+# replace_ko (= OP15-052 レオ 等、 KO が置換され対象が退場しない) / power_pump (= debuff→
+# 下流KO cascade) / on_ko draw cascade で「どの対象が変化したか」 が曖昧になり **FP源** だった
+# (= 実バグ0 / FPのみ、 非空振り原則 cry-wolf 回避)。 robust 化には replace/cascade を考慮した
+# alignment が必要 (= 将来課題)。 pool-pick (play_from_*/search) は FP-clean で real バグを検出。
+SAFE_TARGET_PRIMS: set = set()
 
 
 def _load(slug):

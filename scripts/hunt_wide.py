@@ -14,11 +14,13 @@ from collections import Counter
 repo = CardRepository.from_json("db/cards.json")
 overlay = F.load_effect_overlay("db/card_effects.json") if hasattr(F, "load_effect_overlay") else __import__("engine.effects", fromlist=["load_effect_overlay"]).load_effect_overlay("db/card_effects.json")
 
-# 全 loadable deck の path map
+# 全 loadable deck の path map (= decks/ 以下 全 json を再帰収集、 325 decks/667 cards)
+import os
 paths = []
-for fn in glob.glob("decks/cardrush_*.json") + glob.glob("decks/tcgportal_*.json") \
-        + glob.glob("decks/_archive/cardrush_raw/*.json") + glob.glob("decks/_archive/*.json"):
-    paths.append(fn)
+for root, _, fns in os.walk("decks"):
+    for fn in fns:
+        if fn.endswith(".json") and "analysis" not in fn:
+            paths.append(os.path.join(root, fn))
 
 decks = []
 for p in paths:
