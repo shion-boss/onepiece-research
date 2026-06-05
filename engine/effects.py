@@ -9238,7 +9238,17 @@ def evaluate_static_effects(
                                     continue
                                 t.base_cost_override = amount
                         continue
-                    execute_effect(primitive, state, me, opp, inplay)
+                    # ⚠ 静的効果 (on_attached_don) の評価は **連続評価でプレイヤー決定でない** ので
+                    # human-pick modal を出してはいけない。 出すと「modal → 解決 → 静的再評価 →
+                    # modal …」 の無限ループになる (= ST01-013 ゾロ on_attached_don power_pump
+                    # {self_inplay} が target_pick modal を反復、 2026-06-05 合成デッキ fuzz 検出)。
+                    # forced_human_actor_idx=-1 で AI モード強制 (= _should_human_pick False、 modal 抑止)。
+                    _prev_forced = getattr(state, "forced_human_actor_idx", None)
+                    state.forced_human_actor_idx = -1
+                    try:
+                        execute_effect(primitive, state, me, opp, inplay)
+                    finally:
+                        state.forced_human_actor_idx = _prev_forced
 
 
 def _enqueue_field_when(

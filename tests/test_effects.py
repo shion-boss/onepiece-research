@@ -23,6 +23,35 @@ def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
 
+def test_static_on_attached_don_no_human_modal():
+    """回帰: 静的効果 (on_attached_don) の評価が human-pick modal を raise すると
+    「modal → 解決 → 静的再評価 → modal …」 の無限ループになるバグ (= ST01-013 ゾロ の
+    on_attached_don power_pump {self_inplay} が human session で target_pick を反復、
+    2026-06-05 合成デッキ fuzz が検出)。 静的評価は AI モード強制で modal を出さない。
+    """
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.effects import evaluate_static_effects
+
+    repo = _repo()
+    overlay = _overlay()
+    zoro = repo.get("ST01-013")  # on_attached_don n=1: パワー+1000
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    zip_ = InPlay.of(zoro, sickness=False)
+    p0.characters = [InPlay.of(repo.get("OP01-016"), sickness=False), zip_]
+    state = GameState(players=[p0, p1])
+    state.turn_player_idx = 0
+    state.phase = Phase.MAIN
+    state.human_player_idx = 0  # ← 人間文脈 (= modal を誘発する条件)
+    state.effects_overlay = overlay
+
+    zip_.attached_dons = 1
+    evaluate_static_effects(state, overlay)
+    assert state.pending_choice is None, "静的評価が human modal を立ててはいけない (無限ループ源)"
+    assert zip_.power == zoro.power + 2000, (
+        f"ゾロは DON1付与で 印刷+DON1000+効果1000: {zip_.power} != {zoro.power + 2000}")
+
+
 def test_matches_filter_exact_cost():
     """回帰: filter の 厳密 "cost": N は コスト N **ぴったり** だけにマッチすること。
 
