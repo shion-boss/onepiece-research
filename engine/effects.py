@@ -8730,6 +8730,11 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "cost_eq" in filt and card.cost != int(filt["cost_eq"]):
         return False
+    # 厳密 "cost": N (= cost_eq エイリアス、 公式「コストN の…」)。 これを未処理だと
+    # コスト制限が silently 無視され **任意コストにマッチ** する (= OP14-084「cost1 のB・W登場」
+    # が cost7 も登場可能、 P-081/OP13-098/OP14-088 等。 2026-06-05 lockstep diff が検出)。
+    if "cost" in filt and card.cost != int(filt["cost"]):
+        return False
     if "power_le" in filt and card.power > int(filt["power_le"]):
         return False
     if "power_ge" in filt and card.power < int(filt["power_ge"]):

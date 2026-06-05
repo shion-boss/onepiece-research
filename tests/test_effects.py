@@ -23,6 +23,26 @@ def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
 
+def test_matches_filter_exact_cost():
+    """回帰: filter の 厳密 "cost": N は コスト N **ぴったり** だけにマッチすること。
+
+    _matches_filter が "cost" キー (= cost_le/ge/eq でない厳密 cost) を未処理で、
+    コスト制限が silently 無視され **任意コストにマッチ** していたバグ
+    (= OP14-084「自トラッシュから cost1 のB・Wを登場」 が cost7 の自身も登場可能だった。
+    P-081/OP13-098/OP14-088 も同様)。 2026-06-05 lockstep human-vs-AI diff が検出。
+    """
+    from engine.effects import _matches_filter
+
+    repo = _repo()
+    filt = {"feature": "B・W", "cost": 1}
+    assert _matches_filter(repo.get("OP14-083"), filt), "cost1 のB・W はマッチすべき"
+    assert not _matches_filter(repo.get("OP14-084"), filt), "cost7 のB・W はマッチしてはいけない"
+    assert not _matches_filter(repo.get("OP14-094"), filt), "cost5 のB・W はマッチしてはいけない"
+    # cost_le は従来通り (= 以下) であること
+    assert _matches_filter(repo.get("OP14-084"), {"feature": "B・W", "cost_le": 7})
+    assert not _matches_filter(repo.get("OP14-084"), {"feature": "B・W", "cost_le": 4})
+
+
 def _overlay():
     return load_effect_overlay(ROOT / "db" / "card_effects.json")
 
