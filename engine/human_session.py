@@ -561,6 +561,11 @@ class HumanSession:
         if match is None:
             # 既に消費済/支払い不能で除外済の効果を (= 古い payload 等で) 再指定した場合は no-op。
             # raise すると session が落ちるため graceful skip (= 2026-06-05 fuzz 検出)。
+            # payload を最新の available list に同期 (= client が同じ stale effect を再指定し続けて
+            # ループするのを防ぐ。 success path は line 641 で同期済だが graceful return は素通りだった)。
+            if isinstance(self.pending_payload, dict):
+                self.pending_payload["available_opp_attack_effects"] = list(
+                    getattr(self.state, "_available_opp_attack_effects", []))
             return
         # cost 支払い + enqueue
         defender_idx = self.human_idx
@@ -597,6 +602,9 @@ class HumanSession:
                 if not (e.get("source_iid") == source_iid
                         and e.get("effect_idx") == effect_idx)
             ]
+            if isinstance(self.pending_payload, dict):
+                self.pending_payload["available_opp_attack_effects"] = list(
+                    self.state._available_opp_attack_effects)
             return
         if real_cost:
             _pay_counter_cost(self.state, defender, opp_pl, source, real_cost)

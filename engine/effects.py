@@ -10238,6 +10238,12 @@ def try_replace_ko(
         [owner.leader] + list(owner.characters) + list(owner.stages)
     )
     for inplay in candidates:
+        # 再入防止: この holder の置換 do が実行中なら、 その do が誘発した離脱で
+        # 同じ holder の replace_leave を再発火させない (= 無限ループ防止)。
+        # 例: OP15-052 レオ の replace_leave do が return_to_deck_bottom で自キャラを戻す →
+        # その離脱が再び レオ の replace_leave を誘発 → 無限ループ (2026-06-05 aggressive fuzz 検出)。
+        if inplay.instance_id in getattr(state, "_replace_leave_active_holders", ()):
+            continue
         bundle = effects_overlay.get(inplay.card.card_id)
         if bundle is None:
             continue
@@ -10322,11 +10328,29 @@ def try_replace_ko(
             # OP05-001 等 「代わりに victim 自身に power -1000」 系で利用。
             prev_replace_victim = getattr(state, "last_replace_victim", None)
             state.last_replace_victim = victim
+            # この holder を「置換 do 実行中」 にマーク (= do が誘発した離脱で 自己再発火しない)。
+            active = set(getattr(state, "_replace_leave_active_holders", set()))
+            active.add(inplay.instance_id)
+            state._replace_leave_active_holders = active
+            # ⭐ 置換 do の actor は holder の owner。 owner が human ならその人が target_pick、
+            # AI なら human modal を出さない (= forced=-1)。 これをしないと「相手 (AI) の置換の
+            # target_pick が自分 (human) に出て、 human 視点で解決され ownership が反転 →
+            # 自陣 return が opp return (by_opp_effect=True) になり 置換が自己再誘発 → 無限ループ」
+            # (OP15-052 レオ、 2026-06-05 aggressive fuzz 検出)。
+            owner_idx = state.players.index(owner)
+            prev_forced = getattr(state, "forced_human_actor_idx", None)
+            state.forced_human_actor_idx = (
+                owner_idx if owner_idx == state.human_player_idx else -1
+            )
             try:
                 for primitive in eff.get("do", []):
                     execute_effect(primitive, state, owner, opp, inplay)
             finally:
                 state.last_replace_victim = prev_replace_victim
+                state.forced_human_actor_idx = prev_forced
+                cur = set(getattr(state, "_replace_leave_active_holders", set()))
+                cur.discard(inplay.instance_id)
+                state._replace_leave_active_holders = cur
             return True
     return False
 
