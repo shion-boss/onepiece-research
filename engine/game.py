@@ -1319,7 +1319,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         return
 
     if isinstance(action, AttackLeader):
-        attacker = _find_attacker(me, action.attacker_iid)
+        attacker = _find_attacker_or_none(me, action.attacker_iid)
+        if attacker is None:
+            # 攻撃者が防御解決中 (counter event/opp_attack 効果) に KO/離脱 → 攻撃不発で終了
+            # (= 2026-06-05 広プール fuzz が「no char iid」 で検出。 ai.py pre-fire 修正の最終 apply 版)。
+            return
         # アタック時 手札捨てコスト (OP08-043 エドワード等)
         if attacker.attack_cost_discard_hand_n > 0:
             n_needed = attacker.attack_cost_discard_hand_n
@@ -1654,7 +1658,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         return
 
     if isinstance(action, AttackCharacter):
-        attacker = _find_attacker(me, action.attacker_iid)
+        attacker = _find_attacker_or_none(me, action.attacker_iid)
+        if attacker is None:
+            # 攻撃者が防御解決中に KO/離脱 → 攻撃不発で終了 (= AttackLeader と同型)。
+            return
         if attacker.attack_cost_discard_hand_n > 0:
             n_needed = attacker.attack_cost_discard_hand_n
             if len(me.hand) < n_needed:
@@ -1847,6 +1854,13 @@ def _find_attacker(p: Player, iid: int) -> InPlay:
     if p.leader.instance_id == iid:
         return p.leader
     return _find_character(p, iid)
+
+
+def _find_attacker_or_none(p: Player, iid: int):
+    """_find_attacker の non-raising 版 (= 攻撃者が防御解決中に KO/離脱して 場外 の場合 None)。"""
+    if p.leader.instance_id == iid:
+        return p.leader
+    return next((c for c in p.characters if c.instance_id == iid), None)
 
 
 def _spend_counters(p: Player, idxs: tuple[int, ...]) -> int:
