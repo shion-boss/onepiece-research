@@ -150,8 +150,21 @@ class HumanAI:
                 counter_values[i] = counter_val
                 if is_counter_event:
                     counter_event_idxs.append(i)
-        # 人間 defender 用 「相手のアタック時」 効果 リスト (= clickable で 発動)
-        available_effects = getattr(state, "_available_opp_attack_effects", []) or []
+        # 人間 defender 用 「相手のアタック時」 効果 リスト (= clickable で 発動)。
+        # ⚠ source が 現在 defender の 場 に 居る effect だけ に 限定 する。 この list は
+        # apply_human_defense でしか クリアされ ず、 防御を opp_attack 効果発火で 解決 して
+        # attacker が 消える 経路は それを バイパスする ため stale entry が ターン跨ぎで 残留。
+        # source カードが その後 場を離れる と、 次の防御で payload に 幽霊ボタンが 出て click で
+        # 「source iid not found」 crash する (= 2026-06-05 DON-ledger fuzz が検出)。
+        defender_field_iids = {
+            ip.instance_id
+            for ip in [defender.leader, *defender.characters, *defender.stages]
+        }
+        available_effects = [
+            e for e in (getattr(state, "_available_opp_attack_effects", []) or [])
+            if e.get("source_iid") in defender_field_iids
+        ]
+        state._available_opp_attack_effects = list(available_effects)
         raise PauseSignal(
             "defense",
             {
@@ -396,6 +409,13 @@ class HumanSession:
         self.pending_kind = None
         self.pending_payload = None
         self.advance_until_pause()
+        # ⚠ counter event / opp_attack 効果の **chained modal** (discard/draw/target 等) を解決して
+        # defense に戻った場合、 解決中に hand が変化 (= 引く/捨てる) していると defense payload の
+        # counter_event_idxs / legal_counter_card_idxs が stale になる (= 別カードの index を指す)。
+        # defense に復帰したら必ず現 hand から再構築する (= 2026-06-05 広プール fuzz が「非EVENTに
+        # counter_event」 で検出した stale payload の root 修正)。
+        if self.pending_kind == "defense" and isinstance(self.pending_payload, dict):
+            self._rebuild_defense_payload()
 
     def legal_actions_for_human(self) -> list[dict]:
         """人間 ターン中 の legal actions を JSON-able dict 群 で 返す。"""
@@ -447,12 +467,19 @@ class HumanSession:
         defender_idx = self.human_idx
         defender = self.state.players[defender_idx]
         attacker_player = self.state.players[1 - defender_idx]
+        # ⚠ 以下の検証は すべて **stale payload** (= counter_event_idxs が hand 変化後に古く、
+        # 別カードの index を指す) で 起こりうる。 raise すると session が engine error で 落ちる
+        # ため graceful skip + defense payload 再構築 (= opp_attack stale 修正と同型。 2026-06-05
+        # 広デッキプール fuzz が「非EVENT に counter_event」 cardrush_1276 で検出)。
+        def _stale_skip(reason: str) -> None:
+            self.state.push_log(f"  counter event 不発 (stale payload): {reason}")
+            self._rebuild_defense_payload()
         if not (0 <= hand_idx < len(defender.hand)):
-            raise ValueError(f"hand_idx out of range: {hand_idx}")
+            return _stale_skip(f"hand_idx={hand_idx} 範囲外")
         card = defender.hand[hand_idx]
         # 検証: EVENT + 【カウンター】 効果あり + DON cost 払える
         if not str(getattr(card, "category", "")).endswith("EVENT"):
-            raise ValueError(f"hand[{hand_idx}]={card.name} is not EVENT")
+            return _stale_skip(f"hand[{hand_idx}]={card.name} は EVENT でない")
         overlay = self.state.effects_overlay or {}
         bundle = overlay.get(card.card_id)
         has_counter = False
@@ -465,9 +492,9 @@ class HumanSession:
                     has_counter = True
                     break
         if not has_counter:
-            raise ValueError(f"{card.name} has no counter effect")
+            return _stale_skip(f"{card.name} に counter 効果なし")
         if defender.don_active < card.cost:
-            raise ValueError(f"insufficient DON: need {card.cost}, have {defender.don_active}")
+            return _stale_skip(f"{card.name} DON 不足 (need {card.cost}, have {defender.don_active})")
         # cost 払い + hand → trash (= _fire_counter_events と 同 step)
         defender.hand.pop(hand_idx)
         defender.don_rested += card.cost
@@ -540,7 +567,17 @@ class HumanSession:
         self.pending_payload["legal_counter_card_idxs"] = counter_idxs
         self.pending_payload["counter_values"] = counter_values
         self.pending_payload["counter_event_idxs"] = counter_event_idxs
-        avail = getattr(self.state, "_available_opp_attack_effects", []) or []
+        # available_opp_attack_effects も source が 現在 場 に 居る もの だけ に 限定
+        # (= choose_defense と 同型、 stale source の 幽霊ボタンを 除去)。
+        field_iids = {
+            ip.instance_id
+            for ip in [defender.leader, *defender.characters, *defender.stages]
+        }
+        avail = [
+            e for e in (getattr(self.state, "_available_opp_attack_effects", []) or [])
+            if e.get("source_iid") in field_iids
+        ]
+        self.state._available_opp_attack_effects = list(avail)
         self.pending_payload["available_opp_attack_effects"] = list(avail)
 
     def apply_human_use_opp_attack_effect(
@@ -576,7 +613,18 @@ class HumanSession:
                 source = ip
                 break
         if source is None:
-            raise ValueError(f"source iid not found: {source_iid}")
+            # source が 場 を 離れた (= stale entry / カードが KO・離脱 済) 場合は raise すると
+            # session が engine error で 落ちる ため graceful skip + 候補 list を 現場に 同期。
+            # producer 側 (choose_defense/_rebuild) で 既に filter 済 だが、 client が 古い payload で
+            # 再指定した 場合の 防御。 match-None / cost不能 の graceful path と 同型。
+            self.state._available_opp_attack_effects = [
+                e for e in (getattr(self.state, "_available_opp_attack_effects", []) or [])
+                if e.get("source_iid") != source_iid
+            ]
+            if isinstance(self.pending_payload, dict):
+                self.pending_payload["available_opp_attack_effects"] = list(
+                    self.state._available_opp_attack_effects)
+            return
         bundle = self.state.effects_overlay.get(source.card.card_id) if self.state.effects_overlay else None
         if bundle is None:
             return

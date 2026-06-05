@@ -179,6 +179,8 @@ db/human_play_log/
 # corpus は raw、 derived/ は 派生物。 large + 再生成 可能 なので git 除外。
 db/game_corpus/
 db/derived/
+# 塊プラン PlanLibrary 生成物 (= build_plan_library_from_corpus.py 出力、 corpus から再生成可能)
+db/plan_tables/
 # runtime violation queue (= rotation するので 古い ものは _archive へ、 commit しない)
 db/auto_issues/
 db/spec_backups/

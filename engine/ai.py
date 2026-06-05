@@ -2706,8 +2706,16 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         state._opp_attack_pre_fired_id = attack_id
 
     if isinstance(action, AttackLeader):
-        from .game import _find_attacker, _fire_counter_events  # noqa
-        attacker = _find_attacker(state.turn_player, action.attacker_iid)
+        from .game import _find_attacker_or_none, _fire_counter_events  # noqa
+        attacker = _find_attacker_or_none(state.turn_player, action.attacker_iid)
+        if attacker is None:
+            # 攻撃者が防御解決中 (= 人間 defender の counter event/opp_attack 効果) に KO/離脱
+            # して 場外 (= retry 時) → 攻撃不発で終了 (= 2026-06-05 広プール fuzz が「no char iid」
+            # crash で検出。 既存の target 消失 fix の attacker 版)。
+            state._pending_ai_action = None
+            state._counter_events_fired_for = None
+            state._opp_attack_pre_fired_id = None
+            return action
         # cache action for PauseSignal retry
         state._pending_ai_action = {
             "action": action,
@@ -2746,8 +2754,14 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
             action = state._pending_ai_action["action"]
 
     elif isinstance(action, AttackCharacter):
-        from .game import _find_attacker, _find_character, _fire_counter_events  # noqa
-        attacker = _find_attacker(state.turn_player, action.attacker_iid)
+        from .game import _find_attacker_or_none, _find_character, _fire_counter_events  # noqa
+        attacker = _find_attacker_or_none(state.turn_player, action.attacker_iid)
+        if attacker is None:
+            # 攻撃者が防御解決中に KO/離脱 → 攻撃不発で終了 (= AttackLeader 側と同型、 2026-06-05)。
+            state._pending_ai_action = None
+            state._counter_events_fired_for = None
+            state._opp_attack_pre_fired_id = None
+            return action
         state._pending_ai_action = {
             "action": action,
             "turn_player_idx": state.turn_player_idx,

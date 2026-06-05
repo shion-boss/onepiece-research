@@ -1658,6 +1658,8 @@ def _resolve_target(
         _TYPE_ALIASES = {
             "one_opp_chara_filtered": "one_opponent_character_filtered",
             "one_opp_chara_any": "one_opponent_character_any",
+            # chara/character 表記揺れ (= P-029 等 14 件が dict 形で silent no-op だった、 2026-06-05)
+            "one_self_character_filtered": "one_self_chara_filtered",
         }
         if t in _TYPE_ALIASES:
             t = _TYPE_ALIASES[t]
@@ -1705,6 +1707,12 @@ def _resolve_target(
                 return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
+        if t == "all_chara_filtered":
+            # 両陣営のキャラ全員 (filter マッチ)。 = ST08-005「コスト1以下のキャラすべてをKO」
+            # (自他両方)。 未処理で 0 対象 = silent no-op だった (2026-06-05 target dict 次元 sweep)。
+            filt = target_spec.get("filter", {})
+            return [ip for ip in [*me.characters, *opp.characters]
+                    if _matches_filter(ip.card, filt)]
         if t == "all_self_chara_filtered":
             # 自キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
             # rested フィールド (= optional) で active/rested を 絞れる。
@@ -1876,7 +1884,9 @@ def _resolve_target(
             return []
         cands.sort(key=lambda ip: -ip.power)
         return cands[:1]
-    if target_spec == "opponent_leader":
+    if target_spec in ("opponent_leader", "one_opponent_leader"):
+        # one_opponent_leader: overlay の別名表記 (= OP06-023 等)。 未処理だと 0 対象で
+        # 効果が silent no-op (= set_cannot_attack が相手リーダーに付かない、 2026-06-05 検出)。
         return [opp.leader]
     if target_spec == "self_leader":
         return [me.leader]
@@ -2047,6 +2057,14 @@ def _resolve_target(
         return cands[:1]
     if target_spec == "all_self_characters":
         return list(me.characters)
+    # all_self_chara(racters)_cost_le_N: 自分のコストN以下のキャラ すべて (= OP06-096 等)。
+    # 未処理だと 0 対象で silent no-op (= set_battle_ko_immune が付かない、 2026-06-05 検出)。
+    # ⚠ この位置は str-guard 外 (= target_spec が dict もありうる) なので isinstance ガード必須。
+    _m_all_self = (re.match(r"all_self_chara(?:cters?)?_cost_le_(\d+)$", target_spec)
+                   if isinstance(target_spec, str) else None)
+    if _m_all_self:
+        cap = int(_m_all_self.group(1))
+        return [c for c in me.characters if c.card.cost <= cap]
     if target_spec == "all_self_team":
         return [me.leader] + list(me.characters)
     if target_spec == "one_self_team_any":
@@ -2527,9 +2545,23 @@ def execute_effect(
         if not hasattr(state, "_effect_events"):
             state._effect_events = []
 
+    # actor 文脈の保全: この呼び出しが **新たに** 人間 pending_choice を立てたら、 その actor
+    # (= me) の index を stamp する。 解決時 (_resolve_pending_choice_inner 冒頭) が turn_player
+    # でなく この actor の zone を操作する (= on_ko 等 非ターンプレイヤーのトリガーで召喚/検索が
+    # 相手の hand/trash/deck を触るバグを根絶。 2026-06-05 RuleReferee field-flood が play_from_
+    # hand_or_trash で検出、 同根が summon/play_from_trash/play_from_hand に潜在)。 identity 比較で
+    # 「この body が立てた新規 choice」 のみ対象 + 既 _actor_idx は尊重 (= 内側 actor 優先)。
+    _pc_before = state.pending_choice
     try:
         return _execute_effect_body(spec, state, me, opp, self_inplay)
     finally:
+        _pc_after = state.pending_choice
+        if (isinstance(_pc_after, dict) and _pc_after is not _pc_before
+                and "_actor_idx" not in _pc_after):
+            try:
+                _pc_after["_actor_idx"] = state.players.index(me)
+            except ValueError:
+                pass
         if _audit_on and _event is not None:
             _event["after"] = _audit_snapshot(state)
             state._effect_events.append(_event)
@@ -4010,46 +4042,50 @@ def _execute_effect_body(
                 if played_count == 0:
                     return False
                 continue
-            # AI / 候補 <= limit: 既存 挙動 (= 先頭 から filter 一致 を 登場)
+            # AI / 候補 <= limit: 先頭から filter 一致を 登場。
+            # ⚠ 公式: 「登場でトラッシュを離れて**から** on_play」。 旧実装は me.trash[:] = new_trash を
+            # loop 後に行い、 trigger_on_play が「登場済カードがまだ trash にいる」 stale を見ていた
+            # → source-zone を触る on_play (= OP06-090 ホグバック の trash_to_deck+登場 等) で 人間 pick
+            # 経路 (= pop 後 on_play で正しい) と divergence。 2026-06-05 wide lockstep が検出。
+            # ⇒ **先に play 対象を選定して me.trash から除去** してから append + on_play する。
             found = 0
             seen_names: set[str] = set()
-            new_trash = []
+            to_play = []
+            remaining = []
             for card in me.trash:
                 if (found < limit and card.category == target_category
                         and _matches_filter(card, filt)
-                        and not (filt.get("no_effect") and not _card_has_no_effect(card, state))):
-                    if unique_name and card.name in seen_names:
-                        new_trash.append(card)
-                        continue
-                    if target_category == Category.STAGE:
-                        if me.stages:
-                            old = me.stages.pop(0)
-                            me.trash.append(old.card)
-                            if old.attached_dons > 0:
-                                me.don_rested += old.attached_dons
-                            state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
-                        ip = InPlay.of(card, rested=False, sickness=False)
-                        me.stages.append(ip)
-                        found += 1
-                        seen_names.add(card.name)
-                        state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
-                        continue
-                    if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
-                    ip = InPlay.of(card, rested=rested, sickness=True)
-                    ip.return_to_deck_bottom_at_turn_end = want_return_eot
-                    me.characters.append(ip)
-                    if pk_grant:
-                        ip.granted_keywords.add(str(pk_grant))
+                        and not (filt.get("no_effect") and not _card_has_no_effect(card, state))
+                        and not (unique_name and card.name in seen_names)):
+                    to_play.append(card)
                     found += 1
                     seen_names.add(card.name)
-                    label = "レストで" if rested else ""
-                    state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
-                    if state.effects_overlay:
-                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 else:
-                    new_trash.append(card)
-            me.trash[:] = new_trash
+                    remaining.append(card)
+            me.trash[:] = remaining  # 先に trash 更新 (= 登場でトラッシュを離れる)
+            for card in to_play:
+                if target_category == Category.STAGE:
+                    if me.stages:
+                        old = me.stages.pop(0)
+                        me.trash.append(old.card)
+                        if old.attached_dons > 0:
+                            me.don_rested += old.attached_dons
+                        state.push_log(f"  効果: 既存ステージ {old.card.name} → trash")
+                    ip = InPlay.of(card, rested=False, sickness=False)
+                    me.stages.append(ip)
+                    state.push_log(f"  効果: トラッシュから ステージ 登場 → {card.name}")
+                    continue
+                if not me.can_play_character():
+                    me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+                ip = InPlay.of(card, rested=rested, sickness=True)
+                ip.return_to_deck_bottom_at_turn_end = want_return_eot
+                me.characters.append(ip)
+                if pk_grant:
+                    ip.granted_keywords.add(str(pk_grant))
+                label = "レストで" if rested else ""
+                state.push_log(f"  効果: トラッシュから{label}登場 → {card.name}")
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
         elif k == "bounce_self_chara_then_play_diff_color":
             # 「自分のキャラ1枚を持ち主の手札に戻し、 戻したキャラと異なる色のコストN以下の
             # キャラ1枚までを登場させる」 (EB01-020/OP01-002)。 戻したキャラの色を動的除外。
@@ -6503,6 +6539,9 @@ def _execute_effect_body(
                     "rested": rested_flag,
                     "filter_desc": _describe_filter_jp(filt),
                     "source_iid": self_inplay.instance_id if self_inplay else None,
+                    # actor 文脈を保存 (= 解決時に turn_player でなく この actor の hand/trash を使う。
+                    # source_iid は on_ko 等で 場外/None になり 当てにならない、 2026-06-05)。
+                    "_actor_idx": state.players.index(me),
                 }
                 state.push_log(
                     f"  効果: 手札 か トラッシュ から 登場 候補 {total_cands} 枚 "
@@ -6528,6 +6567,12 @@ def _execute_effect_body(
                 for i in hand_idxs[:limit - played]:
                     if not (0 <= i < len(me.hand)):
                         continue
+                    # 防御: 解決時に hand[i] が **キャラ かつ filter 一致** か再検証してから登場。
+                    # idx/actor の desync で EVENT 等を掴むと「キャラエリアに非CHARACTER」 になる
+                    # ため (= AI 経路 (下) は元々 category/filter を見ている。 これと整合)。
+                    if not (me.hand[i].category == Category.CHARACTER
+                            and _matches_filter(me.hand[i], filt)):
+                        continue
                     card = me.hand.pop(i)
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
@@ -6539,6 +6584,9 @@ def _execute_effect_body(
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 for i in trash_idxs[:limit - played]:
                     if not (0 <= i < len(me.trash)):
+                        continue
+                    if not (me.trash[i].category == Category.CHARACTER
+                            and _matches_filter(me.trash[i], filt)):
                         continue
                     card = me.trash.pop(i)
                     if not me.can_play_character():
@@ -7637,6 +7685,16 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     kind = choice.get("kind")
     me = state.players[state.turn_player_idx]
     opp = state.opponent
+    # ⚠ actor 文脈の中央復元: modal を **非ターンプレイヤー** のトリガー (= on_ko 等で 自キャラが
+    # KO された owner、 counter/trigger 等) で 立てた 場合、 me=turn_player のままだと 別プレイヤーの
+    # zone を 操作してしまう (= 召喚系で「相手の hand から登場」 → EVENT を掴み キャラエリア汚染)。
+    # raise 時に保存した _actor_idx で me/opp を復元する (= source_iid は on_ko で 場外/None になり
+    # 当てにならない。 forced_human_actor_idx は event 解決中のみ で modal 解決時には消えている)。
+    # _actor_idx を 持たない kind は 従来通り turn_player (= 影響なし)。 2026-06-05。
+    _aidx = choice.get("_actor_idx")
+    if isinstance(_aidx, int) and 0 <= _aidx < len(state.players):
+        me = state.players[_aidx]
+        opp = state.players[1 - _aidx]
 
     if kind == "search_top_n_bottom_reorder":
         # picks: 残り remaining cards を ど の 順 で deck 底 に 戻 す か の index list。
@@ -7891,6 +7949,8 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     if kind == "play_from_hand_or_trash_pick":
         # picks: candidates[] の index list。 candidate に source + idx が ある
         # ので spec.{_picks: [{source, idx}, ...]} の 形 で 再実行 する。
+        # me/opp は冒頭で _actor_idx により actor 復元済 (= off-turn トリガーでも 正しい
+        # プレイヤーの hand/trash を操作)。 picks 実行パスも category/filter を再検証する。
         candidates = choice.get("candidates", [])
         primitive_value = choice.get("primitive_value") or {}
         source_iid = choice.get("source_iid")
@@ -8692,6 +8752,15 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         return False
     if "cost_eq" in filt and card.cost != int(filt["cost_eq"]):
         return False
+    # 厳密 "cost": N (= cost_eq エイリアス、 公式「コストN の…」)。 これを未処理だと
+    # コスト制限が silently 無視され **任意コストにマッチ** する (= OP14-084「cost1 のB・W登場」
+    # が cost7 も登場可能、 P-081/OP13-098/OP14-088 等。 2026-06-05 lockstep diff が検出)。
+    if "cost" in filt and card.cost != int(filt["cost"]):
+        return False
+    # original_cost_eq: 元々(印刷)コスト = N。 CardDef.cost = 印刷値なので cost_eq と同義の
+    # エイリアス。 未処理で silently 無視されていた (= 2026-06-05 filter キー監査で検出)。
+    if "original_cost_eq" in filt and card.cost != int(filt["original_cost_eq"]):
+        return False
     if "power_le" in filt and card.power > int(filt["power_le"]):
         return False
     if "power_ge" in filt and card.power < int(filt["power_ge"]):
@@ -8723,6 +8792,17 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     if "color" in filt and filt["color"] not in card.color:
         return False
     if "exclude_name" in filt and card.name == filt["exclude_name"]:
+        return False
+    # name_exclude: exclude_name の variant 表記 (= overlay に両表記が混在)。 未処理だと
+    # 名前除外が silently 無視される (= 2026-06-05 filter キー監査で検出)。
+    if "name_exclude" in filt and card.name == filt["name_exclude"]:
+        return False
+    # exclude_card_id: 特定 card_id を除外 (= ST22-002「自身以外の白ひげ海賊団」 等)。 未処理だと
+    # 除外が無効で **そのカード自身も対象** になる (= 14 箇所、 2026-06-05 filter キー監査で検出)。
+    if "exclude_card_id" in filt and card.card_id == filt["exclude_card_id"]:
+        return False
+    # card_id: 特定 card_id のみに限定。 未処理だと card_id 制限が無視され任意カードにマッチ。
+    if "card_id" in filt and card.card_id != filt["card_id"]:
         return False
     if "has_trigger" in filt and filt["has_trigger"]:
         if not (card.trigger and card.trigger.startswith("【トリガー】")):
@@ -9158,7 +9238,17 @@ def evaluate_static_effects(
                                     continue
                                 t.base_cost_override = amount
                         continue
-                    execute_effect(primitive, state, me, opp, inplay)
+                    # ⚠ 静的効果 (on_attached_don) の評価は **連続評価でプレイヤー決定でない** ので
+                    # human-pick modal を出してはいけない。 出すと「modal → 解決 → 静的再評価 →
+                    # modal …」 の無限ループになる (= ST01-013 ゾロ on_attached_don power_pump
+                    # {self_inplay} が target_pick modal を反復、 2026-06-05 合成デッキ fuzz 検出)。
+                    # forced_human_actor_idx=-1 で AI モード強制 (= _should_human_pick False、 modal 抑止)。
+                    _prev_forced = getattr(state, "forced_human_actor_idx", None)
+                    state.forced_human_actor_idx = -1
+                    try:
+                        execute_effect(primitive, state, me, opp, inplay)
+                    finally:
+                        state.forced_human_actor_idx = _prev_forced
 
 
 def _enqueue_field_when(

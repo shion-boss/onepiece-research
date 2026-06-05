@@ -23,6 +23,119 @@ def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
 
+def test_static_on_attached_don_no_human_modal():
+    """回帰: 静的効果 (on_attached_don) の評価が human-pick modal を raise すると
+    「modal → 解決 → 静的再評価 → modal …」 の無限ループになるバグ (= ST01-013 ゾロ の
+    on_attached_don power_pump {self_inplay} が human session で target_pick を反復、
+    2026-06-05 合成デッキ fuzz が検出)。 静的評価は AI モード強制で modal を出さない。
+    """
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.effects import evaluate_static_effects
+
+    repo = _repo()
+    overlay = _overlay()
+    zoro = repo.get("ST01-013")  # on_attached_don n=1: パワー+1000
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    zip_ = InPlay.of(zoro, sickness=False)
+    p0.characters = [InPlay.of(repo.get("OP01-016"), sickness=False), zip_]
+    state = GameState(players=[p0, p1])
+    state.turn_player_idx = 0
+    state.phase = Phase.MAIN
+    state.human_player_idx = 0  # ← 人間文脈 (= modal を誘発する条件)
+    state.effects_overlay = overlay
+
+    zip_.attached_dons = 1
+    evaluate_static_effects(state, overlay)
+    assert state.pending_choice is None, "静的評価が human modal を立ててはいけない (無限ループ源)"
+    assert zip_.power == zoro.power + 2000, (
+        f"ゾロは DON1付与で 印刷+DON1000+効果1000: {zip_.power} != {zoro.power + 2000}")
+
+
+def test_matches_filter_exact_cost():
+    """回帰: filter の 厳密 "cost": N は コスト N **ぴったり** だけにマッチすること。
+
+    _matches_filter が "cost" キー (= cost_le/ge/eq でない厳密 cost) を未処理で、
+    コスト制限が silently 無視され **任意コストにマッチ** していたバグ
+    (= OP14-084「自トラッシュから cost1 のB・Wを登場」 が cost7 の自身も登場可能だった。
+    P-081/OP13-098/OP14-088 も同様)。 2026-06-05 lockstep human-vs-AI diff が検出。
+    """
+    from engine.effects import _matches_filter
+
+    repo = _repo()
+    filt = {"feature": "B・W", "cost": 1}
+    assert _matches_filter(repo.get("OP14-083"), filt), "cost1 のB・W はマッチすべき"
+    assert not _matches_filter(repo.get("OP14-084"), filt), "cost7 のB・W はマッチしてはいけない"
+    assert not _matches_filter(repo.get("OP14-094"), filt), "cost5 のB・W はマッチしてはいけない"
+    # cost_le は従来通り (= 以下) であること
+    assert _matches_filter(repo.get("OP14-084"), {"feature": "B・W", "cost_le": 7})
+    assert not _matches_filter(repo.get("OP14-084"), {"feature": "B・W", "cost_le": 4})
+
+
+def test_matches_filter_carddef_keys():
+    """回帰: _matches_filter が CardDef キー (exclude_card_id / card_id / original_cost_eq /
+    name_exclude) を未処理で silently 無視 → 制限が効かず過剰マッチしていたバグ。
+    2026-06-05 filter キー監査 (= cost バグの次元 sweep) で検出。"""
+    from engine.effects import _matches_filter
+
+    repo = _repo()
+    nami = repo.get("OP01-016")  # ナミ cost1
+    # exclude_card_id: 指定 card_id を除外 (= ST22-002「自身以外の白ひげ海賊団」 等、 14箇所)
+    assert not _matches_filter(nami, {"exclude_card_id": "OP01-016"}), "自身は除外されるべき"
+    assert _matches_filter(nami, {"exclude_card_id": "OP01-099"}), "別card_id 除外時は通るべき"
+    # card_id: 指定 card_id のみ
+    assert _matches_filter(nami, {"card_id": "OP01-016"})
+    assert not _matches_filter(nami, {"card_id": "OP01-013"})
+    # original_cost_eq: 元々コスト ぴったり
+    assert _matches_filter(nami, {"original_cost_eq": int(nami.cost)})
+    assert not _matches_filter(nami, {"original_cost_eq": int(nami.cost) + 5})
+    # name_exclude: exclude_name の variant
+    assert not _matches_filter(nami, {"name_exclude": nami.name})
+    assert _matches_filter(nami, {"name_exclude": "別の名前"})
+
+
+def test_resolve_target_silently_ignored_specs():
+    """回帰: _resolve_target が target 文字列 spec を未処理だと 0 対象で **silent no-op**
+    (= 効果が何も対象を取らず不発) になるバグ。 2026-06-05 target spec 次元 sweep で検出:
+    - one_opponent_leader (= opponent_leader の別名、 OP06-023 set_cannot_attack)
+    - all_self_chara_cost_le_N (= 自コストN以下キャラ全部、 OP06-096 set_battle_ko_immune)
+    """
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.effects import _resolve_target
+
+    repo = _repo()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    lo = repo.get("OP01-016")   # cost 1
+    hi = repo.get("OP02-013")   # cost 7
+    p0.characters = [InPlay.of(lo, sickness=False), InPlay.of(hi, sickness=False)]
+    st = GameState(players=[p0, p1])
+    st.turn_player_idx = 0
+    st.phase = Phase.MAIN
+
+    leader_t = _resolve_target("one_opponent_leader", st, p0, p1, p0.characters[0])
+    assert leader_t == [p1.leader], f"one_opponent_leader が相手リーダーを返すべき: {leader_t}"
+
+    le7 = _resolve_target("all_self_chara_cost_le_7", st, p0, p1, p0.characters[0])
+    assert len(le7) == 2, f"cost1+cost7 とも ≤7 で 2 対象: {len(le7)}"
+    le0 = _resolve_target("all_self_chara_cost_le_0", st, p0, p1, p0.characters[0])
+    assert len(le0) == 0, f"cost≤0 は該当なし: {len(le0)}"
+    # dict target_spec で re.match が TypeError にならないこと (= str-guard 回帰)
+    _resolve_target({"filter": {"category": "CHARACTER"}}, st, p0, p1, p0.characters[0])
+
+    # dict {type: X} の表記揺れ / 未処理 type も silent no-op だったバグ (2026-06-05)
+    # one_self_character_filtered (= one_self_chara_filtered の chara/character 揺れ、 P-029)
+    p0.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]  # ナミ 麦わらの一味
+    r = _resolve_target({"type": "one_self_character_filtered",
+                         "filter": {"feature": "麦わらの一味"}}, st, p0, p1, p0.characters[0])
+    assert len(r) == 1, f"one_self_character_filtered が自キャラ1枚返すべき: {len(r)}"
+    # all_chara_filtered (= 両陣営、 ST08-005「コスト1以下キャラすべてKO」)
+    p1.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]
+    both = _resolve_target({"type": "all_chara_filtered", "filter": {"cost_le": 1}},
+                           st, p0, p1, p0.characters[0])
+    assert len(both) == 2, f"all_chara_filtered が両陣営のcost≤1を返すべき: {len(both)}"
+
+
 def _overlay():
     return load_effect_overlay(ROOT / "db" / "card_effects.json")
 

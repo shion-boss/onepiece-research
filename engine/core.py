@@ -644,39 +644,21 @@ class Player:
         これは ルール処理 であり KO ではないので 【KO 時】 トリガーは発火しない (3-7-6-1-1)。
         付与ドンはレストでコストエリアに戻る (6-5-5-4 と同様)。
 
-        owner_idx (= 2026-05-30 追加): 配置 先 player の index。 state.human_player_idx と
-        一致 する 場合 は **自動 trash を skip** し て pending_choice = "field_full_select_trash"
-        を 設定 (= 人間 が UI で 選 ぶ ま で 留 保)。 caller は そ の ま ま 新 chara を append
-        し て 6 体 一時 状態 に な る が、 人間 choice で 該 当 chara を trash す れ ば 5 体 に 戻 る。
+        ⚠ owner_idx は API 互換の ため 残すが **人間でも自動 trash する** (= 旧 2026-05-30 の
+        「人間は field_full_select_trash modal で選ばせる」 defer は撤去)。 理由: この helper は
+        効果召喚 (reveal_top_play / summon_from_deck / play_from_trash 等、 effects.py 19 箇所)
+        専用で、 caller は trash 後に **新 chara を append + trigger_on_play を同期発火** する。
+        defer すると pending_choice=field_full_select_trash を立てた直後に on_play が自身の modal
+        (例: ウソ八 の rest 選択) で **それを clobber** し → trash が永久に失われ **場 6 体** に
+        なる (= 2026-06-05 RuleReferee×人間 field-flood hunt が「キャラエリア超過 6>5」 で検出)。
+        メイン PlayCharacter は action に sacrifice_iid を載せ trash→append→on_play 順で正しく
+        人間に選ばせる (game.py) ので 人間の差替選択は そちらで保持される。
 
-        AI / owner_idx 未 指 定 / human_player_idx 未 設 定 時 は 旧 logic (= 最 弱 自 動 trash)。
-
-        戻り値: trash したキャラ (いなければ None)、 pending 設 定 した 場 合 は "PENDING_HUMAN"。
+        戻り値: trash したキャラ (いなければ None)。
         """
         if self.field_count() < self.MAX_CHARACTERS:
             return None
-        # 人間 owner なら pending_choice 設定 して 自動 trash skip
-        if (state is not None and owner_idx is not None
-                and getattr(state, "human_player_idx", None) is not None
-                and owner_idx == state.human_player_idx):
-            state.pending_choice = {
-                "kind": "field_full_select_trash",
-                "owner_idx": owner_idx,
-                "candidates": [
-                    {
-                        "iid": c.instance_id,
-                        "card_id": c.card.card_id,
-                        "name": c.card.name,
-                        "power": c.power,
-                        "cost": c.card.cost,
-                        "attached_dons": c.attached_dons,
-                    }
-                    for c in self.characters
-                ],
-            }
-            state.push_log("  差 替 (3-7-6-1) 待 ち: 人間 が ト ラ ッ シュ 対 象 を 選 択 中")
-            return "PENDING_HUMAN"
-        # AI / 旧 logic: 自動 最 弱 trash
+        # 効果召喚の field-full は 自動 最 弱 trash (= 人間でも同期 trash で ≤5 を保証、 clobber 回避)
         sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
         self.characters.remove(sacrifice)
         self.trash.append(sacrifice.card)
