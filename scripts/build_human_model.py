@@ -39,7 +39,7 @@ def _strip_prefix(line: str):
     return int(m.group(1)), int(m.group(2)), m.group(3)
 
 
-def analyze_game(d: dict) -> dict | None:
+def analyze_game(d: dict, opp_leader_name: str | None = None) -> dict | None:
     meta = d.get("metadata", {})
     human_idx = meta.get("human_idx")
     ai_idx = meta.get("ai_idx")
@@ -48,13 +48,30 @@ def analyze_game(d: dict) -> dict | None:
     log = d.get("log", [])
     result = d.get("result", {})
 
-    # snapshots から turn_player を引けるが、 log prefix の P{idx} = その手番の turn_player。
-    # 相手(AI)ターン中の counter/block = 人間の防御。 自ターンの "blocked"/"counter" は AI の防御。
+    # ⚠ 実ログの攻撃フォーマット (2026-06-05 修正): 攻撃宣言は
+    #   `atk: <攻撃者>(P=N) -> <対象>(P=M)`、 リーダーヒットは `hit: P{ai} life->hand (…)`。
+    # 旧コードは「リーダーへアタック」 等の存在しない文字列を照合 → attacks_face/chara が常に 0
+    # (= aggression が degenerate)。 対象がリーダーか否かは **対象名 == 相手リーダー名** で判定。
+    # ミラー戦の同名キャラ衝突に備え、 life ダメージを出した atk の対象 (= 確実にリーダー) を
+    # ログからも収集して leader 名集合に union する (= 解析自己完結 + analysis からの opp_leader_name)。
+    leader_names = set()
+    if opp_leader_name:
+        leader_names.add(opp_leader_name)
+    _last_atk_target = None
+    for ln in log:
+        _t, _p, _b = _strip_prefix(ln)
+        mt = re.match(r"\s*atk:\s*.+?->\s*(.+?)\(P=", _b)
+        if mt and _p == human_idx:
+            _last_atk_target = mt.group(1).strip()
+        elif re.match(rf"\s*hit:\s*P{ai_idx}\s+life", _b) and _last_atk_target:
+            leader_names.add(_last_atk_target)  # life ダメージ確定 = 対象はリーダー
+
     human_def_counters = 0       # 人間が counter を切った回数 (= AIターン中)
     human_def_counter_value = 0  # その counter 値 合計
     human_def_blocks = 0         # 人間が blocker を出した回数 (= AIターン中)
-    human_attacks_face = 0       # 人間がリーダーを攻撃
+    human_attacks_face = 0       # 人間がリーダーを攻撃 (= 対象がリーダー名)
     human_attacks_chara = 0      # 人間がキャラを攻撃
+    human_face_hits = 0          # 人間のリーダー攻撃が通った回数 (= life ダメージ)
     mull_keep = mull_redraw = 0
 
     for ln in log:
@@ -70,18 +87,27 @@ def analyze_game(d: dict) -> dict | None:
                 human_def_counter_value += int(mc.group(1))
             if "アタック対象変更" in body or body.strip().startswith("blocker:"):
                 human_def_blocks += 1
-        # --- 攻撃 (自=人間ターン中の攻撃宣言) ---
+        # --- 攻撃 (自=人間ターン中の `atk: A(P=) -> TARGET(P=)`) ---
         if pidx == human_idx:
-            if "リーダーへアタック" in body or "→ リーダー" in body or "アタック: リーダー" in body:
-                human_attacks_face += 1
-            elif body.startswith("アタック") and "対象変更" not in body:
-                human_attacks_chara += 1
-        # --- マリガン ---
-        if pidx == human_idx and "マリガン" in body:
-            if "引き直し" in body:
-                mull_redraw += 1
-            elif "keep" in body or "引き直さない" in body:
+            ma = re.match(r"\s*atk:\s*.+?->\s*(.+?)\(P=", body)
+            if ma:
+                target = ma.group(1).strip()
+                if target in leader_names:
+                    human_attacks_face += 1
+                else:
+                    human_attacks_chara += 1
+            # リーダーに life ダメージが通った (= 人間の顔詰め成功)
+            if re.match(rf"\s*hit:\s*P{ai_idx}\s+life", body):
+                human_face_hits += 1
+        # --- マリガン (人間の keep/引き直し) ---
+        # ⚠ 修正 (2026-06-05): mulligan 行は開始 turn_player の prefix (例 `T1 P0:`) を持つので
+        # pidx==human_idx では漏れる → body の `(人間)` で判定。 かつ 「引き直さない」 は 「引き直し」
+        # を部分文字列に含むので keep を先に判定 (旧コードは順序逆で keep を redraw と誤計上)。
+        if "マリガン" in body and "(人間)" in body:
+            if "引き直さない" in body or "keep" in body:
                 mull_keep += 1
+            elif "引き直し" in body:
+                mull_redraw += 1
 
     turns = int(result.get("turns", 0)) or 1
     return {
@@ -90,6 +116,7 @@ def analyze_game(d: dict) -> dict | None:
         "human_def_blocks": human_def_blocks,
         "human_attacks_face": human_attacks_face,
         "human_attacks_chara": human_attacks_chara,
+        "human_face_hits": human_face_hits,
         "mull_keep": mull_keep,
         "mull_redraw": mull_redraw,
         "turns": turns,
@@ -98,13 +125,28 @@ def analyze_game(d: dict) -> dict | None:
 
 
 def build(log_dir: Path) -> dict:
+    _leader_cache: dict = {}
+
+    def _opp_leader(slug):
+        if not slug:
+            return None
+        if slug not in _leader_cache:
+            ap = ROOT / "decks" / f"{slug}.analysis.json"
+            try:
+                _leader_cache[slug] = json.loads(ap.read_text(encoding="utf-8")).get("leader_name")
+            except Exception:
+                _leader_cache[slug] = None
+        return _leader_cache[slug]
+
     games = []
     for f in sorted(glob.glob(str(log_dir / "*.json"))):
         try:
             d = json.loads(Path(f).read_text(encoding="utf-8"))
         except Exception:
             continue
-        g = analyze_game(d)
+        # 相手 (AI) の deck = 攻撃対象リーダー。 metadata の deck_ai_slug から leader 名を解決。
+        opp_leader = _opp_leader(d.get("metadata", {}).get("deck_ai_slug"))
+        g = analyze_game(d, opp_leader)
         if g:
             games.append(g)
 
@@ -118,6 +160,7 @@ def build(log_dir: Path) -> dict:
     tot_counter_val = sum(g["human_def_counter_value"] for g in games)
     tot_face = sum(g["human_attacks_face"] for g in games)
     tot_chara = sum(g["human_attacks_chara"] for g in games)
+    tot_face_hits = sum(g.get("human_face_hits", 0) for g in games)
     tot_keep = sum(g["mull_keep"] for g in games)
     tot_redraw = sum(g["mull_redraw"] for g in games)
 
@@ -135,9 +178,11 @@ def build(log_dir: Path) -> dict:
         "mulligan_keep_rate": round(tot_keep / max(1, tot_keep + tot_redraw), 4),
         "avg_turns": round(tot_turns / n, 2),
         "human_winrate_vs_ai": round(sum(g["human_won"] for g in games) / n, 4),
+        "face_hits_per_turn": round(tot_face_hits / max(1, tot_turns), 4),
         "_raw_totals": {
             "def_counters": tot_counters, "def_blocks": sum(g["human_def_blocks"] for g in games),
-            "attacks_face": tot_face, "attacks_chara": tot_chara, "turns": tot_turns,
+            "attacks_face": tot_face, "attacks_chara": tot_chara,
+            "face_hits": tot_face_hits, "turns": tot_turns,
         },
         "_note": ("sample_size が小さい間は HumanModelAI は greedy に近い (= データ量でスケール)。"
                   " 公開サーバの試合が増えるほど精度向上。"),
