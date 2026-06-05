@@ -9722,13 +9722,12 @@ def _enqueue_opp_attack_with_cost(
                 continue
             pay_don = int(cost.get("pay_don", 0))
             rest_don = int(cost.get("rest_self_don", 0))
-            # pay_don は active + rested から、 rest_self_don は active のみから 取れる
-            if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
-                continue
-            if rest_don > 0 and me.don_active < rest_don:
-                continue
             discard_n = int(cost.get("discard_hand", 0))
-            if discard_n > 0 and len(me.hand) < discard_n:
+            # 全 cost キーで支払い可能か判定 (= pay_don/rest_self_don/discard_hand だけでなく
+            # discard_hand_with_filter/rest_self/trash_self 等も)。 払えない効果は提示しない
+            # (= apply_human_use_opp_attack_effect / AI 即時支払の _can_pay と整合、 ValueError 防止)。
+            real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
+            if real_cost and not _can_pay_counter_cost(state, me, source_inplay, real_cost):
                 continue
             if is_human_actor:
                 # 人間 defender → pending_choice 候補 へ

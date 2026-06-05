@@ -216,6 +216,13 @@ def play_one(a, b, seed, human_first, rng, seen):
         inv = check_invariants(s.state, "game_over")
         if inv:
             return ("INV", steps, inv[0])
+        # game_over の理由を log で確認: advance_until_pause が握り潰した in-game 例外
+        # (= "engine error: ...") は winner 確定で OK に見えてしまう。 これを検出する
+        # (= 2026-06-05 人間×環境デッキ fuzz で「アタック対象が防御中に消える」 crash を捕捉)。
+        for ln in s.state.log:
+            if "engine error" in ln:
+                return ("ENGINE_ERROR", steps,
+                        ln.split("engine error:")[-1].strip()[:90])
         return ("OK", steps, None)
     return ("TIMEOUT", steps, None)
 
@@ -259,7 +266,7 @@ def main():
     rng = random.Random(7)
     crashes = []
     seen = set()
-    results = {"OK": 0, "TIMEOUT": 0, "STUCK": 0, "NO_ACT": 0, "CRASH": 0, "INV": 0}
+    results = {"OK": 0, "TIMEOUT": 0, "STUCK": 0, "NO_ACT": 0, "CRASH": 0, "INV": 0, "ENGINE_ERROR": 0}
     for g in range(N_GAMES):
         a = DECKS[g % len(DECKS)]
         b = rng.choice([d for d in DECKS if d != a])

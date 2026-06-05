@@ -33,6 +33,13 @@ CASES = [
     ("cardrush_1456", "cardrush_1453", 1006, False),
     ("tcgportal_bonney", "tcgportal_calgara", 1007, True),
     ("cardrush_1439", "cardrush_1399", 1008, False),
+    # 2026-06-05 人間×環境デッキ fuzz が検出した crash の退行ガード (= 修正前は ENGINE_ERROR /
+    # PY_EXC で落ちた)。 「アタック対象が防御中に自身の opp_attack 効果で消える」 + 「提示後に
+    # 払えなくなった opp_attack 効果」。 self-play、 seed/human_first は検出時と同一。
+    ("cardrush_1456", "cardrush_1456", 3007, False),
+    ("cardrush_1453", "cardrush_1453", 3019, False),
+    ("tcgportal_coby", "tcgportal_coby", 3002, True),
+    ("cardrush_1399", "cardrush_1399", 3005, False),
 ]
 
 

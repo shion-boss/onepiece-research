@@ -2757,7 +2757,20 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
             raise PauseSignal("choice", dict(state.pending_choice))
         ce_marker = (state.turn_player_idx, attacker.instance_id, "AttackCharacter", action.target_iid)
         if getattr(state, "_counter_events_fired_for", None) != ce_marker:
-            target = _find_character(state.opponent, action.target_iid)
+            target = next((c for c in state.opponent.characters
+                           if c.instance_id == action.target_iid), None)
+            if target is None:
+                # 防御中に対象キャラが場を離れた (= 対象自身の opp_attack trash_self 等で除去された) →
+                # 攻撃宣言済なので attacker はレスト、 ダメージなしで終了 (= 2026-06-05 人間×環境デッキ
+                # fuzz が検出した「no char iid」crash の修正)。
+                attacker.rested = True
+                state.push_log(
+                    f"  アタック不発: 対象が場を離れた ({attacker.card.name})"
+                )
+                state._pending_ai_action = None
+                state._opp_attack_pre_fired_id = None
+                state._counter_events_fired_for = None
+                return action
             block_iid, counters = ai_opp.choose_defense(
                 state, attacker, target, False, state.opponent
             )

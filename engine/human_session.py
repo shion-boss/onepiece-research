@@ -559,7 +559,9 @@ class HumanSession:
                 match = e
                 break
         if match is None:
-            raise ValueError(f"effect not in available list: source={source_iid} idx={effect_idx}")
+            # 既に消費済/支払い不能で除外済の効果を (= 古い payload 等で) 再指定した場合は no-op。
+            # raise すると session が落ちるため graceful skip (= 2026-06-05 fuzz 検出)。
+            return
         # cost 支払い + enqueue
         defender_idx = self.human_idx
         defender = self.state.players[defender_idx]
@@ -584,7 +586,18 @@ class HumanSession:
         real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
         opp_pl = self.state.players[1 - defender_idx]
         if real_cost and not _can_pay_counter_cost(self.state, defender, source, real_cost):
-            raise ValueError("cannot pay opp_attack effect cost")
+            # 提示後に state が変わり (= 別の opp_attack 効果を先に発動して資源消費 等) 払えなく
+            # なった場合は 発動せず skip + 候補から除外し、 防御 pending を維持。 raise すると
+            # session が engine error で落ちるため (= 2026-06-05 人間×環境デッキ fuzz が検出)。
+            self.state.push_log(
+                f"  opp_attack 効果 不発: コスト支払い不能 ({source.card.name})"
+            )
+            self.state._available_opp_attack_effects = [
+                e for e in avail
+                if not (e.get("source_iid") == source_iid
+                        and e.get("effect_idx") == effect_idx)
+            ]
+            return
         if real_cost:
             _pay_counter_cost(self.state, defender, opp_pl, source, real_cost)
         if cost.get("once_per_turn"):
