@@ -1658,6 +1658,8 @@ def _resolve_target(
         _TYPE_ALIASES = {
             "one_opp_chara_filtered": "one_opponent_character_filtered",
             "one_opp_chara_any": "one_opponent_character_any",
+            # chara/character 表記揺れ (= P-029 等 14 件が dict 形で silent no-op だった、 2026-06-05)
+            "one_self_character_filtered": "one_self_chara_filtered",
         }
         if t in _TYPE_ALIASES:
             t = _TYPE_ALIASES[t]
@@ -1705,6 +1707,12 @@ def _resolve_target(
                 return []
             cands.sort(key=lambda ip: -ip.power)
             return cands[:1]
+        if t == "all_chara_filtered":
+            # 両陣営のキャラ全員 (filter マッチ)。 = ST08-005「コスト1以下のキャラすべてをKO」
+            # (自他両方)。 未処理で 0 対象 = silent no-op だった (2026-06-05 target dict 次元 sweep)。
+            filt = target_spec.get("filter", {})
+            return [ip for ip in [*me.characters, *opp.characters]
+                    if _matches_filter(ip.card, filt)]
         if t == "all_self_chara_filtered":
             # 自キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
             # rested フィールド (= optional) で active/rested を 絞れる。

@@ -94,6 +94,18 @@ def test_resolve_target_silently_ignored_specs():
     # dict target_spec で re.match が TypeError にならないこと (= str-guard 回帰)
     _resolve_target({"filter": {"category": "CHARACTER"}}, st, p0, p1, p0.characters[0])
 
+    # dict {type: X} の表記揺れ / 未処理 type も silent no-op だったバグ (2026-06-05)
+    # one_self_character_filtered (= one_self_chara_filtered の chara/character 揺れ、 P-029)
+    p0.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]  # ナミ 麦わらの一味
+    r = _resolve_target({"type": "one_self_character_filtered",
+                         "filter": {"feature": "麦わらの一味"}}, st, p0, p1, p0.characters[0])
+    assert len(r) == 1, f"one_self_character_filtered が自キャラ1枚返すべき: {len(r)}"
+    # all_chara_filtered (= 両陣営、 ST08-005「コスト1以下キャラすべてKO」)
+    p1.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]
+    both = _resolve_target({"type": "all_chara_filtered", "filter": {"cost_le": 1}},
+                           st, p0, p1, p0.characters[0])
+    assert len(both) == 2, f"all_chara_filtered が両陣営のcost≤1を返すべき: {len(both)}"
+
 
 def _overlay():
     return load_effect_overlay(ROOT / "db" / "card_effects.json")
