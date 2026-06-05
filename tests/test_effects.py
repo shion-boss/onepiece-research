@@ -43,6 +43,28 @@ def test_matches_filter_exact_cost():
     assert not _matches_filter(repo.get("OP14-084"), {"feature": "B・W", "cost_le": 4})
 
 
+def test_matches_filter_carddef_keys():
+    """回帰: _matches_filter が CardDef キー (exclude_card_id / card_id / original_cost_eq /
+    name_exclude) を未処理で silently 無視 → 制限が効かず過剰マッチしていたバグ。
+    2026-06-05 filter キー監査 (= cost バグの次元 sweep) で検出。"""
+    from engine.effects import _matches_filter
+
+    repo = _repo()
+    nami = repo.get("OP01-016")  # ナミ cost1
+    # exclude_card_id: 指定 card_id を除外 (= ST22-002「自身以外の白ひげ海賊団」 等、 14箇所)
+    assert not _matches_filter(nami, {"exclude_card_id": "OP01-016"}), "自身は除外されるべき"
+    assert _matches_filter(nami, {"exclude_card_id": "OP01-099"}), "別card_id 除外時は通るべき"
+    # card_id: 指定 card_id のみ
+    assert _matches_filter(nami, {"card_id": "OP01-016"})
+    assert not _matches_filter(nami, {"card_id": "OP01-013"})
+    # original_cost_eq: 元々コスト ぴったり
+    assert _matches_filter(nami, {"original_cost_eq": int(nami.cost)})
+    assert not _matches_filter(nami, {"original_cost_eq": int(nami.cost) + 5})
+    # name_exclude: exclude_name の variant
+    assert not _matches_filter(nami, {"name_exclude": nami.name})
+    assert _matches_filter(nami, {"name_exclude": "別の名前"})
+
+
 def _overlay():
     return load_effect_overlay(ROOT / "db" / "card_effects.json")
 

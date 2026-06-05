@@ -8735,6 +8735,10 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     # が cost7 も登場可能、 P-081/OP13-098/OP14-088 等。 2026-06-05 lockstep diff が検出)。
     if "cost" in filt and card.cost != int(filt["cost"]):
         return False
+    # original_cost_eq: 元々(印刷)コスト = N。 CardDef.cost = 印刷値なので cost_eq と同義の
+    # エイリアス。 未処理で silently 無視されていた (= 2026-06-05 filter キー監査で検出)。
+    if "original_cost_eq" in filt and card.cost != int(filt["original_cost_eq"]):
+        return False
     if "power_le" in filt and card.power > int(filt["power_le"]):
         return False
     if "power_ge" in filt and card.power < int(filt["power_ge"]):
@@ -8766,6 +8770,17 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     if "color" in filt and filt["color"] not in card.color:
         return False
     if "exclude_name" in filt and card.name == filt["exclude_name"]:
+        return False
+    # name_exclude: exclude_name の variant 表記 (= overlay に両表記が混在)。 未処理だと
+    # 名前除外が silently 無視される (= 2026-06-05 filter キー監査で検出)。
+    if "name_exclude" in filt and card.name == filt["name_exclude"]:
+        return False
+    # exclude_card_id: 特定 card_id を除外 (= ST22-002「自身以外の白ひげ海賊団」 等)。 未処理だと
+    # 除外が無効で **そのカード自身も対象** になる (= 14 箇所、 2026-06-05 filter キー監査で検出)。
+    if "exclude_card_id" in filt and card.card_id == filt["exclude_card_id"]:
+        return False
+    # card_id: 特定 card_id のみに限定。 未処理だと card_id 制限が無視され任意カードにマッチ。
+    if "card_id" in filt and card.card_id != filt["card_id"]:
         return False
     if "has_trigger" in filt and filt["has_trigger"]:
         if not (card.trigger and card.trigger.startswith("【トリガー】")):
