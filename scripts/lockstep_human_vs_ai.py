@@ -182,6 +182,16 @@ def _human_picks_matching(choice, ref_state, pre_digest):
         gained = ((Counter(cid for cid, *_ in post[4]) + Counter(post[5]))
                   - (Counter(cid for cid, *_ in pre[4]) + Counter(pre[5])))  # → field
     limit = int(choice.get("limit", 1) or 1)
+    # ⚠ 曖昧検出 (2026-06-05): 登場カードの on_play cascade が **別の candidate カードも**
+    # 場に出した場合 (= gained∩candidate が limit 超)、 どれが top-level pick か field-inference
+    # では判別不能。 例: EB03-024 系は「アラバスタ/麦わら cost≤5 を登場」 で、 登場先カードも
+    # 同 filter にマッチ → AI が p2 を pick → cascade で EB02-022 も登場 → gained=2枚。
+    # ここで誤って先頭 candidate を pick させると 人間 fork が AI と別カードを出して 偽の盤面差。
+    # 決定的検証で「正しい単一 pick なら AI 盤面と完全一致」 を確認済 ⇒ engine は正常、 ツール限界。
+    # → None で比較 skip (= 空振り厳禁原則。 cascade-candidate は board-equality で検証不能)。
+    total_matchable = sum(min(gained.get(cid, 0), cand_ids.get(cid, 0)) for cid in cand_ids)
+    if total_matchable > limit:
+        return None
     picks = []
     used = Counter()
     for i, c in enumerate(cands):
@@ -242,8 +252,10 @@ def run(slug_a, slug_b, seed, divergences, stats):
                     sess.apply_human_choice([]); continue
                 if ref is None:
                     sess.apply_human_choice([]); continue
-                stats["compared"] += 1
                 picks = _human_picks_matching(choice, ref, pre_digest)
+                if picks is None:  # cascade で top-level pick 判別不能 → 比較 skip (空振り回避)
+                    sess.apply_human_choice([]); continue
+                stats["compared"] += 1
                 # S_human: 人間 modal path で同じカードを解決 (fast_clone は AI モードだが
                 #   resolve_pending_choice は picks をそのまま適用するので 人間解決 path を通る)。
                 from engine.effects import resolve_pending_choice
