@@ -184,3 +184,139 @@ def test_no_empty_action_pause_after_turn_start_effect(repo, overlay):
         step += 1
 
     assert session.state.game_over, f"step={step} で 試合 未完了 (= stuck の 疑い)"
+
+
+def test_stale_opp_attack_effect_source_graceful(repo, overlay):
+    """回帰: 防御中、 state._available_opp_attack_effects に「source が既に場を離れた」
+    stale entry が残り、 その効果を click (apply_human_use_opp_attack_effect) すると
+    `ValueError: source iid not found` で session が落ちるバグ。
+
+    真因: _available_opp_attack_effects は apply_human_defense でしかクリアされないが、
+    防御を opp_attack 効果発火で解決して attacker が消える経路はそれをバイパス → stale entry
+    がターン跨ぎで残留 → source カードが後で場を離れると幽霊エントリになる。
+    (= 2026-06-05 hunt_don_ledger.py が cardrush_1453 vs cardrush_1456 seed80021 で検出)
+
+    fix: producer (choose_defense/_rebuild_defense_payload) で現場 source に filter +
+    consumer (本メソッド) で source 不在なら raise せず graceful skip。 本 test は consumer の
+    graceful を直接叩く (= seed 再現は rng drift に弱いため、 fix を確定的に検証)。
+    """
+    deck_json = json.loads((ROOT / "decks" / "cardrush_1456.json").read_text(encoding="utf-8"))
+    deck_a = make_deck_from_dict(deck_json, repo)
+    deck_b = make_deck_from_dict(deck_json, repo)
+    session = HumanSession(
+        deck_a=deck_a, deck_b=deck_b, ai_factory=_greedy_factory,
+        seed=42, effects_overlay=overlay, human_first=True)
+
+    # 防御 pending を 人工的に セット + 場に居ない source_iid の stale entry を 注入。
+    bogus_iid = 999_999  # どの InPlay の instance_id とも 衝突しない
+    stale = {
+        "source_iid": bogus_iid, "effect_idx": 0, "when_key": "opp_attack",
+        "card_id": "STALE", "card_name": "幽霊", "effect_text": "",
+    }
+    session.state._available_opp_attack_effects = [dict(stale)]
+    session.pending_kind = "defense"
+    session.pending_payload = {
+        "attacker_iid": session.state.players[session.ai_idx].leader.instance_id,
+        "available_opp_attack_effects": [dict(stale)],
+    }
+
+    # crash しない (= 旧実装は ValueError) + stale entry が 候補から 除去される。
+    session.apply_human_use_opp_attack_effect(bogus_iid, 0)
+    assert all(
+        e.get("source_iid") != bogus_iid
+        for e in session.state._available_opp_attack_effects
+    ), "stale source entry が 除去されていない"
+    assert all(
+        e.get("source_iid") != bogus_iid
+        for e in session.pending_payload.get("available_opp_attack_effects", [])
+    ), "payload の stale source entry が 同期除去されていない"
+
+
+def _field_flood_play_with_referee(repo, overlay, deck_a, deck_b, seed, human_first):
+    """field-flood bot で 1 試合 を 走らせ、 各 settled (action待ち/game_over) で RuleReferee の
+    構造チェック (フィールド≤5 / カテゴリ整合 / DON台帳 / instance一意) を read-only 実行して
+    違反 list を集める。 (= 2026-06-05 hunt_referee_human.py を test 化)。"""
+    import random
+    from engine.ai import RandomAI
+    from engine.referee import RuleReferee
+
+    def _rand(rng, deck_analysis=None):
+        return RandomAI(rng=rng)
+
+    session = HumanSession(
+        deck_a=make_deck_from_dict(json.loads((ROOT / "decks" / f"{deck_a}.json").read_text(encoding="utf-8")), repo),
+        deck_b=make_deck_from_dict(json.loads((ROOT / "decks" / f"{deck_b}.json").read_text(encoding="utf-8")), repo),
+        ai_factory=_rand, seed=seed, effects_overlay=overlay, human_first=human_first)
+    rng = random.Random(seed)
+    violations: list[str] = []
+
+    def _check():
+        ref = RuleReferee(strict=False)
+        ref.after_action(session.state)
+        violations.extend(ref.violations)
+
+    steps = 0
+    while not session.state.game_over and steps < 1500:
+        steps += 1
+        pk = session.pending_kind
+        pl = session.pending_payload or {}
+        if pk == "action":
+            _check()
+            if violations:
+                break
+            acts = session.legal_actions_for_human()
+            if not acts:
+                break
+            non_end = [a for a in acts if a["kind"] != "EndPhase"]
+            plays = [a for a in non_end if a["kind"] in ("PlayCharacter", "PlayStage", "ActivateMain")]
+            if plays:
+                chosen = rng.choice(plays)["idx"]
+            elif non_end and rng.random() < 0.4:
+                chosen = rng.choice(non_end)["idx"]
+            else:
+                chosen = next((a["idx"] for a in acts if a["kind"] == "EndPhase"), acts[0]["idx"])
+            session.apply_human_action(chosen)
+        elif pk == "choice":
+            k = pl.get("kind")
+            if k in ("mulligan_confirm", "mulligan_redrawn"):
+                session.apply_human_choice([0])
+            else:
+                cs = pl.get("candidates") or pl.get("cards") or pl.get("options") or []
+                lim = int(pl.get("limit", 1) or 1)
+                session.apply_human_choice(list(range(min(lim, len(cs)))) if cs else [])
+        elif pk == "defense":
+            session.apply_human_defense(None, [])
+        else:
+            break
+    if session.state.game_over:
+        _check()
+    return violations
+
+
+def test_human_play_structural_invariants_field_flood(repo, overlay):
+    """回帰: 人間操作でキャラ展開を厚くした (field-flood) とき、 効果召喚が
+
+    (A) **満杯フィールド (5体) への登場でフィールド 6 体超過** (= reveal_top_play 等で
+        trash_weakest の人間 defer modal が on_play に clobber され差替が消える、 サンジ
+        OP06-119 系)、
+    (B) **非ターンプレイヤーのトリガー (on_ko 等) で 別プレイヤーの hand/trash から登場
+        → EVENT がキャラエリアに混入** (= actor 文脈喪失、 play_from_hand_or_trash 等)
+
+    を起こさないこと。 RuleReferee の構造チェック (キャラ≤5/カテゴリ整合/DON台帳/instance一意)
+    を settled 点で当てて担保する。 2026-06-05 hunt_referee_human.py が検出・修正。
+    """
+    # サンジ reveal_top_play を含む op11_luffy + on_ko play_from_hand_or_trash を含む 1385 を中心に
+    pairs = [
+        ("tcgportal_op11_luffy", "cardrush_1453"),
+        ("cardrush_1385", "cardrush_1392"),
+        ("cardrush_1385", "cardrush_1439"),
+        ("cardrush_1342", "cardrush_1342"),
+    ]
+    for a, b in pairs:
+        for sd in range(3):
+            seed = 90000 + sd * 11
+            viol = _field_flood_play_with_referee(repo, overlay, a, b, seed, human_first=(sd % 2 == 0))
+            assert not viol, (
+                f"{a} vs {b} seed={seed}: 構造違反 {viol[:2]} "
+                f"(= フィールド超過 / キャラエリアに非CHARACTER 等の回帰)"
+            )

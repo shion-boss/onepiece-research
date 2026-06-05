@@ -150,8 +150,21 @@ class HumanAI:
                 counter_values[i] = counter_val
                 if is_counter_event:
                     counter_event_idxs.append(i)
-        # 人間 defender 用 「相手のアタック時」 効果 リスト (= clickable で 発動)
-        available_effects = getattr(state, "_available_opp_attack_effects", []) or []
+        # 人間 defender 用 「相手のアタック時」 効果 リスト (= clickable で 発動)。
+        # ⚠ source が 現在 defender の 場 に 居る effect だけ に 限定 する。 この list は
+        # apply_human_defense でしか クリアされ ず、 防御を opp_attack 効果発火で 解決 して
+        # attacker が 消える 経路は それを バイパスする ため stale entry が ターン跨ぎで 残留。
+        # source カードが その後 場を離れる と、 次の防御で payload に 幽霊ボタンが 出て click で
+        # 「source iid not found」 crash する (= 2026-06-05 DON-ledger fuzz が検出)。
+        defender_field_iids = {
+            ip.instance_id
+            for ip in [defender.leader, *defender.characters, *defender.stages]
+        }
+        available_effects = [
+            e for e in (getattr(state, "_available_opp_attack_effects", []) or [])
+            if e.get("source_iid") in defender_field_iids
+        ]
+        state._available_opp_attack_effects = list(available_effects)
         raise PauseSignal(
             "defense",
             {
@@ -540,7 +553,17 @@ class HumanSession:
         self.pending_payload["legal_counter_card_idxs"] = counter_idxs
         self.pending_payload["counter_values"] = counter_values
         self.pending_payload["counter_event_idxs"] = counter_event_idxs
-        avail = getattr(self.state, "_available_opp_attack_effects", []) or []
+        # available_opp_attack_effects も source が 現在 場 に 居る もの だけ に 限定
+        # (= choose_defense と 同型、 stale source の 幽霊ボタンを 除去)。
+        field_iids = {
+            ip.instance_id
+            for ip in [defender.leader, *defender.characters, *defender.stages]
+        }
+        avail = [
+            e for e in (getattr(self.state, "_available_opp_attack_effects", []) or [])
+            if e.get("source_iid") in field_iids
+        ]
+        self.state._available_opp_attack_effects = list(avail)
         self.pending_payload["available_opp_attack_effects"] = list(avail)
 
     def apply_human_use_opp_attack_effect(
@@ -576,7 +599,18 @@ class HumanSession:
                 source = ip
                 break
         if source is None:
-            raise ValueError(f"source iid not found: {source_iid}")
+            # source が 場 を 離れた (= stale entry / カードが KO・離脱 済) 場合は raise すると
+            # session が engine error で 落ちる ため graceful skip + 候補 list を 現場に 同期。
+            # producer 側 (choose_defense/_rebuild) で 既に filter 済 だが、 client が 古い payload で
+            # 再指定した 場合の 防御。 match-None / cost不能 の graceful path と 同型。
+            self.state._available_opp_attack_effects = [
+                e for e in (getattr(self.state, "_available_opp_attack_effects", []) or [])
+                if e.get("source_iid") != source_iid
+            ]
+            if isinstance(self.pending_payload, dict):
+                self.pending_payload["available_opp_attack_effects"] = list(
+                    self.state._available_opp_attack_effects)
+            return
         bundle = self.state.effects_overlay.get(source.card.card_id) if self.state.effects_overlay else None
         if bundle is None:
             return

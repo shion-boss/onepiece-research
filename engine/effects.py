@@ -2527,9 +2527,23 @@ def execute_effect(
         if not hasattr(state, "_effect_events"):
             state._effect_events = []
 
+    # actor 文脈の保全: この呼び出しが **新たに** 人間 pending_choice を立てたら、 その actor
+    # (= me) の index を stamp する。 解決時 (_resolve_pending_choice_inner 冒頭) が turn_player
+    # でなく この actor の zone を操作する (= on_ko 等 非ターンプレイヤーのトリガーで召喚/検索が
+    # 相手の hand/trash/deck を触るバグを根絶。 2026-06-05 RuleReferee field-flood が play_from_
+    # hand_or_trash で検出、 同根が summon/play_from_trash/play_from_hand に潜在)。 identity 比較で
+    # 「この body が立てた新規 choice」 のみ対象 + 既 _actor_idx は尊重 (= 内側 actor 優先)。
+    _pc_before = state.pending_choice
     try:
         return _execute_effect_body(spec, state, me, opp, self_inplay)
     finally:
+        _pc_after = state.pending_choice
+        if (isinstance(_pc_after, dict) and _pc_after is not _pc_before
+                and "_actor_idx" not in _pc_after):
+            try:
+                _pc_after["_actor_idx"] = state.players.index(me)
+            except ValueError:
+                pass
         if _audit_on and _event is not None:
             _event["after"] = _audit_snapshot(state)
             state._effect_events.append(_event)
@@ -6503,6 +6517,9 @@ def _execute_effect_body(
                     "rested": rested_flag,
                     "filter_desc": _describe_filter_jp(filt),
                     "source_iid": self_inplay.instance_id if self_inplay else None,
+                    # actor 文脈を保存 (= 解決時に turn_player でなく この actor の hand/trash を使う。
+                    # source_iid は on_ko 等で 場外/None になり 当てにならない、 2026-06-05)。
+                    "_actor_idx": state.players.index(me),
                 }
                 state.push_log(
                     f"  効果: 手札 か トラッシュ から 登場 候補 {total_cands} 枚 "
@@ -6528,6 +6545,12 @@ def _execute_effect_body(
                 for i in hand_idxs[:limit - played]:
                     if not (0 <= i < len(me.hand)):
                         continue
+                    # 防御: 解決時に hand[i] が **キャラ かつ filter 一致** か再検証してから登場。
+                    # idx/actor の desync で EVENT 等を掴むと「キャラエリアに非CHARACTER」 になる
+                    # ため (= AI 経路 (下) は元々 category/filter を見ている。 これと整合)。
+                    if not (me.hand[i].category == Category.CHARACTER
+                            and _matches_filter(me.hand[i], filt)):
+                        continue
                     card = me.hand.pop(i)
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
@@ -6539,6 +6562,9 @@ def _execute_effect_body(
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 for i in trash_idxs[:limit - played]:
                     if not (0 <= i < len(me.trash)):
+                        continue
+                    if not (me.trash[i].category == Category.CHARACTER
+                            and _matches_filter(me.trash[i], filt)):
                         continue
                     card = me.trash.pop(i)
                     if not me.can_play_character():
@@ -7637,6 +7663,16 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     kind = choice.get("kind")
     me = state.players[state.turn_player_idx]
     opp = state.opponent
+    # ⚠ actor 文脈の中央復元: modal を **非ターンプレイヤー** のトリガー (= on_ko 等で 自キャラが
+    # KO された owner、 counter/trigger 等) で 立てた 場合、 me=turn_player のままだと 別プレイヤーの
+    # zone を 操作してしまう (= 召喚系で「相手の hand から登場」 → EVENT を掴み キャラエリア汚染)。
+    # raise 時に保存した _actor_idx で me/opp を復元する (= source_iid は on_ko で 場外/None になり
+    # 当てにならない。 forced_human_actor_idx は event 解決中のみ で modal 解決時には消えている)。
+    # _actor_idx を 持たない kind は 従来通り turn_player (= 影響なし)。 2026-06-05。
+    _aidx = choice.get("_actor_idx")
+    if isinstance(_aidx, int) and 0 <= _aidx < len(state.players):
+        me = state.players[_aidx]
+        opp = state.players[1 - _aidx]
 
     if kind == "search_top_n_bottom_reorder":
         # picks: 残り remaining cards を ど の 順 で deck 底 に 戻 す か の index list。
@@ -7891,6 +7927,8 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     if kind == "play_from_hand_or_trash_pick":
         # picks: candidates[] の index list。 candidate に source + idx が ある
         # ので spec.{_picks: [{source, idx}, ...]} の 形 で 再実行 する。
+        # me/opp は冒頭で _actor_idx により actor 復元済 (= off-turn トリガーでも 正しい
+        # プレイヤーの hand/trash を操作)。 picks 実行パスも category/filter を再検証する。
         candidates = choice.get("candidates", [])
         primitive_value = choice.get("primitive_value") or {}
         source_iid = choice.get("source_iid")
