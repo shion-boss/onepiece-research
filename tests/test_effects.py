@@ -65,6 +65,36 @@ def test_matches_filter_carddef_keys():
     assert _matches_filter(nami, {"name_exclude": "別の名前"})
 
 
+def test_resolve_target_silently_ignored_specs():
+    """回帰: _resolve_target が target 文字列 spec を未処理だと 0 対象で **silent no-op**
+    (= 効果が何も対象を取らず不発) になるバグ。 2026-06-05 target spec 次元 sweep で検出:
+    - one_opponent_leader (= opponent_leader の別名、 OP06-023 set_cannot_attack)
+    - all_self_chara_cost_le_N (= 自コストN以下キャラ全部、 OP06-096 set_battle_ko_immune)
+    """
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.effects import _resolve_target
+
+    repo = _repo()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    lo = repo.get("OP01-016")   # cost 1
+    hi = repo.get("OP02-013")   # cost 7
+    p0.characters = [InPlay.of(lo, sickness=False), InPlay.of(hi, sickness=False)]
+    st = GameState(players=[p0, p1])
+    st.turn_player_idx = 0
+    st.phase = Phase.MAIN
+
+    leader_t = _resolve_target("one_opponent_leader", st, p0, p1, p0.characters[0])
+    assert leader_t == [p1.leader], f"one_opponent_leader が相手リーダーを返すべき: {leader_t}"
+
+    le7 = _resolve_target("all_self_chara_cost_le_7", st, p0, p1, p0.characters[0])
+    assert len(le7) == 2, f"cost1+cost7 とも ≤7 で 2 対象: {len(le7)}"
+    le0 = _resolve_target("all_self_chara_cost_le_0", st, p0, p1, p0.characters[0])
+    assert len(le0) == 0, f"cost≤0 は該当なし: {len(le0)}"
+    # dict target_spec で re.match が TypeError にならないこと (= str-guard 回帰)
+    _resolve_target({"filter": {"category": "CHARACTER"}}, st, p0, p1, p0.characters[0])
+
+
 def _overlay():
     return load_effect_overlay(ROOT / "db" / "card_effects.json")
 

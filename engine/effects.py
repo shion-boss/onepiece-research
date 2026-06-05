@@ -1876,7 +1876,9 @@ def _resolve_target(
             return []
         cands.sort(key=lambda ip: -ip.power)
         return cands[:1]
-    if target_spec == "opponent_leader":
+    if target_spec in ("opponent_leader", "one_opponent_leader"):
+        # one_opponent_leader: overlay の別名表記 (= OP06-023 等)。 未処理だと 0 対象で
+        # 効果が silent no-op (= set_cannot_attack が相手リーダーに付かない、 2026-06-05 検出)。
         return [opp.leader]
     if target_spec == "self_leader":
         return [me.leader]
@@ -2047,6 +2049,14 @@ def _resolve_target(
         return cands[:1]
     if target_spec == "all_self_characters":
         return list(me.characters)
+    # all_self_chara(racters)_cost_le_N: 自分のコストN以下のキャラ すべて (= OP06-096 等)。
+    # 未処理だと 0 対象で silent no-op (= set_battle_ko_immune が付かない、 2026-06-05 検出)。
+    # ⚠ この位置は str-guard 外 (= target_spec が dict もありうる) なので isinstance ガード必須。
+    _m_all_self = (re.match(r"all_self_chara(?:cters?)?_cost_le_(\d+)$", target_spec)
+                   if isinstance(target_spec, str) else None)
+    if _m_all_self:
+        cap = int(_m_all_self.group(1))
+        return [c for c in me.characters if c.card.cost <= cap]
     if target_spec == "all_self_team":
         return [me.leader] + list(me.characters)
     if target_spec == "one_self_team_any":
