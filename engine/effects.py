@@ -10406,8 +10406,20 @@ def try_replace_rest(
                 continue
             _pay_replace_cost(state, victim_owner, cost_specs, holder_card_id)
         state.push_log(f"  レスト置換: {victim.card.name} の効果で発動")
-        for primitive in eff.get("do", []):
-            execute_effect(primitive, state, victim_owner, actor, victim)
+        # 置換 do の actor は victim_owner (= レスト される側の持ち主)。 victim_owner が human
+        # ならその人が target_pick、 AI なら human modal を出さない (= forced=-1)。 これをしないと
+        # replace_rest の do (= other_self_chara を rest) の選択が turn_player (= 相手) 文脈で出て
+        # victim_owner が選べない (= replace_leave 無限ループと同類の actor 文脈バグ、 2026-06-05)。
+        owner_idx = state.players.index(victim_owner)
+        prev_forced = getattr(state, "forced_human_actor_idx", None)
+        state.forced_human_actor_idx = (
+            owner_idx if owner_idx == state.human_player_idx else -1
+        )
+        try:
+            for primitive in eff.get("do", []):
+                execute_effect(primitive, state, victim_owner, actor, victim)
+        finally:
+            state.forced_human_actor_idx = prev_forced
         return True
     return False
 
