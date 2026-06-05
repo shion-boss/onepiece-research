@@ -7,14 +7,15 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "scripts")
 import lockstep_human_vs_ai as L
 
-# slug -> path map (= decks/ 以下 全 json を再帰収集、 325 decks/667 cards)
+# slug -> path map (= decks/ 以下 全 json を再帰収集)。 ⚠ key は **parentdir/filename** で
+# unique 化 (= 各リーダー dir の variant_0.json を dedup せず全部テスト、 325 decks/667 cards)。
 import os
 pathmap = {}
 for root, _, fns in os.walk("decks"):
     for fn in fns:
         if fn.endswith(".json") and "analysis" not in fn:
-            slug = fn.replace(".json", "")
-            pathmap.setdefault(slug, os.path.join(root, fn))
+            key = os.path.join(os.path.basename(root), fn.replace(".json", ""))
+            pathmap[key] = os.path.join(root, fn)
 
 _orig_load = L._load
 
