@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { runMatrixSampleReplay } from "@/lib/api";
 import type { ReplayResponse } from "@/lib/types";
-import { MatchReplay } from "@/components/MatchReplay";
+import { SpectateBoard } from "@/components/SpectateBoard";
 import { CardPreloader } from "@/components/CardPreloader";
 
 /**
@@ -196,7 +196,12 @@ export function MatrixSpectate({
           <span className="ml-2">シミュレート中... (GoalDirectedAI v1 軽量モード、 通常 3-8 秒)</span>
         </div>
       ) : replay ? (
-        <MatchReplay replay={replay} />
+        <SpectateBoard
+          snapshots={replay.snapshots}
+          deckBottomName={replay.deck_a_name}
+          deckTopName={replay.deck_b_name}
+          winner={replay.winner}
+        />
       ) : (
         <div className="flex flex-1 items-center justify-center rounded border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700">
           デッキ / seed を選んで 「▶ 観戦開始」 を押すと盤面再生が始まります。
