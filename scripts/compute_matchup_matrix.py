@@ -97,6 +97,11 @@ def _compute_cell_worker(task):
     # ai_mode == "default" は harness が GoalDirectedAI を 自動 構築
 
     rep = run_matchup(deck_a, deck_b, **rep_kwargs)
+    # 違反集計 (= 2026-06-06、 [[feedback_verify_game_completion_reason]]): RuleReferee 違反 /
+    # invariant 違反は GameResult に記録されるが cell に残さないと matrix から見えない盲点。
+    # cell に総数を記録して self-document (= 0 でないセルは engine 要調査)。
+    _rule_viol = sum(len(getattr(g, "rule_violations", []) or []) for g in (getattr(rep, "games", []) or []))
+    _audit_viol = sum(len(getattr(g, "audit_violations", []) or []) for g in (getattr(rep, "games", []) or []))
     games_info = []
     for gi, g in enumerate(getattr(rep, "games", []) or []):
         games_info.append({
@@ -116,6 +121,8 @@ def _compute_cell_worker(task):
         "losses": rep.deck2_wins,
         "draws": rep.draws,
         "avg_turns": round(rep.avg_turns, 2),
+        "rule_violations": _rule_viol,
+        "audit_violations": _audit_viol,
         "games_info": games_info,
     }
 

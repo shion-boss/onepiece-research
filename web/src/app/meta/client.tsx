@@ -1,7 +1,9 @@
 "use client";
 
-// 方針: matrix データ は default AI (= GoalDirectedAI) で 計算した db/matchup_matrix.json を 表示する。
-// 現データ が GreedyAI_matrix_fast の 場合 は 旧計算、 再計算 待ち。
+// 方針 (2026-06-06 更新): matrix データ は **配備 AI (= SmartOpponentAI = deck別に ExploitBeam/
+// greedy 自動切替、 現在 全16デッキ ExploitBeam)** で 計算した db/matchup_matrix.json を 表示する。
+// 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20。
+// ai_version "SmartOpponentAI_deployed" が 最新。 旧 GoalDirectedAI/GreedyAI 産 は stale。
 import { useState } from "react";
 import type { MatchupMatrix } from "@/lib/types";
 import { MatchupHeatmap } from "@/components/MatchupHeatmap";
