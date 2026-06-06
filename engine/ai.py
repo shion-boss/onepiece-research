@@ -2480,8 +2480,20 @@ class DeepPlanningAI(GreedyAI):
                 and a.attacker_iid == me.leader.instance_id
             ]
             if leader_attacks:
-                # 単独で届くなら 即 attack
+                # 単独で届く場合。 ただし素のままだと相手は最小 counter (1000) で守れる
+                # (= ohtsuki 指摘「素5000リーダー攻撃は1000カウンターで楽に守れる」)。 余剰 DON が
+                # あれば leader に付けて圧を上げてから攻撃する (= フリーで殴れる leader は DON
+                # あたりの drain 効率が最良。 小キャラに3ドン注いで5000にするより leader を 8000 に
+                # する方が良い)。 2026-06-06 ログ精読 #2。
                 if me.leader.power >= est_def:
+                    # opp が counter しうる (手札>0) かつ DON 余裕 (>=2) かつ 未だ +2 未満 なら、
+                    # leader に DON を 1 枚足してから再評価 (= 最終的に最大 +2 DON、 plays 用に残す)。
+                    if (
+                        len(opp.hand) > 0
+                        and me.don_active >= 2
+                        and me.leader.attached_dons < 2
+                    ):
+                        return AttachDonToLeader(n=1)
                     return leader_attacks[0]
                 # 1-2 DON で 届く gap なら DON 付与で 攻撃 成立 を 狙う
                 gap = est_def - me.leader.power
