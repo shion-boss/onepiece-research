@@ -298,8 +298,8 @@ onepiece_research/
 - `cards.json` / `cards.sqlite`: カード DB (正は cards.json)
 - `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
-- `matchup_matrix.json`: N×N 勝率行列 (R60 で 16×16 = 256 セルに更新)
-  - **方針: 表示用 matrix は default AI (= GoalDirectedAI) で 計算する** (= meta page `/meta` で 公開する データ品質を 最新 AI に 揃える)。 旧 `GreedyAI_matrix_fast` データは 再計算 待ち
+- `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
+  - **方針 (2026-06-06 更新): 表示用 matrix は 配備 AI (= SmartOpponentAI、 deck別に ExploitBeam/greedy 自動、 現在 全16デッキ ExploitBeam) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ai_version `SmartOpponentAI_deployed` が 最新。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20` (= ~80分、 先攻/後攻は run_matchup が cell内で交互、 A vs B と B vs A は両方計算)。 旧 GoalDirectedAI/GreedyAI 産は stale
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
 - `overlay_when_missing.json`: cardqa sweep 結果 (X5、 missing 0)
 - `rules/*.pdf`: 公式ルール一次情報

@@ -75,9 +75,33 @@ def _compute_cell_worker(task):
 
         rep_kwargs["ai_factory_1"] = _aif
         rep_kwargs["ai_factory_2"] = _aif
+    elif ai_mode == "exploitbeam":
+        # 配備 AI (= SmartOpponentAI、 deck別に ExploitBeam/greedy 自動切替)。 deck_a/deck_b
+        # それぞれの slug で構築 (= deploy_results を見て ExploitBeam か greedy を選ぶ)。
+        from engine.smart_opponent_ai import SmartOpponentAI
+
+        def _aif1(rng, deck_analysis=None):
+            return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_a)
+
+        def _aif2(rng, deck_analysis=None):
+            return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_b)
+
+        rep_kwargs["ai_factory_1"] = _aif1
+        rep_kwargs["ai_factory_2"] = _aif2
+        # analysis を渡す (= AI heuristic + ExploitBeam の GBM 解決補助)
+        import json as _json
+        for _slug, _key in ((slug_a, "deck1_analysis"), (slug_b, "deck2_analysis")):
+            _ap = ROOT / "decks" / f"{_slug}.analysis.json"
+            if _ap.exists():
+                rep_kwargs[_key] = _json.loads(_ap.read_text(encoding="utf-8"))
     # ai_mode == "default" は harness が GoalDirectedAI を 自動 構築
 
     rep = run_matchup(deck_a, deck_b, **rep_kwargs)
+    # 違反集計 (= 2026-06-06、 [[feedback_verify_game_completion_reason]]): RuleReferee 違反 /
+    # invariant 違反は GameResult に記録されるが cell に残さないと matrix から見えない盲点。
+    # cell に総数を記録して self-document (= 0 でないセルは engine 要調査)。
+    _rule_viol = sum(len(getattr(g, "rule_violations", []) or []) for g in (getattr(rep, "games", []) or []))
+    _audit_viol = sum(len(getattr(g, "audit_violations", []) or []) for g in (getattr(rep, "games", []) or []))
     games_info = []
     for gi, g in enumerate(getattr(rep, "games", []) or []):
         games_info.append({
@@ -97,6 +121,8 @@ def _compute_cell_worker(task):
         "losses": rep.deck2_wins,
         "draws": rep.draws,
         "avg_turns": round(rep.avg_turns, 2),
+        "rule_violations": _rule_viol,
+        "audit_violations": _audit_viol,
         "games_info": games_info,
     }
 
@@ -177,12 +203,13 @@ def main() -> int:
                     help="cell に記録する AI version 識別子")
     ap.add_argument(
         "--ai-mode", default="default",
-        choices=["default", "greedy", "planning"],
+        choices=["default", "greedy", "planning", "exploitbeam"],
         help=(
             "AI factory mode: "
-            "default = GoalDirectedAI (= 最新 default、 高品質 だが ~60s/game)、 "
-            "greedy = GreedyAI (= 高速、 1-2s/game、 マトリックス 計算 用)、 "
-            "planning = PlanningAI (= 中間、 ~10s/game)"
+            "default = GoalDirectedAI、 "
+            "greedy = GreedyAI (= 高速、 1-2s/game)、 "
+            "planning = PlanningAI (= 中間)、 "
+            "exploitbeam = 配備 SmartOpponentAI (= deck別 ExploitBeam/greedy 自動、 ~2.2s/game、 最新配備AI)"
         ),
     )
     ap.add_argument(
@@ -208,6 +235,10 @@ def main() -> int:
             return PlanningAI(rng=rng, deck_analysis=deck_analysis)
         if args.ai_version == DEFAULT_AI_VERSION:
             args.ai_version = "PlanningAI_matrix_mid"
+    elif args.ai_mode == "exploitbeam":
+        # 並列 path では factory は worker 側で deck別 slug で構築する (= ここでは ai_version のみ)。
+        if args.ai_version == DEFAULT_AI_VERSION:
+            args.ai_version = "SmartOpponentAI_deployed"
 
     if args.row_diff:
         before_path = Path(args.row_diff[0])
