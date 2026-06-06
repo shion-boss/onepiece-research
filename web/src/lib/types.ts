@@ -245,6 +245,12 @@ export type StateSnapshot = {
   // turn_player_idx 視点の board_eval (= compute_score 14 指標)。
   // engine/core.py:_build_snapshot が R62+ で埋め込む。 古い snapshot には欠ける。
   board_eval?: number;
+  // 手前 (= P0) 視点固定の盤面データ内訳 (= compute_breakdown、 AI が手を判断する全指標)。
+  // {metric: {self(手前), opp(相手), diff, contribution}}。 record_snapshots=True の replay/sample のみ。
+  board_eval_detail?: Record<
+    string,
+    { self: number; opp: number; diff: number; contribution: number }
+  >;
 };
 
 export type ReplayResponse = {

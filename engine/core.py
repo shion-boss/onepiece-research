@@ -813,6 +813,14 @@ class GameState:
         except Exception:
             # eval 計算失敗時は snapshot 自体は壊さない (= optional フィールド)
             pass
+        # 観戦 UI 用: AI が手を判断する盤面データの内訳 (= 全指標 self/opp/diff/contribution)。
+        # 視点は常に P0 (= 手前のデッキ) 固定。 record_snapshots=True (= replay/sample) 時のみ
+        # snapshot() が呼ばれるため、 matrix 一括計算には影響しない。
+        try:
+            from .eval import compute_breakdown
+            snap["board_eval_detail"] = compute_breakdown(self, 0)
+        except Exception:
+            pass
         return snap
 
 
