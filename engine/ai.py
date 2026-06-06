@@ -2486,10 +2486,23 @@ class DeepPlanningAI(GreedyAI):
                 # あたりの drain 効率が最良。 小キャラに3ドン注いで5000にするより leader を 8000 に
                 # する方が良い)。 2026-06-06 ログ精読 #2。
                 if me.leader.power >= est_def:
-                    # opp が counter しうる (手札>0) かつ DON 余裕 (>=2) かつ 未だ +2 未満 なら、
-                    # leader に DON を 1 枚足してから再評価 (= 最終的に最大 +2 DON、 plays 用に残す)。
+                    # ⚠ 2026-06-06 修正: leader boost は「相手が受けられない=リーサル圏」 でのみ有効。
+                    # 高ライフだと相手は **ライフを受けて手札に変える** (= ライフ→手札で +1枚) ので
+                    # boost は DON を捨てるだけ (= ログで greedy が 7000 攻撃を 5回中4回 受けると実証、
+                    # ohtsuki 指摘「3000 強制ではない、 受ける選択がある」)。 むしろ素5000を相手に
+                    # 1000 counter させる方が削れる場面すらある。 → 今ターンの連結見込み攻撃数
+                    # (leader + 届くキャラ) >= 相手ライフ (= リーサル脅威で相手は受けられず counter
+                    # 必須) の時だけ boost し、 大きな counter を強いる / リーサルを通す。
+                    n_connect = 1 + sum(
+                        1 for c in me.characters
+                        if not c.rested
+                        and (not c.summoning_sickness or c.is_rush_now)
+                        and c.power >= opp.leader.power
+                    )
+                    lethal_pressure = len(opp.life) <= n_connect
                     if (
-                        len(opp.hand) > 0
+                        lethal_pressure
+                        and len(opp.hand) > 0
                         and me.don_active >= 2
                         and me.leader.attached_dons < 2
                     ):
