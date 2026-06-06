@@ -419,7 +419,18 @@ def prune_mechanical_waste(state: GameState, actions: list) -> list:
                     continue
                 if _is_event_main_effect_unfirable(state, me, opp, card, overlay):
                     continue
-        # AttachDon / Attack の prune は 撤 去 (= bonus 信 号 に 任 せ る)
+        # AttachDon / Attack の **確定無駄のみ** prune (= 2026-06-06 復活)。
+        # 2026-05-31 に「bonus 信号に任せる」 で全撤去したが、 ExploitBeam (= 配備 AI) は
+        # board_eval/GBM を使い spec bonus を見ないため 空打ち抑制が無く、 実ログで
+        # 「デリンジャー(2000)+ドン2 → リーダー(5000) 空振り」 等の無駄手が多発 (ohtsuki 指摘)。
+        # narrow 版 (= 確定失敗+on_attack効果なし の攻撃 / 攻撃圏外への attach のみ) は
+        # 副次価値ゼロが確実なので全 AI で安全。 正当な攻撃機会は削らない。
+        if isinstance(a, (AttackLeader, AttackCharacter)):
+            if _is_attack_confirmed_fail_no_effect(state, a, overlay):
+                continue
+        if isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
+            if _is_attach_don_wasteful(state, a):
+                continue
         non_end_pruned.append(a)
     # Pass 2: 非 EndPhase が 1 つ でも 残れば EndPhase 排除 (= 早期 end 抑制)。
     # 全 prune されたら EndPhase だけでも 返す (= safety、 AI 動作維持)。
@@ -2508,8 +2519,18 @@ class DeepPlanningAI(GreedyAI):
                     a for a in actions
                     if isinstance(a, AttackLeader) and a.attacker_iid == atk.instance_id
                 ]
-                if chara_atk_actions:
+                if not chara_atk_actions:
+                    continue
+                # 既に届く (= power >= opp leader。 公式 7-1-4 同値は attacker 勝ち) → 即攻撃。
+                if atk.power >= opp.leader.power:
                     return chara_atk_actions[0]
+                # 届かないが 1 DON 圏内 (= 上の char_attackers 条件で選別済) → **素の power で
+                # 攻撃せず 先に DON を付ける** (= 2026-06-06 修正、 ohtsuki 指摘の「2000+2DON で
+                # 5000 リーダーに空振り」 バグ。 旧コードは届かない power のまま attack を return)。
+                don_needed = ((opp.leader.power - atk.power) + 999) // 1000
+                if me.don_active >= don_needed and atk.attached_dons + don_needed <= 4:
+                    return AttachDonToCharacter(target_iid=atk.instance_id, n=1)
+                # DON 不足で届かない → 強制 attack せず plan_search に委ねる (= 空振り回避)
 
         # adaptive params の決定 (= R72+)
         if self.adaptive:
