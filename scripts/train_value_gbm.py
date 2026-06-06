@@ -99,9 +99,15 @@ def main() -> None:
     ap.add_argument("--games", type=int, default=500)
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--out", type=Path, default=REPO_ROOT / "db" / "value_gbm_cardrush_1342.pkl")
+    ap.add_argument("--rich", action=argparse.BooleanOptionalAction, default=True,
+                    help="rich(v2=21特徴: lethal+counter)で学習 (既定)。 --no-rich で v1(17特徴)")
     args = ap.parse_args()
 
-    print(f"=== collect beam-vs-greedy ({args.deck}, {args.games} games) ===", flush=True)
+    # rich を worker spawn 前に env で伝播 (= fork 継承、 gbm_value.features が読む)。
+    os.environ["ONEPIECE_GBM_RICH"] = "1" if args.rich else "0"
+
+    print(f"=== collect beam-vs-greedy ({args.deck}, {args.games} games, "
+          f"{'rich-v2' if args.rich else 'v1'}) ===", flush=True)
     t0 = time.perf_counter()
     seeds = list(range(800000, 800000 + args.games))
     rows: list = []
