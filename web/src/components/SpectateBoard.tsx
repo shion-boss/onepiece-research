@@ -122,7 +122,10 @@ export function SpectateBoard({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [hovered, setHovered] = useState<HoverInfo>(null);
-  const [showData, setShowData] = useState(false);
+  const [showData, setShowData] = useState(true); // 最初から全件表示
+  const [panelPos, setPanelPos] = useState({ x: 360, y: 92 });
+  const [dragging, setDragging] = useState(false);
+  const dragOffset = useRef({ dx: 0, dy: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const total = snapshots.length;
@@ -140,6 +143,26 @@ export function SpectateBoard({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [playing, clampedIdx, total, speed]);
+
+  // 盤面データパネルのドラッグ移動 (= window mousemove/up を dragging 中のみ購読)。
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      const x = e.clientX - dragOffset.current.dx;
+      const y = e.clientY - dragOffset.current.dy;
+      setPanelPos({
+        x: Math.max(-360, Math.min(x, window.innerWidth - 80)),
+        y: Math.max(0, Math.min(y, window.innerHeight - 40)),
+      });
+    };
+    const onUp = () => setDragging(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
 
   if (!snap) {
     return (
@@ -159,17 +182,26 @@ export function SpectateBoard({
   const fieldPower = (p: typeof top) =>
     p.characters.reduce((s, c) => s + (c.power || 0), 0);
 
-  // 盤面データ内訳 (= P0 / 手前 視点固定)。 寄与 (contribution) の大きい順に並べ、 寄与0は除外。
+  // 盤面データ内訳 (= P0 / 手前 視点固定)。 全件表示。 寄与 (contribution) の大きい順、
+  // 同寄与は差の大きい順に並べる (= 判断を駆動する指標を上に、 重み0の参考値を下に)。
   const detail = snap.board_eval_detail ?? null;
   const detailRows = detail
     ? Object.entries(detail)
         .map(([k, v]) => ({ key: k, ...v }))
-        .filter((r) => r.contribution !== 0 || r.diff !== 0)
-        .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
+        .sort(
+          (a, b) =>
+            Math.abs(b.contribution) - Math.abs(a.contribution) ||
+            Math.abs(b.diff) - Math.abs(a.diff),
+        )
     : [];
   const p0Eval = detail
     ? Object.values(detail).reduce((s, m) => s + m.contribution, 0)
     : null;
+
+  const startDrag = (e: React.MouseEvent) => {
+    dragOffset.current = { dx: e.clientX - panelPos.x, dy: e.clientY - panelPos.y };
+    setDragging(true);
+  };
 
   const ctrlBtn =
     "rounded px-2 py-1 text-xs font-bold text-amber-200 hover:bg-amber-900/60";
@@ -432,38 +464,43 @@ export function SpectateBoard({
             {detailRows.length > 0 && (
               <button
                 type="button"
-                onClick={() => setShowData(true)}
+                onClick={() => setShowData((v) => !v)}
                 className="rounded border border-amber-400/60 bg-amber-900/40 px-2 py-0.5 text-xs font-bold text-amber-100 hover:bg-amber-800/60"
               >
-                盤面データ詳細
+                {showData ? "盤面データを隠す" : "盤面データを表示"}
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* 盤面データ詳細モーダル (= AI が手を判断する全指標、 手前 P0 視点、 寄与順) */}
+      {/* 盤面データパネル (= ドラッグ移動可・暗転なし・全件表示。 AI が手を判断する全指標、 手前 P0 視点) */}
       {showData && detail && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setShowData(false)}
+          className="fixed z-[60] flex max-h-[82vh] w-[460px] flex-col overflow-hidden rounded-lg border border-amber-400/60 bg-zinc-900/95 shadow-2xl"
+          style={{ left: panelPos.x, top: panelPos.y }}
         >
+          {/* ドラッグハンドル (= ヘッダを掴んで移動) */}
           <div
-            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-amber-400/50 bg-zinc-900 p-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            onMouseDown={startDrag}
+            className={
+              "flex shrink-0 select-none items-center justify-between gap-2 border-b border-zinc-700 bg-zinc-800/90 px-3 py-2 " +
+              (dragging ? "cursor-grabbing" : "cursor-grab")
+            }
           >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-bold text-amber-200">
-                盤面データ詳細 (手前 = {deckBottomName ?? "P0"} 視点)
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowData(false)}
-                className="rounded border border-zinc-500 px-2 py-0.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
-              >
-                閉じる
-              </button>
-            </div>
+            <span className="text-sm font-bold text-amber-200">
+              盤面データ (手前 = {deckBottomName ?? "P0"} 視点)
+            </span>
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setShowData(false)}
+              className="rounded border border-zinc-500 px-2 py-0.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+            >
+              閉じる
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
             <p className="mb-2 text-xs text-zinc-400">
               AI が手を判断するときに使う盤面指標 (= engine/eval.py compute_breakdown)。
               寄与 = 差 × 重み、 正 = 手前有利。 寄与の大きい順。 寄与0 (淡色) = 重み0で判断に未使用の参考値。
