@@ -60,7 +60,7 @@ type Selection =
   | { kind: "self_leader" }
   | { kind: "attack_pending"; attackerIid: number };
 
-type HoverInfo =
+export type HoverInfo =
   | { kind: "hand"; cardId: string }
   | {
       kind: "chara";

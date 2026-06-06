@@ -201,6 +201,8 @@ export function MatrixSpectate({
           deckBottomName={replay.deck_a_name}
           deckTopName={replay.deck_b_name}
           winner={replay.winner}
+          replayKey={`spectate:${replay.job_id}:${replay.game_index}`}
+          onClose={() => setReplay(null)}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center rounded border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700">
