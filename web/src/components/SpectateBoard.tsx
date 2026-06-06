@@ -6,6 +6,7 @@
 // (左 min-w-280 flex-1 / 中央 w-780 / 右 w-480)。 右パネルは人間vsAI の RightPanel と同じ並び:
 // [ヘッダ] → [PREVIEW (大)] → [ACTION 位置 = 観戦コントロール + 盤面データ]。
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { StateSnapshot } from "@/lib/types";
 import {
   PlayerMat,
@@ -16,6 +17,21 @@ import {
   type HoverInfo,
 } from "./HumanMatchPlay";
 import { CardImage } from "./CardImage";
+// 人間vsAI と同じアニメーション部品を再利用 (= 攻撃ビーム/矢印・ライフflash・KO ghost・効果トースト・
+// カウンター・カードプレイ/ドロー)。 観戦は idx を進めるたび snap が変わり useFrameDiff が発火する
+// ので、 これらが自然に再生される (= 2026-06-07、 ohtsuki「AIvsAIのUI改善」)。
+import {
+  useFrameDiff,
+  LifeFlashOverlay,
+  LeftCharaGhostList,
+  EffectToastOverlay,
+  AttackBeamOverlay,
+  AttackTargetArrowOverlay,
+  PlayedCardOverlay,
+  DrawCardOverlay,
+  CounterPlayOverlay,
+  fireCounterPlay,
+} from "./_matchAnimHelpers";
 
 const NOOP = () => {};
 const EMPTY_ACTIONS = new Map<number, never[]>();
@@ -100,6 +116,67 @@ const METRIC_LABELS: Record<string, string> = {
 const fmt = (n: number) =>
   Number.isInteger(n) ? `${n}` : `${Math.round(n * 10) / 10}`;
 
+// ドン付与 pulse: attached_dons が増えた card (= leader/chara) の上に「+DON」 を浮かせる。
+// 専用 overlay が _matchAnimHelpers に無い (= ドン付与は tempo action) ため観戦用に自作。
+// iids は前フレーム比較で attached_dons が増えた instance_id。 boardRef + data-iid で位置解決。
+function DonAttachPulseOverlay({
+  iids,
+  boardRef,
+  tickId,
+}: {
+  iids: number[];
+  boardRef: React.RefObject<HTMLDivElement | null>;
+  tickId: number;
+}) {
+  const [items, setItems] = useState<{ id: number; x: number; y: number }[]>([]);
+  const lastTickRef = useRef(-1);
+  useEffect(() => {
+    if (tickId === lastTickRef.current) return;
+    lastTickRef.current = tickId;
+    const board = boardRef.current;
+    if (!iids.length || !board) {
+      return;
+    }
+    const br = board.getBoundingClientRect();
+    const next: { id: number; x: number; y: number }[] = [];
+    let n = 0;
+    for (const iid of iids) {
+      const el = board.querySelector(`[data-iid="${iid}"]`);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      next.push({
+        id: tickId * 100 + n++,
+        x: r.left - br.left + r.width / 2,
+        y: r.top - br.top + 4,
+      });
+    }
+    if (!next.length) return;
+    setItems(next);
+    const t = setTimeout(() => setItems([]), 1100);
+    return () => clearTimeout(t);
+  }, [tickId, iids, boardRef]);
+  if (!items.length) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40">
+      <AnimatePresence>
+        {items.map((it) => (
+          <motion.div
+            key={it.id}
+            initial={{ opacity: 0, y: 0, scale: 0.6 }}
+            animate={{ opacity: 1, y: -30, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.9 }}
+            className="absolute -translate-x-1/2 rounded-full border border-amber-300 bg-amber-500/90 px-2 py-0.5 text-[11px] font-bold text-white shadow-lg"
+            style={{ left: it.x, top: it.y }}
+          >
+            +DON
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function SpectateBoard({
   snapshots,
   deckTopName,
@@ -127,6 +204,11 @@ export function SpectateBoard({
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ dx: 0, dy: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // アニメーション用: 盤面コンテナ ref (= beam/arrow/pulse の data-iid 位置解決基準) +
+  // カウンターで trash に行った card は PlayedCardOverlay から除外 (= 二重演出防止)。
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [usedCounterMe, setUsedCounterMe] = useState<string[]>([]);
+  const [usedCounterOpp, setUsedCounterOpp] = useState<string[]>([]);
 
   const total = snapshots.length;
   const clampedIdx = Math.min(idx, Math.max(0, total - 1));
@@ -164,6 +246,48 @@ export function SpectateBoard({
     };
   }, [dragging]);
 
+  // フレーム差分 (= life/don/entered/left/eventTick)。 idx 進行で snap が変わるたび発火。
+  const frameDiff = useFrameDiff(snapshots[clampedIdx] ?? null);
+
+  // カウンター検出 (= 両側)。 「P{attacker}: ... counter +N → ...」 を current frame log から拾い、
+  // 防御側 (= 1-attacker) の trash 末尾 card で CounterPlayOverlay を発火 (= 人間vsAI の AI counter
+  // 検出を両側に一般化)。
+  const lastCounterTickRef = useRef(-1);
+  useEffect(() => {
+    const s = snapshots[clampedIdx];
+    if (!s) return;
+    const tick = frameDiff.eventTickId;
+    if (tick === lastCounterTickRef.current) return;
+    lastCounterTickRef.current = tick;
+    const lines = (typeof s.log === "string" ? s.log : "").split("\n");
+    for (const ln of lines) {
+      const m = ln.match(/counter\s*\+(\d+)\s*→/);
+      if (!m) continue;
+      const pm = ln.match(/\bP([01])\b/);
+      if (!pm) continue;
+      const attacker = Number(pm[1]);
+      const defender = (1 - attacker) as 0 | 1;
+      const trash = s.players?.[defender]?.trash ?? [];
+      const cardId = trash[trash.length - 1] ?? "";
+      if (!cardId) break;
+      const side = defender === 0 ? "me" : "opp";
+      fireCounterPlay(cardId, Number(m[1]), side);
+      // PlayedCardOverlay の二重演出防止 (~3 秒後に自動 clear)
+      const setUsed = defender === 0 ? setUsedCounterMe : setUsedCounterOpp;
+      setUsed((prev) => [...prev, cardId]);
+      setTimeout(() => {
+        setUsed((prev) => {
+          const i = prev.indexOf(cardId);
+          if (i < 0) return prev;
+          const out = prev.slice();
+          out.splice(i, 1);
+          return out;
+        });
+      }, 3000);
+      break;
+    }
+  }, [frameDiff.eventTickId, clampedIdx, snapshots]);
+
   if (!snap) {
     return (
       <div className="p-6 text-sm text-zinc-400">観戦データがありません。</div>
@@ -181,6 +305,27 @@ export function SpectateBoard({
   const onHover = (h: HoverInfo) => setHovered(h);
   const fieldPower = (p: typeof top) =>
     p.characters.reduce((s, c) => s + (c.power || 0), 0);
+
+  // ドン付与検出: 前フレームより attached_dons が増えた card (= leader + chara、 両 player) の iid。
+  const prevSnap = clampedIdx > 0 ? snapshots[clampedIdx - 1] : null;
+  const donAttachedIids: number[] = [];
+  if (prevSnap) {
+    for (let pi = 0; pi < 2; pi++) {
+      const pp = prevSnap.players[pi];
+      const cp = snap.players[pi];
+      if (!pp || !cp) continue;
+      const prevDon = new Map<number, number>();
+      prevDon.set(pp.leader.instance_id, pp.leader.attached_dons ?? 0);
+      for (const c of pp.characters)
+        prevDon.set(c.instance_id, c.attached_dons ?? 0);
+      const check = (iid: number, dons: number) => {
+        const pv = prevDon.get(iid);
+        if (pv !== undefined && dons > pv) donAttachedIids.push(iid);
+      };
+      check(cp.leader.instance_id, cp.leader.attached_dons ?? 0);
+      for (const c of cp.characters) check(c.instance_id, c.attached_dons ?? 0);
+    }
+  }
 
   // 盤面データ内訳 (= P0 / 手前 視点固定)。 全件表示。 寄与 (contribution) の大きい順、
   // 同寄与は差の大きい順に並べる (= 判断を駆動する指標を上に、 重み0の参考値を下に)。
@@ -240,8 +385,12 @@ export function SpectateBoard({
         </div>
       </div>
 
-      {/* 中央 (= 人間vsAI と同じ w-780): 相手/自分マット */}
-      <div className="relative flex min-h-0 w-[780px] shrink-0 flex-col gap-2">
+      {/* 中央 (= 人間vsAI と同じ w-780): 相手/自分マット + アニメーション overlay */}
+      <div
+        ref={boardRef}
+        data-board-area="center"
+        className="relative flex min-h-0 w-[780px] shrink-0 flex-col gap-2"
+      >
         <PlayerMat
           player={top}
           isMe={false}
@@ -275,6 +424,72 @@ export function SpectateBoard({
           onHover={onHover}
           onTrashClick={NOOP}
         />
+
+        {/* === アニメーション overlay (= 人間vsAI と同じ部品、 snap/frameDiff 駆動) === */}
+        {/* ライフ変化 flash (上=相手=players[1] / 下=自分=players[0]) */}
+        <LifeFlashOverlay
+          delta={frameDiff.lifeDelta[1]}
+          side="opp"
+          tickId={frameDiff.eventTickId * 2}
+        />
+        <LifeFlashOverlay
+          delta={frameDiff.lifeDelta[0]}
+          side="me"
+          tickId={frameDiff.eventTickId * 2 + 1}
+        />
+        {/* 場を離れた chara の ghost (KO/退場) */}
+        <LeftCharaGhostList
+          leftCharas={frameDiff.leftCharas[1]}
+          side="opp"
+          tickId={frameDiff.eventTickId * 2}
+        />
+        <LeftCharaGhostList
+          leftCharas={frameDiff.leftCharas[0]}
+          side="me"
+          tickId={frameDiff.eventTickId * 2 + 1}
+        />
+        {/* 攻撃ビーム + 矢印 (= snap.event 駆動、 AI/AI 共通) */}
+        <AttackBeamOverlay
+          attackerIid={snap.event?.attacker_iid ?? null}
+          targetIid={snap.event?.target_iid ?? null}
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+        />
+        <AttackTargetArrowOverlay
+          attackerIid={snap.event?.attacker_iid ?? null}
+          targetIid={snap.event?.target_iid ?? null}
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+        />
+        {/* ドン付与 pulse (= attached_dons 増加 card に「+DON」) */}
+        <DonAttachPulseOverlay
+          iids={donAttachedIids}
+          boardRef={boardRef}
+          tickId={frameDiff.eventTickId}
+        />
+        {/* 効果トースト (= 「効果:」 ログ行を分類表示: 登場/サーチ/KO/ドン+/パワー等) */}
+        <EffectToastOverlay log={log} />
+        {/* カードプレイ → trash slide (= イベント使用/KO)。 counter card は除外 */}
+        <PlayedCardOverlay
+          trashAddedMe={frameDiff.trashAdded[0]}
+          trashAddedOpp={frameDiff.trashAdded[1]}
+          leftCharasMe={frameDiff.leftCharas[0]}
+          leftCharasOpp={frameDiff.leftCharas[1]}
+          excludeMeCardIds={usedCounterMe}
+          excludeOppCardIds={usedCounterOpp}
+          tickId={frameDiff.eventTickId}
+        />
+        {/* ドロー演出 (= デッキ → 手札 slide) */}
+        <DrawCardOverlay
+          handDeltaMe={frameDiff.handDelta[0]}
+          handDeltaOpp={frameDiff.handDelta[1]}
+          lifeDeltaMe={frameDiff.lifeDelta[0]}
+          lifeDeltaOpp={frameDiff.lifeDelta[1]}
+          tickId={frameDiff.eventTickId}
+          boardRef={boardRef}
+        />
+        {/* カウンター 「+N」 popup + trash slide (= 上の useEffect が fireCounterPlay) */}
+        <CounterPlayOverlay />
       </div>
 
       {/* 右 (= 人間vsAI と同じ w-480): [ヘッダ] → [PREVIEW 大] → [ACTION位置 = コントロール + 盤面データ] */}
