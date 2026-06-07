@@ -241,5 +241,5 @@ logs/
 # 評 価 結 果
 eval_results/
 
-# コンボグラフ (= build_combo_graph.py の deck別生成物、 DSL から再生成可)
-db/combo_graph_*.json
+# コンボグラフ (= build_deck_knowledge.py の deck別生成物、 DSL から再生成可)
+db/deck_play_knowledge_*.json
