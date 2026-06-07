@@ -204,11 +204,8 @@ export function SpectateBoard({
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ dx: 0, dy: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // アニメーション用: 盤面コンテナ ref (= beam/arrow/pulse の data-iid 位置解決基準) +
-  // カウンターで trash に行った card は PlayedCardOverlay から除外 (= 二重演出防止)。
+  // アニメーション用: 盤面コンテナ ref (= beam/arrow/pulse の data-iid 位置解決基準)。
   const boardRef = useRef<HTMLDivElement>(null);
-  const [usedCounterMe, setUsedCounterMe] = useState<string[]>([]);
-  const [usedCounterOpp, setUsedCounterOpp] = useState<string[]>([]);
 
   const total = snapshots.length;
   const clampedIdx = Math.min(idx, Math.max(0, total - 1));
@@ -266,25 +263,12 @@ export function SpectateBoard({
       if (!m) continue;
       const pm = ln.match(/\bP([01])\b/);
       if (!pm) continue;
-      const attacker = Number(pm[1]);
-      const defender = (1 - attacker) as 0 | 1;
+      // attacker = P{pm}、 defender (= counter を切った側) = 1 - attacker
+      const defender = (1 - Number(pm[1])) as 0 | 1;
       const trash = s.players?.[defender]?.trash ?? [];
       const cardId = trash[trash.length - 1] ?? "";
       if (!cardId) break;
-      const side = defender === 0 ? "me" : "opp";
-      fireCounterPlay(cardId, Number(m[1]), side);
-      // PlayedCardOverlay の二重演出防止 (~3 秒後に自動 clear)
-      const setUsed = defender === 0 ? setUsedCounterMe : setUsedCounterOpp;
-      setUsed((prev) => [...prev, cardId]);
-      setTimeout(() => {
-        setUsed((prev) => {
-          const i = prev.indexOf(cardId);
-          if (i < 0) return prev;
-          const out = prev.slice();
-          out.splice(i, 1);
-          return out;
-        });
-      }, 3000);
+      fireCounterPlay(cardId, Number(m[1]), defender === 0 ? "me" : "opp");
       break;
     }
   }, [frameDiff.eventTickId, clampedIdx, snapshots]);
@@ -327,6 +311,19 @@ export function SpectateBoard({
       for (const c of cp.characters) check(c.instance_id, c.attached_dons ?? 0);
     }
   }
+
+  // カウンター frame は CounterPlayOverlay がカード演出を出すので、 その frame の防御側
+  // trashAdded を同期的に空にして PlayedCardOverlay との二重演出を防ぐ (= human-play と同手法。
+  // useState exclude では PlayedCardOverlay の useEffect に間に合わない)。
+  const counterDefenderIdx: 0 | 1 | -1 = (() => {
+    const ln = typeof snap.log === "string" ? snap.log : "";
+    const m = ln.match(/\bP(\d+):\s+counter\s*\+/);
+    return m ? ((1 - Number(m[1])) as 0 | 1) : -1;
+  })();
+  const trashAddedBottom =
+    counterDefenderIdx === 0 ? [] : frameDiff.trashAdded[0];
+  const trashAddedTop =
+    counterDefenderIdx === 1 ? [] : frameDiff.trashAdded[1];
 
   // 盤面データ内訳 (= P0 / 手前 視点固定)。 全件表示。 寄与 (contribution) の大きい順、
   // 同寄与は差の大きい順に並べる (= 判断を駆動する指標を上に、 重み0の参考値を下に)。
@@ -472,12 +469,12 @@ export function SpectateBoard({
         <EffectToastOverlay log={log} />
         {/* カードプレイ → trash slide (= イベント使用/KO)。 counter card は除外 */}
         <PlayedCardOverlay
-          trashAddedMe={frameDiff.trashAdded[0]}
-          trashAddedOpp={frameDiff.trashAdded[1]}
+          trashAddedMe={trashAddedBottom}
+          trashAddedOpp={trashAddedTop}
           leftCharasMe={frameDiff.leftCharas[0]}
           leftCharasOpp={frameDiff.leftCharas[1]}
-          excludeMeCardIds={usedCounterMe}
-          excludeOppCardIds={usedCounterOpp}
+          excludeMeCardIds={[]}
+          excludeOppCardIds={[]}
           tickId={frameDiff.eventTickId}
         />
         {/* ドロー演出 (= デッキ → 手札 slide) */}
