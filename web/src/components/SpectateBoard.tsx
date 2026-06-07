@@ -288,6 +288,12 @@ export function SpectateBoard({
     null,
   );
   const lastResolveTickRef = useRef(-1);
+  // 攻撃ターゲット矢印を「宣言→解決演出まで」 持続表示するための state (= ohtsuki 2026-06-07:
+  // 矢印は解決アニメ表示中に裏で消す方が臨場感が出る → 解決後に遅延クリアで重ねる)。
+  const [arrowTarget, setArrowTarget] = useState<
+    { attackerIid: number; targetIid: number } | null
+  >(null);
+  const arrowClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const s = snapshots[clampedIdx];
     if (!s) return;
@@ -305,8 +311,19 @@ export function SpectateBoard({
         attackerIid: ev.attacker_iid,
         targetIid: ev.target_iid,
       };
+      // 攻撃宣言フレーム → 矢印を持続表示開始 (= 解決まで残す)。 保留中の clear はキャンセル。
+      setArrowTarget({ attackerIid: ev.attacker_iid, targetIid: ev.target_iid });
+      if (arrowClearTimer.current) {
+        clearTimeout(arrowClearTimer.current);
+        arrowClearTimer.current = null;
+      }
     }
     const ln = typeof s.log === "string" ? s.log : "";
+    // 解決演出 (break/strike) を fire したら、 矢印は演出に重ねてから裏で消す (= 遅延クリア)。
+    const scheduleArrowClear = () => {
+      if (arrowClearTimer.current) clearTimeout(arrowClearTimer.current);
+      arrowClearTimer.current = setTimeout(() => setArrowTarget(null), 550);
+    };
     const coords = () => {
       const board = boardRef.current;
       const last = lastAttackRef.current;
@@ -331,12 +348,14 @@ export function SpectateBoard({
       fireDefenseSuccess(defenderIdx === 0 ? "me" : "opp", sm[2] === "blocker survived");
       const c = coords();
       if (c) fireArrowBreak(c);
+      scheduleArrowClear();
       return;
     }
     // 攻撃成立 (= 防御失敗、 ライフ/KO) → 突き刺さり
     if (/\bhit:|^\s*KO\s|^\s*KO:\s|life->hand|ライフ受け取り/m.test(ln)) {
       const c = coords();
       if (c) fireArrowStrike(c);
+      scheduleArrowClear();
     }
   }, [frameDiff.eventTickId, clampedIdx, snapshots]);
 
@@ -520,11 +539,14 @@ export function SpectateBoard({
           boardRef={boardRef}
           tickId={frameDiff.eventTickId}
         />
+        {/* 攻撃ターゲット矢印 = 宣言で表示し、 解決演出 (へし折り/突き刺さり) の後に裏で消す
+            (= persistent + 遅延クリア)。 アニメ前のハードカットを避けて重ねる (ohtsuki 2026-06-07)。 */}
         <AttackTargetArrowOverlay
-          attackerIid={snap.event?.attacker_iid ?? null}
-          targetIid={snap.event?.target_iid ?? null}
+          attackerIid={arrowTarget?.attackerIid ?? null}
+          targetIid={arrowTarget?.targetIid ?? null}
           boardRef={boardRef}
           tickId={frameDiff.eventTickId}
+          persistent
         />
         {/* ドン付与 pulse (= attached_dons 増加 card に「+DON」) */}
         <DonAttachPulseOverlay

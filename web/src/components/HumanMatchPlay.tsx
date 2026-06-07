@@ -1704,9 +1704,11 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       )}
 
       {/* 防御 pending 中 の attacker→target 矢印 (= 持続表示、 カウンター 判断 用)。
-          defenseClosing (= 確定 押下) で 即時 非表示 にして ArrowBreak/Strike 演出 と
-          視覚的 競合 を 防止。 */}
-      {isDefensePending && !defenseClosing && state.pending_payload && (
+          確定 押下 (defenseClosing) でも すぐ には 消さず、 解決 (= 防御成功 へし折り /
+          攻撃成立 突き刺さり) アニメ 表示中 に 裏で 消える (= isDefensePending が 解決後 に
+          false → 自然消滅)。 アニメ 前 の ハードカット より 臨場感 が 出る (= ohtsuki 指摘 2026-06-07)。
+          replay 中 の snap.event 矢印 は suppressEventArrowUntil で 抑制済 → 二重化 しない。 */}
+      {isDefensePending && state.pending_payload && (
         <AttackTargetArrowOverlay
           attackerIid={
             typeof state.pending_payload.attacker_iid === "number"
