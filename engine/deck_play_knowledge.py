@@ -10,9 +10,40 @@
 """
 from __future__ import annotations
 
+import json
+import os
 import re
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Optional
+
+_DK_DEPLOY: Optional[dict] = None
+
+
+def deck_knowledge_weight(deck_slug: Optional[str]) -> float:
+    """deck別の deck-knowledge 重み W。 解決順: env override > db/deck_knowledge_deploy.json > 0。
+
+    配備 AI は deck_slug から自分の W を引く (= 効くデッキだけ ON、 deploy_results と同型)。
+    env ONEPIECE_DECK_KNOWLEDGE_W は A/B 用の global override。"""
+    env = os.environ.get("ONEPIECE_DECK_KNOWLEDGE_W")
+    if env not in (None, ""):
+        try:
+            return float(env)
+        except ValueError:
+            pass
+    global _DK_DEPLOY
+    if _DK_DEPLOY is None:
+        try:
+            p = Path(__file__).resolve().parents[1] / "db" / "deck_knowledge_deploy.json"
+            _DK_DEPLOY = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        except Exception:
+            _DK_DEPLOY = {}
+    if not deck_slug:
+        return 0.0
+    try:
+        return float(_DK_DEPLOY.get(deck_slug, 0) or 0)
+    except (ValueError, TypeError):
+        return 0.0
 
 PROD_HAND = {"search_top_n", "search", "reveal_top_play", "reveal_top_then", "draw",
              "draw_per_self_hand_discarded"}

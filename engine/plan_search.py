@@ -210,6 +210,7 @@ def search_turn_plan(
     me_deck_analysis: "Optional[dict]" = None,
     me_target_spec: "Optional[dict]" = None,
     deck_knowledge=None,
+    deck_knowledge_w: "Optional[float]" = None,
 ) -> tuple[list, float]:
     """MAIN フェーズ開始時に呼ぶ。 ターン全体プランを beam search。
 
@@ -378,7 +379,11 @@ def search_turn_plan(
     # play_timing_adjustment (条件 live=好機 / dead+reachable=温存) + combo_bonus を加算。
     # = ボルサリーノを高ライフで温存・低ライフで登場、 準備完了コンボを優先。
     # ONEPIECE_DECK_KNOWLEDGE_W で スケール (default 0 = 無効、 安全 A/B)。
-    _W_DECK_KNOWLEDGE = float(_os.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0"))
+    # W: caller (= AI) が per-deck で渡す (deck_knowledge_w) のを優先、 無ければ env (= A/B override)。
+    if deck_knowledge_w is not None:
+        _W_DECK_KNOWLEDGE = float(deck_knowledge_w)
+    else:
+        _W_DECK_KNOWLEDGE = float(_os.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0"))
     _USE_DECK_KNOWLEDGE = _W_DECK_KNOWLEDGE > 0 and deck_knowledge is not None
 
     def _dk_card_id(action, st):

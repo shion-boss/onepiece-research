@@ -1,0 +1,6 @@
+{
+  "_note": "per-deck deck-knowledge 重み W (= engine/deck_play_knowledge.py:deck_knowledge_weight が読む)。 0/不在=無効。 配備 AI が deck_slug で W を引く。 env ONEPIECE_DECK_KNOWLEDGE_W で global override 可。",
+  "_status": "全デッキ無効 (= 2026-06-07)。 deterministic な deck-knowledge bias (defer/combo_bonus) は切り分け検証で AI を弱体化すると判明 → 配備しない。",
+  "_evidence": "ドフラ vs calgara (N=16、 config駆動): 両OFF=6% / ドフラだけON=6%(改善ゼロ) / calgaraだけON=ドフラ56%(calgaraが自滅)。 当初の env-global『ドフラ+38』 は両者ONで calgara が自分のDKで弱体化しただけの confound だった。 = [[project_70pct_vs_greedy]] 教訓『deterministic bias は dead-end、 強さは search+value』 と一致。",
+  "_next": "コンボ把握を AI 強化につなげるなら deterministic bias でなく value 関数特徴 (combo-readiness を GBM へ、 = proven lever)。 hook 配線・知識生成器は default OFF で温存。"
+}

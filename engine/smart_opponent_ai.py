@@ -56,14 +56,20 @@ class SmartOpponentAI:
         if self._inner is not None:
             return self._inner
         slug = self._resolve_slug(state)
+        # 解決した slug を inner の deck_analysis に注入 (= per-deck deck-knowledge 等が
+        # deck_analysis['deck_slug'] で W を引けるように。 2026-06-07)。
+        inner_analysis = self.deck_analysis
+        if slug:
+            inner_analysis = dict(self.deck_analysis or {})
+            inner_analysis.setdefault("deck_slug", slug)
         wr = self._results.get(slug, -1.0) if slug else -1.0
         if wr >= self._threshold:
             from .exploit_beam_ai import ExploitBeamAI
-            self._inner = ExploitBeamAI(rng=self.rng, deck_analysis=self.deck_analysis)
+            self._inner = ExploitBeamAI(rng=self.rng, deck_analysis=inner_analysis)
             self._chosen = ("ExploitBeam", slug, wr)
         else:
             from .ai import GreedyAI
-            self._inner = GreedyAI(rng=self.rng, deck_analysis=self.deck_analysis)
+            self._inner = GreedyAI(rng=self.rng, deck_analysis=inner_analysis)
             self._chosen = ("Greedy(fallback)", slug, wr)
         return self._inner
 

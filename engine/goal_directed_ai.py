@@ -239,8 +239,7 @@ class GoalDirectedAI(_NoNNPlanningBase):
         # spec fallback (max_score==0→Greedy) は spec score のまま (= 上で判定済) で安全。
         dk = self._knowledge_for(state)
         if dk is not None:
-            import os as _os_k
-            wk = float(_os_k.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0"))
+            wk = self._dk_weight(state)
             me_idx2 = state.turn_player_idx
             rescored = []
             for a, s in action_scores:
@@ -261,10 +260,19 @@ class GoalDirectedAI(_NoNNPlanningBase):
             return best_actions[0]
         return self.rng.choice(best_actions)
 
+    def _dk_weight(self, state) -> float:
+        """per-deck deck-knowledge 重み (= deck_knowledge_weight、 config + env override)。"""
+        try:
+            from .deck_play_knowledge import deck_knowledge_weight
+            slug = (self.deck_analysis.get("deck_slug")
+                    if isinstance(getattr(self, "deck_analysis", None), dict) else None)
+            return deck_knowledge_weight(slug)
+        except Exception:
+            return 0.0
+
     def _knowledge_for(self, state):
-        """デッキ知識を game 毎に build/cache (= ONEPIECE_DECK_KNOWLEDGE_W>0 時のみ)。"""
-        import os as _os_k
-        if _os_k.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0") in ("", "0"):
+        """デッキ知識を game 毎に build/cache (= per-deck W>0 時のみ)。"""
+        if self._dk_weight(state) <= 0:
             return None
         try:
             if getattr(self, "_deck_knowledge", None) is None:

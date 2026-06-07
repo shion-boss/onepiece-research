@@ -2576,11 +2576,18 @@ class DeepPlanningAI(GreedyAI):
 
         ai_opp = self._ai_opp if self._ai_opp is not None else self
 
-        # Plan K: デッキプレイ知識 (= コンボ + 各カード有効使用) を game 毎に build/cache し
-        # search_turn_plan に渡す。 ONEPIECE_DECK_KNOWLEDGE_W で有効化 (default 0 = 無効)。
+        # Plan K: デッキプレイ知識 (= コンボ + 各カード有効使用)。 per-deck で有効化
+        # (= deck_knowledge_weight、 db/deck_knowledge_deploy.json + env override)。 default 0 = 無効。
         _dk = None
-        import os as _os_dk
-        if _os_dk.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0") not in ("", "0"):
+        _dk_w = 0.0
+        try:
+            from .deck_play_knowledge import deck_knowledge_weight
+            _slug = (self.deck_analysis.get("deck_slug")
+                     if isinstance(getattr(self, "deck_analysis", None), dict) else None)
+            _dk_w = deck_knowledge_weight(_slug)
+        except Exception:
+            _dk_w = 0.0
+        if _dk_w > 0:
             try:
                 if getattr(self, "_deck_knowledge", None) is None:
                     from .deck_play_knowledge import build_knowledge_from_player, DeckKnowledge
@@ -2604,6 +2611,7 @@ class DeepPlanningAI(GreedyAI):
                 ai_self=self,
                 me_deck_analysis=getattr(self, "deck_analysis", None),
                 deck_knowledge=_dk,
+                deck_knowledge_w=_dk_w,
             )
 
         try:
