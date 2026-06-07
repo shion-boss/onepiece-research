@@ -3067,6 +3067,7 @@ function CenterRow({
             <CharCard
               ch={player.stages[0]}
               isLeader={false}
+              isStage
               isMine={isMe}
               isAttacker={false}
               isTarget={false}
@@ -3328,10 +3329,12 @@ function CharCard({
   onDragEnd,
   dropHint,
   hasOppAttackEffect,
+  isStage,
 }: {
   ch: CharSnapshot;
   isLeader: boolean;
   isMine: boolean;
+  isStage?: boolean;
   isAttacker: boolean;
   isTarget: boolean;
   isActable: boolean;
@@ -3404,15 +3407,18 @@ function CharCard({
           className={`${dim} object-cover`}
         />
       </div>
-      <span className="absolute top-0 left-0 rounded-br bg-black/80 px-1 text-xs font-bold text-white">
-        {ch.power}
-      </span>
+      {/* ステージはパワーを持たないので power badge を出さない (= 0 表示の防止) */}
+      {!isStage && (
+        <span className="absolute top-0 left-0 rounded-br bg-black/80 px-1 text-xs font-bold text-white">
+          {ch.power}
+        </span>
+      )}
       {ch.attached_dons > 0 && (
         <span className="absolute bottom-0 right-0 rounded-tl bg-amber-600 px-1 text-[11px] font-bold text-white">
           +{ch.attached_dons}d
         </span>
       )}
-      {ch.summoning_sickness && !isLeader && (
+      {ch.summoning_sickness && !isLeader && !isStage && (
         <span className="absolute top-0 right-0 rounded-bl bg-blue-600 px-1 text-[10px] text-white">
           zZ
         </span>
