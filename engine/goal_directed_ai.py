@@ -235,10 +235,46 @@ class GoalDirectedAI(_NoNNPlanningBase):
             from .ai import GreedyAI
             return GreedyAI.choose_action(self, state)
 
-        best_actions = [a for a, s in action_scores if s == max_score]
+        # Plan K: デッキ知識で argmax を refine (= 条件 live=好機 / dead+reachable=温存 / コンボ前進)。
+        # spec fallback (max_score==0→Greedy) は spec score のまま (= 上で判定済) で安全。
+        dk = self._knowledge_for(state)
+        if dk is not None:
+            import os as _os_k
+            wk = float(_os_k.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0"))
+            me_idx2 = state.turn_player_idx
+            rescored = []
+            for a, s in action_scores:
+                cid = getattr(a, "card_id", None) or self._resolve_action_card_id(a, state, me_idx2)
+                kadj = 0.0
+                if cid:
+                    try:
+                        kadj = wk * (dk.play_timing_adjustment(cid, state, me_idx2)
+                                     + dk.combo_bonus(cid, state, me_idx2))
+                    except Exception:
+                        kadj = 0.0
+                rescored.append((a, s + kadj))
+            best = max(s for _, s in rescored)
+            best_actions = [a for a, s in rescored if s == best]
+        else:
+            best_actions = [a for a, s in action_scores if s == max_score]
         if len(best_actions) == 1:
             return best_actions[0]
         return self.rng.choice(best_actions)
+
+    def _knowledge_for(self, state):
+        """デッキ知識を game 毎に build/cache (= ONEPIECE_DECK_KNOWLEDGE_W>0 時のみ)。"""
+        import os as _os_k
+        if _os_k.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0") in ("", "0"):
+            return None
+        try:
+            if getattr(self, "_deck_knowledge", None) is None:
+                from .deck_play_knowledge import build_knowledge_from_player, DeckKnowledge
+                ov = getattr(state, "effects_overlay", None)
+                me = state.players[state.turn_player_idx]
+                self._deck_knowledge = DeckKnowledge(build_knowledge_from_player(me, ov))
+            return self._deck_knowledge
+        except Exception:
+            return None
 
     def _resolve_action_card_id(self, action, state, me_idx):
         """action に card_id が ない (= hand_idx のみ) 場合 解 決。"""

@@ -2576,6 +2576,23 @@ class DeepPlanningAI(GreedyAI):
 
         ai_opp = self._ai_opp if self._ai_opp is not None else self
 
+        # Plan K: デッキプレイ知識 (= コンボ + 各カード有効使用) を game 毎に build/cache し
+        # search_turn_plan に渡す。 ONEPIECE_DECK_KNOWLEDGE_W で有効化 (default 0 = 無効)。
+        _dk = None
+        import os as _os_dk
+        if _os_dk.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0") not in ("", "0"):
+            try:
+                if getattr(self, "_deck_knowledge", None) is None:
+                    from .deck_play_knowledge import build_knowledge_from_player, DeckKnowledge
+                    _ov = getattr(state, "effects_overlay", None)
+                    _me = state.players[state.turn_player_idx]
+                    self._deck_knowledge = DeckKnowledge(
+                        build_knowledge_from_player(_me, _ov)
+                    )
+                _dk = self._deck_knowledge
+            except Exception:
+                _dk = None
+
         # NN を使わない方が強いデッキは nn_disabled context で plan_search
         def _do_search():
             return search_turn_plan(
@@ -2586,6 +2603,7 @@ class DeepPlanningAI(GreedyAI):
                 max_turns=max_turns,
                 ai_self=self,
                 me_deck_analysis=getattr(self, "deck_analysis", None),
+                deck_knowledge=_dk,
             )
 
         try:

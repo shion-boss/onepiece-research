@@ -209,6 +209,7 @@ def search_turn_plan(
     ai_self=None,
     me_deck_analysis: "Optional[dict]" = None,
     me_target_spec: "Optional[dict]" = None,
+    deck_knowledge=None,
 ) -> tuple[list, float]:
     """MAIN フェーズ開始時に呼ぶ。 ターン全体プランを beam search。
 
@@ -371,6 +372,27 @@ def search_turn_plan(
     # ONEPIECE_GOAL_PRUNE=1 で 有効化 (default off で 旧挙動 維持 = 安全 A/B)。
     # _USE_GOAL_TARGET が前提 (= target spec なしで pruning できない)。
     _USE_GOAL_PRUNE = _USE_GOAL_TARGET and _os.environ.get("ONEPIECE_GOAL_PRUNE", "0") == "1"
+
+    # === Plan K (= 2026-06-07): デッキプレイ知識 (コンボ + 各カード有効使用) ===
+    # caller (= AI) が DeckKnowledge を渡す (= game 毎 cache)。 候補手の score に
+    # play_timing_adjustment (条件 live=好機 / dead+reachable=温存) + combo_bonus を加算。
+    # = ボルサリーノを高ライフで温存・低ライフで登場、 準備完了コンボを優先。
+    # ONEPIECE_DECK_KNOWLEDGE_W で スケール (default 0 = 無効、 安全 A/B)。
+    _W_DECK_KNOWLEDGE = float(_os.environ.get("ONEPIECE_DECK_KNOWLEDGE_W", "0"))
+    _USE_DECK_KNOWLEDGE = _W_DECK_KNOWLEDGE > 0 and deck_knowledge is not None
+
+    def _dk_card_id(action, st):
+        """play action の card_id を st の hand から解決 (= PlayCharacter は hand_idx のみ持つ)。"""
+        cid = getattr(action, "card_id", None)
+        if cid is not None:
+            return cid
+        hi = getattr(action, "hand_idx", None)
+        if hi is None:
+            return None
+        hand = st.players[me_idx].hand
+        if 0 <= hi < len(hand):
+            return getattr(hand[hi].card, "card_id", None)
+        return None
 
     # === Phase 2+3 (= 2026-05-28): 敵陣 target spec 妨害 + 双方バランス ===
     # 敵 player の target spec も load → 「敵が 目指す 盤面 を 阻む 手」 に bonus 加算。
@@ -583,6 +605,21 @@ def search_turn_plan(
                     except Exception:
                         pass  # turn_plan 失敗時は plan_search 止めない
 
+                # Plan K: デッキプレイ知識 bias (= デッキ内コンボ + 各カード有効使用)
+                # 条件付き効果が今 live なら好機 / dead だが将来満たせるなら 温存、
+                # 準備完了コンボ (partner が場/手札) を前進させる手に加点。 親 state (cur_state) で評価。
+                if _USE_DECK_KNOWLEDGE:
+                    try:
+                        card_id = _dk_card_id(action, cur_state)
+                        if card_id:
+                            _dk_adj = (
+                                deck_knowledge.play_timing_adjustment(card_id, cur_state, me_idx)
+                                + deck_knowledge.combo_bonus(card_id, cur_state, me_idx)
+                            )
+                            score = score + _W_DECK_KNOWLEDGE * _dk_adj
+                    except Exception:
+                        pass  # deck knowledge 失敗時は plan_search 止めない
+
                 # Plan H: goal-directed target bonus (= 2026-05-19)
                 # Claude が 書いた target spec で 「ターン目標 達成 leaf」 に bonus 加算。
                 # target.bonus (= 500-2000) を W_GOAL_TARGET で スケール。
@@ -761,12 +798,38 @@ def search_turn_plan(
             return compute_score(cur_state, me_idx)
         return compute_score(ev, me_idx)
 
+    # Plan K (= デッキ知識) plan-level 調整: plan が play する各カードの play_timing_adjustment
+    # + combo_bonus を turn 開始 state (init) で評価し合算。 ExploitBeam は post-opp eval で
+    # 最終プランを選ぶため、 中間 beam bias だけでは最終選択に届かない → ここで最終 score に反映。
+    # = ボルサリーノを高ライフで出す plan に温存 penalty、 低ライフ/コンボ前進 plan に加点。
+    def _deck_knowledge_plan_adj(plan) -> float:
+        if not _USE_DECK_KNOWLEDGE:
+            return 0.0
+        # plan を init から replay し、 各 play action の card_id を「その時点の hand」 から解決して
+        # 評価 (= PlayCharacter は hand_idx のみ、 hand は plan 進行で変わるため replay 必須)。
+        total = 0.0
+        sim = fast_clone(init)
+        for act in plan:
+            cid = _dk_card_id(act, sim)
+            if cid:
+                try:
+                    total += (deck_knowledge.play_timing_adjustment(cid, sim, me_idx)
+                              + deck_knowledge.combo_bonus(cid, sim, me_idx))
+                except Exception:
+                    pass
+            try:
+                _apply_with_defense(sim, act, defense_ai_for_attacks)
+            except Exception:
+                break
+        return _W_DECK_KNOWLEDGE * total
+
     best_plan: list = []
     best_score = -float("inf")
     for cur_state, plan in completed:
         s = _eval_state(cur_state, plan)
         s += _unused_attached_don_penalty(cur_state, plan)
         s += _unused_attacker_penalty_strong(cur_state, plan)
+        s += _deck_knowledge_plan_adj(plan)
         if s > best_score:
             best_score = s
             best_plan = plan

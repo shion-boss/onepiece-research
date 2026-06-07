@@ -295,9 +295,43 @@ def build_knowledge(deck, overlay: dict) -> dict:
     }
 
 
-# 調整スケール (= board_eval 単位に合わせた控えめな値。 探索/lookup の最終判断を上書きしない)
-DEFER_PENALTY = 700      # 条件付き効果が今 dead だが将来満たせる → 温存
-GOOD_TIMING_BONUS = 250  # 条件が今 live → 出す好機
+class _PoolDeck:
+    """build_knowledge に渡す軽量 deck shim (= leader + main の CardDef リスト)。"""
+
+    def __init__(self, leader, main, name=None, slug=None):
+        self.leader = leader
+        self.main = main
+        self.name = name
+        self.slug = slug
+
+
+def _gather_pool(player) -> list:
+    """player の全ゾーンから CardDef を収集 (= 50枚は保存則で union に揃う)。
+    play 候補は hand にあるので、 多少 deck が隠れていても bias 対象は網羅される。"""
+    cards = []
+    seen = set()
+    for z in ("deck", "hand", "characters", "stages", "trash", "life"):
+        for item in getattr(player, z, []) or []:
+            cd = getattr(item, "card", item)
+            cid = getattr(cd, "card_id", None)
+            if cid and cid not in seen and getattr(cd, "category", None) is not None:
+                seen.add(cid)
+                cards.append(cd)
+    return cards
+
+
+def build_knowledge_from_player(player, overlay) -> dict:
+    """対戦中の player オブジェクトから知識を build (= deck file 不要、 zone から復元)。"""
+    leader = getattr(player.leader, "card", player.leader)
+    return build_knowledge(_PoolDeck(leader, _gather_pool(player)), overlay)
+
+
+# 調整スケール (= board_eval 単位に合わせた控えめな nudge。 探索の最終判断を上書きしない)。
+# ⚠ defer は「他に良い手があれば温存、 body が最善なら出す」 の tiebreaker。 大きすぎると
+# body が最善でも出さず winrate を下げる (= 検証で確認)。 低ライフで効果が live な場合は
+# engine が効果を発火 → board_eval が既に +life を評価するので、 good-timing 加点は小さくてよい。
+DEFER_PENALTY = 300      # 条件付き効果が今 dead だが将来満たせる → 温存 (gentle nudge)
+GOOD_TIMING_BONUS = 150  # 条件が今 live → 出す好機 (board_eval が主、 これは補強)
 COMBO_READY_BONUS = 350  # 準備完了コンボを前進させる
 
 
