@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { runMatrixSampleReplay } from "@/lib/api";
 import type { ReplayResponse } from "@/lib/types";
-import { MatchReplay } from "@/components/MatchReplay";
+import { SpectateBoard } from "@/components/SpectateBoard";
 import { CardPreloader } from "@/components/CardPreloader";
 
 /**
  * matrix 観戦パネル (= /meta?tab=spectate 内)
  *
  * デッキ A / B / seed を選んで「▶ 観戦開始」 を押すと、 API が 1 試合
- * シミュレートして 盤面 snapshot 付き replay を返す。 既存の MatchReplay
- * コンポーネントで盤面再生 (= マット表示、 カード、 アタック矢印、 board_eval ライン等)。
+ * シミュレートして 盤面 snapshot 付き replay を返す。 SpectateBoard
+ * コンポーネントで盤面再生 (= マット表示、 カード、 ホバープレビュー、 盤面データ等)。
  *
+ * AI は 実践 (= 人間vsAI / matrix) と 同じ 配備 SmartOpponentAI で 統一 (= 2026-06-06)。
  * 走行中の matrix プロセスとは別計算、 CPU を一時共有。
  */
 
@@ -193,10 +194,17 @@ export function MatrixSpectate({
       ) : running ? (
         <div className="flex flex-1 items-center justify-center rounded bg-zinc-50 p-6 text-sm text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500 align-middle" />{" "}
-          <span className="ml-2">シミュレート中... (GoalDirectedAI v1 軽量モード、 通常 3-8 秒)</span>
+          <span className="ml-2">シミュレート中... (配備 AI = SmartOpponentAI、 人間vsAI と同じ。 通常 3-5 秒)</span>
         </div>
       ) : replay ? (
-        <MatchReplay replay={replay} />
+        <SpectateBoard
+          snapshots={replay.snapshots}
+          deckBottomName={replay.deck_a_name}
+          deckTopName={replay.deck_b_name}
+          winner={replay.winner}
+          replayKey={`spectate:${replay.job_id}:${replay.game_index}`}
+          onClose={() => setReplay(null)}
+        />
       ) : (
         <div className="flex flex-1 items-center justify-center rounded border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700">
           デッキ / seed を選んで 「▶ 観戦開始」 を押すと盤面再生が始まります。

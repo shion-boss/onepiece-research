@@ -301,17 +301,44 @@ class MatrixSampleRequest(BaseModel):
     seed: int = 42
 
 
+def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str]) -> dict:
+    """実践 AI (= 配備 SmartOpponentAI) を run_matchup に差す kwargs を返す。
+
+    実践で 使う AI を 全ユーザー向け 対戦経路 (= 観戦 / deck対戦ランナー / replay / battle-report)
+    で 同一 に 揃える (= 2026-06-06、 ohtsuki 要望)。 人間vsAI (_build_default_ai_factory) と
+    同じ SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) を deck_a/deck_b の slug で構築。
+    slug が None / 未知 の deck は SmartOpponentAI が greedy に degrade (= 安全)。 deckN_analysis も
+    渡して GBM / heuristic を 有効化。 SmartOpponentAI は torch 非依存。"""
+    from engine.smart_opponent_ai import SmartOpponentAI
+
+    def _a(rng, deck_analysis=None):
+        return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_a)
+
+    def _b(rng, deck_analysis=None):
+        return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_b)
+
+    kw: dict = {"ai_factory_1": _a, "ai_factory_2": _b}
+    for _slug, _key in ((slug_a, "deck1_analysis"), (slug_b, "deck2_analysis")):
+        if not _slug:
+            continue
+        _ap = ROOT / "decks" / f"{_slug}.analysis.json"
+        if _ap.exists():
+            try:
+                kw[_key] = json.loads(_ap.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+    return kw
+
+
 @app.post("/api/matrix/sample/replay")
 def matrix_sample_replay(req: MatrixSampleRequest):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
-    /api/match/{job_id}/games/{i}/replay と同じ形式 (= MatchReplay コンポーネントで再生可)。
+    /api/match/{job_id}/games/{i}/replay と同じ形式 (= SpectateBoard コンポーネントで再生可)。
 
-    走行中 matrix とは別プロセス、 GoalDirectedAI v1 軽量モード (adaptive=False + beam=2 depth=4) で
-    1 試合 ~3-8 秒目標。 観戦目的 = 現 default AI を観戦 + コメント feedback サイクル。
-
-    過去 GoalDirectedAI 切替 で Vercel OOM (= torch chain import) 発生 → nn_eval の nn_disabled を
-    torch 非依存 の nn_flags へ 切り出し (= 2026-05-20)、 GoalDirectedAI import で torch 読まない 構造に。"""
-    from engine.goal_directed_ai import GoalDirectedAI
+    実践 AI を 全経路で 統一 (= 2026-06-06、 ohtsuki 要望): 観戦も 人間vsAI / matrix と 同じ
+    配備 AI = SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) で プレイする。
+    SmartOpponentAI は torch 非依存 (= import で torch を読まない、 検証済) + 1 game ~3-4 秒 で
+    Vercel function timeout (300s) に 余裕。 これで 観戦 = 人間vsAI = matrix の AI が 完全一致。"""
     from engine.deck import CardRepository, DeckList
     from engine.effects import load_effect_overlay
     from engine.harness import run_matchup as _run
@@ -329,19 +356,15 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     da = DeckList.from_json(path_a, repo)
     db = DeckList.from_json(path_b, repo)
 
-    # spectate 用 GoalDirectedAI = pure_lookup default (= 2026-06-03、 ~50ms/手で Vercel memory 最軽量)。
-    # beam_width/max_depth は pure_lookup 失敗 (= spec coverage 不足) 時の fallback 用にのみ残す。
-    def _spectate_ai_factory(rng, deck_analysis=None):
-        return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=False, spec_version="v1", beam_width=2, max_depth=4)
-
+    # 実践 AI (= 配備 SmartOpponentAI) を deck_a/deck_b の slug で構築 (= _practice_run_kwargs)。
+    # 人間vsAI / matrix / deck対戦ランナー と 同一。
     rep = _run(
         da, db,
         n_games=1, seed=req.seed,
         effects_overlay=overlay,
-        ai_factory_1=_spectate_ai_factory,
-        ai_factory_2=_spectate_ai_factory,
         keep_logs=True, enforce_rules=False,
         record_snapshots=True,
+        **_practice_run_kwargs(req.deck_a, req.deck_b),
     )
     g = rep.games[0]
     # ReplayResponse は file 末尾で定義されているため文字列名で response_model 指定。
@@ -2035,6 +2058,9 @@ def run_match(req: MatchRequest):
     if req.deck_b_id and not getattr(deck_b, "slug", None):
         deck_b.slug = req.deck_b_id
 
+    # 実践 AI (= 配備 SmartOpponentAI) で対戦 (= 人間vsAI / matrix / 観戦 と同一)。
+    _a_slug = getattr(deck_a, "slug", None)
+    _b_slug = getattr(deck_b, "slug", None)
     report = run_matchup(
         deck_a, deck_b,
         n_games=req.n_games,
@@ -2042,14 +2068,18 @@ def run_match(req: MatchRequest):
         keep_logs=True,
         record_replays=True,        # 改善提案で利用するため必ず replay 保存
         record_snapshots=True,
+        **_practice_run_kwargs(_a_slug, _b_slug),
     )
 
     job_id = uuid.uuid4().hex[:12]
     _MATCH_JOBS[job_id] = {
         "report": report,
-        # リプレイ再実行時に同じ条件で再構築するため、deck/seed/n_games を保持
+        # リプレイ再実行時に同じ条件で再構築するため、deck/seed/n_games + slug を保持
+        # (= slug は replay/analyze で 同じ 実践 AI を 再構築するのに必須)
         "deck_a": deck_a_dict,
         "deck_b": deck_b_dict,
+        "deck_a_slug": _a_slug,
+        "deck_b_slug": _b_slug,
         "seed": req.seed,
         "n_games": req.n_games,
     }
@@ -2268,6 +2298,7 @@ def replay_match_game(job_id: str, game_index: int):
         seed=job["seed"],
         record_snapshots=True,
         only_game_index=game_index,
+        **_practice_run_kwargs(job.get("deck_a_slug"), job.get("deck_b_slug")),
     )
     g = report.games[game_index]
     return ReplayResponse(
@@ -2314,6 +2345,7 @@ def analyze_match_game(job_id: str, game_index: int):
         seed=job["seed"],
         record_snapshots=True,
         only_game_index=game_index,
+        **_practice_run_kwargs(job.get("deck_a_slug"), job.get("deck_b_slug")),
     )
     g = report.games[game_index]
     snapshots = g.snapshots
@@ -2463,6 +2495,7 @@ def generate_battle_report(
 
     report = run_matchup(
         deck_a, deck_b, n_games=n_games, seed=seed, keep_logs=True, record_snapshots=True,
+        **_practice_run_kwargs(slug, opponent_slug),
     )
 
     all_stats = [

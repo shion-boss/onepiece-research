@@ -60,7 +60,7 @@ type Selection =
   | { kind: "self_leader" }
   | { kind: "attack_pending"; attackerIid: number };
 
-type HoverInfo =
+export type HoverInfo =
   | { kind: "hand"; cardId: string }
   | {
       kind: "chara";
@@ -2564,7 +2564,7 @@ function StartPanel({
 // PlayerMat
 // ========================================================================== //
 
-function PlayerMat({
+export function PlayerMat({
   player,
   isMe,
   attackerIid,
@@ -3438,7 +3438,7 @@ function CharCard({
 // 手札 row (= overlapping fan、 hover で 持ち上げ)
 // ========================================================================== //
 
-function HandRow({
+export function HandRow({
   hand,
   actionsByHand,
   canAct,
@@ -3581,7 +3581,7 @@ function HandRow({
 // 左 サイド: opp info (= hand 裏面 + DON 視覚化)
 // ========================================================================== //
 
-function StatBadge({
+export function StatBadge({
   player,
   label,
   color,
@@ -3624,7 +3624,7 @@ function StatBadge({
   );
 }
 
-function OpponentInfoPanel({
+export function OpponentInfoPanel({
   opp,
   reveal,
   onHover,
@@ -3725,7 +3725,7 @@ function sanitizeLogLine(line: string, aiIdx: number): string {
   return out;
 }
 
-function LogSidebar({
+export function LogSidebar({
   log,
   aiIdx,
   sessionId,
