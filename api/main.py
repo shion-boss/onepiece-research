@@ -306,12 +306,11 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
     /api/match/{job_id}/games/{i}/replay と同じ形式 (= MatchReplay コンポーネントで再生可)。
 
-    走行中 matrix とは別プロセス、 GoalDirectedAI v1 軽量モード (adaptive=False + beam=2 depth=4) で
-    1 試合 ~3-8 秒目標。 観戦目的 = 現 default AI を観戦 + コメント feedback サイクル。
-
-    過去 GoalDirectedAI 切替 で Vercel OOM (= torch chain import) 発生 → nn_eval の nn_disabled を
-    torch 非依存 の nn_flags へ 切り出し (= 2026-05-20)、 GoalDirectedAI import で torch 読まない 構造に。"""
-    from engine.goal_directed_ai import GoalDirectedAI
+    AI は配備 SmartOpponentAI (= deck別 ExploitBeam/greedy 自動、 matrix と同一) で統一
+    (= 2026-06-07、 ohtsuki「実践AIを全箇所で同じに」+「spectate が弱いAIで calgara が弱く見える」)。
+    SmartOpponentAI は torch 非依存 + 1 game ~3-4 秒。 これで観戦 = matrix の AI が一致し、
+    78.7% を出した本物の calgara を観戦できる。"""
+    from engine.smart_opponent_ai import SmartOpponentAI
     from engine.deck import CardRepository, DeckList
     from engine.effects import load_effect_overlay
     from engine.harness import run_matchup as _run
@@ -329,20 +328,27 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     da = DeckList.from_json(path_a, repo)
     db = DeckList.from_json(path_b, repo)
 
-    # spectate 用 GoalDirectedAI = pure_lookup default (= 2026-06-03、 ~50ms/手で Vercel memory 最軽量)。
-    # beam_width/max_depth は pure_lookup 失敗 (= spec coverage 不足) 時の fallback 用にのみ残す。
-    def _spectate_ai_factory(rng, deck_analysis=None):
-        return GoalDirectedAI(rng=rng, deck_analysis=deck_analysis, adaptive=False, spec_version="v1", beam_width=2, max_depth=4)
+    # 配備 AI = SmartOpponentAI を deck_a / deck_b それぞれの slug で構築 (matrix と同一経路)。
+    def _spectate_ai_factory_a(rng, deck_analysis=None):
+        return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=req.deck_a)
 
-    rep = _run(
-        da, db,
+    def _spectate_ai_factory_b(rng, deck_analysis=None):
+        return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=req.deck_b)
+
+    run_kwargs = dict(
         n_games=1, seed=req.seed,
         effects_overlay=overlay,
-        ai_factory_1=_spectate_ai_factory,
-        ai_factory_2=_spectate_ai_factory,
+        ai_factory_1=_spectate_ai_factory_a,
+        ai_factory_2=_spectate_ai_factory_b,
         keep_logs=True, enforce_rules=False,
         record_snapshots=True,
     )
+    import json as _json
+    for _slug, _key in ((req.deck_a, "deck1_analysis"), (req.deck_b, "deck2_analysis")):
+        _ap = ROOT / "decks" / f"{_slug}.analysis.json"
+        if _ap.exists():
+            run_kwargs[_key] = _json.loads(_ap.read_text(encoding="utf-8"))
+    rep = _run(da, db, **run_kwargs)
     g = rep.games[0]
     # ReplayResponse は file 末尾で定義されているため文字列名で response_model 指定。
     # 実体は dict で返してもエンドポイント契約に従う (Pydantic ↔ FastAPI が validate)。
