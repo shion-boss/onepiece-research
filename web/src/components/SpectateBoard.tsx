@@ -199,7 +199,7 @@ export function SpectateBoard({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [hovered, setHovered] = useState<HoverInfo>(null);
-  const [showData, setShowData] = useState(true); // 最初から全件表示
+  const [showData, setShowData] = useState(false); // 初期値は非表示 (= ボタンで表示)
   const [panelPos, setPanelPos] = useState({ x: 360, y: 92 });
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ dx: 0, dy: 0 });
@@ -220,7 +220,8 @@ export function SpectateBoard({
       setPlaying(false);
       return;
     }
-    timerRef.current = setTimeout(() => setIdx((i) => i + 1), 900 / speed);
+    // 基準 1800ms/手 (= 1x)。 攻撃ビーム/矢印 (~1.3s) が収まる速度。 2x=900 / 4x=450。
+    timerRef.current = setTimeout(() => setIdx((i) => i + 1), 1800 / speed);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
