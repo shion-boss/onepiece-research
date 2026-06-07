@@ -31,6 +31,13 @@ import {
   DrawCardOverlay,
   CounterPlayOverlay,
   fireCounterPlay,
+  // 攻撃解決の演出 (= 防御成功で矢印へし折り / 攻撃成立で矢印突き刺さり / 防御成功バナー)
+  ArrowBreakOverlay,
+  fireArrowBreak,
+  ArrowStrikeOverlay,
+  fireArrowStrike,
+  DefenseSuccessOverlay,
+  fireDefenseSuccess,
 } from "./_matchAnimHelpers";
 
 const NOOP = () => {};
@@ -273,6 +280,66 @@ export function SpectateBoard({
     }
   }, [frameDiff.eventTickId, clampedIdx, snapshots]);
 
+  // 攻撃解決の演出 (= 人間vsAI と同じ): 直近攻撃の attacker→target を lastAttackRef に保持し、
+  //   防御成功 (= 「P{tpi}: blocked|survived|blocker survived」) → fireDefenseSuccess + fireArrowBreak (矢印へし折り)
+  //   攻撃成立 (= 「hit:|KO|life->hand|ライフ受け取り」) → fireArrowStrike (矢印突き刺さり)
+  // coords は boardRef + data-iid から解決 (= AttackBeam と同方式)。
+  const lastAttackRef = useRef<{ attackerIid: number; targetIid: number } | null>(
+    null,
+  );
+  const lastResolveTickRef = useRef(-1);
+  useEffect(() => {
+    const s = snapshots[clampedIdx];
+    if (!s) return;
+    const tick = frameDiff.eventTickId;
+    if (tick === lastResolveTickRef.current) return;
+    lastResolveTickRef.current = tick;
+    // 現フレームが攻撃宣言なら lastAttackRef を更新 (= 解決フレームで coords に使う)
+    const ev = s.event;
+    if (
+      ev &&
+      typeof ev.attacker_iid === "number" &&
+      typeof ev.target_iid === "number"
+    ) {
+      lastAttackRef.current = {
+        attackerIid: ev.attacker_iid,
+        targetIid: ev.target_iid,
+      };
+    }
+    const ln = typeof s.log === "string" ? s.log : "";
+    const coords = () => {
+      const board = boardRef.current;
+      const last = lastAttackRef.current;
+      if (!board || !last) return null;
+      const r = board.getBoundingClientRect();
+      const at = board.querySelector(`[data-iid="${last.attackerIid}"]`);
+      const tg = board.querySelector(`[data-iid="${last.targetIid}"]`);
+      if (!at || !tg) return null;
+      const ar = at.getBoundingClientRect();
+      const tr = tg.getBoundingClientRect();
+      return {
+        x1: ar.left + ar.width / 2 - r.left,
+        y1: ar.top + ar.height / 2 - r.top,
+        x2: tr.left + tr.width / 2 - r.left,
+        y2: tr.top + tr.height / 2 - r.top,
+      };
+    };
+    // 防御成功 (= カウンター/ブロッカーで凌いだ) → へし折り + バナー
+    const sm = ln.match(/\bP(\d+):\s+(blocker\s+survived|blocked|survived)\s*$/m);
+    if (sm) {
+      const defenderIdx = 1 - Number(sm[1]);
+      fireDefenseSuccess(defenderIdx === 0 ? "me" : "opp", sm[2] === "blocker survived");
+      const c = coords();
+      if (c) fireArrowBreak(c);
+      return;
+    }
+    // 攻撃成立 (= 防御失敗、 ライフ/KO) → 突き刺さり
+    if (/\bhit:|^\s*KO\s|^\s*KO:\s|life->hand|ライフ受け取り/m.test(ln)) {
+      const c = coords();
+      if (c) fireArrowStrike(c);
+    }
+  }, [frameDiff.eventTickId, clampedIdx, snapshots]);
+
   if (!snap) {
     return (
       <div className="p-6 text-sm text-zinc-400">観戦データがありません。</div>
@@ -488,6 +555,10 @@ export function SpectateBoard({
         />
         {/* カウンター 「+N」 popup + trash slide (= 上の useEffect が fireCounterPlay) */}
         <CounterPlayOverlay />
+        {/* 防御成功で矢印へし折り / 攻撃成立で矢印突き刺さり / 防御成功バナー (= 上の useEffect が fire) */}
+        <ArrowBreakOverlay />
+        <ArrowStrikeOverlay />
+        <DefenseSuccessOverlay />
       </div>
 
       {/* 右 (= 人間vsAI と同じ w-480): [ヘッダ] → [PREVIEW 大] → [ACTION位置 = コントロール + 盤面データ] */}
