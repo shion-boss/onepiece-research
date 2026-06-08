@@ -256,6 +256,12 @@ def main() -> None:
     dn = sub.add_parser("don", help="iidベースの DON 付与")
     dn.add_argument("iid", help='"自リーダーの iid" または自キャラの iid')
     dn.add_argument("n", type=int, help="付与する DON 数")
+    rd = sub.add_parser(
+        "redirect",
+        help="防御中: リーダーの【相手のアタック時】redirect を発動 (DON-1)。続けて choice で対象指定",
+    )
+    rd.add_argument("--source", type=int, default=None, help="効果source iid (省略時=自リーダー)")
+    rd.add_argument("--effect", type=int, default=0, help="effect_idx (default 0)")
 
     args = ap.parse_args()
 
@@ -309,6 +315,9 @@ def main() -> None:
             session.apply_human_defense(blocker, list(args.counter))
         elif args.cmd == "counter-event":
             session.apply_human_use_counter_event(args.hand_idx)
+        elif args.cmd == "redirect":
+            src = args.source if args.source is not None else _leader_iid(session)
+            session.apply_human_use_opp_attack_effect(src, args.effect)
         elif args.cmd == "don":
             for _ in range(args.n):
                 idx = _find_don_idx(session, args.iid)

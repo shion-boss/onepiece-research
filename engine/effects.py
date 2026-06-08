@@ -8343,6 +8343,14 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             _pay_counter_cost(state, me, state.players[1 - me_idx], attacker, real_cost)
         if cost.get("once_per_turn"):
             setattr(attacker, f"_on_attack_used_{eff_idx}", True)
+        # 【アタック時】 効果は 1 アタックにつき 1 回 (= トリガーは攻撃ごとに 1 度 fire)。
+        # once_per_turn の無い cost 繰り返し型 (ヴェルゴ OP14-061 ドン-1 で -2000 等) でも、
+        # 発動後は このバトル中 再提示しない (= 多重発動 bug の修正: redirect 再解決 や
+        # use 後の再 enqueue で同一攻撃中に -2000 が複数回乗り、 2026-06-08 claude_play で
+        # ドフラ/カタクリ が過剰に弱体化した)。 _on_attack_opt_skipped は _reset_battle_buffs で クリア。
+        _skipped = set(getattr(attacker, "_on_attack_opt_skipped", ()))
+        _skipped.add(eff_idx)
+        attacker._on_attack_opt_skipped = _skipped
         enqueue_event(
             state,
             when="on_attack",
@@ -11005,6 +11013,11 @@ def trigger_on_attack(
             _pay_counter_cost(state, me, opp, attacker, real_cost)
         if cost.get("once_per_turn"):
             setattr(attacker, per_turn_key, True)
+        # 1 アタック 1 回 (上の human 側と同理由): 発動後は このバトル中 再 fire しない。
+        # redirect 再解決で trigger_on_attack が再呼出されても多重発動しないよう battle scope で gate。
+        _skipped_ai = set(getattr(attacker, "_on_attack_opt_skipped", ()))
+        _skipped_ai.add(idx)
+        attacker._on_attack_opt_skipped = _skipped_ai
         paid_indexes.append(idx)
     # 人間 actor + cost 持ち effect → user 確認 modal を 立てる (= 1 effect ずつ)
     if is_human_actor and pending_cost_effects:
