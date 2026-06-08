@@ -32,7 +32,13 @@ sys.path.insert(0, str(ROOT))
 
 from engine.deck import CardRepository, make_deck_from_dict
 from engine.effects import load_effect_overlay
-from engine.game import legal_actions
+from engine.game import (
+    AttachDonToCharacter,
+    AttachDonToLeader,
+    AttackCharacter,
+    AttackLeader,
+    legal_actions,
+)
 from engine.human_session import HumanAI, HumanSession
 from engine.llm_player_ai import LLMPlayerAI
 from engine.smart_opponent_ai import SmartOpponentAI
@@ -106,6 +112,40 @@ def _load() -> HumanSession:
         session = pickle.load(f)
     _attach_ai(session, meta["deck"])
     return session
+
+
+# --------------------------------------------------------------------------- #
+# iid ベースの安全なアクション解決 (= 番号ずれ防止、 2026-06-08 1戦目の操作ミス対策)
+# --------------------------------------------------------------------------- #
+def _leader_iid(session: HumanSession) -> int:
+    return session.state.players[session.human_idx].leader.instance_id
+
+
+def _find_don_idx(session: HumanSession, iid: str):
+    """iid (= leader iid or キャラ iid) への DON+1 アクション idx を返す。"""
+    actions = legal_actions(session.state)
+    lid = _leader_iid(session)
+    for i, a in enumerate(actions):
+        if isinstance(a, AttachDonToLeader) and int(iid) == lid:
+            return i
+        if isinstance(a, AttachDonToCharacter) and a.target_iid == int(iid):
+            return i
+    return None
+
+
+def _find_attack_idx(session: HumanSession, attacker_iid: int, target: str):
+    """attacker_iid が target (= "leader" or 相手キャラ iid) を攻撃する idx を返す。"""
+    actions = legal_actions(session.state)
+    for i, a in enumerate(actions):
+        if isinstance(a, AttackLeader) and a.attacker_iid == attacker_iid and target == "leader":
+            return i
+        if (
+            isinstance(a, AttackCharacter)
+            and a.attacker_iid == attacker_iid
+            and str(a.target_iid) == str(target)
+        ):
+            return i
+    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -209,6 +249,13 @@ def main() -> None:
     d.add_argument("--counter", type=int, nargs="*", default=[])
     ce = sub.add_parser("counter-event")
     ce.add_argument("hand_idx", type=int)
+    at = sub.add_parser("attack", help="iidベースの安全なアタック (番号ずれ無し)")
+    at.add_argument("attacker_iid", type=int, help="自分のアタッカーの iid")
+    at.add_argument("target", help='"leader" または相手キャラの iid')
+    at.add_argument("--don", type=int, default=0, help="アタック前に attacker へ付与する DON 数")
+    dn = sub.add_parser("don", help="iidベースの DON 付与")
+    dn.add_argument("iid", help='"自リーダーの iid" または自キャラの iid')
+    dn.add_argument("n", type=int, help="付与する DON 数")
 
     args = ap.parse_args()
 
@@ -262,6 +309,27 @@ def main() -> None:
             session.apply_human_defense(blocker, list(args.counter))
         elif args.cmd == "counter-event":
             session.apply_human_use_counter_event(args.hand_idx)
+        elif args.cmd == "don":
+            for _ in range(args.n):
+                idx = _find_don_idx(session, args.iid)
+                if idx is None:
+                    print(f"[不正] DON 付与先 iid={args.iid} が見つからない")
+                    break
+                session.apply_human_action(idx)
+        elif args.cmd == "attack":
+            # 先に DON を付与 (iid 指定なので番号ずれ無し)
+            for _ in range(args.don):
+                idx = _find_don_idx(session, str(args.attacker_iid))
+                if idx is None:
+                    print(f"[不正] DON 付与先 iid={args.attacker_iid} が見つからない")
+                    break
+                session.apply_human_action(idx)
+            idx = _find_attack_idx(session, args.attacker_iid, args.target)
+            if idx is None:
+                print(f"[不正] iid={args.attacker_iid} → {args.target} のアタックが見つからない")
+                _render(session)
+                return
+            session.apply_human_action(idx)
     except ValueError as e:
         print(f"[不正な手] {e}")
         _render(session)
