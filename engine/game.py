@@ -444,6 +444,10 @@ def _reset_battle_buffs(state: GameState) -> None:
     for player in state.players:
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.battle_buff = 0
+            # on_attack optional の skip 記録も バトル終了で クリア
+            # (= cost 繰り返し型 effect の skip-loop 防止フラグ、 effects.py)
+            if getattr(ip, "_on_attack_opt_skipped", None):
+                ip._on_attack_opt_skipped = set()
 
 
 def _reset_turn_buff(state: GameState) -> None:

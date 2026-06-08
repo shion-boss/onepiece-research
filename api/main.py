@@ -3120,7 +3120,16 @@ def _build_default_ai_factory(deck_slug: str):
     ⚠ Vercel: ExploitBeam は sklearn + GBM load。 deploy 環境で重い場合は
     env ONEPIECE_HUMAN_AI=light で GoalDirectedAI に切替可。"""
     import os as _os
-    if _os.environ.get("ONEPIECE_HUMAN_AI") == "light":
+    _mode = _os.environ.get("ONEPIECE_HUMAN_AI")
+    if _mode == "llm":
+        # ローカル LLM (Ollama) を相手プレイヤーに。 LLM 失敗時は Greedy に degrade
+        # するので Ollama 未起動でも対戦自体は成立する (= その場合は Greedy で打つ)。
+        from engine.llm_player_ai import LLMPlayerAI
+
+        def _llm_factory(rng, deck_analysis=None):
+            return LLMPlayerAI(rng=rng, deck_analysis=deck_analysis, deck_slug=deck_slug)
+        return _llm_factory
+    if _mode == "light":
         from engine.harness import _default_ai_factory
         return _default_ai_factory
     try:

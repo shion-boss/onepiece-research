@@ -8309,6 +8309,16 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None
         if not use_eff or eff_idx < 0:
             state.push_log(f"  on_attack 効果 不使用 (skip)")
+            # skip した effect は このバトル中 再提示しない (= 無限ループ防止)。
+            # ヴェルゴ OP14-061 等 cost 繰り返し型 (once_per_turn 無し) で、 skip しても
+            # _maybe_fire_on_attack_optional が再提示して抜けられない bug の修正。
+            # _reset_battle_buffs (game.py) で バトル終了時に クリア。
+            for ip in [*me.characters, me.leader, *me.stages]:
+                if ip.instance_id == attacker_iid:
+                    skipped = set(getattr(ip, "_on_attack_opt_skipped", ()))
+                    skipped.add(eff_idx)
+                    ip._on_attack_opt_skipped = skipped
+                    break
             return
         attacker = None
         for ip in [*me.characters, me.leader, *me.stages]:
@@ -10972,6 +10982,10 @@ def trigger_on_attack(
             has_costless = True
             continue
         if not eval_all_conditions(eff, state, me, attacker):
+            continue
+        # skip 済み (= user が このバトルで 不使用 を 選んだ) effect は 再提示しない
+        # (= cost 繰り返し型の skip-loop 防止、 _reset_battle_buffs でクリア)。
+        if idx in getattr(attacker, "_on_attack_opt_skipped", ()):
             continue
         per_turn_key = f"_on_attack_used_{idx}"
         if cost.get("once_per_turn") and getattr(attacker, per_turn_key, False):
