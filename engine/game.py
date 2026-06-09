@@ -1421,7 +1421,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         f"{redirect_target.card.name}(P={defender_power})"
                     )
                 if atk_power >= defender_power:
-                    if not redirect_target.ko_immune_until_turn_end:
+                    # リダイレクト先の バトルKO も 直接アタック経路 (~L1772) と 同じ免疫を
+                    # 尊重する: ko_immune_until_turn_end + battle_ko_immune_static/属性
+                    # (= P-040 カイドウ / P-052 ミホーク等)。 一方 static_ko_immune
+                    # (= 効果限定免疫) は バトルでは尊重しない (= バトルKO は効果でない)。
+                    if (
+                        not redirect_target.ko_immune_until_turn_end
+                        and not _battle_ko_immune_by_attribute(redirect_target, attacker)
+                    ):
                         opp.characters.remove(redirect_target)
                         opp.trash.append(redirect_target.card)
                         if redirect_target.attached_dons > 0:

@@ -3079,6 +3079,57 @@ def test_full_ko_immune_still_blocks_battle():
     )
 
 
+def test_redirect_battle_ko_respects_battle_immunity():
+    """アタック対象変更 (redirect、 OP14-060 紫ドフラ等) の先の バトルKO も、 直接アタック
+    経路 (~L1772) と 同じく battle_ko_immune_static を尊重する。
+    旧: redirect 経路は ko_immune_until_turn_end しか見ず battle 免疫 (P-040/ミホーク/
+    ヴェルゴ等) を無視して 誤KO していた (= バグ修正レビューで発見した pre-existing 不整合)。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    state.turn_number = 3
+    state.turn_player_idx = 0
+    me.don_active = 5
+    me.leader.summoning_sickness = False
+    me.leader.rested = False
+
+    # opp の防御キャラ = OP03-079 ヴェルゴ (power5000): 【ドン!!×1】でバトルKO耐性
+    vergo = InPlay.of(repo.get("OP03-079"), sickness=False, rested=False)
+    vergo.attached_dons = 1
+    opp.characters = [vergo]
+    from engine.game import _recompute_static, AttackLeader, apply_action
+    _recompute_static(state)
+    assert vergo.battle_ko_immune_static is True, "ドン!!×1 で battle 免疫が立つはず"
+
+    # 私リーダー(5000) のアタックを ヴェルゴ(5000) に redirect → atk>=def だが battle 免疫で生存
+    state.pending_attack_redirect = vergo.instance_id
+    apply_action(state, AttackLeader(attacker_iid=me.leader.instance_id))
+    assert vergo in opp.characters, (
+        "battle_ko_immune_static の redirect 先は バトルKO されないはず (旧 bug regression)"
+    )
+
+    # 対照: 免疫 無し (ドン!!×0) の redirect 先は ちゃんと バトルKO される (= redirect 経路が
+    # 実際に KO を試みている事の確認、 上の test が trivial-pass でない保証)
+    state2 = _make_state(repo, "OP01-001", overlay=overlay)
+    me2 = state2.players[0]
+    opp2 = state2.players[1]
+    state2.turn_number = 3
+    state2.turn_player_idx = 0
+    me2.don_active = 5
+    me2.leader.summoning_sickness = False
+    me2.leader.rested = False
+    vergo_bare = InPlay.of(repo.get("OP03-079"), sickness=False, rested=False)
+    vergo_bare.attached_dons = 0  # 免疫条件 (ドン×1) を満たさない
+    opp2.characters = [vergo_bare]
+    _recompute_static(state2)
+    assert vergo_bare.battle_ko_immune_static is False
+    state2.pending_attack_redirect = vergo_bare.instance_id
+    apply_action(state2, AttackLeader(attacker_iid=me2.leader.instance_id))
+    assert vergo_bare not in opp2.characters, "免疫無しの redirect 先は バトルKO されるべき"
+
+
 def test_op13_082_uses_trash_all_self_chara_and_correct_keys():
     """OP13-082 五老星 起動メイン: overlay が 新 primitive trash_all_self_chara を 使い、
     play_from_trash で `limit:5` + `unique_name:true` (= engine が 認識 する key) になっている。"""
