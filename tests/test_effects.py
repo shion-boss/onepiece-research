@@ -2274,6 +2274,42 @@ def test_opp_attack_costless_once_per_battle_gate():
     assert len(me.hand) == h0 + 2, "battle リセット後: 次 battle で 再 fire"
 
 
+def test_choice_effect_continuation_after_human_discard():
+    """choice_effect option の do-list で human discard が pause した後、 残りの primitive
+    (= 「その後…登場」 等) が 継続実行される。 旧 手動ループは pause 時に残りを捨てており、
+    OP15-054 誰にも渡さねェ の draw→discard(pause)→登場 で「登場」が脱落していた
+    (= 2026-06-09 赤青ルーシー campaign で発覚、 run_do_array 化で修正)。"""
+    from engine.effects import execute_effect, resolve_pending_choice
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    state.human_player_idx = 0
+    me, opp = state.players[0], state.players[1]
+    me.hand = [repo.get("OP01-013")] * 4   # discard 候補
+    me.deck = [repo.get("OP01-013")] * 10
+    spec = {"choice_effect": {
+        "optional": False,
+        "options": [
+            {"label": "A", "do": [
+                {"draw": 2},
+                {"trash_self_hand_random": 1},
+                {"draw": 1},   # ← discard pause 後に継続実行されるべき primitive
+            ]},
+            {"label": "B", "do": [{"draw": 1}]},
+        ],
+    }}
+    h0 = len(me.hand)  # 4
+    execute_effect(spec, state, me, opp, None)
+    assert state.pending_choice is not None
+    assert state.pending_choice.get("kind") == "option_pick"
+    resolve_pending_choice(state, [0])  # option A 選択 → draw 2 → discard で pause
+    assert state.pending_choice is not None
+    assert state.pending_choice.get("kind") == "self_hand_discard_pick"
+    assert len(me.hand) == h0 + 2, "draw 2 済 (discard 前)"
+    resolve_pending_choice(state, [0])  # discard 1 → 継続 draw 1
+    assert state.pending_choice is None
+    assert len(me.hand) == h0 + 2, "discard 1 後の継続 draw 1 が実行される (= 脱落しない)"
+
+
 def test_replace_rest_redirects_to_other_chara():
     """replace_rest: ゾロが相手キャラ効果でレストになる代わりに他キャラを犠牲"""
     from engine.effects import execute_effect, CardEffectBundle

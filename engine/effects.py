@@ -8465,11 +8465,12 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         state.push_log(
             f"  効果: 人間選択 → choice_effect option {chosen_idx} ({chosen_opt.get('label','?')})"
         )
-        for sub in chosen_do:
-            if isinstance(sub, dict):
-                execute_effect(sub, state, me, opp, self_inplay)
-                if state.pending_choice is not None:
-                    return
+        # option の do-list は run_do_array で実行する。 途中の primitive が human modal で
+        # pause した場合、 run_do_array は残りを _continuation に退避 → 解決後に継続実行する。
+        # 旧 手動ループは pause 時に残りを捨てており、 OP15-054 誰にも渡さねェ の
+        # 「draw 2 → discard 1 (human pick で pause) → コスト4以下登場」 で 最後の「登場」が
+        # 脱落していた (= 2026-06-09 赤青ルーシー campaign で発覚)。
+        run_do_array(chosen_do, state, me, opp, self_inplay)
         return
 
     if kind == "scry_life_reorder":
