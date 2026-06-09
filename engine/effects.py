@@ -3959,6 +3959,30 @@ def _execute_effect_body(
                 if c.category == target_category and _matches_filter(c, filt)
                 and not (filt.get("no_effect") and not _card_has_no_effect(c, state))
             ]
+            # or_to_life (= ゲッコー・モリア OP14-104【登場時】「ライフの上に表向きで加えるか
+            # 登場させる」): human acting 時は 各候補 × {登場 / ライフ} の 行き先 を modal で 選ばせる。
+            # AI は 従来通り 登場 (= 下の通常 path に fall-through、 matrix/AI 不変)。
+            # picks_idx 指定済 (= 再帰呼出) は ここを 通らない (無限ループ 防止)。
+            if (spec.get("or_to_life") and picks_idx is None
+                    and _should_human_pick(state) and candidates):
+                or_actions = []
+                for ti, c in candidates:
+                    cp = int(c.cost) if c.cost is not None else 0
+                    pw = int(c.power) if c.power is not None else 0
+                    or_actions.append({"trash_idx": ti, "dest": "play",
+                                       "label": f"{c.name}(c{cp}/P{pw}) を登場させる"})
+                    or_actions.append({"trash_idx": ti, "dest": "life",
+                                       "label": f"{c.name}(c{cp}/P{pw}) をライフの上に表向きで加える"})
+                state.pending_choice = {
+                    "kind": "play_from_trash_or_life_pick",
+                    "primitive_value": v,
+                    "actions": or_actions,
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: トラッシュ → 登場/ライフ 選択 待ち ({len(candidates)} 候補、 0=skip)"
+                )
+                return True
             # 人間 acting + 候補 > limit + picks 未指定 → modal
             if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
                 cand_list = [
@@ -7861,6 +7885,44 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             return
         spec["_cost_confirmed"] = True
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "play_from_trash_or_life_pick":
+        # ゲッコー・モリア OP14-104【登場時】「ライフの上に表向きで加えるか登場させる」 の
+        # 行き先 選択 (human)。 picks[0] = actions[] の index (= 候補 × {登場/ライフ})。
+        # picks 空 / 範囲外 = skip (= 0 枚、 「~まで」 なので合法)。
+        actions = choice.get("actions", [])
+        primitive_value = choice.get("primitive_value") or {}
+        source_iid = choice.get("source_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        state.pending_choice = None
+        if not picks or picks[0] < 0 or picks[0] >= len(actions):
+            state.push_log("  効果: モリア 登場/ライフ → 0 枚 選択 (= skip)")
+            return
+        act = actions[picks[0]]
+        ti = int(act.get("trash_idx", -1))
+        if not (0 <= ti < len(me.trash)):
+            state.push_log("  効果: モリア 行き先 選択: trash idx 不正 → skip")
+            return
+        if act.get("dest") == "life":
+            card = me.trash.pop(ti)
+            me.life.insert(0, card)  # 「ライフの上」 = top
+            me.face_up_life_count = min(
+                getattr(me, "face_up_life_count", 0) + 1, len(me.life)
+            )
+            state.push_log(f"  効果: {card.name} をライフの上に表向きで加えた (= モリア)")
+        else:
+            # 登場: 既存 play_from_trash の picks 解決 path を 再利用 (or_to_life は外す)
+            new_spec = dict(primitive_value) if isinstance(primitive_value, dict) else {}
+            new_spec["_picks_idx"] = [ti]
+            new_spec.pop("or_to_life", None)
+            execute_effect({"play_from_trash": new_spec}, state, me, opp, self_inplay)
         return
 
     if kind in ("play_from_trash_pick", "summon_from_deck_pick"):

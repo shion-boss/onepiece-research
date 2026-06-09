@@ -2038,6 +2038,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "play_from_trash_or_life_pick" ? (
+          // ゲッコー・モリア OP14-104【登場時】: トラッシュのスリラーバーク海賊団を
+          // 「ライフの上に表向きで加える」 か 「登場させる」 を 行き先 選択 (0 枚 見送り 可)。
+          <PlayFromTrashOrLifePickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "summon_from_deck_pick" ? (
           <PlayFromTrashPickModal
             payload={{ ...state.pending_payload, _source_zone: "deck" }}
@@ -5523,6 +5531,78 @@ function OptionalDiscardBuffPickModal({
             {picked.length === 0
               ? "捨てない (見送り)"
               : `確定 (${picked.length} 枚 捨て)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// PlayFromTrashOrLifePickModal: ゲッコー・モリア OP14-104【登場時】 の 行き先 選択。
+// payload.actions = [{trash_idx, dest:"play"|"life", label}]。 picks=[action_idx] で
+// 1 つ 選ぶ、 picks=[] で 見送り (= 「~まで」 0 枚 合法)。
+// ========================================================================== //
+
+function PlayFromTrashOrLifePickModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const actions =
+    (payload.actions as
+      | { trash_idx: number; dest: string; label: string }[]
+      | undefined) ?? [];
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-md flex-col rounded-lg border-2 border-blue-400 bg-zinc-900 p-4 shadow-2xl">
+        <h3 className="mb-3 text-lg font-bold text-blue-200">
+          トラッシュから: ライフに加える か 登場させる を選択
+        </h3>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
+          {actions.map((a, idx) => (
+            <button
+              key={`${a.trash_idx}-${a.dest}-${idx}`}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmit([idx]);
+              }}
+              disabled={busy}
+              className={
+                "rounded border px-4 py-2 text-left text-sm font-bold text-white shadow disabled:opacity-50 " +
+                (a.dest === "life"
+                  ? "border-emerald-400 bg-emerald-700 hover:bg-emerald-600"
+                  : "border-blue-400 bg-blue-700 hover:bg-blue-600")
+              }
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            「~まで」 なので 0 枚 (見送り) も 可
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit([]);
+            }}
+            disabled={busy}
+            className="ml-auto rounded bg-zinc-600 px-6 py-2 text-base font-bold text-white shadow hover:bg-zinc-500 disabled:opacity-50"
+          >
+            見送り (0 枚)
           </button>
         </div>
       </div>
