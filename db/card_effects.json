@@ -6467,7 +6467,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "エネル"
       },
       "amount": 2000,
@@ -6507,7 +6507,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "エネル"
       },
       "amount": 2000,
@@ -8622,7 +8622,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "エネル"
       },
       "amount": 2000,
@@ -11980,7 +11980,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "クリーク"
       },
       "amount": 4000,
@@ -45875,7 +45875,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "エネル"
       },
       "amount": 2000,
@@ -47478,7 +47478,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ポートガス・D・エース"
       },
       "amount": 2000,
@@ -47501,7 +47501,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ポートガス・D・エース"
       },
       "amount": 2000,
@@ -55944,7 +55944,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "カイドウ"
       },
       "amount": 3000,
@@ -56928,7 +56928,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ボア・ハンコック"
       },
       "amount": 3000,
@@ -56990,7 +56990,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "シャーロット・カタクリ"
       },
       "amount": 2000,
@@ -59771,7 +59771,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ブルック"
       },
       "amount": 2000,
@@ -60285,7 +60285,7 @@
     {
      "give_keyword": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "モンキー・D・ルフィ"
       },
       "keyword": "速攻：キャラ"
@@ -60294,7 +60294,7 @@
     {
      "give_attribute": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "モンキー・D・ルフィ"
       },
       "attribute": "斬"
@@ -60513,7 +60513,7 @@
     {
      "give_keyword": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "カルガラ"
       },
       "keyword": "速攻"
@@ -61759,7 +61759,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "モンキー・Ｄ・ルフィ"
       },
       "amount": 2000,
@@ -64448,7 +64448,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "トラファルガー・ロー"
       },
       "amount": 2000,
@@ -69538,7 +69538,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "エドワード・ウィーブル"
       },
       "amount": 2000,
@@ -70624,7 +70624,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "シャーロット・プリン"
       },
       "amount": 2000,
@@ -71098,7 +71098,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ポートガス・D・エース"
       },
       "amount": 2000,
@@ -71350,7 +71350,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ボア・ハンコック"
       },
       "amount": 2000,
@@ -71987,7 +71987,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "ロブ・ルッチ"
       },
       "amount": 2000,
@@ -78695,7 +78695,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "シャーロット・リンリン"
       },
       "amount": 1000,
@@ -82310,7 +82310,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "モンキー・Ｄ・ルフィ"
       },
       "amount": 2000,
@@ -82348,7 +82348,7 @@
     {
      "power_pump": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "モンキー・Ｄ・ルフィ"
       },
       "amount": 2000,
@@ -82522,7 +82522,7 @@
     {
      "give_keyword": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "モンキー・Ｄ・ルフィ"
       },
       "keyword": "ブロック不可"
@@ -87635,7 +87635,7 @@
     {
      "give_keyword": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "シャーロット・リンリン"
       },
       "keyword": "バニッシュ"
@@ -87665,7 +87665,7 @@
     {
      "give_keyword": {
       "target": {
-       "type": "self_chara_named",
+       "type": "self_chara_or_leader_named",
        "name": "シャーロット・リンリン"
       },
       "keyword": "ダブルアタック"
