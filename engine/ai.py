@@ -2744,6 +2744,15 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
             trigger_on_opp_attack_on_chara as _t_opp_chara,
         )
         _t_on_attack(state, me, opp, attacker, state.effects_overlay)
+        # 公式 1-3-4 / SKILL.md 247-252: 同時発動は **ターンプレイヤー側を全解決 → 非ターン側**。
+        # turn player の【アタック時】が human modal を立てた (= 未解決) 場合、 ここで非ターン側の
+        # 【相手アタック時】を先に解決すると順序違反 + human が opp の防御 pump を見てから自分の pump を
+        # 決められる情報優位になる。 marker 未設定で return し、 modal 解決後の re-entry で非ターン側
+        # trigger を fire する (= turn player pump は _on_attack_opt_skipped、 opp pump は
+        # _opp_attack_opt_skipped で 二重発動 gate 済 = 安全)。 AI attacker は modal を立てないので
+        # 即 fall-through (= matrix / AI-vs-AI 不変)。 2026-06-09 赤青ルーシー campaign 1399 g2 で発見。
+        if state.pending_choice is not None:
+            return
         _t_opp(state, opp, me, attacker, state.effects_overlay)
         if is_leader_attack:
             _t_opp_leader(state, opp, me, attacker, state.effects_overlay)

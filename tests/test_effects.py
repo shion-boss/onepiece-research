@@ -2309,6 +2309,77 @@ def test_opp_attack_gate_clears_on_new_attacker():
     assert len(me.hand) == h0 + 2, "attacker2 (新 battle): gate クリアで再 fire"
 
 
+def test_attack_trigger_order_turn_player_modal_before_opp():
+    """公式 1-3-4 / SKILL.md 247-252: 【アタック時】(ターン側) と【相手のアタック時】(非ターン側) が
+    同時発動した場合、 ターン側を全解決 → 非ターン側 の順。 人間 (turn player) の【アタック時】が
+    human modal を立てた (= 未解決) 間は、 非ターン側の【相手アタック時】を先に解決してはならない。
+    旧 play_one_action._pre_fire_attack_triggers は modal pending 中も opp trigger を先に fire し、
+    非ターン側が先解決 = 順序違反 + human が opp の防御 pump を見てから自分の pump を決められる情報
+    優位だった (= 2026-06-09 赤青ルーシー campaign 1399 g2 で発見)。 AI-vs-AI は両者即時解決で
+    正順 = 不変 (matrix 保護)。"""
+    from engine.ai import play_one_action
+    from engine.effects import CardEffectBundle, resolve_pending_choice
+    from engine.human_session import HumanAI, PauseSignal
+    from engine.game import AttackLeader
+
+    repo = _repo()
+    overlay = {
+        # ターン側 (p1=OP01-002) leader: 【アタック時】 任意 discard pump → human modal
+        "OP01-002": CardEffectBundle(card_id="OP01-002", effects=[
+            {"when": "on_attack", "do": [{"optional_discard_hand_for_battle_buff": {
+                "filter": {"category_in": ["EVENT", "STAGE"]},
+                "amount_per_discard": 1000, "target": "self_leader", "max": 3,
+            }}]},
+        ]),
+        # 非ターン側 (p2=OP01-001) leader: 【相手アタック時】 draw 1 (= deck 減で観測)
+        "OP01-001": CardEffectBundle(card_id="OP01-001", effects=[
+            {"when": "opp_attack", "do": [{"draw": 1}]},
+        ]),
+    }
+    event_card = next((repo.get(cid) for cid in ["OP01-026", "OP01-027", "OP01-028"]
+                       if repo.get(cid).category == Category.EVENT), None)
+    assert event_card is not None
+    state = _make_state(repo, "OP01-002", overlay=overlay)
+    state.human_player_idx = 0
+    state.turn_player_idx = 0
+    me, opp = state.players[0], state.players[1]
+    me.hand = [event_card, event_card]
+    opp.deck = [repo.get("OP01-013")] * 10
+    deck0 = len(opp.deck)
+
+    class _Stub:
+        def __init__(self, action):
+            self._pending_action = action
+            self._pending_defense = None
+    human_ai = HumanAI(_Stub(AttackLeader(attacker_iid=me.leader.instance_id)))
+
+    class _OppAI:
+        def choose_defense(self, *a, **k):
+            return None, ()
+
+    # --- 1st call: 人間 attack 宣言 → 自分の pump modal で pause ---
+    raised = False
+    try:
+        play_one_action(state, human_ai, _OppAI())
+    except PauseSignal as p:
+        raised = True
+        assert p.kind == "choice"
+        assert (p.payload or {}).get("kind") == "optional_discard_buff_pick"
+    assert raised, "ターン側 pump modal で pause すべき"
+    # ★ 修正の核: 非ターン側 (opp) の【相手アタック時】 draw は まだ 発火していない (deck 不変)
+    assert len(opp.deck) == deck0, "ターン側 modal 未解決 の間は 非ターン側 trigger は解決しない"
+    assert len(state.pending_choice["candidates"]) == 2, "EVENT 2 枚が pump 候補"
+
+    # --- modal 解決 (0 枚 見送り) → 再 entry で 非ターン側 draw が発火 ---
+    resolve_pending_choice(state, [])
+    human_ai2 = HumanAI(_Stub(None))  # 再 entry は cache 経由 (= choose_action 不要)
+    try:
+        play_one_action(state, human_ai2, _OppAI())
+    except PauseSignal:
+        pass
+    assert len(opp.deck) == deck0 - 1, "modal 解決後の 再 entry で 非ターン側 draw が 1 回 発火"
+
+
 def test_choice_effect_continuation_after_human_discard():
     """choice_effect option の do-list で human discard が pause した後、 残りの primitive
     (= 「その後…登場」 等) が 継続実行される。 旧 手動ループは pause 時に残りを捨てており、
