@@ -9880,6 +9880,21 @@ def _enqueue_opp_attack_with_cost(
         and me_idx == state.human_player_idx
     )
 
+    # 新しい battle (= 新 attacker) なら 防御側の costless opp_attack gate
+    # (_opp_attack_opt_skipped) を クリアする。 同 battle (= pause 跨ぎの re-fire) では保持
+    # = loop protection。 battle key = (turn_number, attacker.instance_id) は pickle 安定な
+    # ので claude_play の 1コマンド1プロセス でも「同 battle か新 battle か」を正しく判別でき、
+    # _reset_battle_buffs (= マルチプロセス pause 経路で取りこぼす) や id() マーカーに依存せず
+    # gate を正しく リセットできる。 マルチ攻撃ターンで 2 発目以降の防御 pump modal が gate
+    # 残留で抑止される 2026-06-09 赤青ルーシー campaign のバグ修正。
+    if attacker is not None:
+        battle_key = (state.turn_number, attacker.instance_id)
+        if getattr(state, "_opp_attack_gate_battle_key", None) != battle_key:
+            for ip in [me.leader, *me.characters, *me.stages]:
+                if getattr(ip, "_opp_attack_opt_skipped", None):
+                    ip._opp_attack_opt_skipped = set()
+            state._opp_attack_gate_battle_key = battle_key
+
     pending_costed_human: list[tuple[InPlay, int, dict]] = []
 
     for source_inplay in [me.leader, *me.characters, *me.stages]:

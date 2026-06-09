@@ -2274,6 +2274,41 @@ def test_opp_attack_costless_once_per_battle_gate():
     assert len(me.hand) == h0 + 2, "battle リセット後: 次 battle で 再 fire"
 
 
+def test_opp_attack_gate_clears_on_new_attacker():
+    """マルチ攻撃ターン: 異なる attacker が同 human defender を連続攻撃する場合、各 battle で
+    防御側 opp_attack 効果が発火する (= battle key (turn, attacker_iid) で 新 battle 時に gate
+    クリア。 _reset_battle_buffs をマルチプロセス pause 経路が取りこぼしても正しく動く)。 同
+    attacker の re-fire は gate 保持で 1 回のみ (= loop protection)。 2026-06-09 赤青ルーシー
+    campaign: 2 発目以降の防御 pump modal が gate 残留で抑止されたバグの修正。"""
+    from engine.effects import trigger_on_opp_attack, CardEffectBundle
+    from engine.core import InPlay
+    repo = _repo()
+    overlay = {
+        "OP01-001": CardEffectBundle(card_id="OP01-001", effects=[
+            {"when": "opp_attack", "do": [{"draw": 1}]},
+        ]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    state.human_player_idx = None
+    state.turn_number = 6
+    state.turn_player_idx = 1
+    me = state.players[0]   # defender (leader = costless opp_attack draw)
+    opp = state.players[1]
+    me.deck = [repo.get("OP01-013")] * 20
+    atk1 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    atk2 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    opp.characters = [atk1, atk2]
+    assert atk1.instance_id != atk2.instance_id
+
+    h0 = len(me.hand)
+    trigger_on_opp_attack(state, me, opp, atk1, overlay)
+    assert len(me.hand) == h0 + 1, "attacker1: draw 1"
+    trigger_on_opp_attack(state, me, opp, atk1, overlay)
+    assert len(me.hand) == h0 + 1, "attacker1 re-fire (同 battle): gate で抑止"
+    trigger_on_opp_attack(state, me, opp, atk2, overlay)
+    assert len(me.hand) == h0 + 2, "attacker2 (新 battle): gate クリアで再 fire"
+
+
 def test_choice_effect_continuation_after_human_discard():
     """choice_effect option の do-list で human discard が pause した後、 残りの primitive
     (= 「その後…登場」 等) が 継続実行される。 旧 手動ループは pause 時に残りを捨てており、
