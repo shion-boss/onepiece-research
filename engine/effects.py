@@ -8983,7 +8983,11 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
             names = [names]
         if card.name not in names:
             return False
-    if "attribute" in filt and card.attribute != filt["attribute"]:
+    if "attribute" in filt and str(filt["attribute"]) not in (card.attribute or ""):
+        # 公式「属性(X)を持つカード」 = X が card の属性 (「斬/打」 等 複数可) に含まれれば真。
+        # 完全一致 (!=) は 多属性カード (ロー&ベポ「斬/打」/ キッド&キラー「斬/特」 等) を
+        # 取りこぼすバグ。 engine 他箇所 (leader_attribute / opp_attacker_attribute) と同じ
+        # substring `in` 方式に統一。
         return False
     if "or_clauses" in filt:
         # OR 結合: 各サブ filter のいずれかが True なら通る (= 残りのキーと AND)
@@ -10850,7 +10854,8 @@ def _replace_ko_match(
 
     # フィルタ: target_attribute / target_cost_le / target_power_le / target_feature
     if "target_attribute" in cond:
-        if cond["target_attribute"] != victim.card.attribute:
+        # 「属性(X)を持つ」 = substring 一致 (多属性「斬/打」対応、 完全一致は取りこぼしバグ)
+        if str(cond["target_attribute"]) not in (victim.card.attribute or ""):
             return False
     if "target_cost_le" in cond:
         if victim.card.cost > int(cond["target_cost_le"]):
