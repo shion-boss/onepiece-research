@@ -11041,9 +11041,18 @@ def trigger_on_attack(
         # cost 持ちの effect_indexes 経路と分けるため、 別イベントとして 2 件積むのが安全
         # ただし has_costless と paid_indexes を 1 イベントで両立させる方が AI 順序選択上自然。
         # → effect_indexes に paid_indexes + costless idx を全部入れて単一イベントにする。
+        # 1 アタック 1 回: cost 無し on_attack も _on_attack_opt_skipped で gate する。
+        # (= 人間 actor の target_pick 等で attack が再処理され trigger_on_attack が
+        #  再呼出されても -2000 等が多重発動 (無限 prompt ループ) しない。 ナス寿郎
+        #  OP13-080【アタック時】相手キャラ-2000 で発覚、 _reset_battle_buffs でクリア。
+        #  cost 持ち経路と同じ gate を costless にも適用)。
+        _cl_skipped = set(getattr(attacker, "_on_attack_opt_skipped", ()))
         for idx, eff in enumerate(bundle.effects):
-            if eff.get("when") == "on_attack" and not eff.get("cost"):
+            if (eff.get("when") == "on_attack" and not eff.get("cost")
+                    and idx not in _cl_skipped):
                 paid_indexes.append(idx)
+                _cl_skipped.add(idx)
+        attacker._on_attack_opt_skipped = _cl_skipped
         paid_indexes = sorted(set(paid_indexes))
     if not paid_indexes:
         return

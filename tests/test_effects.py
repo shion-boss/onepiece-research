@@ -3710,3 +3710,37 @@ def test_on_self_battle_ko_trigger():
     atk.rested = True
     trigger_on_self_battle_ko(st, me, opp, atk, overlay)
     assert atk.rested is True, "OP02-094: once_per_turn が効かず2回目も発火した"
+
+
+def test_costless_on_attack_fires_once_per_attack():
+    """cost無し【アタック時】 (ナス寿郎 OP13-080 の 相手キャラ-2000 等) は 1 アタック 1 回。
+    人間 target_pick で attack が再処理され trigger_on_attack が再呼出されても多重発動
+    しない (= 無限 prompt ループ防止、 _on_attack_opt_skipped を costless にも適用)。
+    1392 g2 (claude_play) の ナス寿郎 で発覚。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP13-079", overlay=overlay)  # 黒イム
+    me = state.players[0]
+    opp = state.players[1]
+    nasu = InPlay.of(repo.get("OP13-080"), sickness=False, rested=False)  # ナス寿郎
+    me.characters = [nasu]
+    me.trash = [repo.get("OP13-080")] * 10  # trash≥10 で -2000 条件 を満たす
+    victim = InPlay.of(repo.get("OP13-083"), sickness=False, rested=False)  # opp 5000
+    opp.characters = [victim]
+    from engine.effects import trigger_on_attack
+    evaluate_static_effects(state, overlay)
+    base = victim.power
+
+    # 1回目: -2000 が 1 度発火 + skip-flag に記録
+    trigger_on_attack(state, me, opp, nasu, overlay)
+    assert 1 in getattr(nasu, "_on_attack_opt_skipped", set()), (
+        "cost無し on_attack 発火後は _on_attack_opt_skipped に記録され 再発火しないはず"
+    )
+    after_first = victim.power
+
+    # 2回目 (= 人間 target_pick 後の attack 再処理 を simulate): skip され 多重発動しない
+    trigger_on_attack(state, me, opp, nasu, overlay)
+    assert victim.power == after_first, (
+        f"2回目の trigger_on_attack で -2000 が多重発動 (base={base} 1st={after_first} "
+        f"2nd={victim.power}) = 旧 bug regression"
+    )
