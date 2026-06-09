@@ -1956,10 +1956,18 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
     me = state.players[1 - defender_idx]
     if not opp.life:
         state.pending_attack_hits = None
+        # 人間 defender の life_taken_choice pause 経路は AttackLeader 本体の末尾
+        # _reset_battle_buffs (= 7-1-5-1) を return で skip している。 ここで補完しないと
+        # 攻撃側の battle_buff (= ルーシー discard pump 等) と _on/opp_attack_opt_skipped
+        # gate が次バトル/次ターンに持続する (= 2026-06-09 赤青ルーシー campaign で、
+        # AI の +1000 が次ターンの私のチップを誤ブロックして発覚)。
+        _reset_battle_buffs(state)
         return
     taken = opp.life.pop(0)
     state.pending_attack_hits = None
     _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger)
+    # バトル終了時 (7-1-5-1): 人間 defender の pause 経路で skip された battle 効果リセットを補完
+    _reset_battle_buffs(state)
 
 
 def _fire_counter_events(

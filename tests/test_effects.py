@@ -2310,6 +2310,36 @@ def test_choice_effect_continuation_after_human_discard():
     assert len(me.hand) == h0 + 2, "discard 1 後の継続 draw 1 が実行される (= 脱落しない)"
 
 
+def test_resume_attack_hit_resets_battle_buffs():
+    """人間 defender が life_taken_choice pause 経路で被弾 → resume_pending_attack_hit が
+    _reset_battle_buffs を呼ぶ。 旧実装は AttackLeader 末尾の reset を return で skip していたため、
+    攻撃側 battle_buff (= ルーシー discard pump 等) と opp_attack gate が次バトル/次ターンに
+    持続していた (= 2026-06-09 赤青ルーシー campaign で AI の +1000 が次ターンの私のチップを
+    誤ブロックして発覚)。"""
+    from engine.game import resume_pending_attack_hit
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    state.human_player_idx = 0
+    me = state.players[0]     # human defender
+    opp = state.players[1]    # attacker
+    me.life = [repo.get("OP01-013"), repo.get("OP01-013")]
+    opp.leader.battle_buff = 3000               # バトル中の攻撃側 pump
+    opp.leader._opp_attack_opt_skipped = {0}    # 同 battle の gate
+    state.pending_attack_hits = {
+        "attacker_iid": opp.leader.instance_id,
+        "target_kind": "leader",
+        "defender_idx": 0,
+        "remaining_damage": 0,
+        "is_banish": False,
+        "taken_card_id": me.life[0].card_id,
+    }
+    life0 = len(me.life)
+    resume_pending_attack_hit(state, use_trigger=False)
+    assert len(me.life) == life0 - 1, "ライフ 1 枚 受け取り"
+    assert opp.leader.battle_buff == 0, "攻撃側 battle_buff が reset (= 次ターンに持続しない)"
+    assert not getattr(opp.leader, "_opp_attack_opt_skipped", set()), "opp_attack gate も reset"
+
+
 def test_replace_rest_redirects_to_other_chara():
     """replace_rest: ゾロが相手キャラ効果でレストになる代わりに他キャラを犠牲"""
     from engine.effects import execute_effect, CardEffectBundle
