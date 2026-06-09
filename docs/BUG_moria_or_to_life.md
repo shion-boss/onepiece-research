@@ -1,4 +1,9 @@
-# BUG (overlay fidelity): モリア OP14-104 の「ライフに加えるか登場させる」選択が欠落
+# ✅ RESOLVED — BUG (overlay fidelity): モリア OP14-104 の「ライフに加えるか登場させる」選択が欠落
+
+> **修正済 (2026-06-09、 commit)**: 下記「修正方針」を実装。 `play_from_trash` に `or_to_life` flag +
+> `play_from_trash_or_life_pick` modal (human のみ、 AI は従来通り登場=matrix/AI不変)、 web UI
+> `PlayFromTrashOrLifePickModal`、 regression test `tests/test_op14_104_moria_or_to_life.py` 5件。
+> pytest 821 pass / tsc clean / UI契約リンタ green。
 
 **発見**: 2026-06-09、 claude_vs_ai campaign deck5 (cardrush_1439 青黄ナミ) g1 turn11。
 
