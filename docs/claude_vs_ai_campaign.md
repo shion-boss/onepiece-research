@@ -6,8 +6,11 @@
 
 ## _RESUME (現在地)
 
-- **次にやること**: **deck 4 = cardrush_1399 の g1 を開始** (seed 新規、 例 31)。 1392 完了。
-- **全体記録**: 1342 = 3勝2敗 (完了)。 1385 = 2勝3敗 (完了)。 **1392 = 4勝1敗 (完了、 g1/g2/g4/g5 W、 g3 L)**。 残り12デッキ。
+- **次にやること**: **deck 4 = cardrush_1399 の g2 を開始** (seed 新規、 例 32)。 1399 g1 = WIN。
+- **全体記録**: 1342 = 3-2 (完了)。 1385 = 2-3 (完了)。 1392 = 4-1 (完了)。 **1399 = 1-0 (g1 W、 進行中)**。 残り12デッキ。
+- ⭐⭐⭐ **1399 g1 = 勝利 (ターン9、 seed31、 赤青ルーシー ミラー、 全engine修正後のクリーンゲーム)**。 ⭐**この1ゲーム中に engine バグ5件 発見・修正** (下記🐛、 全コミット+test+pytest green)。 赤青ルーシーは**《ドレスローザ》イベント・コントロール** (イベント26枚、 リーダーが攻撃/相手アタック時にイベント捨て+1000/枚=攻防両用pump、 cost≥3イベントで起動メインdraw)。 勝ち筋: ①序盤チップ受けで手札膨張(誰にも渡さねェ で**コスト≤4ドレスローザを無料登場**=キャベン6000ドローエンジン、 起動メインdraw) ②キャベンbattle/チップで**相手を0枚に枯渇** ③**サボ(9000ブロッカー)【登場時】で無料メラメラ**(draw2+リーダー8000ダブルアタック→2ライフ) ④AIの3連撃マルチ攻撃を サボ×2ブロッカー+ヴィオラcounter+**修正済み防御pump(イベント捨て+1000)**で life2維持で完封 ⑤マルチ攻撃リーサル(サボ9000+レオ7000+leader9000で**各≥7000=AIの counter 枚数を溢れさせ貫通**)。 ⭐**リーサル計算**: AIが life0 でも撃破には更に1撃要る。 各攻撃を「AIが1枚counterでは止められないサイズ(≥7000)」にし、 攻撃数 > AI counter枚数 にすれば貫通。
+- ⚠ **1399メモ**: 起動メイン(リーダーdraw)の CLI表示テキストは効果2(discard pump)とズレるが**機能は draw で正しい**(cost≥3イベント発動が条件)。 キャベン【アタック時】draw2は on_attack_optional → `choice 1` で発動。 サボ無料イベントは play_event_from_hand_pick。
+- ⭐⭐ **AI観察 (1399ミラー)**: 配備AIは**防御時にイベントを過剰discard**して過剰防御する傾向(チップ1発に最大3枚捨て)→ 私はチップでAIを bleed できた。 また 0ライフでも life→hand で手札が増える(撃破には貫通力が要る)。 配備AI改善ネタ: 防御pumpの discard 枚数最適化 (現状「常に最大3」は明記された "AI 簡易" placeholder)。
 - ⭐ **1392 g5 = 勝利 (ターン11、 seed25)**: クラッチ勝利。 ⚠**0ライフまで転落**(浸食輪廻の+4000対象選択 target_pick で位置0がリーダーでなく、 ナス寿郎が連結したミス → **教訓: +4000の target_pick は候補位置を確認してからリーダーに当てる**)。 が深い event-counter (浸食輪廻×2/元々ないか/ミョス) で turn10 を 0ライフで凌ぎ→turn11、 opp(1ライフ・無ブロッカー)へ サターン8000+トップマン9000+リーダー8000 の3連打、 opp 3-4カウンターでは止めきれずリーサル。 黒イムは**深いカウンター密度があれば0ライフでも捲れる**。
 - ⭐ **1392 g4 = 勝利 (ターン11、 seed24)**: g3の敗因を全て修正した完勝。 ①五老星ここにの**ミルでサターンをトラッシュ7+に乗せ免疫化**(g3で相手マーズに効果KOされた轍を回避) ②**カウンター過剰消費を避け深い手札維持** ③フィニッシャー洪水なし(五老星1枚キープ)。 勝ち筋: タンクでcard優位→サターン/トップマン(免疫ボディ)展開→相手が攻撃で全タップした**no-blocker窓**でサターン+リーダー8000連打し相手を0ライフへ→1-2ライフで相手の0ライフrace(4-5攻撃)を**深いカウンター(浸食輪廻+4000/元々ないか+4000/ピーター/マーズ)で完封**→相手がブロッカー(マーズ)を温存ブロックで使い切った瞬間、 **残2攻撃(トップマン9000+リーダー)vs 相手3カウンター=止めきれずリーサル**。 ⭐相手AIは0ライフでも全力race(タップアウト)+ブロッカー温存も、 こちらの2ライフ耐久+カウンター密度+免疫ボディが上回った。
 - ⚠ **1392 g3 = 敗北 (ターン12、 seed23)**: 黒イムミラーで**初黒星**。 敗因: ①turn7で自サターンが相手マーズに効果KO(自トラッシュ6=免疫しきい値7未達を誤認し除去圏へ展開)→早期に盤面優位を喪失し立て直せず。 ②**五老星×3を引いて手札が腐る**(カウンター値0+踏み倒し不可=死に札、 デッキ4枚中3枚=不運)。 ③虚の玉座コンボがCLI未surfaceで五老星を踏み倒せず(hardcastは10DON全消費で蘇生1DON払えない)→フィニッシャーが手札で死蔵。 ④turn12の相手race(リーダー7000+トップマン/マーズ4×5000=5攻撃)に対しブロッカー0+カウンター3枚=**数学的に防御不能**(turn10で過剰にカウンター消費したのも一因)。 ⭐教訓: **(a) 免疫を当てにする前にトラッシュ枚数を確認** (b) **同名フィニッシャーの多すぎる引きは手札が腐る** — 黒イムは五老星依存度が高くCLIで踏み倒せないと脆い (c) g1/g2のテンポ勝ちパターンが崩れ早期に盤面を失うと、 黒イムは受け切れずrace負けする。
@@ -34,10 +37,21 @@
 | 1 | cardrush_1342 | ドフラミンゴ / 紫コントロール | 3-2 | [[project_claude_vs_exploitbeam_play]] 参照 |
 | 2 | cardrush_1385 | クロコダイル / B・W ミッドレンジ | **2-3 完** | ⭐配備AIが**強い**マッチ(受動溜め→2×クロコ10000+lock engine)。 人間プレイで2-3=ほぼ互角〜やや負け。 敗因=低ライフ→クロコassault止めきれず。 浸食輪廻counterはトラッシュ≥10要(g5誤算) |
 | 3 | cardrush_1392 | イム / 黒コントロール(天竜人・五老星) | **4-1 完了** | ⭐⭐**engineバグ2件 発見・修正**: ①効果免疫がバトルKO誤防御 (6d61bdb) ②cost無し【アタック時】多重発動=無限promptループ (3c6c852、 ナス寿郎)。 g1/g2勝ち筋=タンクで card優位→五老星(12000)サーチ→無ブロッカー窓で相手0ライフ→2サボ壁+カウンターで5連撃race完封→タップアウト→4攻撃手で詰め。 ⚠**g3敗北**: 早期サターン効果KO(トラッシュ6<7誤認)で盤面喪失+**五老星×3引き手札腐敗**(踏み倒し不可)+turn12race(5攻撃)にブロッカー0で数学的に防御不能。 教訓: 免疫前にトラッシュ確認/フィニッシャー多引きは死蔵/盤面早期喪失で黒イムはrace負け |
+| 4 | cardrush_1399 | ルーシー / 赤青《ドレスローザ》イベントコントロール | **1-0 (g1 W)** | ⭐⭐⭐**engineバグ5件 発見・修正** (🐛参照、 全コミット+test): リーダー discard-pump human-gate / opp_attack無限ループ / choice_effect継続脱落 / 被弾時battle_buff持続 / マルチ攻撃gate残留。 g1勝ち筋=誰にも渡さねェで**無料キャベン6000登場**+起動メインdraw→キャベンbattle/チップで**相手0枚枯渇**→サボ9000【登場時】**無料メラメラ(ダブルアタック2ライフ)**→3連撃を サボ×2+counter+**修正済み防御pump**で life2完封→マルチ攻撃(各≥7000で counter溢れ)でリーサル。 ⭐リーサル: AIの counter枚数 < 攻撃数 かつ各攻撃≥7000(1枚では止まらない)で貫通 |
 
 ## 🐛 engine バグ (発見・修正)
 
 (1342セッションで計3件修正済: iid衝突 / on_attack無限ループ / ヴェルゴ-2000多重発動。 commit 4745964 等)
+
+### 1399 g1 セッション = engine バグ5件 発見・修正 (2026-06-09、 全コミット+test+pytest green)
+
+赤青ルーシー(OP15-002)のリーダー discard-pump 機構 + multi-step イベントが**未テストの human-play 経路を多数通し**、 5件露呈。 ⭐教訓: novel な人間プレイ機構は既存テストを通らない経路を踏むので、 そのデッキを実プレイすると集中的にバグが出る。
+
+- ✅ **(commit bfcfc5a #1) optional_discard_hand_for_battle_buff が human のイベントを勝手に捨てる**: リーダー【アタック時】/【相手アタック時】「イベント/ステージを**任意の枚数捨ててもよい**(+1000/枚)」が human 操作中でも無条件で最大3枚を自動 discard (= "AI 簡易" placeholder)。 チップ攻撃で除去イベント3枚を意図せず喪失。 修正: `_should_human_pick` 時に pending_choice `optional_discard_buff_pick` modal を立て 0〜N枚を人間選択 (0=見送り)。 AI は従来通り (matrix/test 不変)。 攻撃側/防御側 双方の actor を `_actor_idx` で復元。 web UI に `OptionalDiscardBuffPickModal` 新設 (UI契約リンタ充足)。
+- ✅ **(commit bfcfc5a #2) opp_attack costless 効果の無限再 modal ループ**: #1修正で防御 discard が pause するようになり露呈。 costless 【相手アタック時】が無gateで毎回 enqueue され、 claude_play (1コマンド=1プロセス) の pause→resume で `_opp_attack_pre_fired_id` (= id(attacker)) マーカーがプロセス跨ぎ失効 → trigger 再呼出 → modal 無限ループ。 修正: on_attack と同型の instance 属性 gate `_opp_attack_opt_skipped` (pickle安定) で 1 battle 1回に。
+- ✅ **(commit 3a5c3f3 #3) choice_effect option の human discard pause 後に後続 primitive 脱落**: 誰にも渡さねェ (OP15-054) mode(a)「draw2→discard1→**コスト≤4ドレスローザを登場**」で、 discard が human pick で pause した後の「登場」が脱落。 原因: option_pick resolve が手動ループで残り do を `_continuation` 退避せず return。 修正: `run_do_array` で置換 (継続を正しく保存・再開)。
+- ✅ **(commit da3e31e #4) 人間 defender 被弾時に攻撃側 battle_buff/gate が次ターン持続**: human が life_taken_choice pause 経路で被弾すると AttackLeader 末尾の `_reset_battle_buffs` を return で skip し、 `resume_pending_attack_hit` も reset を呼ばず → 攻撃側 battle_buff (ルーシー pump 等) と gate が次バトル/次ターンに持続 (AIの+1000が次ターンの私のチップを誤ブロックして発覚)。 AI defender 経路は正常 = **人間 defender 限定**。 全人間vsAI戦で被弾毎に発生する広範バグ。 修正: resume_pending_attack_hit で _reset_battle_buffs 補完。
+- ✅ **(commit 416f175 #5) マルチ攻撃ターンで2発目以降の防御 pump が gate 残留で抑止**: AI が leader→キャベン→ヴィオラ と連続攻撃する際、 1発目で防御 pump modal を skip→gate set されると後続攻撃まで残留し 2発目以降の pump modal が抑止 (= #4と同根の multi-process で _reset が gate を取りこぼす)。 私の防御選択を奪い critical な低ライフ局面で life2→1 を強制 → クリーン再開した。 修正: pickle安定な battle key `(turn_number, attacker.instance_id)` で新 attacker (= 新battle) 検出時に防御側 gate を clear (同 attacker re-fire は保持=loop protection)。 ⭐検証: 再開後 T6/T8 の 2発目以降で pump modal が正しく出現、 防御 pump で life2維持→勝利。
 
 - ✅ **(1392 g2、 commit 3c6c852) cost無し【アタック時】効果の多重発動 (無限promptループ)**: ナス寿郎 OP13-080【アタック時】相手キャラ-2000 (cost無し + target_pick) が、 人間 actor の target_pick で attack が再処理され trigger_on_attack が再呼出される度に再発火 → -2000対象選択 prompt が無限ループしリーサル攻撃を解決不能に。 原因: trigger_on_attack は cost持ち効果のみ `_on_attack_opt_skipped` で 1アタック1回 gate していたが cost無し効果は gate 無し (ヴェルゴ修正 4745964 は cost型のみ)。 修正: costless にも同 gate 適用。 ⭐**ライブ修正で escape→勝利**。 regression test 追加。
 - ✅ **(1392 g1、 commit fea0fd2、 6d61bdb のレビューで発見) redirect バトルKO経路が battle免疫を無視**: アタック対象変更 (紫ドフラ等) の先の バトルKO が `ko_immune_until_turn_end` しか見ず `battle_ko_immune_static` (P-040/ミホーク等) を無視。 直接アタック経路に整合。 regression test 追加。
