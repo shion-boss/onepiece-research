@@ -3015,6 +3015,70 @@ def test_op13_084_leave_immune_no_self_turn():
     )
 
 
+def test_effect_immunity_does_not_block_battle_ko():
+    """「相手の効果で場を離れない / 効果でKOされない」 (= static_ko_immune) は効果KO限定。
+    バトルKO (= ブロックでパワー負け) は効果ではないので KO される。
+    旧 bug: ブロック経路 (game.py) が static_ko_immune を尊重し、 immune blocker が
+    パワー負けしても生存していた (= 1392 黒イムミラーで発覚)。直接アタックの KO 経路は
+    元から static_ko_immune を見ておらず、 ブロック経路だけ不整合だった。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP13-079", overlay=overlay)  # 黒イム
+    me = state.players[0]
+    opp = state.players[1]
+    state.turn_number = 3
+    state.turn_player_idx = 0
+    me.don_active = 5
+    me.leader.summoning_sickness = False
+    me.leader.rested = False
+
+    # opp 防御: マーズ聖 (OP13-091) = 自トラッシュ7+で 「相手の効果で場を離れない」 + ブロッカー
+    mars = InPlay.of(repo.get("OP13-091"), sickness=False, rested=False)
+    opp.characters = [mars]
+    opp.trash = [repo.get("OP13-091")] * 7
+    evaluate_static_effects(state, overlay)
+    assert mars.static_ko_immune is True, "trash≥7 で static_ko_immune が立つはず"
+
+    # (1) 効果KO は無効 = 免疫は効果に対して有効 (= 維持されるべき挙動)
+    from engine.effects import execute_effect
+    execute_effect({"ko": "all_opponent_characters"}, state, me, opp, None)
+    assert mars in opp.characters, "効果KOは static_ko_immune で無効のはず (= 免疫は効果に有効)"
+
+    # (2) バトルKO は static_ko_immune を貫通すべき = リーダー(5000) が マーズ(5000) を
+    #     ブロックさせ、 パワー >= でKO される (公式: バトルKO は効果ではない)
+    from engine.game import AttackLeader, apply_action
+    evaluate_static_effects(state, overlay)
+    action = AttackLeader(
+        attacker_iid=me.leader.instance_id,
+        blocker_iid=mars.instance_id,
+    )
+    apply_action(state, action)
+    assert mars not in opp.characters, (
+        "バトルKO は static_ko_immune (= 効果限定免疫) を貫通すべき (旧 bug regression)"
+    )
+    assert any(c.card_id == "OP13-091" for c in opp.trash), "KO された マーズが trash に無い"
+
+
+def test_full_ko_immune_still_blocks_battle():
+    """P-040 カイドウ 「相手の場にドン10枚でこのキャラはKOされない」 = 全免疫 (効果+バトル)。
+    overlay に set_battle_ko_immune を追加済 → battle_ko_immune_static が立ち、 バトルKOも防ぐ。
+    (= static_ko_immune をバトル経路から外した修正で全免疫カードが壊れない事の保証)"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # P-040 の条件 = 「相手(=me)の場にドン10枚」。 P-040 は opp 側に置く
+    kaido = InPlay.of(repo.get("P-040"), sickness=False, rested=False)
+    opp.characters = [kaido]
+    me.don_active = 10
+    evaluate_static_effects(state, overlay)
+    assert kaido.static_ko_immune is True, "opp DON10 で 効果KO免疫 (static_ko_immune) が立つはず"
+    assert kaido.battle_ko_immune_static is True, (
+        "opp DON10 で バトルKO免疫 (battle_ko_immune_static) も立つはず (= 全免疫の保持)"
+    )
+
+
 def test_op13_082_uses_trash_all_self_chara_and_correct_keys():
     """OP13-082 五老星 起動メイン: overlay が 新 primitive trash_all_self_chara を 使い、
     play_from_trash で `limit:5` + `unique_name:true` (= engine が 認識 する key) になっている。"""

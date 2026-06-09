@@ -102423,6 +102423,9 @@
       "do": [
         {
           "set_ko_immune": "self"
+        },
+        {
+          "set_battle_ko_immune": "self"
         }
       ]
     }

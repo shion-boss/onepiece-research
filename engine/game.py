@@ -1544,15 +1544,18 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 )
                 # EB02-030: 自キャラ全体 バトルKO 代替で手札1捨て (= 防御側 opp の救済)。
                 if (opp.turn_battle_ko_save_discard and opp.hand
-                        and not actual_target.ko_immune_until_turn_end
-                        and not actual_target.static_ko_immune):
+                        and not actual_target.ko_immune_until_turn_end):
                     opp.hand.sort(key=lambda c: (c.power, c.cost))
                     opp.trash.append(opp.hand.pop(0))
                     state.push_log(f"  バトルKO代替: 手札1捨てで {actual_target.card.name} 生存")
                     _vs_leader_immune = True  # KO スキップ (生存)
+                # static_ko_immune (= 「相手の効果でKOされない/場を離れない」) は効果KO限定の
+                # 耐性。 バトルKO は効果ではないので ここでは尊重しない (= ブロッカーは
+                # パワー負けすれば KO される)。 直接アタックの KO 経路 (~L1772) と挙動を一致
+                # させる。 「(無条件で)KOされない」 全免疫は battle_ko_immune_static
+                # (= _battle_ko_immune_by_attribute) で別途処理 (P-040 カイドウ等)。
                 if (
                     not actual_target.ko_immune_until_turn_end
-                    and not actual_target.static_ko_immune
                     and not _battle_ko_immune_by_attribute(actual_target, attacker)
                     and not _vs_leader_immune
                 ):
