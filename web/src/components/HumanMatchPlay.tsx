@@ -2063,6 +2063,16 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "optional_discard_buff_pick" ? (
+          // optional_discard_hand_for_battle_buff の 人間 選択 (= OP15-002 ルーシー
+          // 【アタック時】/【相手アタック時】 イベント/ステージ を 捨てて パワー pump。
+          // 「任意の枚数 捨ててもよい」 = 0 枚 見送り 可)
+          <OptionalDiscardBuffPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "search_from_trash_pick" ? (
           // トラッシュ サーチ 人間 選択 (= 候補 > N で modal halt)
           <PlayFromTrashPickModal
@@ -5405,6 +5415,114 @@ function SelfHandDiscardPickModal({
             className="ml-auto rounded bg-rose-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-rose-400 disabled:opacity-50"
           >
             確定 ({picked.length}/{limit})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================== //
+// OptionalDiscardBuffPickModal: optional_discard_hand_for_battle_buff 人間 選択。
+// 「イベント/ステージ を 任意の枚数 捨ててもよい。 1 枚につき +amount_per_discard」
+// (= OP15-002 ルーシー の【アタック時】/【相手アタック時】 pump)。 0 枚 = 見送り 可。
+// ========================================================================== //
+
+function OptionalDiscardBuffPickModal({
+  payload,
+  onSubmit,
+  onHover,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  onHover: (h: HoverInfo) => void;
+  busy: boolean;
+}) {
+  const candidates =
+    (payload.candidates as
+      | {
+          hand_idx: number;
+          card_id: string;
+          name: string;
+          cost: number;
+          power: number;
+          counter?: number;
+        }[]
+      | undefined) ?? [];
+  const amountPer = Number(payload.amount_per_discard ?? 1000);
+  const [picked, setPicked] = useState<number[]>([]);
+
+  function togglePick(idx: number) {
+    setPicked((prev) =>
+      prev.includes(idx) ? prev.filter((x) => x !== idx) : [...prev, idx],
+    );
+  }
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-full flex-col rounded-lg border-2 border-blue-400 bg-zinc-900 p-4 shadow-2xl">
+        <div className="mb-3 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-blue-200">
+            イベント / ステージ を 捨てて パワー +{amountPer}/枚
+          </h3>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            +{picked.length * amountPer} ({picked.length} 枚)
+          </span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-wrap content-start gap-3 overflow-y-auto px-1 py-3">
+          {candidates.map((c, idx) => {
+            const isSelected = picked.includes(idx);
+            return (
+              <button
+                key={`${c.hand_idx}-${c.card_id}-${idx}`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePick(idx);
+                }}
+                onMouseEnter={() => onHover({ kind: "hand", cardId: c.card_id })}
+                onMouseLeave={() => onHover(null)}
+                className={
+                  "relative rounded transition " +
+                  (isSelected
+                    ? "ring-4 ring-amber-400 -translate-y-2"
+                    : "ring-2 ring-blue-400 hover:ring-blue-300")
+                }
+                title={`${c.name} (cost=${c.cost}, P=${c.power})`}
+              >
+                <CardImage
+                  cardId={c.card_id}
+                  alt={c.name}
+                  className="h-56 w-auto rounded shadow-xl"
+                />
+                <span className="absolute top-0 left-0 rounded-br bg-blue-600 px-1.5 text-xs font-bold text-white">
+                  c{c.cost}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400">
+            捨てる 枚数 を 選択 (= 「任意の枚数 まで」。 0 枚 = 見送り 可)
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit(picked);
+            }}
+            disabled={busy}
+            className="ml-auto rounded bg-blue-500 px-6 py-2 text-base font-bold text-white shadow hover:bg-blue-400 disabled:opacity-50"
+          >
+            {picked.length === 0
+              ? "捨てない (見送り)"
+              : `確定 (${picked.length} 枚 捨て)`}
           </button>
         </div>
       </div>

@@ -2179,6 +2179,101 @@ def test_optional_discard_hand_for_battle_buff():
     assert len(me.hand) == 1  # キャラ 1 枚残る
 
 
+def test_optional_discard_buff_human_modal():
+    """optional_discard_hand_for_battle_buff: 人間 acting 時は 「捨ててもよい」 を modal で
+    制御 (= 0 枚 見送り も 可)。 OP15-002 ルーシー の チップ攻撃 で イベント が 勝手に 捨てられる
+    バグ (2026-06-09 発見) の 修正 regression。 AI は 従来通り 自動 (= 不変 guard)。"""
+    from engine.effects import execute_effect, resolve_pending_choice
+    from engine.core import Category
+    repo = _repo()
+    event_card = next((repo.get(cid) for cid in ["OP01-095", "OP01-091", "OP01-097"]
+                       if repo.get(cid).category == Category.EVENT), None)
+    if event_card is None:
+        return
+    chara_card = repo.get("OP01-013")
+    spec = {"optional_discard_hand_for_battle_buff": {
+        "filter": {"category_in": ["EVENT", "STAGE"]},
+        "amount_per_discard": 1000,
+        "target": "self_leader",
+        "max": 3,
+    }}
+
+    # --- 人間: modal が立ち、 即座には捨てない (= バグ前は 勝手に 捨てていた) ---
+    state = _make_state(repo, "OP01-001", overlay={})
+    state.human_player_idx = 0
+    me, opp = state.players[0], state.players[1]
+    me.hand = [event_card, event_card, chara_card]
+    me.leader.battle_buff = 0
+    execute_effect(spec, state, me, opp, None)
+    assert state.pending_choice is not None
+    assert state.pending_choice.get("kind") == "optional_discard_buff_pick"
+    assert len(me.hand) == 3, "modal 段階では まだ 捨てない"
+    assert me.leader.battle_buff == 0
+    assert len(state.pending_choice["candidates"]) == 2, "EVENT 2 枚のみ候補 (chara 除外)"
+
+    # --- 1 枚 選んで捨てる → +1000 ---
+    resolve_pending_choice(state, [0])
+    assert state.pending_choice is None
+    assert me.leader.battle_buff == 1000
+    assert len(me.hand) == 2  # event 1 + chara 1
+
+    # --- skip (0 枚 見送り) → buff なし・手札 不変 ---
+    state2 = _make_state(repo, "OP01-001", overlay={})
+    state2.human_player_idx = 0
+    me2, opp2 = state2.players[0], state2.players[1]
+    me2.hand = [event_card, chara_card]
+    me2.leader.battle_buff = 0
+    execute_effect(spec, state2, me2, opp2, None)
+    assert state2.pending_choice is not None
+    resolve_pending_choice(state2, [])  # 見送り
+    assert state2.pending_choice is None
+    assert me2.leader.battle_buff == 0
+    assert len(me2.hand) == 2, "0 枚 見送り は 手札 を 減らさない"
+
+    # --- AI (human_player_idx=None): 従来通り 自動 max 捨て (= regression guard) ---
+    state3 = _make_state(repo, "OP01-001", overlay={})
+    state3.human_player_idx = None
+    me3, opp3 = state3.players[0], state3.players[1]
+    me3.hand = [event_card, event_card, chara_card]
+    me3.leader.battle_buff = 0
+    execute_effect(spec, state3, me3, opp3, None)
+    assert state3.pending_choice is None, "AI は modal を出さない"
+    assert me3.leader.battle_buff == 2000, "AI は EVENT 2 枚 自動捨て (不変)"
+    assert len(me3.hand) == 1
+
+
+def test_opp_attack_costless_once_per_battle_gate():
+    """costless 【相手のアタック時】 効果は 1 battle 1 回だけ enqueue (= _opp_attack_opt_skipped
+    gate)。 human modal で pause→resume する claude_play は 1 コマンド=1 プロセス で session 再
+    ロード → _opp_attack_pre_fired_id (= id(attacker)) マーカーが プロセス跨ぎ失効 → trigger_on_
+    opp_attack 再呼出 で costless が 再 enqueue → modal 無限ループ (OP15-002 ルーシー で発覚、
+    2026-06-09)。 _reset_battle_buffs で クリア → 次 battle は再 fire。"""
+    from engine.effects import trigger_on_opp_attack, CardEffectBundle
+    from engine.game import _reset_battle_buffs
+    repo = _repo()
+    overlay = {
+        "OP01-001": CardEffectBundle(card_id="OP01-001", effects=[
+            {"when": "opp_attack", "do": [{"draw": 1}]},
+        ]),
+    }
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    state.human_player_idx = None  # AI 経路 (= 即時 auto-fire で観測可能)
+    state.turn_player_idx = 1      # opp が攻撃中 → player0 が defender
+    me = state.players[0]
+    opp = state.players[1]
+    me.deck = [repo.get("OP01-013")] * 10
+    attacker = opp.leader
+
+    h0 = len(me.hand)
+    trigger_on_opp_attack(state, me, opp, attacker, overlay)
+    assert len(me.hand) == h0 + 1, "1 回目: draw 1"
+    trigger_on_opp_attack(state, me, opp, attacker, overlay)
+    assert len(me.hand) == h0 + 1, "2 回目 (同 battle): gate で再発火しない (= ループ防止)"
+    _reset_battle_buffs(state)
+    trigger_on_opp_attack(state, me, opp, attacker, overlay)
+    assert len(me.hand) == h0 + 2, "battle リセット後: 次 battle で 再 fire"
+
+
 def test_replace_rest_redirects_to_other_chara():
     """replace_rest: ゾロが相手キャラ効果でレストになる代わりに他キャラを犠牲"""
     from engine.effects import execute_effect, CardEffectBundle

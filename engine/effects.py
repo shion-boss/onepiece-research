@@ -6808,25 +6808,66 @@ def _execute_effect_body(
             )
         elif k == "optional_discard_hand_for_battle_buff":
             # 公式: 「自分の手札から任意の枚数 (filter) を捨ててもよい。 捨てたカード1枚につき、
-            # (target) はこのバトル中、 パワー+N」 OP03-001 ポートガス・D・エース等。
+            # (target) はこのバトル中、 パワー+N」 OP15-002 ルーシー / OP03-001 エース等。
             # spec: {"filter": {"category_in": ["EVENT","STAGE"]}, "amount_per_discard": 1000,
             #        "target": "self_leader", "max": 3 (AI 上限、 省略時 3)}
+            # ⚠ 「捨ててもよい」 = 任意 (0 枚 可)。 人間 acting なら どの/何枚 を 捨てるか modal で
+            # 選ばせる (= 攻撃 pump / 防御 survival を 人間 が 制御。 攻撃時/相手アタック時 双方)。
+            # AI は 従来通り 簡易 max まで 自動 (= matrix/test 不変)。 2026-06-09 human-gate 追加。
             spec_val = v if isinstance(v, dict) else {}
             filt = spec_val.get("filter", {"category_in": ["EVENT", "STAGE"]})
             amount_per = int(spec_val.get("amount_per_discard", 1000))
             target_spec = spec_val.get("target", "self_leader")
             max_discard = int(spec_val.get("max", 3))
-            discardable = [c for c in me.hand if _matches_filter(c, filt)]
-            # AI 簡易: 最大 max_discard 枚 (= デフォルト 3 枚)。
-            # battle 中の発動なので「+3000」 (= 3 枚捨て) で大半の攻防を凌げる想定。
-            discard_count = min(len(discardable), max_discard)
-            if discard_count == 0:
-                return False
+            discardable = [(i, c) for i, c in enumerate(me.hand) if _matches_filter(c, filt)]
+            picks_idx = None
+            if isinstance(spec_val, dict) and "_picked_hand_idxs" in spec_val:
+                picks_idx = list(spec_val["_picked_hand_idxs"])
+            # 人間 acting + 候補あり + 未解決 → どのイベント/ステージを捨てるか modal (0=見送り可)
+            if picks_idx is None and _should_human_pick(state) and len(discardable) > 0:
+                state.pending_choice = {
+                    "kind": "optional_discard_buff_pick",
+                    "primitive_value": dict(spec_val),
+                    "candidates": [
+                        {
+                            "hand_idx": i,
+                            "card_id": c.card_id,
+                            "name": c.name,
+                            "cost": int(c.cost) if c.cost is not None else 0,
+                            "power": int(c.power) if c.power is not None else 0,
+                            "counter": int(c.counter) if c.counter else 0,
+                        }
+                        for i, c in discardable
+                    ],
+                    "limit": len(discardable),
+                    "amount_per_discard": amount_per,
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: イベント/ステージ を 捨てて +{amount_per}/枚 → 人間 選択 待ち "
+                    f"(候補 {len(discardable)} 枚、 0 枚 = 見送り)"
+                )
+                return True
             discarded = []
-            for c in discardable[:discard_count]:
-                me.hand.remove(c)
-                me.trash.append(c)
-                discarded.append(c)
+            if picks_idx is not None:
+                # 人間 modal の 選択 (= 0 枚 も 可)。 hand index 降順 で pop。
+                idxs = sorted(
+                    set(int(i) for i in picks_idx if 0 <= int(i) < len(me.hand)),
+                    reverse=True,
+                )
+                for hi in idxs:
+                    discarded.append(me.hand.pop(hi))
+                    me.trash.append(discarded[-1])
+            else:
+                # AI 簡易: 最大 max_discard 枚 (= デフォルト 3 枚)。
+                # battle 中の発動なので「+3000」 (= 3 枚捨て) で大半の攻防を凌げる想定。
+                discard_count = min(len(discardable), max_discard)
+                for _, c in discardable[:discard_count]:
+                    me.hand.remove(c)
+                    me.trash.append(c)
+                    discarded.append(c)
+            if not discarded:
+                return False  # 0 枚 = 見送り (buff なし)
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="optional_discard_hand_for_battle_buff", outer_value=target_spec)
             buff = amount_per * len(discarded)
             for t in targets:
@@ -7895,6 +7936,38 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         new_spec["_picked_hand_idxs"] = hand_idxs
         state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 トラッシュ")
         execute_effect({"trash_self_hand_random": new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "optional_discard_buff_pick":
+        # optional_discard_hand_for_battle_buff 人間 pick (= OP15-002 ルーシー /
+        # OP03-001 エース 等)。 picks = candidates idx list (= 0 始まり)。
+        # 空 list = 見送り (= 0 枚 捨て、 pump なし。 「捨ててもよい」 = 任意)。
+        # me/opp は冒頭で _actor_idx により actor 復元済 (= 相手アタック時 の 防御側 pump でも
+        # 正しく human defender の 手札 から 捨て、 buff は human leader に 載る)。
+        candidates = choice.get("candidates", [])
+        primitive_value = choice.get("primitive_value") or {}
+        source_iid = choice.get("source_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
+        state.pending_choice = None
+        new_spec = dict(primitive_value) if isinstance(primitive_value, dict) else {}
+        new_spec["_picked_hand_idxs"] = hand_idxs  # 空 = 見送り
+        if hand_idxs:
+            state.push_log(
+                f"  効果: 人間選択 → イベント/ステージ {len(hand_idxs)} 枚 捨て pump"
+            )
+        else:
+            state.push_log("  効果: 人間選択 → 捨てず (pump 見送り)")
+        execute_effect(
+            {"optional_discard_hand_for_battle_buff": new_spec}, state, me, opp, self_inplay
+        )
         return
 
     if kind == "search_pick":
@@ -9820,7 +9893,22 @@ def _enqueue_opp_attack_with_cost(
             has_any_matching = True
             cost = eff.get("cost") or {}
             if not cost:
-                # cost 無し: 単純 fire
+                # cost 無し: 1 アタック (= battle) 1 回 gate して enqueue。
+                # 人間 modal (= optional_discard_hand_for_battle_buff 等) で pause→resume
+                # する際、 claude_play は 1 コマンド =1 プロセス で session を再ロードするため、
+                # _opp_attack_pre_fired_id (= id(attacker)) マーカーが プロセス跨ぎで 不一致 →
+                # trigger_on_opp_attack が再呼出され costless 効果 が 再 enqueue → modal 無限
+                # ループ。 on_attack 側 (_on_attack_opt_skipped) と 同型の instance 属性 gate
+                # (= pickle 安定) で 1 battle 1 回に固定。 _reset_battle_buffs (battle 終了)
+                # でクリア → 次の攻撃 (別 battle) では 再び fire。 AI vs AI は 攻撃毎に 1 回
+                # 発火で 不変 (= matrix 影響なし)。 2026-06-09。
+                _skipped = getattr(source_inplay, "_opp_attack_opt_skipped", None)
+                if _skipped is None:
+                    _skipped = set()
+                if idx in _skipped:
+                    continue
+                _skipped.add(idx)
+                source_inplay._opp_attack_opt_skipped = _skipped
                 eff_indexes_to_fire.append(idx)
                 continue
             if not eval_all_conditions(eff, state, me, source_inplay):

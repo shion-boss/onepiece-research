@@ -448,6 +448,11 @@ def _reset_battle_buffs(state: GameState) -> None:
             # (= cost 繰り返し型 effect の skip-loop 防止フラグ、 effects.py)
             if getattr(ip, "_on_attack_opt_skipped", None):
                 ip._on_attack_opt_skipped = set()
+            # opp_attack (= 相手アタック時) costless 効果の 1battle1回 gate も クリア
+            # (= human modal pause→resume の プロセス跨ぎ id() マーカー失効による
+            #  再発火ループ防止フラグ、 effects.py _enqueue_opp_attack_with_cost、 2026-06-09)
+            if getattr(ip, "_opp_attack_opt_skipped", None):
+                ip._opp_attack_opt_skipped = set()
 
 
 def _reset_turn_buff(state: GameState) -> None:
