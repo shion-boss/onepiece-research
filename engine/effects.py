@@ -225,6 +225,13 @@ def resolve_triggers(state: GameState) -> None:
             if evt is None:
                 break
             _execute_event(state, evt)
+            if state.pending_choice is not None:
+                # 人間 target pick 待ち → queue drain を halt。 残り event は queue に
+                # 残し、 pick 解決後 (resolve_pending_choice 末尾) に 再 drain する。
+                # これが無いと 次 event が pending_choice を 上書き し、 friendly pick が
+                # 喪失 する (= 温度レアァストライク ST29-015 の friendly +2000 / opp -2000 が
+                # 別 enqueue の counter event で、 +2000 の pick が -2000 に潰されていた bug)。
+                break
     finally:
         state.resolving = False
 
@@ -441,6 +448,36 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                             return
                     _pay_counter_cost(state, me, opp, self_inplay, real_cost)
             run_do_array(eff.get("do", []), state, me, opp, self_inplay)
+            if state.pending_choice is not None:
+                # 同 bundle の 残り matching entry (= 別 counter/trigger entry) を、
+                # 条件を満たす分だけ pending_choice の _continuation に退避 → pick 解決後に
+                # 実行する。 これが無いと 次 entry の run_do_array が pending_choice を
+                # 上書きし、 先頭 entry の friendly pick が喪失する
+                # (= 温度レアァストライク ST29-015 の friendly +2000 / opp -2000 が
+                #    別 counter entry で、 +2000 の pick が -2000 に潰されていた bug)。
+                # cost 持ち entry は continuation 経路 未対応 の ため append しない (= 安全側)。
+                extra_do: list = []
+                for j in range(idx + 1, len(bundle.effects)):
+                    e2 = bundle.effects[j]
+                    if e2.get("when") != when:
+                        continue
+                    if e2.get("cost"):
+                        continue
+                    if not eval_all_conditions(e2, state, me, self_inplay):
+                        continue
+                    extra_do.extend(e2.get("do", []))
+                if extra_do:
+                    cont = state.pending_choice.get("_continuation")
+                    if cont is None:
+                        state.pending_choice["_continuation"] = {
+                            "do": extra_do,
+                            "owner_idx": state.players.index(me),
+                            "source_iid": (self_inplay.instance_id
+                                           if self_inplay is not None else None),
+                        }
+                    else:
+                        cont["do"] = list(cont.get("do", [])) + extra_do
+                break
     finally:
         state.current_source_card_id = prev_src_cid
         state.forced_human_actor_idx = prev_forced
@@ -2974,6 +3011,13 @@ def _execute_effect_body(
                 target_spec, state, me, opp, self_inplay,
                 outer_kind="power_pump", outer_value=v,
             )
+            if state.pending_choice is not None:
+                # 人間 target pick 待ち → halt。 この check が 無いと +N が [] に 適用 され、
+                # 後続 do (= 「その後」 の -N 等) が pending_choice を 上書き して friendly
+                # pump が 喪失 する (= 温度レアァストライク ST29-015 等、 「自分のリーダーか
+                # キャラ1枚まで+N。 その後、 相手…-N」 系 counter の bug)。 power_pump_multi と
+                # 同様に halt → run_do_array が 残り do を _continuation 退避 → pick 解決後 再実行。
+                return True
             if feature_filter:
                 targets = [
                     t for t in targets
@@ -7768,6 +7812,12 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
         return
     if cont is not None:
         _run_continuation(state, cont)
+    # continuation 実行 で 新たな pending_choice が 立った 場合 は その pick 待ち (= drain しない)。
+    # 立っていなければ、 queue に 残った event (= resolve_triggers が pending_choice で halt し
+    # 残した 別 enqueue の counter/trigger、 例: 温度の opp -2000) を 再 drain する。
+    # resolve_triggers は state.resolving guard 付き で 再入 安全。
+    if state.pending_choice is None and state.event_queue:
+        resolve_triggers(state)
     _recompute_static(state)
 
 

@@ -7001,7 +7001,7 @@
    "do": [
     {
      "power_pump": {
-      "target": "self_inplay",
+      "target": "self_inplay_choice",
       "amount": 2000,
       "duration": "battle"
      }
