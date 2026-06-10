@@ -7089,6 +7089,13 @@ def _execute_effect_body(
                     if self_inplay is None or self_inplay not in me.characters:
                         can_pay = False
                         break
+                elif "return_to_hand" in cs and cs.get("return_to_hand") == "other_self_chara":
+                    # 「このキャラ以外の自分のキャラ1枚を持ち主の手札に戻す」 cost
+                    # (ジョズ OP08-047 等)。 self 以外の自キャラが居なければ払えない
+                    # (= 払えないと : 以降の効果も不発、 2026-06-10)。
+                    if not any(c is not self_inplay for c in me.characters):
+                        can_pay = False
+                        break
                 elif "return_self_to_deck_bottom" in cs:
                     # 「このカードを持ち主のデッキの下に置く」 cost (OP10-026/027 キャラ /
                     # EB01-030 ステージ)。 self_inplay が場 (chara/stage) にいる必要。
@@ -7337,7 +7344,7 @@ def _execute_effect_body(
                     "prompt": f"{src_name}: 任意コストを払って効果を発動しますか？",
                 }
                 return False
-            for cs in cost_specs:
+            for _ci, cs in enumerate(cost_specs):
                 # 一部 cost は execute_effect の通常パスでは正しく動かない:
                 #   - rest_self_target_name / rest_self_target はそのキャラを rest にする
                 #     primitive が存在しないので、 ここで直接処理する。
@@ -7588,8 +7595,35 @@ def _execute_effect_body(
                     me.characters = new_chars
                     continue
                 execute_effect(cs, state, me, opp, self_inplay)
-            for es in effect_specs:
+                # 人間操作で cost が target pick (return_to_hand other_self_chara 等) を
+                # 要求し pending_choice を立てた場合、 ここで halt しないと直後の effect 実行が
+                # pending_choice を上書きし cost が踏み倒される (= ジョズ OP08-047 で「自キャラを
+                # 戻さずに相手キャラを戻す」 不正発火、 2026-06-10 発見)。 残り cost + effect を
+                # continuation に退避 → resolve_pending_choice が cost 解決後に継続実行。
+                if state.pending_choice is not None:
+                    if "_continuation" not in state.pending_choice:
+                        state.pending_choice["_continuation"] = {
+                            "do": list(cost_specs[_ci + 1:]) + list(effect_specs),
+                            "owner_idx": state.players.index(me),
+                            "source_iid": (
+                                self_inplay.instance_id if self_inplay is not None else None
+                            ),
+                        }
+                    return False
+            for _ei, es in enumerate(effect_specs):
                 execute_effect(es, state, me, opp, self_inplay)
+                # effect 側も同様に halt-aware (= 複数 effect で先頭が pick を要求した時に
+                # 後続が上書きするのを防ぐ。 run_do_array と同じ pattern)。
+                if state.pending_choice is not None:
+                    if "_continuation" not in state.pending_choice:
+                        state.pending_choice["_continuation"] = {
+                            "do": list(effect_specs[_ei + 1:]),
+                            "owner_idx": state.players.index(me),
+                            "source_iid": (
+                                self_inplay.instance_id if self_inplay is not None else None
+                            ),
+                        }
+                    return False
             state.push_log(f"  効果: optional_cost_then 発動")
         elif k == "choice":
             # 公式: 「A するか B する」 (= A or B の選択)。
