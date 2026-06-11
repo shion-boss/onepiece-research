@@ -6125,16 +6125,54 @@ def _execute_effect_body(
                 moved += 1
             state.push_log(f"  効果: 相手手札 {moved} 枚をデッキ下へ")
         elif k == "self_hand_to_deck_bottom":
-            # 自分の手札 N 枚を好きな順番でデッキの下 (or 上) に置く。 簡略: コスト最高から。
+            # 公式: 「自分の手札 N 枚を 好きな順番で デッキの上か下 に置く」 = プレイヤー が 選ぶ。
+            # 2026-06-12: 人間 acting + 候補 > N で modal halt → 人間 が pick。
+            #   (旧バグ: コスト最高 を auto 選択 → finisher 等 を 誤って 埋める。 ナミュ OP08-050
+            #    で 自分の cost9 ハンコック 2 枚 を デッキ底 へ 葬る ケース を 検出。)
+            # AI / 候補 <= N / 残り補完 は ヒューリスティック (コスト最高 = 死にカード) を 維持。
             # spec: int | {"amount": N, "to": "bottom"|"top"} ("top" = デッキの上に置く)
-            spec = v if isinstance(v, dict) else {"amount": int(v) if not isinstance(v, dict) else 1}
+            spec = v if isinstance(v, dict) else {"amount": int(v)}
             n = int(spec.get("amount", 1))
             to = spec.get("to", "bottom")
+            picks_idx = None
+            if isinstance(v, dict) and "_picked_hand_idxs" in v:
+                picks_idx = list(v["_picked_hand_idxs"])
+            if picks_idx is None and _should_human_pick(state) and len(me.hand) > n and n > 0:
+                state.pending_choice = {
+                    "kind": "self_hand_to_deck_pick",
+                    "primitive_value": dict(spec),
+                    "to": to,
+                    "candidates": [
+                        {
+                            "hand_idx": i,
+                            "card_id": c.card_id,
+                            "name": c.name,
+                            "cost": int(c.cost) if c.cost is not None else 0,
+                            "power": int(c.power) if c.power is not None else 0,
+                        }
+                        for i, c in enumerate(me.hand)
+                    ],
+                    "limit": n,
+                    "source_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(
+                    f"  効果: 自手札 {n} 枚をデッキ{'上' if to=='top' else '下'}へ "
+                    f"→ 人間 選択 待ち (候補 {len(me.hand)} 枚)"
+                )
+                return True
             moved = 0
-            for _ in range(n):
-                if not me.hand:
-                    break
-                # ヒューリスティック: コスト最高のカード (= 手札で死にカード) を移動
+            if picks_idx is not None:
+                # 人間が選んだ hand index を 降順 で pop → 指定 zone へ。
+                for hi in sorted({int(i) for i in picks_idx if 0 <= int(i) < len(me.hand)},
+                                 reverse=True)[:n]:
+                    card = me.hand.pop(hi)
+                    if to == "top":
+                        me.deck.insert(0, card)
+                    else:
+                        me.deck.append(card)
+                    moved += 1
+            while moved < n and me.hand:
+                # AI / 人間が N 未満しか選ばなかった残り: コスト最高 (= 死にカード) を移動
                 idx = max(range(len(me.hand)), key=lambda i: me.hand[i].cost)
                 card = me.hand.pop(idx)
                 if to == "top":
@@ -8140,6 +8178,32 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         new_spec["_picked_hand_idxs"] = hand_idxs
         state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 トラッシュ")
         execute_effect({"trash_self_hand_random": new_spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "self_hand_to_deck_pick":
+        # self_hand_to_deck_bottom 人間 pick: picks = candidates idx list。
+        # candidates[i]["hand_idx"] = me.hand 内 の 実 index。空 list なら
+        # 残量 を ヒューリスティック で 補完 (= 公式 「N 枚 置く」 は 強制)。
+        candidates = choice.get("candidates", [])
+        primitive_value = choice.get("primitive_value") or {}
+        source_iid = choice.get("source_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
+        state.pending_choice = None
+        if isinstance(primitive_value, dict):
+            new_spec = dict(primitive_value)
+        else:
+            new_spec = {"amount": int(choice.get("limit", 1))}
+        new_spec["_picked_hand_idxs"] = hand_idxs
+        state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 デッキへ")
+        execute_effect({"self_hand_to_deck_bottom": new_spec}, state, me, opp, self_inplay)
         return
 
     if kind == "optional_discard_buff_pick":

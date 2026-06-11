@@ -2071,6 +2071,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "self_hand_to_deck_pick" ? (
+          // 効果 「自分の手札 N 枚 を デッキの上か下 に置く」 の 人間 選択
+          // (= ナミュ OP08-050 等。 pick 機構 は discard と 同一 = candidate idx で N 枚 選ぶ)
+          <SelfHandDiscardPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "optional_discard_buff_pick" ? (
           // optional_discard_hand_for_battle_buff の 人間 選択 (= OP15-002 ルーシー
           // 【アタック時】/【相手アタック時】 イベント/ステージ を 捨てて パワー pump。
