@@ -553,3 +553,52 @@ def test_opp_event_or_trigger_fired_fires_on_lifecard_trigger():
     trigger_lifecard_trigger(state, opp, me, trigger_card, overlay, auto_fire=True)
     # me (= attacker) の leader 効果で 1 ドロー
     assert len(me.hand) >= me_hand_before + 1
+
+
+# --------------------------------------------------------------------------- #
+# 静的チーム buff は 進行中の pending_choice に壊されない (2026-06-11 回帰)
+# --------------------------------------------------------------------------- #
+def test_static_team_buff_survives_active_pending_choice():
+    """別効果の human-pick pending_choice が active な間に evaluate_static_effects が
+    走っても、 静的 power_pump (= 孔雀 EB03-041 「相手ターン中 全体+2000」 型) のチーム
+    buff が 0 に消えない。
+
+    バグ: power_pump primitive の `if state.pending_choice is not None: return True`
+    ガードが、 別効果由来の pending を見て早期 return → reset 済 static_buff を再加算せず。
+    コビーミラー campaign (2026-06-11) で 検出: ドール任意 discard の pending 中に
+    孔雀 buff が剥がれ、 -6000 が buff 無しの値を誤って KO し得た。
+    """
+    repo = _repo()
+    overlay = {
+        # leader に 「自分の 麦わらの一味 キャラ全員 +2000 静的」
+        "OP01-003": _bundle("OP01-003", [{
+            "when": "on_attached_don",
+            "n": 0,
+            "do": [{
+                "power_pump": {
+                    "target": {
+                        "type": "all_self_chara_filtered",
+                        "filter": {"feature": "麦わらの一味"},
+                    },
+                    "amount": 2000,
+                    "duration": "static",
+                },
+            }],
+        }]),
+    }
+    state = _make_state(repo)
+    state.effects_overlay = overlay
+    me = state.players[0]
+    sanji = InPlay.of(repo.get("OP01-013"), sickness=False)  # 麦わらの一味
+    me.characters.append(sanji)
+
+    # 別効果の human-pick 待ち pending_choice を立てておく
+    state.pending_choice = {"kind": "dummy_discard_pick", "owner_idx": 0}
+
+    evaluate_static_effects(state, overlay)
+
+    # buff は 適用され、 pending_choice は保持されたまま
+    assert sanji.static_buff == 2000, f"static_buff lost while pending active: {sanji.static_buff}"
+    assert sanji.power == sanji.base_power + 2000
+    assert state.pending_choice is not None
+    assert state.pending_choice.get("kind") == "dummy_discard_pick"

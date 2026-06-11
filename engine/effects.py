@@ -9533,12 +9533,22 @@ def evaluate_static_effects(
                     # modal …」 の無限ループになる (= ST01-013 ゾロ on_attached_don power_pump
                     # {self_inplay} が target_pick modal を反復、 2026-06-05 合成デッキ fuzz 検出)。
                     # forced_human_actor_idx=-1 で AI モード強制 (= _should_human_pick False、 modal 抑止)。
+                    # ⚠ さらに 進行中の pending_choice (= 別効果の human-pick 待ち、 例: ドール
+                    # 登場時 任意 discard) を 一時退避して None にする。 これが 無いと power_pump 等の
+                    # primitive が 「state.pending_choice is not None → halt」 ガードで 早期 return し、
+                    # 直前に reset した static_buff を 再加算せず → 静的チーム buff (孔雀 EB03-041
+                    # 「相手ターン中 全体+2000」 等) が pending choice 中だけ 0 に消える (= 2026-06-11
+                    # コビーミラー campaign で 検出、 -6000 が buff 剥がれた値を KO する重大バグ)。
+                    # 静的評価は deterministic (modal 無し) なので 新規 pending は生まれない。
                     _prev_forced = getattr(state, "forced_human_actor_idx", None)
+                    _prev_pending = state.pending_choice
                     state.forced_human_actor_idx = -1
+                    state.pending_choice = None
                     try:
                         execute_effect(primitive, state, me, opp, inplay)
                     finally:
                         state.forced_human_actor_idx = _prev_forced
+                        state.pending_choice = _prev_pending
 
 
 def _enqueue_field_when(
