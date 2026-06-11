@@ -246,7 +246,9 @@ def main() -> None:
     ch.add_argument("idx", type=int, nargs="*")
     d = sub.add_parser("defense")
     d.add_argument("blocker", help="ブロッカーの iid、 ブロックしないなら none")
-    d.add_argument("--counter", type=int, nargs="*", default=[])
+    # action="extend" so both `--counter 4 7` and `--counter 4 --counter 7`
+    # accumulate (plain nargs="*" silently dropped all but the last flag).
+    d.add_argument("--counter", type=int, nargs="*", action="extend", default=[])
     ce = sub.add_parser("counter-event")
     ce.add_argument("hand_idx", type=int)
     at = sub.add_parser("attack", help="iidベースの安全なアタック (番号ずれ無し)")
