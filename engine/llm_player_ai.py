@@ -160,6 +160,17 @@ class LLMPlayerAI(GreedyAI):
                     return ip
         return None
 
+    @staticmethod
+    def _attacker_label(ip, iid: int, me) -> str:
+        """攻撃者を曖昧さなく表示。 リーダーとキャラが同名 (= コビーミラー等) でも
+        区別できるよう、 リーダーは「リーダー」 プレフィクス、 キャラは [iidNN] を付す。
+        (2026-06-11 コビーミラー campaign: 同名「コビー(Power5000)」 が leader/char 両方に出て
+         move <idx> で意図と別の攻撃者を選ぶ誤クリックが発生 → 表示を厳密化)。"""
+        nm = ip.card.name if ip else f"iid{iid}"
+        if ip is not None and ip is getattr(me, "leader", None):
+            return f"リーダー{nm}"
+        return f"{nm}[iid{iid}]"
+
     def _describe_action(self, a: Action, state: GameState) -> str:
         me = state.turn_player
         if isinstance(a, PlayCharacter):
@@ -183,13 +194,13 @@ class LLMPlayerAI(GreedyAI):
             return f"DON+{n} → 自キャラ {nm} (パワー+{1000 * n})"
         if isinstance(a, AttackLeader):
             ip = self._find_inplay(state, a.attacker_iid)
-            nm = ip.card.name if ip else f"iid{a.attacker_iid}"
+            an = self._attacker_label(ip, a.attacker_iid, me)
             pw = ip.power if ip else "?"
-            return f"アタック: {nm}(Power{pw}) → 相手リーダー"
+            return f"アタック: {an}(Power{pw}) → 相手リーダー"
         if isinstance(a, AttackCharacter):
             at = self._find_inplay(state, a.attacker_iid)
             tg = self._find_inplay(state, a.target_iid)
-            an = at.card.name if at else f"iid{a.attacker_iid}"
+            an = self._attacker_label(at, a.attacker_iid, me)
             ap = at.power if at else "?"
             tn = tg.card.name if tg else f"iid{a.target_iid}"
             tp = tg.power if tg else "?"
