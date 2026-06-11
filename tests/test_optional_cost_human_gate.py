@@ -116,3 +116,61 @@ def test_human_accept_then_target_pick_chains():
     resolve_pending_choice(st, [0])  # 1体KO
     assert st.pending_choice is None
     assert len(p2.characters) == opp0 - 1, "選んだ相手キャラがKO"
+
+
+# discard_hand_with_filter cost を持つ optional_cost_then (= EB03-041 孔雀 等) で、
+# 人間が「どの該当カードを捨てるか」を choice できる (= 先頭一致 auto-pick でない)。
+# claudevsAI coby g5 で発見した human-control gap の regression guard。
+SPEC_DISCARD_DRAW = {
+    "optional_cost_then": {
+        "cost": [{"discard_hand_with_filter": {"count": 1, "filter": {"feature": "海軍"}}}],
+        "effect": [{"draw": 2}],
+    }
+}
+
+
+def _setup_discard(repo, overlay, human):
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    # 手札: 海軍 (EB04-044 コビー) ×3 = 捨てる候補が複数 → 選択の余地あり
+    p1.hand = [repo.get("EB04-044") for _ in range(3)]
+    p1.deck = [repo.get(FILLER) for _ in range(10)]
+    src = InPlay.of(repo.get("EB03-041"), sickness=False)
+    p1.characters = [src]
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(3),
+                   effects_overlay=overlay)
+    p1.don_active = 5
+    if human:
+        st.human_player_idx = 0
+        st.turn_player_idx = 0
+    return st, p1, p2, src
+
+
+def test_human_picks_which_card_to_discard():
+    """人間操作: optional_cost_then の discard cost で 捨てる該当カードを choice できる。"""
+    repo, overlay = _repo(), load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p1, p2, src = _setup_discard(repo, overlay, human=True)
+    hand0 = len(p1.hand)
+    execute_effect(SPEC_DISCARD_DRAW, st, p1, p2, src)
+    # 任意コスト gate → accept
+    assert st.pending_choice["kind"] == "optional_cost_confirm"
+    resolve_pending_choice(st, [1])
+    # どの 海軍 を 捨てるか の choice modal が 立つ (= auto-pick でない)
+    assert st.pending_choice is not None
+    assert st.pending_choice["kind"] == "counter_discard_pick", "捨て対象の choice modal"
+    assert len(st.pending_choice["candidates"]) == 3, "海軍3枚が候補"
+    resolve_pending_choice(st, [0])  # 候補0 を 捨てる
+    # 解決後: discard 1 + draw 2 (continuation) → net +1、 pending 解消
+    assert st.pending_choice is None
+    assert len(p1.trash) == 1, "discard は 1 枚のみ"
+    assert len(p1.hand) == hand0 - 1 + 2, "net +1 (discard1, draw2)"
+
+
+def test_ai_discard_cost_auto_picks_no_modal():
+    """AI 操作: discard cost は 従来通り 先頭一致 auto-discard (= modal なし、 回帰なし)。"""
+    repo, overlay = _repo(), load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p1, p2, src = _setup_discard(repo, overlay, human=False)
+    hand0 = len(p1.hand)
+    execute_effect(SPEC_DISCARD_DRAW, st, p1, p2, src)
+    assert st.pending_choice is None, "AI は gate/modal なしで自動 fire"
+    assert len(p1.trash) == 1 and len(p1.hand) == hand0 - 1 + 2

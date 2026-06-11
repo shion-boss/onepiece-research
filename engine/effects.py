@@ -7504,6 +7504,50 @@ def _execute_effect_body(
                     else:
                         d_filt = {k: v for k, v in df_spec.items() if k != "count"}
                     d_count = int(df_spec.get("count", 1))
+                    # 人間操作 中 + これが最後の cost spec (= 後続 cost なし → continuation が
+                    # effect のみ) + 実際に選択の余地 (= 該当候補 > 捨て枚数) の時は、 どの該当
+                    # カードを捨てるか を 本人 に 選ばせる (= counter_discard_pick + _continuation)。
+                    # claudevsAI coby g5 で EB03-041 孔雀 の discard が 先頭一致 auto だった gap。
+                    # 後続 cost ありの稀な 2 entry (OP04-055/OP02-048) と AI 操作 は 従来の auto。
+                    if _should_human_pick(state) and _ci == len(cost_specs) - 1:
+                        _matching = [
+                            (hi, c) for hi, c in enumerate(me.hand)
+                            if _matches_filter(c, d_filt)
+                        ]
+                        if len(_matching) > d_count:
+                            _oidx = state.players.index(me)
+                            _sid = (
+                                self_inplay.instance_id if self_inplay is not None else None
+                            )
+                            state.pending_choice = {
+                                "kind": "counter_discard_pick",
+                                "when_key": "cost",
+                                "card_id": (
+                                    self_inplay.card.card_id
+                                    if self_inplay is not None else ""
+                                ),
+                                "owner_idx": _oidx,
+                                "source_iid": _sid,
+                                "effect_idx": -1,  # enqueue 抑止 (effect は _continuation で実行)
+                                "discard_n": d_count,
+                                "cost": {"discard_hand_with_filter": df_spec},
+                                "candidates": [
+                                    {"hand_idx": hi, "card_id": c.card_id, "name": c.name,
+                                     "cost": int(c.cost) if c.cost is not None else 0,
+                                     "power": int(c.power) if c.power is not None else 0}
+                                    for hi, c in _matching
+                                ],
+                                "limit": d_count,
+                                "_continuation": {
+                                    "do": list(effect_specs),
+                                    "owner_idx": _oidx,
+                                    "source_iid": _sid,
+                                },
+                            }
+                            state.push_log(
+                                "  効果コスト: 捨てる 該当手札 を 選択 待ち (人間)"
+                            )
+                            return False
                     discarded = 0
                     new_hand = []
                     _disc_names = []
