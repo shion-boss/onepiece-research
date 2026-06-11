@@ -8833,6 +8833,22 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             if ip.instance_id == source_iid:
                 inplay = ip
                 break
+        # trash_self/self_ko を cost に含む起動メイン (= EB03-062 等 7 枚) では、 初回 pass で
+        # 既に source が場を離れトラッシュに移っている → source_iid で場を引けない。 その場合は
+        # トラッシュの CardDef から ghost InPlay を再構成し、 discard cost 適用 + do 継続する。
+        # これを怠ると discard も do も丸ごと unfire し、 自身 trash だけ済んで効果ゼロになる
+        # (= 2026-06-11 corazon mirror campaign 中に発見、 人間 discard pick の resume bug)。
+        if inplay is None:
+            scid = choice.get("source_card_id")
+            if scid:
+                ghost_card = next(
+                    (c for c in reversed(me.trash)
+                     if getattr(c, "card_id", None) == scid),
+                    None,
+                )
+                if ghost_card is not None:
+                    inplay = InPlay.of(ghost_card)
+                    inplay.instance_id = source_iid
         if inplay is None or effect_index is None:
             state.pending_choice = None
             return
@@ -11858,6 +11874,10 @@ def fire_activate_main(
             state.pending_choice = {
                 "kind": "activate_main_discard_pick",
                 "source_iid": inplay.instance_id,
+                # source_card_id: trash_self/self_ko を併用する cost (= EB03-062 等) では
+                # この時点で既に source が場を離れトラッシュにある。 resume 時に
+                # source_iid で場を引けないため card_id を持ち回し ghost 再構成する。
+                "source_card_id": inplay.card.card_id,
                 "effect_index": eff_idx,
                 "candidates": cand_list,
                 "limit": actual_n,
