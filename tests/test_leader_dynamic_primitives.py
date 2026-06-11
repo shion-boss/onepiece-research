@@ -118,6 +118,26 @@ def test_op08_098_then_life_to_hand_fires_op12_099_draw():
         f"OP12-099 のドローが発火すべき (hand {hand_before}→{len(p1.hand)})"
 
 
+def test_play_stage_from_hand_fires_stage_on_play():
+    """play_stage_from_hand (OP08-110 等) で登場したステージの【登場時】が発火する。
+
+    旧 bug: play_stage_from_hand primitive は trigger_on_play を呼ばず、 効果で登場した
+    ステージの【登場時】が dead だった (通常の PlayStage action は trigger_on_play する
+    のに 経路間 不整合)。 OP05-117 アッパーヤード = 【登場時】デッキ上5枚から空島1枚を手札へ。
+    """
+    repo, ov, st, p1, p2 = _setup("OP08-098")
+    upper = repo.get("OP05-117")  # アッパーヤード (stage, 登場時 空島 search)
+    sky = repo.get("OP15-108")    # ナミ (空島)
+    p1.hand = [upper]
+    p1.deck = [sky] + [repo.get("OP01-013")] * 5  # top に 空島
+    execute_effect({"play_stage_from_hand": {"filter": {"name": "アッパーヤード"}}},
+                   st, p1, p2, p1.leader)
+    resolve_triggers(st)
+    assert len(p1.stages) == 1, "アッパーヤードがステージとして登場するべき"
+    assert any(c.card_id == "OP15-108" for c in p1.hand), \
+        "アッパーヤードの【登場時】空島サーチが発火し空島が手札に入るべき"
+
+
 def test_self_effect_life_to_hand_fires_op05_107_and_turn_gated():
     """自己効果 life_to_hand が on_self_life_to_hand を発火 → OP05-107
     (自ターン中 自ライフ手札時 +2000) が乗る。 相手ターンでは self_turn gate で不発。"""

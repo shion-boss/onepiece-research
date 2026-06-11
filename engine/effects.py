@@ -4205,8 +4205,14 @@ def _execute_effect_body(
                     me.trash.append(s.card)
                     if s.attached_dons > 0:
                         me.don_rested += s.attached_dons
-                me.stages.append(InPlay.of(card, sickness=False))
+                stage_ip = InPlay.of(card, sickness=False)
+                me.stages.append(stage_ip)
                 state.push_log(f"  効果: 手札からステージ登場 {card.name}")
+                # 3-8-3: ステージエリアに置くことも「登場」 → 【登場時】を発動可。
+                # 通常の PlayStage action (game.py) と対称。 効果経路 (OP08-110 アッパーヤード /
+                # EB02-013 ゾウ / EB03-044 鬼ヶ島 等) でも stage の on_play を発火させる。
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, stage_ip, state.effects_overlay)
         elif k == "play_from_hand":
             # 「自分の手札からキャラ1枚を 0 コストで登場」(緑紫ルフィ起動メイン / OP10-071 ドフラ 等)。
             # spec: {"filter": {"feature": "...", "cost_le": N}, "limit": 1, "rested": bool}
