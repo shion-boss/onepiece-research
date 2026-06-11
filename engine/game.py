@@ -1910,6 +1910,7 @@ def _resolve_life_taken(
     """
     fired = False
     kept_in_hand = False
+    played_self = False
     if state.effects_overlay:
         from .effects import trigger_lifecard_trigger, should_fire_trigger
         if use_trigger is None:
@@ -1917,14 +1918,44 @@ def _resolve_life_taken(
         else:
             auto_fire = use_trigger
         state.last_trigger_kept_in_hand = False
+        # 「このカードを登場させる」 (play_self) 系 トリガー は、 taken が まだ どの zone
+        # にも無い (= life から limbo) ため play_self が card を見つけられず no-op → 後段で
+        # trash される bug があった。 事前に opp.trash 先頭へ置き play_self が pop→場 できる
+        # 様にする (= ラン OP14-114 / マーガレット OP14-113 等 全 「登場」 トリガー)。
+        bundle = state.effects_overlay.get(taken.card_id)
+        has_play_self_trig = bool(bundle) and any(
+            e.get("when") == "trigger"
+            and any(
+                isinstance(step, dict) and step.get("play_self")
+                for step in (e.get("do") or [])
+            )
+            for e in bundle.effects
+        )
+        pre_placed = bool(has_play_self_trig and auto_fire)
+        if pre_placed:
+            opp.trash.insert(0, taken)
         fired = trigger_lifecard_trigger(
             state, opp, me, taken, state.effects_overlay,
             auto_fire=auto_fire,
         )
         kept_in_hand = state.last_trigger_kept_in_hand
         state.last_trigger_kept_in_hand = False
+        if pre_placed:
+            still_in_trash = False
+            for _i, _c in enumerate(opp.trash):
+                if _c is taken:
+                    opp.trash.pop(_i)
+                    still_in_trash = True
+                    break
+            # still_in_trash=True → play_self が消費しなかった (条件不成立 / 場 full 等)
+            #   = temp を撤去 した上で 通常処理 (trash/hand) へ。
+            # still_in_trash=False → play_self が taken を 場 へ 登場 させた = 完了。
+            played_self = not still_in_trash
     went_to_hand: bool
-    if fired and not kept_in_hand:
+    if played_self:
+        state.push_log(f"  hit: {opp.name} trigger->登場 ({taken.name})")
+        went_to_hand = False
+    elif fired and not kept_in_hand:
         opp.trash.append(taken)
         state.push_log(f"  hit: {opp.name} trigger->trash ({taken.name})")
         went_to_hand = False
