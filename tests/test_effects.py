@@ -3851,6 +3851,64 @@ def test_search_human_pick_branch():
     assert len(state.pending_choice.get("candidates", [])) == 5, "候補 5 枚 揃わない"
 
 
+def test_search_top_n_human_pick_enforces_filter():
+    """engine fix (2026-06-11, bonney mirror campaign 中に発見): search_top_n の人間pick
+    解決 (_resolve_pending_choice_inner) が filter を検証せず、 範囲内 idx なら **非該当
+    カード** (= filter にマッチしない) も手札に加えられたバグの回帰防止。
+    AI/auto 経路 (search_top_n primitive 本体) は元から _matches_filter チェック済 =
+    人間経路だけ未チェックの不整合だった。
+    実例: OP13-012 ビビ の『コスト2以上の特徴《アラバスタ王国》か《麦わらの一味》1枚まで
+    手札に加える』 で 戦桃丸 (EB04-053 = エッグヘッド/海軍、 非該当) を掴めた。"""
+    from engine.effects import execute_effect, resolve_pending_choice
+    repo = _repo()
+    overlay = _overlay()
+    sentomaru = repo.get("EB04-053")  # エッグヘッド/海軍 cost2 → filter 非該当
+    sanji = repo.get("ST21-003")      # 麦わらの一味 cost2 → filter 該当
+    spec = {"search_top_n": {
+        "depth": 4,
+        "filter": {"feature_in": ["アラバスタ王国", "麦わらの一味"], "cost_ge": 2},
+        "limit": 1, "destination": "hand", "rest_remain": "bottom",
+    }}
+
+    # --- ケースA: 非該当 (戦桃丸, top4 idx0) を pick → 手札に加わらない ---
+    stA = _make_state(repo, "EB04-001", overlay=overlay)
+    stA.human_player_idx = 0
+    stA.turn_player_idx = 0
+    meA, oppA = stA.players[0], stA.players[1]
+    meA.deck = [sentomaru, sanji, sentomaru, sentomaru] + [sentomaru] * 20
+    meA.hand = []
+    execute_effect(spec, stA, meA, oppA, None)
+    assert (stA.pending_choice or {}).get("kind") == "search_top_n", \
+        "search_top_n の人間 modal が立たない"
+    resolve_pending_choice(stA, [0])  # 戦桃丸 (非該当 idx0) を指定
+    # 何も取らなかった場合、 残り4枚の底戻し reorder modal が立つ → 流す
+    guard = 0
+    while (stA.pending_choice or {}).get("kind") == "search_top_n_bottom_reorder":
+        resolve_pending_choice(stA, [])
+        guard += 1
+        assert guard < 5
+    assert sentomaru not in meA.hand, "非該当カード (戦桃丸) が手札に加わってしまった"
+    assert len(meA.hand) == 0, "非該当 pick で手札が増えてはいけない"
+
+    # --- ケースB: 該当 (サンジ, top4 idx1) を pick → 手札に加わる ---
+    stB = _make_state(repo, "EB04-001", overlay=overlay)
+    stB.human_player_idx = 0
+    stB.turn_player_idx = 0
+    meB, oppB = stB.players[0], stB.players[1]
+    meB.deck = [sentomaru, sanji, sentomaru, sentomaru] + [sentomaru] * 20
+    meB.hand = []
+    execute_effect(spec, stB, meB, oppB, None)
+    assert (stB.pending_choice or {}).get("kind") == "search_top_n"
+    resolve_pending_choice(stB, [1])  # サンジ (該当 idx1)
+    guard = 0
+    while (stB.pending_choice or {}).get("kind") == "search_top_n_bottom_reorder":
+        resolve_pending_choice(stB, [])
+        guard += 1
+        assert guard < 5
+    assert sanji in meB.hand, "該当カード (サンジ) が手札に加わっていない"
+    assert len(meB.hand) == 1, "該当 pick で手札が1枚増えるはず"
+
+
 def test_play_from_hand_or_trash_human_pick_branch():
     """play_from_hand_or_trash で 人間 acting + 候補 > limit なら
     pending_choice 'play_from_hand_or_trash_pick' が 立つ。"""

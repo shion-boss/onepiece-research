@@ -8842,11 +8842,25 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     rest_remain = choice.get("rest_remain", "bottom")
     rested_flag = bool(choice.get("rested", False))
     limit = int(choice.get("limit", 1))
+    filt = choice.get("filter", {}) or {}
     seen = me.deck[:depth]
     me.deck = me.deck[depth:]
-    valid_picks = [i for i in picks if 0 <= i < len(seen)][:limit]
+    # ⚠ 公式: 手札に加えられるのは filter に合致するカードのみ (= 「コストN以上の特徴Xを
+    #   1枚まで」)。 範囲内 idx でも _matches_filter を満たさなければ無効 (= 人間が非該当
+    #   カードを掴むのを防ぐ)。 AI/auto 経路 (上の search_top_n primitive) は元から filter を
+    #   チェック済で、 人間経路だけ未チェックだった不整合を解消。 重複 idx も除去 + limit cap。
+    #   2026-06-11 (bonney mirror campaign 中に発見: 戦桃丸=エッグヘッド/海軍 を 麦わら/アラ
+    #   バスタ サーチで手札に加えられた)。
+    valid_picks: list[int] = []
+    seen_i: set[int] = set()
+    for i in picks:
+        if len(valid_picks) >= limit:
+            break
+        if 0 <= i < len(seen) and i not in seen_i and _matches_filter(seen[i], filt):
+            seen_i.add(i)
+            valid_picks.append(i)
     picked = [seen[i] for i in valid_picks]
-    remaining = [c for i, c in enumerate(seen) if i not in valid_picks]
+    remaining = [c for i, c in enumerate(seen) if i not in seen_i]
     for c in picked:
         if destination == "play":
             if c.category != Category.CHARACTER:
