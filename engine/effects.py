@@ -3764,10 +3764,14 @@ def _execute_effect_body(
                 state.push_log(f"  効果: ライフ→手札 禁止 (OP02-023 効果中)")
                 return False
             n = int(v)
+            moved = 0
             for _ in range(n):
                 if me.life:
                     me.hand.append(me.life.pop(0))
+                    moved += 1
             state.push_log(f"  効果: ライフ{n}枚を手札へ")
+            if moved:
+                fire_self_life_to_hand(state, me)
         elif k == "add_don" or k == "add_don_active":
             # add_don_active は add_don の明示 alias (= ドンデッキから N 枚アクティブで追加)。
             # 公式: 「自分のドン!! デッキから、 ドン!! N 枚を自分の場にアクティブで追加する」
@@ -4291,10 +4295,14 @@ def _execute_effect_body(
                         state.push_log(f"  効果: ライフ→手札 禁止 (登場後ライフ獲得 不発)")
                     else:
                         n_life = int(v.get("then_life_to_hand"))
+                        moved = 0
                         for _ in range(n_life):
                             if me.life:
                                 me.hand.append(me.life.pop(0))
+                                moved += 1
                         state.push_log(f"  効果: 登場に伴いライフ上{n_life}枚を手札へ ({len(me.life)} 残)")
+                        if moved:
+                            fire_self_life_to_hand(state, me)
         elif k == "play_from_hand_choice":
             # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
             # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
@@ -9143,6 +9151,22 @@ def trigger_on_play(
     state.last_opp_chara_played_card = None
 
 
+def fire_self_life_to_hand(state: GameState, me: Player) -> None:
+    """自己効果で自分のライフが手札に加わった時に on_self_life_to_hand を発火。
+
+    damage 経路 (trigger_on_opp_life_taken の defender 側) と対称。OP08-098 カルガラ
+    リーダーの then_life_to_hand / life_to_hand primitive 等、 自分の効果で自ライフを
+    手札へ移した時の発火点。 OP05-107 スペーシー中尉 / OP12-099 カルガラ /
+    OP11-041 ナミ の『自分のターン中 ライフが (離れて) 手札に加わった時』系トリガーが
+    これで発火する (= これらは self-effect 経路では従来 silently dead だった)。
+    """
+    overlay = getattr(state, "effects_overlay", None)
+    if not overlay:
+        return
+    _enqueue_field_when(state, me, "on_self_life_to_hand", overlay)
+    _maybe_resolve(state)
+
+
 def trigger_on_opp_life_taken(
     state: GameState,
     attacker: Player,
@@ -9156,6 +9180,9 @@ def trigger_on_opp_life_taken(
     - defender 側: went_to_hand=True なら 「自分のライフが手札に加わった時」 (on_self_life_to_hand)
                     went_to_hand=False なら 「自分のライフがトラッシュに置かれた時」
                     (on_self_life_to_trash) — トリガー発動 or バニッシュで離脱した時
+    - defender 側: 「ダメージを受けた時」 (on_self_life_taken) — 戦闘ダメージで
+                    ライフが離れた時 (= OP13-002 等)。 自己効果の life_to_hand とは
+                    区別し、 戦闘ダメージ経路 でのみ発火する。
 
     OP08-105 ジュエリー・ボニー (attacker 側) / OP05-107 スペーシー中尉 (defender 側) 等。
     """
@@ -9166,6 +9193,7 @@ def trigger_on_opp_life_taken(
         _enqueue_field_when(state, defender, "on_self_life_to_hand", effects_overlay)
     else:
         _enqueue_field_when(state, defender, "on_self_life_to_trash", effects_overlay)
+    _enqueue_field_when(state, defender, "on_self_life_taken", effects_overlay)
     _maybe_resolve(state)
 
 

@@ -2085,7 +2085,7 @@
  "OP11-041": [
   {
    "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
-   "when": "on_self_life_taken",
+   "when": "on_self_life_to_hand",
    "if": {
     "self_turn": true,
     "self_hand_count_le": 7
@@ -10273,7 +10273,7 @@
  "OP12-099": [
   {
    "_text": "OP12-099 カルガラ 自ターン中ライフ離れた時: 1ドロー, ターン中 自効果ドロー禁止",
-   "when": "on_self_life_taken",
+   "when": "on_self_life_to_hand",
    "if": {
     "self_turn": true
    },
@@ -14239,7 +14239,7 @@
  "OP11-041_p1": [
   {
    "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
-   "when": "on_self_life_taken",
+   "when": "on_self_life_to_hand",
    "if": {
     "self_turn": true,
     "self_hand_count_le": 7

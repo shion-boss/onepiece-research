@@ -90,6 +90,57 @@ def test_op08_098_no_play_when_cost_exceeds_field_don():
     assert len(p1.life) == 2, "登場0なのでライフを手札に加えてはいけない"
 
 
+def test_op08_098_then_life_to_hand_fires_op12_099_draw():
+    """OP08-098 リーダーエンジンの then_life_to_hand が自場 OP12-099 の
+    『自分のターン中 ライフが手札に加わった時 1ドロー』 を発火する。
+
+    旧 bug: OP12-099 は when:on_self_life_taken を使うが このキーは engine の
+    どこからも発火されず (= dead key)、 かつ then_life_to_hand 経路は ライフ離脱
+    イベントを一切 emit していなかった → 空島デッキ中核コンボが silently dead。
+    修正: self-effect life→hand 経路で on_self_life_to_hand を発火 + overlay repoint。
+    """
+    repo, ov, st, p1, p2 = _setup("OP08-098")
+    st.turn_player_idx = 0  # 自分のターン (self_turn 成立)
+    draw_engine = InPlay.of(repo.get("OP12-099"), sickness=False)
+    p1.characters = [draw_engine]
+    shandra = repo.get("OP08-099")  # シャンドラの戦士 cost6
+    p1.don_active = shandra.cost + 1  # 場ドン ≥ cost
+    p1.hand = [shandra]
+    p1.life = [repo.get("OP01-013")] * 2
+    p1.deck = [repo.get("OP01-013")] * 5
+    hand_before = len(p1.hand)
+    execute_effect(_KARGARA_DO, st, p1, p2, p1.leader)
+    resolve_triggers(st)
+    assert len(p1.characters) == 2, "戦士が登場して場が2体"
+    assert len(p1.life) == 1, "登場できたのでライフ上1枚が手札へ"
+    # 登場(-1) + ライフ→手札(+1) + OP12-099 draw(+1) = 差し引き +1
+    assert len(p1.hand) == hand_before + 1, \
+        f"OP12-099 のドローが発火すべき (hand {hand_before}→{len(p1.hand)})"
+
+
+def test_self_effect_life_to_hand_fires_op05_107_and_turn_gated():
+    """自己効果 life_to_hand が on_self_life_to_hand を発火 → OP05-107
+    (自ターン中 自ライフ手札時 +2000) が乗る。 相手ターンでは self_turn gate で不発。"""
+    def run(turn_idx):
+        repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+        overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+        p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        spacey = InPlay.of(repo.get("OP05-107"), sickness=False)
+        p1.characters = [spacey]
+        p1.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(1),
+                       effects_overlay=overlay)
+        st.turn_player_idx = turn_idx
+        pow0 = spacey.power
+        execute_effect({"life_to_hand": 1}, st, p1, p2, p1.leader)
+        resolve_triggers(st)
+        return spacey.power - pow0
+
+    assert run(0) == 2000, "自ターン中の自ライフ→手札で OP05-107 +2000"
+    assert run(1) == 0, "相手ターンでは self_turn gate で不発"
+
+
 def test_op15_002_self_event_cost_used_ge_condition():
     """eval_condition 単体: このターン中の最大イベントコストで真偽。"""
     repo, ov, st, p1, p2 = _setup("OP15-002")
