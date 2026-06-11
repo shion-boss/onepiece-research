@@ -8321,15 +8321,7 @@
       ]
      }
     }
-   ],
-   "cost": {
-    "discard_hand_with_filter": {
-     "filter": {
-      "feature": "海軍"
-     },
-     "count": 1
-    }
-   }
+   ]
   },
   {
    "_text": "EB03-041 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",
@@ -33580,15 +33572,7 @@
       ]
      }
     }
-   ],
-   "cost": {
-    "discard_hand_with_filter": {
-     "filter": {
-      "feature": "海軍"
-     },
-     "count": 1
-    }
-   }
+   ]
   },
   {
    "_text": "EB03-041_p1 孔雀 相手ターン中: 自コスト6以下 SWORD キャラ全員 +2000",

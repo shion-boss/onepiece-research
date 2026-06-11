@@ -30,6 +30,10 @@ REAL_COST_KEYS = {
     # 2026-05-31 追加: inline 監査で trash_self + return_self_to_trash 系の二重 (16 entry) が
     # 旧 REAL set から漏れていた (OP14-083 / ST22-002 等)。 同義 self-cost spelling を網羅。
     "return_self_to_trash", "return_self_to_hand",
+    # 2026-06-11 追加: EB03-041 孔雀 (claudevsAI coby g5 中に発見) が discard_hand_with_filter で
+    # 二重コスト (top-level + optional_cost_then) を持っていたが、 旧 set が bare discard_hand しか
+    # 含まず guard をすり抜けていた。 filter 付き discard も実リソース cost なので網羅。
+    "discard_hand_with_filter",
 }
 # 意図的に残す例外: rest_self の冪等重複のみで実害なし (ホーミーズ犠牲 cost は oct で 1 回)
 ALLOWLIST = {"OP04-111"}
@@ -97,3 +101,34 @@ def test_op13_026_activate_main_rests_exactly_1_don():
     fire_activate_main(st, p1, p2, src, am)
     resolve_triggers(st)
     assert p1.don_rested == 1, f"expected 1, got {p1.don_rested}"
+
+
+def test_eb03_041_discards_exactly_one_and_draws_two():
+    """EB03-041 孔雀 【登場時】 海軍1枚捨て→draw2 が discard を 1 回だけ 請求する。
+
+    旧 bug (claudevsAI coby g5 中に発見): on_play が top-level cost (discard 海軍1) と
+    do 内 optional_cost_then cost (discard 海軍1) を 二重に持ち、 draw2 に 2 枚 discard を
+    要求していた。 修正 = top-level cost 削除 (optional_cost_then のみ)。
+    """
+    from engine.effects import execute_effect
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p1 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p2 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    # 手札: 海軍 (EB04-044 コビー = 海軍/SWORD) 3 枚 (discard 候補)
+    p1.hand = [repo.get("EB04-044") for _ in range(3)]
+    p1.deck = [repo.get("OP01-013") for _ in range(10)]
+    src = InPlay.of(repo.get("EB03-041"), sickness=False)
+    p1.characters = [src]
+    st = GameState(players=[p1, p2], phase=Phase.MAIN, rng=random.Random(5),
+                   effects_overlay=overlay)
+    p1.don_active = 5
+    # AI 操作 (human_player_idx 未設定) → optional_cost_then は 自動 fire
+    hand0, trash0 = len(p1.hand), len(p1.trash)
+    on_play = [e for e in overlay["EB03-041"].effects if e.get("when") == "on_play"][0]
+    for d in on_play.get("do", []):
+        execute_effect(d, st, p1, p2, src)
+    assert len(p1.trash) == trash0 + 1, f"discard は 1 枚のみ (got {len(p1.trash) - trash0})"
+    assert len(p1.hand) == hand0 - 1 + 2, (
+        f"net +1 (discard1, draw2) のはず; got {len(p1.hand) - hand0:+d}"
+    )
