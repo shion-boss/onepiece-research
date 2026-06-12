@@ -1524,6 +1524,12 @@ class GreedyAI:
         # take ロジックに委ねる (= life0 なら counter で wall して生存を狙う)。
         if can_block and self._blocking_grants_opp_win(state, defender):
             can_block = False
+        # ⚠ 2026-06-12: ブロック発動で自陣キャラが KO される罰 (= ST10-006 ルフィ等の
+        # on_opp_blocker_use→ko) がある時、 ライフ安全圏 (≥3) ではブロックしない
+        # (= 1 ライフを守るためにキャラ 1 枚を失う割に合わない罰を踏まない、 counter/受けで対応)。
+        # 低ライフ (≤2) では survival 優先で従来通りブロック許可。
+        if can_block and life_left >= 3 and self._blocking_punished_by_opp_ko(state, defender):
+            can_block = False
         if can_block:
             _atk_pwr_lock = attacker.attacker_prevents_blocker_power_le
             available = [
@@ -1649,15 +1655,14 @@ class GreedyAI:
             return block_iid, tuple(spent)
         return block_iid, ()
 
-    def _blocking_grants_opp_win(self, state: GameState, defender: Player) -> bool:
-        """今ブロッカーを発動すると相手 (= アタッカー側) が即勝利する状況か。
-
-        OP09-118 ゴール・D・ロジャー等の【相手が【ブロッカー】を発動した時】 (when=
-        on_opp_blocker_use) で win_game を行う効果が、 アタッカー側の場に在り、 かつ if 句
-        (= life_zero_either 等) が成立する時に True。 True なら防御側は絶対にブロックしては
-        ならない (= ブロック発動 = 相手の勝利条件を踏んで即敗北)。
+    def _attacker_on_block_has_primitive(
+        self, state: GameState, defender: Player, prim_keys: set
+    ) -> bool:
+        """アタッカー側の場に when=on_opp_blocker_use かつ do に prim_keys のいずれかを含み、
+        if 句が成立する効果が在るか (= 防御側が今ブロックすると発火する罰)。
 
         engine の trigger_on_opp_blocker_use と同じ視点 (me=アタッカー側) で条件評価する。
+        OP09-118 ロジャー (win_game) / ST10-006 ルフィ (ko) 等。
         """
         overlay = state.effects_overlay
         if not overlay:
@@ -1683,12 +1688,26 @@ class GreedyAI:
             for eff in bundle.effects:
                 if eff.get("when") != "on_opp_blocker_use":
                     continue
-                if not any("win_game" in prim for prim in eff.get("do", [])):
+                do_keys: set = set()
+                for prim in eff.get("do", []):
+                    do_keys.update(prim.keys())
+                if not (do_keys & prim_keys):
                     continue
                 # engine と同じ me=attacker_side で if 句 (life_zero_either 等) を評価
                 if eval_all_conditions(eff, state, attacker_side, inplay):
                     return True
         return False
+
+    def _blocking_grants_opp_win(self, state: GameState, defender: Player) -> bool:
+        """今ブロッカーを発動すると相手が即勝利するか (= OP09-118 ロジャー、 win_game)。
+        True なら絶対にブロックしてはならない (= 即敗北)。"""
+        return self._attacker_on_block_has_primitive(state, defender, {"win_game"})
+
+    def _blocking_punished_by_opp_ko(self, state: GameState, defender: Player) -> bool:
+        """今ブロッカーを発動すると相手の【相手ブロッカー発動時】効果で自陣キャラが KO されるか
+        (= ST10-006 ルフィ「相手 power8000 以下キャラ 1 枚 KO」 等)。 即敗北ではないが
+        ブロック発動 = 自陣キャラ 1 枚喪失の罰なので、 ライフ安全圏では block しない方が得。"""
+        return self._attacker_on_block_has_primitive(state, defender, {"ko", "ko_multi"})
 
     def _is_valuable_blocker(self, c: InPlay) -> bool:
         """ブロッカーを「counter で救う価値あり」 と判定するか (Phase 7A)。

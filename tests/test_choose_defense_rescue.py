@@ -440,3 +440,61 @@ def test_block_normal_when_roger_but_both_life_positive():
     block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
     assert block_iid == blocker.instance_id, \
         f"両者 life>0 なら win_game 条件不成立 → 通常 block するはず (got {block_iid})"
+
+
+def _st10006_overlay():
+    """ST10-006 ルフィ: 相手ブロッカー発動時に自陣 power8000以下キャラ 1 枚 KO。"""
+    from engine.effects import CardEffectBundle
+    return {
+        "ST10-006": CardEffectBundle(
+            card_id="ST10-006",
+            effects=[{
+                "when": "on_opp_blocker_use",
+                "cost": {"once_per_turn": True},
+                "do": [{"ko": {"type": "one_opponent_character_filtered",
+                               "filter": {"current_power_le": 8000}}}],
+            }],
+        )
+    }
+
+
+def test_no_block_when_punished_by_opp_ko_at_safe_life():
+    """ST10-006 在場 + ライフ安全 (≥3) では、 ブロックでキャラを失う罰を避けて block しない。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=3)
+    state.effects_overlay = _st10006_overlay()
+    me = state.players[0]
+    opp = state.players[1]
+    blocker = _make_blocker_5k(repo)
+    blocker.attached_dons = 1  # 6000
+    me.characters = [blocker]
+    me.hand = []
+    st10 = InPlay.of(repo.get("ST10-006"), sickness=False)
+    attacker = _make_attacker(repo, power=5000)
+    opp.characters = [st10, attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert block_iid is None, \
+        f"ST10-006 在場 + 安全ライフ では block しない (キャラ KO の罰回避) はず (got {block_iid})"
+
+
+def test_block_when_punished_by_opp_ko_at_low_life():
+    """ST10-006 在場でも低ライフ (≤2) なら survival 優先でブロックする。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=2)
+    state.effects_overlay = _st10006_overlay()
+    me = state.players[0]
+    opp = state.players[1]
+    blocker = _make_blocker_5k(repo)
+    blocker.attached_dons = 1  # 6000
+    me.characters = [blocker]
+    me.hand = []
+    st10 = InPlay.of(repo.get("ST10-006"), sickness=False)
+    attacker = _make_attacker(repo, power=5000)
+    opp.characters = [st10, attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert block_iid == blocker.instance_id, \
+        f"低ライフでは ST10-006 でも survival 優先で block するはず (got {block_iid})"
