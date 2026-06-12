@@ -24,13 +24,22 @@ FEATURE_KEYS = (
 # v2 = 21 (2026-06-05): v1 が ROC0.755 で飽和 (= 37k sample でも不変 → データでなく特徴が天井)。
 # race圏 (lethal) と 手札 counter 総量 (= 防御資源、 線形 eval が捉えぬ交互作用) を追加。
 FEATURE_KEYS_V2 = FEATURE_KEYS + ("my_lethal", "opp_lethal", "my_counter", "opp_counter")
+# v3 = 23 (2026-06-12): v2 は d_don (= total_don diff) しか持たず active/tapped を区別できない。
+# raw active DON (= 各自の untapped DON) を追加 = 「DON0窓 (tap out)」「守備リザーブ (counter-event 用)」
+# を value 化する狙い (= #7 counter-event 守備修正で初めて活きた防御資源)。
+# ⚠ A/B 実測 (2026-06-12、 改善後AIで 1000戦学習、 各 vs deployed N=300):
+#   op13 = v3 53% / v2recal 50% (= +3pt) だが 1342 = v3 47% / v2recal 47% (= ±0) → 再現性なし=ノイズ。
+#   ROC も op13 0.725→0.729、 1342 0.812→0.814 でほぼ不変。 ⇒ raw DON は value を有意に改善せず、
+#   v3 GBM は deploy しない (= deployed は v2 のまま)。 この機構は 将来の別特徴 実験用の scaffold として残置。
+FEATURE_KEYS_V3 = FEATURE_KEYS_V2 + ("my_don_active", "opp_don_active")
 
 _MODEL = None
 _MODEL_PATH: Optional[str] = None
 SCALE = 1_000_000.0
 
 
-def features(state: Any, me_idx: int, rich: Optional[bool] = None) -> list:
+def features(state: Any, me_idx: int, rich: Optional[bool] = None,
+             v3: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。"""
     from .eval import _player_metrics
@@ -51,17 +60,27 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None) -> list:
     ]
     if rich is None:
         rich = os.environ.get("ONEPIECE_GBM_RICH") == "1"
+    if v3 is None:
+        v3 = os.environ.get("ONEPIECE_GBM_V3") == "1"
+    if v3:
+        rich = True  # v3 ⊃ v2
     if not rich:
         return base
     from .eval import lethal_estimate
     me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
     my_counter = sum(int(getattr(c, "counter", 0) or 0) for c in me_p.hand)
     opp_counter = sum(int(getattr(c, "counter", 0) or 0) for c in opp_p.hand)
-    return base + [
+    out = base + [
         float(lethal_estimate(state, me_idx)),
         float(lethal_estimate(state, 1 - me_idx)),
         my_counter, opp_counter,
     ]
+    if v3:
+        out += [
+            int(getattr(me_p, "don_active", 0) or 0),
+            int(getattr(opp_p, "don_active", 0) or 0),
+        ]
+    return out
 
 
 def _load(path: str):
@@ -93,9 +112,11 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
         return 0.0
     try:
         model = _load(path)
-        # model の次元で v1(17)/v2(21) を自動判別 (= deployed 17特徴 GBM を壊さず後方互換)。
+        # model の次元で v1(17)/v2(21)/v3(23) を自動判別 (= 既存 GBM を壊さず後方互換)。
         n_feat = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
-        x = [features(state, me_idx, rich=(n_feat == len(FEATURE_KEYS_V2)))]
+        x = [features(state, me_idx,
+                      rich=(n_feat == len(FEATURE_KEYS_V2)),
+                      v3=(n_feat == len(FEATURE_KEYS_V3)))]
         p = float(model.predict_proba(x)[0][1])
         return (p - 0.5) * SCALE
     except Exception:

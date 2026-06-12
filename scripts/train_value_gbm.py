@@ -101,13 +101,17 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=REPO_ROOT / "db" / "value_gbm_cardrush_1342.pkl")
     ap.add_argument("--rich", action=argparse.BooleanOptionalAction, default=True,
                     help="rich(v2=21特徴: lethal+counter)で学習 (既定)。 --no-rich で v1(17特徴)")
+    ap.add_argument("--v3", action="store_true",
+                    help="v3(23特徴: v2 + raw active DON)で学習。 --rich を上書きで有効化")
     args = ap.parse_args()
 
-    # rich を worker spawn 前に env で伝播 (= fork 継承、 gbm_value.features が読む)。
-    os.environ["ONEPIECE_GBM_RICH"] = "1" if args.rich else "0"
+    # rich/v3 を worker spawn 前に env で伝播 (= fork 継承、 gbm_value.features が読む)。
+    os.environ["ONEPIECE_GBM_RICH"] = "1" if (args.rich or args.v3) else "0"
+    os.environ["ONEPIECE_GBM_V3"] = "1" if args.v3 else "0"
 
+    _tag = "v3" if args.v3 else ("rich-v2" if args.rich else "v1")
     print(f"=== collect beam-vs-greedy ({args.deck}, {args.games} games, "
-          f"{'rich-v2' if args.rich else 'v1'}) ===", flush=True)
+          f"{_tag}) ===", flush=True)
     t0 = time.perf_counter()
     seeds = list(range(800000, 800000 + args.games))
     rows: list = []
