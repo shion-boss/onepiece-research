@@ -11701,13 +11701,29 @@ def estimate_opp_attack_buff_to_leader(
                 continue
             for prim in eff.get("do", []):
                 pp = prim.get("power_pump")
-                if not pp:
+                if pp:
+                    target = pp.get("target", "self")
+                    amount = int(pp.get("amount", 0))
+                    # opp 視点の self_leader / self → opp.leader 自身が強化される
+                    if target in ("self_leader", "self") and amount > 0:
+                        total += amount
                     continue
-                target = pp.get("target", "self")
-                amount = int(pp.get("amount", 0))
-                # opp 視点の self_leader / self → opp.leader 自身が強化される
-                if target in ("self_leader", "self") and amount > 0:
-                    total += amount
+                # 可変 DON-rest 防御 pump (= OP13-001 赤緑ルフィ leader 等):
+                # 「自ドンを任意枚 rest → 1 枚毎に leader/麦わら を +amount_per_rest」。
+                # power_pump と違い amount が固定でないため別途集計しないと AI が
+                # est_def を 過小評価し pump-leader へ boost 空振り する (= campaign #2)。
+                # 防御で rest 可能な枚数 = min(opp.don_active, max)。 if 句 (attached_don_ge /
+                # don_active_le 等) は上の eval_all_conditions で既に検証済 = pump online 時のみ来る。
+                rb = prim.get("rest_self_don_for_battle_buff_per_don")
+                if rb:
+                    target = rb.get("target", "self_leader")
+                    if target not in ("self_leader", "self"):
+                        continue
+                    amount_per = int(rb.get("amount_per_rest", 0))
+                    max_n = int(rb.get("max", 5))
+                    restable = min(opp.don_active, max_n)
+                    if amount_per > 0 and restable > 0:
+                        total += amount_per * restable
     return total
 
 

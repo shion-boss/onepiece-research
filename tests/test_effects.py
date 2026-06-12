@@ -1185,6 +1185,59 @@ def test_estimate_opp_attack_buff():
     assert buff2 == 0, f"条件不成立で 0 が返るはず ({buff2})"
 
 
+def test_estimate_opp_attack_buff_don_rest_pump():
+    """OP13-001 型の可変 DON-rest 防御 pump (rest_self_don_for_battle_buff_per_don) を
+    est_def に反映する (= campaign #2: pump-leader への boost 空振り回避)。
+
+    旧実装は power_pump しか集計せず この pump を完全に見落とし → AI が est_def を
+    過小評価し pump-leader へ boost 空振りで DON を浪費していた。
+    """
+    from engine.effects import estimate_opp_attack_buff_to_leader, CardEffectBundle
+
+    repo = _repo()
+    state = _make_state(repo, "OP01-001", overlay={})
+    opp = state.players[1]
+    # pump online: leader に 1 DON 付与 + active DON 3 枚 (≤5)
+    opp.leader.attached_dons = 1
+    opp.don_active = 3
+
+    test_overlay = {
+        opp.leader.card.card_id: CardEffectBundle(
+            card_id=opp.leader.card.card_id,
+            effects=[{
+                "when": "opp_attack",
+                "if": {"self_attached_don_ge": 1, "self_don_active_le": 5},
+                "do": [{
+                    "rest_self_don_for_battle_buff_per_don": {
+                        "target": "self_leader", "amount_per_rest": 2000, "max": 5,
+                    }
+                }],
+            }],
+        )
+    }
+    state.effects_overlay = test_overlay
+    # active DON 3 枚 rest → +2000×3 = 6000
+    buff = estimate_opp_attack_buff_to_leader(state, opp, test_overlay)
+    assert buff == 6000, f"DON3 rest pump = +6000 を見積もるはず ({buff})"
+
+    # max cap: active DON 多くても max=5 枚で頭打ち。 ただし don_active>5 では if 句
+    # self_don_active_le:5 が不成立 → pump off → 0 (= 公式条件通り)。
+    opp.don_active = 8
+    buff_off = estimate_opp_attack_buff_to_leader(state, opp, test_overlay)
+    assert buff_off == 0, f"active DON 6+ は pump 条件不成立で 0 ({buff_off})"
+
+    # active 5 枚ちょうど (条件成立) → +2000×5 = 10000 (max cap 内)
+    opp.don_active = 5
+    buff_max = estimate_opp_attack_buff_to_leader(state, opp, test_overlay)
+    assert buff_max == 10000, f"DON5 rest pump = +10000 ({buff_max})"
+
+    # leader に DON 未付与 → pump 条件不成立 → 0
+    opp.don_active = 3
+    opp.leader.attached_dons = 0
+    buff_no_don = estimate_opp_attack_buff_to_leader(state, opp, test_overlay)
+    assert buff_no_don == 0, f"leader DON 未付与は pump 条件不成立で 0 ({buff_no_don})"
+
+
 def test_avoid_low_power_attack_against_buffed_leader():
     """opp.leader が opp_attack +2000 buff 持ちなら、 atk=5000 では viable と見なされない"""
     from engine.ai import GreedyAI

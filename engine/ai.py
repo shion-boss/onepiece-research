@@ -2463,17 +2463,22 @@ class DeepPlanningAI(GreedyAI):
         # 「対象 完全 block」 でも 相手 counter 1 枚消費 = 相手 手札 -1 で 価値あり。
         me = state.players[state.turn_player_idx]
         opp = state.players[1 - state.turn_player_idx]
+        # opp リーダーの「防御後」 power 見積もり (= 素 power + 相手アタック時 buff)。
+        # ⚠ 2026-06-12: estimate_opp_attack_buff_to_leader が rest_self_don_for_battle_buff_per_don
+        # (= OP13-001 赤緑ルフィ等の可変 DON-rest pump) を集計する様に修正 → est_def が正確化。
+        # これにより leader/char を pump-leader へ boost する空振り (= campaign #2 で人間に突かれた
+        # DON 浪費) を抑制。 leader/char 両ブロックで共有するため事前に 1 回計算。
+        est_opp_buff = 0
+        if state.effects_overlay:
+            try:
+                from .effects import estimate_opp_attack_buff_to_leader
+                est_opp_buff = estimate_opp_attack_buff_to_leader(
+                    state, opp, state.effects_overlay
+                )
+            except Exception:
+                est_opp_buff = 0
+        est_def = opp.leader.power + est_opp_buff
         if not me.leader.rested and not me.leader.summoning_sickness:
-            est_opp_buff = 0
-            if state.effects_overlay:
-                try:
-                    from .effects import estimate_opp_attack_buff_to_leader
-                    est_opp_buff = estimate_opp_attack_buff_to_leader(
-                        state, opp, state.effects_overlay
-                    )
-                except Exception:
-                    est_opp_buff = 0
-            est_def = opp.leader.power + est_opp_buff
             leader_attacks = [
                 a for a in actions
                 if isinstance(a, AttackLeader)
@@ -2552,10 +2557,18 @@ class DeepPlanningAI(GreedyAI):
                 # 届かないが 1 DON 圏内 (= 上の char_attackers 条件で選別済) → **素の power で
                 # 攻撃せず 先に DON を付ける** (= 2026-06-06 修正、 ohtsuki 指摘の「2000+2DON で
                 # 5000 リーダーに空振り」 バグ。 旧コードは届かない power のまま attack を return)。
-                don_needed = ((opp.leader.power - atk.power) + 999) // 1000
-                if me.don_active >= don_needed and atk.attached_dons + don_needed <= 4:
+                # ⚠ 2026-06-12: gap を素 power でなく est_def (= 防御後 power) 基準にし、 1-2 DON で
+                # 届く時のみ boost。 pump-leader (OP13-001 等) で gap が大きい時は boost しても結局
+                # 空振り → DON を使わず plan_search に委ねる (= campaign #2 で人間に突かれた DON 浪費)。
+                gap_to_def = est_def - atk.power
+                don_needed = (gap_to_def + 999) // 1000
+                if (
+                    0 < gap_to_def <= 2000
+                    and me.don_active >= don_needed
+                    and atk.attached_dons + don_needed <= 4
+                ):
                     return AttachDonToCharacter(target_iid=atk.instance_id, n=1)
-                # DON 不足で届かない → 強制 attack せず plan_search に委ねる (= 空振り回避)
+                # DON 不足 / pump で届かない → 強制 attack/boost せず plan_search に委ねる (= 空振り回避)
 
         # adaptive params の決定 (= R72+)
         if self.adaptive:
