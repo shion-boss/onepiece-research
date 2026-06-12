@@ -1543,6 +1543,26 @@ class GreedyAI:
         counter_total = sum(defender.hand[i].counter for i in spent)
 
         if is_leader_attack:
+            # ⚠ 2026-06-12: 高ライフでの near-free チップは受ける (= 手札温存)。
+            # campaign (Claude vs AI) で人間に最も繰り返し突かれた弱点 = 過剰カウンター。
+            # 配備 AI は安全圏のライフでも単発チップに counter 1 枚を吐き、 数ターンで手札が
+            # 枯れ、 本命の防御 / alpha 用の counter を失っていた (= 全16デッキで勝因頻発)。
+            # 原理: ライフが安全 (≥3) なら「カード 1 枚を捨てて 1 ライフを守る」 のは損 ——
+            #   受ければ被弾ライフが手札に入り (+1 card)、 counter は本命の脅威まで温存できる。
+            # ブロッカーで止める時 (block_iid) / finisher / avoid_life_loss デッキ は除外
+            # (= 価値ある防御は従来通り維持)。 攻撃の脅威度は gap (= 実効攻撃力 - リーダー
+            # power) で測る (手札構成に依存しない)。 gap が小さい = 相手が boost を投じていない
+            # near-free チップ。 ライフが減るほど慎重に: life≥4 は 1 DON boost まで (gap≤1000)、
+            # life=3 は純チップ (gap≤0、 = atk がちょうど届くだけ) のみ受ける。
+            if (
+                getattr(self, "_take_chip_high_life", True)
+                and block_iid is None
+                and life_left >= 3
+                and not self.avoid_life_loss
+                and gap <= (1000 if life_left >= 4 else 0)
+                and self._get_card_primary_role(attacker.card.card_id) != "finisher"
+            ):
+                return block_iid, ()
             # アーキタイプ別の閾値テーブルを参照 (defense_thresholds)
             life_key = max(1, min(life_left, 4))
             max_total, max_cards = self.defense_thresholds.get(

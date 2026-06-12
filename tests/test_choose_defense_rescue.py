@@ -259,3 +259,93 @@ def test_is_rescue_worthwhile_low_power():
         "3000 blocker で 2000 counter は過剰"
     assert not ai._is_rescue_worthwhile(b3k, rescue_total=1000, rescue_count=2, life_left=3), \
         "3000 blocker で 2 枚 counter は過剰"
+
+
+
+# ─────────────────────────────────────────────────────
+# Test: 高ライフでの near-free チップは受ける (= 過剰カウンター抑制、 2026-06-12)
+# campaign (Claude vs AI) で人間に最も繰り返し突かれた弱点への対策。
+# 配備 AI (op13=ランプ {4:(3000,1)} / control {4:(5000,2)}) は高ライフでも単発チップに
+# counter を吐き、 数ターンで手札が枯れていた。
+# ─────────────────────────────────────────────────────
+
+
+def _greedy_generous_thresholds():
+    """高ライフで counter する寛容な閾値の GreedyAI (= 多くの control/midrange 相当)。
+
+    matchup override が呼ばれると閾値を _base から再構築するので no-op 化し、
+    new take ルールを isolate して検証する。
+    """
+    ai = GreedyAI()
+    ai._ensure_matchup_overrides = lambda *a, **k: None  # type: ignore
+    ai.defense_thresholds = {1: (99999, 99), 2: (8000, 3), 3: (7000, 2), 4: (3000, 1)}
+    ai.avoid_life_loss = False
+    return ai
+
+
+def test_take_near_free_chip_at_high_life():
+    """life=4 で gap≤1000 の near-free チップは受ける (= counter 温存)。
+
+    寛容閾値 {4:(3000,1)} なら旧挙動は 1000 counter で守る。 新ルールで受ける (counters == ())。
+    """
+    repo = _repo()
+    state = _make_state(repo, defender_life=4)
+    me = state.players[0]
+    me.characters = []
+    me.hand = [_counter_card(repo, 1000)]
+    attacker = _make_attacker(repo, power=5000)  # gap 0 vs 5000 leader
+    state.players[1].characters = [attacker]
+
+    ai = _greedy_generous_thresholds()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert block_iid is None
+    assert counters == (), f"高ライフの near-free チップは受けるはず (got {counters})"
+
+
+def test_counter_chip_at_low_life():
+    """life=2 では near-free チップでも counter する (= 高ライフ take ルールは発火しない)。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=2)
+    me = state.players[0]
+    me.characters = []
+    me.hand = [_counter_card(repo, 1000)]
+    attacker = _make_attacker(repo, power=5000)
+    state.players[1].characters = [attacker]
+
+    ai = _greedy_generous_thresholds()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert counters != (), "低ライフ (≤2) ではチップでも counter するはず"
+
+
+def test_counter_boosted_attack_at_life3():
+    """life=3 では gap>0 の boost 攻撃 (= 単なるチップでない) は従来通り counter する。
+
+    純チップ (gap≤0) のみ受け、 1 DON でも boost された攻撃は守る (= ライフが減るほど慎重)。
+    """
+    repo = _repo()
+    state = _make_state(repo, defender_life=3)
+    me = state.players[0]
+    me.characters = []
+    me.hand = [_counter_card(repo, 2000)]
+    attacker = _make_attacker(repo, power=6000)  # gap 1000 > 0
+    state.players[1].characters = [attacker]
+
+    ai = _greedy_generous_thresholds()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert counters != (), "life=3 で gap>0 の boost 攻撃は counter するはず"
+
+
+def test_avoid_life_loss_deck_still_counters_chip():
+    """avoid_life_loss シグナルのデッキは高ライフでもチップを counter (= 高ライフ維持重視)。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=4)
+    me = state.players[0]
+    me.characters = []
+    me.hand = [_counter_card(repo, 1000)]
+    attacker = _make_attacker(repo, power=5000)
+    state.players[1].characters = [attacker]
+
+    ai = _greedy_generous_thresholds()
+    ai.avoid_life_loss = True
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert counters != (), "avoid_life_loss デッキは高ライフでもチップを守るはず"
