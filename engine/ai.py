@@ -1516,6 +1516,14 @@ class GreedyAI:
             and not attacker.has_no_block_now
             and not attacker.attacker_prevents_blocker_until_turn_end
         )
+        # ⚠ 2026-06-12 BUGFIX (campaign 1456 g5 で観測): ブロッカー発動が相手の
+        # 【相手ブロッカー発動時】 win_game を誘発する状況 (= OP09-118 ゴール・D・ロジャー
+        # 在場 + どちらかの life0) では絶対にブロックしない。 旧 choose_defense は blocker を
+        # 選び発動 → 相手の勝利条件を踏んで即敗北していた。 正しくは block せず counter で
+        # wall するか受ける。 ブロッカー選択を無効化 (= can_block False) して以降の counter/
+        # take ロジックに委ねる (= life0 なら counter で wall して生存を狙う)。
+        if can_block and self._blocking_grants_opp_win(state, defender):
+            can_block = False
         if can_block:
             _atk_pwr_lock = attacker.attacker_prevents_blocker_power_le
             available = [
@@ -1640,6 +1648,47 @@ class GreedyAI:
         if target.card.cost >= 4 and len(spent) <= 1 and counter_total <= 2000:
             return block_iid, tuple(spent)
         return block_iid, ()
+
+    def _blocking_grants_opp_win(self, state: GameState, defender: Player) -> bool:
+        """今ブロッカーを発動すると相手 (= アタッカー側) が即勝利する状況か。
+
+        OP09-118 ゴール・D・ロジャー等の【相手が【ブロッカー】を発動した時】 (when=
+        on_opp_blocker_use) で win_game を行う効果が、 アタッカー側の場に在り、 かつ if 句
+        (= life_zero_either 等) が成立する時に True。 True なら防御側は絶対にブロックしては
+        ならない (= ブロック発動 = 相手の勝利条件を踏んで即敗北)。
+
+        engine の trigger_on_opp_blocker_use と同じ視点 (me=アタッカー側) で条件評価する。
+        """
+        overlay = state.effects_overlay
+        if not overlay:
+            return False
+        try:
+            from .effects import eval_all_conditions
+        except Exception:
+            return False
+        try:
+            defender_idx = state.players.index(defender)
+        except ValueError:
+            return False
+        attacker_side = state.players[1 - defender_idx]
+        candidates = [
+            attacker_side.leader,
+            *attacker_side.characters,
+            *getattr(attacker_side, "stages", []),
+        ]
+        for inplay in candidates:
+            bundle = overlay.get(inplay.card.card_id)
+            if bundle is None:
+                continue
+            for eff in bundle.effects:
+                if eff.get("when") != "on_opp_blocker_use":
+                    continue
+                if not any("win_game" in prim for prim in eff.get("do", [])):
+                    continue
+                # engine と同じ me=attacker_side で if 句 (life_zero_either 等) を評価
+                if eval_all_conditions(eff, state, attacker_side, inplay):
+                    return True
+        return False
 
     def _is_valuable_blocker(self, c: InPlay) -> bool:
         """ブロッカーを「counter で救う価値あり」 と判定するか (Phase 7A)。

@@ -349,3 +349,94 @@ def test_avoid_life_loss_deck_still_counters_chip():
     ai.avoid_life_loss = True
     block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
     assert counters != (), "avoid_life_loss デッキは高ライフでもチップを守るはず"
+
+
+# ─────────────────────────────────────────────────────
+# Test: ロジャー OP09-118 在場 + life0 で block すると相手即勝利 → ブロックしない
+# (campaign 1456 g5 で観測した block self-lose バグ、 2026-06-12)
+# ─────────────────────────────────────────────────────
+
+
+def _roger_overlay():
+    from engine.effects import CardEffectBundle
+    return {
+        "OP09-118": CardEffectBundle(
+            card_id="OP09-118",
+            effects=[{
+                "when": "on_opp_blocker_use",
+                "if": {"life_zero_either": True},
+                "do": [{"win_game": True}],
+            }],
+        )
+    }
+
+
+def test_no_block_when_blocking_grants_opp_roger_win():
+    """attacker 側に ロジャー在場 + どちらか life0 では、 6000 blocker があってもブロックしない。
+
+    ブロック発動 = 相手の【相手ブロッカー発動時】win_game を踏んで即敗北するため。
+    """
+    repo = _repo()
+    state = _make_state(repo, defender_life=3)
+    state.effects_overlay = _roger_overlay()
+    me = state.players[0]   # defender
+    opp = state.players[1]  # attacker (turn player)
+    # defender に 6000 blocker (= 通常なら 5000 attacker を安全 block)
+    blocker = _make_blocker_5k(repo)
+    blocker.attached_dons = 1  # 6000
+    me.characters = [blocker]
+    me.hand = []
+    # attacker 側に ロジャー在場 + attacker が life0 (= life_zero_either 成立)
+    roger = InPlay.of(repo.get("OP09-118"), sickness=False)
+    opp.life = []  # attacker 0 life
+    attacker = _make_attacker(repo, power=5000)
+    opp.characters = [roger, attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert block_iid is None, \
+        f"ロジャー在場+life0 では block すると即敗北なのでブロックしてはならない (got block_iid={block_iid})"
+
+
+def test_block_normal_when_no_roger():
+    """ロジャー不在なら 6000 blocker は通常通り使う (= ガードが過剰発火しない)。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=3)
+    state.effects_overlay = _roger_overlay()
+    me = state.players[0]
+    opp = state.players[1]
+    blocker = _make_blocker_5k(repo)
+    blocker.attached_dons = 1  # 6000
+    me.characters = [blocker]
+    me.hand = []
+    # attacker は life0 だが ロジャー不在 → ガード非発火
+    opp.life = []
+    attacker = _make_attacker(repo, power=5000)
+    opp.characters = [attacker]  # ロジャーなし
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert block_iid == blocker.instance_id, \
+        f"ロジャー不在なら 6000 blocker は通常通り使うはず (got {block_iid})"
+
+
+def test_block_normal_when_roger_but_both_life_positive():
+    """ロジャー在場でも両者 life>0 なら条件不成立 → 通常通り block。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=3)
+    state.effects_overlay = _roger_overlay()
+    me = state.players[0]
+    opp = state.players[1]
+    blocker = _make_blocker_5k(repo)
+    blocker.attached_dons = 1  # 6000
+    me.characters = [blocker]
+    me.hand = []
+    roger = InPlay.of(repo.get("OP09-118"), sickness=False)
+    opp.life = [repo.get("OP01-013")] * 2  # attacker life>0
+    attacker = _make_attacker(repo, power=5000)
+    opp.characters = [roger, attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert block_iid == blocker.instance_id, \
+        f"両者 life>0 なら win_game 条件不成立 → 通常 block するはず (got {block_iid})"
