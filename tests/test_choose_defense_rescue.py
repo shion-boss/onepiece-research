@@ -498,3 +498,96 @@ def test_block_when_punished_by_opp_ko_at_low_life():
     block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
     assert block_iid == blocker.instance_id, \
         f"低ライフでは ST10-006 でも survival 優先で block するはず (got {block_iid})"
+
+
+# ─────────────────────────────────────────────────────
+# Test: counter-event (舞踏石等) を守備で使う (= 配備AIが死蔵していた守備札の活用、 2026-06-12)
+# ─────────────────────────────────────────────────────
+
+
+def _budouseki_overlay():
+    """舞踏石 OP05-038: 【カウンター】自リーダー/キャラ +4000 (cost 2)。"""
+    from engine.effects import CardEffectBundle
+    return {
+        "OP05-038": CardEffectBundle(
+            card_id="OP05-038",
+            effects=[{
+                "when": "counter",
+                "do": [{"power_pump": {"target": "self_inplay", "amount": 4000,
+                                       "duration": "battle"}}],
+            }],
+        )
+    }
+
+
+def test_counter_event_used_to_wall_at_low_life():
+    """低ライフ + shield では届かない攻撃を、 counter-event (舞踏石+4000) で wall する。
+
+    leader5000 に gap2000 (atk7000)、 手札は 舞踏石 のみ (shield counter 無し)、 DON2、 life1
+    (= 受けると 0 で survival-critical)。 旧: wall 不能 → 受けて敗北圏。 新: 舞踏石で wall。
+    """
+    repo = _repo()
+    state = _make_state(repo, defender_life=1)
+    state.effects_overlay = _budouseki_overlay()
+    me = state.players[0]
+    me.characters = []
+    me.hand = [repo.get("OP05-038")]  # 舞踏石 (counter 0 = shield では使えない)
+    me.don_active = 2
+    attacker = _make_attacker(repo, power=7000)
+    state.players[1].characters = [attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert 0 in counters, f"低ライフで shield 不能なら counter-event を使って wall するはず (got {counters})"
+
+
+def test_counter_event_skipped_without_don():
+    """DON 不足では counter-event を発動できない (= DON を守備に残す意味の裏付け)。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=1)
+    state.effects_overlay = _budouseki_overlay()
+    me = state.players[0]
+    me.characters = []
+    me.hand = [repo.get("OP05-038")]
+    me.don_active = 1  # cost2 に満たない
+    attacker = _make_attacker(repo, power=7000)
+    state.players[1].characters = [attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert counters == (), f"DON 不足では counter-event を使えない (got {counters})"
+
+
+def test_counter_event_not_used_when_not_survival_critical():
+    """受けても 0 にならない (= life2 で単発攻撃) なら counter-event を温存して受ける。
+
+    非リーサルのチップに舞踏石を burn しない (= 高ライフ過剰カウンターと同じ無駄を回避)。
+    """
+    repo = _repo()
+    state = _make_state(repo, defender_life=2)
+    state.effects_overlay = _budouseki_overlay()
+    me = state.players[0]
+    me.characters = []
+    me.hand = [repo.get("OP05-038")]
+    me.don_active = 2
+    attacker = _make_attacker(repo, power=7000)
+    state.players[1].characters = [attacker]
+
+    ai = GreedyAI()
+    block_iid, counters = ai.choose_defense(state, attacker, me.leader, True, me)
+    assert counters == (), f"高ライフでは counter-event を温存して受けるはず (got {counters})"
+
+
+def test_counter_event_options_helper():
+    """_counter_event_options が舞踏石を (idx, 4000, 2) で返す。 DON 不足/高コストは除外。"""
+    repo = _repo()
+    state = _make_state(repo, defender_life=2)
+    state.effects_overlay = _budouseki_overlay()
+    me = state.players[0]
+    me.hand = [repo.get("OP05-038")]
+    me.don_active = 2
+    ai = GreedyAI()
+    opts = ai._counter_event_options(state, me)
+    assert opts == [(0, 4000, 2)], f"舞踏石 option が取れるはず (got {opts})"
+    me.don_active = 1
+    assert ai._counter_event_options(state, me) == [], "DON 不足では除外"

@@ -1597,6 +1597,21 @@ class GreedyAI:
 
         spent = self._optimal_counter_combo(defender.hand, gap)
         if not spent:
+            # shield-counter だけでは wall 不能。 ⚠ 2026-06-12: 低ライフ (≤2) の leader 攻撃なら
+            # counter-event (舞踏石等、 要DON) を併用して wall を試みる (= 配備AIが死蔵していた
+            # 守備札を活用、 低lifeで凌げる攻撃に倒れない様に。 sim 側も同様に解決するので
+            # 「DON を守備に残す価値」 が eval に乗り tap out 抑制にも繋がる)。
+            # counter-event は「受けると 0 ライフに到達する survival-critical」 な時のみ使う
+            # (= ダブルアタックは 2 ダメージ。 非リーサルのチップに burn しない = 高ライフ
+            # 過剰カウンターと同じ無駄を低ライフでも避ける。 舞踏石等は本当に死ぬ攻撃に温存)。
+            _dmg_if_taken = 2 if attacker.is_double_attack_now else 1
+            if (
+                getattr(self, "_use_counter_events", True)
+                and is_leader_attack and life_left <= _dmg_if_taken
+            ):
+                ev_set = self._counter_set_with_events(state, defender, gap)
+                if ev_set:
+                    return block_iid, tuple(ev_set)
             return block_iid, ()
         counter_total = sum(defender.hand[i].counter for i in spent)
 
@@ -1958,6 +1973,92 @@ class GreedyAI:
 
         # 3) その他の効果型 (search / draw 等): 通常通り発動
         return True
+
+    def _counter_event_options(
+        self, state: GameState, defender: Player
+    ) -> list[tuple[int, int, int]]:
+        """defender の手札中、 守備で使える【カウンター】イベント (= 自リーダー/キャラを
+        power+N する when=counter 効果) を (hand_idx, pump値, DONコスト) で返す。
+
+        ⚠ 2026-06-12: 配備AIは counter event を守備で全く使えていなかった (= choose_defense が
+        shield-counter しか選ばない、 _split_event_counters/_fire_counter_events のインフラは
+        完備)。 舞踏石(+4000)等の強力な守備札を死蔵し、 低ライフで凌げる攻撃に倒れていた。
+
+        条件: EVENT + when=counter + do に power_pump(target self/self_leader/self_inplay,
+        amount>0) + if 句成立 + don_active >= cost。 単純 pump のみ対象 (= 多段/条件付き
+        ターゲットの edge case を避け conservative に)。
+        """
+        overlay = state.effects_overlay
+        if not overlay:
+            return []
+        try:
+            from .effects import eval_all_conditions
+            from .core import Category as _Cat
+        except Exception:
+            return []
+        opts: list[tuple[int, int, int]] = []
+        for idx, card in enumerate(defender.hand):
+            if getattr(card, "category", None) != _Cat.EVENT:
+                continue
+            cost = int(getattr(card, "cost", 0) or 0)
+            if defender.don_active < cost:
+                continue  # DON 不足 = 発動不可 (= ここが DON 温存の意味)
+            bundle = overlay.get(card.card_id)
+            if bundle is None:
+                continue
+            best_pump = 0
+            for eff in bundle.effects:
+                if eff.get("when") != "counter":
+                    continue
+                do = eff.get("do", [])
+                # 単純 power_pump のみ (target が自陣 + amount>0)
+                pump = 0
+                for prim in do:
+                    pp = prim.get("power_pump")
+                    if not pp:
+                        continue
+                    if pp.get("target") in ("self_leader", "self", "self_inplay"):
+                        pump = max(pump, int(pp.get("amount", 0) or 0))
+                if pump <= 0:
+                    continue
+                # 防御側 (me=defender) 視点で if 句成立判定 (= 浸食輪廻のトラッシュ≥10 等)
+                try:
+                    ok = eval_all_conditions(eff, state, defender, defender.leader)
+                except Exception:
+                    ok = False
+                if ok:
+                    best_pump = max(best_pump, pump)
+            if best_pump > 0:
+                opts.append((idx, best_pump, cost))
+        return opts
+
+    def _counter_set_with_events(
+        self, state: GameState, defender: Player, gap: int
+    ) -> list[int]:
+        """shield-counter (free) + counter-event (要DON) を併用して gap を超える手札 idx 群を返す。
+        wall 不能なら []。 低ライフ survival 用 (= shield だけで届かない攻撃を event で凌ぐ)。
+
+        方針: free な shield-counter を全部使い、 足りない分を pump 値の大きい counter-event
+        から DON 予算内で足す。 event 同士の pump target 競合は考慮しない (= 通常 1 枚で足りる)。
+        """
+        hand = defender.hand
+        shield_idxs = [i for i, c in enumerate(hand) if getattr(c, "counter", 0) > 0]
+        total = sum(hand[i].counter for i in shield_idxs)
+        chosen = list(shield_idxs)
+        if total > gap:
+            return chosen
+        ev_options = self._counter_event_options(state, defender)
+        ev_options.sort(key=lambda o: -o[1])  # pump 値 降順
+        don_left = defender.don_active
+        for idx, pump, cost in ev_options:
+            if idx in chosen or cost > don_left:
+                continue
+            chosen.append(idx)
+            total += pump
+            don_left -= cost
+            if total > gap:
+                return chosen
+        return chosen if total > gap else []
 
     def _optimal_counter_combo(self, hand: list, gap: int) -> list[int]:
         """gap を超える最小コンボを brute force で探す (手札 < 12 想定)。

@@ -100,6 +100,21 @@ def fast_clone(state: "GameState") -> "GameState":
     return cloned
 
 
+def _split_counter_idxs(hand: list, idxs: tuple) -> tuple:
+    """counter idx を shield-counter (= 数値カウンター) と counter-event (= EVENT) に分離。
+    play_one_action の _split_event_counters と同等 (= sim でも counter-event を正しく発火)。"""
+    cards: list = []
+    events: list = []
+    for i in idxs:
+        if not (0 <= i < len(hand)):
+            continue
+        if str(getattr(hand[i], "category", "")).endswith("EVENT"):
+            events.append(i)
+        else:
+            cards.append(i)
+    return tuple(cards), tuple(events)
+
+
 def _apply_with_defense(state: "GameState", action, ai_defender) -> None:
     """attack 系なら ai_defender.choose_defense を呼んで counter/blocker を差し込み apply_action。
 
@@ -116,9 +131,15 @@ def _apply_with_defense(state: "GameState", action, ai_defender) -> None:
         block_iid, counters = ai_defender.choose_defense(
             state, attacker, state.opponent.leader, True, state.opponent
         )
+        # ⚠ 2026-06-12: counter を shield-counter / counter-event に分離し、 event は
+        # apply_action 内で _fire_counter_events 発火させる (= sim でも counter-event 守備を
+        # 反映 → 「DON を守備に残すと固くなる」 が post-opp eval に乗り tap out 抑制)。
+        # 旧実装は全 counter を counter_card_idxs に流し event を shield 扱い (= 守備過小評価)。
+        card_idxs, event_idxs = _split_counter_idxs(state.opponent.hand, counters)
         action = AttackLeader(
             attacker_iid=action.attacker_iid,
-            counter_card_idxs=counters,
+            counter_card_idxs=card_idxs,
+            counter_event_idxs=event_idxs,
             blocker_iid=block_iid,
         )
     elif isinstance(action, AttackCharacter):
@@ -129,10 +150,12 @@ def _apply_with_defense(state: "GameState", action, ai_defender) -> None:
         block_iid, counters = ai_defender.choose_defense(
             state, attacker, target, False, state.opponent
         )
+        card_idxs, event_idxs = _split_counter_idxs(state.opponent.hand, counters)
         action = AttackCharacter(
             attacker_iid=action.attacker_iid,
             target_iid=action.target_iid,
-            counter_card_idxs=counters,
+            counter_card_idxs=card_idxs,
+            counter_event_idxs=event_idxs,
             blocker_iid=block_iid,
         )
     apply_action(state, action)
