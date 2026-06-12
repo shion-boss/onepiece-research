@@ -791,6 +791,34 @@ def test_add_rested_don_primitive():
     assert me.don_remaining_in_deck == 2
 
 
+def test_rest_target_count_dict_form():
+    """plain `rest` の {"target": ..., "count": N} 形式 (= OP14-031 ナミ /
+    ST05-011_r1 「相手のコスト X 以下のキャラ N 枚まで を レスト」)。
+
+    回帰: 以前は _resolve_target が "type"/str 以外を dispatch できず [] を返し、
+    1 体も rest されない silent no-op だった (2026-06-12 発見)。 修正後は
+    候補を any_ 形で 全解決 → AI は top-N (power) を rest する。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, "OP01-001", overlay=overlay)
+    me = state.players[0]
+    opp = state.players[1]
+    # 相手場: サンジ(7000,cost5) / ボニー(2000,cost1) / ウソップ(5000,cost4)
+    for cid in ("OP13-027", "EB04-002", "OP14-022"):
+        opp.characters.append(InPlay.of(repo.get(cid), sickness=False))
+    for c in opp.characters:
+        c.rested = False
+
+    from engine.effects import execute_effect
+    execute_effect(
+        {"rest": {"target": "one_opponent_character_cost_le_8", "count": 2}},
+        state, me, opp, me.leader,
+    )
+    rested = sorted(c.power for c in opp.characters if c.rested)
+    # top-2 power = サンジ7000 + ウソップ5000 (ボニー2000 は rest されない)
+    assert rested == [5000, 7000], f"expected top-2 rested, got {rested}"
+
+
 def test_summon_from_deck_primitive():
     """summon_from_deck: デッキからフィルタ一致キャラを場に登場 (緑黄しらほし)"""
     repo = _repo()

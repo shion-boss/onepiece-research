@@ -3200,10 +3200,39 @@ def _execute_effect_body(
                     state.push_log(f"  効果: レスト → 対象なし (不発)")
                     return False
                 return True
-            targets = _resolve_target(
-                v, state, me, opp, self_inplay,
-                outer_kind="rest", outer_value=v,
-            )
+            # {"target": T, "count": N} 形式 = 「(範囲)のキャラ N 枚まで を レスト」
+            # (OP14-031 ナミ / ST05-011_r1 等)。 plain `rest` に この dict を 渡すと
+            # _resolve_target が "type"/str 以外を dispatch できず [] を返し silent no-op
+            # だった bug (2026-06-12 発見)。 候補を any_ 形で 全解決 → 人間 pick (up to N) /
+            # AI top-N (power) で rest。 _iid_picks 再実行時は 下の汎用 path で 解決する。
+            if (
+                isinstance(v, dict) and "count" in v and "target" in v
+                and "type" not in v and "_iid_picks" not in v
+            ):
+                rest_count = int(v.get("count", 1))
+                inner = v.get("target")
+                # one_opponent_character_..._cost_le_N → any_opponent_character_cost_le_N
+                # (= 全候補 を 返す 形) に 正規化 (= top-1 でなく 候補全部 から N 枚 選ぶ)。
+                cand_target = inner
+                if isinstance(inner, str) and inner.startswith("one_opponent_character_"):
+                    cand_target = "any_" + inner[len("one_"):]
+                cand_list = _resolve_target(cand_target, state, me, opp, self_inplay)
+                cand_list = [
+                    c for c in cand_list
+                    if not c.rested and not c.cannot_be_rested_buff
+                ]
+                if _maybe_request_target_pick(
+                    state, cand_list, rest_count, "rest", v, self_inplay,
+                    description=f"レスト 対象 {rest_count} 枚 まで を 選択",
+                ):
+                    return False
+                cand_list.sort(key=lambda ip: -ip.power)
+                targets = cand_list[:rest_count]
+            else:
+                targets = _resolve_target(
+                    v, state, me, opp, self_inplay,
+                    outer_kind="rest", outer_value=v,
+                )
             actually_rested = []
             already_rested_skipped: list[str] = []
             # 「相手のキャラの効果で」 判定: effect の source (self_inplay) が CHARACTER。
