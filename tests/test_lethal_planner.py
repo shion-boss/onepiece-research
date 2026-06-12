@@ -180,3 +180,39 @@ def test_zero_don_uses_base_powers():
     )
     powers = sorted(p.effective_power for p in plan.sequence)
     assert powers == [6000, 7000]
+
+
+# ─────────────────────────────────────────────────────
+# attack_damages_are_lethal: 公式 9-2-1/Q36 厳密判定 (= off-by-one + double 対応、 2026-06-12)
+# ─────────────────────────────────────────────────────
+
+
+def test_attack_damages_are_lethal_q36_off_by_one():
+    """opp_life=N は N+1 connect 必要 (= N ダメージで 0、 もう 1 発で敗北)。"""
+    from engine.ai import attack_damages_are_lethal as L
+
+    # 0 ライフ: 1 connect で敗北、 0 attack は不可
+    assert L([1], 0) is True
+    assert L([], 0) is False
+    # 1 ライフ: 単発 1 発では 0 になるだけで敗北しない (off-by-one)、 2 発で lethal
+    assert L([1], 1) is False
+    assert L([1, 1], 1) is True
+    # 2 ライフ: 2 発では 0 まで、 3 発で lethal
+    assert L([1, 1], 2) is False
+    assert L([1, 1, 1], 2) is True
+
+
+def test_attack_damages_are_lethal_double_attack():
+    """ダブルアタックは 1 発 2 ダメージ。 ただし単独では 0 にするだけ (2 発目空打ち)。"""
+    from engine.ai import attack_damages_are_lethal as L
+
+    # 1 ライフ: double 単発は 0 にするだけ (= 敗北しない)、 double + 単発で lethal
+    assert L([2], 1) is False
+    assert L([2, 1], 1) is True
+    # 2 ライフ: double 単発は 0 まで、 double + (single|double) で lethal
+    assert L([2], 2) is False
+    assert L([2, 1], 2) is True
+    assert L([2, 2], 2) is True
+    # 3 ライフ: double + double = 4 ダメージで 0 到達 + 後続なし → not lethal、 +1 で lethal
+    assert L([2, 2], 3) is False
+    assert L([2, 2, 1], 3) is True

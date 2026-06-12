@@ -377,6 +377,29 @@ def _is_attack_confirmed_fail_no_effect(
     return True
 
 
+def attack_damages_are_lethal(damages: list[int], life: int) -> bool:
+    """connecting 攻撃の damage 列で opp (life 枚) を倒せるか厳密判定。
+
+    公式 9-2-1 + cardqa Q36: 敗北は「アタック開始時にライフ 0」のみ。 opp_life=N は
+    N ダメージで 0 になり、 さらにもう 1 発 connect して初めて敗北 (= 単発なら N+1 hit)。
+    ダブルアタックは 1 発で 2 ダメージ。 攻撃順は front-load (= 大ダメージ先) で 0 到達を
+    早め、 残った攻撃が「0 ライフでアタック開始」 を踏めば lethal。
+
+    旧 lethal_planner.is_lethal は `hits >= N` (= off-by-one + double/blocker 無視) で
+    1 発足りない非リーサルを lethal と誤判定していた。 本関数で厳密化する。
+    """
+    if life <= 0:
+        return len(damages) >= 1  # 既に 0 ライフ → 1 connect で敗北
+    dmgs = sorted(damages, reverse=True)
+    cum = 0
+    for i, d in enumerate(dmgs):
+        cum += d
+        if cum >= life:
+            # この攻撃で 0 ライフ到達。 後続攻撃があれば「0 でアタック開始」 → lethal
+            return (i + 1) < len(dmgs)
+    return False
+
+
 def prune_mechanical_waste(state: GameState, actions: list) -> list:
     """機械的悪手を action リストから除外。 副作用なし。
 
@@ -1312,7 +1335,9 @@ class GreedyAI:
             attacker_specs.append((a.attacker_iid, attacker.power))
             action_by_iid[a.attacker_iid] = a
 
-        if len(attacker_specs) < hits_needed:
+        # pre-filter: attacker が 1 体も無ければ不可。 ダブルアタックは 1 体で 2 ダメージ
+        # 出せるので「opp_life 体以上」 を必須にはしない (= 後段の厳密 sim で判定)。
+        if not attacker_specs:
             return None
 
         # Phase 7J: 配分最適化プランナーで attack plan を構築
@@ -1322,7 +1347,26 @@ class GreedyAI:
             opp_leader_power=est_defender_power,
             opp_shields=opp_life,
         )
-        if not plan.is_lethal or len(plan.sequence) < hits_needed:
+        # ⚠ 2026-06-12: plan.is_lethal は楽観的 (= hits>=N で off-by-one、 ダブルアタック /
+        # ブロッカー 無視) で 1 発足りない非リーサルを lethal 誤判定していた (= campaign #1)。
+        # 公式 9-2-1/Q36 準拠で厳密に再判定する: 各 plan 攻撃の effective_power が est_def を
+        # 超える connect のみ数え、 ダブルアタック=2 ダメージ、 opp の active ブロッカーは
+        # 最大ダメージの攻撃から block する (= conservative) として残ダメージで opp_life+1 相当
+        # の「0 ライフでアタック開始」 を踏めるか simulate。
+        opp_blockers = sum(
+            1 for c in opp.characters
+            if c.is_blocker_now and not c.rested
+        )
+        connect_damages: list[int] = []
+        for planned in plan.sequence:
+            if planned.effective_power <= est_defender_power:
+                continue  # 公式 7-1-4: 防御 power 以下は届かない
+            inp = get_inplay(planned.attacker_iid)
+            connect_damages.append(2 if (inp and inp.is_double_attack_now) else 1)
+        connect_damages.sort(reverse=True)
+        if opp_blockers > 0:
+            connect_damages = connect_damages[opp_blockers:]  # opp が大ダメージを block
+        if not attack_damages_are_lethal(connect_damages, opp_life):
             return None
 
         # Phase 7J: 最適配分 plan の total excess + 確率判定 (Phase 7B/G/H 連動)
