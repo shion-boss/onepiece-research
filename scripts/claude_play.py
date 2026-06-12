@@ -121,6 +121,63 @@ def _leader_iid(session: HumanSession) -> int:
     return session.state.players[session.human_idx].leader.instance_id
 
 
+# --------------------------------------------------------------------------- #
+# divergence ロギング (= 2026-06-12): 私(強プレイ) の手 vs 配備 ExploitBeam の手 を
+# 各 MAIN 決定で記録 → AI の系統的盲点を後で機械抽出 (= heuristic 8修正の systematic 版)。
+# session.ai (= SmartOpponentAI→ExploitBeam) を 同 state に 通すだけ (= state 復元不要・正確)。
+# --------------------------------------------------------------------------- #
+def _act_sig(state, human_idx: int, a) -> str:
+    """action を card_id / iid ベースの正準シグネチャに (= hand_idx 並べ替えに頑健、 比較用)。"""
+    t = type(a).__name__
+    hand = state.players[human_idx].hand
+    hi = getattr(a, "hand_idx", None)
+    card = hand[hi].card_id if (hi is not None and 0 <= hi < len(hand)) else None
+    if t == "AttackLeader":
+        return f"AttackLeader(atk={getattr(a,'attacker_iid',None)})"
+    if t == "AttackCharacter":
+        return f"AttackCharacter(atk={getattr(a,'attacker_iid',None)},tgt={getattr(a,'target_iid',None)})"
+    if t in ("PlayCharacter", "PlayEvent", "PlayStage"):
+        return f"{t}({card})"
+    if t in ("AttachDonToLeader", "AttachDonToCharacter"):
+        return f"{t}(tgt={getattr(a,'target_iid','leader')})"
+    if t == "ActivateMain":
+        return f"ActivateMain(src={getattr(a,'source_iid',None)},e={getattr(a,'effect_index',None)})"
+    return t
+
+
+def _record_divergence(session: HumanSession, idx: int) -> None:
+    st = session.state
+    try:
+        from engine.core import Phase
+        from engine.game import legal_actions
+        from engine.plan_search import fast_clone
+        if st.game_over or st.phase != Phase.MAIN or st.turn_player_idx != session.human_idx:
+            return
+        acts = legal_actions(st)
+        if not (0 <= idx < len(acts)) or session.ai is None:
+            return
+        my_act = acts[idx]
+        ai_act = session.ai.choose_action(fast_clone(st))
+        my_sig = _act_sig(st, session.human_idx, my_act)
+        ai_sig = _act_sig(st, session.human_idx, ai_act)
+        me = st.players[session.human_idx]; opp = st.players[1 - session.human_idx]
+        rec = {
+            "turn": st.turn_number, "my": my_sig, "ai": ai_sig, "agree": my_sig == ai_sig,
+            "n_legal": len(acts),
+            "board": {"my_life": len(me.life), "opp_life": len(opp.life),
+                      "my_hand": len(me.hand), "opp_hand": len(opp.hand),
+                      "my_don": me.don_active, "my_field": len(me.characters),
+                      "opp_field": len(opp.characters)},
+        }
+        meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
+        slug = meta.get("deck", "unknown")
+        path = ROOT / "db" / "claude_play" / f"divergence_{slug}.jsonl"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception:
+        pass  # divergence ロギングはベストエフォート (= 対戦を止めない)
+
+
 def _find_don_idx(session: HumanSession, iid: str):
     """iid (= leader iid or キャラ iid) への DON+1 アクション idx を返す。"""
     actions = legal_actions(session.state)
@@ -308,6 +365,7 @@ def main() -> None:
             picks = [1] if args.what == "redraw" else []
             session.apply_human_choice(picks)
         elif args.cmd == "move":
+            _record_divergence(session, args.idx)
             session.apply_human_action(args.idx)
         elif args.cmd == "choice":
             session.apply_human_choice(list(args.idx))
@@ -340,6 +398,7 @@ def main() -> None:
                 print(f"[不正] iid={args.attacker_iid} → {args.target} のアタックが見つからない")
                 _render(session)
                 return
+            _record_divergence(session, idx)
             session.apply_human_action(idx)
     except ValueError as e:
         print(f"[不正な手] {e}")
