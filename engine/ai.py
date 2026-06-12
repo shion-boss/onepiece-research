@@ -2542,6 +2542,33 @@ class DeepPlanningAI(GreedyAI):
             except Exception:
                 est_opp_buff = 0
         est_def = opp.leader.power + est_opp_buff
+
+        # === 確定/高確率リーサルを最優先 (= 2026-06-12、 campaign #1 対策) ===
+        # 配備 ExploitBeam は beam の eval 任せで リーサルを取りこぼす事があった (= 私 life1
+        # 相手 life0 で キャラ除去攻撃を選ぶ等、 g1439 で観測)。 GreedyAI の lethal_planner
+        # (= off-by-one / ダブルアタック / ブロッカーを厳密化済、 確率閾値付き) を beam の前に
+        # 挟み、 勝てるなら確実に取る。 None なら従来通り heuristic + beam に進む (= 非リーサル時は
+        # 挙動不変)。 _compute_lethal_action は厳密化済なので非リーサルを誤発火しない。
+        atk_leader_actions_for_lethal = [
+            a for a in actions if isinstance(a, AttackLeader)
+        ]
+        if getattr(self, "_use_lethal_check", True) and atk_leader_actions_for_lethal:
+            def _atk_inplay_lethal(iid):
+                if me.leader.instance_id == iid:
+                    return me.leader
+                for c in me.characters:
+                    if c.instance_id == iid:
+                        return c
+                return None
+            try:
+                lethal_action = self._compute_lethal_action(
+                    state, atk_leader_actions_for_lethal, est_def, _atk_inplay_lethal,
+                )
+            except Exception:
+                lethal_action = None
+            if lethal_action is not None:
+                return lethal_action
+
         if not me.leader.rested and not me.leader.summoning_sickness:
             leader_attacks = [
                 a for a in actions
