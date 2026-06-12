@@ -243,3 +243,7 @@ eval_results/
 
 # Claude 対戦 CLI の一時状態
 db/claude_play/
+
+# claude_play 生成データ
+db/claude_play/divergence_*.jsonl
+db/claude_play/session.pkl
