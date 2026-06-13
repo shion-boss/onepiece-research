@@ -9369,7 +9369,7 @@
     }
    ],
    "if": {
-    "target": "other_self_chara",
+    "target": "any_self_chara",
     "target_feature": "ドンキホーテ海賊団",
     "by_opp_effect": true
    },
@@ -35388,7 +35388,7 @@
     }
    ],
    "if": {
-    "target": "other_self_chara",
+    "target": "any_self_chara",
     "target_feature": "ドンキホーテ海賊団",
     "by_opp_effect": true
    },
