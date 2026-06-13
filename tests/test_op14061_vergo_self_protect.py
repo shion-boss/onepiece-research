@@ -12,12 +12,25 @@ from __future__ import annotations
 from pathlib import Path
 
 from engine.deck import CardRepository
-from engine.effects import _replace_ko_match, load_effect_overlay
-from engine.core import InPlay
+from engine.effects import _replace_ko_match, load_effect_overlay, try_replace_ko
+from engine.core import InPlay, Player, GameState
 
 ROOT = Path(__file__).resolve().parent.parent
 _repo = CardRepository.from_json(ROOT / "db" / "cards.json")
 _overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+
+def _state_with_vergo(don_active: int = 2):
+    """p0 に ヴェルゴ + DON、 効果KOを試せる最小 state (human 無し = 自動適用)。"""
+    p0 = Player(name="P0", leader=InPlay.of(_repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(_repo.get("OP01-001"), sickness=False))
+    vergo = InPlay.of(_repo.get("OP14-061"), sickness=False)
+    p0.characters = [vergo]
+    p0.don_active = don_active
+    s = GameState(players=[p0, p1])
+    s.effects_overlay = _overlay
+    s.human_player_idx = None
+    return s, p0, p1, vergo
 
 
 def _vergo_replace_cond(card_id: str = "OP14-061") -> dict:
@@ -69,3 +82,27 @@ def test_not_triggered_by_battle_ko():
     cond = _vergo_replace_cond()
     vergo = InPlay.of(_repo.get("OP14-061"), sickness=False)
     assert _replace_ko_match(cond, vergo, vergo, by_opp_effect=False) is False
+
+
+def test_try_replace_ko_fires_on_ko_path_and_returns_don():
+    """KO 経路 (leave_kind='ko') で ヴェルゴ自身の相手効果KOが置換され、 DON 1枚が戻る。
+    = マーカス・マーズ聖 (OP13-091 効果KO) で ヴェルゴ自身が KO される実シナリオ。"""
+    s, p0, p1, vergo = _state_with_vergo(don_active=2)
+    fired = try_replace_ko(s, p0, p1, vergo, _overlay, by_opp_effect=True, leave_kind="ko")
+    assert fired is True, "KO 時に置換が発火しない (= ヴェルゴ自身を守れていない)"
+    assert p0.don_active == 1, f"DON が戻っていない (2->{p0.don_active})"
+
+
+def test_try_replace_ko_fires_on_bounce_path():
+    """bounce (return_to_hand) 経路でも 自身保護が発火 (= 全『場を離れる』 をカバー)。"""
+    s, p0, p1, vergo = _state_with_vergo()
+    assert try_replace_ko(s, p0, p1, vergo, _overlay, by_opp_effect=True,
+                          leave_kind="return_to_hand") is True
+
+
+def test_try_replace_ko_not_fired_on_battle_ko():
+    """戦闘KO (by_opp_effect=False) は守らない (= 公式『相手の効果で』 限定)。"""
+    s, p0, p1, vergo = _state_with_vergo()
+    assert try_replace_ko(s, p0, p1, vergo, _overlay, by_opp_effect=False,
+                          leave_kind="ko") is False
+    assert p0.don_active == 2, "戦闘KOで DON を戻してはいけない"
