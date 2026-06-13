@@ -308,7 +308,7 @@ export default function CombosPage() {
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {g.description}
               </p>
-              <ul className="space-y-2">
+              <ul className="grid items-start gap-2 md:grid-cols-2">
                 {g.cards.map((c) => (
                   <ComboCardRow
                     key={c.card_id}

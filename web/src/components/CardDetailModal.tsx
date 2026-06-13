@@ -20,18 +20,18 @@ export function CardDetailModal({
       aria-modal="true"
     >
       <div
-        className="grid max-h-[90vh] w-full max-w-3xl gap-6 overflow-auto rounded-lg bg-white p-6 dark:bg-zinc-900 sm:grid-cols-[auto_1fr]"
+        className="grid max-h-[92vh] w-full max-w-5xl gap-8 overflow-auto rounded-lg bg-white p-7 dark:bg-zinc-900 sm:grid-cols-[auto_1fr]"
         onClick={(e) => e.stopPropagation()}
       >
         <CardImage
           cardId={card.card_id}
           alt={card.name}
-          className="aspect-[5/7] w-48 rounded object-cover"
+          className="aspect-[5/7] w-72 rounded object-cover lg:w-80"
           loading="eager"
         />
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">{card.name}</h2>
+            <h2 className="text-2xl font-semibold">{card.name}</h2>
             <button
               type="button"
               onClick={onClose}
@@ -69,13 +69,17 @@ export function CardDetailModal({
           {card.text && (
             <div>
               <div className="text-xs text-zinc-500">テキスト</div>
-              <p className="whitespace-pre-wrap text-sm">{card.text}</p>
+              <p className="whitespace-pre-wrap text-base leading-relaxed">
+                {card.text}
+              </p>
             </div>
           )}
           {card.trigger && (
             <div>
               <div className="text-xs text-zinc-500">トリガー</div>
-              <p className="whitespace-pre-wrap text-sm">{card.trigger}</p>
+              <p className="whitespace-pre-wrap text-base leading-relaxed">
+                {card.trigger}
+              </p>
             </div>
           )}
         </div>
