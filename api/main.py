@@ -604,6 +604,57 @@ def get_card(card_id: str):
     return _to_out(c)
 
 
+# --------------------------------------------------------------------------- #
+# エンドポイント: コンボ探索 (= Step 1 静的 finder)
+# --------------------------------------------------------------------------- #
+class ComboCardOut(BaseModel):
+    card_id: str
+    name: str
+    category: str
+    color: list[str]
+    cost: int
+    power: int
+    features: list[str]
+    score: float
+    reason: str
+
+
+class ComboGroupOut(BaseModel):
+    key: str
+    label: str
+    description: str
+    cards: list[ComboCardOut]
+
+
+class ComboResultOut(BaseModel):
+    anchor: ComboCardOut
+    hooks: list[str]
+    groups: list[ComboGroupOut]
+
+
+@app.get("/api/combos/{card_id}", response_model=ComboResultOut)
+def find_card_combos(card_id: str, per_group: int = Query(8, ge=1, le=30)):
+    """指定カード (= anchor) を起点に、 相性の良いカードを型別・ランク付きで返す。
+    static score で差別化 (= recall でなく ranking が本質)。 強さの裏取りは別 (sim)。"""
+    from engine.combo_finder import find_combos
+
+    try:
+        res = find_combos(get_repo(), card_id, per_group=per_group)
+    except KeyError:
+        raise HTTPException(404, f"card not found: {card_id}")
+    return ComboResultOut(
+        anchor=ComboCardOut(**res.anchor.__dict__),
+        hooks=res.hooks,
+        groups=[
+            ComboGroupOut(
+                key=g.key, label=g.label, description=g.description,
+                cards=[ComboCardOut(**c.__dict__) for c in g.cards],
+            )
+            for g in res.groups
+        ],
+    )
+
+
 # Vercel deploy だと web/public/cards/ (= 878MB ローカルキャッシュ) は除外しているため、
 # frontend が公式 CDN から直接読もうとすると CORP (cross-origin-resource-policy:
 # same-site) で blocked される可能性 + 通信量も公式 CDN 負荷になる。

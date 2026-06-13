@@ -3,6 +3,7 @@ import type {
   Card,
   CardChange,
   CardFilters,
+  ComboResult,
   CoreBuildRequest,
   CoreBuildResponse,
   DeckAnalysis,
@@ -49,6 +50,18 @@ export async function fetchCard(cardId: string): Promise<Card> {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`fetchCard failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCombos(
+  cardId: string,
+  perGroup = 8,
+): Promise<ComboResult> {
+  const res = await fetch(
+    `${API}/api/combos/${encodeURIComponent(cardId)}?per_group=${perGroup}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`fetchCombos failed: ${res.status}`);
   return res.json();
 }
 

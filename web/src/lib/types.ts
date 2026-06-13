@@ -29,6 +29,32 @@ export type CardFilters = {
   limit?: number;
 };
 
+// --- コンボ探索 (= /api/combos/{card_id}) ---
+export type ComboCard = {
+  card_id: string;
+  name: string;
+  category: string;
+  color: string[];
+  cost: number;
+  power: number;
+  features: string[];
+  score: number;
+  reason: string;
+};
+
+export type ComboGroup = {
+  key: string;
+  label: string;
+  description: string;
+  cards: ComboCard[];
+};
+
+export type ComboResult = {
+  anchor: ComboCard;
+  hooks: string[];
+  groups: ComboGroup[];
+};
+
 export type DeckEntry = {
   card_id: string;
   count: number;

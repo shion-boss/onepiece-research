@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 const NAV = [
   { href: "/cards", label: "カード" },
+  { href: "/combos", label: "コンボ探索" },
   { href: "/decks", label: "デッキ" },
   { href: "/play", label: "対戦" },
   { href: "/research", label: "研究" },
