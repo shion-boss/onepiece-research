@@ -121,6 +121,13 @@ onepiece_research/
       **vs GreedyAI on cardrush_1342 = 72.7% (N=300)**。 GBM は `db/value_gbm_<slug>.pkl` を deck別に
       `scripts/train_value_gbm.py` で学習 (無ければ board_eval に degrade)。 教訓: 学習valueは正しい分布で使え /
       探索のmyopiaは deterministic opp の sim で補正。 `scripts/bench_ais_vs_greedy.py` で測定
+      - **⭐ offense force-attack 無効化 (= 2026-06-13、 main f5dc1f7)**: ExploitBeam は
+        `_offense_force_attack=False` (DeepPlanningAI 既定 True、 ExploitBeam のみ override)。
+        `DeepPlanningAI.choose_action` の leader/char「とりあえず攻撃/boost」 早期return群 (ai.py
+        2741-2831) は beam の旧 board_eval myopia の backstop だったが、 post-opp+GBM で myopia 解消後は
+        **優れた探索を crude heuristic が上書きする弊害** に転化 → 無効化し turn 計画を beam に委ねる。
+        lethal-check (`_use_lethal_check`) は別flagで常時有効。 配備ミラー A/B 全16デッキ平均 ~66% vs
+        旧挙動 (14勝58-84%/2中立/回帰0)。 汎用 flag A/B = `scripts/ab_flag.py`。 詳細 [[project_engine_search_levers_exhausted]]
     - **AI 実行モード (2026-06-03〜、 [[feedback_eval_specs_in_pure_lookup]])**: GoalDirectedAI は target spec を 2 モードで使う。
       - **pure_lookup (= 既定)**: `_choose_action_pure_lookup` で spec bonus argmax、 beam を bypass (~50ms/手)。 実走 (harness/spectate)・corpus 収集・online 学習 とも これ。 spec が policy そのもの。 spec coverage 不足の局面のみ GreedyAI fallback (= 実測 88% は spec hit)
       - **beam plan_search (= opt-out)**: `pure_lookup=False` or env `ONEPIECE_PURE_LOOKUP=0` で PlanningAI の beam(4/6) を使い、 spec を葉 eval に bonus 加算。 `scripts/eval_goal_directed_mirror.py` (beam 強度測定) と plan_search 内部 opp_sim のみ
