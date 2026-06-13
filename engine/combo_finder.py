@@ -295,6 +295,23 @@ def _dedup_parallels(cards: list[ComboCard]) -> list[ComboCard]:
     return out
 
 
+def _filter_offcolor_leaders(
+    cards: list[ComboCard], anchor_colors: set[str]
+) -> list[ComboCard]:
+    """指定カードと違う色のリーダーを除外 (= そのリーダーのデッキに anchor を入れられない)。
+
+    公式構築ルール: カードの全色がリーダーの色に含まれる必要 → leader.colors ⊇ anchor.colors。
+    非リーダー候補は 2 色リーダーで共存しうるので除外しない (= リーダーのみ色厳密化)。
+    """
+    if not anchor_colors:
+        return cards
+    return [
+        c
+        for c in cards
+        if c.category != "LEADER" or anchor_colors.issubset(set(c.color))
+    ]
+
+
 def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
     """anchor card_id を起点にコンボ候補を型別・ランク付きで返す。"""
     by_id = repo._by_id
@@ -303,6 +320,11 @@ def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
         raise KeyError(f"unknown card_id: {card_id}")
     all_cards = list(by_id.values())
     text = _text(anchor)
+    anchor_colors = set(_colors(anchor))
+
+    def _legal(cards: list[ComboCard]) -> list[ComboCard]:
+        # 指定カードと違う色のリーダーは除外 (= デッキに入れられない)。
+        return _dedup_parallels(_filter_offcolor_leaders(cards, anchor_colors))
 
     hooks: list[str] = []
     groups: list[ComboGroup] = []
@@ -311,7 +333,7 @@ def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
     ko_t = _detect_ko_power_threshold(text)
     if ko_t is not None:
         hooks.append(f"KO条件「パワー{ko_t}以下」 → 相手パワーダウンで圏を広げられる")
-        cards = _dedup_parallels(_match_enabler_powerdown(anchor, all_cards, ko_t))
+        cards = _legal(_match_enabler_powerdown(anchor, all_cards, ko_t))
         if cards:
             groups.append(ComboGroup(
                 key="enabler",
@@ -321,7 +343,7 @@ def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
             ))
 
     # ② 加速 accelerant
-    cards = _dedup_parallels(_match_accelerant(anchor, all_cards))
+    cards = _legal(_match_accelerant(anchor, all_cards))
     if cards:
         hooks.append("サーチ/コスト軽減/踏み倒しで早く・安定して出せる")
         groups.append(ComboGroup(
@@ -332,7 +354,7 @@ def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
         ))
 
     # ③ 特徴シナジー tribal
-    cards = _dedup_parallels(_match_tribal(anchor, all_cards))
+    cards = _legal(_match_tribal(anchor, all_cards))
     if cards:
         af = _features(anchor)
         hooks.append(f"特徴《{af[0]}》の部族シナジー" if af else "特徴シナジー")
@@ -345,7 +367,7 @@ def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
 
     # ④ ペイオフ増幅 amplifier
     if _is_attacker_trigger(text):
-        cards = _dedup_parallels(_match_amplifier(anchor, all_cards))
+        cards = _legal(_match_amplifier(anchor, all_cards))
         if cards:
             hooks.append("【アタック時】持ち → 【速攻】付与で出したターンに即発動")
             groups.append(ComboGroup(

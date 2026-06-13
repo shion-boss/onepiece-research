@@ -62,6 +62,35 @@ def test_anchor_excluded_from_results(repo):
         assert all(c.card_id != "OP04-013" for c in g.cards)
 
 
+def test_offcolor_leader_filter_unit():
+    """指定色を含まないリーダーは除外、 含むリーダー/非リーダーは残る。"""
+    from engine.combo_finder import ComboCard, _filter_offcolor_leaders
+
+    def mk(cid, cat, colors):
+        return ComboCard(cid, cid, cat, colors, 0, 0, [], "", 1.0, "")
+
+    cards = [
+        mk("L_red", "LEADER", ["赤"]),
+        mk("L_redblue", "LEADER", ["赤", "青"]),
+        mk("L_blue", "LEADER", ["青"]),
+        mk("C_blue", "CHARACTER", ["青"]),
+    ]
+    out = {c.card_id for c in _filter_offcolor_leaders(cards, {"赤"})}
+    assert "L_red" in out          # 同色 → 残る
+    assert "L_redblue" in out      # 赤を含む2色 → 残る
+    assert "L_blue" not in out     # 赤を含まない → 除外
+    assert "C_blue" in out         # 非リーダーは色フィルタしない
+
+
+def test_pell_results_leaders_share_color(repo):
+    """ペル(赤) の結果に出るリーダーは全て赤を含む (= 違う色のリーダーは除外)。"""
+    res = find_combos(repo, "OP04-013", per_group=30)
+    for g in res.groups:
+        for c in g.cards:
+            if c.category == "LEADER":
+                assert "赤" in c.color, f"{c.card_id} {c.color} は赤を含まない"
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
