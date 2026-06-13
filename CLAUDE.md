@@ -21,7 +21,7 @@
 - 分散コンピューティング (= Phase 9 以降) でコミュニティ参加型に拡大
 
 **詳細ロードマップは [docs/ROADMAP.md](./docs/ROADMAP.md) を参照**。
-Phase 1-7 完了 (= 全カード公式準拠 100% + GoalDirectedAI default)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
+Phase 1-7 完了 (= 全カード公式準拠 100% + 配備AI = SmartOpponentAI→ExploitBeam)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
 
 ## アーキテクチャ
 
@@ -43,7 +43,7 @@ onepiece_research/
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
 │   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
-├── tests/          # pytest テスト (799 collected)
+├── tests/          # pytest テスト (1,074 collected)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 
@@ -113,8 +113,9 @@ onepiece_research/
       draw_per_hand_to_deck_bottom / return_self_to_deck_bottom_if_condition / trash_to_deck /
       opp_trash_to_deck_bottom / static_swords_attack_chara / 他
 - [x] **Phase 3 完了**: AI 階層 + 対戦ハーネス
-  - AI クラス: `RandomAI` / `GreedyAI` / `LookaheadAI` / `MCTSAI` / `PlanningAI` / `GoalDirectedAI` / `ExploitBeamAI`
-    - **default は `GoalDirectedAI`** (= Plan H、 archetype 別 bonus + 3-tier fallback)
+  - AI クラス: `RandomAI` / `GreedyAI` / `LookaheadAI` / `MCTSAI` / `PlanningAI` / `GoalDirectedAI` / `ExploitBeamAI` / `SmartOpponentAI`
+    - ⭐ **配備 (= ユーザーが実際に戦う相手) の既定 = `SmartOpponentAI`** → deck別に `ExploitBeam`/greedy 自動切替。 **全16プールデッキは ExploitBeam (= 最強)**。 API 全経路 (practice/match/人間vsAI/matrix/観戦) が `api/main.py:_build_default_ai_factory` / `_practice_run_kwargs` 経由でこれを使う ([[feedback_unified_deployed_ai]]、 577637a)。 **環境外/未知デッキ (deploy_results に無い slug) は greedy に degrade** (= 任意デッキを最強化するには Stage 0 = ゲート緩和 + per-deck GBM が必要)
+    - **`GoalDirectedAI` (= Plan H、 archetype別 bonus + 3-tier fallback)** は engine/harness の **ライブラリ既定** (`engine/harness._default_ai_factory`)。 用途 = scripts/tests・degrade fallback・`ONEPIECE_HUMAN_AI=light`。 ⚠ **配備の対戦相手ではない** (= 実体は上記 SmartOpponentAI)
     - **`ExploitBeamAI` (= 2026-06-04、 vs GreedyAI 最強、 [[project_70pct_vs_greedy]])**: beam(16/10) +
       post-opp 再ランク (`ONEPIECE_POSTOPP_EVAL`、 完了プランを「自ターン終了→相手greedyのターンsim→その後」で
       eval) + 学習 GBM value (`engine/gbm_value.py`、 post-opp盤面=自次ターン開始=GBM学習分布で正確)。
@@ -129,7 +130,7 @@ onepiece_research/
         lethal-check (`_use_lethal_check`) は別flagで常時有効。 配備ミラー A/B 全16デッキ平均 ~66% vs
         旧挙動 (14勝58-84%/2中立/回帰0)。 汎用 flag A/B = `scripts/ab_flag.py`。 詳細 [[project_engine_search_levers_exhausted]]
     - **AI 実行モード (2026-06-03〜、 [[feedback_eval_specs_in_pure_lookup]])**: GoalDirectedAI は target spec を 2 モードで使う。
-      - **pure_lookup (= 既定)**: `_choose_action_pure_lookup` で spec bonus argmax、 beam を bypass (~50ms/手)。 実走 (harness/spectate)・corpus 収集・online 学習 とも これ。 spec が policy そのもの。 spec coverage 不足の局面のみ GreedyAI fallback (= 実測 88% は spec hit)
+      - **pure_lookup (= 既定)**: `_choose_action_pure_lookup` で spec bonus argmax、 beam を bypass (~50ms/手)。 **GoalDirectedAI 使用時** (= harness ライブラリ default・corpus 収集・online 学習) は これ。 spec が policy そのもの。 spec coverage 不足の局面のみ GreedyAI fallback (= 実測 88% は spec hit)。 ⚠ 配備の practice/matrix/観戦 は SmartOpponentAI なので この経路を通らない
       - **beam plan_search (= opt-out)**: `pure_lookup=False` or env `ONEPIECE_PURE_LOOKUP=0` で PlanningAI の beam(4/6) を使い、 spec を葉 eval に bonus 加算。 `scripts/eval_goal_directed_mirror.py` (beam 強度測定) と plan_search 内部 opp_sim のみ
       - ⚠ **spec の A/B は pure_lookup で測る** (`scripts/eval_pure_lookup_ab.py`)。 beam は spec が board_eval に薄まり差が出ない。 「deployed 絶対強さ」測定時のみ beam
   - **共通基盤**: lethal_planner / hand_estimator (= 隠匿情報モデル) / アーキタイプ別ヒューリスティック (= `decks/<slug>.analysis.json` を読込)
@@ -176,7 +177,7 @@ onepiece_research/
   - 累計 108 新規 tests / 全 pass、 期待効果 +15〜+30pt vs 旧 PlanningAI
 - [x] **Plan H = GoalDirectedAI 完了 (2026-05-25)**: target spec DSL + archetype 別 bonus + 3-tier fallback
   - 詳細: [[project_plan_h_hybrid_result]] + [[project_bonus_learning_pipeline]]
-  - 現 default AI、 16 deck mirror eval で平均 +1.9pt (= [[project_phase1_5_baseline]])
+  - engine/harness の **ライブラリ既定** AI (= scripts/tests/degrade/light)。 ⚠ **配備 (ユーザー対戦) の既定ではない** (= 2026-06-04 以降 配備は SmartOpponentAI→ExploitBeam、 [[feedback_unified_deployed_ai]])。 16 deck mirror eval で平均 +1.9pt (= [[project_phase1_5_baseline]])
 - [~] **AI 強化統合 plan 進行中**: [[project_ai_strengthening_plan]]
   - Phase 1 完了 (= effect 不発 prune + fast_clone fix + EndPhase prune)
   - Phase 2 着手前 (= opp model mirror)
@@ -306,7 +307,7 @@ onepiece_research/
 - `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
-  - **方針 (2026-06-06 更新): 表示用 matrix は 配備 AI (= SmartOpponentAI、 deck別に ExploitBeam/greedy 自動、 現在 全16デッキ ExploitBeam) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ai_version `SmartOpponentAI_deployed` が 最新。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20` (= ~80分、 先攻/後攻は run_matchup が cell内で交互、 A vs B と B vs A は両方計算)。 旧 GoalDirectedAI/GreedyAI 産は stale
+  - **方針 (2026-06-06 更新): 表示用 matrix は 配備 AI (= SmartOpponentAI、 deck別に ExploitBeam/greedy 自動、 現在 全16デッキ ExploitBeam) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ai_version `SmartOpponentAI_deployed` が 最新。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20` (= ~80分、 先攻/後攻は run_matchup が cell内で交互、 A vs B と B vs A は両方計算)。 旧 GoalDirectedAI/GreedyAI 産は stale。 ⚠ **配備AIの手が変わる変更後は要再計算** (例: 2026-06-13 offense force-attack 除去 f5dc1f7 で再計算実施)
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
 - `overlay_when_missing.json`: cardqa sweep 結果 (X5、 missing 0)
 - `rules/*.pdf`: 公式ルール一次情報
