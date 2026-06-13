@@ -615,6 +615,7 @@ class ComboCardOut(BaseModel):
     cost: int
     power: int
     features: list[str]
+    text: str
     score: float
     reason: str
 

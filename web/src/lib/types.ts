@@ -38,6 +38,7 @@ export type ComboCard = {
   cost: number;
   power: number;
   features: string[];
+  text: string;
   score: number;
   reason: string;
 };

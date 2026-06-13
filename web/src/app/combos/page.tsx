@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fetchCards, fetchCombos } from "@/lib/api";
+import { fetchCard, fetchCards, fetchCombos } from "@/lib/api";
 import type { Card, ComboCard, ComboResult } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
+import { CardDetailModal } from "@/components/CardDetailModal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
 import { Badge } from "@/components/ui/Badge";
@@ -40,21 +41,34 @@ function ScoreBar({ score, max }: { score: number; max: number }) {
   );
 }
 
-function ComboCardRow({ card, max }: { card: ComboCard; max: number }) {
+function ComboCardRow({
+  card,
+  max,
+  onOpen,
+}: {
+  card: ComboCard;
+  max: number;
+  onOpen: (cardId: string) => void;
+}) {
   return (
     <li className="flex gap-3 rounded-lg border border-zinc-200 p-2.5 dark:border-zinc-800">
-      <div className="w-12 shrink-0">
-        <CardImage
-          cardId={card.card_id}
-          alt={card.name}
-          className="w-full rounded"
-        />
-      </div>
-      <div className="min-w-0 flex-1 space-y-1">
+      <button
+        type="button"
+        onClick={() => onOpen(card.card_id)}
+        className="w-16 shrink-0 self-start transition hover:opacity-80"
+        title="カード詳細を開く"
+      >
+        <CardImage cardId={card.card_id} alt={card.name} className="w-full rounded" />
+      </button>
+      <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <button
+            type="button"
+            onClick={() => onOpen(card.card_id)}
+            className="truncate text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+          >
             {card.name}
-          </span>
+          </button>
           <span className="shrink-0 font-mono text-xs text-zinc-400">
             {card.card_id}
           </span>
@@ -67,7 +81,13 @@ function ComboCardRow({ card, max }: { card: ComboCard; max: number }) {
             <span key={c}>{c}</span>
           ))}
         </div>
-        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+        {card.text && (
+          <p className="whitespace-pre-wrap rounded border border-zinc-100 bg-zinc-50 px-2 py-1.5 text-xs leading-relaxed text-zinc-700 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-300">
+            {card.text}
+          </p>
+        )}
+        <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+          <span className="font-semibold">コンボ: </span>
           {card.reason}
         </p>
         <div className="flex items-center gap-2 pt-0.5">
@@ -88,7 +108,16 @@ export default function CombosPage() {
   const [result, setResult] = useState<ComboResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modalCard, setModalCard] = useState<Card | null>(null);
   const reqId = useRef(0);
+
+  async function openCard(cardId: string) {
+    try {
+      setModalCard(await fetchCard(cardId));
+    } catch {
+      /* 詳細取得失敗は無視 (= inline の効果文は既に表示済) */
+    }
+  }
 
   // 名前検索 (= debounce)
   useEffect(() => {
@@ -238,6 +267,11 @@ export default function CombosPage() {
                 </Badge>
               ))}
             </div>
+            {result?.anchor.text && (
+              <p className="max-w-2xl whitespace-pre-wrap rounded border border-zinc-200 bg-white px-2 py-1.5 text-xs leading-relaxed text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                {result.anchor.text}
+              </p>
+            )}
             {result && result.hooks.length > 0 && (
               <ul className="space-y-0.5 pt-1 text-xs text-zinc-600 dark:text-zinc-300">
                 {result.hooks.map((h, i) => (
@@ -274,9 +308,14 @@ export default function CombosPage() {
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {g.description}
               </p>
-              <ul className="grid gap-2 sm:grid-cols-2">
+              <ul className="space-y-2">
                 {g.cards.map((c) => (
-                  <ComboCardRow key={c.card_id} card={c} max={max} />
+                  <ComboCardRow
+                    key={c.card_id}
+                    card={c}
+                    max={max}
+                    onOpen={openCard}
+                  />
                 ))}
               </ul>
             </section>
@@ -288,6 +327,8 @@ export default function CombosPage() {
           このカードでは明確なコンボ候補が見つかりませんでした。
         </div>
       )}
+
+      <CardDetailModal card={modalCard} onClose={() => setModalCard(null)} />
     </PageShell>
   );
 }

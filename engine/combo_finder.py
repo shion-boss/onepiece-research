@@ -35,6 +35,7 @@ class ComboCard:
     cost: int
     power: int
     features: list[str]
+    text: str
     score: float
     reason: str
 
@@ -272,6 +273,7 @@ def _to_combo(c, score: float, reason: str) -> ComboCard:
         cost=_cost(c),
         power=int(getattr(c, "power", 0) or 0),
         features=_features(c),
+        text=_text(c),
         score=round(score, 2),
         reason=reason,
     )
