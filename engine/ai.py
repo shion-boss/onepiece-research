@@ -2738,7 +2738,14 @@ class DeepPlanningAI(GreedyAI):
             if lethal_action is not None:
                 return lethal_action
 
-        if not me.leader.rested and not me.leader.summoning_sickness:
+        # _offense_force_attack (= 既定 True): 「leader/char で とりあえず攻撃/boost を
+        # beam より前に強制する」 早期 return 群。 2026-06-13 audit: divergence loop で
+        # 「私(strong)=develop ↔ 配備AI=即attack」 が DON潤沢局面に綺麗にクラスタ → この
+        # force-attack 群が beam (post-opp+GBM) を bypass している事が真因。 False で beam に
+        # 委ねる (= 早期 return skip)。 lethal_check (上) は別 flag で常時有効。 A/B 用。
+        if getattr(self, "_offense_force_attack", True) and (
+            not me.leader.rested and not me.leader.summoning_sickness
+        ):
             leader_attacks = [
                 a for a in actions
                 if isinstance(a, AttackLeader)
@@ -2799,7 +2806,7 @@ class DeepPlanningAI(GreedyAI):
             and not c.cannot_attack_through_opp_turn
             and c.power >= opp.leader.power - 1000
         ]
-        if char_attackers:
+        if getattr(self, "_offense_force_attack", True) and char_attackers:
             # ブロッカー 持ち は ブロッカー 役 を 失いたくない ので 後回し
             non_blocker_attackers = [c for c in char_attackers if not c.is_blocker_now]
             preferred = non_blocker_attackers or char_attackers
