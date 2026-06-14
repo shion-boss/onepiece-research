@@ -12,10 +12,12 @@ import { Badge } from "@/components/ui/Badge";
 type Tone = "neutral" | "brand" | "accent" | "success" | "warning" | "danger";
 
 const GROUP_TONE: Record<string, Tone> = {
+  cooccurrence: "brand",
   enabler: "danger",
-  accelerant: "brand",
+  payoff: "warning",
+  accelerant: "accent",
   tribal: "success",
-  amplifier: "accent",
+  amplifier: "neutral",
 };
 
 function ScoreBar({ score, max }: { score: number; max: number }) {

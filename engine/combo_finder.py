@@ -125,6 +125,18 @@ def _detect_ko_power_threshold(text: str) -> Optional[int]:
     return None
 
 
+def _detect_self_powerdown(text: str) -> Optional[int]:
+    """このカード自身が『相手キャラのパワーを下げる』効果か (= enabler matcher と同基準)。
+    → KO閾値ペイオフを活かせる下げ役。 返り値 = 下げ幅。"""
+    if "相手" not in text:
+        return None
+    m = re.search(r"パワー[-－](\d{3,5})", text)
+    if not m:
+        return None
+    d = int(m.group(1))
+    return d if d >= 1000 else None
+
+
 def _is_attacker_trigger(text: str) -> bool:
     return "【アタック時】" in text
 
@@ -271,6 +283,33 @@ def _match_amplifier(anchor, all_cards) -> list[ComboCard]:
     return out
 
 
+def _match_payoff_for_powerdown(anchor, all_cards, pd_amount: int) -> list[ComboCard]:
+    """anchor が相手パワーを下げる → その下げを活かす『パワーX以下KO』ペイオフ (= 双方向)。"""
+    anchor_feats = _features(anchor)
+    anchor_colors = set(_colors(anchor))
+    out: list[ComboCard] = []
+    for c in all_cards:
+        if c.card_id == anchor.card_id:
+            continue
+        ko_t = _detect_ko_power_threshold(_text(c))
+        if ko_t is None:
+            continue
+        reach = ko_t + pd_amount
+        s_mag = min(reach, 7000) / 7000 * 4.0
+        s_cost = _cost_eff(c) * 2.0
+        s_consist = _consistency(c) * 2.0
+        shared = _shared_features(anchor_feats, c)
+        s_fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
+        score = s_mag + s_cost + s_consist + s_fit
+        reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
+        reason = (
+            f"{c.name}は「パワー{ko_t}以下をKO」。{anchor.name}の-{pd_amount}で{reach_txt}まで"
+            "KO圏に入る (= この下げ役を活かすペイオフ)"
+        )
+        out.append(_to_combo(c, score, reason))
+    return out
+
+
 def _to_combo(c, score: float, reason: str) -> ComboCard:
     return ComboCard(
         card_id=c.card_id,
@@ -337,18 +376,59 @@ def find_combos(
     text = _text(anchor)
     anchor_colors = set(_colors(anchor))
 
+    # 実戦デッキ共起による接地 (= スコア補正 + 専用グループ)。 off-meta anchor は空 (= 静的に委ねる)。
+    try:
+        from .combo_cooccurrence import cooc_score_map, cooccurring, n_decks
+        _boost_map = cooc_score_map(card_id)
+        _cooc = cooccurring(card_id, top=per_group * 2)
+        _n_decks = n_decks()
+    except Exception:
+        _boost_map, _cooc, _n_decks = {}, [], 0
+
     def _legal(cards: list[ComboCard]) -> list[ComboCard]:
         # 指定カードと違う色のリーダーは除外 (= デッキに入れられない)。
         return _dedup_parallels(_filter_offcolor_leaders(cards, anchor_colors))
 
+    def _boosted(cards: list[ComboCard]) -> list[ComboCard]:
+        # 実戦で anchor と共起する候補を加点 (= ランクを実戦に接地)。 cap +3。
+        for c in cards:
+            b = _boost_map.get(c.card_id)
+            if b:
+                c.score = round(c.score + min(3.0, 0.15 * b), 2)
+                if "実戦" not in c.reason:
+                    c.reason += "（実戦でも併用例あり）"
+        return _legal(cards)
+
     hooks: list[str] = []
     groups: list[ComboGroup] = []
+
+    # ⓪ 実戦シナジー (= 最も接地、 先頭): 実際に anchor と一緒に採用されているカード
+    cooc_cards: list[ComboCard] = []
+    for d in _cooc:
+        c = by_id.get(d["card_id"])
+        if c is None or c.card_id == anchor.card_id:
+            continue
+        if min_block_icon > 0 and _block_icon(c) < min_block_icon:
+            continue
+        cooc_cards.append(_to_combo(
+            c, d["score"],
+            f"実戦 {d['anchor_decks']} デッキ中 {d['cooc']} 個で {anchor.name} と併用 (lift {d['lift']})",
+        ))
+    cooc_cards = _legal(cooc_cards)
+    if cooc_cards:
+        hooks.append(f"実戦 {_n_decks} デッキ中、 一緒に採用されている相棒あり (= 接地)")
+        groups.append(ComboGroup(
+            key="cooccurrence",
+            label="実戦シナジー (一緒に使われる)",
+            description=f"{anchor.name}が実際に採用されている大会/構築デッキで、 同じデッキに入っているカード。ルールでなく実戦が根拠。",
+            cards=cooc_cards[:per_group],
+        ))
 
     # ① 条件成立 enabler (= anchor 固有、 最も価値が高い): KO 閾値 → power-down
     ko_t = _detect_ko_power_threshold(text)
     if ko_t is not None:
         hooks.append(f"KO条件「パワー{ko_t}以下」 → 相手パワーダウンで圏を広げられる")
-        cards = _legal(_match_enabler_powerdown(anchor, all_cards, ko_t))
+        cards = _boosted(_match_enabler_powerdown(anchor, all_cards, ko_t))
         if cards:
             groups.append(ComboGroup(
                 key="enabler",
@@ -357,8 +437,21 @@ def find_combos(
                 cards=cards[:per_group],
             ))
 
+    # ①b 双方向: anchor が相手パワーを下げる → その下げを活かす KO ペイオフ
+    pd = _detect_self_powerdown(text)
+    if pd is not None:
+        cards = _boosted(_match_payoff_for_powerdown(anchor, all_cards, pd))
+        if cards:
+            hooks.append(f"相手パワー-{pd} → 「パワーX以下KO」 のペイオフを活かせる")
+            groups.append(ComboGroup(
+                key="payoff",
+                label="このカードが活かす (KO/除去ペイオフ)",
+                description=f"{anchor.name}は相手のパワーを-{pd}できる。これを前提に『パワーX以下KO』を持つカードが、本来届かない中大型を除去できるようになる。",
+                cards=cards[:per_group],
+            ))
+
     # ② 加速 accelerant
-    cards = _legal(_match_accelerant(anchor, all_cards))
+    cards = _boosted(_match_accelerant(anchor, all_cards))
     if cards:
         hooks.append("サーチ/コスト軽減/踏み倒しで早く・安定して出せる")
         groups.append(ComboGroup(
@@ -369,7 +462,7 @@ def find_combos(
         ))
 
     # ③ 特徴シナジー tribal
-    cards = _legal(_match_tribal(anchor, all_cards))
+    cards = _boosted(_match_tribal(anchor, all_cards))
     if cards:
         af = _features(anchor)
         hooks.append(f"特徴《{af[0]}》の部族シナジー" if af else "特徴シナジー")
@@ -382,7 +475,7 @@ def find_combos(
 
     # ④ ペイオフ増幅 amplifier
     if _is_attacker_trigger(text):
-        cards = _legal(_match_amplifier(anchor, all_cards))
+        cards = _boosted(_match_amplifier(anchor, all_cards))
         if cards:
             hooks.append("【アタック時】持ち → 【速攻】付与で出したターンに即発動")
             groups.append(ComboGroup(

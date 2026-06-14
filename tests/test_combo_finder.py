@@ -103,6 +103,38 @@ def test_regulation_standard_filters_block_icon(repo):
     assert n_std <= n_all
 
 
+def test_cooccurrence_module_grounded():
+    """実戦デッキ共起モジュールが妥当なコーパスと接地した結果を返す。"""
+    from engine.combo_cooccurrence import cooccurring, deck_count, n_decks
+
+    assert n_decks() > 50  # 十分な実戦コーパス
+    assert deck_count("OP14-112") >= 4  # ハンコックは複数デッキ
+    co = cooccurring("OP14-112", top=5)
+    assert co and all(d["cooc"] >= 2 for d in co)
+    assert cooccurring("OP04-013") == []  # ペルは off-meta → 空
+
+
+def test_cooccurrence_group_for_meta_card(repo):
+    """実戦デッキに多いカードは『実戦シナジー』群が先頭に出る (= 接地)。"""
+    res = find_combos(repo, "OP14-112")  # ハンコック (実戦8デッキ)
+    assert res.groups and res.groups[0].key == "cooccurrence"
+    assert res.groups[0].cards
+
+
+def test_offmeta_card_no_cooccurrence(repo):
+    """実戦デッキに不在のカードは共起群なし (= 静的ルールに委ねる)。"""
+    res = find_combos(repo, "OP04-013")  # ペル (実戦0)
+    assert "cooccurrence" not in {g.key for g in res.groups}
+
+
+def test_bidirectional_payoff_for_powerdown(repo):
+    """相手パワーを下げるカードは『活かすKO/除去ペイオフ』群が出る (= 双方向)。"""
+    res = find_combos(repo, "OP01-027")  # 円卓 (-10000)
+    payoff = next((g for g in res.groups if g.key == "payoff"), None)
+    assert payoff is not None and payoff.cards
+    assert all("KO" in c.reason for c in payoff.cards)
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
