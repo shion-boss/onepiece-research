@@ -109,6 +109,24 @@ def _shared_features(anchor_feats: list[str], card) -> list[str]:
     return [f for f in anchor_feats if f in cf]
 
 
+def _condition_note(text: str) -> tuple[float, str]:
+    """効果の発動条件 (= in-game setup の要否) を (倍率, 注記) で返す。
+
+    構築で自動成立する条件 (= リーダー特徴/色) は減点しない。 試合中に別カードで状態を
+    作る必要がある条件は「実質 N 枚コンボ」 なので combo 候補としての価値を割り引く。
+    ⚠ 2026-06-14 ユーザー指摘: 海ネコ (= 自リーダーがパワー0以下の場合 -3000) が
+    無条件の下げ役と同列に評価されていた。 条件で減点する。
+    """
+    # 自リーダーのパワーを下げる必要 = 別カード必須 (= 実質3枚コンボ)
+    if re.search(r"リーダー.{0,8}パワー.{0,6}\d+以下", text):
+        return 0.4, "要セットアップ: 自リーダーのパワーを下げる別カードが必要 (= 実質3枚コンボ)"
+    if re.search(r"(自分の)?ライフ.{0,6}\d+\s*枚?以下", text):
+        return 0.7, "条件: 自ライフが一定以下の時のみ"
+    if re.search(r"トラッシュ.{0,8}\d+\s*枚以上", text):
+        return 0.75, "条件: トラッシュを貯める必要あり"
+    return 1.0, ""
+
+
 # --------------------------------------------------------------------------- #
 # anchor の「噛み所 (hooks)」 検出
 # --------------------------------------------------------------------------- #
@@ -174,10 +192,13 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
         shared = _shared_features(anchor_feats, c)
         s_fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
         score = s_mag + s_cost + s_consist + s_fit
+        cond_factor, cond_note = _condition_note(t)
+        score *= cond_factor
         reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
         reason = (
             f"「相手パワー-{debuff}」で、{anchor.name}のKO圏(≤{ko_threshold})を{reach_txt}まで拡張"
             + (f"。同特徴《{shared[0]}》で噛み合う" if shared else "")
+            + (f"。⚠ {cond_note}" if cond_note else "")
         )
         out.append(_to_combo(c, score, reason))
     return out
@@ -301,10 +322,13 @@ def _match_payoff_for_powerdown(anchor, all_cards, pd_amount: int) -> list[Combo
         shared = _shared_features(anchor_feats, c)
         s_fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
         score = s_mag + s_cost + s_consist + s_fit
+        cond_factor, cond_note = _condition_note(_text(c))
+        score *= cond_factor
         reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
         reason = (
             f"{c.name}は「パワー{ko_t}以下をKO」。{anchor.name}の-{pd_amount}で{reach_txt}まで"
             "KO圏に入る (= この下げ役を活かすペイオフ)"
+            + (f"。⚠ {cond_note}" if cond_note else "")
         )
         out.append(_to_combo(c, score, reason))
     return out

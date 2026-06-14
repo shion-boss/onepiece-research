@@ -135,6 +135,32 @@ def test_bidirectional_payoff_for_powerdown(repo):
     assert all("KO" in c.reason for c in payoff.cards)
 
 
+def test_condition_note_detects_leader_power():
+    """リーダーパワー条件 (= 要セットアップ) を検出して減点する。"""
+    from engine.combo_finder import _condition_note
+
+    factor, note = _condition_note(
+        "自分のリーダーがパワー0以下の場合、相手のキャラ1枚までを、パワー-3000。"
+    )
+    assert factor < 0.5 and note
+    assert _condition_note("相手のキャラ1枚までを、パワー-3000。")[0] == 1.0  # 無条件
+
+
+def test_conditional_enabler_penalized(repo):
+    """条件付き効果 (= 海ネコ OP15-004: 自リーダーパワー0以下) は ペル enabler の top8 圏外
+    に落ち、 全候補で見ると無条件の下げ役 (コーザ) より低評価 + 注記が付く。"""
+    res = find_combos(repo, "OP04-013", per_group=8)
+    g = next(gr for gr in res.groups if gr.key == "enabler")
+    assert "OP15-004" not in {c.card_id for c in g.cards}  # 旧 #1 → 圏外
+
+    res_all = find_combos(repo, "OP04-013", per_group=300)
+    g_all = next(gr for gr in res_all.groups if gr.key == "enabler")
+    cards = {c.card_id: c for c in g_all.cards}
+    assert "OP15-004" in cards and "EB01-004" in cards  # 除外でなく低評価で残る
+    assert cards["OP15-004"].score < cards["EB01-004"].score
+    assert "⚠" in cards["OP15-004"].reason
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
