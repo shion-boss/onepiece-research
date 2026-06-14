@@ -18,13 +18,6 @@ const GROUP_TONE: Record<string, Tone> = {
   amplifier: "accent",
 };
 
-// お試し用の入口 (= ペル等、 議論で出た例)
-const EXAMPLES = [
-  { card_id: "OP04-013", label: "ペル (5c)" },
-  { card_id: "OP14-112", label: "ボア・ハンコック" },
-  { card_id: "OP09-118", label: "ロジャー" },
-];
-
 function ScoreBar({ score, max }: { score: number; max: number }) {
   const pct = Math.max(6, Math.min(100, (score / Math.max(1, max)) * 100));
   return (
@@ -164,39 +157,6 @@ export default function CombosPage() {
     }
   }
 
-  async function selectById(cardId: string) {
-    // card_id 直指定 (= お試しチップ): combos の anchor 情報で anchor を確定
-    setCandidates([]);
-    setQuery("");
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const res = await fetchCombos(cardId, 8);
-      setResult(res);
-      setAnchor({
-        card_id: res.anchor.card_id,
-        name: res.anchor.name,
-        category: res.anchor.category as Card["category"],
-        color: res.anchor.color,
-        cost: res.anchor.cost,
-        life: 0,
-        power: res.anchor.power,
-        counter: 0,
-        attribute: "",
-        block_icon: 0,
-        features: res.anchor.features,
-        text: "",
-        trigger: "",
-        rarity: "",
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <PageShell>
       <PageHeader
@@ -241,19 +201,6 @@ export default function CombosPage() {
               ))}
             </ul>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <span>お試し:</span>
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex.card_id}
-              type="button"
-              onClick={() => selectById(ex.card_id)}
-              className="rounded-full border border-zinc-300 px-2.5 py-1 hover:border-zinc-500 dark:border-zinc-700 dark:hover:border-zinc-500"
-            >
-              {ex.label}
-            </button>
-          ))}
         </div>
       </div>
 
