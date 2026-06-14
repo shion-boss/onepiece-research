@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fetchCard, fetchCards, fetchCombos } from "@/lib/api";
-import type { Card, ComboCard, ComboResult } from "@/lib/types";
+import type { Card, ComboCard, ComboChain, ComboResult } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
 import { CardDetailModal } from "@/components/CardDetailModal";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -92,6 +92,51 @@ function ComboCardRow({
           <ScoreBar score={card.score} max={max} />
         </div>
       </div>
+    </li>
+  );
+}
+
+function ChainRow({
+  chain,
+  onOpen,
+}: {
+  chain: ComboChain;
+  onOpen: (cardId: string) => void;
+}) {
+  return (
+    <li className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="mb-2 flex items-center gap-2">
+        <Badge tone="brand">{chain.label}</Badge>
+        <span className="font-mono text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+          {chain.score.toFixed(1)}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-start gap-1.5">
+        {chain.steps.map((s, i) => (
+          <div key={s.card_id + i} className="flex items-start gap-1.5">
+            {i > 0 && (
+              <span className="mt-8 select-none text-lg text-zinc-400">+</span>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpen(s.card_id)}
+              className="flex w-24 flex-col gap-1 text-left transition hover:opacity-80"
+              title="カード詳細を開く"
+            >
+              <CardImage cardId={s.card_id} alt={s.name} className="w-full rounded" />
+              <span className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                {s.name}
+              </span>
+              <span className="text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
+                {s.role}
+              </span>
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+        {chain.description}
+      </p>
     </li>
   );
 }
@@ -276,6 +321,26 @@ export default function CombosPage() {
         <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           取得失敗: {error}
         </div>
+      )}
+
+      {/* 多枚コンボ (3-4枚) */}
+      {result && !loading && result.chains.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Badge tone="brand">多枚コンボ (3-4枚)</Badge>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {result.chains.length} 件
+            </span>
+          </div>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            条件付きカードの「不足ピース」まで含めた 3-4 枚のコンボ。例: 条件付きの下げ役と、その条件を満たすカードを併せて提示。
+          </p>
+          <ul className="space-y-2">
+            {result.chains.map((ch, i) => (
+              <ChainRow key={i} chain={ch} onOpen={openCard} />
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* 結果: 型別グループ */}

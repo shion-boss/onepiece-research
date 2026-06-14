@@ -49,10 +49,31 @@ class ComboGroup:
 
 
 @dataclass
+class ComboChainStep:
+    card_id: str
+    name: str
+    role: str          # 役割 (= ペイオフ / 下げ役 / 条件成立 ...)
+    category: str
+    color: list[str]
+    cost: int
+    text: str
+
+
+@dataclass
+class ComboChain:
+    n_cards: int
+    score: float
+    label: str          # "3枚コンボ" / "4枚コンボ"
+    description: str     # どう繋がるか
+    steps: list[ComboChainStep]  # anchor → enabler → satisfier ... の順
+
+
+@dataclass
 class ComboResult:
     anchor: ComboCard
     hooks: list[str]            # anchor から検出した噛み所 (= human-readable)
     groups: list[ComboGroup]
+    chains: list[ComboChain] = field(default_factory=list)  # 3-4枚 多枚コンボ
 
 
 # --------------------------------------------------------------------------- #
@@ -109,22 +130,24 @@ def _shared_features(anchor_feats: list[str], card) -> list[str]:
     return [f for f in anchor_feats if f in cf]
 
 
-def _condition_note(text: str) -> tuple[float, str]:
-    """効果の発動条件 (= in-game setup の要否) を (倍率, 注記) で返す。
+def _condition_note(text: str) -> tuple[float, str, str]:
+    """効果の発動条件 (= in-game setup の要否) を (倍率, 注記, 条件type) で返す。
 
     構築で自動成立する条件 (= リーダー特徴/色) は減点しない。 試合中に別カードで状態を
     作る必要がある条件は「実質 N 枚コンボ」 なので combo 候補としての価値を割り引く。
+    条件type (= leader_power/life/trash) は、 その条件を満たす satisfier を探して
+    多枚コンボを組むのに使う ([[combo chains]])。
     ⚠ 2026-06-14 ユーザー指摘: 海ネコ (= 自リーダーがパワー0以下の場合 -3000) が
-    無条件の下げ役と同列に評価されていた。 条件で減点する。
+    無条件の下げ役と同列に評価されていた。 条件で減点 + 多枚コンボ化する。
     """
     # 自リーダーのパワーを下げる必要 = 別カード必須 (= 実質3枚コンボ)
     if re.search(r"リーダー.{0,8}パワー.{0,6}\d+以下", text):
-        return 0.4, "要セットアップ: 自リーダーのパワーを下げる別カードが必要 (= 実質3枚コンボ)"
+        return 0.4, "要セットアップ: 自リーダーのパワーを下げる別カードが必要 (= 実質3枚コンボ)", "leader_power"
     if re.search(r"(自分の)?ライフ.{0,6}\d+\s*枚?以下", text):
-        return 0.7, "条件: 自ライフが一定以下の時のみ"
+        return 0.7, "条件: 自ライフが一定以下の時のみ", "life"
     if re.search(r"トラッシュ.{0,8}\d+\s*枚以上", text):
-        return 0.75, "条件: トラッシュを貯める必要あり"
-    return 1.0, ""
+        return 0.75, "条件: トラッシュを貯める必要あり", "trash"
+    return 1.0, "", ""
 
 
 # --------------------------------------------------------------------------- #
@@ -192,7 +215,7 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
         shared = _shared_features(anchor_feats, c)
         s_fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
         score = s_mag + s_cost + s_consist + s_fit
-        cond_factor, cond_note = _condition_note(t)
+        cond_factor, cond_note, _ = _condition_note(t)
         score *= cond_factor
         reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
         reason = (
@@ -322,7 +345,7 @@ def _match_payoff_for_powerdown(anchor, all_cards, pd_amount: int) -> list[Combo
         shared = _shared_features(anchor_feats, c)
         s_fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
         score = s_mag + s_cost + s_consist + s_fit
-        cond_factor, cond_note = _condition_note(_text(c))
+        cond_factor, cond_note, _ = _condition_note(_text(c))
         score *= cond_factor
         reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
         reason = (
@@ -347,6 +370,123 @@ def _to_combo(c, score: float, reason: str) -> ComboCard:
         score=round(score, 2),
         reason=reason,
     )
+
+
+# --------------------------------------------------------------------------- #
+# 多枚コンボ (= 条件成立チェーン: anchor + 条件付enabler + satisfier ...)
+# --------------------------------------------------------------------------- #
+_SATISFIER_PATTERNS = {
+    "leader_power": r"自分の.{0,6}(アクティブの)?リーダー.{0,12}パワー[-－]\d",
+    "life": r"自分のライフ.{0,18}(トラッシュ|手札に加え)",
+    "trash": r"(自分の)?デッキの上から\d+枚.{0,14}トラッシュ",
+}
+_CTYPE_LABEL = {
+    "leader_power": "自リーダーのパワーを下げる",
+    "life": "自ライフを減らす",
+    "trash": "トラッシュを貯める",
+}
+
+
+def _satisfiers_of_condition(ctype, all_cards, anchor, anchor_colors, anchor_feats):
+    """条件 ctype を試合中に満たすカード (= satisfier) を扱いやすい順で返す。 同色のみ。"""
+    pat = _SATISFIER_PATTERNS.get(ctype)
+    if not pat:
+        return []
+    out = []
+    for c in all_cards:
+        if c.card_id == anchor.card_id:
+            continue
+        if anchor_colors and not (anchor_colors & set(_colors(c))):
+            continue  # deck 成立性: anchor と同色のみ
+        if not re.search(pat, _text(c)):
+            continue
+        shared = _shared_features(anchor_feats, c)
+        fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
+        out.append((c, round(_cost_eff(c) * 2.0 + _consistency(c) + fit, 2)))
+    out.sort(key=lambda x: -x[1])
+    return out
+
+
+def _chain_step(card, role: str) -> ComboChainStep:
+    return ComboChainStep(
+        card_id=card.card_id, name=card.name, role=role,
+        category=_category(card), color=_colors(card), cost=_cost(card), text=_text(card),
+    )
+
+
+def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t, max_chains=6):
+    """anchor の条件付き power-down enabler を起点に satisfier を足し 3-4 枚コンボを構築。
+    ⚠ ユーザー指摘の「海ネコ(条件付下げ役) は自リーダー0が要る = 3枚コンボ」 を明示化する。"""
+    if ko_t is None:
+        return []
+    cond_enablers = []
+    for c in all_cards:
+        if c.card_id == anchor.card_id:
+            continue
+        if anchor_colors and not (anchor_colors & set(_colors(c))):
+            continue
+        t = _text(c)
+        if "相手" not in t:
+            continue
+        m = re.search(r"パワー[-－](\d{3,5})", t)
+        if not m:
+            continue
+        debuff = int(m.group(1))
+        if debuff < 1000:
+            continue
+        _, _, ctype = _condition_note(t)
+        if not ctype:
+            continue  # 無条件 enabler は 2 枚コンボ (enabler 群で既出)
+        cond_enablers.append((c, debuff, ctype))
+
+    def _en_key(e):
+        c, _, _ = e
+        sh = 1.5 if _shared_features(anchor_feats, c) else 0.0
+        col = 0.8 if anchor_colors & set(_colors(c)) else 0.0
+        return -(sh + col + _cost_eff(c))
+
+    cond_enablers.sort(key=_en_key)
+    chains, seen = [], set()
+    for c, debuff, ctype in cond_enablers[:4]:
+        sats = _satisfiers_of_condition(ctype, all_cards, anchor, anchor_colors, anchor_feats)
+        if not sats:
+            continue
+        reach = ko_t + debuff
+        reach_factor = min(reach, 7000) / 7000
+        for sat, sat_score in sats[:2]:
+            parts = [c, sat]
+            steps = [
+                _chain_step(anchor, "ペイオフ (KO)"),
+                _chain_step(c, "下げ役 (条件付)"),
+                _chain_step(sat, f"条件成立: {_CTYPE_LABEL.get(ctype, ctype)}"),
+            ]
+            n_cards = 3
+            _, _, sctype = _condition_note(_text(sat))
+            if sctype and sctype != ctype:
+                sats2 = _satisfiers_of_condition(sctype, all_cards, anchor, anchor_colors, anchor_feats)
+                if sats2:
+                    sat2 = sats2[0][0]
+                    parts.append(sat2)
+                    steps.append(_chain_step(sat2, f"条件成立: {_CTYPE_LABEL.get(sctype, sctype)}"))
+                    n_cards = 4
+            sig = tuple(s.card_id for s in steps)
+            if sig in seen:
+                continue
+            seen.add(sig)
+            cohesion = 1.0 if anchor_feats and all(_shared_features(anchor_feats, p) for p in parts) else 0.0
+            penalty = 0.6 if n_cards == 3 else 0.42
+            score = round((reach_factor * 4 + sat_score * 0.3 + cohesion * 1.5) * penalty, 2)
+            reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
+            desc = (
+                f"{anchor.name}のKO圏(≤{ko_t})を{c.name}の-{debuff}で広げるが、{c.name}は条件付き → "
+                f"{sat.name}で{_CTYPE_LABEL.get(ctype, ctype)}と成立。{n_cards}枚で{reach_txt}までKO可能。"
+            )
+            chains.append(ComboChain(
+                n_cards=n_cards, score=score, label=f"{n_cards}枚コンボ",
+                description=desc, steps=steps,
+            ))
+    chains.sort(key=lambda ch: -ch.score)
+    return chains[:max_chains]
 
 
 # --------------------------------------------------------------------------- #
@@ -509,8 +649,14 @@ def find_combos(
                 cards=cards[:per_group],
             ))
 
+    # 多枚コンボ (= 3-4枚 条件成立チェーン)。 条件付き enabler の不足ピースを明示化。
+    chains = _build_condition_chains(anchor, all_cards, anchor_colors, _features(anchor), ko_t)
+    if chains:
+        hooks.append(f"条件付きカードを補う {chains[0].n_cards} 枚コンボあり")
+
     return ComboResult(
         anchor=_to_combo(anchor, 0.0, ""),
         hooks=hooks,
         groups=groups,
+        chains=chains,
     )

@@ -627,10 +627,29 @@ class ComboGroupOut(BaseModel):
     cards: list[ComboCardOut]
 
 
+class ComboChainStepOut(BaseModel):
+    card_id: str
+    name: str
+    role: str
+    category: str
+    color: list[str]
+    cost: int
+    text: str
+
+
+class ComboChainOut(BaseModel):
+    n_cards: int
+    score: float
+    label: str
+    description: str
+    steps: list[ComboChainStepOut]
+
+
 class ComboResultOut(BaseModel):
     anchor: ComboCardOut
     hooks: list[str]
     groups: list[ComboGroupOut]
+    chains: list[ComboChainOut] = []
 
 
 @app.get("/api/combos/{card_id}", response_model=ComboResultOut)
@@ -660,6 +679,14 @@ def find_card_combos(
                 cards=[ComboCardOut(**c.__dict__) for c in g.cards],
             )
             for g in res.groups
+        ],
+        chains=[
+            ComboChainOut(
+                n_cards=ch.n_cards, score=ch.score, label=ch.label,
+                description=ch.description,
+                steps=[ComboChainStepOut(**s.__dict__) for s in ch.steps],
+            )
+            for ch in res.chains
         ],
     )
 

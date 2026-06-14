@@ -50,10 +50,29 @@ export type ComboGroup = {
   cards: ComboCard[];
 };
 
+export type ComboChainStep = {
+  card_id: string;
+  name: string;
+  role: string;
+  category: string;
+  color: string[];
+  cost: number;
+  text: string;
+};
+
+export type ComboChain = {
+  n_cards: number;
+  score: number;
+  label: string;
+  description: string;
+  steps: ComboChainStep[];
+};
+
 export type ComboResult = {
   anchor: ComboCard;
   hooks: string[];
   groups: ComboGroup[];
+  chains: ComboChain[];
 };
 
 export type DeckEntry = {

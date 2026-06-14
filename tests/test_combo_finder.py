@@ -139,10 +139,10 @@ def test_condition_note_detects_leader_power():
     """リーダーパワー条件 (= 要セットアップ) を検出して減点する。"""
     from engine.combo_finder import _condition_note
 
-    factor, note = _condition_note(
+    factor, note, ctype = _condition_note(
         "自分のリーダーがパワー0以下の場合、相手のキャラ1枚までを、パワー-3000。"
     )
-    assert factor < 0.5 and note
+    assert factor < 0.5 and note and ctype == "leader_power"
     assert _condition_note("相手のキャラ1枚までを、パワー-3000。")[0] == 1.0  # 無条件
 
 
@@ -159,6 +159,23 @@ def test_conditional_enabler_penalized(repo):
     assert "OP15-004" in cards and "EB01-004" in cards  # 除外でなく低評価で残る
     assert cards["OP15-004"].score < cards["EB01-004"].score
     assert "⚠" in cards["OP15-004"].reason
+
+
+def test_multicard_chain_for_conditional_enabler(repo):
+    """ペルは条件付き enabler (海ネコ) の不足ピースを補う 3枚コンボを出す
+    (= ペル + 海ネコ + 自リーダーを下げるカード)。 ユーザー要望の多枚コンボ。"""
+    res = find_combos(repo, "OP04-013", per_group=8)
+    assert res.chains, "多枚コンボが空"
+    found = False
+    for ch in res.chains:
+        ids = [s.card_id for s in ch.steps]
+        if ids and ids[0] == "OP04-013" and "OP15-004" in ids:
+            assert ch.n_cards >= 3
+            assert ch.steps[0].role.startswith("ペイオフ")
+            # 条件成立の satisfier ステップがある
+            assert any("条件成立" in s.role for s in ch.steps)
+            found = True
+    assert found, "ペル+海ネコ+リーダー下げ の3枚コンボが無い"
 
 
 def test_unknown_card_raises(repo):
