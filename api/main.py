@@ -634,13 +634,21 @@ class ComboResultOut(BaseModel):
 
 
 @app.get("/api/combos/{card_id}", response_model=ComboResultOut)
-def find_card_combos(card_id: str, per_group: int = Query(8, ge=1, le=30)):
+def find_card_combos(
+    card_id: str,
+    per_group: int = Query(8, ge=1, le=30),
+    regulation: str = Query("all", description="all / standard (= block_icon>=2)"),
+):
     """指定カード (= anchor) を起点に、 相性の良いカードを型別・ランク付きで返す。
-    static score で差別化 (= recall でなく ranking が本質)。 強さの裏取りは別 (sim)。"""
+    static score で差別化 (= recall でなく ranking が本質)。 強さの裏取りは別 (sim)。
+    regulation=standard で候補をスタンダード使用可 (block_icon>=2) に絞る。"""
     from engine.combo_finder import find_combos
 
+    min_block_icon = 2 if regulation == "standard" else 0
     try:
-        res = find_combos(get_repo(), card_id, per_group=per_group)
+        res = find_combos(
+            get_repo(), card_id, per_group=per_group, min_block_icon=min_block_icon
+        )
     except KeyError:
         raise HTTPException(404, f"card not found: {card_id}")
     return ComboResultOut(

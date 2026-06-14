@@ -91,6 +91,18 @@ def test_pell_results_leaders_share_color(repo):
                 assert "赤" in c.color, f"{c.card_id} {c.color} は赤を含まない"
 
 
+def test_regulation_standard_filters_block_icon(repo):
+    """min_block_icon=2 (= スタンダード) で候補が block_icon>=2 のみになり、 件数は全体以下。"""
+    res_std = find_combos(repo, "OP04-013", per_group=30, min_block_icon=2)
+    for g in res_std.groups:
+        for c in g.cards:
+            assert repo._by_id[c.card_id].block_icon >= 2, f"{c.card_id} block<2"
+    res_all = find_combos(repo, "OP04-013", per_group=30, min_block_icon=0)
+    n_all = sum(len(g.cards) for g in res_all.groups)
+    n_std = sum(len(g.cards) for g in res_std.groups)
+    assert n_std <= n_all
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")

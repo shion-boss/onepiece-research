@@ -102,6 +102,7 @@ export default function CombosPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalCard, setModalCard] = useState<Card | null>(null);
+  const [regulation, setRegulation] = useState<"all" | "standard">("all");
   const reqId = useRef(0);
 
   async function openCard(cardId: string) {
@@ -140,21 +141,29 @@ export default function CombosPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  async function selectAnchor(card: Card) {
-    setAnchor(card);
-    setCandidates([]);
-    setQuery("");
+  async function loadCombos(cardId: string, reg: "all" | "standard") {
     setResult(null);
     setError(null);
     setLoading(true);
     try {
-      const res = await fetchCombos(card.card_id, 8);
-      setResult(res);
+      setResult(await fetchCombos(cardId, 8, reg));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function selectAnchor(card: Card) {
+    setAnchor(card);
+    setCandidates([]);
+    setQuery("");
+    await loadCombos(card.card_id, regulation);
+  }
+
+  function changeRegulation(reg: "all" | "standard") {
+    setRegulation(reg);
+    if (anchor) void loadCombos(anchor.card_id, reg);
   }
 
   return (
@@ -201,6 +210,25 @@ export default function CombosPage() {
               ))}
             </ul>
           )}
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-500 dark:text-zinc-400">レギュレーション:</span>
+          <div className="inline-flex overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-700">
+            {(["all", "standard"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => changeRegulation(r)}
+                className={
+                  regulation === r
+                    ? "bg-zinc-900 px-3 py-1 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "px-3 py-1 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }
+              >
+                {r === "all" ? "全カード" : "スタンダード"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

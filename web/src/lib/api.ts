@@ -56,9 +56,10 @@ export async function fetchCard(cardId: string): Promise<Card> {
 export async function fetchCombos(
   cardId: string,
   perGroup = 8,
+  regulation: "all" | "standard" = "all",
 ): Promise<ComboResult> {
   const res = await fetch(
-    `${API}/api/combos/${encodeURIComponent(cardId)}?per_group=${perGroup}`,
+    `${API}/api/combos/${encodeURIComponent(cardId)}?per_group=${perGroup}&regulation=${regulation}`,
     { cache: "no-store" },
   );
   if (!res.ok) throw new Error(`fetchCombos failed: ${res.status}`);

@@ -65,6 +65,13 @@ def _cost(card) -> int:
         return 5
 
 
+def _block_icon(card) -> int:
+    try:
+        return int(getattr(card, "block_icon", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _category(card) -> str:
     cat = getattr(card, "category", "")
     return getattr(cat, "value", cat) or ""
@@ -312,13 +319,21 @@ def _filter_offcolor_leaders(
     ]
 
 
-def find_combos(repo, card_id: str, per_group: int = 8) -> ComboResult:
-    """anchor card_id を起点にコンボ候補を型別・ランク付きで返す。"""
+def find_combos(
+    repo, card_id: str, per_group: int = 8, min_block_icon: int = 0
+) -> ComboResult:
+    """anchor card_id を起点にコンボ候補を型別・ランク付きで返す。
+
+    min_block_icon: レギュレーション制限 (= スタンダードは block_icon>=2、 0 で全カード)。
+    候補プールを絞る (= anchor 自体は対象外 = ユーザー指定なのでそのまま)。
+    """
     by_id = repo._by_id
     anchor = by_id.get(card_id)
     if anchor is None:
         raise KeyError(f"unknown card_id: {card_id}")
     all_cards = list(by_id.values())
+    if min_block_icon > 0:
+        all_cards = [c for c in all_cards if _block_icon(c) >= min_block_icon]
     text = _text(anchor)
     anchor_colors = set(_colors(anchor))
 
