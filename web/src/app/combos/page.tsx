@@ -119,7 +119,7 @@ export default function CombosPage() {
     }
   }
 
-  // 名前検索 (= debounce)
+  // 名前 or カード番号で検索 (= debounce)。 "OP04-013" のような番号は直接 lookup。
   useEffect(() => {
     const q = query.trim();
     if (q.length < 1) {
@@ -127,13 +127,22 @@ export default function CombosPage() {
       return;
     }
     const id = ++reqId.current;
+    const looksLikeId = /^[A-Za-z0-9]+-/.test(q); // 例: OP04-013 / P-114 / PRB02-006
     const t = setTimeout(async () => {
-      try {
-        const cards = await fetchCards({ name_contains: q, limit: 24 });
-        if (id === reqId.current) setCandidates(cards);
-      } catch {
-        if (id === reqId.current) setCandidates([]);
-      }
+      const [byName, byId] = await Promise.all([
+        fetchCards({ name_contains: q, limit: 24 }).catch(() => [] as Card[]),
+        looksLikeId
+          ? fetchCard(q.toUpperCase())
+              .then((c) => [c])
+              .catch(() => [] as Card[])
+          : Promise.resolve([] as Card[]),
+      ]);
+      // 番号一致を先頭に、 重複除去
+      const merged = [
+        ...byId,
+        ...byName.filter((c) => !byId.some((b) => b.card_id === c.card_id)),
+      ];
+      if (id === reqId.current) setCandidates(merged);
     }, 250);
     return () => clearTimeout(t);
   }, [query]);
@@ -207,7 +216,7 @@ export default function CombosPage() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="カード名で検索 (例: ペル)"
+            placeholder="カード名 または 番号で検索 (例: ペル / OP04-013)"
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           />
           {candidates.length > 0 && (
