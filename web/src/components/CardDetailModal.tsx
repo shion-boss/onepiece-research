@@ -30,12 +30,20 @@ export function CardDetailModal({
           loading="eager"
         />
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">{card.name}</h2>
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-0.5">
+              <h2 className="text-2xl font-semibold">{card.name}</h2>
+              <div
+                className="select-all font-mono text-sm text-zinc-500 dark:text-zinc-400"
+                title="カード番号 (クリックで選択 → 検索に使える)"
+              >
+                {card.card_id}
+              </div>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+              className="shrink-0 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
               aria-label="close"
             >
               ✕
