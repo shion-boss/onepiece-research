@@ -178,6 +178,33 @@ def test_multicard_chain_for_conditional_enabler(repo):
     assert found, "ペル+海ネコ+リーダー下げ の3枚コンボが無い"
 
 
+def test_leader_feature_compatibility():
+    """要求リーダー特徴が anchor と非互換なら除外する (= サッチ 白ひげ@ペル アラバスタ)。"""
+    from engine.combo_finder import _leader_feature_compatible
+
+    bad = "自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、相手のキャラ1枚を、パワー-2000。"
+    assert not _leader_feature_compatible(bad, ["アラバスタ王国"])
+    assert _leader_feature_compatible("リーダーが特徴《アラバスタ王国》を持つ場合", ["アラバスタ王国"])
+    assert _leader_feature_compatible("条件なしの効果", ["アラバスタ王国"])
+
+
+def test_chain_excludes_incompatible_and_sums_debuff(repo):
+    """ペルのチェーン: サッチ(白ひげ要求)は除外、 コーザ(自リーダー下げ+相手-3000)は
+    reach に -3000 合算 (= ユーザー指摘、 海ネコ-3000 + コーザ-3000 = -6000 → 最大10000)。"""
+    res = find_combos(repo, "OP04-013", per_group=8)
+    # サッチ ST15-004 はどのチェーンにも入らない
+    for ch in res.chains:
+        assert "ST15-004" not in [s.card_id for s in ch.steps]
+    # 海ネコ + コーザ のチェーンで debuff が合算されている
+    target = next(
+        (ch for ch in res.chains
+         if {"OP15-004", "EB01-004"} <= {s.card_id for s in ch.steps}),
+        None,
+    )
+    assert target is not None
+    assert "合計" in target.description or "10000" in target.description
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")

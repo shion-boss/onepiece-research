@@ -130,6 +130,21 @@ def _shared_features(anchor_feats: list[str], card) -> list[str]:
     return [f for f in anchor_feats if f in cf]
 
 
+def _required_leader_features(text: str) -> set[str]:
+    """効果が『リーダーが特徴《X》/『X』を持つ場合』 で要求するリーダー特徴を返す
+    (= 名前指定「X」 は対象外。 デッキの色/特徴で両立可否を判定するため)。"""
+    return set(re.findall(r"リーダーが(?:特徴)?[『《]([^』》]+)[』》]", text))
+
+
+def _leader_feature_compatible(text: str, anchor_feats: list[str]) -> bool:
+    """効果が要求するリーダー特徴が anchor の特徴と両立するか (= 同じデッキ/リーダーで使えるか)。
+    ⚠ 2026-06-14: サッチ(リーダー=白ひげ要求)がアラバスタのペルのチェーンに誤混入していた。"""
+    req = _required_leader_features(text)
+    if not req:
+        return True
+    return bool(req & set(anchor_feats))
+
+
 def _condition_note(text: str) -> tuple[float, str, str]:
     """効果の発動条件 (= in-game setup の要否) を (倍率, 注記, 条件type) で返す。
 
@@ -398,13 +413,25 @@ def _satisfiers_of_condition(ctype, all_cards, anchor, anchor_colors, anchor_fea
             continue
         if anchor_colors and not (anchor_colors & set(_colors(c))):
             continue  # deck 成立性: anchor と同色のみ
-        if not re.search(pat, _text(c)):
+        ct = _text(c)
+        if not re.search(pat, ct):
             continue
+        if not _leader_feature_compatible(ct, anchor_feats):
+            continue  # 要求リーダー特徴が非互換 (= サッチ@ペル) → satisfier にならない
         shared = _shared_features(anchor_feats, c)
         fit = (1.5 if shared else 0.0) + (0.8 if anchor_colors & set(_colors(c)) else 0.0)
         out.append((c, round(_cost_eff(c) * 2.0 + _consistency(c) + fit, 2)))
     out.sort(key=lambda x: -x[1])
     return out
+
+
+def _extra_opp_debuff(text: str, anchor_feats: list[str]) -> int:
+    """このカードが (互換に) 相手キャラのパワーを下げる量 (= チェーンの reach に合算する)。
+    リーダー特徴ゲートが非互換なら 0 (= 発動しないので加算しない)。"""
+    if "相手" not in text or not _leader_feature_compatible(text, anchor_feats):
+        return 0
+    m = re.search(r"相手.{0,30}パワー[-－](\d{3,5})", text) or re.search(r"パワー[-－](\d{3,5})", text)
+    return int(m.group(1)) if m else 0
 
 
 def _chain_step(card, role: str) -> ComboChainStep:
@@ -428,6 +455,8 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
         t = _text(c)
         if "相手" not in t:
             continue
+        if not _leader_feature_compatible(t, anchor_feats):
+            continue  # 要求リーダー特徴が非互換 → このデッキで発動しない
         m = re.search(r"パワー[-－](\d{3,5})", t)
         if not m:
             continue
@@ -451,35 +480,47 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
         sats = _satisfiers_of_condition(ctype, all_cards, anchor, anchor_colors, anchor_feats)
         if not sats:
             continue
-        reach = ko_t + debuff
-        reach_factor = min(reach, 7000) / 7000
+        base_reach = ko_t + debuff
         for sat, sat_score in sats[:2]:
             parts = [c, sat]
+            role_sat = f"条件成立: {_CTYPE_LABEL.get(ctype, ctype)}"
+            # satisfier が (互換に) 相手パワーも下げるなら reach に合算 (= ユーザー指摘)
+            sat_extra = _extra_opp_debuff(_text(sat), anchor_feats)
+            if sat_extra:
+                role_sat += f" + 下げ-{sat_extra}"
             steps = [
                 _chain_step(anchor, "ペイオフ (KO)"),
                 _chain_step(c, "下げ役 (条件付)"),
-                _chain_step(sat, f"条件成立: {_CTYPE_LABEL.get(ctype, ctype)}"),
+                _chain_step(sat, role_sat),
             ]
             n_cards = 3
+            extra_total = sat_extra
             _, _, sctype = _condition_note(_text(sat))
             if sctype and sctype != ctype:
                 sats2 = _satisfiers_of_condition(sctype, all_cards, anchor, anchor_colors, anchor_feats)
                 if sats2:
                     sat2 = sats2[0][0]
                     parts.append(sat2)
+                    extra_total += _extra_opp_debuff(_text(sat2), anchor_feats)
                     steps.append(_chain_step(sat2, f"条件成立: {_CTYPE_LABEL.get(sctype, sctype)}"))
                     n_cards = 4
-            sig = tuple(s.card_id for s in steps)
+            sig = tuple(re.sub(r"_(p\d+|r\d+)$", "", s.card_id) for s in steps)
             if sig in seen:
                 continue
             seen.add(sig)
+            reach = base_reach + extra_total
+            reach_factor = min(reach, 7000) / 7000
             cohesion = 1.0 if anchor_feats and all(_shared_features(anchor_feats, p) for p in parts) else 0.0
             penalty = 0.6 if n_cards == 3 else 0.42
             score = round((reach_factor * 4 + sat_score * 0.3 + cohesion * 1.5) * penalty, 2)
             reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
+            extra_txt = (
+                f" さらに{sat.name}も相手-{sat_extra}するので合計-{debuff + extra_total}。"
+                if sat_extra else ""
+            )
             desc = (
                 f"{anchor.name}のKO圏(≤{ko_t})を{c.name}の-{debuff}で広げるが、{c.name}は条件付き → "
-                f"{sat.name}で{_CTYPE_LABEL.get(ctype, ctype)}と成立。{n_cards}枚で{reach_txt}までKO可能。"
+                f"{sat.name}で{_CTYPE_LABEL.get(ctype, ctype)}と成立。{extra_txt}{n_cards}枚で{reach_txt}までKO可能。"
             )
             chains.append(ComboChain(
                 n_cards=n_cards, score=score, label=f"{n_cards}枚コンボ",
@@ -539,6 +580,7 @@ def find_combos(
         all_cards = [c for c in all_cards if _block_icon(c) >= min_block_icon]
     text = _text(anchor)
     anchor_colors = set(_colors(anchor))
+    anchor_feats = _features(anchor)
 
     # 実戦デッキ共起による接地 (= スコア補正 + 専用グループ)。 off-meta anchor は空 (= 静的に委ねる)。
     try:
@@ -550,8 +592,11 @@ def find_combos(
         _boost_map, _cooc, _n_decks = {}, [], 0
 
     def _legal(cards: list[ComboCard]) -> list[ComboCard]:
-        # 指定カードと違う色のリーダーは除外 (= デッキに入れられない)。
-        return _dedup_parallels(_filter_offcolor_leaders(cards, anchor_colors))
+        # (1) 指定カードと違う色のリーダーは除外。 (2) 効果が要求するリーダー特徴が anchor と
+        # 非互換なカードは除外 (= 同じデッキに入れても効果が発動しない、 例: サッチ@ペル)。
+        cards = _filter_offcolor_leaders(cards, anchor_colors)
+        cards = [c for c in cards if _leader_feature_compatible(c.text, anchor_feats)]
+        return _dedup_parallels(cards)
 
     def _boosted(cards: list[ComboCard]) -> list[ComboCard]:
         # 実戦で anchor と共起する候補を加点 (= ランクを実戦に接地)。 cap +3。
