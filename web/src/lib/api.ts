@@ -35,6 +35,8 @@ import type {
   ResearchSessionSummary,
 } from "./types";
 
+import { authHeaders } from "./auth";
+
 const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 export async function fetchCards(filters: CardFilters = {}): Promise<Card[]> {
@@ -74,24 +76,38 @@ export async function fetchHealth(): Promise<{ ok: boolean; cards: number }> {
   return res.json();
 }
 
-export async function fetchDecks(): Promise<DeckSummary[]> {
-  const res = await fetch(`${API}/api/decks`, { cache: "no-store" });
+// サーバコンポーネントは authHeaders() が効かない (document 無し) ので、 cookie から読んだ
+// X-Dev-User を extra で渡す。 クライアントからは authHeaders() が自動で付く。
+export async function fetchDecks(
+  extra: Record<string, string> = {},
+): Promise<DeckSummary[]> {
+  const res = await fetch(`${API}/api/decks`, {
+    cache: "no-store",
+    headers: { ...authHeaders(), ...extra },
+  });
   if (!res.ok) throw new Error(`fetchDecks failed: ${res.status}`);
   return res.json();
 }
 
-export async function fetchDeck(slug: string): Promise<DeckDetail> {
+export async function fetchDeck(
+  slug: string,
+  extra: Record<string, string> = {},
+): Promise<DeckDetail> {
   const res = await fetch(`${API}/api/decks/${encodeURIComponent(slug)}`, {
     cache: "no-store",
+    headers: { ...authHeaders(), ...extra },
   });
   if (!res.ok) throw new Error(`fetchDeck failed: ${res.status}`);
   return res.json();
 }
 
-export async function fetchDeckAnalysis(slug: string): Promise<DeckAnalysis> {
+export async function fetchDeckAnalysis(
+  slug: string,
+  extra: Record<string, string> = {},
+): Promise<DeckAnalysis> {
   const res = await fetch(
     `${API}/api/decks/${encodeURIComponent(slug)}/analyze`,
-    { cache: "no-store" },
+    { cache: "no-store", headers: { ...authHeaders(), ...extra } },
   );
   if (!res.ok) throw new Error(`fetchDeckAnalysis failed: ${res.status}`);
   return res.json();
@@ -158,10 +174,13 @@ export async function fetchMatchReplay(
   return res.json();
 }
 
-export async function fetchDeckStrategy(slug: string): Promise<DeckStrategy> {
+export async function fetchDeckStrategy(
+  slug: string,
+  extra: Record<string, string> = {},
+): Promise<DeckStrategy> {
   const res = await fetch(
     `${API}/api/decks/${encodeURIComponent(slug)}/strategy`,
-    { cache: "no-store" },
+    { cache: "no-store", headers: { ...authHeaders(), ...extra } },
   );
   if (!res.ok) {
     const detail = await res.text();
@@ -210,7 +229,7 @@ export async function saveDeckToServer(
 ): Promise<CreateDeckResponse> {
   const res = await fetch(`${API}/api/decks`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeaders() },
     body: JSON.stringify(req),
     cache: "no-store",
   });
@@ -476,7 +495,7 @@ export async function generateDeck(
 ): Promise<GenerateDeckResponse> {
   const res = await fetch(`${API}/api/decks/generate`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeaders() },
     body: JSON.stringify(req),
     cache: "no-store",
   });

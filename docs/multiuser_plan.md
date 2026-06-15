@@ -84,7 +84,12 @@ decks (
   (`deck_a`) で user deck を recipe 渡し可 (= 既存。 plan 通り engine は保存せず受取)。 ⬜ **残り**:
   (a) 本番認証アダプタ実装 (Clerk JWT 検証、 キーは env = ユーザー作業)、 (b) deck-gen の target に user deck も
   選べるように (今は meta target のみ)、 (c) 旧 Blob user-deck persistence の整理。
-- **P3**: フロント (login/signup、 マイデッキ↔メタ の表示分離、 auth state)。
+- **P3 (dev フロント認証 完了、 2026-06-15)**: ✅ `web/src/lib/auth.ts` (`authHeaders()` = dev は
+  `X-Dev-User` cookie、 本番 Clerk は Bearer に差し替えるだけ) + `auth-server.ts` (SSR は cookie を
+  next/headers で読んで forward) + api.ts の deck 系 fetch に注入 + `<DevUserSwitcher>` (ローカルで
+  ユーザー切替)。 /decks(SSR) と analyze(SSR) が cookie-forward で per-user 化。 ⭐ **実サーバ E2E 実証**:
+  alice 作成→/decks SSR で alice の「マイデッキ」 に出る・bob には出ない (= 全スタックで隔離)。
+  ⬜ 本番は `<ClerkProvider>` 導入 + authHeaders/serverAuthHeaders を Clerk トークンに差し替え (= ユーザー作業)。
 - **P4**: 重いエンジン呼び出しの **job queue 化** (多人数で sim が詰まらない)。
 
 ## 確定待ちの決定 (load-bearing、 P2 着手前に確定)

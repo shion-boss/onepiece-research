@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fetchDeckAnalysis, fetchDeckStrategy } from "@/lib/api";
+import { serverAuthHeaders } from "@/lib/auth-server";
 import { ArticleGenerator } from "@/components/ArticleGenerator";
 import { VsArticleGenerator } from "@/components/VsArticleGenerator";
 import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
@@ -20,9 +21,10 @@ export default async function DeckAnalyzePage({
   let strategy: DeckStrategy | null = null;
   let error: string | null = null;
   try {
+    const ah = await serverAuthHeaders();
     [data, strategy] = await Promise.all([
-      fetchDeckAnalysis(slug),
-      fetchDeckStrategy(slug).catch(() => null),
+      fetchDeckAnalysis(slug, ah),
+      fetchDeckStrategy(slug, ah).catch(() => null),
     ]);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);

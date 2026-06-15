@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { fetchDecks } from "@/lib/api";
+import { serverAuthHeaders } from "@/lib/auth-server";
 import { DeckSummaryTile } from "@/components/DeckSummaryTile";
+import { DevUserSwitcher } from "@/components/DevUserSwitcher";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +11,7 @@ export default async function DecksPage() {
   let decks: Awaited<ReturnType<typeof fetchDecks>> = [];
   let error: string | null = null;
   try {
-    decks = await fetchDecks();
+    decks = await fetchDecks(await serverAuthHeaders());
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -21,6 +23,7 @@ export default async function DecksPage() {
         description={`メタデッキ DB (${decks.length} 個)。 クリックで 詳細・ AI vs AI 対戦`}
         actions={
           <div className="flex items-center gap-2">
+            <DevUserSwitcher />
             <Link href="/decks/generate">
               <Button variant="secondary">自動生成</Button>
             </Link>
