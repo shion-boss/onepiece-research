@@ -103868,5 +103868,106 @@
     }
    ]
   }
+ ],
+ "OP16-047": [
+  {
+   "_text": "OP16-047 【起動メイン】このキャラをレストにできる：相手の手札が8枚以上ある場合、相手は手札2枚をデッキの下に置く。",
+   "when": "activate_main",
+   "cost": {
+    "rest_self": true
+   },
+   "if": {
+    "opp_hand_count_ge": 8
+   },
+   "do": [
+    {
+     "opp_hand_to_deck_bottom": 2
+    }
+   ]
+  }
+ ],
+ "OP16-066": [
+  {
+   "_text": "OP16-066 【登場時】リーダーが《海軍》の場合、ドン!!2枚レスト追加、カード2枚引き、手札2枚捨てる。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "海軍"
+   },
+   "do": [
+    {
+     "add_rested_don": 2
+    },
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 2
+    }
+   ]
+  }
+ ],
+ "OP16-081": [
+  {
+   "_text": "OP16-081 【起動メイン】このキャラをレストにできる：コスト8以上のキャラがいる場合、相手のキャラ1枚までをこのターン中パワー-2000。",
+   "when": "activate_main",
+   "cost": {
+    "rest_self": true
+   },
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "cost_ge": 8
+     },
+     "count": 1
+    }
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "one_opponent_character_any",
+      "amount": -2000,
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-089": [
+  {
+   "_text": "OP16-089 【速攻：キャラ】【登場時】カード2枚を引き、手札2枚を捨てる。その後、相手のキャラ1枚までをこのターン中コスト-4。",
+   "when": "on_play",
+   "do": [
+    {
+     "give_keyword": {
+      "target": "self",
+      "keyword": "速攻：キャラ"
+     }
+    },
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 2
+    },
+    {
+     "cost_minus": {
+      "target": "one_opponent_character_any",
+      "amount": 4,
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-107": [
+  {
+   "_text": "OP16-107 【KO時】相手のライフの上から1枚までを、持ち主の手札に加える。",
+   "when": "on_ko",
+   "do": [
+    {
+     "mill_opp_life_to_hand": 1
+    }
+   ]
+  }
  ]
 }
