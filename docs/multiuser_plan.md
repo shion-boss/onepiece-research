@@ -75,7 +75,13 @@ decks (
 - **P1 (進行中、 stack 非依存)**: メタ/ユーザーを **`db/meta_decks.json` 登録制で明示分離**。
   接頭辞ハックを全廃 (delete 保護 / deck-gen meta pool / matrix / matchup_model)。 `DeckSummary`
   に `kind`。 user save は `kind:"user"` タグ。 = **混在事故の根絶 + P2 の前提整備**。
-- **P2**: 認証導入 (provider 選定) + user deck を FS → **DB 移行** + 認可 (他人のは見えない/消せない)。
+- **P2 (data+auth 土台 完了、 2026-06-15)**: ✅ `api/user_store.py` (per-user DB、 DATABASE_URL→Postgres /
+  SQLite ローカル、 既存 spectate と同パターン) + `api/auth.py` (`current_user_id` dependency、 dev backend =
+  `X-Dev-User`/`DEV_USER`/"local" で動く、 Clerk は `_verify_provider` の wire-and-go スロット) + deck CRUD
+  (create/list/get/update/delete) を **owner-scoped** に移行 + メタは read-only。 TestClient で多人数隔離を実証
+  (test_user_store.py / test_meta_user_split.py)。 ⬜ **残り**: (a) 本番認証アダプタ実装 (Clerk JWT 検証、
+  キーは env)、 (b) engine 計算系 (analyze/match/generate) で **user deck を recipe で渡す** 配線 (今は slug→FS=メタのみ)、
+  (c) 旧 Blob user-deck persistence の整理。
 - **P3**: フロント (login/signup、 マイデッキ↔メタ の表示分離、 auth state)。
 - **P4**: 重いエンジン呼び出しの **job queue 化** (多人数で sim が詰まらない)。
 

@@ -97,6 +97,10 @@ db/spectate_comments.sqlite
 db/spectate_comments.sqlite-journal
 db/spectate_comments.sqlite-wal
 db/spectate_comments.sqlite-shm
+db/user_data.sqlite
+db/user_data.sqlite-journal
+db/user_data.sqlite-wal
+db/user_data.sqlite-shm
 db/spectate_comments.json
 db/spectate_comments.json.tmp
 

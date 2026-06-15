@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -87,6 +87,8 @@ app.add_middleware(
 # 単一プロセス前提 (= Fly.io 設定で uvicorn 1 worker 想定)。 本格運用するなら redis 等。
 from collections import deque
 from fastapi import Request
+from api.auth import current_user_id
+from api import user_store
 
 _RATE_LIMIT_PATHS = {"/api/spectate/comments"}  # method=POST のみに適用
 _RATE_LIMIT_WINDOW_SEC = 60
@@ -822,45 +824,50 @@ def _load_deck_json(slug: str) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
+    leader_id = d.get("leader", "")
+    leader_name, leader_color = "", []
+    try:
+        lc = repo.get(leader_id)
+        leader_name, leader_color = lc.name, list(lc.color)
+    except KeyError:
+        pass
+    return DeckSummary(
+        slug=slug, name=d.get("name", slug), leader=leader_id,
+        leader_name=leader_name, leader_color=leader_color,
+        main_count=sum(int(e.get("count", 1)) for e in d.get("main", [])),
+        unique=len(d.get("main", [])), regulation=d.get("regulation"), kind=kind,
+    )
+
+
 @app.get("/api/decks", response_model=list[DeckSummary])
-def list_decks():
+def list_decks(user_id: str = Depends(current_user_id)):
+    """メタ(環境)デッキ (= 全員共通) + ログインユーザー自身のデッキ (= per-user DB)。"""
     repo = get_repo()
     out: list[DeckSummary] = []
+    # メタ(環境)デッキ = リポジトリ JSON (decks/*.json)。 ユーザーデッキは DB なので混ざらない。
     for path in _list_deck_files():
         try:
             d = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue
         slug = d.get("slug") or path.stem
-        leader_id = d.get("leader", "")
-        leader_name = ""
-        leader_color: list[str] = []
-        try:
-            leader_card = repo.get(leader_id)
-            leader_name = leader_card.name
-            leader_color = list(leader_card.color)
-        except KeyError:
-            pass
-        main_count = sum(int(e.get("count", 1)) for e in d.get("main", []))
-        unique = len(d.get("main", []))
-        out.append(
-            DeckSummary(
-                slug=slug,
-                name=d.get("name", slug),
-                leader=leader_id,
-                leader_name=leader_name,
-                leader_color=leader_color,
-                main_count=main_count,
-                unique=unique,
-                regulation=d.get("regulation"),
-                kind="meta" if _is_meta_deck(slug) else "user",
-            )
-        )
+        out.append(_deck_summary(repo, d, slug, "meta" if _is_meta_deck(slug) else "user"))
+    # 自分のデッキ (= per-user DB)
+    for d in user_store.list_decks(user_id):
+        out.append(_deck_summary(repo, d, d["slug"], "user"))
     return out
 
 
 @app.get("/api/decks/{slug}")
-def get_deck(slug: str):
+def get_deck(slug: str, user_id: str = Depends(current_user_id)):
+    """メタはリポジトリ JSON、 それ以外は自分の per-user DB デッキを返す。"""
+    if _is_meta_deck(slug):
+        return _load_deck_json(slug)
+    d = user_store.get_deck(user_id, slug)
+    if d is not None:
+        return d
+    # 後方互換: 旧 decks/ に残る非メタ JSON (移行前)。
     return _load_deck_json(slug)
 
 
@@ -924,8 +931,8 @@ def _slugify(s: str) -> str:
 
 
 @app.post("/api/decks", response_model=CreateDeckResponse, status_code=201)
-def create_deck(req: CreateDeckRequest):
-    """ユーザ作成デッキを `decks/<slug>.json` として保存。
+def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id)):
+    """ユーザ作成デッキを per-user DB (user_store) に保存 (= マルチユーザー P2)。
 
     - slug 未指定時は name → ASCII slug → 失敗時は `user_<unix秒>` でフォールバック
     - validate (50枚, 4枚制限, 銀リスト) を必ず通過すること
@@ -966,19 +973,15 @@ def create_deck(req: CreateDeckRequest):
     if out_path.exists() and not req.overwrite:
         raise HTTPException(409, f"slug already exists: {slug}")
 
-    deck_dict["slug"] = slug
-    deck_dict["source"] = "user"
-    deck_dict["kind"] = "user"
-    deck_dict["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    # Vercel Blob 永 続 化 (= 2026-05-30 追加)。 BLOB_READ_WRITE_TOKEN 設 定 時 は Blob upload、
-    # 未 設 定 (= local dev) で は bundle に 直接 write (= 既 動 作)。
-    from api.spec_persistence import save_deck_recipe
-
-    storage_url = save_deck_recipe(slug, deck_dict)
-    return CreateDeckResponse(
-        slug=slug, path=storage_url, warnings=[]
-    )
+    # per-user DB に保存 (= 所有者で隔離。 メタはリポジトリ JSON のまま別管理)。
+    try:
+        user_store.save_deck(
+            user_id, slug, name=deck_dict["name"], leader=req.leader,
+            main=deck_dict["main"], regulation=req.regulation, overwrite=req.overwrite,
+        )
+    except ValueError:
+        raise HTTPException(409, f"slug already exists: {slug}")
+    return CreateDeckResponse(slug=slug, path=f"user:{user_id}/{slug}", warnings=[])
 
 
 class ValidateDeckResponse(BaseModel):
@@ -987,10 +990,11 @@ class ValidateDeckResponse(BaseModel):
 
 
 @app.put("/api/decks/{slug}", response_model=CreateDeckResponse)
-def update_deck(slug: str, req: CreateDeckRequest):
-    """デッキ上書き保存。slug 必須、existing でない場合は 404。validate 必須。"""
-    out_path = DECKS_DIR / f"{slug}.json"
-    if not out_path.exists():
+def update_deck(slug: str, req: CreateDeckRequest, user_id: str = Depends(current_user_id)):
+    """自分のデッキを上書き保存 (= per-user DB)。 メタは read-only、 存在しない自分のデッキは 404。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(403, "meta(環境) decks are read-only")
+    if user_store.get_deck(user_id, slug) is None:
         raise HTTPException(404, f"deck not found: {slug}")
     repo = get_repo()
     if not req.leader:
@@ -1015,27 +1019,26 @@ def update_deck(slug: str, req: CreateDeckRequest):
     if errors:
         raise HTTPException(422, {"errors": errors})
 
-    deck_dict["slug"] = slug
-    deck_dict["source"] = "user"
-    deck_dict["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    out_path.write_text(
-        json.dumps(deck_dict, ensure_ascii=False, indent=2), encoding="utf-8"
+    user_store.save_deck(
+        user_id, slug, name=deck_dict["name"], leader=req.leader,
+        main=deck_dict["main"], regulation=req.regulation, overwrite=True,
     )
-    return CreateDeckResponse(
-        slug=slug, path=str(out_path.relative_to(ROOT)), warnings=[]
-    )
+    return CreateDeckResponse(slug=slug, path=f"user:{user_id}/{slug}", warnings=[])
 
 
 @app.delete("/api/decks/{slug}", status_code=204)
-def delete_deck(slug: str):
-    """デッキ削除。 メタ(環境)デッキは全て保護 (= db/meta_decks.json 登録制、 接頭辞でなく)。"""
+def delete_deck(slug: str, user_id: str = Depends(current_user_id)):
+    """自分のデッキを削除 (= per-user DB)。 メタ(環境)デッキは全て保護 (登録制)。"""
     if _is_meta_deck(slug):
         raise HTTPException(403, "meta(環境) decks are protected")
+    if user_store.delete_deck(user_id, slug):
+        return None
+    # 後方互換: 旧 decks/ に残る非メタ JSON。
     out_path = DECKS_DIR / f"{slug}.json"
-    if not out_path.exists():
-        raise HTTPException(404, f"deck not found: {slug}")
-    out_path.unlink()
-    return None
+    if out_path.exists():
+        out_path.unlink()
+        return None
+    raise HTTPException(404, f"deck not found: {slug}")
 
 
 @app.post("/api/decks/validate", response_model=ValidateDeckResponse)

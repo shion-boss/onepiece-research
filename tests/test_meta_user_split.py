@@ -17,7 +17,7 @@ def test_meta_registry_is_canonical_set():
 
 
 def test_listing_tags_kind():
-    decks = m.list_decks()
+    decks = m.list_decks(user_id="testuser")  # P2: user_id 依存を直呼びで渡す
     assert decks
     assert all(d.kind in ("meta", "user") for d in decks)
     meta_slugs = {d.slug for d in decks if d.kind == "meta"}
@@ -30,5 +30,5 @@ def test_all_meta_decks_protected_from_delete():
 
     for slug in ("cardrush_1342", "tcgportal_coby"):
         with pytest.raises(HTTPException) as ei:
-            m.delete_deck(slug)
+            m.delete_deck(slug, user_id="testuser")
         assert ei.value.status_code == 403
