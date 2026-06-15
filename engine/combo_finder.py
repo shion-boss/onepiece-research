@@ -330,6 +330,29 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
     return out
 
 
+def _target_cost_limit(text: str, ref_pos: int) -> Optional[int]:
+    """検索/踏み倒しが探す対象 (= ref_pos のカード参照) に係る『コストN以下』 を返す。
+
+    ⚠ 2026-06-15 検出: ST13-019「3兄弟の絆」 はコスト5以下のサボ/エース/ルフィしか
+    サーチできないのに、 cost8 のサボや cost10 のエースに「サーチで引ける」 と誤提案。
+    一方 PRB02-007 ジンベエ の《王下七武海》 サーチには cost 制限が無く、 別節の
+    「コスト1以下」 を誤適用すると有効コンボを誤って除外してしまう。
+    日本語では制限は対象の直前 (「コストN以下の《X》」) に置かれるので、 対象参照の手前・
+    同じ検索句内 (= 直近の デッキ/見て/トラッシュ/手札 以降) だけを走査して取る。"""
+    if ref_pos < 0:
+        return None
+    zone = max(
+        text.rfind("見て", 0, ref_pos),
+        text.rfind("デッキ", 0, ref_pos),
+        text.rfind("トラッシュ", 0, ref_pos),
+        text.rfind("手札", 0, ref_pos),
+    )
+    if zone < 0:
+        return None  # 検索句の起点が特定できない → 誤適用回避のため制限なし扱い
+    m = re.search(r"コスト(\d+)以下", text[zone:ref_pos])
+    return int(m.group(1)) if m else None
+
+
 def _match_tribal(anchor, all_cards) -> list[ComboCard]:
     """anchor の特徴を共有する相棒 + その特徴を強化するリーダー。"""
     anchor_feats = _features(anchor)
@@ -383,15 +406,18 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         named = f"「{anchor_name}」" in t
         # 特徴一致のサーチ/踏み倒し
         feat_hit = next((f for f in anchor_feats if f"《{f}》" in t), None)
-        # コスト条件 (= anchor がその範囲に入るか)
-        cost_ok = True
-        cm = re.search(r"コスト(\d+)以下", t)
-        if cm:
-            cost_ok = anchor_cost <= int(cm.group(1))
-        if ("手札に加える" in t or "公開" in t) and ("デッキ" in t) and (named or feat_hit):
+        # 対象に係る『コストN以下』 を検索句内で取り、 anchor がその範囲に入るか判定
+        # (= 別節のコスト制限を誤適用しないよう対象参照の手前のみ見る)。
+        ref_pos = (
+            t.find(f"「{anchor_name}」") if named
+            else (t.find(f"《{feat_hit}》") if feat_hit else -1)
+        )
+        lim = _target_cost_limit(t, ref_pos)
+        cost_ok = lim is None or anchor_cost <= lim
+        if ("手札に加える" in t or "公開" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok:
             kind = "search"
             reason = (f"《{feat_hit}》" if feat_hit else f"「{anchor_name}」") + f"をサーチ → {anchor_name}を引ける"
-        elif "登場させる" in t and (named or (feat_hit and cost_ok)):
+        elif "登場させる" in t and (named or feat_hit) and cost_ok:
             kind = "cheat"
             reason = (f"「{anchor_name}」" if named else f"《{feat_hit}》(コスト{anchor_cost})") + f"を踏み倒し登場"
         elif ("コスト" in t and ("少なくなる" in t or "減" in t)) and (named or feat_hit):

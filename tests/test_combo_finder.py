@@ -81,6 +81,35 @@ def test_anchor_own_parallel_excluded(repo):
             assert all(_base_id(s.card_id) != anchor_base for s in ch.steps[1:])
 
 
+def test_target_cost_limit_scoped_to_search_clause():
+    """検索の『コストN以下』 は対象の手前 (= 同じ検索句) だけから取る。
+    別節の コスト制限を誤適用しない (= PRB02-007 ジンベエ の【アタック時】コスト1以下)。"""
+    from engine.combo_finder import _target_cost_limit
+
+    # ST13-019: 「コスト5以下の、「サボ」か…」 → 名前の手前に コスト5以下
+    t1 = "自分のデッキの上から5枚を見て、コスト5以下の、「サボ」か「モンキー・D・ルフィ」1枚までを公開し、手札に加える。"
+    assert _target_cost_limit(t1, t1.find("「サボ」")) == 5
+    assert _target_cost_limit(t1, t1.find("「モンキー・D・ルフィ」")) == 5  # 後ろの名前も同制限
+    # PRB02-007: 検索は《王下七武海》(コスト制限なし)、 コスト1以下は別の【アタック時】節
+    t2 = ("自分のデッキの上から5枚を見て、「ジンベエ」以外の特徴《王下七武海》を持つカード1枚までを"
+          "公開し、手札に加える。【アタック時】コスト1以下のキャラ1枚までを、デッキの下に置く。")
+    assert _target_cost_limit(t2, t2.find("《王下七武海》")) is None
+
+
+def test_accelerant_respects_search_cost_limit(repo):
+    """コスト制限付きサーチは、 範囲外の anchor に提案しない / 範囲内・無制限は残す。"""
+    # ST13-019 はコスト5以下しか拾えない → cost10 エース(OP07-119) の加速に出さない
+    res_ace = find_combos(repo, "OP07-119", per_group=30)
+    acc = _group(res_ace, "accelerant")
+    ids = [c.card_id for c in (acc.cards if acc else [])]
+    assert "ST13-019" not in ids
+    # 一方、 PRB02-007 ジンベエ の《王下七武海》 サーチは無制限 → cost9 ミホークに残る
+    res_mihawk = find_combos(repo, "OP01-070", per_group=30)
+    acc2 = _group(res_mihawk, "accelerant")
+    ids2 = [c.card_id for c in (acc2.cards if acc2 else [])]
+    assert "PRB02-007" in ids2
+
+
 def test_offcolor_leader_filter_unit():
     """指定色を含まないリーダーは除外、 含むリーダー/非リーダーは残る。"""
     from engine.combo_finder import ComboCard, _filter_offcolor_leaders
