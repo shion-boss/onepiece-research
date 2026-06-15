@@ -209,16 +209,40 @@ def _detect_ko_power_threshold(text: str) -> Optional[int]:
     return None
 
 
+def _opp_powerdown_amount(text: str) -> Optional[int]:
+    """『相手のキャラ/リーダーのパワーを下げる』 量 (≥1000) を返す。 自己デバフ/コストの
+    パワー-X は除外する。
+
+    ⚠ 2026-06-15 検出: 「相手」 が text にあり「パワー-X」 があるだけの素朴判定は、
+    (1) 「このキャラのパワー-2000」「自分のリーダーを…パワー-2000」 等の自己デバフ/守備調整、
+    (2) コーザ EB01-004「自分のリーダーを…パワー-5000することができる：相手のキャラ…パワー-3000」
+        の **コスト側 -5000** を相手デバフと誤検出していた (= reach を過大評価)。
+    → パワー-X 直前の節 (= 直近の 】/。/：以降) の主語が『相手の』 の時だけ、 その量を採る。"""
+    best: Optional[int] = None
+    for m in re.finditer(r"パワー[-－](\d{3,5})", text):
+        d = int(m.group(1))
+        if d < 1000:
+            continue
+        start = max(
+            text.rfind("】", 0, m.start()),
+            text.rfind("。", 0, m.start()),
+            text.rfind("：", 0, m.start()),
+            text.rfind(":", 0, m.start()),
+        ) + 1
+        clause = text[start:m.start()]
+        opp = clause.rfind("相手の")
+        slf = max(clause.rfind("このキャラ"), clause.rfind("このカード"), clause.rfind("自分の"))
+        if opp < 0 or opp < slf:
+            continue  # 主語が相手でない (= 自己デバフ / コスト)
+        if best is None or d > best:
+            best = d
+    return best
+
+
 def _detect_self_powerdown(text: str) -> Optional[int]:
     """このカード自身が『相手キャラのパワーを下げる』効果か (= enabler matcher と同基準)。
-    → KO閾値ペイオフを活かせる下げ役。 返り値 = 下げ幅。"""
-    if "相手" not in text:
-        return None
-    m = re.search(r"パワー[-－](\d{3,5})", text)
-    if not m:
-        return None
-    d = int(m.group(1))
-    return d if d >= 1000 else None
+    → KO閾値ペイオフを活かせる下げ役。 返り値 = 下げ幅 (= 相手対象のみ)。"""
+    return _opp_powerdown_amount(text)
 
 
 def _powerdown_on_own_turn(text: str) -> bool:
@@ -299,14 +323,9 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
         if c.card_id == anchor.card_id:
             continue
         t = _text(c)
-        if "相手" not in t:
-            continue
-        m = re.search(r"パワー[-－](\d{3,5})", t)
-        if not m:
-            continue
-        debuff = int(m.group(1))
-        if debuff < 1000:
-            continue
+        debuff = _opp_powerdown_amount(t)
+        if debuff is None:
+            continue  # 相手を下げないカード (= 自己デバフ/コスト) は下げ役でない
         if anchor_own_turn and not _powerdown_on_own_turn(t):
             continue  # 相手ターン限定の下げ (= シャンクスOP14-027) は自ターンのKOに噛まない
         # ① シナジー強度: KO 閾値 + debuff で届く相手 power。 ただし ~7000 到達で飽和
@@ -505,10 +524,9 @@ def _match_romance(pool: list[ComboCard], anchor, ko_t) -> list[ComboCard]:
     for c in pool:
         flash, tags = _romance_flashiness(c.text, c.category, c.power)
         reason = None
-        if ko_t is not None and "相手" in c.text and _powerdown_on_own_turn(c.text):
-            m = re.search(r"パワー[-－](\d{3,5})", c.text)
-            if m and int(m.group(1)) >= 5000:
-                debuff = int(m.group(1))
+        if ko_t is not None and _powerdown_on_own_turn(c.text):
+            debuff = _opp_powerdown_amount(c.text)
+            if debuff and debuff >= 5000:
                 reach = ko_t + debuff
                 flash += debuff / 1000.0
                 reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
@@ -618,11 +636,10 @@ def _satisfiers_of_condition(ctype, all_cards, anchor, anchor_colors, anchor_fea
 
 def _extra_opp_debuff(text: str, anchor_feats: list[str]) -> int:
     """このカードが (互換に) 相手キャラのパワーを下げる量 (= チェーンの reach に合算する)。
-    リーダー特徴ゲートが非互換なら 0 (= 発動しないので加算しない)。"""
-    if "相手" not in text or not _leader_feature_compatible(text, anchor_feats):
+    リーダー特徴ゲートが非互換なら 0 (= 発動しないので加算しない)。 自己デバフは 0。"""
+    if not _leader_feature_compatible(text, anchor_feats):
         return 0
-    m = re.search(r"相手.{0,30}パワー[-－](\d{3,5})", text) or re.search(r"パワー[-－](\d{3,5})", text)
-    return int(m.group(1)) if m else 0
+    return _opp_powerdown_amount(text) or 0
 
 
 def _chain_step(card, role: str) -> ComboChainStep:
@@ -645,18 +662,13 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
         if anchor_colors and not (anchor_colors & set(_colors(c))):
             continue
         t = _text(c)
-        if "相手" not in t:
-            continue
         if not _leader_feature_compatible(t, anchor_feats):
             continue  # 要求リーダー特徴が非互換 → このデッキで発動しない
         if anchor_own_turn and not _powerdown_on_own_turn(t):
             continue  # 相手ターン限定の下げは自ターンのKOに噛まない
-        m = re.search(r"パワー[-－](\d{3,5})", t)
-        if not m:
-            continue
-        debuff = int(m.group(1))
-        if debuff < 1000:
-            continue
+        debuff = _opp_powerdown_amount(t)
+        if debuff is None:
+            continue  # 相手を下げないカード (= 自己デバフ/コスト) は下げ役でない
         _, _, ctype = _condition_note(t)
         if not ctype:
             continue  # 無条件 enabler は 2 枚コンボ (enabler 群で既出)

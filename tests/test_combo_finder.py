@@ -81,6 +81,29 @@ def test_anchor_own_parallel_excluded(repo):
             assert all(_base_id(s.card_id) != anchor_base for s in ch.steps[1:])
 
 
+def test_opp_powerdown_excludes_self_and_cost():
+    """相手を下げる量だけを取り、 自己デバフ/コストの -X は採らない。"""
+    from engine.combo_finder import _opp_powerdown_amount
+
+    # 自己デバフ (このキャラ/自分のリーダーを下げる) → None
+    assert _opp_powerdown_amount("【相手のターン中】このキャラのパワー-2000。") is None
+    assert _opp_powerdown_amount("自分のリーダーを、このターン中、パワー-2000できる。") is None
+    # 相手対象 → 量
+    assert _opp_powerdown_amount("相手のキャラ1枚までを、このターン中、パワー-2000。") == 2000
+    # コーザ: コスト側 -5000 (自分のリーダー) でなく 相手側 -3000 を採る
+    koza = ("【アタック時】自分のアクティブのリーダー1枚を、このターン中、パワー-5000する"
+            "ことができる：相手のキャラ1枚までを、このターン中、パワー-3000。")
+    assert _opp_powerdown_amount(koza) == 3000
+
+
+def test_payoff_not_built_for_self_debuff_anchor(repo):
+    """自己デバフ (相手を下げない) カードに payoff 群を作らない。
+    ⚠ 2026-06-15 検出: EB02-005 ニセ麦わら (このキャラ-2000) 等に bogus payoff が出ていた。"""
+    for cid in ("EB02-005", "P-092", "OP05-001"):
+        res = find_combos(repo, cid, per_group=8)
+        assert not any(g.key == "payoff" for g in res.groups), f"{cid} に payoff 誤生成"
+
+
 def test_target_cost_limit_scoped_to_search_clause():
     """検索の『コストN以下』 は対象の手前 (= 同じ検索句) だけから取る。
     別節の コスト制限を誤適用しない (= PRB02-007 ジンベエ の【アタック時】コスト1以下)。"""
