@@ -102859,5 +102859,30 @@
     }
    ]
   }
+ ],
+ "OP16-041": [
+  {
+   "_text": "OP16-041 バギー: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》を持つキャラが場を離れた時、発動できる。自分の手札から「インペルダウンの囚人」1枚までを、登場させる。",
+   "when": "on_self_chara_ko",
+   "if": {
+    "self_attached_don_ge": 1,
+    "victim_feature_in": [
+     "インペルダウン"
+    ]
+   },
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ],
+   "_fidelity_note": "公式「場を離れた時」 のうち KO 経路 (on_self_chara_ko = バトル/効果KO 双方) を実装。 KO でない離脱 (相手効果での手札/デッキ戻し等) は engine に一般 leave トリガーが無く未カバー (= インペルダウン軸の離脱は実質 KO が主)。"
+  }
  ]
 }

@@ -4298,3 +4298,33 @@ def test_op16_080_teach_redirect_targets_leader_or_kurohige():
         state, me, opp, None,
     )
     assert state.pending_attack_redirect in (me.leader.instance_id, kuro.instance_id)
+
+
+def test_op16_041_buggy_plays_prisoner_on_impeldown_ko():
+    """OP16-041 バギー: 【ドン!!×1】自分の《インペルダウン》キャラが KO された時、 手札から
+    「インペルダウンの囚人」 を登場 (KO 経路を実装、 非KO離脱は _fidelity_note)。"""
+    from engine.effects import trigger_on_self_chara_ko
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP16-041", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    me.leader.attached_dons = 1                  # 【ドン!!×1】
+    me.hand = [repo.get("OP16-042")]             # インペルダウンの囚人
+    trigger_on_self_chara_ko(state, me, opp, overlay, victim_card=repo.get("EB02-038"))  # マゼラン(インペル)KO
+    assert any(c.card.card_id == "OP16-042" for c in me.characters)  # 囚人 登場
+    assert not any(c.card_id == "OP16-042" for c in me.hand)         # 手札から出た
+
+    # 非インペルダウン キャラ KO → 発動しない
+    state2 = _make_state(repo, "OP16-041", overlay=overlay)
+    me2, opp2 = state2.players[0], state2.players[1]
+    me2.leader.attached_dons = 1
+    me2.hand = [repo.get("OP16-042")]
+    trigger_on_self_chara_ko(state2, me2, opp2, overlay, victim_card=repo.get("OP01-013"))  # サンジ(非インペル)
+    assert not me2.characters  # 登場しない
+
+    # ドン!!×1 未満 → 発動しない
+    state3 = _make_state(repo, "OP16-041", overlay=overlay)
+    me3, opp3 = state3.players[0], state3.players[1]
+    me3.leader.attached_dons = 0
+    me3.hand = [repo.get("OP16-042")]
+    trigger_on_self_chara_ko(state3, me3, opp3, overlay, victim_card=repo.get("EB02-038"))
+    assert not me3.characters  # DON 不足で発動しない
