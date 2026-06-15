@@ -596,8 +596,12 @@ def build_with_core(
     core_counts: Optional[dict[str, int]] = None,
     rng: random.Random | None = None,
     name: str | None = None,
+    block_min: int = 0,
 ) -> tuple[DeckList, list[str]]:
     """「使いたいコアカード」を固定した上で、リーダー色合致カードで 50 枚に埋めるビルダー。
+
+    block_min>0 で fill 候補を「再録含む最大 block_icon >= block_min」 に限定 (= スタンダード
+    = 2 で合法デッキを作る)。 コアカードは exempt (= ユーザー指定なので残すが validate で警告)。
 
     Phase 5: コアカード固定型デッキビルダーの本番実装。
 
@@ -657,6 +661,10 @@ def build_with_core(
     # 残り (50 - core) を effect-rich + counter 札で埋める
     candidates: list[CardDef] = []
     seen: set[str] = set()
+    _max_block = None
+    if block_min > 0:
+        from .deck import _load_max_block_by_base_id
+        _max_block = _load_max_block_by_base_id()
     for cid, c in repo._by_id.items():  # noqa
         if c.card_id in seen:
             continue
@@ -669,6 +677,10 @@ def build_with_core(
             continue
         if c.cost <= 0:
             continue
+        if _max_block is not None:
+            bid = _base_id(c.card_id)
+            if _max_block.get(bid, c.block_icon) < block_min:
+                continue  # スタンダード非対応 (= block①のみ) は fill しない
         candidates.append(c)
 
     # コストカーブ目標 (残り枚数を均等に分布)

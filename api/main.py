@@ -1066,6 +1066,7 @@ class GenerateDeckRequest(BaseModel):
     n_sim_eval: int = 4
     n_games: int = 12
     meta_sample: int = 4                         # meta mode: 環境から sim する枚数
+    hill_climb_iters: int = 0                    # >0 で最良候補を局所探索で磨く (opt-in)
     seed: int = 0
 
 
@@ -1192,7 +1193,8 @@ def generate_deck_endpoint(req: GenerateDeckRequest):
             repo, req.leader, req.must_include,
             target_deck=target_deck, meta_decks=meta_decks,
             n_candidates=req.n_candidates, n_sim_eval=req.n_sim_eval,
-            n_games=req.n_games, overlay=overlay, rng=_random.Random(req.seed),
+            n_games=req.n_games, hill_climb_iters=req.hill_climb_iters,
+            overlay=overlay, rng=_random.Random(req.seed),
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(400, f"generate failed: {e}")

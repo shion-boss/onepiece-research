@@ -40,6 +40,14 @@ def test_must_include_capped_to_five(repo):
     assert cands and len(cands[0].deck.main) == 50
 
 
+def test_generated_decks_are_standard_legal(repo):
+    """生成デッキはスタンダード合法 (= block②+)。 build_with_core が block①のみのカードで
+    埋めて非合法デッキを作っていたバグの回帰ガード (= 固定カードが合法なら validate 空)。"""
+    cands = generate_deck(repo, "OP15-058", ["OP15-075", "OP15-061"], n_candidates=4, rng=random.Random(2))
+    for c in cands:
+        assert c.deck.validate() == [], f"非合法デッキ: {c.deck.validate()[:2]}"
+
+
 def test_combo_only_ranks_by_combo_strength(repo):
     """opponents 未指定 (combo-only) は combo_strength 主体でランクされ、 全候補 50 枚。"""
     cands = generate_deck(repo, "OP15-058", ["OP15-075"], n_candidates=6, rng=random.Random(7))

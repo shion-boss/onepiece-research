@@ -41,8 +41,24 @@ class CandidateDeck:
     warnings: list[str] = field(default_factory=list)
 
 
-def _legal_fill_pool(repo: CardRepository, leader, exclude: set[str]) -> list[str]:
-    """leader 色に完全に収まる main 用カード (= base_id) のプール。"""
+def _legal_bases(repo: CardRepository, block_min: int) -> Optional[set[str]]:
+    """block_min>0 なら、 スタンダード合法 (= 再録含む最大 block_icon >= block_min) な base_id 集合。"""
+    if block_min <= 0:
+        return None
+    from .deck import _load_max_block_by_base_id
+    mb = _load_max_block_by_base_id()
+    out: set[str] = set()
+    for cid, c in repo._by_id.items():
+        bid = _base_id(cid)
+        if mb.get(bid, c.block_icon) >= block_min:
+            out.add(bid)
+    return out
+
+
+def _legal_fill_pool(
+    repo: CardRepository, leader, exclude: set[str], legal_bases: Optional[set[str]] = None
+) -> list[str]:
+    """leader 色に完全に収まる main 用カード (= base_id) のプール。 legal_bases 指定で規制も絞る。"""
     leader_colors = set(leader.color)
     out: list[str] = []
     seen: set[str] = set()
@@ -60,6 +76,8 @@ def _legal_fill_pool(repo: CardRepository, leader, exclude: set[str]) -> list[st
             continue
         if bid in exclude:
             continue
+        if legal_bases is not None and bid not in legal_bases:
+            continue
         out.append(bid)
     return out
 
@@ -69,8 +87,10 @@ def _deck_signature(deck: DeckList) -> tuple:
     return tuple(sorted(Counter(_base_id(c.card_id) for c in deck.main).items()))
 
 
-def _combo_partner_pool(repo: CardRepository, seed_ids: list[str], leader) -> list[str]:
-    """seed カード (= 固定カード + リーダー) の **コンボ相棒** を、 leader 色に合う範囲で
+def _combo_partner_pool(
+    repo: CardRepository, seed_ids: list[str], leader, legal_bases: Optional[set[str]] = None
+) -> list[str]:
+    """seed カード (= 固定カード + リーダー) の **コンボ相棒** を、 leader 色 (と規制) に合う範囲で
     強い順に返す。 ⭐ これが deck-gen の核 = 共有コンボコア (find_combos) で「噛む相棒」 を
     引き込み、 build に combo を assemble させる (= deck_combo_strength が効くようになる)。"""
     leader_colors = set(leader.color)
@@ -91,8 +111,74 @@ def _combo_partner_pool(repo: CardRepository, seed_ids: list[str], leader) -> li
                 cols = set(cd.color)
                 if not cols or not cols.issubset(leader_colors):
                     continue
+                if legal_bases is not None and bid not in legal_bases:
+                    continue
                 best[bid] = max(best.get(bid, 0.0), c.score)
     return sorted(best, key=lambda b: -best[b])
+
+
+def _deck_from_recipe(repo: CardRepository, leader, recipe: dict, name: str = "auto") -> DeckList:
+    """{base_id: count} → DeckList (= main を展開)。 hill-climb の差し替えに使う。"""
+    main = []
+    for bid, n in recipe.items():
+        c = repo._by_id.get(bid)
+        if c is not None:
+            main.extend([c] * n)
+    return DeckList(name=name, leader=leader, main=main)
+
+
+def _winrate(deck: DeckList, opponents: list[DeckList], n_games: int, overlay) -> float:
+    """deck の opponents 平均勝率。"""
+    wrs = []
+    for i, opp in enumerate(opponents):
+        rep = run_matchup(deck, opp, n_games=n_games, seed=42 + i, effects_overlay=overlay)
+        wrs.append(rep.deck1_winrate)
+    return sum(wrs) / len(wrs) if wrs else 0.0
+
+
+def _hill_climb(
+    repo, deck, opponents, fixed_bases, swap_pool, *,
+    overlay, n_games, iters, rng,
+):
+    """非固定カードを 1 枚ずつ swap_pool のカードに差し替え、 sim 勝率が上がれば採用、 を反復。
+
+    build_with_core の決定的 fill を超えて「勝てる 50 枚」 を局所探索する。 swap_pool は
+    コンボ相棒 (= 共有コア) + 合法 tech の mix なので、 コンボ強化と対 target tech の両方を探る。
+    ⚠ sim は確率的なので strict 改善のみ採用 + adequate n_games で noise を緩和 (= 完全最適でない)。"""
+    from collections import Counter
+    cur = Counter(_base_id(c.card_id) for c in deck.main)
+    cur_wr = _winrate(deck, opponents, n_games, overlay)
+    cur_cs = deck_combo_strength(deck.main, deck.leader)
+    base_issues = len(deck.validate())  # 固定カード由来の既存問題は許容 (= 新規違反のみ弾く)
+    pool = [b for b in swap_pool if b in repo._by_id]
+    for _ in range(iters):
+        removable = [b for b in cur if b not in fixed_bases and cur[b] > 0]
+        if not removable or not pool:
+            break
+        rem = rng.choice(removable)
+        add = rng.choice(pool)
+        if add == rem:
+            continue
+        cand = Counter(cur)
+        cand[rem] -= 1
+        if cand[rem] <= 0:
+            del cand[rem]
+        if cand.get(add, 0) >= 4:
+            continue  # 4 枚上限
+        cand[add] = cand.get(add, 0) + 1
+        if sum(cand.values()) != 50:
+            continue
+        cand_deck = _deck_from_recipe(repo, deck.leader, dict(cand))
+        if len(cand_deck.validate()) > base_issues:
+            continue  # swap が新規違反 (= 禁止ペア/規制) を増やすなら skip (base 由来は許容)
+        w = _winrate(cand_deck, opponents, n_games, overlay)
+        cs = deck_combo_strength(cand_deck.main, cand_deck.leader)
+        # 辞書式: 勝率 主 (= 動いた時)、 同点なら combo_strength (= 常に signal がある reliable な
+        # 勾配)。 単発 swap は n_games の量子化で勝率が動きにくいので、 combo を tiebreak にして
+        # 「勝率を落とさず噛み合いを上げる」 方向に確実に進める (= deck_combo_strength を最適化に活用)。
+        if w > cur_wr or (abs(w - cur_wr) < 1e-9 and cs > cur_cs):
+            cur, cur_wr, cur_cs = cand, w, cs
+    return _deck_from_recipe(repo, deck.leader, dict(cur)), round(cur_wr, 4)
 
 
 def generate_deck(
@@ -105,6 +191,8 @@ def generate_deck(
     n_candidates: int = 10,
     n_sim_eval: int = 5,
     n_games: int = 16,
+    hill_climb_iters: int = 0,
+    block_min: int = 2,
     overlay: Optional[dict] = None,
     rng: Optional[random.Random] = None,
     name: str = "auto",
@@ -120,9 +208,10 @@ def generate_deck(
     if leader.category != Category.LEADER:
         raise ValueError(f"{leader_id} はリーダーではない")
 
-    fill_pool = _legal_fill_pool(repo, leader, set(must_include))
+    legal_bases = _legal_bases(repo, block_min)  # スタンダード合法 (= block②+) に絞る
+    fill_pool = _legal_fill_pool(repo, leader, set(must_include), legal_bases)
     # ⭐ 固定カード + リーダー のコンボ相棒を引き込む (= 共有コアで deck に combo を assemble)。
-    partner_pool = _combo_partner_pool(repo, must_include + [leader_id], leader)
+    partner_pool = _combo_partner_pool(repo, must_include + [leader_id], leader, legal_bases)
     partner_top = partner_pool[:24]
 
     # ① 多様な core を作る: 固定カード + コンボ相棒の sample (+ 少量のランダム合法)。
@@ -147,7 +236,7 @@ def generate_deck(
                 counts[cid] = 2
         deck, warns = build_with_core(
             leader_id, core, repo, core_counts=counts,
-            rng=random.Random(rng.randrange(1 << 30)), name=name,
+            rng=random.Random(rng.randrange(1 << 30)), name=name, block_min=block_min,
         )
         sig = _deck_signature(deck)
         if sig in seen_sigs:
@@ -170,26 +259,43 @@ def generate_deck(
     n_simmed = 0
     for cand in built:
         if opponents and n_simmed < n_sim_eval:
-            wrs = []
-            for i, opp in enumerate(opponents):
-                rep = run_matchup(
-                    cand.deck, opp, n_games=n_games, seed=42 + i,
-                    effects_overlay=overlay,
-                )
-                wrs.append(rep.deck1_winrate)
-            cand.win_rate = round(sum(wrs) / len(wrs), 4)
+            cand.win_rate = round(_winrate(cand.deck, opponents, n_games, overlay), 4)
             n_simmed += 1
 
     # ④ 合成スコア: 勝率 主 (×100)、 combo_strength 従 (正規化 ×10)。 未 sim は中立 prior 0.5。
     cs_max = max((c.combo_strength for c in built), default=0.0) or 1.0
-    for c in built:
+
+    def _rescore(c: CandidateDeck) -> None:
         wr = c.win_rate if c.win_rate is not None else 0.5
         c.score = round(wr * 100.0 + (c.combo_strength / cs_max) * 10.0, 2)
 
-    # opponents 指定時は「勝率の根拠がある (= sim 済) 候補」 を優先して返す。
-    if opponents:
-        simmed = [c for c in built if c.win_rate is not None]
-        simmed.sort(key=lambda c: -c.score)
-        return simmed
-    built.sort(key=lambda c: -c.score)
-    return built
+    for c in built:
+        _rescore(c)
+
+    if not opponents:
+        built.sort(key=lambda c: -c.score)
+        return built
+
+    # opponents 指定時は「勝率の根拠がある (= sim 済)」 候補を優先。
+    simmed = [c for c in built if c.win_rate is not None]
+    simmed.sort(key=lambda c: -c.score)
+
+    # ⑤ hill-climb: 最良候補を、 非固定カードを差し替えながら sim 勝率を直接最適化 (opt-in)。
+    if hill_climb_iters > 0 and simmed:
+        best = simmed[0]
+        fixed_bases = {_base_id(cid) for cid in must_include}
+        swap_pool = list(dict.fromkeys(partner_top + (fill_pool[:60] if fill_pool else [])))
+        refined_deck, refined_wr = _hill_climb(
+            repo, best.deck, opponents, fixed_bases, swap_pool,
+            overlay=overlay, n_games=n_games, iters=hill_climb_iters, rng=rng,
+        )
+        if refined_wr >= (best.win_rate or 0.0):
+            refined = CandidateDeck(
+                deck=refined_deck,
+                combo_strength=deck_combo_strength(refined_deck.main, refined_deck.leader),
+                win_rate=refined_wr, score=0.0, core=best.core,
+                extras=best.extras, warnings=best.warnings,
+            )
+            _rescore(refined)
+            simmed = [refined] + simmed  # 磨いた版を先頭に
+    return simmed
