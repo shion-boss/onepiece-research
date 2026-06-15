@@ -128,7 +128,7 @@ export function CardSearchPane({
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as CardCategory | "")}
-          className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="">all categories</option>
           {CATEGORIES.map((c) => (

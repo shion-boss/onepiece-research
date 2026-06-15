@@ -143,7 +143,7 @@ function EvolutionaryForm({ initialTarget }: { initialTarget: string }) {
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
-          className="mt-1 w-full rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+          className="mt-1 w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           {decks.map((d) => (
             <option key={d.slug} value={d.slug}>

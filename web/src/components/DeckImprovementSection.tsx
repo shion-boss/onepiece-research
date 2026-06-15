@@ -315,7 +315,7 @@ function McctsAnalyzePanel({
           <select
             value={mctsOpponent}
             onChange={(e) => setMctsOpponent(e.target.value)}
-            className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             {opponents.map((o) => (
               <option key={o.slug} value={o.slug}>
