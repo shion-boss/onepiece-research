@@ -5,7 +5,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from engine.deck import CardRepository, DeckList, _base_id, make_deck_from_dict
+from engine.deck import (
+    CardRepository,
+    DeckList,
+    _base_id,
+    _parse_block_icon,
+    _SPR_SENTINEL,
+    make_deck_from_dict,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -14,6 +21,16 @@ def test_base_id_strip_variant():
     assert _base_id("OP01-013") == "OP01-013"
     assert _base_id("OP06-049_p1") == "OP06-049"
     assert _base_id("ST12-005_p1") == "ST12-005"
+
+
+def test_parse_block_icon_handles_non_numeric():
+    """⚠ OP16 取り込みで発覚: 三大将 (OP16-063 クザン等) の block_icon は公式が「X」 表記 (数値でない)。
+    int('X') で Standard 判定が crash していたのを、 非数値は安全側 (= 常時使用可 sentinel) に倒して回避。"""
+    assert _parse_block_icon("3") == 3
+    assert _parse_block_icon(2) == 2
+    assert _parse_block_icon("X") == _SPR_SENTINEL  # OP16 三大将
+    assert _parse_block_icon(None) == _SPR_SENTINEL
+    assert _parse_block_icon("") == _SPR_SENTINEL
 
 
 def test_validate_4copy_via_base_id():

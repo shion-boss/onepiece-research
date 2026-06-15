@@ -33,6 +33,21 @@ _MAX_BLOCK_CACHE: Optional[dict[str, int]] = None
 _SPR_SENTINEL = 999
 
 
+def _parse_block_icon(raw) -> int:
+    """block_icon を Standard 判定用の整数に変換する。 数値でないブロックアイコンに耐える。
+
+    ⚠ 2026-06-15 (OP16 取り込みで発覚): OP16 の三大将 (OP16-063 クザン / OP16-065 サカズキ /
+    OP16-073 ボルサリーノ) は公式カードリストが「ブロックアイコン**X**」 と表記する (= 数値でない)。
+    旧実装は int('X') で crash し、 これらを含むデッキの validate / Standard 判定が全て落ちていた。
+    'X' は現行ブースター (OP16) の通常 R/SR であり Standard から除外する根拠がないので「常時使用可」
+    扱い (= _SPR_SENTINEL) とする。 ⚠ 'X' ブロックの正式な regulation 意味は cached rules より新しく、
+    要公式確認 (= onepiece-tcg-rules の banlist/rules 更新時に再検証)。 不明な非数値も安全側 (=使用可) に倒す。"""
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return _SPR_SENTINEL
+
+
 def _load_max_block_by_base_id() -> dict[str, int]:
     """base_id ごとの Standard 判定用ブロック値を返す。
 
@@ -48,7 +63,7 @@ def _load_max_block_by_base_id() -> dict[str, int]:
         rows = json.loads(_CARDS_PATH.read_text(encoding="utf-8"))
         for row in rows:
             base = row.get("base_id") or row.get("card_id", "")
-            b = int(row.get("block_icon", 0))
+            b = _parse_block_icon(row.get("block_icon", 0))
             # SPR 版があれば sentinel をセット (以降はこれより大きい値は来ない)
             if row.get("rarity") == "SPカード":
                 result[base] = _SPR_SENTINEL
