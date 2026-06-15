@@ -1,7 +1,7 @@
 import { fetchCards } from "@/lib/api";
 import type { CardCategory, CardFilters } from "@/lib/types";
 import { CardFilterBar } from "@/components/CardFilterBar";
-import { CardGrid } from "@/components/CardGrid";
+import { CardBrowser } from "@/components/CardBrowser";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -40,9 +40,10 @@ export default async function CardsPage({
     cost_le: parseInt0(get("cost_le")),
     cost_ge: parseInt0(get("cost_ge")),
     name_contains: get("name_contains"),
+    feature: get("feature"),
     // "standard" = block_icon >= 2、未指定 = 全件
     block_icon_ge: regulationRaw === "standard" ? 2 : undefined,
-    limit: 200,
+    limit: 2000,
   };
 
   let cards: Awaited<ReturnType<typeof fetchCards>> = [];
@@ -57,10 +58,10 @@ export default async function CardsPage({
     <PageShell>
       <PageHeader
         title="カード"
-        description="全 4,518 枚 の 検索 + フィルタ"
+        description="全 4,673 枚 の 検索 + フィルタ"
         actions={
           <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            {error ? "—" : `${cards.length} 件 (上限 200)`}
+            {error ? "—" : `${cards.length} 件${cards.length >= 2000 ? " (上限 2000)" : ""}`}
           </div>
         }
       />
@@ -76,7 +77,7 @@ export default async function CardsPage({
           </div>
         </div>
       ) : (
-        <CardGrid cards={cards} />
+        <CardBrowser cards={cards} />
       )}
     </PageShell>
   );

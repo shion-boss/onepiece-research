@@ -30,6 +30,7 @@ export function CardFilterBar() {
   const cost_le = params.get("cost_le") ?? "";
   const cost_ge = params.get("cost_ge") ?? "";
   const name_contains = params.get("name_contains") ?? "";
+  const feature = params.get("feature") ?? "";
   const regulation = params.get("regulation") ?? "";
 
   const setParam = (k: string, v: string) =>
@@ -61,10 +62,10 @@ export function CardFilterBar() {
       <select
         value={category}
         onChange={(e) => setParam("category", e.target.value)}
-        className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         aria-label="カテゴリ"
       >
-        <option value="">all categories</option>
+        <option value="">全カテゴリ</option>
         {CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {c}
@@ -73,15 +74,15 @@ export function CardFilterBar() {
       </select>
 
       <label className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-        cost
+        コスト
         <input
           type="number"
           min={0}
           max={10}
           value={cost_ge}
           onChange={(e) => setParam("cost_ge", e.target.value)}
-          placeholder="ge"
-          className="w-14 rounded border border-zinc-300 bg-transparent px-2 py-1 dark:border-zinc-700"
+          placeholder="最小"
+          className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
         〜
         <input
@@ -90,8 +91,8 @@ export function CardFilterBar() {
           max={10}
           value={cost_le}
           onChange={(e) => setParam("cost_le", e.target.value)}
-          placeholder="le"
-          className="w-14 rounded border border-zinc-300 bg-transparent px-2 py-1 dark:border-zinc-700"
+          placeholder="最大"
+          className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
       </label>
 
@@ -100,8 +101,17 @@ export function CardFilterBar() {
         value={name_contains}
         onChange={(e) => setParam("name_contains", e.target.value)}
         placeholder="カード名"
-        className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         aria-label="カード名"
+      />
+
+      <input
+        type="text"
+        value={feature}
+        onChange={(e) => setParam("feature", e.target.value)}
+        placeholder="特徴 (例: 麦わらの一味)"
+        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        aria-label="特徴"
       />
 
       <div className="flex rounded border border-zinc-300 text-xs dark:border-zinc-700 overflow-hidden" role="group" aria-label="レギュレーション">
@@ -130,6 +140,20 @@ export function CardFilterBar() {
           STD
         </button>
       </div>
+
+      {(color || category || cost_le || cost_ge || name_contains || feature || regulation) && (
+        <button
+          type="button"
+          onClick={() => update((p) => {
+            for (const k of ["color", "category", "cost_le", "cost_ge", "name_contains", "feature", "regulation"]) {
+              p.delete(k);
+            }
+          })}
+          className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+        >
+          クリア
+        </button>
+      )}
 
       {isPending && (
         <span className="text-xs text-zinc-500 dark:text-zinc-400">更新中…</span>
