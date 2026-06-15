@@ -172,6 +172,20 @@ def test_payoff_not_built_for_opp_turn_only_powerdown(repo):
         assert not any(g.key == "payoff" for g in res.groups), f"{cid} に opp-turn payoff 誤生成"
 
 
+def test_per_don_scaling_debuff(repo):
+    """per-DON スケーリングデバフは、 自分で押し付けるドン数で倍化して読む。
+    ⚠ 2026-06-15: クリーク OP15-008 = 相手にドン3枚付与 + 「ドン1枚につき-1000」 = 実質-3000 を
+    finder が -1000 としか読めなかった (= 自前で作るスケールの盲点)。"""
+    from engine.combo_finder import _opp_powerdown_amount, _self_loaded_don
+
+    kr = repo._by_id["OP15-008"]
+    assert _self_loaded_don(kr.text) == 3
+    assert _opp_powerdown_amount(kr.text) == 3000  # -1000 × ドン3枚
+    # 通常の固定デバフ・コスト誤検出は不変 (= 回帰なし)
+    assert _opp_powerdown_amount(repo._by_id["OP05-014"].text) == 2000  # ペル -2000
+    assert _opp_powerdown_amount(repo._by_id["EB01-004"].text) == 3000  # コーザ (コスト-5000は採らない)
+
+
 def test_opp_powerdown_excludes_self_and_cost():
     """相手を下げる量だけを取り、 自己デバフ/コストの -X は採らない。"""
     from engine.combo_finder import _opp_powerdown_amount

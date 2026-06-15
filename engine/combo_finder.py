@@ -247,6 +247,14 @@ def _detect_ko_power_threshold(text: str) -> Optional[int]:
     return None
 
 
+def _self_loaded_don(text: str) -> int:
+    """このカード自身が相手キャラに押し付ける/付与するドン‼ の枚数 (= per-DON デバフの自前スケール源)。
+    ⚠ 2026-06-15: クリーク OP15-008 は「相手にドン‼3枚を付与」 + 「ドン‼1枚につき パワー-1000」
+    = 実質 -3000 なのに finder が -1000 としか読めなかった (= 自前で作るスケールの盲点)。"""
+    m = re.search(r"ドン[!‼]*.{0,4}(\d+)枚まで.{0,12}付与", text)
+    return int(m.group(1)) if m else 0
+
+
 def _opp_powerdown_amount(text: str) -> Optional[int]:
     """『相手のキャラ/リーダーのパワーを下げる』 量 (≥1000) を返す。 自己デバフ/コストの
     パワー-X は除外する。
@@ -272,6 +280,12 @@ def _opp_powerdown_amount(text: str) -> Optional[int]:
         slf = max(clause.rfind("このキャラ"), clause.rfind("このカード"), clause.rfind("自分の"))
         if opp < 0 or opp < slf:
             continue  # 主語が相手でない (= 自己デバフ / コスト)
+        # スケーリングデバフ (= 「ドン‼1枚につき パワー-X」): 自分でドンを N 枚押し付けるなら
+        # 実質 N×X (= 静的に見込めるのは自前で作れるスケールだけ)。 ⚠ クリーク = 3 枚押し付け → 3 倍。
+        if "につき" in clause:
+            n = _self_loaded_don(text)
+            if n > 1:
+                d *= n
         if best is None or d > best:
             best = d
     return best
