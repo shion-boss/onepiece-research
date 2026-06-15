@@ -39,7 +39,7 @@ from pydantic import BaseModel
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.deck import CardRepository, make_deck_from_dict  # noqa: E402
+from engine.deck import CardRepository, DeckList, make_deck_from_dict  # noqa: E402
 from engine.deckbuilder import build_with_core  # noqa: E402
 from engine.effects import load_effect_overlay  # noqa: E402
 from engine.harness import run_matchup  # noqa: E402
@@ -1057,6 +1057,50 @@ class CoreBuildResponse(BaseModel):
     counter_total: int                           # main のカウンター値合計
 
 
+class GenerateDeckRequest(BaseModel):
+    leader: str                                  # リーダー card_id
+    must_include: list[str] = []                 # 使いたいカード (≤5、 固定採用)
+    mode: str = "combo"                          # combo | target | meta
+    target_slug: Optional[str] = None            # target mode: 勝ちたい相手デッキ
+    n_candidates: int = 8
+    n_sim_eval: int = 4
+    n_games: int = 12
+    meta_sample: int = 4                         # meta mode: 環境から sim する枚数
+    seed: int = 0
+
+
+class GeneratedDeckOut(BaseModel):
+    main: list[DeckEntry]
+    leader: str
+    combo_strength: float
+    win_rate: Optional[float] = None             # target/meta との sim 勝率
+    score: float
+    extras: list[CardRef] = []                   # コンボ相棒として引き込んだカード
+
+
+class GenerateDeckResponse(BaseModel):
+    leader: str
+    leader_name: str
+    mode: str
+    opponents: list[str] = []                    # sim した相手 slug
+    candidates: list[GeneratedDeckOut]
+    warnings: list[str] = []
+
+
+def _meta_pool_slugs() -> list[str]:
+    """環境デッキ pool (= decks/cardrush_*・tcgportal_* の代表、 analysis/派生を除く)。"""
+    import glob
+    out: list[str] = []
+    for p in glob.glob(str(ROOT / "decks" / "*.json")):
+        name = Path(p).stem
+        if not name.startswith(("cardrush_", "tcgportal_")):
+            continue
+        if "analysis" in name or "target_v1" in name or "locked" in name:
+            continue
+        out.append(name)
+    return sorted(out)
+
+
 @app.post("/api/decks/build", response_model=CoreBuildResponse)
 def build_deck(req: CoreBuildRequest):
     """コアカード固定型のデッキビルダー (Phase 5 の完全版)。"""
@@ -1103,6 +1147,70 @@ def build_deck(req: CoreBuildRequest):
         warnings=warnings,
         effect_density=effect_density,
         counter_total=counter_total,
+    )
+
+
+@app.post("/api/decks/generate", response_model=GenerateDeckResponse)
+def generate_deck_endpoint(req: GenerateDeckRequest):
+    """デッキ自動生成: 使いたいカード(≤5)を固定し、 コンボ相棒を引き込み、 combo_strength と
+    (target/meta との) sim 勝率でランクした候補を返す。 [[deck_combo_strength 共有コア]]。"""
+    import random as _random
+    from collections import Counter as _Counter
+    from engine.deck_generator import generate_deck as _gen
+
+    repo = get_repo()
+    try:
+        leader = repo.get(req.leader)
+    except KeyError:
+        raise HTTPException(400, f"unknown leader: {req.leader}")
+
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    target_deck = None
+    meta_decks = None
+    opp_slugs: list[str] = []
+    if req.mode == "target":
+        if not req.target_slug:
+            raise HTTPException(400, "target mode は target_slug が必須")
+        try:
+            target_deck = DeckList.from_json(ROOT / "decks" / f"{req.target_slug}.json", repo)
+            opp_slugs = [req.target_slug]
+        except Exception as e:
+            raise HTTPException(400, f"target deck load failed: {e}")
+    elif req.mode == "meta":
+        pool = _meta_pool_slugs()
+        sample = _random.Random(req.seed).sample(pool, min(req.meta_sample, len(pool)))
+        meta_decks = []
+        for s in sample:
+            try:
+                meta_decks.append(DeckList.from_json(ROOT / "decks" / f"{s}.json", repo))
+                opp_slugs.append(s)
+            except Exception:
+                continue
+
+    try:
+        cands = _gen(
+            repo, req.leader, req.must_include,
+            target_deck=target_deck, meta_decks=meta_decks,
+            n_candidates=req.n_candidates, n_sim_eval=req.n_sim_eval,
+            n_games=req.n_games, overlay=overlay, rng=_random.Random(req.seed),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, f"generate failed: {e}")
+
+    out: list[GeneratedDeckOut] = []
+    for c in cands[:5]:
+        counts = _Counter(x.card_id for x in c.deck.main)
+        out.append(GeneratedDeckOut(
+            main=[DeckEntry(card_id=cid, count=n) for cid, n in sorted(counts.items())],
+            leader=c.deck.leader.card_id,
+            combo_strength=c.combo_strength, win_rate=c.win_rate, score=c.score,
+            extras=[CardRef(card_id=e, name=repo._by_id[e].name)
+                    for e in c.extras if e in repo._by_id][:6],
+        ))
+    return GenerateDeckResponse(
+        leader=req.leader, leader_name=leader.name, mode=req.mode,
+        opponents=opp_slugs, candidates=out,
+        warnings=(cands[0].warnings[:8] if cands else []),
     )
 
 
