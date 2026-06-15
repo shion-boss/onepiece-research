@@ -20,9 +20,14 @@ export default async function DecksPage() {
         title="デッキ"
         description={`メタデッキ DB (${decks.length} 個)。 クリックで 詳細・ AI vs AI 対戦`}
         actions={
-          <Link href="/decks/new">
-            <Button variant="primary">+ 新規デッキ</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/decks/generate">
+              <Button variant="secondary">自動生成</Button>
+            </Link>
+            <Link href="/decks/new">
+              <Button variant="primary">+ 新規デッキ</Button>
+            </Link>
+          </div>
         }
       />
 

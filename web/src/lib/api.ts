@@ -4,10 +4,12 @@ import type {
   CardChange,
   CardFilters,
   ComboResult,
+  CardRef,
   CoreBuildRequest,
   CoreBuildResponse,
   DeckAnalysis,
   DeckDetail,
+  DeckEntry,
   DeckImprovementsResponse,
   DeckSummary,
   ExploreCounterRequest,
@@ -434,6 +436,53 @@ export async function buildDeckWithCore(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`buildDeckWithCore failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+export type GenerateDeckRequest = {
+  leader: string;
+  must_include?: string[];
+  mode?: "combo" | "target" | "meta";
+  target_slug?: string | null;
+  n_candidates?: number;
+  n_sim_eval?: number;
+  n_games?: number;
+  meta_sample?: number;
+  hill_climb_iters?: number;
+  seed?: number;
+};
+
+export type GeneratedDeckOut = {
+  main: DeckEntry[];
+  leader: string;
+  combo_strength: number;
+  win_rate?: number | null;
+  score: number;
+  extras: CardRef[];
+};
+
+export type GenerateDeckResponse = {
+  leader: string;
+  leader_name: string;
+  mode: string;
+  opponents: string[];
+  candidates: GeneratedDeckOut[];
+  warnings: string[];
+};
+
+export async function generateDeck(
+  req: GenerateDeckRequest,
+): Promise<GenerateDeckResponse> {
+  const res = await fetch(`${API}/api/decks/generate`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(req),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`generateDeck failed: ${res.status} ${detail}`);
   }
   return res.json();
 }
