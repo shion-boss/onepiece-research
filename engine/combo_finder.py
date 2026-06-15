@@ -437,11 +437,16 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
     return out
 
 
+_FETCH_VERBS = ("手札に加え", "登場させ", "公開")
+
+
 def _search_clause(text: str, ref_pos: int) -> Optional[str]:
-    """対象参照 (= ref_pos のカード参照) の手前・同じ検索句内 (= 直近の デッキ/見て/トラッシュ/手札
-    以降) を返す。 検索/踏み倒しの対象制限 (= コスト/パワー N 以下/以上) はこの句内に置かれる。
-    別節の制限や、 検索句より前にある『このキャラのパワーが N 以上の場合』 等の自己条件を
-    誤って対象制限に拾わないよう、 スコープをこの句に限定する。"""
+    """検索/踏み倒しの『1 つの検索句』 (= 直近の デッキ/見て/トラッシュ/手札 から、 対象を消費する
+    取得動詞 手札に加え/登場させ/公開 まで) を返す。 対象制限 (= コスト/パワー N 以下/以上) はこの句内に
+    置かれるが、 ⚠ 順序は『コストN以下の《X》』 (= 対象前) と『《X》を持つコストN以下のキャラ』 (= 対象後)
+    の両方があるので、 対象参照の前後を取得動詞まで含めて 1 句とする (= 2026-06-15: 旧実装は対象前
+    のみ見ていて テゾーロ OP06-071『《FILM》を持つコスト4以下』 の制限を逃し pow10 シャンクスに誤提案)。
+    別節 (= 取得動詞の後の【アタック時】コスト1以下 等) は句外なので拾わない。 検索句が特定できねば None。"""
     if ref_pos < 0:
         return None
     zone = max(
@@ -452,7 +457,10 @@ def _search_clause(text: str, ref_pos: int) -> Optional[str]:
     )
     if zone < 0:
         return None  # 検索句の起点が特定できない → 誤適用回避のため制限なし扱い
-    return text[zone:ref_pos]
+    # 句の終端 = 対象を消費する取得動詞 (= ref_pos 以降で最も近いもの)。 無ければ対象参照まで (= 旧挙動)。
+    verb_ps = [p for p in (text.find(vb, ref_pos) for vb in _FETCH_VERBS) if p >= 0]
+    end = min(verb_ps) if verb_ps else ref_pos
+    return text[zone:end]
 
 
 def _target_cost_limit(text: str, ref_pos: int) -> Optional[int]:
@@ -524,7 +532,9 @@ def _feature_target_pos(text: str, feat: str) -> int:
     lead_spans = [
         (m.start(), m.end())
         for m in re.finditer(
-            r"リーダーが(?:特徴)?[《『]" + re.escape(feat) + r"[》』]を持つ", text
+            # 「を持つ場合」 / 「を持ち、(別条件)」 両活用を拾う (= 持ち を逃すと leader 要件を対象と
+            # 誤認: アルベル OP08-059「リーダーが《百獣海賊団》を持ち…コスト7以下の「キング」を登場」)。
+            r"リーダーが(?:特徴)?[《『]" + re.escape(feat) + r"[》』]を持[つち]", text
         )
     ]
     for m in re.finditer(re.escape(token), text):

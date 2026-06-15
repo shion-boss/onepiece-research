@@ -180,11 +180,17 @@ def test_accelerant_ignores_leader_condition_feature(repo):
     ids = {c.card_id for c in (acc.cards if acc else [])}
     assert "EB01-020" not in ids  # シャンブルズ (《超新星》 はリーダー要件、 対象は コスト2以下のキャラ)
     assert "OP14-014" not in ids  # キッド (《超新星》 はリーダー要件、 対象は パワー2000以下赤)
+    # リーダー要件の活用が「を持ち、」 (= 継続形) でも除外する (= アルベル OP08-059 は対象が「キング」)
+    acc_k = _group(find_combos(repo, "OP04-044", per_group=50), "accelerant")  # カイドウ (百獣海賊団)
+    assert "OP08-059" not in {c.card_id for c in (acc_k.cards if acc_k else [])}
     # 一方、 リーダー要件 AND 対象の両方に 《F》 が出る正当なカードは残す
     acc2 = _group(find_combos(repo, "EB01-046", per_group=50), "accelerant")  # ブルック (麦わらの一味)
     assert "OP15-086" in {c.card_id for c in (acc2.cards if acc2 else [])}  # ナミ (対象=コスト7以下 麦わら)
-    acc3 = _group(find_combos(repo, "OP06-007", per_group=50), "accelerant")  # シャンクス (FILM)
-    assert "OP06-071" in {c.card_id for c in (acc3.cards if acc3 else [])}  # テゾーロ (対象=トラッシュの FILM)
+    # テゾーロ OP06-071 (対象=トラッシュのコスト4以下 FILM) は cost4 以下の FILM にのみ残る (= cost-after-feature 制限)
+    acc3 = _group(find_combos(repo, "OP06-073", per_group=50), "accelerant")  # シキ (FILM, cost2)
+    assert "OP06-071" in {c.card_id for c in (acc3.cards if acc3 else [])}
+    acc4 = _group(find_combos(repo, "OP06-007", per_group=50), "accelerant")  # シャンクス (FILM, cost10 > 4)
+    assert "OP06-071" not in {c.card_id for c in (acc4.cards if acc4 else [])}
 
 
 def test_accelerant_excludes_named_anchor_exclusion(repo):
@@ -327,6 +333,9 @@ def test_target_cost_limit_scoped_to_search_clause():
     t2 = ("自分のデッキの上から5枚を見て、「ジンベエ」以外の特徴《王下七武海》を持つカード1枚までを"
           "公開し、手札に加える。【アタック時】コスト1以下のキャラ1枚までを、デッキの下に置く。")
     assert _target_cost_limit(t2, t2.find("《王下七武海》")) is None
+    # テゾーロ OP06-071: 制限が対象の『後』 (= 「《FILM》を持つコスト4以下」) でも取得動詞まで見て拾う
+    t3 = "自分のトラッシュの特徴《FILM》を持つコスト4以下のキャラカード2枚までを、手札に加える。"
+    assert _target_cost_limit(t3, t3.find("《FILM》")) == 4
 
 
 def test_accelerant_respects_search_cost_limit(repo):
