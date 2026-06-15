@@ -103744,6 +103744,17 @@
      "rest": "one_opponent_character_cost_le_6cost"
     }
    ]
+  },
+  {
+   "_text": "OP16-110 trigger: このカードの【KO時】効果を発動する。",
+   "when": "trigger",
+   "do": [
+    {
+     "fire_self_effect": {
+      "when_kind": "on_ko"
+     }
+    }
+   ]
   }
  ],
  "OP16-114": [
@@ -103753,6 +103764,17 @@
    "do": [
     {
      "ko": "one_opponent_character_cost_le_4cost"
+    }
+   ]
+  },
+  {
+   "_text": "OP16-114 trigger: このカードの【KO時】効果を発動する。",
+   "when": "trigger",
+   "do": [
+    {
+     "fire_self_effect": {
+      "when_kind": "on_ko"
+     }
     }
    ]
   }
@@ -103825,6 +103847,25 @@
      }
     }
    ]
+  },
+  {
+   "_text": "OP16-104 trigger: カード1枚を引き、自分のトラッシュからコスト1の特徴《黒ひげ海賊団》を持つキャラ1枚までを登場。",
+   "when": "trigger",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "play_from_trash": {
+      "filter": {
+       "category": "CHARACTER",
+       "feature": "黒ひげ海賊団",
+       "cost_eq": 1
+      },
+      "limit": 1
+     }
+    }
+   ]
   }
  ],
  "OP16-103": [
@@ -103847,6 +103888,17 @@
      }
     }
    ]
+  },
+  {
+   "_text": "OP16-103 trigger: このカードの【KO時】効果を発動する。",
+   "when": "trigger",
+   "do": [
+    {
+     "fire_self_effect": {
+      "when_kind": "on_ko"
+     }
+    }
+   ]
   }
  ],
  "OP16-109": [
@@ -103865,6 +103917,17 @@
       "one_opponent_character_cost_le_1cost",
       "one_opponent_character_cost_le_1cost"
      ]
+    }
+   ]
+  },
+  {
+   "_text": "OP16-109 trigger: このカードの【KO時】効果を発動する。",
+   "when": "trigger",
+   "do": [
+    {
+     "fire_self_effect": {
+      "when_kind": "on_ko"
+     }
     }
    ]
   }
