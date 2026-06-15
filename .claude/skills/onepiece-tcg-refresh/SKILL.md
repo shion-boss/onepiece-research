@@ -87,7 +87,7 @@ rm -f /tmp/onepiece_html/_top.html          # 新 series 発見のため (Step 0
 
 ## Step 3 — 検証ゲート (3 つの問いに機械で答える)
 
-新カードの overlay / engine を書いたら下記を全部通す。 各検証が **「① engine が対応しているか / ② テキストが公式に忠実か / ③ 効果が実対戦で正しく動くか (追加 engine の正しさ込み)」** のどれを担保するか明記する。 ⚠ **①②だけでは「対戦で正しく使える」 は担保できない** — それが ③ (本ステップの肝)。
+新カードの overlay / engine を書いたら下記を全部通す。 各検証が **「① engine が対応しているか / ② テキストが公式に忠実か / ③ 効果が実対戦で正しく動くか (追加 engine の正しさ込み) / ④ 人間 vs AI の UI/UX で人間が操作できるか」** のどれを担保するか明記する。 ⚠ **①②だけでは「対戦で正しく使える」 は担保できない** — それが ③、 さらにブラウザ操作が ④。
 
 ### 3A. engine が対応しているか (silently-ignored の排除)
 overlay のキーを engine が読まないと **無言で無視され、 audit は通るのに対戦で何も起きない/無条件発火する**。 静的に弾く:
@@ -120,6 +120,24 @@ overlay のキーを engine が読まないと **無言で無視され、 audit 
 - `examples/demo_with_effects.py` か `harness.run_matchup` で新カード入りデッキを回す。
 - `scripts/report_bad_moves.py --deck-a <a> --deck-b <b>` で AI の悪手 (= 効果の誤用) を抽出。
 - 疑わしい新カードは `scripts/claude_play.py` で 1 手ずつ操作して効果の解決を確認 (= campaign 方式、 最も確実)。
+
+### 3D. 人間 vs AI の UI / UX (= ブラウザで人間が正しく操作できるか)
+⚠ **3A–3C は engine/ロジック層**。 `fuzz_human_play` も session API を叩くだけで **React UI 層 (modal/DnD/描画/画像) のバグは見えない**。 新カードが**新しい pending_choice kind** (新モーダル) を導入したのに UI に分岐が無い / payload キーがズレていると、 **空モーダルや操作 UI 欠落で人間が詰む** (campaign の「シュガー複製で空表示」「ブロッカー選択が dead component に埋没」 類型)。 これを守る:
+
+```bash
+.venv/bin/python scripts/lint_human_ui_contracts.py   # C1 dead component / C2 全 pending kind に UI 分岐 / C3 payload キー契約一致
+.venv/bin/python -m pytest tests/test_human_ui_contracts.py tests/test_fuzz_human_play_invariants.py tests/test_human_path_conformance.py -q
+cd web && npx tsc --noEmit                            # 型 (新 kind の UI 分岐・型の追従)
+```
+
+→ **C2 が新カードの新モーダル未対応を、 C3 が payload キー不一致を静的に検出する** (= 新弾 UI の最重要ゲート)。 さらに実ブラウザ層 (JS console エラー / modal 異常 / 詰まり / 画像描画):
+
+```bash
+cd web && npm run dev &                               # :3000 で起動 (別途)
+.venv/bin/python scripts/browser_play_test.py         # Playwright で /play を実操作
+```
+
+人手確認: `/play` で新カードを実際にプレイし新モーダルが描画/操作できるか、 **新カード画像が出るか** (未キャッシュは公式 CDN フォールバック → Step 6 で `cache_*_images.py`)、 `/cards`・`/decks/new`・`/combos`・`/decks/[slug]/analyze` に新カードが正しく出るか。
 
 ### 新 primitive を足した時の「正しさ」 (③ の中核)
 1. `tests/test_effects.py` に **最小ステートでなく実ゲーム文脈に近い** behavior test を足す (発火前後の盤面差分 + run1==run2 の再現性)。
@@ -197,6 +215,7 @@ PY
 - [ ] **① engine 対応**: `test_no_dead_entry_keys` green / `audit_dsl_primitives` で missing 0 / strictness 10/10
 - [ ] **② テキスト忠実**: `audit_overlay_vs_faq` sev≥3 = 0 / `verify_overlay_vs_cardqa` missing = 0
 - [ ] **③ 実対戦で正しい**: smoke NO_CHANGE/ERROR = 0 / pytest green / `fuzz_human_play` + `audit_runtime_invariants` で違反0 / 新カード入りデッキを実対戦で目視確認
+- [ ] **④ 人間vsAI UI/UX**: `lint_human_ui_contracts` OK (C2 新 kind に UI 分岐 / C3 payload キー一致) / UI 契約 pytest green / `tsc --noEmit` / (任意) `browser_play_test` で /play 実操作 + 新カード画像描画
 - [ ] FAQ/cardqa/banlist の diff 確認、 `onepiece-tcg-rules` の last_checked 更新
 - [ ] レギュレーション: 新 banlist 反映、 既存デッキの合法性確認
 - [ ] (必要なら) 画像 / メタデッキ / matrix 更新

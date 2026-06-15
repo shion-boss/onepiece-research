@@ -57,6 +57,7 @@
   4. `scripts/audit_dsl_primitives.py` で **missing でない (= engine 実装済と認識される)** ことを確認。 これを怠ると overlay は書けても engine が読まず silently-ignored。
   5. その primitive を使う実カードを **実対戦** (fuzz_human_play / run_matchup / claude_play) に通し、 対戦文脈で正しく解決するか確認する (= SKILL Step 3C)。
 - 新トリガー (when) が要る場合は engine 側のトリガー発火経路も拡張する (= 「engine の更新」 の中身)。 新 when も smoke_test / fuzz が拾えるよう発火経路に繋ぐ。
+- ⚠ **プレイヤーの選択を伴う primitive** (= 対象選択・並べ替え・任意 pay 等) は **新しい `pending_choice.kind`** を生むことがある。 その場合 `web/` の人間プレイ UI に **その kind の分岐と正しい payload キー**を足さないと、 空モーダル/操作不能で人間が詰む。 `scripts/lint_human_ui_contracts.py` (C2/C3) と `browser_play_test.py` で必ず確認する (= SKILL Step 3D)。
 
 ## 4. トリガー (when) と条件 (eval_condition)
 
