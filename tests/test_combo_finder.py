@@ -171,6 +171,25 @@ def test_cheat_excludes_topdeck_reveal_gamble(repo):
     assert "OP06-119" not in ids
 
 
+def test_accelerant_excludes_named_anchor_exclusion(repo):
+    """『「A」以外の《F》を手札に加える/登場させる』 は anchor A を対象外にするのでサーチ/踏み倒し提案にしない。
+    ⚠ 2026-06-15 検出: OP10-111「「ルフィ」以外の《超新星》を…手札に加える」 を ルフィ anchor に
+    「サーチ → ルフィを引ける」 と誤提案 (= 名前も特徴も 以外 に gate される、 628件)。
+    除外されない別 anchor (= キッド) には正しく残る (= 名前単位で精密)。"""
+    # 全 ルフィ anchor で OP10-111 が accelerant に出ない
+    for cid, c in repo._by_id.items():
+        if c.name != "モンキー・D・ルフィ" or "_" in cid:
+            continue
+        acc = _group(find_combos(repo, cid, per_group=40), "accelerant")
+        assert "OP10-111" not in {x.card_id for x in (acc.cards if acc else [])}
+    # キッド (= 「ルフィ」以外 で除外されない 超新星) には残る
+    for cid, c in repo._by_id.items():
+        if c.name == "ユースタス・キッド" and "_" not in cid:
+            acc = _group(find_combos(repo, cid, per_group=40), "accelerant")
+            assert "OP10-111" in {x.card_id for x in (acc.cards if acc else [])}
+            break
+
+
 def test_ko_on_own_turn_classifies_event_main_ko():
     """KO の timing を 直近 trigger で判定 (= 【メイン】KO は自ターン、 【カウンター】KO は相手ターン)。"""
     from engine.combo_finder import _ko_on_own_turn

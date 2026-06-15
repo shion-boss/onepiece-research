@@ -574,6 +574,11 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         if c.card_id == anchor.card_id:
             continue
         t = _text(c)
+        # anchor が「「A」以外」 で明示除外されているなら、 この検索/踏み倒し/コスト軽減は anchor を
+        # 対象にできない (= 「ルフィ」以外の《超新星》を手札に加える / 「サンジ」以外を登場させる 等、 628件)。
+        # ⚠ 2026-06-15: 名前 (「A」) も特徴 (《F》) も 以外 に gate されるので名前/特徴いずれの一致も無効。
+        if f"「{anchor_name}」以外" in t:
+            continue
         kind = None
         reason = ""
         # 名前指定 (最強の確実性)
