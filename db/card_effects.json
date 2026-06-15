@@ -103136,5 +103136,134 @@
    ]
   }
  ],
- "OP16-016": []
+ "OP16-016": [],
+ "OP16-023": [],
+ "OP16-028": [],
+ "OP16-026": [
+  {
+   "_text": "OP16-026 【登場時】デッキ上3を見て《インペルダウン》1を手札、残りデッキ下。その後、手札からコスト2以下のキャラ1枚までを登場。",
+   "when": "on_play",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 3,
+      "filter": {
+       "feature": "インペルダウン"
+      },
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    },
+    {
+     "play_from_hand": {
+      "filter": {
+       "cost_le": 2
+      },
+      "limit": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-027": [
+  {
+   "_text": "OP16-027 【ドン!!×1】このキャラのパワー+2000。",
+   "when": "on_attached_don",
+   "n": 1,
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_inplay",
+      "amount": 2000,
+      "duration": "static"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-031": [
+  {
+   "_text": "OP16-031 【KO時】自分の手札から「インペルダウンの囚人」1枚までを登場。",
+   "when": "on_ko",
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-035": [
+  {
+   "_text": "OP16-035 【登場時】相手のカード1枚までをレスト。その後、手札1枚を捨ててもよい：自分のリーダーにレストのドン!!3枚までを付与。",
+   "when": "on_play",
+   "do": [
+    {
+     "rest": "one_opponent_inplay_any"
+    },
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {}
+        }
+       }
+      ],
+      "effect": [
+       {
+        "attach_rested_don": {
+         "target": "self_leader",
+         "count": 3
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-036": [
+  {
+   "_text": "OP16-036 【登場時】相手のコスト4以下のキャラ1枚までをレスト。",
+   "when": "on_play",
+   "do": [
+    {
+     "rest": "one_opponent_character_cost_le_4cost"
+    }
+   ]
+  },
+  {
+   "_text": "OP16-036 【アタック時】このキャラの元々のパワーは、このターン中、相手のリーダーと同じパワーになる。",
+   "when": "on_attack",
+   "do": [
+    {
+     "set_base_power_copy": {
+      "from_target": "opponent_leader",
+      "to_target": "self",
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-037": [
+  {
+   "_text": "OP16-037 【登場時】自分のリーダーが《インペルダウン》を持つ場合、相手のコスト5以下のキャラ1枚までをレスト。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "インペルダウン"
+   },
+   "do": [
+    {
+     "rest": "one_opponent_character_cost_le_5cost"
+    }
+   ]
+  }
+ ]
 }
