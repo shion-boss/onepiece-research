@@ -83,6 +83,17 @@ class ComboEdge:
     b_id: str          # base card_id (= 相棒/下げ役/速攻付与 等)
     kind: str          # enabler / payoff / amplifier / accelerant / tribal
     score: float
+    desc: str = ""     # 人間向け説明 (= matcher の reason、 AI scalar では未使用)
+
+
+@dataclass
+class DeckComboEntry:
+    """人間向けデッキコンボ表示の 1 件 (= 2-4枚 + 説明 + 強度)。"""
+    card_ids: list[str]   # base card_id (= 2 枚 or chain の各ステップ)
+    kind: str             # enabler / payoff / amplifier / chain
+    label: str            # 表示ラベル
+    description: str
+    score: float
 
 
 @dataclass
@@ -1072,7 +1083,7 @@ def find_deck_combos(deck_cards: list, leader=None) -> DeckComboMap:
         if key in seen:
             return
         seen.add(key)
-        edges.append(ComboEdge(a_id=a, b_id=b, kind=kind, score=partner.score))
+        edges.append(ComboEdge(a_id=a, b_id=b, kind=kind, score=partner.score, desc=partner.reason))
 
     for anchor in pool:
         if leader is not None and not _card_ok_with_leader(_text(anchor), leader_feats, leader_name):
@@ -1097,3 +1108,41 @@ def find_deck_combos(deck_cards: list, leader=None) -> DeckComboMap:
             chains.append(ch)
 
     return DeckComboMap(edges=edges, chains=chains)
+
+
+# 人間向け表示で「コンボ」 として surface する種別 (= 実行型。 tribal/accelerant は受動的
+# 構築シナジーなので除く)。
+_DISPLAY_COMBO_KINDS = ("enabler", "payoff", "amplifier")
+_COMBO_KIND_LABEL = {
+    "enabler": "KO圏拡張", "payoff": "除去ペイオフ",
+    "amplifier": "速攻で即起動", "chain": "多枚コンボ",
+}
+
+
+def deck_combo_summary(deck_cards: list, leader=None, top_n: int = 12) -> list[DeckComboEntry]:
+    """デッキの「実行型コンボ」 (= enabler/payoff/amplifier + 多枚チェーン) を、 無順序ペアで
+    dedup し強度順に並べた人間向けサマリで返す (= /decks/[slug]/analyze 表示用)。
+
+    enabler(ペル→コーザ) と payoff(コーザ→ペル) は同一コンボの裏表なので 1 件に畳む。"""
+    m = find_deck_combos(deck_cards, leader)
+    best: dict[frozenset, DeckComboEntry] = {}
+    for e in m.edges:
+        if e.kind not in _DISPLAY_COMBO_KINDS:
+            continue
+        key = frozenset((e.a_id, e.b_id))
+        prev = best.get(key)
+        if prev is None or e.score > prev.score:
+            best[key] = DeckComboEntry(
+                card_ids=[e.a_id, e.b_id], kind=e.kind,
+                label=_COMBO_KIND_LABEL.get(e.kind, e.kind),
+                description=e.desc, score=round(e.score, 2),
+            )
+    entries = list(best.values())
+    for ch in m.chains:
+        entries.append(DeckComboEntry(
+            card_ids=[_base_id(s.card_id) for s in ch.steps], kind="chain",
+            label=_COMBO_KIND_LABEL["chain"], description=ch.description,
+            score=round(ch.score, 2),
+        ))
+    entries.sort(key=lambda x: -x.score)
+    return entries[:top_n]

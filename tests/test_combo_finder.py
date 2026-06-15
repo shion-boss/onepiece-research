@@ -216,6 +216,23 @@ def test_find_deck_combos_extracts_intra_deck_edges(repo):
         assert e.a_id in deck_bases and e.b_id in deck_bases
 
 
+def test_deck_combo_summary_dedups_and_ranks(repo):
+    """人間向けサマリは実行型コンボを 無順序ペアで畳み、 強度降順で返す。"""
+    from engine.combo_finder import deck_combo_summary
+
+    deck = [repo._by_id[i] for i in ("OP04-013", "EB01-004", "OP04-008")]  # ペル/コーザ/チャカ
+    out = deck_combo_summary(deck, repo._by_id["EB03-001"], top_n=12)
+    assert out, "実行型コンボが1件も出ていない"
+    for e in out:
+        assert len(e.card_ids) >= 2
+        assert e.description
+        assert e.kind in ("enabler", "payoff", "amplifier", "chain")
+    # enabler(ペル→コーザ) と payoff(コーザ→ペル) は同一コンボ → 1 件に畳む
+    pell_koza = [e for e in out if set(e.card_ids[:2]) == {"OP04-013", "EB01-004"}]
+    assert len(pell_koza) == 1
+    assert [e.score for e in out] == sorted((e.score for e in out), reverse=True)
+
+
 def test_find_deck_combos_excludes_incompatible_leader(repo):
     """別リーダー専用カードは、 実リーダーが非互換ならデッキコンボに入れない。"""
     from engine.combo_finder import find_deck_combos, _card_ok_with_leader

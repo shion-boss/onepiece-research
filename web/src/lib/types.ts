@@ -137,6 +137,15 @@ export type DeckAnalysis = {
   avg_cost: number;
   avg_counter: number;
   activate_main_cards: CardRef[];
+  combos: DeckComboOut[];
+};
+
+export type DeckComboOut = {
+  cards: CardRef[]; // 2-4 枚 (= 2枚コンボ or 多枚チェーン)
+  kind: string; // enabler / payoff / amplifier / chain
+  label: string;
+  description: string;
+  score: number;
 };
 
 export type MatchSummary = {

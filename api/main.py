@@ -1881,6 +1881,14 @@ class CardRef(BaseModel):
     name: str
 
 
+class DeckComboOut(BaseModel):
+    cards: list[CardRef]   # 2-4 枚 (= 2枚コンボ or 多枚チェーン)
+    kind: str              # enabler / payoff / amplifier / chain
+    label: str
+    description: str
+    score: float
+
+
 class DeckAnalysis(BaseModel):
     slug: str
     name: str
@@ -1895,6 +1903,7 @@ class DeckAnalysis(BaseModel):
     avg_cost: float
     avg_counter: float
     activate_main_cards: list[CardRef]
+    combos: list[DeckComboOut] = []
 
 
 _OVERLAY_PATH = ROOT / "db" / "card_effects.json"
@@ -1965,6 +1974,32 @@ def analyze_deck(slug: str):
     except KeyError:
         pass
 
+    # デッキ内の実行型コンボ (= /combos の find_deck_combos を流用、 人間向けサマリ)
+    from engine.combo_finder import deck_combo_summary
+    deck_cards = []
+    for entry in d.get("main", []):
+        try:
+            deck_cards.append(repo.get(entry["card_id"]))
+        except KeyError:
+            continue
+    leader_card = None
+    try:
+        leader_card = repo.get(leader_id)
+    except KeyError:
+        pass
+    combos_out: list[DeckComboOut] = []
+    for ce in deck_combo_summary(deck_cards, leader_card, top_n=12):
+        refs = []
+        for cid in ce.card_ids:
+            try:
+                refs.append(CardRef(card_id=cid, name=repo.get(cid).name))
+            except KeyError:
+                refs.append(CardRef(card_id=cid, name=cid))
+        combos_out.append(DeckComboOut(
+            cards=refs, kind=ce.kind, label=ce.label,
+            description=ce.description, score=ce.score,
+        ))
+
     return DeckAnalysis(
         slug=slug,
         name=d.get("name", slug),
@@ -1991,6 +2026,7 @@ def analyze_deck(slug: str):
         avg_cost=total_cost / total_n if total_n else 0,
         avg_counter=total_counter / total_n if total_n else 0,
         activate_main_cards=activate_main,
+        combos=combos_out,
     )
 
 
