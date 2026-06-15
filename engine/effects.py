@@ -1161,6 +1161,18 @@ def eval_condition(
             has_trigger = bool(getattr(pc, "trigger", "") or "")
             if bool(v) != has_trigger:
                 return False
+        elif k == "played_from_trash":
+            # 直近に登場したキャラがトラッシュ起源か (= OP16-079 ヤマト「トラッシュから…登場した時」)。
+            if bool(v) != bool(getattr(state, "last_self_chara_played_from_trash", False)):
+                return False
+        elif k == "played_self_chara_feature_in":
+            # 直近に登場したキャラが特徴 v (list) のいずれかを持つか (= OP16-079 ヤマト《ワノ国》)。
+            pc = getattr(state, "last_self_chara_played_card", None)
+            if pc is None:
+                return False
+            feats = set(getattr(pc, "features", []) or [])
+            if not (feats & set(v if isinstance(v, list) else [v])):
+                return False
         elif k == "actor_source_feature_contains":
             # 直近の効果発動 source カードの特徴に v を含むか (= OP12-040 クザン用)。
             # trigger_on_self_hand_discarded が state.last_discard_source_inplay を一時設定。
@@ -1936,6 +1948,12 @@ def _resolve_target(
         return [opp.leader]
     if target_spec == "self_leader":
         return [me.leader]
+    if target_spec == "last_self_played_chara":
+        # 直近に登場した「そのキャラ」 (= OP16-079 ヤマト)。 last_self_chara_played_iid で me の場から特定。
+        iid = getattr(state, "last_self_chara_played_iid", None)
+        if iid is None:
+            return []
+        return [ip for ip in me.characters if ip.instance_id == iid]
     if target_spec in ("all_opponent_characters", "all_opp_characters"):
         return list(opp.characters)
     if target_spec == "all_opponent_characters_power_le_0":
@@ -4140,6 +4158,7 @@ def _execute_effect_body(
                         me.trash.pop(i)
                         ip = InPlay.of(card, rested=rested, sickness=True)
                         ip.return_to_deck_bottom_at_turn_end = want_return_eot
+                        ip.played_from_trash = True
                         me.characters.append(ip)
                         if pk_grant:
                             ip.granted_keywords.add(str(pk_grant))
@@ -4189,6 +4208,7 @@ def _execute_effect_body(
                     me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                 ip = InPlay.of(card, rested=rested, sickness=True)
                 ip.return_to_deck_bottom_at_turn_end = want_return_eot
+                ip.played_from_trash = True
                 me.characters.append(ip)
                 if pk_grant:
                     ip.granted_keywords.add(str(pk_grant))
@@ -9301,6 +9321,9 @@ def trigger_on_play(
     me_idx = state.players.index(me)
     # payload-aware context: 自分の場の効果 (= OP02-026 サンジ等) が played カードを参照可
     state.last_self_chara_played_card = self_inplay.card
+    # 登場した InPlay 自身を指す context (= OP16-079 ヤマト「そのキャラ」 target / トラッシュ起源 gate)。
+    state.last_self_chara_played_iid = self_inplay.instance_id
+    state.last_self_chara_played_from_trash = bool(getattr(self_inplay, "played_from_trash", False))
     # 自陣営: 登場したカード自身の on_play
     bundle = effects_overlay.get(self_inplay.card.card_id)
     has_self_on_play = bundle is not None and any(e.get("when") == "on_play" for e in bundle.effects)

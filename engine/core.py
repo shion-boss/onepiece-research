@@ -250,6 +250,10 @@ class InPlay:
     # 一時登場)。 play_from_trash の return_to_deck_bottom_at_turn_end で True、
     # trigger_end_of_turn で デッキ底へ戻して消費。
     return_to_deck_bottom_at_turn_end: bool = False
+    # play_from_trash で登場した時 True (= トラッシュ起源マーカー)。 trigger_on_play が
+    # state.last_self_chara_played_from_trash へ反映 (= OP16-079 ヤマト「トラッシュから《ワノ国》
+    # が登場した時」 の gate)。
+    played_from_trash: bool = False
     # 「このターン終了時、このキャラをトラッシュに置く」 (= 自己犠牲 drawback、 OP03-005 サッチ)。
     # ターン終了 flush で me.characters → me.trash。
     trash_at_self_turn_end: bool = False
@@ -740,6 +744,10 @@ class GameState:
     last_opp_chara_played_card: Optional[object] = None
     # 直近の「自分のキャラが登場した」 イベントの played カード (= OP02-026 サンジ用)。
     last_self_chara_played_card: Optional[object] = None
+    # 同イベントの played InPlay の instance_id と、 トラッシュ起源か (= OP16-079 ヤマト用)。
+    # last_self_played_chara target / played_from_trash 条件が参照する。
+    last_self_chara_played_iid: Optional[int] = None
+    last_self_chara_played_from_trash: bool = False
     # 直近のトリガー処理で「このカードを手札に加える」 効果が発動したか (ST09-002 雨月天ぷら等)。
     # trigger_lifecard_trigger 後に game.py が読んで trash 移動 → 手札 へ振替。
     last_trigger_kept_in_hand: bool = False

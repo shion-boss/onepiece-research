@@ -4253,3 +4253,30 @@ def test_op16_060_sengoku_needs_8_active_don():
     me.hand = [repo.get("OP16-063")]
     opts = [o for o in list_activate_main_effects(state, me, overlay)]
     assert opts == []  # 8 払えない → 選択肢に出ない
+
+
+def test_op16_079_yamato_rush_to_wano_from_trash_only():
+    """OP16-079 ヤマト: トラッシュから《ワノ国》が登場した時のみ、 そのキャラに【速攻】。"""
+    from engine.effects import execute_effect
+    repo = _repo(); overlay = _overlay()
+    # ワノ国 をトラッシュから登場 → 速攻つく
+    state = _make_state(repo, "OP16-079", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    me.trash = [repo.get("PRB02-016")]  # お玉 (ワノ国)
+    execute_effect({"play_from_trash": {"filter": {"feature": "ワノ国"}, "limit": 1}}, state, me, opp, None)
+    assert len(me.characters) == 1 and me.characters[0].card.name == "お玉"
+    assert me.characters[0].summoning_sickness is False  # ヤマトで速攻
+
+    # 非ワノ国 をトラッシュから登場 → 速攻つかない (feature gate)
+    state2 = _make_state(repo, "OP16-079", overlay=overlay)
+    me2, opp2 = state2.players[0], state2.players[1]
+    me2.trash = [repo.get("OP01-013")]  # サンジ (麦わら、非ワノ国)
+    execute_effect({"play_from_trash": {"filter": {}, "limit": 1}}, state2, me2, opp2, None)
+    assert me2.characters[0].summoning_sickness is True
+
+    # ワノ国 を手札から登場 (トラッシュ起源でない) → 速攻つかない (source gate)
+    state3 = _make_state(repo, "OP16-079", overlay=overlay)
+    me3, opp3 = state3.players[0], state3.players[1]
+    me3.hand = [repo.get("PRB02-016")]
+    execute_effect({"play_from_hand": {"filter": {"feature": "ワノ国"}, "limit": 1}}, state3, me3, opp3, None)
+    assert me3.characters[0].summoning_sickness is True

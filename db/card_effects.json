@@ -102794,5 +102794,24 @@
     }
    ]
   }
+ ],
+ "OP16-079": [
+  {
+   "_text": "OP16-079 ヤマト: 自分のトラッシュから特徴《ワノ国》を持つキャラが登場した時、そのキャラは、このターン中、【速攻】を得る。",
+   "when": "on_self_chara_played",
+   "if": {
+    "played_from_trash": true,
+    "played_self_chara_feature_in": [
+     "ワノ国"
+    ]
+   },
+   "do": [
+    {
+     "give_rush": {
+      "target": "last_self_played_chara"
+     }
+    }
+   ]
+  }
  ]
 }
