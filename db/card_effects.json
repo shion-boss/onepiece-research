@@ -103425,5 +103425,448 @@
     }
    ]
   }
+ ],
+ "OP16-042": [],
+ "OP16-061": [],
+ "OP16-062": [],
+ "OP16-086": [],
+ "OP16-088": [],
+ "OP16-105": [],
+ "OP16-111": [],
+ "OP16-112": [],
+ "OP16-064": [
+  {
+   "_text": "OP16-064 【登場時】デッキ上5を見て「コビー」以外の《海軍》1を手札、残りデッキ下。",
+   "when": "on_play",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "filter": {
+       "feature": "海軍",
+       "exclude_name": "コビー"
+      },
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-067": [
+  {
+   "_text": "OP16-067 【登場時】デッキ上5を見て《海軍》1を手札、残りデッキ下。その後、手札1枚を捨てる。",
+   "when": "on_play",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "filter": {
+       "feature": "海軍"
+      },
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ]
+  }
+ ],
+ "OP16-072": [
+  {
+   "_text": "OP16-072 【登場時】デッキ上5を見て《インペルダウン》1を手札、残りデッキ下。",
+   "when": "on_play",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "filter": {
+       "feature": "インペルダウン"
+      },
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-091": [
+  {
+   "_text": "OP16-091 【登場時】リーダーが《ワノ国》の場合、デッキ上4を見て「ナミ」以外の《ワノ国》1を手札、残りトラッシュ。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "ワノ国"
+   },
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 4,
+      "filter": {
+       "feature": "ワノ国",
+       "exclude_name": "ナミ"
+      },
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "trash"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-068": [
+  {
+   "_text": "OP16-068 【登場時】ドン!!デッキからドン!!1枚までをアクティブで追加。",
+   "when": "on_play",
+   "do": [
+    {
+     "add_don": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-068 【アタック時】リーダーが《ドンキホーテ海賊団》の場合、このキャラはこのターン中パワー+3000。",
+   "when": "on_attack",
+   "if": {
+    "leader_feature": "ドンキホーテ海賊団"
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self",
+      "amount": 3000,
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-069": [
+  {
+   "_text": "OP16-069 【登場時】/【アタック時】ドン!!デッキからドン!!1枚までをアクティブで追加。",
+   "when": "on_play",
+   "do": [
+    {
+     "add_don": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-069 【アタック時】ドン!!1枚アクティブ追加。",
+   "when": "on_attack",
+   "do": [
+    {
+     "add_don": 1
+    }
+   ]
+  }
+ ],
+ "OP16-071": [
+  {
+   "_text": "OP16-071 【登場時】手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までをレストで追加。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "filter": {},
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-071 【KO時】ドン!!デッキからドン!!1枚までをレストで追加。",
+   "when": "on_ko",
+   "do": [
+    {
+     "add_rested_don": 1
+    }
+   ]
+  }
+ ],
+ "OP16-074": [
+  {
+   "_text": "OP16-074 【登場時】リーダーが《インペルダウン》の場合、相手は自身の場のドン!!1枚をドン!!デッキに戻す。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "インペルダウン"
+   },
+   "do": [
+    {
+     "don_minus_opp": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-074 【KO時】相手は自身の場のドン!!4枚をドン!!デッキに戻す。",
+   "when": "on_ko",
+   "do": [
+    {
+     "don_minus_opp": 4
+    }
+   ]
+  }
+ ],
+ "OP16-075": [
+  {
+   "_text": "OP16-075 【登場時】リーダーが《海軍》の場合、ドン!!1枚アクティブ+1枚レストで追加。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "海軍"
+   },
+   "do": [
+    {
+     "add_don": 1
+    },
+    {
+     "add_rested_don": 1
+    }
+   ]
+  }
+ ],
+ "OP16-083": [
+  {
+   "_text": "OP16-083 【ブロッカー】【登場時】手札からコスト8以上のキャラ1枚を捨てることができる：カード2枚を引く。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_ge": 8
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 2
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-092": [
+  {
+   "_text": "OP16-092 【登場時】手札からコスト8以上のキャラ1枚を捨てることができる：カード2枚を引く。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_ge": 8
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 2
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-090": [
+  {
+   "_text": "OP16-090 【登場時】カード2枚を引き、手札2枚を捨てる。その後、相手のコスト1以下のキャラ1枚までをKO。",
+   "when": "on_play",
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 2
+    },
+    {
+     "ko": "one_opponent_character_cost_le_1cost"
+    }
+   ]
+  }
+ ],
+ "OP16-093": [
+  {
+   "_text": "OP16-093 【登場時】カード2枚を引き、手札2枚を捨てる。その後、リーダーかキャラ1枚にレストのドン!!1枚までを付与。",
+   "when": "on_play",
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 2
+    },
+    {
+     "attach_rested_don": {
+      "target": "self_inplay_choice",
+      "count": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-110": [
+  {
+   "_text": "OP16-110 【KO時】カード1枚を引き、相手のコスト6以下のキャラ1枚までをレスト。",
+   "when": "on_ko",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "rest": "one_opponent_character_cost_le_6cost"
+    }
+   ]
+  }
+ ],
+ "OP16-114": [
+  {
+   "_text": "OP16-114 【KO時】相手のコスト4以下のキャラ1枚までをKO。",
+   "when": "on_ko",
+   "do": [
+    {
+     "ko": "one_opponent_character_cost_le_4cost"
+    }
+   ]
+  }
+ ],
+ "OP16-085": [
+  {
+   "_text": "OP16-085 【ブロッカー】【登場時】トラッシュから「光月モモの助」以外のコスト6以下の《ワノ国》キャラ1枚までを登場。",
+   "when": "on_play",
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "feature": "ワノ国",
+       "cost_le": 6,
+       "exclude_name": "光月モモの助"
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-096": [
+  {
+   "_text": "OP16-096 【ブロック不可】【KO時】トラッシュからコスト6以下の「ヤマト」1枚までを登場。",
+   "when": "on_ko",
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "name": "ヤマト",
+       "cost_le": 6
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-095": [
+  {
+   "_text": "OP16-095 【登場時】自分の黒の《ワノ国》キャラ1枚までは、このターン中、【ブロック不可】を得る。",
+   "when": "on_play",
+   "do": [
+    {
+     "give_keyword": {
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature": "ワノ国",
+        "color": "黒"
+       },
+       "limit": 1
+      },
+      "keyword": "ブロック不可",
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-104": [
+  {
+   "_text": "OP16-104 【アタック時】相手のキャラ1枚を選ぶ。このキャラの元々のパワーは、このターン中、選んだキャラと同じパワーになる。",
+   "when": "on_attack",
+   "do": [
+    {
+     "set_base_power_copy": {
+      "from_target": "one_opponent_character_any",
+      "to_target": "self",
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-103": [
+  {
+   "_text": "OP16-103 【相手のターン中】【KO時】リーダーが《黒ひげ海賊団》の場合、カード1枚を引き、相手のリーダーかキャラ1枚までをこのターン中パワー-3000。",
+   "when": "on_ko",
+   "if": {
+    "opp_turn": true,
+    "leader_feature": "黒ひげ海賊団"
+   },
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "power_pump": {
+      "target": "one_opp_chara_or_leader",
+      "amount": -3000,
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-109": [
+  {
+   "_text": "OP16-109 【KO時】リーダーが《黒ひげ海賊団》の場合、カード1枚を引き、相手のコスト1以下のキャラ2枚までをKO。",
+   "when": "on_ko",
+   "if": {
+    "leader_feature": "黒ひげ海賊団"
+   },
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "ko_multi": [
+      "one_opponent_character_cost_le_1cost",
+      "one_opponent_character_cost_le_1cost"
+     ]
+    }
+   ]
+  }
  ]
 }
