@@ -104280,5 +104280,138 @@
     }
    ]
   }
+ ],
+ "OP16-063": [
+  {
+   "_text": "OP16-063 【登場時】ドン!!デッキからドン!!2枚までをレストで追加。",
+   "when": "on_play",
+   "do": [
+    {
+     "add_rested_don": 2
+    }
+   ]
+  },
+  {
+   "_text": "OP16-063 【起動メイン】【ターン1回】ドン!!-1：相手のキャラ1枚までは、このターン中、【ブロッカー】を発動できない。",
+   "when": "activate_main",
+   "cost": {
+    "once_per_turn": true,
+    "pay_don": 1
+   },
+   "do": [
+    {
+     "disable_blocker": {
+      "target": "one_opponent_character_any",
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-065": [
+  {
+   "_text": "OP16-065 【登場時】ドン!!-1：相手のキャラ1枚までを、次の相手のエンドフェイズ終了時まで、パワー-6000。",
+   "when": "on_play",
+   "cost": {
+    "pay_don": 1
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "one_opponent_character_any",
+      "amount": -6000,
+      "duration": "next_opp_turn_end"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-065 【起動メイン】【ターン1回】自分のドン!!1枚をレスト：リーダーが《海軍》ならドン!!デッキからドン!!2枚までをアクティブで追加。",
+   "when": "activate_main",
+   "cost": {
+    "once_per_turn": true,
+    "rest_self_don": 1
+   },
+   "do": [
+    {
+     "conditional": {
+      "if": {
+       "leader_feature": "海軍"
+      },
+      "do": [
+       {
+        "add_don": 2
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-070": [
+  {
+   "_text": "OP16-070 【登場時】自分のドン!!2枚をレスト：リーダーが《海軍》ならドン!!デッキからドン!!1枚までをレストで追加。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 2
+       }
+      ],
+      "effect": [
+       {
+        "conditional": {
+         "if": {
+          "leader_feature": "海軍"
+         },
+         "do": [
+          {
+           "add_rested_don": 1
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-073": [
+  {
+   "_text": "OP16-073 【登場時】ドン!!デッキからドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加。",
+   "when": "on_play",
+   "do": [
+    {
+     "add_don": 1
+    },
+    {
+     "add_rested_don": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-073 【自分のターン終了時】ドン!!-2：このキャラをアクティブにする。その後、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。",
+   "when": "end_of_turn",
+   "cost": {
+    "pay_don": 2
+   },
+   "do": [
+    {
+     "untap_chara": {
+      "target": "self"
+     }
+    },
+    {
+     "give_keyword": {
+      "target": "self",
+      "keyword": "ブロッカー",
+      "duration": "next_opp_turn_end"
+     }
+    }
+   ]
+  }
  ]
 }
