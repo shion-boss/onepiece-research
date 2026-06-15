@@ -104032,5 +104032,139 @@
     }
    ]
   }
+ ],
+ "OP16-024": [
+  {
+   "_text": "OP16-024 【相手効果でKO時】相手のキャラ1枚までをレスト。",
+   "when": "on_ko",
+   "if": {
+    "by_opp_effect": true
+   },
+   "do": [
+    {
+     "rest": "one_opponent_character_any"
+    }
+   ]
+  }
+ ],
+ "OP16-025": [
+  {
+   "_text": "OP16-025 【アタック時】「ツノッコフ」がいる場合、手札からコスト2以下のキャラ1枚までを登場。",
+   "when": "on_attack",
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "name": "ツノッコフ"
+     },
+     "count": 1
+    }
+   },
+   "do": [
+    {
+     "play_from_hand": {
+      "filter": {
+       "cost_le": 2
+      },
+      "limit": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-029": [
+  {
+   "_text": "OP16-029 【アタック時】「ウサッコフ」がいる場合、手札からコスト2以下のキャラ1枚までを登場。",
+   "when": "on_attack",
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "name": "ウサッコフ"
+     },
+     "count": 1
+    }
+   },
+   "do": [
+    {
+     "play_from_hand": {
+      "filter": {
+       "cost_le": 2
+      },
+      "limit": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-030": [
+  {
+   "_text": "OP16-030 【登場時】相手のレストのキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
+   "when": "on_play",
+   "do": [
+    {
+     "keep_opp_rested_chara_next_refresh": {
+      "target": {
+       "type": "one_opponent_character_filtered",
+       "filter": {
+        "rested": true
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-030 【自分のターン終了時】自分のコスト5以下の緑のキャラすべてをアクティブにする。",
+   "when": "end_of_turn",
+   "do": [
+    {
+     "untap_chara": {
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "color": "緑",
+        "cost_le": 5
+       }
+      },
+      "limit": 99
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-032": [
+  {
+   "_text": "OP16-032 【登場時】相手の「モンキー・Ｄ・ルフィ」以外のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
+   "when": "on_play",
+   "do": [
+    {
+     "set_cannot_rest": {
+      "target": {
+       "type": "one_opponent_character_filtered",
+       "filter": {
+        "exclude_name": "モンキー・Ｄ・ルフィ"
+       }
+      },
+      "count": 1,
+      "duration": "next_opp_turn_end"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-033": [
+  {
+   "_text": "OP16-033 【KO代替】このキャラがKOされる場合、代わりに自分のカード2枚をレストにできる。",
+   "when": "replace_ko",
+   "if": {
+    "target": "self"
+   },
+   "cost": [
+    {
+     "rest_self_cards": 2
+    }
+   ],
+   "do": [],
+   "optional": true
+  }
  ]
 }
