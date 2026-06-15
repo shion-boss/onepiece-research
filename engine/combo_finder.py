@@ -598,75 +598,58 @@ def _match_amplifier(anchor, all_cards) -> list[ComboCard]:
     return out
 
 
-def _romance_flashiness(text: str, category: str, power: int) -> tuple[float, list[str]]:
-    """効果の派手さ/上振れ度 (= ロマン score) と tag。 効率/一貫性は無視、 ceiling 評価。"""
-    score = 0.0
-    tags: list[str] = []
-    big = 0
-    for m in re.finditer(r"パワー[-－＋\+](\d{3,5})", text):
-        big = max(big, int(m.group(1)))
-    if big >= 4000:
-        score += big / 2000.0
-        tags.append(f"パワー±{big}")
-    if re.search(r"(すべて|全て|全員)", text) and re.search(r"(KO|パワー|アクティブ|手札|トラッシュ)", text):
-        score += 6.0
-        tags.append("全体効果")
-    if "追加" in text and "ターン" in text:
-        score += 8.0
-        tags.append("追加ターン")
-    if re.search(r"(すべて|全て).{0,8}KO", text):
-        score += 3.0
-        tags.append("全体KO")
-    m = re.search(r"カード(\d+)枚.{0,6}引く", text)
-    if m and int(m.group(1)) >= 2:
-        score += float(m.group(1))
-        tags.append(f"{m.group(1)}ドロー")
-    if "登場させる" in text:
-        score += 3.0
-        tags.append("踏み倒し")
-    if category == "CHARACTER" and power >= 9000:
-        score += 3.0
-        tags.append(f"大型{power}")
-    if "【ダブルアタック】" in text:
-        score += 3.0
-        tags.append("ダブルアタック")
-    if "ゲームに勝利" in text:
-        score += 12.0
-        tags.append("勝利条件")
-    return round(score, 2), tags
+# これ以上の下げ = 「身の丈を超えた大物狩り」 の overkill ロマン (= 普通の -2000/-3000 は効率枠)。
+_ROMANCE_OVERKILL_DEBUFF = 5000
 
 
-def _match_romance(pool: list[ComboCard], anchor, ko_t) -> list[ComboCard]:
-    """ロマン枠: anchor と実際にシナジーする候補 (= pool = enabler/tribal/accelerant/amplifier 等の
-    マッチ結果) のうち ceiling(派手さ・大火力)が高いものを surface。
-    ⚠ 2026-06-14 ユーザー指摘: 単に同色の派手カード(= ロジャー)でなく、 anchor と噛む候補に限る
-    (= pool 経由なので、 シナジー軸を持つカードだけがロマン枠に入る)。"""
+def _match_romance(anchor, all_cards, ko_t, pd) -> list[ComboCard]:
+    """ロマン枠 = **anchor が身の丈を超えた大物狩りに参加する高 ceiling コンボ**。 主役は anchor
+    自身 (= ペルが大debuffで巨大キャラをKO)、 または anchor が巨大化させる相棒 (= 円卓が-10000で
+    どんなKOも通す)。 reach (= 到達できる相手パワー) で評価。
+
+    ⚠ 2026-06-15 根本修正 (ohtsuki「一個一個指摘したくない、 根本的に直して」): 旧実装は候補カードの
+    **単体の派手さ** (大型/全体効果/追加ターン/ドロー) を score にしていたため、 anchor と全く噛まない
+    派手カード (シャンクス/ロジャー/ウタ 等) を「シナジーしつつ派手」 と称してロマンに誤混入させていた。
+    → 単体派手さ (_romance_flashiness) を**全廃**し、 anchor 相互作用 (KO圏 reach) のみで判定する。
+    これにより「ロマン = anchor が主役になる大火力コンボ」 だけが残る (= 嘘ロマンの根絶)。"""
+    anchor_base = _base_id(anchor.card_id)
     best: dict[str, ComboCard] = {}
-    for c in pool:
-        flash, tags = _romance_flashiness(c.text, c.category, c.power)
-        reason = None
-        if ko_t is not None and _powerdown_on_own_turn(c.text):
-            debuff = _opp_powerdown_amount(c.text)
-            if debuff and debuff >= 5000:
-                reach = ko_t + debuff
-                flash += debuff / 1000.0
-                reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
-                reason = (
-                    f"{anchor.name}のKO圏(≤{ko_t})を-{debuff}で{reach_txt}まで拡張 → "
-                    "大物も即除去できる overkill ロマン"
-                )
-        if flash < 6:
-            continue
-        if reason is None:
-            reason = f"上振れ・大火力: {' / '.join(tags[:3])}（{anchor.name}とシナジーしつつ派手）"
+
+    def _add(c, reach: int, reason: str) -> None:
         base = _base_id(c.card_id)
+        if base == anchor_base:
+            return
+        score = round(reach / 1000.0, 2)
         prev = best.get(base)
-        if prev is None or flash > prev.score:
-            best[base] = ComboCard(
-                card_id=c.card_id, name=c.name, category=c.category, color=c.color,
-                cost=c.cost, power=c.power, features=c.features, text=c.text,
-                score=round(flash, 2), reason=reason,
-            )
+        if prev is None or score > prev.score:
+            best[base] = _to_combo(c, score, reason)
+
+    # ① anchor が「パワーX以下KO」 (= ペル): 大 debuff で anchor 自身が大物を狩る (主役=anchor)。
+    if ko_t is not None:
+        for c in all_cards:
+            t = _text(c)
+            if not _powerdown_on_own_turn(t):
+                continue
+            debuff = _opp_powerdown_amount(t)
+            if not debuff or debuff < _ROMANCE_OVERKILL_DEBUFF:
+                continue
+            reach = ko_t + debuff
+            reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
+            _add(c, reach, f"{anchor.name}のKO圏(≤{ko_t})を-{debuff}で{reach_txt}まで拡張 → "
+                           f"{anchor.name}がどんな大物も狩る overkill ロマン")
+
+    # ② anchor が大 debuff (= 円卓 等、 自ターンに相手を大きく下げる): 「パワーX以下KO」 payoff を
+    #    大物まで押し上げる (主役=相棒の KO カード、 anchor は巨大化装置)。
+    if pd is not None and pd >= _ROMANCE_OVERKILL_DEBUFF and _powerdown_on_own_turn(_text(anchor)):
+        for c in all_cards:
+            kt = _detect_ko_power_threshold(_text(c))
+            if kt is None:
+                continue
+            reach = kt + pd
+            reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
+            _add(c, reach, f"{c.name}の「パワー{kt}以下KO」 を {anchor.name} の-{pd}で{reach_txt}まで"
+                           f"押し上げる → {c.name}が大物を狩る overkill ロマン")
+
     out = list(best.values())
     out.sort(key=lambda x: -x.score)
     return out
@@ -961,7 +944,6 @@ def find_combos(
 
     hooks: list[str] = []
     groups: list[ComboGroup] = []
-    synergy_pool: list[ComboCard] = []  # ロマン枠用 = 実シナジー候補の union
 
     # ⓪ 実戦シナジー (= 最も接地、 先頭): 実際に anchor と一緒に採用されているカード
     cooc_cards: list[ComboCard] = []
@@ -990,7 +972,6 @@ def find_combos(
     if ko_t is not None:
         hooks.append(f"KO条件「パワー{ko_t}以下」 → 相手パワーダウンで圏を広げられる")
         cards = _boosted(_match_enabler_powerdown(anchor, all_cards, ko_t))
-        synergy_pool += cards
         if cards:
             groups.append(ComboGroup(
                 key="enabler",
@@ -1004,7 +985,6 @@ def find_combos(
     pd = _detect_self_powerdown(text)
     if pd is not None:
         cards = _boosted(_match_payoff_for_powerdown(anchor, all_cards, pd))
-        synergy_pool += cards
         if cards:
             hooks.append(f"相手パワー-{pd} → 「パワーX以下KO」 のペイオフを活かせる")
             groups.append(ComboGroup(
@@ -1016,7 +996,6 @@ def find_combos(
 
     # ② 加速 accelerant
     cards = _boosted(_match_accelerant(anchor, all_cards))
-    synergy_pool += cards
     if cards:
         hooks.append("サーチ/コスト軽減/踏み倒しで早く・安定して出せる")
         groups.append(ComboGroup(
@@ -1028,7 +1007,6 @@ def find_combos(
 
     # ③ 特徴シナジー tribal
     cards = _boosted(_match_tribal(anchor, all_cards))
-    synergy_pool += cards
     if cards:
         af = _features(anchor)
         hooks.append(f"特徴《{af[0]}》の部族シナジー" if af else "特徴シナジー")
@@ -1042,7 +1020,6 @@ def find_combos(
     # ④ ペイオフ増幅 amplifier
     if _is_attacker_trigger(text):
         cards = _boosted(_match_amplifier(anchor, all_cards))
-        synergy_pool += cards
         if cards:
             hooks.append("【アタック時】持ち → 【速攻】付与で出したターンに即発動")
             groups.append(ComboGroup(
@@ -1052,15 +1029,15 @@ def find_combos(
                 cards=cards[:per_group],
             ))
 
-    # ⑤ ロマン枠 (= 効率度外視・上振れ大火力。 決まれば派手なコンボ)。 anchor と実際にシナジー
-    #    する候補 (= synergy_pool) のみから ceiling 評価 (= ロジャー等の単体派手カード混入を防ぐ)。
-    cards = _legal(_match_romance(synergy_pool, anchor, ko_t))
+    # ⑤ ロマン枠 = anchor が「身の丈を超えた大物狩り」 の主役になる高 ceiling コンボ。
+    #    単体の派手さでなく anchor 相互作用 (KO圏 reach) のみで判定 (= 嘘ロマン根絶、 2026-06-15)。
+    cards = _legal(_match_romance(anchor, all_cards, ko_t, pd))
     if cards:
-        hooks.append("上振れ・大火力のロマンコンボあり")
+        hooks.append("身の丈を超えた大物狩りのロマンコンボあり")
         groups.append(ComboGroup(
             key="romance",
-            label="ロマン (上振れ・大火力)",
-            description=f"効率や一貫性より「決まれば派手」 を優先した高火力コンボ。{anchor.name} と組むと大きく上振れるカード (= overkill な除去・全体効果・追加ターン・大型踏み倒し等)。 不安定込みのロマン枠。",
+            label="ロマン (大物狩り・上振れ)",
+            description=f"効率でなく ceiling 評価。 {anchor.name} が (または {anchor.name} の力で相棒が) 本来届かない巨大キャラを討ち取る overkill コンボ。 reach (到達パワー) が高いほど上位。",
             cards=cards[:per_group],
         ))
 

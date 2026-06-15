@@ -41,6 +41,23 @@ def test_pell_enabler_ranks_efficient_over_flashy(repo):
     assert any(cid in top_ids for cid in ("EB01-004", "OP04-008", "OP15-004"))
 
 
+def test_romance_is_anchor_interactive_only(repo):
+    """ロマン枠は anchor 相互作用 (= KO圏 reach の overkill) のみ。 単体の派手さで紛れ込ませない。
+    ⚠ 2026-06-15 根本修正: 旧 _romance_flashiness が「シナジーしつつ派手」 と称して anchor と
+    噛まない派手カード (シャンクス/ロジャー/ウタ) を ペルのロマンに誤混入させていた。"""
+    res = find_combos(repo, "OP04-013", per_group=12)  # ペル (パワー4000以下KO)
+    rom = _group(res, "romance")
+    assert rom is not None and rom.cards
+    ids = {c.card_id for c in rom.cards}
+    assert "OP01-027" in ids  # 円卓 -10000 = ペルが大物を狩る本命ロマン
+    # 単体派手だが ペルと噛まない (全体-1000/大型/追加ターン/per-DON-3000) は入らない
+    for junk in ("OP09-004", "OP13-064", "OP06-001", "OP14-075", "OP15-008", "OP15-114"):
+        assert junk not in ids, f"嘘ロマン混入: {junk}"
+    # 全エントリが anchor を主役にした reach 理由を持つ
+    for c in rom.cards:
+        assert "overkill ロマン" in c.reason
+
+
 def test_groups_sorted_by_score_desc(repo):
     res = find_combos(repo, "OP04-013")
     for g in res.groups:
