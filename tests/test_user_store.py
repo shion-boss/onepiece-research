@@ -64,6 +64,28 @@ def test_api_auth_scopes_decks(store):
     assert client.delete(f"/api/decks/{slug}", headers={"X-Dev-User": "alice"}).status_code == 204
 
 
+def test_api_user_deck_analyzable(store):
+    """ユーザーは自分のデッキを analyze できる (= P2b、 slug→DB 解決)。 他人のは 404。"""
+    import json
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    import api.main as m
+
+    client = TestClient(m.app)
+    d = json.loads((Path("decks/cardrush_1342.json")).read_text(encoding="utf-8"))
+    r = client.post(
+        "/api/decks",
+        json={"name": "alice analyze", "leader": d["leader"], "main": d["main"]},
+        headers={"X-Dev-User": "alice"},
+    )
+    slug = r.json()["slug"]
+    ar = client.get(f"/api/decks/{slug}/analyze", headers={"X-Dev-User": "alice"})
+    assert ar.status_code == 200, ar.text
+    assert "combos" in ar.json()  # analyze に combos 欄が出る
+    # bob は alice のデッキを analyze できない (自分の DB に無い → 404)
+    assert client.get(f"/api/decks/{slug}/analyze", headers={"X-Dev-User": "bob"}).status_code == 404
+
+
 def test_slug_collision_per_owner(store):
     store.save_deck("alice", "x", name="A", leader="OP04-013", main=MAIN)
     with pytest.raises(ValueError):

@@ -824,6 +824,17 @@ def _load_deck_json(slug: str) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _resolve_deck_dict(slug: str, user_id: str) -> dict:
+    """slug → deck recipe dict。 メタはリポジトリ JSON (全員共通)、 それ以外は自分の
+    per-user DB デッキ。 これで user deck も analyze 等で使える (= P2、 multiuser_plan.md)。"""
+    if _is_meta_deck(slug):
+        return _load_deck_json(slug)
+    d = user_store.get_deck(user_id, slug)
+    if d is not None:
+        return d
+    return _load_deck_json(slug)  # 後方互換: 旧 decks/ に残る非メタ JSON
+
+
 def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
     leader_id = d.get("leader", "")
     leader_name, leader_color = "", []
@@ -872,30 +883,28 @@ def get_deck(slug: str, user_id: str = Depends(current_user_id)):
 
 
 @app.get("/api/decks/{slug}/strategy")
-def get_deck_strategy(slug: str):
+def get_deck_strategy(slug: str, user_id: str = Depends(current_user_id)):
     """静的デッキ分析 (戦略 / マリガン / 理想ムーブ / 弱点 / キーカード / AI ヒント)。
 
-    `decks/<slug>.analysis.json` があればそれを返す (高速)。
-    なければ即時生成して返す (= cache miss でも軽量、 動的対戦不要)。
+    メタは `decks/<slug>.analysis.json` cache を返す (高速)。 ユーザーデッキ (per-user DB) は
+    cache 無しなので即時生成。 なければ生成して返す (= cache miss でも軽量、 動的対戦不要)。
     """
     from dataclasses import asdict
     from engine.deck_analyzer import analyze_deck
 
-    deck_path = DECKS_DIR / f"{slug}.json"
-    if not deck_path.exists():
-        raise HTTPException(404, f"deck not found: {slug}")
-
     cache_path = DECKS_DIR / f"{slug}.analysis.json"
-    if cache_path.exists():
+    if _is_meta_deck(slug) and cache_path.exists():
         try:
             return json.loads(cache_path.read_text(encoding="utf-8"))
         except Exception:
             pass  # cache 壊れていれば再生成
 
-    # 即時生成
+    # 即時生成 (メタ=リポジトリ JSON / ユーザー=per-user DB を resolver で解決)
     repo = get_repo()
     try:
-        deck = make_deck_from_dict(json.loads(deck_path.read_text(encoding="utf-8")), repo)
+        deck = make_deck_from_dict(_resolve_deck_dict(slug, user_id), repo)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"deck load failed: {e}")
     overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
@@ -2059,8 +2068,8 @@ def _load_overlay_keys_with_kind() -> dict[str, set[str]]:
 
 
 @app.get("/api/decks/{slug}/analyze", response_model=DeckAnalysis)
-def analyze_deck(slug: str):
-    d = _load_deck_json(slug)
+def analyze_deck(slug: str, user_id: str = Depends(current_user_id)):
+    d = _resolve_deck_dict(slug, user_id)
     repo = get_repo()
     overlay = _load_overlay_keys_with_kind()
 

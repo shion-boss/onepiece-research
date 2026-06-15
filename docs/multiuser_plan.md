@@ -79,9 +79,11 @@ decks (
   SQLite ローカル、 既存 spectate と同パターン) + `api/auth.py` (`current_user_id` dependency、 dev backend =
   `X-Dev-User`/`DEV_USER`/"local" で動く、 Clerk は `_verify_provider` の wire-and-go スロット) + deck CRUD
   (create/list/get/update/delete) を **owner-scoped** に移行 + メタは read-only。 TestClient で多人数隔離を実証
-  (test_user_store.py / test_meta_user_split.py)。 ⬜ **残り**: (a) 本番認証アダプタ実装 (Clerk JWT 検証、
-  キーは env)、 (b) engine 計算系 (analyze/match/generate) で **user deck を recipe で渡す** 配線 (今は slug→FS=メタのみ)、
-  (c) 旧 Blob user-deck persistence の整理。
+  (test_user_store.py / test_meta_user_split.py)。 ✅ **P2b**: `_resolve_deck_dict(slug, user_id)` で
+  analyze / strategy が user deck を解決 (= 自分のデッキを分析可、 他人のは 404)。 match は inline spec
+  (`deck_a`) で user deck を recipe 渡し可 (= 既存。 plan 通り engine は保存せず受取)。 ⬜ **残り**:
+  (a) 本番認証アダプタ実装 (Clerk JWT 検証、 キーは env = ユーザー作業)、 (b) deck-gen の target に user deck も
+  選べるように (今は meta target のみ)、 (c) 旧 Blob user-deck persistence の整理。
 - **P3**: フロント (login/signup、 マイデッキ↔メタ の表示分離、 auth state)。
 - **P4**: 重いエンジン呼び出しの **job queue 化** (多人数で sim が詰まらない)。
 
