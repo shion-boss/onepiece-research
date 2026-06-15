@@ -97,6 +97,7 @@ export type DeckSummary = {
   main_count: number;
   unique: number;
   regulation?: Regulation;
+  kind?: "meta" | "user"; // 環境デッキ(正準) か ユーザー作成か
 };
 
 export type DeckDetail = DeckSpec & {

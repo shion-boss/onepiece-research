@@ -41,11 +41,36 @@ export default async function DecksPage() {
           まだ デッキが 登録されていません。
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {decks.map((d) => (
-            <DeckSummaryTile key={d.slug} deck={d} />
-          ))}
-        </div>
+        (() => {
+          const userDecks = decks.filter((d) => d.kind === "user");
+          const metaDecks = decks.filter((d) => d.kind !== "user");
+          return (
+            <div className="flex flex-col gap-6">
+              {userDecks.length > 0 && (
+                <section>
+                  <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    マイデッキ ({userDecks.length})
+                  </h2>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {userDecks.map((d) => (
+                      <DeckSummaryTile key={d.slug} deck={d} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              <section>
+                <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                  環境デッキ ({metaDecks.length})
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {metaDecks.map((d) => (
+                    <DeckSummaryTile key={d.slug} deck={d} />
+                  ))}
+                </div>
+              </section>
+            </div>
+          );
+        })()
       )}
     </PageShell>
   );

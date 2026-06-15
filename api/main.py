@@ -746,6 +746,25 @@ def get_card_roles():
 # エンドポイント: decks (decks/*.json をディレクトリから読む)
 # --------------------------------------------------------------------------- #
 DECKS_DIR = ROOT / "decks"
+META_REGISTRY_PATH = ROOT / "db" / "meta_decks.json"
+_META_SLUGS_CACHE: Optional[frozenset] = None
+
+
+def _meta_deck_slugs_set() -> frozenset:
+    """メタ(環境)デッキ slug の正準集合 (= db/meta_decks.json 登録制)。 接頭辞ハックの置き換え。
+    ここに無い deck はユーザーデッキ扱い ([[docs/multiuser_plan.md]] P1)。"""
+    global _META_SLUGS_CACHE
+    if _META_SLUGS_CACHE is None:
+        try:
+            d = json.loads(META_REGISTRY_PATH.read_text(encoding="utf-8"))
+            _META_SLUGS_CACHE = frozenset(d.get("meta_deck_slugs", []))
+        except Exception:
+            _META_SLUGS_CACHE = frozenset()
+    return _META_SLUGS_CACHE
+
+
+def _is_meta_deck(slug: str) -> bool:
+    return slug in _meta_deck_slugs_set()
 
 
 class DeckEntry(BaseModel):
@@ -768,6 +787,7 @@ class DeckSummary(BaseModel):
     main_count: int
     unique: int
     regulation: Optional[str] = None
+    kind: str = "user"            # "meta" (環境・正準) | "user" (ユーザー作成)
 
 
 def _list_deck_files() -> list[Path]:
@@ -833,6 +853,7 @@ def list_decks():
                 main_count=main_count,
                 unique=unique,
                 regulation=d.get("regulation"),
+                kind="meta" if _is_meta_deck(slug) else "user",
             )
         )
     return out
@@ -937,12 +958,17 @@ def create_deck(req: CreateDeckRequest):
     if not slug:
         slug = f"user_{int(datetime.now(timezone.utc).timestamp())}"
 
+    # メタ(環境)デッキの slug は上書き不可 (= overwrite=True でも保護)。
+    if _is_meta_deck(slug):
+        raise HTTPException(403, f"'{slug}' はメタ(環境)デッキの slug で保護されている")
+
     out_path = DECKS_DIR / f"{slug}.json"
     if out_path.exists() and not req.overwrite:
         raise HTTPException(409, f"slug already exists: {slug}")
 
     deck_dict["slug"] = slug
     deck_dict["source"] = "user"
+    deck_dict["kind"] = "user"
     deck_dict["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Vercel Blob 永 続 化 (= 2026-05-30 追加)。 BLOB_READ_WRITE_TOKEN 設 定 時 は Blob upload、
@@ -1002,9 +1028,9 @@ def update_deck(slug: str, req: CreateDeckRequest):
 
 @app.delete("/api/decks/{slug}", status_code=204)
 def delete_deck(slug: str):
-    """デッキ削除。cardrush_* (大会上位由来) は保護。"""
-    if slug.startswith("cardrush_"):
-        raise HTTPException(403, "cardrush_* decks are protected (meta source)")
+    """デッキ削除。 メタ(環境)デッキは全て保護 (= db/meta_decks.json 登録制、 接頭辞でなく)。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(403, "meta(環境) decks are protected")
     out_path = DECKS_DIR / f"{slug}.json"
     if not out_path.exists():
         raise HTTPException(404, f"deck not found: {slug}")
@@ -1089,17 +1115,9 @@ class GenerateDeckResponse(BaseModel):
 
 
 def _meta_pool_slugs() -> list[str]:
-    """環境デッキ pool (= decks/cardrush_*・tcgportal_* の代表、 analysis/派生を除く)。"""
-    import glob
-    out: list[str] = []
-    for p in glob.glob(str(ROOT / "decks" / "*.json")):
-        name = Path(p).stem
-        if not name.startswith(("cardrush_", "tcgportal_")):
-            continue
-        if "analysis" in name or "target_v1" in name or "locked" in name:
-            continue
-        out.append(name)
-    return sorted(out)
+    """環境デッキ pool = メタ登録 (db/meta_decks.json)。 接頭辞でなく登録制で判定し、 ユーザー
+    デッキが環境 sim に混入しないようにする ([[docs/multiuser_plan.md]] P1)。"""
+    return sorted(_meta_deck_slugs_set())
 
 
 @app.post("/api/decks/build", response_model=CoreBuildResponse)

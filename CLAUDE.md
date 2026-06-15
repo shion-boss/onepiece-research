@@ -35,7 +35,8 @@ onepiece_research/
 ├── db/             # cards.json / cards.sqlite / card_effects.json (4,518 全登録, 効果あり 3,745)
 │                   #   + rules/ (公式PDF) / faq/ (公式Q&A) / banlist/ (禁止リスト)
 │                   #   + matchup_matrix.json (事前計算 N×N 勝率)
-├── decks/          # メタデッキ JSON (cardrush_*.json + tcgportal_*.json、 16 デッキ pool)
+├── decks/          # メタ(環境)デッキ JSON、 16 デッキ pool。 メタ判定は `db/meta_decks.json` 登録制
+│                   #   (接頭辞でなく)。 ユーザー作成デッキは kind:"user" タグ (P2 で DB 分離予定、 docs/multiuser_plan.md)
 │   ├── *.analysis.json # 各デッキの静的分析 (戦略 / マリガン / キーカード / AI ヒント)
 │   └── _archive/   # 旧 meta_*.json + 非代表 cardrush_raw/ の退避先
 ├── images/         # 全カード画像 (必要時 scripts/cache_all_images.py で取得)
@@ -277,7 +278,7 @@ onepiece_research/
 | `/api/decks/{slug}/analyze` | GET | デッキ分析(色配分・コストカーブ・効果密度 + **デッキ内コンボ/サーチ加速** `combos[]`) |
 | `/api/combos/{card_id}` | GET | コンボ探索 (任意カード→相性カードを型別ランク、 `engine/combo_finder.py`、 `?per_group=&regulation=`) |
 | `/api/decks/{slug}` | PUT | デッキ上書き保存 (validate 必須) |
-| `/api/decks/{slug}` | DELETE | デッキ削除 (`cardrush_*` は保護) |
+| `/api/decks/{slug}` | DELETE | デッキ削除 (メタ(環境)デッキは保護 = `db/meta_decks.json` 登録制) |
 | `/api/match` | POST | 対戦実行 `{deck_a/deck_b or deck_a_id/deck_b_id, n_games, seed}` |
 | `/api/match/{job_id}` | GET | 過去対戦のサマリ |
 | `/api/match/{job_id}/games` | GET | ゲーム一覧 (短) |

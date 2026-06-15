@@ -248,10 +248,14 @@ def main() -> int:
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     deck_paths = sorted((ROOT / "decks").glob(args.decks_glob))
     if args.decks_glob in ("*.json", "cardrush_*.json"):
-        # メタデッキ対象 (cardrush + tcgportal、 analysis.json と explore_/research_ は除外)
-        deck_paths = sorted((ROOT / "decks").glob("cardrush_*.json"))
-        deck_paths += sorted((ROOT / "decks").glob("tcgportal_*.json"))
-        deck_paths = [p for p in deck_paths if ".analysis" not in p.name]
+        # メタデッキ対象 = db/meta_decks.json 登録制 (= 接頭辞でなく、 ユーザーデッキを除外)。
+        import json as _json
+        _reg = _json.loads((ROOT / "db" / "meta_decks.json").read_text(encoding="utf-8"))
+        deck_paths = [
+            (ROOT / "decks" / f"{slug}.json")
+            for slug in _reg.get("meta_deck_slugs", [])
+            if (ROOT / "decks" / f"{slug}.json").exists()
+        ]
     decks: list[tuple[str, str, DeckList]] = []
     for p in deck_paths:
         try:
