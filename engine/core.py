@@ -586,6 +586,9 @@ class Player:
     turn_battle_ko_save_discard: bool = False
     # このターン中にライフを失ったか (P-120 「相手のライフが離れているターン中」)。 refreshでクリア。
     life_lost_this_turn: bool = False
+    # このターン中に この player のキャラが KO された 回数 (OP16-100 氷諸斬り
+    # 「このターン中、 相手のキャラがKOされている場合」 用)。 _reset_turn_buff でクリア。
+    chara_ko_taken_this_turn: int = 0
     # 「デッキが0で敗北の代わりに勝利」 (OP03-040)。 leader静的でセット、 非reset。
     deck_out_wins: bool = False
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。

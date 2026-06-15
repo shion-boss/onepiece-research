@@ -482,6 +482,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.cannot_attack_leader_until_turn_end = False
         player.turn_battle_ko_save_discard = False
         player.life_lost_this_turn = False
+        player.chara_ko_taken_this_turn = 0
         player.block_chara_play_cost_ge_threshold = -1
         player.play_cost_reductions_filtered_turn = []
         player.prevent_self_life_to_hand_until_turn_end = False
@@ -1923,12 +1924,28 @@ def _resolve_life_taken(
         # trash される bug があった。 事前に opp.trash 先頭へ置き play_self が pop→場 できる
         # 様にする (= ラン OP14-114 / マーガレット OP14-113 等 全 「登場」 トリガー)。
         bundle = state.effects_overlay.get(taken.card_id)
+
+        def _contains_play_self(steps) -> bool:
+            # do-list を再帰探索し play_self を見つける (= optional_cost_then / conditional /
+            # choice 等にネストした play_self も検出、 OP16-107 シリュウ: 手札1捨て→play_self)。
+            if not isinstance(steps, (list, tuple)):
+                return False
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                if step.get("play_self"):
+                    return True
+                for val in step.values():
+                    if isinstance(val, dict):
+                        for sub_key in ("effect", "do", "then"):
+                            if _contains_play_self(val.get(sub_key)):
+                                return True
+                    elif isinstance(val, (list, tuple)) and _contains_play_self(val):
+                        return True
+            return False
+
         has_play_self_trig = bool(bundle) and any(
-            e.get("when") == "trigger"
-            and any(
-                isinstance(step, dict) and step.get("play_self")
-                for step in (e.get("do") or [])
-            )
+            e.get("when") == "trigger" and _contains_play_self(e.get("do") or [])
             for e in bundle.effects
         )
         pre_placed = bool(has_play_self_trig and auto_fire)

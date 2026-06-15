@@ -1209,10 +1209,21 @@ def eval_condition(
             filt = spec.get("filter", {})
             need = int(spec.get("count", 1))
             rested_required = bool(spec.get("rested_required", False))
+            # current_power_ge/le は InPlay の現在パワー (= バフ込み) で絞る。 _matches_filter は
+            # CardDef ベース (= 元々パワー) なので filter には入れず ここで判定する
+            # (= OP16-005 サッチ「自分のパワー8000以上の白ひげ海賊団キャラがいる場合」)。
+            cpge = filt.get("current_power_ge")
+            cple = filt.get("current_power_le")
+            base_filt = {fk: fv for fk, fv in filt.items()
+                         if fk not in ("current_power_ge", "current_power_le")}
             def _ip_matches(ip):
-                if not _matches_filter(ip.card, filt):
+                if not _matches_filter(ip.card, base_filt):
                     return False
                 if rested_required and not ip.rested:
+                    return False
+                if cpge is not None and ip.power < int(cpge):
+                    return False
+                if cple is not None and ip.power > int(cple):
                     return False
                 return True
             count = sum(1 for c in me.characters if _ip_matches(c))
@@ -1401,6 +1412,31 @@ def eval_condition(
             # リーダー名がリストに含まれる
             if me.leader.card.name not in (v or []):
                 return False
+        elif k == "leader_name_contains":
+            # リーダーのカード名が文字列 v を含む (= 公式『X』を含むカード名)。
+            # OP16-015 ルフィ「自分のリーダーが『エース』を含むカード名で…」。
+            # 半角/全角 D 等の表記揺れを normalize_card_name で吸収してから判定。
+            ldr_name = normalize_card_name(me.leader.card.name)
+            if normalize_card_name(str(v)) not in ldr_name:
+                return False
+        elif k == "opp_chara_ko_this_turn":
+            # このターン中に相手のキャラが (バトル/効果いずれでも) KO されたか
+            # (= OP16-100 氷諸斬り「このターン中、相手のキャラがKOされている場合」)。
+            # state.opp_chara_ko_count_this_turn は trigger_on_opp_chara_ko / KO 処理で加算、
+            # _reset_turn_buff でリセット。 ⚠ me 視点で「相手 (= opp) のキャラ」 が KO されたか。
+            actual = int(getattr(opp, "chara_ko_taken_this_turn", 0) or 0) > 0 if opp is not None else False
+            if bool(v) != actual:
+                return False
+        elif k == "self_distinct_name_count_filtered_ge":
+            # 自場の filter 一致キャラの「カード名の異なる」 数が N 以上
+            # (= OP16-038「カード名の異なる特徴《インペルダウン》を持つキャラが5枚いる場合」)。
+            # spec: {"filter": {...}, "count": N}
+            spec = v if isinstance(v, dict) else {}
+            filt = spec.get("filter", {})
+            need = int(spec.get("count", 1))
+            distinct = {c.card.name for c in me.characters if _matches_filter(c.card, filt)}
+            if len(distinct) < need:
+                return False
         elif k == "self_trash_event_count_ge":
             # 自トラッシュのイベントカード数 N 以上
             count = sum(1 for c in me.trash if c.category == Category.EVENT)
@@ -1444,6 +1480,14 @@ def eval_condition(
             if self_inplay is None:
                 return False
             if self_inplay.attached_dons < int(v):
+                return False
+        elif k == "self_inplay_cost_ge":
+            # このキャラ自身 (self_inplay) の現在コスト (base_cost = コスト修正込み) が N 以上。
+            # OP16-084 光月モモの助「コスト20以上のこのキャラをトラッシュに置くことができる」
+            # (= しのぶ OP16-087 の「コスト+20」 を受けた状態で起動可能になる combo の gate)。
+            if self_inplay is None:
+                return False
+            if getattr(self_inplay, "base_cost", self_inplay.card.cost) < int(v):
                 return False
         elif k == "self_life_lt_opp" and opp is not None:
             # 自分のライフ枚数 が 相手より少ない
@@ -3030,6 +3074,10 @@ def _execute_effect_body(
                 elif src == "self_chara_feature_count":
                     feat = amount_per.get("feature", "")
                     src_val = sum(1 for c in me.characters if feat in c.card.features)
+                elif src == "self_distinct_chara_name_count":
+                    # 自分のキャラの「カード名の異なる」 数 (= OP16-034 ルフィ
+                    # 「自分のカード名の異なるキャラ1枚につき、 このキャラのパワー+1000」)。
+                    src_val = len({c.card.name for c in me.characters})
                 elif src == "opp_don_total":
                     src_val = opp.don_active + opp.don_rested + opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 amount += (src_val // divisor) * mult
@@ -3609,6 +3657,10 @@ def _execute_effect_body(
                     state.push_log(f"  効果: search_top_n → 登場 {c.name}")
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                elif destination == "life":
+                    # 「ライフの上に加える」 (= OP16-119 ティーチ)。 公式 表記なし は裏向き (life 既定)。
+                    me.life.insert(0, c)
+                    state.push_log(f"  効果: search_top_n → ライフ上に加える ({len(me.life)} 枚)")
                 else:  # hand
                     me.hand.append(c)
                     # 隠 ぺい 情 報: 手 札 入 り は card name を log に 出 さ ない (= 相 手 view 漏 洩 防 止)
@@ -4751,11 +4803,11 @@ def _execute_effect_body(
             # このターン中、 自分はキャラを登場できない (= 自陣 chara play 禁止)。 OP12-014 等。
             me.block_chara_play_until_turn_end = True
             state.push_log(f"  効果: このターン中、 自キャラ登場禁止")
-        elif k == "in_hand_cost_minus":
-            # 手札中の自身のカードコスト軽減 (= overlay の in_hand effect で使用)。
-            # execute_effect 経由ではなく _compute_in_hand_cost_minus で別経路扱い。
-            # ここでは log のみ (= placeholder)。
-            state.push_log(f"  効果: in_hand_cost_minus (= 別経路で計算済)")
+        elif k == "in_hand_cost_minus" or k == "in_hand_cost_plus":
+            # 手札中の自身のカードコスト軽減/増加 (= overlay の in_hand effect で使用)。
+            # execute_effect 経由ではなく game.py の _in_hand_cost_minus で別経路扱い。
+            # ここでは log のみ (= placeholder)。 OP16-082 錦えもん「このキャラのコスト+3」。
+            state.push_log(f"  効果: {k} (= 別経路で計算済)")
         elif k == "optional_after_battle_mutual_ko":
             # 公式: 「【ドン!!×1】このキャラが相手のキャラとバトルしたバトル終了時、
             # バトルした相手のキャラをKOしてもよい。 そうした場合、 このキャラをKOする」 (ST08-013)。
@@ -5995,8 +6047,14 @@ def _execute_effect_body(
                 continue
             filt = spec_val.get("filter", {})
             count = int(spec_val.get("count", 1))
+            # from_zone: "both" (既定、 手札優先→trash) | "trash" (= トラッシュのみ、 OP16-108 シリュウ)。
+            from_zone = spec_val.get("from_zone", "both")
+            # face_up: True で 「表向きで加える」 (= face_up_life_count を加算)。 既定 False で
+            # 従来挙動 (= 裏向き、 既存カードの behavior を変えない)。
+            face_up = bool(spec_val.get("face_up", False))
             # 手札 + trash の マッチ する card を 集める
-            hand_cands = [(i, c) for i, c in enumerate(me.hand) if _matches_filter(c, filt)]
+            hand_cands = ([] if from_zone == "trash"
+                          else [(i, c) for i, c in enumerate(me.hand) if _matches_filter(c, filt)])
             trash_cands = [(i, c) for i, c in enumerate(me.trash) if _matches_filter(c, filt)]
             n_added = 0
             # 簡略: 手札 先 → trash 後 で count 分 ライフ 上 に 加える
@@ -6016,7 +6074,11 @@ def _execute_effect_body(
                                   key=lambda x: -x[0]):
                 if idx < len(me.trash):
                     me.trash.pop(idx)
-            state.push_log(f"  効果: 手札/trash から chara {n_added} 枚 をライフへ")
+            if face_up and n_added:
+                # 表向きで加えた分だけ face_up_life_count を加算 (= ライフ上に積んだ枚数)。
+                me.face_up_life_count = min(me.face_up_life_count + n_added, len(me.life))
+            state.push_log(f"  効果: 手札/trash から chara {n_added} 枚 をライフへ"
+                           + (" (表向き)" if face_up else ""))
         elif k == "set_battle_ko_immune":
             # OP06-096 サンジ等。 「自分の (target) は、 このターン中、 バトル で KO されない」。
             # spec: {"target": ..., "duration": "turn"|"static"}
@@ -6689,17 +6751,38 @@ def _execute_effect_body(
             filt = _resolve_dynamic_filter(spec.get("filter", {}), state, me, opp)
             limit = int(spec.get("limit", 1))
             rested_flag = bool(spec.get("rested", False))
+            # filter.category が STAGE なら ステージ として 登場 (= OP16-102 ハチノス)。
+            # 既定 CHARACTER。 ステージ登場時は MAX 超過分を トラッシュへ (3-8-5-1)。
+            _tcat_str = filt.get("category", "CHARACTER")
+            try:
+                target_cat = Category[_tcat_str] if isinstance(_tcat_str, str) else Category.CHARACTER
+            except KeyError:
+                target_cat = Category.CHARACTER
+
+            def _place_pfhot(ip: InPlay) -> None:
+                if target_cat == Category.STAGE:
+                    while len(me.stages) >= Player.MAX_STAGES:
+                        old = me.stages.pop()
+                        me.trash.append(old.card)
+                        if old.attached_dons > 0:
+                            me.don_rested += old.attached_dons
+                    me.stages.append(ip)
+                else:
+                    if not me.can_play_character():
+                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+                    me.characters.append(ip)
+
             picks: Optional[list[dict]] = None
             if isinstance(v, dict) and "_picks" in v:
                 picks = list(v["_picks"])
             # 全候補 抽出 (= 手札 + トラッシュ 横断)
             hand_cands: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.hand)
-                if c.category == Category.CHARACTER and _matches_filter(c, filt)
+                if c.category == target_cat and _matches_filter(c, filt)
             ]
             trash_cands: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.trash)
-                if c.category == Category.CHARACTER and _matches_filter(c, filt)
+                if c.category == target_cat and _matches_filter(c, filt)
             ]
             total_cands = len(hand_cands) + len(trash_cands)
             # 人間 acting + 候補 > limit + picks 未指定 → modal halt
@@ -6758,14 +6841,12 @@ def _execute_effect_body(
                     # 防御: 解決時に hand[i] が **キャラ かつ filter 一致** か再検証してから登場。
                     # idx/actor の desync で EVENT 等を掴むと「キャラエリアに非CHARACTER」 になる
                     # ため (= AI 経路 (下) は元々 category/filter を見ている。 これと整合)。
-                    if not (me.hand[i].category == Category.CHARACTER
+                    if not (me.hand[i].category == target_cat
                             and _matches_filter(me.hand[i], filt)):
                         continue
                     card = me.hand.pop(i)
-                    if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested_flag, sickness=True)
-                    me.characters.append(ip)
+                    _place_pfhot(ip)
                     played += 1
                     state.push_log(f"  効果: 手札から登場 → {card.name}")
                     if state.effects_overlay:
@@ -6773,14 +6854,12 @@ def _execute_effect_body(
                 for i in trash_idxs[:limit - played]:
                     if not (0 <= i < len(me.trash)):
                         continue
-                    if not (me.trash[i].category == Category.CHARACTER
+                    if not (me.trash[i].category == target_cat
                             and _matches_filter(me.trash[i], filt)):
                         continue
                     card = me.trash.pop(i)
-                    if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested_flag, sickness=True)
-                    me.characters.append(ip)
+                    _place_pfhot(ip)
                     played += 1
                     state.push_log(f"  効果: トラッシュから登場 → {card.name}")
                     if state.effects_overlay:
@@ -6792,13 +6871,11 @@ def _execute_effect_body(
             for card in me.hand:
                 if (
                     found < limit
-                    and card.category == Category.CHARACTER
+                    and card.category == target_cat
                     and _matches_filter(card, filt)
                 ):
-                    if not me.can_play_character():
-                        me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested_flag, sickness=True)
-                    me.characters.append(ip)
+                    _place_pfhot(ip)
                     found += 1
                     state.push_log(f"  効果: 手札から登場 → {card.name}")
                     if state.effects_overlay:
@@ -6812,13 +6889,11 @@ def _execute_effect_body(
                 for card in me.trash:
                     if (
                         found < limit
-                        and card.category == Category.CHARACTER
+                        and card.category == target_cat
                         and _matches_filter(card, filt)
                     ):
-                        if not me.can_play_character():
-                            me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                         ip = InPlay.of(card, rested=rested_flag, sickness=True)
-                        me.characters.append(ip)
+                        _place_pfhot(ip)
                         found += 1
                         state.push_log(f"  効果: トラッシュから登場 → {card.name}")
                         if state.effects_overlay:
@@ -9079,6 +9154,10 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             state.push_log(f"  効果: 人間選択 → 登場 {c.name}")
             if state.effects_overlay:
                 trigger_on_play(state, me, state.opponent, ip, state.effects_overlay)
+        elif destination == "life":
+            # 「ライフの上に加える」 (= OP16-119 ティーチ)。 裏向き (life 既定)。
+            me.life.insert(0, c)
+            state.push_log(f"  効果: 人間選択 → ライフ上に加える ({len(me.life)} 枚)")
         else:  # hand
             me.hand.append(c)
             # 隠 ぺい 情 報 保 護 (= card name は 自 player のみ 知 る)
@@ -11266,6 +11345,10 @@ def trigger_on_ko(
     """
     # payload-aware 条件用 context を先に設定 (= trigger_on_self_chara_ko より先に呼ばれる場合に備える)
     state.last_chara_ko_victim_card = ko_card
+    # このターン中の owner キャラ KO 数を加算 (= OP16-100 opp_chara_ko_this_turn 条件用)。
+    # trigger_on_ko は全 KO 経路 (battle/効果/cost) の共通フックなので、 overlay 有無に依らず
+    # bundle 早期 return より前で加算する (= vanilla キャラ KO も数える)。
+    owner.chara_ko_taken_this_turn = int(getattr(owner, "chara_ko_taken_this_turn", 0) or 0) + 1
     bundle = effects_overlay.get(ko_card.card_id)
     if bundle is None:
         return
@@ -11395,9 +11478,15 @@ def should_fire_trigger(
     for eff in trigger_effects:
         if not eval_all_conditions(eff, state, defender, None):
             continue
-        # ヒューリスティック: 強力な効果 (除去/ドロー/ライフ復元) が含まれるなら発動
+        # ヒューリスティック: 強力な効果 (除去/ドロー/ライフ復元/登場) が含まれるなら発動。
+        # play_self / play_from_trash / play_from_hand 等の「登場」 系も盤面を増やす有利効果
+        # (= OP16-105 モリア / 111 サンダーソニア / 113 マリーゴールド の トリガー登場)。
         for prim in eff.get("do", []):
-            if any(k in prim for k in ("ko", "return_to_hand", "draw", "life_to_hand", "rest", "ko_self")):
+            if any(k in prim for k in (
+                "ko", "return_to_hand", "draw", "life_to_hand", "rest", "ko_self",
+                "play_self", "play_from_trash", "play_multi_from_trash", "play_from_hand",
+                "fire_self_effect",
+            )):
                 return True
         # power_pump のみの効果は保留 (ライフが増える方が有利な場合あり)
     # 強力な効果が無ければ手札に保持を選ぶ (= False)
