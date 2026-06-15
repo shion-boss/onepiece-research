@@ -1,7 +1,8 @@
 ---
 name: onepiece-tcg-refresh
 description: ONE PIECE カードゲームの公式データ一式 (カード DB / 効果オーバーレイ + engine / 公式 FAQ・cardqa / 禁止・制限リスト / ルール PDF / レギュレーション) を最新の公式状態へ総合的に更新する運用 runbook。新弾リリース時や定期更新時の唯一の入口。ユーザーが「カード情報は最新か」「新弾を入れて/追加」「最新化して」「OPxx/新セットを取り込む」「公式の更新を確認」「禁止リスト/FAQ/cardqa/レギュレーションを更新」「データをリフレッシュ」等と言ったら、個別スクリプト名を出していなくても必ずこのスキルを使う。既存スクリプト (scraper.py / check_official_updates.py / refresh_all.py / overlay パイプライン / audit 群) を正しい順序・公式テキスト忠実主義で束ねる。
-last_reviewed: 2026-06-15
+metadata:
+  last_reviewed: 2026-06-15
 ---
 
 # ONE PIECE データ最新化 runbook
@@ -195,7 +196,7 @@ PY
 
 - **画像**: 新弾分をキャッシュ。 `scripts/cache_deck_images.py` (デッキで使う分) か `scripts/cache_all_images.py` (全件、 30〜60分)。 web は `web/public/cards/` を優先し未キャッシュは公式 CDN フォールバックなので必須ではない。
 - **メタデッキ更新**: 新弾は環境を変える。 `scripts/scrape_cardrush_decks.py` → `scripts/select_cardrush_representatives.py` (CLAUDE.md の「メタデッキ更新」 参照)。 取得レシピは新禁止リストで validate。
-- ⛔ **matrix (N×N 勝率) 再計算は不要・意味なし** (ohtsuki 2026-06-15): matrix は **AI vs AI の勝率**で、 [[feedback_evaluation_axis]] のとおり「raw 勝率 ≠ 良し悪し」 (配備AIは硬い局所最適、 数字はAIの癖)。 80分かけても actionable な信号は出ない。 新弾でも **16メタデッキ自体が変わらなければ数字は同じ**。 → **このスキルでは matrix 再計算をしない**。
+- ⛔ **matrix (N×N 勝率) 再計算は不要** (ohtsuki 2026-06-15): matrix で使う **16 メタデッキは固定レシピで新弾カードを含まない** → 新弾を DB に取り込んでも matrix のデッキは変わらず、 再計算しても数字は同じ。 「既存デッキ挙動の回帰確認」 としても、 新弾 overlay / 新 target-spec キー等は **新弾カード限定の code path** で 16 デッキは踏まないので matrix は同値 (= 信号ゼロ)、 回帰は pytest + ゲートで担保済み。 → **このスキルでは matrix 再計算をしない**。 (meta deck pool 自体を新弾デッキで更新した場合のみ別途判断)。
 - **一括**: `scripts/refresh_all.py` は「公式チェック → cardrush 再 scrape → 代表選出 → matrix → 学習診断」 を束ねるが、 ⚠ **matrix を含むので `--skip-matrix` 推奨** (= 上記理由)。 ⚠ **カード scrape も含まない** (Step 1 は別途必須)。
 
 ---
