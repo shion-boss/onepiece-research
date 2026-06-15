@@ -104916,5 +104916,304 @@
     }
    ]
   }
+ ],
+ "OP16-076": [
+  {
+   "_text": "OP16-076 【メイン】ドン!!3枚レスト：自分の《大将》キャラ3枚までを、このターン中、パワー+2000。",
+   "when": "main",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 3
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "all_self_chara_filtered",
+          "filter": {
+           "feature": "大将"
+          },
+          "limit": 3
+         },
+         "amount": 2000,
+         "duration": "turn"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-076 【カウンター】《大将》キャラがいる場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+   "when": "counter",
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "feature": "大将"
+     },
+     "count": 1
+    }
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_inplay",
+      "amount": 4000,
+      "duration": "battle"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-077": [
+  {
+   "_text": "OP16-077 【メイン】デッキ上5を見て、《海軍》カード2枚までを手札に、残りをデッキ下。その後手札1枚を捨てる。",
+   "when": "main",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "filter": {
+       "feature": "海軍"
+      },
+      "limit": 2,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ]
+  }
+ ],
+ "OP16-078": [
+  {
+   "_text": "OP16-078 【登場時】デッキ上5を見て、《海軍》カード1枚までを手札に、残りをデッキ下。",
+   "when": "on_play",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "filter": {
+       "feature": "海軍"
+      },
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-078 【起動メイン】ドン!!-1,このステージをレスト：カード1枚を引き、自分の手札1枚を捨てる。",
+   "when": "activate_main",
+   "cost": {
+    "pay_don": 1,
+    "rest_self": true
+   },
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ]
+  }
+ ],
+ "OP16-099": [
+  {
+   "_text": "OP16-099 【メイン】ドン!!6枚レスト：デッキ上5枚をトラッシュ。その後トラッシュからコスト6以下《ワノ国》キャラ1枚までを登場。",
+   "when": "main",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 6
+       }
+      ],
+      "effect": [
+       {
+        "mill_self_top": 5
+       },
+       {
+        "play_from_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "feature": "ワノ国",
+          "cost_le": 6
+         },
+         "limit": 1
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-099 【カウンター】自分のリーダーをこのバトル中パワー+3000。",
+   "when": "counter",
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_leader",
+      "amount": 3000,
+      "duration": "battle"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-101": [
+  {
+   "_text": "OP16-101 【メイン】自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。その後トラッシュが10枚以上なら相手のコスト2以下キャラ1枚までをKO。",
+   "when": "main",
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_inplay",
+      "amount": 3000,
+      "duration": "turn"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "self_trash_count_ge": 10
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_2cost"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-101 【トリガー】自分のトラッシュから「ヤマト」1枚までを手札に加える。",
+   "when": "trigger",
+   "do": [
+    {
+     "search_from_trash": {
+      "filter": {
+       "name": "ヤマト"
+      },
+      "count": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-115": [
+  {
+   "_text": "OP16-115 【メイン】リーダーが《黒ひげ海賊団》なら、トラッシュから「闇水」以外の【トリガー】持ちカード1枚までを手札に加える。",
+   "when": "main",
+   "if": {
+    "leader_feature": "黒ひげ海賊団"
+   },
+   "do": [
+    {
+     "search_from_trash": {
+      "filter": {
+       "has_trigger": true,
+       "exclude_name": "闇水"
+      },
+      "count": 1
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-115 【トリガー】相手のリーダーかキャラ1枚までを、このターン中、効果を無効にする。",
+   "when": "trigger",
+   "do": [
+    {
+     "negate_effect": "one_opponent_inplay_any"
+    }
+   ]
+  }
+ ],
+ "OP16-116": [
+  {
+   "_text": "OP16-116 【メイン】場のドン!!が10枚なら、手札から「マーシャル・Ｄ・ティーチ」1枚までを登場。その後相手のライフ上1枚までを持ち主の手札に加える。",
+   "when": "main",
+   "if": {
+    "self_don_count_eq": 10
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "マーシャル・Ｄ・ティーチ"
+      ]
+     }
+    },
+    {
+     "mill_opp_life_to_hand": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-116 【トリガー】カード2枚を引き、自分の手札1枚を捨てる。",
+   "when": "trigger",
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ]
+  }
+ ],
+ "OP16-117": [
+  {
+   "_text": "OP16-117 【メイン】手札の【トリガー】持ち1枚を捨てる：相手のコスト8以下キャラ1枚までを、このターン中、効果を無効にする。",
+   "when": "main",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "has_trigger": true
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "negate_effect": "one_opponent_character_cost_le_8cost"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-117 【トリガー】自分のトラッシュから《黒ひげ海賊団》カード1枚までを手札に加える。",
+   "when": "trigger",
+   "do": [
+    {
+     "search_from_trash": {
+      "filter": {
+       "feature": "黒ひげ海賊団"
+      },
+      "count": 1
+     }
+    }
+   ]
+  }
  ]
 }
