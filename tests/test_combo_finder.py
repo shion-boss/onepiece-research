@@ -171,6 +171,22 @@ def test_cheat_excludes_topdeck_reveal_gamble(repo):
     assert "OP06-119" not in ids
 
 
+def test_accelerant_ignores_leader_condition_feature(repo):
+    """《F》 が「リーダーが特徴《F》を持つ場合」 (= リーダー要件) にしか無いカードは 《F》 の
+    サーチ/踏み倒しでない (= 実際の対象は別の汎用カード)。
+    ⚠ 2026-06-15 検出: シャンブルズ EB01-020「リーダーが《超新星》の場合…コスト2以下のキャラを登場」
+    を「《超新星》(コスト5)を踏み倒し」 と cost5 キャベンディッシュ に誤提案 (1074件)。"""
+    acc = _group(find_combos(repo, "EB01-012", per_group=50), "accelerant")  # キャベンディッシュ (超新星)
+    ids = {c.card_id for c in (acc.cards if acc else [])}
+    assert "EB01-020" not in ids  # シャンブルズ (《超新星》 はリーダー要件、 対象は コスト2以下のキャラ)
+    assert "OP14-014" not in ids  # キッド (《超新星》 はリーダー要件、 対象は パワー2000以下赤)
+    # 一方、 リーダー要件 AND 対象の両方に 《F》 が出る正当なカードは残す
+    acc2 = _group(find_combos(repo, "EB01-046", per_group=50), "accelerant")  # ブルック (麦わらの一味)
+    assert "OP15-086" in {c.card_id for c in (acc2.cards if acc2 else [])}  # ナミ (対象=コスト7以下 麦わら)
+    acc3 = _group(find_combos(repo, "OP06-007", per_group=50), "accelerant")  # シャンクス (FILM)
+    assert "OP06-071" in {c.card_id for c in (acc3.cards if acc3 else [])}  # テゾーロ (対象=トラッシュの FILM)
+
+
 def test_accelerant_excludes_named_anchor_exclusion(repo):
     """『「A」以外の《F》を手札に加える/登場させる』 は anchor A を対象外にするのでサーチ/踏み倒し提案にしない。
     ⚠ 2026-06-15 検出: OP10-111「「ルフィ」以外の《超新星》を…手札に加える」 を ルフィ anchor に

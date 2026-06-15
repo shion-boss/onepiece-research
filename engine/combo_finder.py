@@ -511,6 +511,29 @@ def _feature_target_is_character_restricted(text: str, feat: Optional[str]) -> b
     return False
 
 
+def _feature_target_pos(text: str, feat: str) -> int:
+    """《feat》 が検索/踏み倒しの『対象』 として現れる最初の位置を返す。 リーダー要件 gate
+    (= 「リーダーが(特徴)《feat》を持つ(場合)」) の出現は対象でないので除く。 対象が無ければ -1。
+
+    ⚠ 2026-06-15 検出: シャンブルズ EB01-020「リーダーが特徴《超新星》を持つ場合、…コスト2以下の
+    キャラを登場」 は 《超新星》 が**リーダー要件**で、 実際の踏み倒し対象は「コスト2以下のキャラ」 (汎用)。
+    なのに 《超新星》 一致で「《超新星》(コスト5)を踏み倒し」 と pow6000/cost5 のキャベンディッシュに誤提案
+    していた (1074件)。 ナミ OP15-086 のように leader 要件と対象の両方に 《麦わらの一味》 が出る正当な
+    カードは、 対象側の出現を ref に使う (= コスト制限も対象節で正しく取れる)。"""
+    token = f"《{feat}》"
+    lead_spans = [
+        (m.start(), m.end())
+        for m in re.finditer(
+            r"リーダーが(?:特徴)?[《『]" + re.escape(feat) + r"[》』]を持つ", text
+        )
+    ]
+    for m in re.finditer(re.escape(token), text):
+        if any(s <= m.start() < e for s, e in lead_spans):
+            continue  # リーダー要件 gate の出現 (= 対象でない)
+        return m.start()
+    return -1
+
+
 def _is_topdeck_reveal_gamble(text: str) -> bool:
     """デッキ単一トップの『公開』 (= 一番上/上から1枚を公開) は、 引きたい/出したいカードを
     選べない gamble であり、 特定 anchor を確実にサーチ/踏み倒しする手段ではない。
@@ -583,14 +606,17 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         reason = ""
         # 名前指定 (最強の確実性)
         named = f"「{anchor_name}」" in t
-        # 特徴一致のサーチ/踏み倒し
-        feat_hit = next((f for f in anchor_feats if f"《{f}》" in t), None)
+        # 特徴一致のサーチ/踏み倒し。 ⚠ 《F》 が「リーダーが《F》を持つ場合」 (= リーダー要件) にしか
+        # 現れないなら対象は 《F》 でない (= 別の汎用対象) → feat_hit にしない (1074件の誤提案を除去)。
+        feat_hit, feat_pos = None, -1
+        for f in anchor_feats:
+            p = _feature_target_pos(t, f)
+            if p >= 0:
+                feat_hit, feat_pos = f, p
+                break
         # 対象に係る『コストN以下』 を検索句内で取り、 anchor がその範囲に入るか判定
-        # (= 別節のコスト制限を誤適用しないよう対象参照の手前のみ見る)。
-        ref_pos = (
-            t.find(f"「{anchor_name}」") if named
-            else (t.find(f"《{feat_hit}》") if feat_hit else -1)
-        )
+        # (= 別節のコスト制限を誤適用しないよう対象参照 (= 対象側の 《F》/名前) の手前のみ見る)。
+        ref_pos = t.find(f"「{anchor_name}」") if named else feat_pos
         lim = _target_cost_limit(t, ref_pos)
         cost_ok = lim is None or anchor_cost <= lim
         # 対象パワー制限 (= 「パワーN以下/以上の《X》を登場/手札に加える」)。 anchor の power が範囲外なら
