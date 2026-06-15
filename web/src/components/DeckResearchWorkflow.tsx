@@ -277,7 +277,7 @@ function EvaluateWorkflow({
     <div className="space-y-3">
       <Step
         n={1}
-        title="勝率測定 (= GreedyAI で N=50 試合)"
+        title="勝率測定 (= AI で N=50 試合)"
         body={
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-xs">

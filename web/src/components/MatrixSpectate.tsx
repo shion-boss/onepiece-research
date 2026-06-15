@@ -194,7 +194,7 @@ export function MatrixSpectate({
       ) : running ? (
         <div className="flex flex-1 items-center justify-center rounded bg-zinc-50 p-6 text-sm text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500 align-middle" />{" "}
-          <span className="ml-2">シミュレート中... (配備 AI = SmartOpponentAI、 人間vsAI と同じ。 通常 3-5 秒)</span>
+          <span className="ml-2">シミュレート中... (配備 AI、 人間vsAI と同じ。 通常 3-5 秒)</span>
         </div>
       ) : replay ? (
         <SpectateBoard

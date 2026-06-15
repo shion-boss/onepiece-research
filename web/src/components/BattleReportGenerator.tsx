@@ -116,7 +116,7 @@ export function BattleReportGenerator({ slug }: { slug: string }) {
       {status === "loading" && (
         <div className="rounded border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           <div className="mb-1 font-medium">
-            GreedyAI が {nGames} 戦シミュレーション中です…
+            AI が {nGames} 戦シミュレーション中です…
           </div>
           <div className="text-xs">
             推定{estSeconds}秒かかります。ログの解析と記事生成も自動で行われます。

@@ -2439,7 +2439,7 @@ function StartPanel({
           人間 vs AI 対戦
         </h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          GoalDirectedAI と ドラッグ&ドロップ で 実戦練習。 手札 → 自フィールド で
+          AI と ドラッグ&ドロップ で 実戦練習。 手札 → 自フィールド で
           deploy、 自キャラ → 相手 で attack、 DON → 自リーダー/キャラ で attach。
         </p>
       </header>
@@ -2493,7 +2493,7 @@ function StartPanel({
               AI
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              GoalDirectedAI が操作
+              AI が操作
             </span>
           </div>
           <label className="flex flex-col gap-1 text-xs">

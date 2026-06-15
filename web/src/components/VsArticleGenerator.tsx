@@ -112,7 +112,7 @@ export function VsArticleGenerator({ slug }: { slug: string }) {
       {status === "loading" && (
         <div className="rounded border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           <div className="mb-1 font-medium">
-            GreedyAI が {nGames} 戦シミュレーション中…
+            AI が {nGames} 戦シミュレーション中…
           </div>
           <div className="text-xs">
             相手デッキを固定して勝ち/負け両方のログを収集し、行動差分を分析します。
