@@ -141,6 +141,36 @@ def test_event_anchor_no_character_cost_reduction(repo):
     assert "OP02-025" not in ids
 
 
+def test_search_requires_add_to_hand_not_reveal(repo):
+    """『公開』 単独 (= デッキトップを見る/条件判定/相手デッキを覗く) はサーチでない。
+    ⚠ 2026-06-15 検出: anchor を手札に入れない reveal 系が「サーチ → Xを引ける」 と誤提案 (360件)。
+    ST17-001「公開し《王下七武海》なら2枚引く」 は クロコダイル を手札に加えないので accelerant に出さない。"""
+    res = find_combos(repo, "OP07-040", per_group=40)  # クロコダイル (王下七武海)
+    acc = _group(res, "accelerant")
+    ids = {c.card_id for c in (acc.cards if acc else [])}
+    assert "ST17-001" not in ids  # reveal-for-condition (draw, not fetch)
+    assert "OP01-060" not in ids  # ドフラ 一番上を公開し…登場させてもよい (= topdeck gamble)
+
+
+def test_search_keeps_named_reveal_to_hand(repo):
+    """『デッキから「X」を公開し手札に加え』 (= 名前指定 reveal-to-hand) は確実なサーチなので残す。
+    ⚠ 「手札に加え、」 (る無し) も拾う (= 黒炭オロチ@SMILE が脱落しないこと)。"""
+    res = find_combos(repo, "OP01-116", per_group=40)  # 人造悪魔の実SMILE (EVENT)
+    acc = _group(res, "accelerant")
+    names = {c.name for c in (acc.cards if acc else [])}
+    assert "黒炭オロチ" in names
+
+
+def test_cheat_excludes_topdeck_reveal_gamble(repo):
+    """デッキ単一トップの『公開→登場』 はカードを選べない gamble なので踏み倒し提案にしない。
+    ⚠ 2026-06-15 検出: サンジ OP06-119「上から1枚を公開し…登場させる」 が「「サンジ」を踏み倒し登場」
+    と誤提案 (= トップ次第の運任せ + そもそも「サンジ」以外しか出せない) (28件)。"""
+    res = find_combos(repo, "OP07-064", per_group=40)  # サンジ
+    acc = _group(res, "accelerant")
+    ids = {c.card_id for c in (acc.cards if acc else [])}
+    assert "OP06-119" not in ids
+
+
 def test_ko_on_own_turn_classifies_event_main_ko():
     """KO の timing を 直近 trigger で判定 (= 【メイン】KO は自ターン、 【カウンター】KO は相手ターン)。"""
     from engine.combo_finder import _ko_on_own_turn

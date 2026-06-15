@@ -486,6 +486,18 @@ def _feature_target_is_character_restricted(text: str, feat: Optional[str]) -> b
     return False
 
 
+def _is_topdeck_reveal_gamble(text: str) -> bool:
+    """デッキ単一トップの『公開』 (= 一番上/上から1枚を公開) は、 引きたい/出したいカードを
+    選べない gamble であり、 特定 anchor を確実にサーチ/踏み倒しする手段ではない。
+
+    ⚠ 2026-06-15 検出: サンジ OP06-119「デッキの上から1枚を公開し、…1枚までを登場させる」 や
+    ドフラミンゴ「一番上を公開し、…の場合レストで登場させてもよい」 が「《X》(コストN)を踏み倒し登場」
+    と誤提案されていた (= 28件)。 トップ次第の運任せなので踏み倒し accelerant から除外する。
+    ⚠ 「上から1枚を公開し…手札に加える」 (= 当たれば手札に入る弱サーチ) は anchor を実際に手札へ
+    入れられるので search 枠には残す (= ここでは cheat=踏み倒し のみに適用)。"""
+    return bool(re.search(r"(一番上|上から1枚)を公開", text))
+
+
 def _match_tribal(anchor, all_cards) -> list[ComboCard]:
     """anchor の特徴を共有する相棒 + その特徴を強化するリーダー。"""
     anchor_feats = _features(anchor)
@@ -552,10 +564,15 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         cost_ok = lim is None or anchor_cost <= lim
         # キャラ限定サーチ (= 《X》を持つキャラカード) は非キャラ (イベント/ステージ) anchor を拾えない
         char_ok = anchor_is_char or not _feature_target_is_character_restricted(t, feat_hit)
-        if ("手札に加える" in t or "公開" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok and char_ok:
+        # サーチ = anchor を手札に「加える」 こと (= 「手札に加え」 で 加える/加え、 を両方拾う)。
+        # ⚠ 2026-06-15: 旧「公開」 単独 OR は「公開し《X》なら2枚引く」 (= 条件判定) や「相手のデッキを
+        # 公開」 (= 守備) を誤サーチしていた (360件) → 必ず anchor が手札に入る効果のみ search とする。
+        if ("手札に加え" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok and char_ok:
             kind = "search"
             reason = (f"《{feat_hit}》" if feat_hit else f"「{anchor_name}」") + f"をサーチ → {anchor_name}を引ける"
-        elif "登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok:
+        elif ("登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok
+              # トップ単一公開の踏み倒しはカードを選べない gamble (= 確実な踏み倒しでない)
+              and not _is_topdeck_reveal_gamble(t)):
             kind = "cheat"
             reason = (f"「{anchor_name}」" if named else f"《{feat_hit}》(コスト{anchor_cost})") + f"を踏み倒し登場"
         elif (("コスト" in t and ("少なくなる" in t or "減" in t)) and (named or feat_hit)
