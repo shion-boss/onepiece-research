@@ -1,13 +1,30 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useTransition } from "react";
-import type { CardCategory } from "@/lib/types";
+import { useCallback, useMemo, useTransition } from "react";
+import type { CardCategory, SetInfo } from "@/lib/types";
 
 const COLORS = ["赤", "青", "緑", "紫", "黒", "黄"] as const;
 const CATEGORIES: CardCategory[] = ["LEADER", "CHARACTER", "EVENT", "STAGE"];
 
-export function CardFilterBar() {
+// 弾コード接頭辞 → optgroup ラベル
+const SET_GROUPS: { prefix: string; label: string }[] = [
+  { prefix: "OP", label: "ブースター (OP)" },
+  { prefix: "EB", label: "エクストラ (EB)" },
+  { prefix: "ST", label: "スターター (ST)" },
+  { prefix: "PRB", label: "プレミアム (PRB)" },
+  { prefix: "P", label: "プロモ (P)" },
+];
+
+function groupOf(code: string): string {
+  // 長い接頭辞 (PRB) を P より先に判定
+  for (const g of [...SET_GROUPS].sort((a, b) => b.prefix.length - a.prefix.length)) {
+    if (code.startsWith(g.prefix)) return g.prefix;
+  }
+  return "P";
+}
+
+export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -31,7 +48,18 @@ export function CardFilterBar() {
   const cost_ge = params.get("cost_ge") ?? "";
   const name_contains = params.get("name_contains") ?? "";
   const feature = params.get("feature") ?? "";
+  const set = params.get("set") ?? "";
   const regulation = params.get("regulation") ?? "";
+
+  const setsByGroup = useMemo(() => {
+    const m = new Map<string, SetInfo[]>();
+    for (const s of sets) {
+      const g = groupOf(s.code);
+      if (!m.has(g)) m.set(g, []);
+      m.get(g)!.push(s);
+    }
+    return m;
+  }, [sets]);
 
   const setParam = (k: string, v: string) =>
     update((p) => {
@@ -70,6 +98,24 @@ export function CardFilterBar() {
           <option key={c} value={c}>
             {c}
           </option>
+        ))}
+      </select>
+
+      <select
+        value={set}
+        onChange={(e) => setParam("set", e.target.value)}
+        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        aria-label="弾"
+      >
+        <option value="">全ての弾</option>
+        {SET_GROUPS.filter((g) => setsByGroup.has(g.prefix)).map((g) => (
+          <optgroup key={g.prefix} label={g.label}>
+            {setsByGroup.get(g.prefix)!.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.code} ({s.count})
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
 
@@ -141,11 +187,11 @@ export function CardFilterBar() {
         </button>
       </div>
 
-      {(color || category || cost_le || cost_ge || name_contains || feature || regulation) && (
+      {(color || category || cost_le || cost_ge || name_contains || feature || set || regulation) && (
         <button
           type="button"
           onClick={() => update((p) => {
-            for (const k of ["color", "category", "cost_le", "cost_ge", "name_contains", "feature", "regulation"]) {
+            for (const k of ["color", "category", "cost_le", "cost_ge", "name_contains", "feature", "set", "regulation"]) {
               p.delete(k);
             }
           })}

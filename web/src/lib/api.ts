@@ -33,6 +33,7 @@ import type {
   ResearchSessionDetail,
   ResearchSessionStartResponse,
   ResearchSessionSummary,
+  SetInfo,
 } from "./types";
 
 import { authHeaders } from "./auth";
@@ -46,6 +47,12 @@ export async function fetchCards(filters: CardFilters = {}): Promise<Card[]> {
   }
   const res = await fetch(`${API}/api/cards?${params}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`fetchCards failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchSets(): Promise<SetInfo[]> {
+  const res = await fetch(`${API}/api/sets`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchSets failed: ${res.status}`);
   return res.json();
 }
 

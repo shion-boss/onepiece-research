@@ -1,5 +1,5 @@
-import { fetchCards } from "@/lib/api";
-import type { CardCategory, CardFilters } from "@/lib/types";
+import { fetchCards, fetchSets } from "@/lib/api";
+import type { CardCategory, CardFilters, SetInfo } from "@/lib/types";
 import { CardFilterBar } from "@/components/CardFilterBar";
 import { CardBrowser } from "@/components/CardBrowser";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -41,15 +41,17 @@ export default async function CardsPage({
     cost_ge: parseInt0(get("cost_ge")),
     name_contains: get("name_contains"),
     feature: get("feature"),
+    set: get("set"),
     // "standard" = block_icon >= 2、未指定 = 全件
     block_icon_ge: regulationRaw === "standard" ? 2 : undefined,
     limit: 2000,
   };
 
   let cards: Awaited<ReturnType<typeof fetchCards>> = [];
+  let sets: SetInfo[] = [];
   let error: string | null = null;
   try {
-    cards = await fetchCards(filters);
+    [cards, sets] = await Promise.all([fetchCards(filters), fetchSets()]);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -66,7 +68,7 @@ export default async function CardsPage({
         }
       />
 
-      <CardFilterBar />
+      <CardFilterBar sets={sets} />
 
       {error ? (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">

@@ -564,6 +564,7 @@ def list_cards(
     color: Optional[str] = Query(None, description="赤/青/緑/紫/黒/黄"),
     category: Optional[str] = Query(None, description="LEADER/CHARACTER/EVENT/STAGE"),
     feature: Optional[str] = Query(None, description="特徴(部分一致)"),
+    set_: Optional[str] = Query(None, alias="set", description="弾コード (= card_id 接頭辞, 例 OP16/EB04/ST28/P)"),
     cost_le: Optional[int] = Query(None),
     cost_ge: Optional[int] = Query(None),
     name_contains: Optional[str] = Query(None),
@@ -581,6 +582,8 @@ def list_cards(
             continue
         if category and card.category.value != category:
             continue
+        if set_ and card.card_id.split("-")[0] != set_:
+            continue
         if feature and not any(feature in f for f in card.features):
             continue
         if cost_le is not None and card.cost > cost_le:
@@ -595,6 +598,34 @@ def list_cards(
         if len(cards) >= limit:
             break
     return cards
+
+
+class SetOut(BaseModel):
+    code: str
+    count: int
+
+
+@app.get("/api/sets", response_model=list[SetOut])
+def list_sets():
+    """弾コード (= card_id 接頭辞) の一覧。 並びは OP→EB→ST→PRB→P、 各群で新しい順
+    (= 数字降順)。 UI の「弾で絞り込む」 ドロップダウン用 (= 新弾追加時も自動反映)。"""
+    repo = get_repo()
+    counts: dict[str, int] = {}
+    for cid, card in repo._by_id.items():
+        code = card.card_id.split("-")[0]
+        counts[code] = counts.get(code, 0) + 1
+    group_rank = {"OP": 0, "EB": 1, "ST": 2, "PRB": 3, "P": 4}
+
+    def sort_key(code: str):
+        m = re.match(r"([A-Z]+)(\d*)", code)
+        prefix = m.group(1) if m else code
+        num = int(m.group(2)) if (m and m.group(2)) else -1
+        return (group_rank.get(prefix, 9), -num)
+
+    return [
+        SetOut(code=c, count=counts[c])
+        for c in sorted(counts, key=sort_key)
+    ]
 
 
 @app.get("/api/cards/{card_id}", response_model=CardOut)

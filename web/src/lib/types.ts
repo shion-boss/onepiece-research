@@ -22,11 +22,18 @@ export type CardFilters = {
   color?: string;
   category?: CardCategory;
   feature?: string;
+  set?: string;
   cost_le?: number;
   cost_ge?: number;
   name_contains?: string;
   block_icon_ge?: number;
   limit?: number;
+};
+
+// --- 弾 (= card_id 接頭辞) 一覧 (= /api/sets) ---
+export type SetInfo = {
+  code: string;
+  count: number;
 };
 
 // --- コンボ探索 (= /api/combos/{card_id}) ---
