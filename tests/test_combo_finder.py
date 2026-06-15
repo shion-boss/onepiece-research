@@ -115,6 +115,15 @@ def test_event_anchor_no_cheat_summon(repo):
             assert "踏み倒し登場" not in c.reason, f"EVENT に cheat 提案: {c.card_id}"
 
 
+def test_event_anchor_no_character_cost_reduction(repo):
+    """『登場させるキャラの登場コスト軽減』 をイベント anchor に提案しない (= キャラ専用)。"""
+    # OP01-055「おれの”侍”になれ‼!」 = EVENT ワノ国 ; OP02-025 錦えもん は ワノ国 キャラの登場コスト減
+    res = find_combos(repo, "OP01-055", per_group=30)
+    acc = _group(res, "accelerant")
+    ids = [c.card_id for c in (acc.cards if acc else [])]
+    assert "OP02-025" not in ids
+
+
 def test_powerdown_own_turn_recognizes_activate_main():
     """【起動メイン】等の自ターン trigger は、 手前に【相手のターン中】 節があっても自ターン扱い。"""
     from engine.combo_finder import _powerdown_on_own_turn

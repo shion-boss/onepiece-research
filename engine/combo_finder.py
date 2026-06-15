@@ -483,7 +483,9 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         elif "登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok:
             kind = "cheat"
             reason = (f"「{anchor_name}」" if named else f"《{feat_hit}》(コスト{anchor_cost})") + f"を踏み倒し登場"
-        elif ("コスト" in t and ("少なくなる" in t or "減" in t)) and (named or feat_hit):
+        elif (("コスト" in t and ("少なくなる" in t or "減" in t)) and (named or feat_hit)
+              # 「登場させる…キャラ…のコスト減」 はキャラの登場コスト軽減 → イベント anchor に効かない
+              and (anchor_is_char or not ("登場" in t and "キャラ" in t))):
             kind = "cost"
             reason = (f"「{anchor_name}」" if named else f"《{feat_hit}》") + f"の登場コストを軽減"
         if not kind:
