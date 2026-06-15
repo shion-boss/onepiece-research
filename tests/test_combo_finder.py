@@ -269,7 +269,10 @@ def test_romance_group_surfaces_high_ceiling(repo):
     res = find_combos(repo, "OP04-013", per_group=8)
     rom = next((g for g in res.groups if g.key == "romance"), None)
     assert rom is not None and rom.cards
-    assert "OP01-027" in {c.card_id for c in rom.cards}  # 円卓 = ロマン上位
+    rom_ids = {c.card_id for c in rom.cards}
+    assert "OP01-027" in rom_ids  # 円卓 = 実シナジー(下げ役)の overkill → ロマン上位
+    # ⚠ ロジャー(OP09-118)は単体で派手なだけでペルシナジー無し → ロマン枠に入れない (= ユーザー指摘)
+    assert "OP09-118" not in rom_ids
     # 同じ円卓が効率枠(enabler)では top8 圏外 (= 効率とロマンで評価が割れる)
     en = next((g for g in res.groups if g.key == "enabler"), None)
     assert en is not None

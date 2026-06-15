@@ -408,8 +408,8 @@ def _match_amplifier(anchor, all_cards) -> list[ComboCard]:
     return out
 
 
-def _romance_flashiness(text: str, card) -> tuple[float, list[str]]:
-    """効果の派手さ/上振れ度 (= ロマン score) と tag を返す。 効率/一貫性は無視、 ceiling 評価。"""
+def _romance_flashiness(text: str, category: str, power: int) -> tuple[float, list[str]]:
+    """効果の派手さ/上振れ度 (= ロマン score) と tag。 効率/一貫性は無視、 ceiling 評価。"""
     score = 0.0
     tags: list[str] = []
     big = 0
@@ -434,10 +434,9 @@ def _romance_flashiness(text: str, card) -> tuple[float, list[str]]:
     if "登場させる" in text:
         score += 3.0
         tags.append("踏み倒し")
-    pw = int(getattr(card, "power", 0) or 0)
-    if _category(card) == "CHARACTER" and pw >= 9000:
+    if category == "CHARACTER" and power >= 9000:
         score += 3.0
-        tags.append(f"大型{pw}")
+        tags.append(f"大型{power}")
     if "【ダブルアタック】" in text:
         score += 3.0
         tags.append("ダブルアタック")
@@ -447,21 +446,17 @@ def _romance_flashiness(text: str, card) -> tuple[float, list[str]]:
     return round(score, 2), tags
 
 
-def _match_romance(anchor, all_cards, ko_t) -> list[ComboCard]:
-    """ロマン枠: 効率より ceiling。 上振れ・大火力・派手な効果を anchor と組む (= 同色互換のみ)。"""
-    anchor_colors = set(_colors(anchor))
-    out: list[ComboCard] = []
-    for c in all_cards:
-        if c.card_id == anchor.card_id:
-            continue
-        if anchor_colors and not (anchor_colors & set(_colors(c))):
-            continue
-        t = _text(c)
-        flash, tags = _romance_flashiness(t, c)
+def _match_romance(pool: list[ComboCard], anchor, ko_t) -> list[ComboCard]:
+    """ロマン枠: anchor と実際にシナジーする候補 (= pool = enabler/tribal/accelerant/amplifier 等の
+    マッチ結果) のうち ceiling(派手さ・大火力)が高いものを surface。
+    ⚠ 2026-06-14 ユーザー指摘: 単に同色の派手カード(= ロジャー)でなく、 anchor と噛む候補に限る
+    (= pool 経由なので、 シナジー軸を持つカードだけがロマン枠に入る)。"""
+    best: dict[str, ComboCard] = {}
+    for c in pool:
+        flash, tags = _romance_flashiness(c.text, c.category, c.power)
         reason = None
-        # KO閾値 anchor × 大幅パワーダウン = どんなサイズも即KO (= 代表的ロマン、 例: 円卓+ペル)
-        if ko_t is not None and "相手" in t:
-            m = re.search(r"パワー[-－](\d{3,5})", t)
+        if ko_t is not None and "相手" in c.text:
+            m = re.search(r"パワー[-－](\d{3,5})", c.text)
             if m and int(m.group(1)) >= 5000:
                 debuff = int(m.group(1))
                 reach = ko_t + debuff
@@ -474,9 +469,17 @@ def _match_romance(anchor, all_cards, ko_t) -> list[ComboCard]:
         if flash < 6:
             continue
         if reason is None:
-            reason = f"上振れ・大火力要素: {' / '.join(tags[:3])}（決まれば派手、 不安定込み）"
-        out.append(_to_combo(c, round(flash, 2), reason))
-    out.sort(key=lambda c: -c.score)
+            reason = f"上振れ・大火力: {' / '.join(tags[:3])}（{anchor.name}とシナジーしつつ派手）"
+        base = re.sub(r"_(p\d+|r\d+)$", "", c.card_id)
+        prev = best.get(base)
+        if prev is None or flash > prev.score:
+            best[base] = ComboCard(
+                card_id=c.card_id, name=c.name, category=c.category, color=c.color,
+                cost=c.cost, power=c.power, features=c.features, text=c.text,
+                score=round(flash, 2), reason=reason,
+            )
+    out = list(best.values())
+    out.sort(key=lambda x: -x.score)
     return out
 
 
@@ -761,6 +764,7 @@ def find_combos(
 
     hooks: list[str] = []
     groups: list[ComboGroup] = []
+    synergy_pool: list[ComboCard] = []  # ロマン枠用 = 実シナジー候補の union
 
     # ⓪ 実戦シナジー (= 最も接地、 先頭): 実際に anchor と一緒に採用されているカード
     cooc_cards: list[ComboCard] = []
@@ -789,6 +793,7 @@ def find_combos(
     if ko_t is not None:
         hooks.append(f"KO条件「パワー{ko_t}以下」 → 相手パワーダウンで圏を広げられる")
         cards = _boosted(_match_enabler_powerdown(anchor, all_cards, ko_t))
+        synergy_pool += cards
         if cards:
             groups.append(ComboGroup(
                 key="enabler",
@@ -801,6 +806,7 @@ def find_combos(
     pd = _detect_self_powerdown(text)
     if pd is not None:
         cards = _boosted(_match_payoff_for_powerdown(anchor, all_cards, pd))
+        synergy_pool += cards
         if cards:
             hooks.append(f"相手パワー-{pd} → 「パワーX以下KO」 のペイオフを活かせる")
             groups.append(ComboGroup(
@@ -812,6 +818,7 @@ def find_combos(
 
     # ② 加速 accelerant
     cards = _boosted(_match_accelerant(anchor, all_cards))
+    synergy_pool += cards
     if cards:
         hooks.append("サーチ/コスト軽減/踏み倒しで早く・安定して出せる")
         groups.append(ComboGroup(
@@ -823,6 +830,7 @@ def find_combos(
 
     # ③ 特徴シナジー tribal
     cards = _boosted(_match_tribal(anchor, all_cards))
+    synergy_pool += cards
     if cards:
         af = _features(anchor)
         hooks.append(f"特徴《{af[0]}》の部族シナジー" if af else "特徴シナジー")
@@ -836,6 +844,7 @@ def find_combos(
     # ④ ペイオフ増幅 amplifier
     if _is_attacker_trigger(text):
         cards = _boosted(_match_amplifier(anchor, all_cards))
+        synergy_pool += cards
         if cards:
             hooks.append("【アタック時】持ち → 【速攻】付与で出したターンに即発動")
             groups.append(ComboGroup(
@@ -845,8 +854,9 @@ def find_combos(
                 cards=cards[:per_group],
             ))
 
-    # ⑤ ロマン枠 (= 効率度外視・上振れ大火力。 決まれば派手なコンボ)
-    cards = _legal(_match_romance(anchor, all_cards, ko_t))
+    # ⑤ ロマン枠 (= 効率度外視・上振れ大火力。 決まれば派手なコンボ)。 anchor と実際にシナジー
+    #    する候補 (= synergy_pool) のみから ceiling 評価 (= ロジャー等の単体派手カード混入を防ぐ)。
+    cards = _legal(_match_romance(synergy_pool, anchor, ko_t))
     if cards:
         hooks.append("上振れ・大火力のロマンコンボあり")
         groups.append(ComboGroup(
