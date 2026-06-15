@@ -31,13 +31,18 @@
 ```jsonc
 {
   "when": "on_play",                 // トリガー (下記一覧)
-  "condition": {"self_life_le": 2},  // 任意。 発動条件 (eval_condition のキー)
+  "if": {"self_life_le": 2},         // 任意。 発動条件 (eval_condition のキー)。 複数は "conditions": [..]
   "cost": [{"k": "discard_hand_with_filter", ...}],  // 任意。 支払いコスト (optional は別途)
   "do": [                            // 実際の効果 (DSL プリミティブの配列)
     {"k": "ko", "target": {"side": "opp", "kind": "character", "power_le": 4000}}
   ]
 }
 ```
+
+⚠⚠ **entry gate は `if` (単一 dict) か `conditions` (dict の list) だけ**。 `condition` (単数) や
+`_if_clause` / `_chain` / `_condition` 等の自作キーは **engine が読まず silently-ignored** になり、
+「条件付きのつもりが無条件発火」 という、 audit を通り抜けて実対戦でだけ壊れる bug になる
+(`tests/test_no_dead_entry_keys.py` で静的に弾く。 = 下記 §6 / SKILL Step 3A)。
 
 ⚠ **既存カードを真似るのが最短で正確**。 同じトリガー/効果型の既存エントリを `card_effects.json` から grep して構造をコピーし、 数値・対象・条件だけ公式テキストに合わせる。 「元々パワー (base)」 と「パワー (current)」、 `cost` と `optional_cost_then`、 spec 形式と filter 形式で意味が逆転する箇所があるので §5 を必ず参照。
 
@@ -47,9 +52,11 @@
 - 主要カテゴリ (CLAUDE.md の「DSL プリミティブ主要カテゴリ」 に一覧): draw/discard, KO/離脱, power, cost, don, rest, search/play, life, キーワード付与, 置換効果, KO耐性, 静的効果, コスト/遅延 ほか。
 - **無ければ足す**:
   1. `engine/effects.py` の本体 (`_execute_effect_body`、 ⚠ `execute_effect` は wrapper) に `elif k == "新プリミティブ":` を追加。
-  2. `tests/test_effects.py` に最小テストを追加 (発火 → 盤面変化を assert)。
+  2. `tests/test_effects.py` に behavior test を追加。 ⚠ **最小ステートで「発火した」 だけでは不十分** — 正しい対象/数量/タイミングで盤面が変わるか、 条件 false なら発火しないか、 run1==run2 の再現性まで assert する。
   3. 既存の似たプリミティブの実装を参照して target 解決・副作用局所化 (`engine/game.py:apply_action`) の流儀に合わせる。
-- 新トリガー (when) が要る場合は engine 側のトリガー発火経路も拡張する (= 「engine の更新」 の中身)。
+  4. `scripts/audit_dsl_primitives.py` で **missing でない (= engine 実装済と認識される)** ことを確認。 これを怠ると overlay は書けても engine が読まず silently-ignored。
+  5. その primitive を使う実カードを **実対戦** (fuzz_human_play / run_matchup / claude_play) に通し、 対戦文脈で正しく解決するか確認する (= SKILL Step 3C)。
+- 新トリガー (when) が要る場合は engine 側のトリガー発火経路も拡張する (= 「engine の更新」 の中身)。 新 when も smoke_test / fuzz が拾えるよう発火経路に繋ぐ。
 
 ## 4. トリガー (when) と条件 (eval_condition)
 
@@ -72,13 +79,14 @@ opp_attack_on_leader / opp_attack_on_chara (完全な一覧と意味は CLAUDE.m
 - **欠落しやすい節**: 条件 (missing-cond)、 持続 (duration: turn / next_opp_turn_end)、 数量 (amount)。 leader カードに集中しがち。
 - **リーダー要件 ≠ 対象**: 「リーダーが特徴《F》を持つ場合」 の《F》 は gate であって効果の対象ではない。
 
-## 6. 1 枚の効果を検証する手順
+## 6. 1 枚の効果を検証する手順 (3 つの問いに答える)
 
 1. 公式テキスト (cards.json の `text` / `trigger`) と cardqa を読む (`grep <card_id> db/faq/cardqa_*.json`)。
-2. overlay を書く。
-3. **実ディスパッチを introspect** して発火を確認 (wrapper でなく `_execute_effect_body` が処理する key か)。
-4. 最小ステートで behavior test (発火前後の盤面差分)。 **run1 == run2 (再現性)** を確認してからコミット。
-5. `smoke_test_card_effects.py` + `audit_overlay_vs_faq.py` + `verify_overlay_vs_cardqa.py` + `audit_engine_strictness.py` + `pytest` を通す。
+2. overlay を書く (gate は `if`/`conditions`、 §2 の dead key に注意)。
+3. **① engine が対応しているか**: 実ディスパッチを introspect (wrapper でなく `_execute_effect_body` / `eval_condition` が処理する key か) + `test_no_dead_entry_keys` + `audit_dsl_primitives` で missing 0。
+4. **② テキスト忠実**: `audit_overlay_vs_faq` + `verify_overlay_vs_cardqa`。
+5. **③ 実対戦で正しい**: 実ゲーム文脈に近い behavior test (正しい対象/数量/タイミング、 条件 false で不発火、 **run1 == run2 再現性**) + `smoke_test_card_effects` (NO_CHANGE/ERROR 無し) + そのカードを積んだデッキを `fuzz_human_play` / `harness.run_matchup` / `claude_play` で回し対戦文脈の解決を確認。 ⚠ campaign の経験上、 「実際に対戦に出す」 のが最も多くの bug を炙り出す。
+6. 全部 green を確認してからコミット。
 
 ## 7. 参照先
 

@@ -85,20 +85,48 @@ rm -f /tmp/onepiece_html/_top.html          # 新 series 発見のため (Step 0
 
 ---
 
-## Step 3 — 監査ゲート (忠実度 + 正しさを機械で担保)
+## Step 3 — 検証ゲート (3 つの問いに機械で答える)
 
-新カードの overlay を書いたら、 既存の audit 群を全部 green にする (= 新弾分の漏れ・矛盾・未実装を洗い出す):
+新カードの overlay / engine を書いたら下記を全部通す。 各検証が **「① engine が対応しているか / ② テキストが公式に忠実か / ③ 効果が実対戦で正しく動くか (追加 engine の正しさ込み)」** のどれを担保するか明記する。 ⚠ **①②だけでは「対戦で正しく使える」 は担保できない** — それが ③ (本ステップの肝)。
+
+### 3A. engine が対応しているか (silently-ignored の排除)
+overlay のキーを engine が読まないと **無言で無視され、 audit は通るのに対戦で何も起きない/無条件発火する**。 静的に弾く:
 
 ```bash
-.venv/bin/python scripts/audit_overlay_vs_faq.py        # overlay vs FAQ 突合 (sev>=3 = 0 が基準)
-.venv/bin/python scripts/verify_overlay_vs_cardqa.py    # cardqa 効果マーカー vs overlay (missing = 0)
-.venv/bin/python scripts/audit_engine_strictness.py     # engine 厳密化 10 項目 (10/10)
-.venv/bin/python scripts/smoke_test_card_effects.py     # 全カード効果を最小ステートで発火
-.venv/bin/pytest                                        # 全テスト (新 primitive のテスト含む)
+.venv/bin/pytest tests/test_no_dead_entry_keys.py    # entry gate は if/conditions のみ。 condition単数・_if_clause 等の dead key を禁止
+.venv/bin/python scripts/audit_dsl_primitives.py     # 全 do/cost/if の key が engine/effects.py に実装済か (missing を使用枚数付きで報告)
+.venv/bin/python scripts/audit_engine_strictness.py  # engine 厳密化 10 項目 (10/10)
 ```
 
-- `db/audit_acknowledged.json` は intrinsic な除外リスト (新弾で正当な intrinsic が出たら追記)。
-- `db/overlay_audit.{md,json}` に結果が出る。 新弾起因の sev≥3 / `_unimplemented` をゼロに戻す。
+→ ⚠ entry gate は **`if` (単一 dict) / `conditions` (dict の list)** のみ。 `condition` (単数) は dead key。
+
+### 3B. テキストが公式に忠実か
+```bash
+.venv/bin/python scripts/audit_overlay_vs_faq.py     # overlay vs FAQ 突合 (sev>=3 = 0)
+.venv/bin/python scripts/verify_overlay_vs_cardqa.py # cardqa 効果マーカー vs overlay (missing = 0)
+```
+
+### 3C. 効果が「実対戦で正しく」 動くか (= 追加 engine の正しさ込み・最重要)
+⚠ **smoke_test / 単体テストは「発火する・盤面が変わる」 までしか見ない (= 『変化 ≠ 正しい挙動』)**。 過去の campaign では audit 全 green でも実対戦で壊れている bug (免疫がブロック経由のバトルKOを誤防御 / optional_cost 二重 discard / マルチ攻撃で防御 pump 抑止 等) を多数発見した。 **だから新カードを実際に対戦へ投入して検証する**:
+
+```bash
+.venv/bin/python scripts/smoke_test_card_effects.py            # 各効果を最小ステートで発火 (NO_CHANGE/ERROR = 確実なバグ)
+.venv/bin/pytest                                               # 新 primitive の test_effects.py 含む全テスト
+.venv/bin/python scripts/fuzz_human_play.py 200                # 人間vsAI を多数 headless 実行 (crash/stuck/NO_ACT/不変条件違反)
+.venv/bin/python scripts/audit_runtime_invariants.py --n-games 100 --workers 8   # AI vs AI batch で保存則違反を検出
+```
+
+さらに **新カードを積んだデッキで実際に対戦し、 正しいトリガー/対象/タイミングで解決するかを目視**する (= 自動検証が拾えない「意味的に正しいか」):
+- `examples/demo_with_effects.py` か `harness.run_matchup` で新カード入りデッキを回す。
+- `scripts/report_bad_moves.py --deck-a <a> --deck-b <b>` で AI の悪手 (= 効果の誤用) を抽出。
+- 疑わしい新カードは `scripts/claude_play.py` で 1 手ずつ操作して効果の解決を確認 (= campaign 方式、 最も確実)。
+
+### 新 primitive を足した時の「正しさ」 (③ の中核)
+1. `tests/test_effects.py` に **最小ステートでなく実ゲーム文脈に近い** behavior test を足す (発火前後の盤面差分 + run1==run2 の再現性)。
+2. `audit_dsl_primitives.py` で missing でない (= 登録された) ことを確認。
+3. その primitive を使う実カードを 3C の対戦検証 (fuzz / matchup / claude_play) に通す。
+
+- `db/audit_acknowledged.json` = intrinsic 除外 / `db/overlay_audit.{md,json}` = 結果。 新弾起因の sev≥3 / `_unimplemented` / dead key / NO_CHANGE をゼロに戻す。
 
 ---
 
@@ -166,7 +194,9 @@ PY
 
 - [ ] `cards.json` に新弾が入り総数が想定どおり (Step 0 確認スクリプト)
 - [ ] 新カードの overlay を公式テキスト忠実に記述、 `_unimplemented` 不要分はゼロ
-- [ ] audit 5 種 + pytest 全 green (sev≥3 = 0、 cardqa missing = 0、 strictness 10/10)
+- [ ] **① engine 対応**: `test_no_dead_entry_keys` green / `audit_dsl_primitives` で missing 0 / strictness 10/10
+- [ ] **② テキスト忠実**: `audit_overlay_vs_faq` sev≥3 = 0 / `verify_overlay_vs_cardqa` missing = 0
+- [ ] **③ 実対戦で正しい**: smoke NO_CHANGE/ERROR = 0 / pytest green / `fuzz_human_play` + `audit_runtime_invariants` で違反0 / 新カード入りデッキを実対戦で目視確認
 - [ ] FAQ/cardqa/banlist の diff 確認、 `onepiece-tcg-rules` の last_checked 更新
 - [ ] レギュレーション: 新 banlist 反映、 既存デッキの合法性確認
 - [ ] (必要なら) 画像 / メタデッキ / matrix 更新
