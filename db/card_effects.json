@@ -104413,5 +104413,96 @@
     }
    ]
   }
+ ],
+ "OP16-094": [
+  {
+   "_text": "OP16-094 【KO時】相手は自身の手札2枚を捨てる。",
+   "when": "on_ko",
+   "do": [
+    {
+     "force_opp_discard": 2
+    }
+   ]
+  },
+  {
+   "_text": "OP16-094 【起動メイン】【ターン1回】自分の《ワノ国》のリーダーかキャラ1枚にレストのドン!!1枚までを付与。",
+   "when": "activate_main",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "attach_rested_don": {
+      "target": {
+       "type": "one_self_chara_or_leader_filtered",
+       "filter": {
+        "feature": "ワノ国"
+       }
+      },
+      "count": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-097": [
+  {
+   "_text": "OP16-097 【登場時】トラッシュからコスト6以下の《ワノ国》キャラ1枚までを手札へ→手札からコスト2以下のキャラ1枚までを登場。",
+   "when": "on_play",
+   "do": [
+    {
+     "search_from_trash": {
+      "filter": {
+       "category": "CHARACTER",
+       "feature": "ワノ国",
+       "cost_le": 6
+      },
+      "count": 1
+     }
+    },
+    {
+     "play_from_hand": {
+      "filter": {
+       "cost_le": 2
+      },
+      "limit": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-098": [
+  {
+   "_text": "OP16-098 【登場時】カード1枚を引き、自分の手札1枚を捨てる。",
+   "when": "on_play",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-098 【起動メイン】このキャラをトラッシュ：トラッシュからコスト8の黒の「ヤマト」1枚までを登場。",
+   "when": "activate_main",
+   "cost": {
+    "trash_self": true
+   },
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "category": "CHARACTER",
+       "name": "ヤマト",
+       "cost_eq": 8,
+       "color": "黒"
+      },
+      "limit": 1
+     }
+    }
+   ]
+  }
  ]
 }
