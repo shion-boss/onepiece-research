@@ -104604,5 +104604,317 @@
     }
    ]
   }
+ ],
+ "OP16-019": [
+  {
+   "_text": "OP16-019 【メイン】手札からパワー8000の『白ひげ海賊団』を含む特徴のキャラ2枚までを登場。",
+   "when": "main",
+   "do": [
+    {
+     "play_from_hand": {
+      "filter": {
+       "category": "CHARACTER",
+       "power_eq": 8000,
+       "feature_contains": "白ひげ海賊団"
+      },
+      "limit": 2
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-019 【トリガー】自リーダーをこのターン中パワー+1000。",
+   "when": "trigger",
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_leader",
+      "amount": 1000,
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-020": [
+  {
+   "_text": "OP16-020 【メイン】ドン!!1枚レスト+手札のパワー8000キャラ1枚公開：カード1枚を引く。",
+   "when": "main",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       },
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-020 【カウンター】手札1枚を捨てる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。",
+   "when": "counter",
+   "cost": {
+    "discard_hand": 1
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_inplay",
+      "amount": 3000,
+      "duration": "battle"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-021": [
+  {
+   "_text": "OP16-021 【登場時】リーダーが《白ひげ海賊団》なら、デッキ上3を見て1枚を手札に、残りをデッキ下。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "白ひげ海賊団"
+   },
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 3,
+      "filter": {},
+      "limit": 1,
+      "destination": "hand",
+      "rest_remain": "bottom"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-021 【起動メイン】このステージをトラッシュ：自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与。",
+   "when": "activate_main",
+   "cost": {
+    "trash_self": true
+   },
+   "do": [
+    {
+     "attach_rested_don": {
+      "target": "self_inplay_choice",
+      "count": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-039": [
+  {
+   "_text": "OP16-039 【メイン】自分の「ルフィ」1枚までにダブルアタック(turn)。その後リーダーが《インペルダウン》なら相手コスト3以下キャラ2枚までをレスト。",
+   "when": "main",
+   "do": [
+    {
+     "give_keyword": {
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "name": "モンキー・Ｄ・ルフィ"
+       },
+       "limit": 1
+      },
+      "keyword": "ダブルアタック",
+      "duration": "turn"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "leader_feature": "インペルダウン"
+      },
+      "do": [
+       {
+        "rest_multi": {
+         "target": "any_opponent_character_cost_le_3cost",
+         "count": 2
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-039 【トリガー】相手のリーダーをレストにする。",
+   "when": "trigger",
+   "do": [
+    {
+     "rest": "opponent_leader"
+    }
+   ]
+  }
+ ],
+ "OP16-040": [
+  {
+   "_text": "OP16-040 【メイン】「ルフィ」と「Mr.3(ギャルディーノ)」がいる場合、相手のレストのコスト6以下キャラ1枚までは次の相手リフレッシュでアクティブにならない。",
+   "when": "main",
+   "if": {
+    "self_field_named_all_with_power": {
+     "names": [
+      "モンキー・Ｄ・ルフィ",
+      "Mr.3(ギャルディーノ)"
+     ]
+    }
+   },
+   "do": [
+    {
+     "keep_opp_rested_chara_next_refresh": {
+      "target": "one_opponent_rested_character_cost_le_6cost"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-040 【カウンター】自分のリーダーをこのバトル中パワー+3000。",
+   "when": "counter",
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_leader",
+      "amount": 3000,
+      "duration": "battle"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-057": [
+  {
+   "_text": "OP16-057 【カウンター】「インペルダウンの囚人」が2枚以上なら、自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+   "when": "counter",
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "name": "インペルダウンの囚人"
+     },
+     "count": 2
+    }
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_inplay",
+      "amount": 4000,
+      "duration": "battle"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-057 【トリガー】カード2枚を引き、自分の手札1枚を捨てる。",
+   "when": "trigger",
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ]
+  }
+ ],
+ "OP16-058": [
+  {
+   "_text": "OP16-058 【メイン】場のドン!!が10枚なら「インペルダウンの囚人」すべてを、このターン中、元々のパワー7000。",
+   "when": "main",
+   "if": {
+    "self_don_count_eq": 10
+   },
+   "do": [
+    {
+     "set_base_power_timed": {
+      "target": {
+       "type": "all_self_chara_named",
+       "name": "インペルダウンの囚人"
+      },
+      "amount": 7000,
+      "duration": "turn"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-058 【カウンター】自分の「バギー」1枚までを、このバトル中、パワー+4000。",
+   "when": "counter",
+   "do": [
+    {
+     "power_pump": {
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "name": "バギー"
+       },
+       "limit": 1
+      },
+      "amount": 4000,
+      "duration": "battle"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-059": [
+  {
+   "_text": "OP16-059 【メイン】ドン!!7枚レスト：デッキ上5を見て、パワー6000以下の《インペルダウン》キャラ2枚までを登場、残りをデッキ下。",
+   "when": "main",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 7
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "category": "CHARACTER",
+          "feature": "インペルダウン",
+          "power_le": 6000
+         },
+         "limit": 2,
+         "destination": "play",
+         "rest_remain": "bottom"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-059 【カウンター】自分のリーダーをこのバトル中パワー+3000。",
+   "when": "counter",
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_leader",
+      "amount": 3000,
+      "duration": "battle"
+     }
+    }
+   ]
+  }
  ]
 }
