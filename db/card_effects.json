@@ -103265,5 +103265,165 @@
     }
    ]
   }
+ ],
+ "OP16-044": [],
+ "OP16-046": [],
+ "OP16-048": [
+  {
+   "_text": "OP16-048 【登場時】自分のリーダーが《インペルダウン》を持つ場合、カード1枚を引き、手札から「インペルダウンの囚人」1枚までを登場。",
+   "when": "on_play",
+   "if": {
+    "leader_feature": "インペルダウン"
+   },
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-048 【ターン1回】相手がアタックした時：自分の「インペルダウンの囚人」1枚までは、このターン中、【ブロッカー】を得る。",
+   "when": "opp_attack",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "give_keyword": {
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "name": "インペルダウンの囚人"
+       },
+       "limit": 1
+      },
+      "keyword": "ブロッカー",
+      "duration": "turn"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-049": [
+  {
+   "_text": "OP16-049 【起動メイン】このキャラをレストにできる：カード1枚を引く。",
+   "when": "activate_main",
+   "cost": {
+    "rest_self": true
+   },
+   "do": [
+    {
+     "draw": 1
+    }
+   ]
+  }
+ ],
+ "OP16-051": [
+  {
+   "_text": "OP16-051 【登場時】自分の手札が5枚以下の場合、カード2枚を引く。",
+   "when": "on_play",
+   "if": {
+    "self_hand_count_le": 5
+   },
+   "do": [
+    {
+     "draw": 2
+    }
+   ]
+  }
+ ],
+ "OP16-052": [
+  {
+   "_text": "OP16-052 【起動メイン】【ターン1回】自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与する。",
+   "when": "activate_main",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "attach_rested_don": {
+      "target": "self_inplay_choice",
+      "count": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-053": [
+  {
+   "_text": "OP16-053 【アタック時】自分の手札が6枚以下の場合、カード1枚を引く。",
+   "when": "on_attack",
+   "if": {
+    "self_hand_count_le": 6
+   },
+   "do": [
+    {
+     "draw": 1
+    }
+   ]
+  }
+ ],
+ "OP16-054": [
+  {
+   "_text": "OP16-054 【ドン!!×1】【自分のターン中】自分の手札が5枚以上ある場合、このキャラのパワー+3000。",
+   "when": "on_attached_don",
+   "n": 1,
+   "if": {
+    "self_turn": true,
+    "self_hand_count_ge": 5
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self_inplay",
+      "amount": 3000,
+      "duration": "static"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-054 【登場時】カード1枚を引く。",
+   "when": "on_play",
+   "do": [
+    {
+     "draw": 1
+    }
+   ]
+  }
+ ],
+ "OP16-055": [
+  {
+   "_text": "OP16-055 【登場時】カード1枚を引く。",
+   "when": "on_play",
+   "do": [
+    {
+     "draw": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP16-055 【ドン!!×1】【アタック時】このキャラの元々のパワーは、このターン中、相手のリーダーと同じパワーになる。",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 1
+   },
+   "do": [
+    {
+     "set_base_power_copy": {
+      "from_target": "opponent_leader",
+      "to_target": "self",
+      "duration": "turn"
+     }
+    }
+   ]
+  }
  ]
 }
