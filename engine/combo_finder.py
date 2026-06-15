@@ -245,17 +245,30 @@ def _detect_self_powerdown(text: str) -> Optional[int]:
     return _opp_powerdown_amount(text)
 
 
+_OWN_TURN_TRIGGERS = ("登場時", "アタック時", "起動メイン", "自分のターン中")
+_OPP_TURN_TRIGGERS = ("相手のターン中", "ブロック時", "トリガー")
+
+
 def _powerdown_on_own_turn(text: str) -> bool:
     """『相手キャラのパワーを下げる』 効果が自分のターン (= 攻撃時) に有効か。
-    ⚠ 2026-06-14 ユーザー指摘: シャンクス OP14-027 の -1000 は【相手のターン中】 限定(守備用)で、
-    自ターンの【アタック時】KO(ペル)には噛まない。 下げの直前 timing が【相手のターン中】 なら不可。"""
+    ⚠ 2026-06-14: シャンクス OP14-027 の -1000 は【相手のターン中】 限定(守備用)で、
+    自ターンの【アタック時】KO(ペル)には噛まない → 下げ直前の timing が【相手のターン中】 なら不可。
+    ⚠ 2026-06-15: 旧実装は【自分/相手のターン中】 しか見ず、 EB04-001 の【起動メイン】-1000
+    (= 自ターン) が直前の【相手のターン中】 節に引っ張られ opp-turn 誤判定 → 有効な下げ役を
+    enabler から誤除外していた。 【起動メイン/登場時/アタック時】 等も timing trigger として扱う。"""
     own = False
     found = False
     for m in re.finditer(r"パワー[-－]\d{3,5}", text):
         found = True
-        markers = re.findall(r"【(自分のターン中|相手のターン中)】", text[: m.start()])
-        if not (markers and markers[-1] == "相手のターン中"):
-            own = True
+        # 下げの手前にある timing trigger のうち最も近いものを採る (= 【ターン1回】等の
+        # 非 timing 修飾は無視)。 直近が【相手のターン中】系なら相手ターン限定。
+        timing = ""
+        for b in re.findall(r"【([^】]+)】", text[: m.start()]):
+            if b in _OWN_TURN_TRIGGERS or b in _OPP_TURN_TRIGGERS:
+                timing = b
+        if timing in _OPP_TURN_TRIGGERS:
+            continue  # この下げは相手ターン限定 (= 自ターンのKOに噛まない)
+        own = True  # 自ターン trigger / メイン / 静的 → 自ターンに使える
     return own or not found
 
 
@@ -872,9 +885,11 @@ def find_combos(
                 cards=cards[:per_group],
             ))
 
-    # ①b 双方向: anchor が相手パワーを下げる → その下げを活かす KO ペイオフ
+    # ①b 双方向: anchor が相手パワーを下げる → その下げを活かす KO ペイオフ。
+    #    ⚠ 下げが【相手のターン中】 限定 (= 守備用、 OP15-001 等) だと、 自ターンに撃つ
+    #    「パワーX以下KO」 ペイオフには噛まないので payoff 群を作らない (= enabler と対称)。
     pd = _detect_self_powerdown(text)
-    if pd is not None:
+    if pd is not None and _powerdown_on_own_turn(text):
         cards = _boosted(_match_payoff_for_powerdown(anchor, all_cards, pd))
         synergy_pool += cards
         if cards:

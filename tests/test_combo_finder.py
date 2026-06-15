@@ -81,6 +81,27 @@ def test_anchor_own_parallel_excluded(repo):
             assert all(_base_id(s.card_id) != anchor_base for s in ch.steps[1:])
 
 
+def test_powerdown_own_turn_recognizes_activate_main():
+    """【起動メイン】等の自ターン trigger は、 手前に【相手のターン中】 節があっても自ターン扱い。"""
+    from engine.combo_finder import _powerdown_on_own_turn
+
+    # EB04-001 風: 【相手のターン中】+2000 の後に【起動メイン】相手-1000 → 自ターンに使える
+    t = ("【相手のターン中】自分のライフが1枚以下の場合、このリーダーのパワー+2000。"
+         "【起動メイン】【ターン1回】相手のキャラ1枚までを、このターン中、パワー-1000。")
+    assert _powerdown_on_own_turn(t) is True
+    # 相手ターン限定の下げ (シャンクス OP14-027 風) は自ターン不可
+    t2 = "【相手のターン中】このキャラがレストの場合、相手のキャラすべてを、パワー-2000。"
+    assert _powerdown_on_own_turn(t2) is False
+
+
+def test_payoff_not_built_for_opp_turn_only_powerdown(repo):
+    """下げが【相手のターン中】 限定 (= 守備) の anchor には payoff 群を作らない。
+    ⚠ 2026-06-15 検出: OP15-001/OP14-027/OP07-071/OP03-015 に bogus payoff が出ていた。"""
+    for cid in ("OP15-001", "OP14-027", "OP07-071", "OP03-015"):
+        res = find_combos(repo, cid, per_group=8)
+        assert not any(g.key == "payoff" for g in res.groups), f"{cid} に opp-turn payoff 誤生成"
+
+
 def test_opp_powerdown_excludes_self_and_cost():
     """相手を下げる量だけを取り、 自己デバフ/コストの -X は採らない。"""
     from engine.combo_finder import _opp_powerdown_amount
