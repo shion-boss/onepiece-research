@@ -103431,8 +103431,46 @@
  "OP16-062": [],
  "OP16-086": [],
  "OP16-088": [],
- "OP16-105": [],
- "OP16-111": [],
+ "OP16-105": [
+  {
+   "_text": "OP16-105 【トリガー】自ライフ1以下：トラッシュからコスト4以下の「アブサロム」「ドクトル・ホグバック」「ペローナ」それぞれ1枚ずつまでを登場。",
+   "when": "trigger",
+   "if": {
+    "self_life_le": 1
+   },
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "category": "CHARACTER",
+       "cost_le": 4,
+       "name_in": [
+        "アブサロム",
+        "ドクトル・ホグバック",
+        "ペローナ"
+       ]
+      },
+      "unique_name": true,
+      "limit": 3
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-111": [
+  {
+   "_text": "OP16-111 【トリガー】自ライフ2以下：このカードを登場させる。",
+   "when": "trigger",
+   "if": {
+    "self_life_le": 2
+   },
+   "do": [
+    {
+     "play_self": true
+    }
+   ]
+  }
+ ],
  "OP16-112": [],
  "OP16-064": [
   {
@@ -104501,6 +104539,68 @@
       },
       "limit": 1
      }
+    }
+   ]
+  }
+ ],
+ "OP16-106": [
+  {
+   "_text": "OP16-106 【KO時】リーダーが《黒ひげ海賊団》なら、1引き、自分のリーダーかキャラ1枚までを、このターン中、元々のパワー7000にする。",
+   "when": "on_ko",
+   "if": {
+    "leader_feature": "黒ひげ海賊団"
+   },
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "set_base_power_timed": {
+      "target": "self_inplay",
+      "amount": 7000,
+      "duration": "turn"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-106 【トリガー】このカードの【KO時】効果を発動する。",
+   "when": "trigger",
+   "do": [
+    {
+     "fire_self_effect": {
+      "when_kind": "on_ko"
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-113": [
+  {
+   "_text": "OP16-113 【常在】自ライフ2以下：このキャラは【ブロッカー】を得る。",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "self_life_le": 2
+   },
+   "do": [
+    {
+     "give_keyword": {
+      "target": "self",
+      "keyword": "ブロッカー"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-113 【トリガー】リーダーが《九蛇海賊団》なら、このカードを登場させる。",
+   "when": "trigger",
+   "if": {
+    "leader_feature": "九蛇海賊団"
+   },
+   "do": [
+    {
+     "play_self": true
     }
    ]
   }
