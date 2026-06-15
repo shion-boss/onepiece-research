@@ -102813,5 +102813,51 @@
     }
    ]
   }
+ ],
+ "OP16-080": [
+  {
+   "_text": "OP16-080 マーシャル・D・ティーチ: 【相手のターン中】自分のキャラすべてを、コスト+1。",
+   "when": "static",
+   "do": [],
+   "_missing_effect": "相手ターン中の自キャラ全体への静的コスト+1 は engine 未対応 (= 相手ターン限定で場のキャラに静的コスト修正を付与する機構が必要、 InPlay.cost は cost_minus のみ反映)。 下の redirect は実装済。"
+  },
+  {
+   "_text": "OP16-080 ティーチ: 【相手のアタック時】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：そのアタックの対象をこのリーダーか自分の特徴《黒ひげ海賊団》を持つキャラにする。",
+   "when": "opp_attack",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "filter": {
+          "trigger": true
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "redirect_attack": {
+         "candidates": [
+          "self_leader",
+          {
+           "type": "all_self_chara_filtered",
+           "filter": {
+            "feature": "黒ひげ海賊団"
+           }
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
  ]
 }

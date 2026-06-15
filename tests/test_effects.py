@@ -4280,3 +4280,21 @@ def test_op16_079_yamato_rush_to_wano_from_trash_only():
     me3.hand = [repo.get("PRB02-016")]
     execute_effect({"play_from_hand": {"filter": {"feature": "ワノ国"}, "limit": 1}}, state3, me3, opp3, None)
     assert me3.characters[0].summoning_sickness is True
+
+
+def test_op16_080_teach_redirect_targets_leader_or_kurohige():
+    """OP16-080 ティーチ 【相手のアタック時】効果の redirect 対象 = このリーダー or 《黒ひげ海賊団》キャラ。
+    (= discard-【トリガー】cost 部は OP09-062 で実証済の optional_cost_then+discard_hand_with_filter)。"""
+    from engine.effects import execute_effect
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP16-080", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    state.human_player_idx = None  # AI が候補選択
+    kuro = InPlay.of(repo.get("OP09-093"), sickness=False)  # 黒ひげ海賊団 キャラ
+    me.characters = [kuro]
+    execute_effect(
+        {"redirect_attack": {"candidates": ["self_leader",
+            {"type": "all_self_chara_filtered", "filter": {"feature": "黒ひげ海賊団"}}]}},
+        state, me, opp, None,
+    )
+    assert state.pending_attack_redirect in (me.leader.instance_id, kuro.instance_id)
