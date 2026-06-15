@@ -104166,5 +104166,119 @@
    "do": [],
    "optional": true
   }
+ ],
+ "OP16-043": [
+  {
+   "_text": "OP16-043 【KO時】《ドレスローザ》のリーダーかステージ1枚をレスト：相手のコスト5以下のキャラ1枚までを持ち主の手札に戻す。",
+   "when": "on_ko",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_cards_filtered": {
+         "count": 1,
+         "filter": {
+          "feature": "ドレスローザ",
+          "category_in": [
+           "LEADER",
+           "STAGE"
+          ]
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "return_to_hand": "one_opponent_character_cost_le_5cost"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-045": [
+  {
+   "_text": "OP16-045 【登場時】自分のコスト2以上のキャラ1枚を手札に戻す：手札からコスト2以下の《インペルダウン》キャラ1枚までを登場。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_chara_to_hand": {
+         "count": 1,
+         "filter": {
+          "cost_ge": 2
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "feature": "インペルダウン",
+          "cost_le": 2
+         },
+         "limit": 1
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-050": [
+  {
+   "_text": "OP16-050 【登場時】自分のコスト2以上のキャラ1枚を手札に戻す：カード2枚を引き、自分の手札1枚を捨てる。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_chara_to_hand": {
+         "count": 1,
+         "filter": {
+          "cost_ge": 2
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 2
+       },
+       {
+        "trash_self_hand_random": 1
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-056": [
+  {
+   "_text": "OP16-056 【起動メイン】このキャラをトラッシュに置く：カード2枚を引き、相手のコスト9以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+   "when": "activate_main",
+   "cost": {
+    "trash_self": true
+   },
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "set_cannot_attack": {
+      "target": "one_opponent_character_cost_le_9cost",
+      "duration": "next_opp_turn_end"
+     }
+    }
+   ]
+  }
  ]
 }
