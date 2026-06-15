@@ -124,6 +124,33 @@ def test_event_anchor_no_character_cost_reduction(repo):
     assert "OP02-025" not in ids
 
 
+def test_ko_on_own_turn_classifies_event_main_ko():
+    """KO の timing を 直近 trigger で判定 (= 【メイン】KO は自ターン、 【カウンター】KO は相手ターン)。"""
+    from engine.combo_finder import _ko_on_own_turn
+
+    assert _ko_on_own_turn("【メイン】相手のパワー3000以下のキャラ1枚を、KOする。") is True
+    assert _ko_on_own_turn("【アタック時】相手のパワー5000以下のキャラをKO。") is True
+    assert _ko_on_own_turn("【カウンター】相手のパワー4000以下のキャラ1枚をKOする。") is False
+    assert _ko_on_own_turn("【相手のターン中】相手のパワー6000以下をKO。") is False
+
+
+def test_event_ko_excludes_opp_turn_only_downer(repo):
+    """自ターンに撃つ【メイン】KO (神の裁き) に、 相手ターン限定の下げ役 (クリーク) を
+    enabler として混入させない。 ⚠ 2026-06-15 検出: anchor が【アタック時】 以外だと timing
+    gate が効かず、 /combos・deckコンボ両方で誤混入していた共有バグ。"""
+    res = find_combos(repo, "OP15-075", per_group=30)  # 神の裁き (【メイン】KO)
+    enab = _group(res, "enabler")
+    ids = [c.card_id for c in (enab.cards if enab else [])]
+    assert "OP15-001" not in ids  # クリーク (【相手のターン中】-2000) は噛まない
+    # find_deck_combos (= 同じ matcher) でも同様に除外される
+    from engine.combo_finder import find_deck_combos
+    deck = [repo._by_id[i] for i in ("OP15-075", "OP15-061", "OP15-001")]
+    edges = find_deck_combos(deck, repo._by_id["OP15-058"]).edges
+    assert not any(
+        e.kind in ("enabler", "payoff") and "OP15-001" in (e.a_id, e.b_id) for e in edges
+    )
+
+
 def test_powerdown_own_turn_recognizes_activate_main():
     """【起動メイン】等の自ターン trigger は、 手前に【相手のターン中】 節があっても自ターン扱い。"""
     from engine.combo_finder import _powerdown_on_own_turn

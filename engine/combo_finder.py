@@ -310,6 +310,29 @@ def _powerdown_on_own_turn(text: str) -> bool:
     return own or not found
 
 
+# KO効果の timing 用 opp-turn trigger (= power-down 用 + カウンター。 カウンターは相手の
+# アタック中に解決するので「相手ターン」 扱い)。
+_KO_OPP_TURN_TRIGGERS = _OPP_TURN_TRIGGERS + ("カウンター",)
+
+
+def _ko_on_own_turn(text: str) -> bool:
+    """KO閾値効果が自分のターンに解決するか (= 相手ターン限定の下げ役が噛むかの判定基準)。
+
+    ⚠ 2026-06-15: 旧 enabler/chain は anchor が【アタック時】 持ちの時だけ opp-turn 下げ役を
+    除外していたため、 神の裁き (= 【メイン】KO、 自ターン) に クリーク (= 【相手のターン中】
+    -2000) が enabler として誤混入していた (= /combos・deckコンボ両方で同一バグ)。 KO 直前の
+    最近 timing trigger が opp-turn 系 (【相手のターン中/ブロック時/トリガー/カウンター】) なら
+    相手ターン KO、 それ以外 (= メイン/登場時/アタック時/起動メイン/静的) は自ターン KO とみなす。"""
+    m = re.search(r"(KO|ＫＯ)", text)
+    if not m:
+        return True
+    timing = ""
+    for b in re.findall(r"【([^】]+)】", text[: m.start()]):
+        if b in _OWN_TURN_TRIGGERS or b in _KO_OPP_TURN_TRIGGERS:
+            timing = b
+    return timing not in _KO_OPP_TURN_TRIGGERS
+
+
 def _is_attacker_trigger(text: str) -> bool:
     return "【アタック時】" in text
 
@@ -368,7 +391,7 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
     anchor_feats = _features(anchor)
     anchor_colors = set(_colors(anchor))
     # anchor の KO が自分のターン (= 【アタック時】) なら、 相手ターン限定の下げ役は噛まない。
-    anchor_own_turn = "【アタック時】" in _text(anchor)
+    anchor_own_turn = _ko_on_own_turn(_text(anchor))
     out: list[ComboCard] = []
     for c in all_cards:
         if c.card_id == anchor.card_id:
@@ -738,7 +761,7 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
     ⚠ ユーザー指摘の「海ネコ(条件付下げ役) は自リーダー0が要る = 3枚コンボ」 を明示化する。"""
     if ko_t is None:
         return []
-    anchor_own_turn = "【アタック時】" in _text(anchor)
+    anchor_own_turn = _ko_on_own_turn(_text(anchor))
     cond_enablers = []
     for c in all_cards:
         if c.card_id == anchor.card_id:
