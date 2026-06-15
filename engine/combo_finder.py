@@ -201,6 +201,23 @@ def _has_on_play(text: str) -> bool:
     return "【登場時】" in text
 
 
+def _grants_rush_to_others(text: str) -> bool:
+    """『他のキャラに【速攻】を付与する』 効果か。
+    ⚠ 2026-06-14 ユーザー指摘: クリエル等の「このキャラは【速攻】を得る」 (= 自身のみ) は
+    anchor に速攻を与えないので False。 「キャラ1枚は…【速攻】」「【速攻】を与える」 等は True。"""
+    if "【速攻】" not in text:
+        return False
+    for m in re.finditer(r"【速攻】", text):
+        pre = text[max(0, m.start() - 30):m.start()]
+        post = text[m.start():m.start() + 10]
+        if "与え" in post:  # 「【速攻】を与える」 = 対象に付与
+            return True
+        cleaned = pre.replace("このキャラ", "")  # 自身言及を除いた上で他キャラ対象があるか
+        if "を持つキャラ" in cleaned or re.search(r"キャラ\d*枚?(まで)?[はに]", cleaned):
+            return True
+    return False
+
+
 # --------------------------------------------------------------------------- #
 # matcher 群 (= 各軸で候補 + score + reason を生成)
 # --------------------------------------------------------------------------- #
@@ -331,8 +348,8 @@ def _match_amplifier(anchor, all_cards) -> list[ComboCard]:
         if c.card_id == anchor.card_id:
             continue
         t = _text(c)
-        if "【速攻】" not in t or not ("得る" in t or "付与" in t or "与え" in t):
-            continue
+        if not _grants_rush_to_others(t):
+            continue  # 「このキャラは【速攻】を得る」 (= 自身のみ、 anchor に付与しない) を除外
         s_color = 1.5 if anchor_colors & set(_colors(c)) else 0.0
         s_cost = _cost_eff(c) * 1.5
         s_consist = _consistency(c) * 1.0

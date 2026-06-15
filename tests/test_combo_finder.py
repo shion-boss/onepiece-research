@@ -205,6 +205,22 @@ def test_chain_excludes_incompatible_and_sums_debuff(repo):
     assert "合計" in target.description or "10000" in target.description
 
 
+def test_amplifier_excludes_self_only_rush(repo):
+    """『このキャラは【速攻】を得る』(= 自身のみ) は anchor に付与しないので amplifier 除外。
+    『キャラ1枚は【速攻】』『【速攻】を与える』(= 他付与) は含む (= ユーザー指摘の クリエル)。"""
+    from engine.combo_finder import _grants_rush_to_others
+
+    assert not _grants_rush_to_others("【ドン!!×1】このキャラは【速攻】を得る。")
+    assert _grants_rush_to_others("自分のキャラ1枚までは、このターン中、【速攻】を得る。")
+    assert _grants_rush_to_others("自分のキャラ1枚までに、【速攻】を与える。")
+    res = find_combos(repo, "OP04-013", per_group=30)
+    amp = next((g for g in res.groups if g.key == "amplifier"), None)
+    if amp:
+        ids = {c.card_id for c in amp.cards}
+        assert "OP03-004" not in ids  # クリエル (自身のみ)
+        assert "OP14-004" not in ids  # キャベンディッシュ (自身のみ)
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
