@@ -427,6 +427,9 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
     anchor_cost = _cost(anchor)
     anchor_name = anchor.name
     anchor_colors = set(_colors(anchor))
+    # 「登場させる」 (= 踏み倒し) はキャラのみ。 イベント/ステージは『登場』 しない
+    # (= 手札サーチは可)。 ⚠ 2026-06-15: EVENT anchor に「《X》を踏み倒し登場」 が 1113 件混入。
+    anchor_is_char = _category(anchor) == "CHARACTER"
     out: list[ComboCard] = []
     for c in all_cards:
         if c.card_id == anchor.card_id:
@@ -449,7 +452,7 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         if ("手札に加える" in t or "公開" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok:
             kind = "search"
             reason = (f"《{feat_hit}》" if feat_hit else f"「{anchor_name}」") + f"をサーチ → {anchor_name}を引ける"
-        elif "登場させる" in t and (named or feat_hit) and cost_ok:
+        elif "登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok:
             kind = "cheat"
             reason = (f"「{anchor_name}」" if named else f"《{feat_hit}》(コスト{anchor_cost})") + f"を踏み倒し登場"
         elif ("コスト" in t and ("少なくなる" in t or "減" in t)) and (named or feat_hit):

@@ -81,6 +81,17 @@ def test_anchor_own_parallel_excluded(repo):
             assert all(_base_id(s.card_id) != anchor_base for s in ch.steps[1:])
 
 
+def test_event_anchor_no_cheat_summon(repo):
+    """イベント/ステージ anchor に「踏み倒し登場」 (= 登場させる) は提案しない。
+    ⚠ 2026-06-15 検出: EVENT に「《X》を踏み倒し登場」 が 1113 件混入していた
+    (= イベントは『登場』 しない)。 同特徴の相棒は tribal 群に出る。"""
+    # EB01-009「うるせェ!!!いこう!!!!」 = EVENT, 麦わらの一味
+    res = find_combos(repo, "EB01-009", per_group=30)
+    for g in res.groups:
+        for c in g.cards:
+            assert "踏み倒し登場" not in c.reason, f"EVENT に cheat 提案: {c.card_id}"
+
+
 def test_powerdown_own_turn_recognizes_activate_main():
     """【起動メイン】等の自ターン trigger は、 手前に【相手のターン中】 節があっても自ターン扱い。"""
     from engine.combo_finder import _powerdown_on_own_turn
