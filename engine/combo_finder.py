@@ -79,6 +79,12 @@ class ComboResult:
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+def _base_id(card_id: str) -> str:
+    """パラレル接尾 (= _p1 / _r1 / ...) を除いた base card_id。
+    同一カードの別アートを 1 つに畳む / anchor 自身の判定に使う。"""
+    return re.sub(r"_(p\d+|r\d+)$", "", card_id or "")
+
+
 def _cost(card) -> int:
     try:
         return int(card.cost)
@@ -488,7 +494,7 @@ def _match_romance(pool: list[ComboCard], anchor, ko_t) -> list[ComboCard]:
             continue
         if reason is None:
             reason = f"上振れ・大火力: {' / '.join(tags[:3])}（{anchor.name}とシナジーしつつ派手）"
-        base = re.sub(r"_(p\d+|r\d+)$", "", c.card_id)
+        base = _base_id(c.card_id)
         prev = best.get(base)
         if prev is None or flash > prev.score:
             best[base] = ComboCard(
@@ -666,7 +672,7 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
                     extra_total += _extra_opp_debuff(_text(sat2), anchor_feats)
                     steps.append(_chain_step(sat2, f"条件成立: {_CTYPE_LABEL.get(sctype, sctype)}"))
                     n_cards = 4
-            sig = tuple(re.sub(r"_(p\d+|r\d+)$", "", s.card_id) for s in steps)
+            sig = tuple(_base_id(s.card_id) for s in steps)
             if sig in seen:
                 continue
             seen.add(sig)
@@ -700,7 +706,7 @@ def _dedup_parallels(cards: list[ComboCard]) -> list[ComboCard]:
     seen: set[str] = set()
     out: list[ComboCard] = []
     for c in sorted(cards, key=lambda x: -x.score):
-        base = re.sub(r"_(p\d+|r\d+)$", "", c.card_id)
+        base = _base_id(c.card_id)
         if base in seen:
             continue
         seen.add(base)
@@ -737,9 +743,14 @@ def find_combos(
     anchor = by_id.get(card_id)
     if anchor is None:
         raise KeyError(f"unknown card_id: {card_id}")
+    anchor_base = _base_id(anchor.card_id)
     all_cards = list(by_id.values())
     if min_block_icon > 0:
         all_cards = [c for c in all_cards if _block_icon(c) >= min_block_icon]
+    # anchor 自身 (= パラレル別アート含む) は候補から除外。 同一カードをコンボ相手に
+    # 出すのは無意味 (= 「自分とサーチ/部族シナジー」 の嘘)。 ⚠ 2026-06-15 検出:
+    # 401 anchor 中 192 件で _p1/_r1 が tribal/accelerant/romance に混入していた。
+    all_cards = [c for c in all_cards if _base_id(c.card_id) != anchor_base]
     text = _text(anchor)
     anchor_colors = set(_colors(anchor))
     anchor_feats = _features(anchor)
@@ -791,7 +802,7 @@ def find_combos(
     cooc_cards: list[ComboCard] = []
     for d in _cooc:
         c = by_id.get(d["card_id"])
-        if c is None or c.card_id == anchor.card_id:
+        if c is None or _base_id(c.card_id) == anchor_base:
             continue
         if min_block_icon > 0 and _block_icon(c) < min_block_icon:
             continue

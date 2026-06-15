@@ -62,6 +62,25 @@ def test_anchor_excluded_from_results(repo):
         assert all(c.card_id != "OP04-013" for c in g.cards)
 
 
+def test_anchor_own_parallel_excluded(repo):
+    """anchor 自身のパラレル別アート (= _p1/_r1) は候補に出さない。
+    ⚠ 2026-06-15 検出: PRB02-012 ナミ の accelerant に PRB02-012_p1 が
+    「自分をサーチ」 として混入していた (= 同一カードのコンボは嘘)。"""
+    from engine.combo_finder import _base_id
+
+    for anchor_id in ("PRB02-012", "OP05-004", "OP04-013"):
+        res = find_combos(repo, anchor_id, per_group=30)
+        anchor_base = _base_id(anchor_id)
+        for g in res.groups:
+            assert all(
+                _base_id(c.card_id) != anchor_base for c in g.cards
+            ), f"{anchor_id}: self-parallel leaked into [{g.key}]"
+        # チェーンは step0 が anchor 本体 (= ペイオフ) なので、 それ以外の step に
+        # anchor のパラレルが混ざっていないことだけ確認する。
+        for ch in res.chains:
+            assert all(_base_id(s.card_id) != anchor_base for s in ch.steps[1:])
+
+
 def test_offcolor_leader_filter_unit():
     """指定色を含まないリーダーは除外、 含むリーダー/非リーダーは残る。"""
     from engine.combo_finder import ComboCard, _filter_offcolor_leaders
