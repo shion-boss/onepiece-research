@@ -272,8 +272,10 @@ onepiece_research/
 | `/api/decks` | POST | レシピ保存 → `decks/<slug>.json` (validate 必須、409/422 返す) |
 | `/api/decks/validate` | POST | レシピ検証のみ (UI リアルタイム用) |
 | `/api/decks/build` | POST | コアカード固定型 自動構築 |
+| `/api/decks/generate` | POST | デッキ自動生成 (使いたいカード≤5 固定 + コンボ相棒引込 + combo_strength/target/meta 勝率でランク、 `engine/deck_generator.py`) |
 | `/api/decks/{slug}` | GET | デッキ単体 (raw JSON) |
-| `/api/decks/{slug}/analyze` | GET | デッキ分析(色配分・コストカーブ・効果密度) |
+| `/api/decks/{slug}/analyze` | GET | デッキ分析(色配分・コストカーブ・効果密度 + **デッキ内コンボ/サーチ加速** `combos[]`) |
+| `/api/combos/{card_id}` | GET | コンボ探索 (任意カード→相性カードを型別ランク、 `engine/combo_finder.py`、 `?per_group=&regulation=`) |
 | `/api/decks/{slug}` | PUT | デッキ上書き保存 (validate 必須) |
 | `/api/decks/{slug}` | DELETE | デッキ削除 (`cardrush_*` は保護) |
 | `/api/match` | POST | 対戦実行 `{deck_a/deck_b or deck_a_id/deck_b_id, n_games, seed}` |
