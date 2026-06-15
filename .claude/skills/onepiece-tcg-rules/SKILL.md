@@ -1,7 +1,7 @@
 ---
 name: onepiece-tcg-rules
 description: ワンピースカードゲームの公式ルールリファレンス + Q&A + 禁止/制限カード集。engine 実装、効果オーバーレイ追加、ルール裁定、デッキ構築チェックが必要な時に参照する。Bandai 公式 PDF + 公式 FAQ (140件) + cardqa (2,500+ 件) + 禁止リスト ベース。
-last_checked: 2026-05-10
+last_checked: 2026-06-15
 sources:
   - rule_manual_20251201.pdf (v1.11)
   - rule_comprehensive_20260109.pdf (v1.2.0)
