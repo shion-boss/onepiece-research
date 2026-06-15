@@ -81,6 +81,29 @@ def test_anchor_own_parallel_excluded(repo):
             assert all(_base_id(s.card_id) != anchor_base for s in ch.steps[1:])
 
 
+def test_feature_target_character_restricted_unit(repo):
+    """『《X》を持つキャラカード』 サーチは character 限定、 『《X》を持つカード』 は非限定。"""
+    from engine.combo_finder import _feature_target_is_character_restricted as restr
+
+    t_char = "デッキの上から4枚を見て、特徴《超新星》か《麦わらの一味》を持つキャラカード1枚までを公開し、手札に加える。"
+    assert restr(t_char, "超新星") is True       # AかB リストでも キャラ を拾う
+    assert restr(t_char, "麦わらの一味") is True
+    t_any = "「ジンベエ」以外の特徴《王下七武海》を持つカード1枚までを公開し、手札に加える。"
+    assert restr(t_any, "王下七武海") is False    # 「カード」 (キャラ無し) は非限定
+    # 条件節「リーダーが《X》を持つ場合」 は検索動詞が同文に無いので誤判定しない
+    t_cond = "相手のキャラ1枚をKO。自分のリーダーが特徴《海軍》を持つ場合、カード1枚を引く。"
+    assert restr(t_cond, "海軍") is False
+
+
+def test_event_anchor_no_kyara_restricted_search(repo):
+    """イベント anchor に『キャラカード限定』 サーチを提案しない (= イベントは拾えない)。"""
+    # OP13-038 ゴムゴムの象銃 (EVENT 麦わらの一味) に OP14-019 (キャラカードサーチ) を出さない
+    res = find_combos(repo, "OP13-038", per_group=30)
+    acc = _group(res, "accelerant")
+    ids = [c.card_id for c in (acc.cards if acc else [])]
+    assert "OP14-019" not in ids
+
+
 def test_event_anchor_no_cheat_summon(repo):
     """イベント/ステージ anchor に「踏み倒し登場」 (= 登場させる) は提案しない。
     ⚠ 2026-06-15 検出: EVENT に「《X》を踏み倒し登場」 が 1113 件混入していた

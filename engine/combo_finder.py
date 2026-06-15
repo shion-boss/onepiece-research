@@ -385,6 +385,32 @@ def _target_cost_limit(text: str, ref_pos: int) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
+_SEARCH_VERBS = ("公開", "手札に加える", "登場させ")
+
+
+def _feature_target_is_character_restricted(text: str, feat: Optional[str]) -> bool:
+    """特徴《feat》 を対象にとる検索/踏み倒しが『キャラ』 に限定されているか。
+
+    ⚠ 2026-06-15 検出: 「《麦わらの一味》を持つキャラカード…手札に加える」 はキャラしか拾えないのに
+    イベント anchor (= 同特徴) に「サーチで引ける」 と誤提案 (249件)。 一方 PRB02-007 の
+    「《王下七武海》を持つカード」 (キャラ無し) はイベントも拾えるので除外しない。
+    《feat》 の各出現について、 同じ文 (= 次の 。 まで) に検索動詞があり、 その手前に『キャラ』 が
+    あれば character 限定。 文+検索動詞で scope することで、 「AかB を持つキャラカード」 の
+    リスト (= 動詞が離れる) を拾いつつ、 条件節「リーダーが《feat》を持つ場合」 (= 検索動詞無し)
+    を誤判定しない。"""
+    if not feat:
+        return False
+    for m in re.finditer(re.escape(f"《{feat}》"), text):
+        end = text.find("。", m.end())
+        sent = text[m.end(): end if end >= 0 else len(text)]
+        verb_positions = [sent.find(v) for v in _SEARCH_VERBS if v in sent]
+        if not verb_positions:
+            continue  # この出現は検索の対象でない (= 条件節等)
+        if "キャラ" in sent[: min(verb_positions)]:
+            return True
+    return False
+
+
 def _match_tribal(anchor, all_cards) -> list[ComboCard]:
     """anchor の特徴を共有する相棒 + その特徴を強化するリーダー。"""
     anchor_feats = _features(anchor)
@@ -449,7 +475,9 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         )
         lim = _target_cost_limit(t, ref_pos)
         cost_ok = lim is None or anchor_cost <= lim
-        if ("手札に加える" in t or "公開" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok:
+        # キャラ限定サーチ (= 《X》を持つキャラカード) は非キャラ (イベント/ステージ) anchor を拾えない
+        char_ok = anchor_is_char or not _feature_target_is_character_restricted(t, feat_hit)
+        if ("手札に加える" in t or "公開" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok and char_ok:
             kind = "search"
             reason = (f"《{feat_hit}》" if feat_hit else f"「{anchor_name}」") + f"をサーチ → {anchor_name}を引ける"
         elif "登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok:
