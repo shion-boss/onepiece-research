@@ -215,6 +215,20 @@ def _detect_self_powerdown(text: str) -> Optional[int]:
     return d if d >= 1000 else None
 
 
+def _powerdown_on_own_turn(text: str) -> bool:
+    """『相手キャラのパワーを下げる』 効果が自分のターン (= 攻撃時) に有効か。
+    ⚠ 2026-06-14 ユーザー指摘: シャンクス OP14-027 の -1000 は【相手のターン中】 限定(守備用)で、
+    自ターンの【アタック時】KO(ペル)には噛まない。 下げの直前 timing が【相手のターン中】 なら不可。"""
+    own = False
+    found = False
+    for m in re.finditer(r"パワー[-－]\d{3,5}", text):
+        found = True
+        markers = re.findall(r"【(自分のターン中|相手のターン中)】", text[: m.start()])
+        if not (markers and markers[-1] == "相手のターン中"):
+            own = True
+    return own or not found
+
+
 def _is_attacker_trigger(text: str) -> bool:
     return "【アタック時】" in text
 
@@ -272,6 +286,8 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
     """anchor の KO 閾値を「相手パワーダウン」 で広げる相棒 (= ペル × 下げ役)。"""
     anchor_feats = _features(anchor)
     anchor_colors = set(_colors(anchor))
+    # anchor の KO が自分のターン (= 【アタック時】) なら、 相手ターン限定の下げ役は噛まない。
+    anchor_own_turn = "【アタック時】" in _text(anchor)
     out: list[ComboCard] = []
     for c in all_cards:
         if c.card_id == anchor.card_id:
@@ -285,6 +301,8 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
         debuff = int(m.group(1))
         if debuff < 1000:
             continue
+        if anchor_own_turn and not _powerdown_on_own_turn(t):
+            continue  # 相手ターン限定の下げ (= シャンクスOP14-027) は自ターンのKOに噛まない
         # ① シナジー強度: KO 閾値 + debuff で届く相手 power。 ただし ~7000 到達で飽和
         #    (= overkill は加点しない → 下げ幅最大の単発カードが不当に上位化するのを防ぐ)
         reach = ko_threshold + debuff
@@ -455,7 +473,7 @@ def _match_romance(pool: list[ComboCard], anchor, ko_t) -> list[ComboCard]:
     for c in pool:
         flash, tags = _romance_flashiness(c.text, c.category, c.power)
         reason = None
-        if ko_t is not None and "相手" in c.text:
+        if ko_t is not None and "相手" in c.text and _powerdown_on_own_turn(c.text):
             m = re.search(r"パワー[-－](\d{3,5})", c.text)
             if m and int(m.group(1)) >= 5000:
                 debuff = int(m.group(1))
@@ -587,6 +605,7 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
     ⚠ ユーザー指摘の「海ネコ(条件付下げ役) は自リーダー0が要る = 3枚コンボ」 を明示化する。"""
     if ko_t is None:
         return []
+    anchor_own_turn = "【アタック時】" in _text(anchor)
     cond_enablers = []
     for c in all_cards:
         if c.card_id == anchor.card_id:
@@ -598,6 +617,8 @@ def _build_condition_chains(anchor, all_cards, anchor_colors, anchor_feats, ko_t
             continue
         if not _leader_feature_compatible(t, anchor_feats):
             continue  # 要求リーダー特徴が非互換 → このデッキで発動しない
+        if anchor_own_turn and not _powerdown_on_own_turn(t):
+            continue  # 相手ターン限定の下げは自ターンのKOに噛まない
         m = re.search(r"パワー[-－](\d{3,5})", t)
         if not m:
             continue

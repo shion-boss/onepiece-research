@@ -279,6 +279,21 @@ def test_romance_group_surfaces_high_ceiling(repo):
     assert "OP01-027" not in {c.card_id for c in en.cards}
 
 
+def test_opponent_turn_powerdown_excluded(repo):
+    """相手ターン限定の下げ (= シャンクス OP14-027 の【相手のターン中】-1000) は、 自ターンの
+    KO (= ペル【アタック時】) に噛まないので enabler/romance から除外 (= ユーザー指摘)。"""
+    from engine.combo_finder import _powerdown_on_own_turn
+
+    assert not _powerdown_on_own_turn("【相手のターン中】相手のキャラすべてを、パワー-1000。")
+    assert _powerdown_on_own_turn("【アタック時】相手のキャラ1枚を、パワー-3000。")
+    assert _powerdown_on_own_turn("【メイン】相手のキャラ1枚を、パワー-10000。")  # 円卓
+    res = find_combos(repo, "OP04-013", per_group=30)
+    for key in ("enabler", "romance"):
+        g = next((gr for gr in res.groups if gr.key == key), None)
+        if g:
+            assert "OP14-027" not in {c.card_id for c in g.cards}
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
