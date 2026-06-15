@@ -13,6 +13,7 @@ type Tone = "neutral" | "brand" | "accent" | "success" | "warning" | "danger";
 
 const GROUP_TONE: Record<string, Tone> = {
   cooccurrence: "brand",
+  romance: "warning",
   enabler: "danger",
   payoff: "warning",
   accelerant: "accent",

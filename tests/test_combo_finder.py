@@ -263,6 +263,19 @@ def test_amplifier_respects_grant_target_restriction(repo):
         assert "OP12-007" not in ids  # 嘘 (ロジャー海賊団限定)
 
 
+def test_romance_group_surfaces_high_ceiling(repo):
+    """ロマン枠: 効率枠で沈む overkill (= 円卓 -10000=どんなサイズもKO) を ceiling 評価で
+    上位に surface する (= ユーザー要望のロマン枠)。"""
+    res = find_combos(repo, "OP04-013", per_group=8)
+    rom = next((g for g in res.groups if g.key == "romance"), None)
+    assert rom is not None and rom.cards
+    assert "OP01-027" in {c.card_id for c in rom.cards}  # 円卓 = ロマン上位
+    # 同じ円卓が効率枠(enabler)では top8 圏外 (= 効率とロマンで評価が割れる)
+    en = next((g for g in res.groups if g.key == "enabler"), None)
+    assert en is not None
+    assert "OP01-027" not in {c.card_id for c in en.cards}
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")

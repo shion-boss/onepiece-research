@@ -408,6 +408,78 @@ def _match_amplifier(anchor, all_cards) -> list[ComboCard]:
     return out
 
 
+def _romance_flashiness(text: str, card) -> tuple[float, list[str]]:
+    """効果の派手さ/上振れ度 (= ロマン score) と tag を返す。 効率/一貫性は無視、 ceiling 評価。"""
+    score = 0.0
+    tags: list[str] = []
+    big = 0
+    for m in re.finditer(r"パワー[-－＋\+](\d{3,5})", text):
+        big = max(big, int(m.group(1)))
+    if big >= 4000:
+        score += big / 2000.0
+        tags.append(f"パワー±{big}")
+    if re.search(r"(すべて|全て|全員)", text) and re.search(r"(KO|パワー|アクティブ|手札|トラッシュ)", text):
+        score += 6.0
+        tags.append("全体効果")
+    if "追加" in text and "ターン" in text:
+        score += 8.0
+        tags.append("追加ターン")
+    if re.search(r"(すべて|全て).{0,8}KO", text):
+        score += 3.0
+        tags.append("全体KO")
+    m = re.search(r"カード(\d+)枚.{0,6}引く", text)
+    if m and int(m.group(1)) >= 2:
+        score += float(m.group(1))
+        tags.append(f"{m.group(1)}ドロー")
+    if "登場させる" in text:
+        score += 3.0
+        tags.append("踏み倒し")
+    pw = int(getattr(card, "power", 0) or 0)
+    if _category(card) == "CHARACTER" and pw >= 9000:
+        score += 3.0
+        tags.append(f"大型{pw}")
+    if "【ダブルアタック】" in text:
+        score += 3.0
+        tags.append("ダブルアタック")
+    if "ゲームに勝利" in text:
+        score += 12.0
+        tags.append("勝利条件")
+    return round(score, 2), tags
+
+
+def _match_romance(anchor, all_cards, ko_t) -> list[ComboCard]:
+    """ロマン枠: 効率より ceiling。 上振れ・大火力・派手な効果を anchor と組む (= 同色互換のみ)。"""
+    anchor_colors = set(_colors(anchor))
+    out: list[ComboCard] = []
+    for c in all_cards:
+        if c.card_id == anchor.card_id:
+            continue
+        if anchor_colors and not (anchor_colors & set(_colors(c))):
+            continue
+        t = _text(c)
+        flash, tags = _romance_flashiness(t, c)
+        reason = None
+        # KO閾値 anchor × 大幅パワーダウン = どんなサイズも即KO (= 代表的ロマン、 例: 円卓+ペル)
+        if ko_t is not None and "相手" in t:
+            m = re.search(r"パワー[-－](\d{3,5})", t)
+            if m and int(m.group(1)) >= 5000:
+                debuff = int(m.group(1))
+                reach = ko_t + debuff
+                flash += debuff / 1000.0
+                reach_txt = f"最大{reach}" if reach <= 14000 else "ほぼ全サイズ"
+                reason = (
+                    f"{anchor.name}のKO圏(≤{ko_t})を-{debuff}で{reach_txt}まで拡張 → "
+                    "大物も即除去できる overkill ロマン"
+                )
+        if flash < 6:
+            continue
+        if reason is None:
+            reason = f"上振れ・大火力要素: {' / '.join(tags[:3])}（決まれば派手、 不安定込み）"
+        out.append(_to_combo(c, round(flash, 2), reason))
+    out.sort(key=lambda c: -c.score)
+    return out
+
+
 def _match_payoff_for_powerdown(anchor, all_cards, pd_amount: int) -> list[ComboCard]:
     """anchor が相手パワーを下げる → その下げを活かす『パワーX以下KO』ペイオフ (= 双方向)。"""
     anchor_feats = _features(anchor)
@@ -772,6 +844,17 @@ def find_combos(
                 description=f"{anchor.name}は【アタック時】効果持ち。【速攻】を与えると出したターンに即発動できる。",
                 cards=cards[:per_group],
             ))
+
+    # ⑤ ロマン枠 (= 効率度外視・上振れ大火力。 決まれば派手なコンボ)
+    cards = _legal(_match_romance(anchor, all_cards, ko_t))
+    if cards:
+        hooks.append("上振れ・大火力のロマンコンボあり")
+        groups.append(ComboGroup(
+            key="romance",
+            label="ロマン (上振れ・大火力)",
+            description=f"効率や一貫性より「決まれば派手」 を優先した高火力コンボ。{anchor.name} と組むと大きく上振れるカード (= overkill な除去・全体効果・追加ターン・大型踏み倒し等)。 不安定込みのロマン枠。",
+            cards=cards[:per_group],
+        ))
 
     # 多枚コンボ (= 3-4枚 条件成立チェーン)。 条件付き enabler の不足ピースを明示化。
     chains = _build_condition_chains(anchor, all_cards, anchor_colors, _features(anchor), ko_t)
