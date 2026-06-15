@@ -105215,5 +105215,123 @@
     }
    ]
   }
+ ],
+ "OP16-003": [
+  {
+   "_text": "OP16-003 【自分のターン中】自分のリーダーは【ダブルアタック】を得て、パワー+2000。",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "self_turn": true
+   },
+   "do": [
+    {
+     "give_keyword": {
+      "target": "self_leader",
+      "keyword": "ダブルアタック"
+     }
+    },
+    {
+     "power_pump": {
+      "target": "self_leader",
+      "amount": 2000,
+      "duration": "static"
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-003 【登場時】手札からパワー8000のキャラ2枚公開：相手のキャラ1枚までを、このターン中、パワー-6000。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 2
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -6000,
+         "duration": "turn"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-012": [
+  {
+   "_text": "OP16-012 【登場時】自分のドン!!1枚レスト：リーダーが《赤髪海賊団》で場のドン!!が10枚なら、手札から「シャンクス」1枚までを登場。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "conditional": {
+         "if": {
+          "leader_feature": "赤髪海賊団",
+          "self_don_count_eq": 10
+         },
+         "do": [
+          {
+           "play_from_hand_named_set": {
+            "names": [
+             "シャンクス"
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-017": [
+  {
+   "_text": "OP16-017 【常在】自分のコスト8以上の『白ひげ海賊団』を含む特徴のキャラがいない場合、このキャラのパワー-4000。",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "not": {
+     "self_chara_filtered_count_ge": {
+      "filter": {
+       "feature_contains": "白ひげ海賊団",
+       "cost_ge": 8
+      },
+      "count": 1
+     }
+    }
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self",
+      "amount": -4000,
+      "duration": "static"
+     }
+    }
+   ]
+  }
  ]
 }
