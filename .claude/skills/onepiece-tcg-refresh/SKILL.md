@@ -15,7 +15,7 @@ last_reviewed: 2026-06-15
 | 3 | FAQ / cardqa | `check_official_updates.py` (自動 rescrape) | 軽 |
 | 4 | 禁止/制限/禁止ペア | `check_official_updates.py` (自動 rescrape) | 軽 |
 | 5 | ルール PDF / レギュレーション | `check_official_updates.py` + `engine/deck.py` validate | 軽 |
-| + | 下流 (画像 / メタ / matrix) | `cache_*_images.py` / `refresh_all.py` | 重 (matrix ~80分) |
+| + | 下流 (画像 / メタデッキ) | `cache_*_images.py` / `scrape_cardrush_decks.py` | 中。 ⛔ matrix 再計算は意味なしで除外 (Step 6) |
 
 すべて `.venv/bin/python` で実行 (リポジトリルート = `/home/ohtsuki/projects/onepiece_research`)。 各ステップの完了を確認してから次へ進む。
 
@@ -195,15 +195,15 @@ PY
 
 - **画像**: 新弾分をキャッシュ。 `scripts/cache_deck_images.py` (デッキで使う分) か `scripts/cache_all_images.py` (全件、 30〜60分)。 web は `web/public/cards/` を優先し未キャッシュは公式 CDN フォールバックなので必須ではない。
 - **メタデッキ更新**: 新弾は環境を変える。 `scripts/scrape_cardrush_decks.py` → `scripts/select_cardrush_representatives.py` (CLAUDE.md の「メタデッキ更新」 参照)。 取得レシピは新禁止リストで validate。
-- **matrix 再計算 (重)**: メタが変わったら `scripts/compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20` (~80分)。 ⚠ 配備 AI の手が変わる engine 変更後にも要再計算。
-- **一括**: `scripts/refresh_all.py` が「公式チェック → cardrush 再 scrape → 代表選出 → matrix → 学習診断」 を束ねる。 ⚠ **`refresh_all.py` はカード scrape を含まない** (Step 1 は別途必須)。
+- ⛔ **matrix (N×N 勝率) 再計算は不要・意味なし** (ohtsuki 2026-06-15): matrix は **AI vs AI の勝率**で、 [[feedback_evaluation_axis]] のとおり「raw 勝率 ≠ 良し悪し」 (配備AIは硬い局所最適、 数字はAIの癖)。 80分かけても actionable な信号は出ない。 新弾でも **16メタデッキ自体が変わらなければ数字は同じ**。 → **このスキルでは matrix 再計算をしない**。
+- **一括**: `scripts/refresh_all.py` は「公式チェック → cardrush 再 scrape → 代表選出 → matrix → 学習診断」 を束ねるが、 ⚠ **matrix を含むので `--skip-matrix` 推奨** (= 上記理由)。 ⚠ **カード scrape も含まない** (Step 1 は別途必須)。
 
 ---
 
 ## Step 7 — 検証してコミット
 
 - 変更前に `git status`。 default ブランチ上ならまず作業ブランチを切る。
-- 論理単位でコミット (例: ①カード scrape、 ②overlay+engine、 ③メタ/matrix)。 CLAUDE.md のコミット規約に従う。
+- 論理単位でコミット (例: ①カード scrape、 ②overlay+engine、 ③メタデッキ更新)。 CLAUDE.md のコミット規約に従う。
 - コミット前ゲート: Step 3 の audit/pytest が全 green、 `cd web && npx tsc --noEmit` (UI 触ったら)。
 
 ---
@@ -218,5 +218,5 @@ PY
 - [ ] **④ 人間vsAI UI/UX**: `lint_human_ui_contracts` OK (C2 新 kind に UI 分岐 / C3 payload キー一致) / UI 契約 pytest green / `tsc --noEmit` / (任意) `browser_play_test` で /play 実操作 + 新カード画像描画
 - [ ] FAQ/cardqa/banlist の diff 確認、 `onepiece-tcg-rules` の last_checked 更新
 - [ ] レギュレーション: 新 banlist 反映、 既存デッキの合法性確認
-- [ ] (必要なら) 画像 / メタデッキ / matrix 更新
+- [ ] (必要なら) 画像 / メタデッキ更新 (⛔ matrix 再計算はしない = 意味なし)
 - [ ] 論理単位でコミット
