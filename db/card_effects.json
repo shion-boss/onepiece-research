@@ -102726,5 +102726,53 @@
     }
    ]
   }
+ ],
+ "OP16-001": [
+  {
+   "_text": "OP16-001 ポートガス・D・エース 起動メイン[ターン1回]: 自分のパワー8000以上の、「モンキー・D・ルフィ」か『白ひげ海賊団』を含む特徴を持つキャラ1枚までは、このターン中、【速攻】を得る。",
+   "when": "activate_main",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "give_rush": {
+      "type": "all_self_chara_filtered",
+      "current_power_ge": 8000,
+      "filter": {
+       "or_clauses": [
+        {
+         "name_in": [
+          "モンキー・D・ルフィ",
+          "モンキー・Ｄ・ルフィ"
+         ]
+        },
+        {
+         "feature_contains": "白ひげ海賊団"
+        }
+       ]
+      },
+      "limit": 1
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-022": [
+  {
+   "_text": "OP16-022 モンキー・D・ルフィ 起動メイン[ターン1回]: 自分のキャラが特徴《インペルダウン》を持つキャラのみの場合、自分のドン!!2枚までを、アクティブにする。",
+   "when": "activate_main",
+   "if": {
+    "self_chara_only_feature": "インペルダウン"
+   },
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "untap_don": 2
+    }
+   ]
+  }
  ]
 }

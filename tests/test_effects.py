@@ -4150,3 +4150,70 @@ def test_costless_on_attack_fires_once_per_attack():
         f"2回目の trigger_on_attack で -2000 が多重発動 (base={base} 1st={after_first} "
         f"2nd={victim.power}) = 旧 bug regression"
     )
+
+
+# --------------------------------------------------------------------------- #
+# OP16 リーダー overlay batch 1 (= onepiece-tcg-refresh Step 2、 公式テキスト忠実)
+# --------------------------------------------------------------------------- #
+def test_op16_001_ace_rush_powered_whitebeard_or_luffy():
+    """OP16-001 エース 起動メイン[ターン1回]: 自分のパワー8000以上の「モンキー・D・ルフィ」か
+    『白ひげ海賊団』を含む特徴を持つキャラ1枚までに【速攻】。 ⚠ パワーは現在値・name OR feature・limit 1。"""
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP16-001", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    newgate = InPlay.of(repo.get("OP14-044"), sickness=True)  # 白ひげ 8000 → 対象
+    marco = InPlay.of(repo.get("PRB02-008"), sickness=True)   # 白ひげ 6000 (<8000) → 対象外
+    me.characters = [newgate, marco]
+    src, eff = list_activate_main_effects(state, me, overlay)[0]
+    fire_activate_main(state, me, opp, src, eff)
+    assert newgate.summoning_sickness is False  # 8000 白ひげ → 速攻
+    assert marco.summoning_sickness is True      # 6000 → パワー不足で付与されない
+
+
+def test_op16_001_ace_name_branch_and_current_power():
+    """name OR 分岐 (白ひげでない「モンキー・D・ルフィ」) + 現在パワー (DON で 8000 到達) 判定。"""
+    repo = _repo(); overlay = _overlay()
+    # name 分岐: 白ひげでない ルフィ 12000 に付与される
+    state = _make_state(repo, "OP16-001", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    luffy = InPlay.of(repo.get("EB04-061"), sickness=True)  # モンキー・D・ルフィ 12000 (白ひげでない)
+    me.characters = [luffy]
+    src, eff = list_activate_main_effects(state, me, overlay)[0]
+    fire_activate_main(state, me, opp, src, eff)
+    assert luffy.summoning_sickness is False
+
+    # 現在パワー: マルコ 6000 + DON2 = 8000 → 対象 (元々パワー判定なら 6000 で対象外のはず)
+    state2 = _make_state(repo, "OP16-001", overlay=overlay)
+    me2, opp2 = state2.players[0], state2.players[1]
+    marco = InPlay.of(repo.get("PRB02-008"), sickness=True)  # 白ひげ 6000
+    marco.attached_dons = 2  # 現在パワー 8000
+    me2.characters = [marco]
+    assert marco.power == 8000
+    src, eff = list_activate_main_effects(state2, me2, overlay)[0]
+    fire_activate_main(state2, me2, opp2, src, eff)
+    assert marco.summoning_sickness is False  # 現在 8000 で対象
+
+
+def test_op16_022_luffy_untap_don_only_when_all_impeldown():
+    """OP16-022 ルフィ 起動メイン[ターン1回]: 自キャラが《インペルダウン》のみの場合のみドン2活性化。"""
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP16-022", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    me.don_active, me.don_rested = 1, 3
+    me.characters = [InPlay.of(repo.get("EB02-038"), sickness=False),   # マゼラン インペルダウン
+                     InPlay.of(repo.get("EB01-022"), sickness=False)]   # イナズマ インペルダウン
+    src, eff = list_activate_main_effects(state, me, overlay)[0]
+    fire_activate_main(state, me, opp, src, eff)
+    assert me.don_active == 3  # 1 + 2 活性化
+
+    # 非インペルダウンが混ざると条件 false → 活性化しない
+    state2 = _make_state(repo, "OP16-022", overlay=overlay)
+    me2, opp2 = state2.players[0], state2.players[1]
+    me2.don_active, me2.don_rested = 1, 3
+    me2.characters = [InPlay.of(repo.get("EB02-038"), sickness=False),  # インペルダウン
+                      InPlay.of(repo.get("OP01-013"), sickness=False)]  # サンジ (麦わら、非インペル)
+    opts2 = list_activate_main_effects(state2, me2, overlay)
+    if opts2:
+        s2, e2 = opts2[0]
+        fire_activate_main(state2, me2, opp2, s2, e2)
+    assert me2.don_active == 1  # 条件 false → 活性化されない

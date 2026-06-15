@@ -1759,6 +1759,15 @@ def _resolve_target(
             if "rested" in target_spec:
                 rested_required = bool(target_spec["rested"])
                 cands = [ip for ip in cands if ip.rested == rested_required]
+            # 現在パワー (= DON 付与等の修正込み) での絞り込み。 ⚠ filter の power_ge は _matches_filter
+            # 経由で「元々パワー (CardDef 印刷値)」 を見るので、 「(元々でない) パワーN以上」 は別キー
+            # current_power_ge/le で InPlay.power を見る (= OP16-001 エース「自分のパワー8000以上の…」)。
+            cpge = target_spec.get("current_power_ge")
+            cple = target_spec.get("current_power_le")
+            if cpge is not None:
+                cands = [ip for ip in cands if ip.power >= int(cpge)]
+            if cple is not None:
+                cands = [ip for ip in cands if ip.power <= int(cple)]
             limit = target_spec.get("limit")
             if iid_picks is not None and limit is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:int(limit)]
