@@ -1138,8 +1138,18 @@ def find_deck_combos(deck_cards: list, leader=None) -> DeckComboMap:
     return DeckComboMap(edges=edges, chains=chains)
 
 
-# 人間向け表示で「実行型コンボ」 として surface する種別 (= tribal は受動的なので除く)。
-_DISPLAY_COMBO_KINDS = ("enabler", "payoff", "amplifier")
+# === 実行型コンボの種別と重み = 単一の真実 (single source of truth) ===
+# ⭐ 2026-06-15 ohtsuki 原則: 「人間のデッキ作り参考」「AI の対戦活用」「デッキ自動生成」 は
+# 似たロジックなので、 1 つ直したら全てに効く実装にする。 → コンボ検出 (matchers → find_deck_combos)
+# を共有コアにし、 種別/重みもここ 1 箇所に集約。 3 者の consumer:
+#   - 人間表示       : deck_combo_summary / live_deck_combos (= /decks/analyze・/play)
+#   - AI 対戦 value  : combo_readiness (= COMBO_KIND_WEIGHTS を import、 現状 scaffold)
+#   - デッキ自動生成 : deck_combo_strength (= 候補デッキの「コンボの噛み合い」 を 1 スカラで比較)
+# tribal/accelerant は受動的な構築シナジーなので実行型コンボの重みは 0 (= .get 既定)。
+COMBO_KIND_WEIGHTS = {"enabler": 1.0, "payoff": 1.0, "amplifier": 0.7}
+CHAIN_WEIGHT = 1.0
+
+_DISPLAY_COMBO_KINDS = tuple(COMBO_KIND_WEIGHTS)
 _COMBO_KIND_LABEL = {
     "enabler": "KO圏拡張", "payoff": "除去ペイオフ",
     "amplifier": "速攻で即起動", "chain": "多枚コンボ",
@@ -1206,3 +1216,26 @@ def deck_combo_summary(
             )
     accel_list = sorted(accel.values(), key=lambda x: -x.score)[:top_accel]
     return entries + accel_list
+
+
+def deck_combo_strength(deck_cards: list, leader=None) -> float:
+    """デッキの実行型コンボの総合強度を 1 スカラで返す (= デッキ自動生成・評価の signal)。
+
+    ⭐ ohtsuki 原則の deck-gen 側 hook: 将来のデッキ自動生成が候補デッキを「コンボの噛み合い」
+    で比較/改善するための単一指標。 find_deck_combos (= 人間表示・AI と同じ共有コア) を使うので、
+    コンボ検出の品質改善がそのまま deck-gen の評価精度に波及する。 hoarding 問題は無い
+    (= 静的なデッキ品質、 in-game state でない)。
+
+    enabler(ペル→コーザ) と payoff(コーザ→ペル) は同一ペアなので二重計上しない (= ペアごと最良)。"""
+    m = find_deck_combos(deck_cards, leader)
+    pair_best: dict[frozenset, float] = {}
+    for e in m.edges:
+        w = COMBO_KIND_WEIGHTS.get(e.kind, 0.0)
+        if w <= 0.0:
+            continue
+        key = frozenset((e.a_id, e.b_id))
+        val = w * e.score
+        if val > pair_best.get(key, 0.0):
+            pair_best[key] = val
+    total = sum(pair_best.values()) + sum(CHAIN_WEIGHT * ch.score for ch in m.chains)
+    return round(total, 2)

@@ -314,6 +314,26 @@ def test_live_deck_combos_only_when_assembled(repo):
     assert all({c["card_id"] for c in e["cards"]} != pair for e in live2), "揃っていないのに live"
 
 
+def test_deck_combo_strength_shared_core_signal(repo):
+    """deck_combo_strength は実行型コンボの総合強度を返す (= デッキ自動生成の signal)。
+    コンボの噛み合うデッキ片 > 噛み合わないデッキ片。 find_deck_combos 共有コア由来。"""
+    from engine.combo_finder import deck_combo_strength
+
+    # ペル(下げ)×複数のKO閾値カードで噛み合う
+    rich = [repo._by_id[i] for i in ("OP05-014", "OP04-013", "EB03-007", "OP04-008")]
+    poor = [repo._by_id[i] for i in ("OP05-014",)]  # 単体 = コンボ無し
+    s_rich = deck_combo_strength(rich, None)
+    s_poor = deck_combo_strength(poor, None)
+    assert s_rich > s_poor
+    assert s_poor == 0.0
+
+    # AI scaffold (combo_readiness) と人間表示 (deck_combo_summary) が同じ種別重みを共有
+    from engine.combo_finder import COMBO_KIND_WEIGHTS, _DISPLAY_COMBO_KINDS
+    import engine.combo_readiness as cr
+    assert cr._KIND_WEIGHT is COMBO_KIND_WEIGHTS  # 単一の真実を import で共有
+    assert set(_DISPLAY_COMBO_KINDS) == set(COMBO_KIND_WEIGHTS)
+
+
 def test_find_deck_combos_excludes_incompatible_leader(repo):
     """別リーダー専用カードは、 実リーダーが非互換ならデッキコンボに入れない。"""
     from engine.combo_finder import find_deck_combos, _card_ok_with_leader

@@ -25,18 +25,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .combo_finder import find_deck_combos, DeckComboMap, _base_id
-
-# 「実行コンボ」 として value する種別の重み。 tribal/accelerant は受動的な構築シナジーで
-# 「両ピースが手札にあると今強い」 ではないので 0 (= 準備度に数えない)。
-_KIND_WEIGHT = {
-    "enabler": 1.0,    # KO閾値 × 下げ役 が揃う = 中大型を除去できる状態
-    "payoff": 1.0,     # 下げ役 × KO閾値 (= enabler の逆向き)
-    "amplifier": 0.7,  # 【アタック時】持ち × 速攻付与 が揃う = 即起動できる
-    "accelerant": 0.0,
-    "tribal": 0.0,
-}
-_CHAIN_WEIGHT = 1.0
+from .combo_finder import (
+    find_deck_combos, DeckComboMap, _base_id,
+    # ⭐ コンボ種別/重みは combo_finder の単一の真実を共有 (= 人間表示・deck-gen と同じ)。
+    # tribal/accelerant は重みに無い → .get 既定 0.0 で「準備度に数えない」 が保たれる。
+    COMBO_KIND_WEIGHTS as _KIND_WEIGHT,
+    CHAIN_WEIGHT as _CHAIN_WEIGHT,
+)
 
 # deck の distinct card 集合 → DeckComboMap (+ 価値ある edge があるか) のキャッシュ。
 # distinct card 集合は 1 ゲーム不変なので、 find_deck_combos は 1 デッキ 1 回で済む。
