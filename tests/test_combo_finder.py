@@ -308,6 +308,20 @@ def test_accelerant_respects_search_cost_limit(repo):
     assert "PRB02-007" in ids2
 
 
+def test_accelerant_respects_target_power_limit(repo):
+    """対象パワー制限付きの踏み倒しは、 範囲外 (= 高パワー) の anchor に提案しない / 範囲内は残す。
+    ⚠ 2026-06-15 検出: OP14-010「パワー2000以下の《超新星》を登場」 を pow6000 キャベンディッシュに
+    「踏み倒し登場」 と誤提案 (= cost は見ていたが power 制限を無視、 283件)。"""
+    # キャベンディッシュ EB01-012 (pow6000、 超新星) → パワー2000以下 踏み倒しの対象外
+    res_big = find_combos(repo, "EB01-012", per_group=40)
+    acc_big = _group(res_big, "accelerant")
+    assert "OP14-010" not in {c.card_id for c in (acc_big.cards if acc_big else [])}
+    # スクラッチメン・アプー EB01-015 (pow1000、 超新星) → 範囲内なので残す
+    res_small = find_combos(repo, "EB01-015", per_group=40)
+    acc_small = _group(res_small, "accelerant")
+    assert "OP14-010" in {c.card_id for c in (acc_small.cards if acc_small else [])}
+
+
 def test_find_deck_combos_extracts_intra_deck_edges(repo):
     """デッキ内の実在コンボを edge 抽出する。 ペル(KO≤4000) + コーザ(相手-3000) = enabler。"""
     from engine.combo_finder import find_deck_combos

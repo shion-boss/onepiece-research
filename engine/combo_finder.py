@@ -437,15 +437,11 @@ def _match_enabler_powerdown(anchor, all_cards, ko_threshold: int) -> list[Combo
     return out
 
 
-def _target_cost_limit(text: str, ref_pos: int) -> Optional[int]:
-    """検索/踏み倒しが探す対象 (= ref_pos のカード参照) に係る『コストN以下』 を返す。
-
-    ⚠ 2026-06-15 検出: ST13-019「3兄弟の絆」 はコスト5以下のサボ/エース/ルフィしか
-    サーチできないのに、 cost8 のサボや cost10 のエースに「サーチで引ける」 と誤提案。
-    一方 PRB02-007 ジンベエ の《王下七武海》 サーチには cost 制限が無く、 別節の
-    「コスト1以下」 を誤適用すると有効コンボを誤って除外してしまう。
-    日本語では制限は対象の直前 (「コストN以下の《X》」) に置かれるので、 対象参照の手前・
-    同じ検索句内 (= 直近の デッキ/見て/トラッシュ/手札 以降) だけを走査して取る。"""
+def _search_clause(text: str, ref_pos: int) -> Optional[str]:
+    """対象参照 (= ref_pos のカード参照) の手前・同じ検索句内 (= 直近の デッキ/見て/トラッシュ/手札
+    以降) を返す。 検索/踏み倒しの対象制限 (= コスト/パワー N 以下/以上) はこの句内に置かれる。
+    別節の制限や、 検索句より前にある『このキャラのパワーが N 以上の場合』 等の自己条件を
+    誤って対象制限に拾わないよう、 スコープをこの句に限定する。"""
     if ref_pos < 0:
         return None
     zone = max(
@@ -456,8 +452,37 @@ def _target_cost_limit(text: str, ref_pos: int) -> Optional[int]:
     )
     if zone < 0:
         return None  # 検索句の起点が特定できない → 誤適用回避のため制限なし扱い
-    m = re.search(r"コスト(\d+)以下", text[zone:ref_pos])
+    return text[zone:ref_pos]
+
+
+def _target_cost_limit(text: str, ref_pos: int) -> Optional[int]:
+    """検索/踏み倒しが探す対象に係る『コストN以下』 を返す。
+
+    ⚠ 2026-06-15 検出: ST13-019「3兄弟の絆」 はコスト5以下のサボ/エース/ルフィしか
+    サーチできないのに、 cost8 のサボや cost10 のエースに「サーチで引ける」 と誤提案。
+    一方 PRB02-007 ジンベエ の《王下七武海》 サーチには cost 制限が無く、 別節の
+    「コスト1以下」 を誤適用すると有効コンボを誤って除外してしまう。
+    日本語では制限は対象の直前 (「コストN以下の《X》」) に置かれるので、 検索句内だけ走査する。"""
+    clause = _search_clause(text, ref_pos)
+    if clause is None:
+        return None
+    m = re.search(r"コスト(\d+)以下", clause)
     return int(m.group(1)) if m else None
+
+
+def _target_power_limit(text: str, ref_pos: int) -> tuple[Optional[int], Optional[int]]:
+    """検索/踏み倒しが探す対象に係る『パワーN以下』『パワーN以上』 を (le, ge) で返す。
+
+    ⚠ 2026-06-15 検出: 「パワー2000以下の《超新星》を登場」 (= バジル・ホーキンス OP14-010) を
+    pow6000 のキャベンディッシュ に「踏み倒し登場」 と誤提案していた (= cost は見ていたが power 制限を
+    無視、 283件)。 cost と同じ検索句スコープで取る (= サボ OP05-004 の自己条件『このキャラのパワーが
+    7000以上の場合』 は検索句より前なので対象制限に誤って拾わない)。"""
+    clause = _search_clause(text, ref_pos)
+    if clause is None:
+        return None, None
+    le = re.search(r"パワー(\d{3,5})以下", clause)
+    ge = re.search(r"パワー(\d{3,5})以上", clause)
+    return (int(le.group(1)) if le else None), (int(ge.group(1)) if ge else None)
 
 
 _SEARCH_VERBS = ("公開", "手札に加える", "登場させ")
@@ -538,6 +563,7 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
     """anchor を『早く/安定して出す』カード: サーチ / コスト軽減 / 踏み倒し登場。"""
     anchor_feats = _features(anchor)
     anchor_cost = _cost(anchor)
+    anchor_power = int(getattr(anchor, "power", 0) or 0)
     anchor_name = anchor.name
     anchor_colors = set(_colors(anchor))
     # 「登場させる」 (= 踏み倒し) はキャラのみ。 イベント/ステージは『登場』 しない
@@ -562,15 +588,19 @@ def _match_accelerant(anchor, all_cards) -> list[ComboCard]:
         )
         lim = _target_cost_limit(t, ref_pos)
         cost_ok = lim is None or anchor_cost <= lim
+        # 対象パワー制限 (= 「パワーN以下/以上の《X》を登場/手札に加える」)。 anchor の power が範囲外なら
+        # この検索/踏み倒しは anchor を拾えない (= 2026-06-15: cost のみ見て power を無視していた)。
+        p_le, p_ge = _target_power_limit(t, ref_pos)
+        pow_ok = (p_le is None or anchor_power <= p_le) and (p_ge is None or anchor_power >= p_ge)
         # キャラ限定サーチ (= 《X》を持つキャラカード) は非キャラ (イベント/ステージ) anchor を拾えない
         char_ok = anchor_is_char or not _feature_target_is_character_restricted(t, feat_hit)
         # サーチ = anchor を手札に「加える」 こと (= 「手札に加え」 で 加える/加え、 を両方拾う)。
         # ⚠ 2026-06-15: 旧「公開」 単独 OR は「公開し《X》なら2枚引く」 (= 条件判定) や「相手のデッキを
         # 公開」 (= 守備) を誤サーチしていた (360件) → 必ず anchor が手札に入る効果のみ search とする。
-        if ("手札に加え" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok and char_ok:
+        if ("手札に加え" in t) and ("デッキ" in t) and (named or feat_hit) and cost_ok and pow_ok and char_ok:
             kind = "search"
             reason = (f"《{feat_hit}》" if feat_hit else f"「{anchor_name}」") + f"をサーチ → {anchor_name}を引ける"
-        elif ("登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok
+        elif ("登場させる" in t and anchor_is_char and (named or feat_hit) and cost_ok and pow_ok
               # トップ単一公開の踏み倒しはカードを選べない gamble (= 確実な踏み倒しでない)
               and not _is_topdeck_reveal_gamble(t)):
             kind = "cheat"
