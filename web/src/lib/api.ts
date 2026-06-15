@@ -575,6 +575,14 @@ export type HumanActionLog = {
   hand_idx?: number;
 };
 
+export type LiveCombo = {
+  cards: { card_id: string; name: string }[];
+  kind: string; // enabler / payoff / amplifier / chain
+  label: string;
+  description: string;
+  score: number;
+};
+
 export type HumanMatchState = {
   session_id?: string;
   game_over: boolean;
@@ -591,6 +599,8 @@ export type HumanMatchState = {
   // 前回 payload 以降 に 追加 された 中間 snapshot 群 (= AI 動作 を 順次 再生 する 用)
   frames?: Record<string, unknown>[];
   legal_actions: HumanLegalAction[];
+  // 今この盤面で自分の手札/場に揃っているデッキ内コンボ (= 対戦時活用ヒント)
+  live_combos?: LiveCombo[];
   snapshots_count: number;
   deck_a_slug: string;
   deck_b_slug: string;

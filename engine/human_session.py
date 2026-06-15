@@ -829,6 +829,12 @@ class HumanSession:
         # 最終 snapshot は state.snapshots 末尾 を 取る (= 既存 仕組み と整合)
         last_snap = self.state.snapshots[-1] if self.state.snapshots else None
         frames = self._consume_new_frames()
+        # 今この盤面で人間プレイヤーの手札/場に揃っているデッキ内コンボ (= 対戦時活用)。
+        try:
+            from .combo_readiness import live_deck_combos
+            live_combos = live_deck_combos(self.state, self.human_idx)
+        except Exception:
+            live_combos = []
         return {
             "game_over": self.state.game_over,
             "winner": self.state.winner,
@@ -850,6 +856,7 @@ class HumanSession:
             "snapshots_count": len(self.state.snapshots),
             "deck_a_slug": self.deck_a_slug,
             "deck_b_slug": self.deck_b_slug,
+            "live_combos": live_combos,
         }
 
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { CardImage } from "./CardImage";
 import { CardPreloader } from "./CardPreloader";
+import { LiveCombosHint } from "./LiveCombosHint";
 import {
   addHumanMatchLogComment,
   applyHumanAction,
@@ -1491,6 +1492,7 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
           {/* 自分側 (= 数字 + 手札) を 1 つの emerald エリア に まとめる */}
           <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
             <StatBadge player={me} label="YOU" color="bg-emerald-700 text-white" />
+            <LiveCombosHint combos={state.live_combos} />
             <div className="mt-2">
               <HandRow
                 hand={me.hand}

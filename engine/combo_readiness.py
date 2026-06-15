@@ -123,6 +123,52 @@ def combo_readiness(state: Any, me_idx: int) -> float:
     return score
 
 
+# デッキ単位の人間向けコンボサマリ (= deck_combo_summary) のキャッシュ。 live 判定で使う。
+_SUMMARY_CACHE: dict[frozenset, list] = {}
+
+
+def live_deck_combos(state: Any, me_idx: int) -> list[dict]:
+    """me_idx のデッキの実行型コンボのうち、 **今この盤面で全ピースが手札/場/リーダーに
+    揃っている** ものを、 人間向け (= card refs + 説明 + 強度) で返す。
+
+    ⭐ ohtsuki 元質問「対戦時に活用」 の本丸 = 試合中に「今狙えるコンボ」 を人間に提示する。
+    AI value でなく人間支援なので hoarding 問題は無い (= 静的表示の live 版)。
+    ⚠ 「揃っている」 = ピース在場まで。 DON 支払い可否は人間が判断する (= v1)。"""
+    try:
+        player = state.players[me_idx]
+    except Exception:
+        return []
+    cards = _deck_distinct_cards(player)
+    if not cards:
+        return []
+    key = frozenset(cards)
+    summary = _SUMMARY_CACHE.get(key)
+    if summary is None:
+        from .combo_finder import deck_combo_summary
+        leader = _carddef(player.leader) if getattr(player, "leader", None) is not None else None
+        summary = deck_combo_summary(list(cards.values()), leader, top_n=40)
+        _SUMMARY_CACHE[key] = summary
+    if not summary:
+        return []
+    avail: set[str] = set()
+    for attr in ("hand", "characters", "stages"):
+        for c in _zone(player, attr):
+            avail.add(_cid(c))
+    leader = getattr(player, "leader", None)
+    if leader is not None:
+        avail.add(_cid(leader))
+    name_of = {bid: getattr(cd, "name", "") for bid, cd in cards.items()}
+    out: list[dict] = []
+    for e in summary:
+        if all(cid in avail for cid in e.card_ids):
+            out.append({
+                "cards": [{"card_id": cid, "name": name_of.get(cid, cid)} for cid in e.card_ids],
+                "kind": e.kind, "label": e.label,
+                "description": e.description, "score": e.score,
+            })
+    return out
+
+
 def is_enabled() -> bool:
     return os.environ.get("ONEPIECE_COMBO_READINESS") == "1"
 

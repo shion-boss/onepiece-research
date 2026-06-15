@@ -233,6 +233,35 @@ def test_deck_combo_summary_dedups_and_ranks(repo):
     assert [e.score for e in out] == sorted((e.score for e in out), reverse=True)
 
 
+def test_live_deck_combos_only_when_assembled(repo):
+    """live_deck_combos は、 ピースが手札/場に揃ったコンボだけ返す (= 対戦中の live 判定)。"""
+    import types
+    from engine.combo_readiness import live_deck_combos, _SUMMARY_CACHE
+
+    def mk(leader, hand, deck):
+        p = types.SimpleNamespace()
+        p.leader = leader; p.hand = hand; p.characters = []; p.stages = []
+        p.deck = deck; p.trash = []; p.life = []
+        return p
+
+    def state(p):
+        s = types.SimpleNamespace()
+        s.players = [p, mk(leader, [], [])]
+        return s
+
+    leader = repo._by_id["OP15-058"]   # エネル
+    kard = repo._by_id["OP15-075"]     # 神の裁き (KO閾値)
+    oom = repo._by_id["OP15-061"]      # オーム (下げ役)
+    pair = {"OP15-075", "OP15-061"}
+
+    _SUMMARY_CACHE.clear()
+    live = live_deck_combos(state(mk(leader, [kard, oom], [])), 0)
+    assert any({c["card_id"] for c in e["cards"]} == pair for e in live), "揃っているのに live でない"
+    _SUMMARY_CACHE.clear()
+    live2 = live_deck_combos(state(mk(leader, [kard], [oom])), 0)  # オームは山札
+    assert all({c["card_id"] for c in e["cards"]} != pair for e in live2), "揃っていないのに live"
+
+
 def test_find_deck_combos_excludes_incompatible_leader(repo):
     """別リーダー専用カードは、 実リーダーが非互換ならデッキコンボに入れない。"""
     from engine.combo_finder import find_deck_combos, _card_ok_with_leader
