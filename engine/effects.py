@@ -4306,18 +4306,28 @@ def _execute_effect_body(
                     )
                     return True
                 # picks 指定 or AI or 候補 <= limit → 既存挙動
+                # 公式「カード名の異なる」: unique_name=true なら同名は1枚まで (= OP16-060 センゴク
+                # 「カード名の異なる《大将》3枚」)。 既定 false なので既存の play_from_hand には無影響。
+                unique_name = bool(spec.get("unique_name", False))
+                _name_by_idx = {i: c.name for i, c in candidates}
                 if picks_idx is not None:
                     # ⚠ 候補 (= filter/no_effect 通過済) に限定 + limit で cap する
                     #   (= AI path と同等。 人間が候補外/上限超を送っても防御。 2026-06-04 修正:
                     #   旧実装は picks をそのまま全召喚で limit/filter を無視していた)。
                     valid_hand_idxs = {i for i, _ in candidates}
-                    chosen_indexes = sorted(
-                        [i for i in picks_idx if i in valid_hand_idxs][:limit],
-                        reverse=True,
-                    )
+                    sel = [i for i in picks_idx if i in valid_hand_idxs]
+                    if unique_name:
+                        seen_n: set[str] = set()
+                        sel = [i for i in sel
+                               if not (_name_by_idx[i] in seen_n or seen_n.add(_name_by_idx[i]))]
+                    chosen_indexes = sorted(sel[:limit], reverse=True)
                 else:
                     # ヒューリスティック並び: cost 降順 → power 降順 → name (安定)
                     candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+                    if unique_name:
+                        seen_n2: set[str] = set()
+                        candidates = [(i, c) for i, c in candidates
+                                      if not (c.name in seen_n2 or seen_n2.add(c.name))]
                     chosen = candidates[:limit]
                     chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
                 chosen_cards: list[CardDef] = []

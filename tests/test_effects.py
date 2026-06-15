@@ -4217,3 +4217,39 @@ def test_op16_022_luffy_untap_don_only_when_all_impeldown():
         s2, e2 = opts2[0]
         fire_activate_main(state2, me2, opp2, s2, e2)
     assert me2.don_active == 1  # 条件 false → 活性化されない
+
+
+def test_op16_060_sengoku_plays_distinct_admirals_for_8_don():
+    """OP16-060 センゴク 起動メイン: アクティブ8ドン返却 → 手札からカード名の異なる《大将》3枚登場。"""
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP16-060", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    me.don_active = 8
+    me.hand = [repo.get("OP16-063"), repo.get("OP16-065"), repo.get("OP16-073")]  # クザン/サカズキ/ボルサリーノ
+    src, eff = list_activate_main_effects(state, me, overlay)[0]
+    fire_activate_main(state, me, opp, src, eff)
+    assert me.don_active == 0                       # 8 払った
+    assert len(me.characters) == 3                  # 3 体登場
+    assert {c.card.name for c in me.characters} == {"クザン", "サカズキ", "ボルサリーノ"}
+
+    # unique_name: 同名2枚を含めても 1 枚しか出ない
+    state2 = _make_state(repo, "OP16-060", overlay=overlay)
+    me2, opp2 = state2.players[0], state2.players[1]
+    me2.don_active = 8
+    me2.hand = [repo.get("OP16-063"), repo.get("OP16-063"), repo.get("OP16-065")]  # クザン×2 + サカズキ
+    s2, e2 = list_activate_main_effects(state2, me2, overlay)[0]
+    fire_activate_main(state2, me2, opp2, s2, e2)
+    names = [c.card.name for c in me2.characters]
+    assert names.count("クザン") == 1               # カード名の異なる → クザンは1枚
+    assert "サカズキ" in names
+
+
+def test_op16_060_sengoku_needs_8_active_don():
+    """ドンが8未満なら起動メインに出ない (= pay_don 8 を払えない)。"""
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP16-060", overlay=overlay)
+    me = state.players[0]
+    me.don_active = 5
+    me.hand = [repo.get("OP16-063")]
+    opts = [o for o in list_activate_main_effects(state, me, overlay)]
+    assert opts == []  # 8 払えない → 選択肢に出ない
