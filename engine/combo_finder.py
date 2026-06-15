@@ -659,7 +659,13 @@ def _match_romance(pool: list[ComboCard], anchor, ko_t) -> list[ComboCard]:
 
 
 def _match_payoff_for_powerdown(anchor, all_cards, pd_amount: int) -> list[ComboCard]:
-    """anchor が相手パワーを下げる → その下げを活かす『パワーX以下KO』ペイオフ (= 双方向)。"""
+    """anchor が相手パワーを下げる → その下げを活かす『パワーX以下KO』ペイオフ (= 双方向)。
+
+    ⚠ timing gate を matcher 内に集約 (= 2026-06-15 de-drift): anchor の下げが【相手のターン中】
+    限定なら、 自ターンに撃つ KO ペイオフには噛まないので空。 旧来 find_combos と find_deck_combos
+    が各自で `_powerdown_on_own_turn` を gate していた (= 並行 logic、 drift 源) のを一本化。"""
+    if not _powerdown_on_own_turn(_text(anchor)):
+        return []
     anchor_feats = _features(anchor)
     anchor_colors = set(_colors(anchor))
     out: list[ComboCard] = []
@@ -980,10 +986,9 @@ def find_combos(
             ))
 
     # ①b 双方向: anchor が相手パワーを下げる → その下げを活かす KO ペイオフ。
-    #    ⚠ 下げが【相手のターン中】 限定 (= 守備用、 OP15-001 等) だと、 自ターンに撃つ
-    #    「パワーX以下KO」 ペイオフには噛まないので payoff 群を作らない (= enabler と対称)。
+    #    timing gate (= 下げが【相手のターン中】 限定なら不可) は matcher 内に集約済み。
     pd = _detect_self_powerdown(text)
-    if pd is not None and _powerdown_on_own_turn(text):
+    if pd is not None:
         cards = _boosted(_match_payoff_for_powerdown(anchor, all_cards, pd))
         synergy_pool += cards
         if cards:
@@ -1117,7 +1122,7 @@ def find_deck_combos(deck_cards: list, leader=None) -> DeckComboMap:
             for c in _match_enabler_powerdown(anchor, pool, ko_t):
                 _add(anchor, c, "enabler")
         pd = _detect_self_powerdown(text)
-        if pd is not None and _powerdown_on_own_turn(text):
+        if pd is not None:  # payoff の timing gate は matcher 内に集約済み (= de-drift)
             for c in _match_payoff_for_powerdown(anchor, pool, pd):
                 _add(anchor, c, "payoff")
         if _is_attacker_trigger(text):

@@ -195,6 +195,29 @@ def test_payoff_not_built_for_self_debuff_anchor(repo):
         assert not any(g.key == "payoff" for g in res.groups), f"{cid} に payoff 誤生成"
 
 
+def test_payoff_timing_gate_consistent_across_entrypoints(repo):
+    """payoff の timing gate が find_combos と find_deck_combos で一致する (= gate を matcher に
+    集約した de-drift の証跡。 片方の entrypoint だけ直して乖離する事故を pin する)。"""
+    from engine.combo_finder import find_deck_combos
+
+    BAKARA = "EB03-007"  # パワー6000以下KO (= payoff の受け手)
+
+    def deck_payoff_anchor_ids(anchor_id):
+        deck = [repo._by_id[anchor_id], repo._by_id[BAKARA]]
+        edges = find_deck_combos(deck, None).edges
+        return {e.a_id for e in edges if e.kind == "payoff"}
+
+    def combos_has_payoff(anchor_id):
+        return any(g.key == "payoff" for g in find_combos(repo, anchor_id, per_group=8).groups)
+
+    # 自ターンの下げ (ペル OP05-014 = -2000) → 両 entrypoint で payoff あり
+    assert "OP05-014" in deck_payoff_anchor_ids("OP05-014")
+    assert combos_has_payoff("OP05-014")
+    # 相手ターン限定の下げ (クリーク) → 両 entrypoint で payoff なし
+    assert "OP15-001" not in deck_payoff_anchor_ids("OP15-001")
+    assert not combos_has_payoff("OP15-001")
+
+
 def test_target_cost_limit_scoped_to_search_clause():
     """検索の『コストN以下』 は対象の手前 (= 同じ検索句) だけから取る。
     別節の コスト制限を誤適用しない (= PRB02-007 ジンベエ の【アタック時】コスト1以下)。"""
