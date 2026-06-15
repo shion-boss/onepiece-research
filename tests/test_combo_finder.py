@@ -249,15 +249,17 @@ def test_deck_combo_summary_dedups_and_ranks(repo):
 
     deck = [repo._by_id[i] for i in ("OP04-013", "EB01-004", "OP04-008")]  # ペル/コーザ/チャカ
     out = deck_combo_summary(deck, repo._by_id["EB03-001"], top_n=12)
-    assert out, "実行型コンボが1件も出ていない"
+    combos = [e for e in out if e.kind != "accelerant"]  # 実行型コンボ部
+    assert combos, "実行型コンボが1件も出ていない"
     for e in out:
         assert len(e.card_ids) >= 2
         assert e.description
-        assert e.kind in ("enabler", "payoff", "amplifier", "chain")
+        assert e.kind in ("enabler", "payoff", "amplifier", "chain", "accelerant")
     # enabler(ペル→コーザ) と payoff(コーザ→ペル) は同一コンボ → 1 件に畳む
-    pell_koza = [e for e in out if set(e.card_ids[:2]) == {"OP04-013", "EB01-004"}]
+    pell_koza = [e for e in combos if set(e.card_ids[:2]) == {"OP04-013", "EB01-004"}]
     assert len(pell_koza) == 1
-    assert [e.score for e in out] == sorted((e.score for e in out), reverse=True)
+    # コンボ部は強度降順 (= accelerant は別節として末尾に付くので分けて検証)
+    assert [e.score for e in combos] == sorted((e.score for e in combos), reverse=True)
 
 
 def test_live_deck_combos_only_when_assembled(repo):

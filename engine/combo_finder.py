@@ -1133,21 +1133,34 @@ def find_deck_combos(deck_cards: list, leader=None) -> DeckComboMap:
     return DeckComboMap(edges=edges, chains=chains)
 
 
-# 人間向け表示で「コンボ」 として surface する種別 (= 実行型。 tribal/accelerant は受動的
-# 構築シナジーなので除く)。
+# 人間向け表示で「実行型コンボ」 として surface する種別 (= tribal は受動的なので除く)。
 _DISPLAY_COMBO_KINDS = ("enabler", "payoff", "amplifier")
 _COMBO_KIND_LABEL = {
     "enabler": "KO圏拡張", "payoff": "除去ペイオフ",
     "amplifier": "速攻で即起動", "chain": "多枚コンボ",
+    "accelerant": "サーチ/加速",
 }
 
 
-def deck_combo_summary(deck_cards: list, leader=None, top_n: int = 12) -> list[DeckComboEntry]:
-    """デッキの「実行型コンボ」 (= enabler/payoff/amplifier + 多枚チェーン) を、 無順序ペアで
-    dedup し強度順に並べた人間向けサマリで返す (= /decks/[slug]/analyze 表示用)。
+def _names_of(deck_cards: list, leader) -> dict[str, str]:
+    out = {_base_id(getattr(c, "card_id", "")): getattr(c, "name", "") for c in deck_cards}
+    if leader is not None:
+        out[_base_id(getattr(leader, "card_id", ""))] = getattr(leader, "name", "")
+    return out
 
-    enabler(ペル→コーザ) と payoff(コーザ→ペル) は同一コンボの裏表なので 1 件に畳む。"""
+
+def deck_combo_summary(
+    deck_cards: list, leader=None, top_n: int = 12, top_accel: int = 6
+) -> list[DeckComboEntry]:
+    """デッキの「実行型コンボ」 (= enabler/payoff/amplifier + 多枚チェーン) を無順序ペアで dedup・
+    強度順に、 続けて「サーチ/加速」 (= accelerant、 加速カードごとに最良ターゲット 1 件) を返す
+    人間向けサマリ (= /decks/[slug]/analyze 表示用)。 UI は kind で 2 節 (コンボ / サーチ・加速) に分ける。
+
+    enabler(ペル→コーザ) と payoff(コーザ→ペル) は同一コンボの裏表なので 1 件に畳む。
+    ⭐ accelerant を出すことで accelerant 系の FP 修正 (cost-limit/event-cheat/kyara-search/
+    cost-reduction) が人間表示にも leverage される (= 2026-06-15、 ohtsuki「品質を活用できてるか」)。"""
     m = find_deck_combos(deck_cards, leader)
+    name_of = _names_of(deck_cards, leader)
     best: dict[frozenset, DeckComboEntry] = {}
     for e in m.edges:
         if e.kind not in _DISPLAY_COMBO_KINDS:
@@ -1168,4 +1181,23 @@ def deck_combo_summary(deck_cards: list, leader=None, top_n: int = 12) -> list[D
             score=round(ch.score, 2),
         ))
     entries.sort(key=lambda x: -x.score)
-    return entries[:top_n]
+    entries = entries[:top_n]
+
+    # サーチ/加速: 加速カード (= b_id) ごとに最良ターゲット 1 件。 同名ペア (= 別アート/同名別
+    # カードで self に見える) は除外、 強度順 cap。
+    accel: dict[str, DeckComboEntry] = {}
+    for e in m.edges:
+        if e.kind != "accelerant":
+            continue
+        na, nb = name_of.get(e.a_id, ""), name_of.get(e.b_id, "")
+        if na and na == nb:
+            continue
+        prev = accel.get(e.b_id)
+        if prev is None or e.score > prev.score:
+            accel[e.b_id] = DeckComboEntry(
+                card_ids=[e.b_id, e.a_id], kind="accelerant",
+                label=_COMBO_KIND_LABEL["accelerant"],
+                description=e.desc, score=round(e.score, 2),
+            )
+    accel_list = sorted(accel.values(), key=lambda x: -x.score)[:top_accel]
+    return entries + accel_list

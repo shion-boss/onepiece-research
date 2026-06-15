@@ -160,6 +160,8 @@ def live_deck_combos(state: Any, me_idx: int) -> list[dict]:
     name_of = {bid: getattr(cd, "name", "") for bid, cd in cards.items()}
     out: list[dict] = []
     for e in summary:
+        if e.kind == "accelerant":
+            continue  # live ヒントは実行型コンボに絞る (= サーチ/加速は静的 analyze 表示のみ)
         if all(cid in avail for cid in e.card_ids):
             out.append({
                 "cards": [{"card_id": cid, "name": name_of.get(cid, cid)} for cid in e.card_ids],
