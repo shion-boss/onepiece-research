@@ -145,6 +145,28 @@ def _leader_feature_compatible(text: str, anchor_feats: list[str]) -> bool:
     return bool(req & set(anchor_feats))
 
 
+def _leader_lock(text, anchor_feats, leader_feats_by_name):
+    """効果が特定リーダー (= 特徴《X》/『X』 or 名前「X」) を要求するか。
+
+    返り値 (compatible, note):
+      - anchor と非互換なリーダーを要求 → (False, "") = 除外 (= サッチ@ペル 等)
+      - 互換だが特定リーダー専用 → (True, note) = 採用するが注記 (= チャカ は ビビ 専用)
+      - 要求なし → (True, "")
+    ⚠ 2026-06-14 ユーザー指摘: チャカ(リーダー「ネフェルタリ・ビビ」要求)が無印で出ていた。"""
+    af = set(anchor_feats)
+    req_feats = _required_leader_features(text)
+    if req_feats and not (req_feats & af):
+        return False, ""
+    req_names = set(re.findall(r"リーダーが「([^」]+)」", text))
+    for nm in req_names:
+        feats = leader_feats_by_name.get(nm)
+        if feats and af and not (feats & af):
+            return False, ""  # 指定リーダーが anchor と非互換
+    if req_names:
+        return True, "リーダーが「" + "」「".join(sorted(req_names)) + "」 の時のみ最大効果"
+    return True, ""
+
+
 def _condition_note(text: str) -> tuple[float, str, str]:
     """効果の発動条件 (= in-game setup の要否) を (倍率, 注記, 条件type) で返す。
 
@@ -599,6 +621,12 @@ def find_combos(
     anchor_colors = set(_colors(anchor))
     anchor_feats = _features(anchor)
 
+    # リーダー名 → 特徴 (= 効果が「リーダーが「X」の場合」 を要求する時の互換判定用)。
+    _leader_feats_by_name: dict[str, set[str]] = {}
+    for _c in by_id.values():
+        if _category(_c) == "LEADER":
+            _leader_feats_by_name.setdefault(_c.name, set()).update(_features(_c))
+
     # 実戦デッキ共起による接地 (= スコア補正 + 専用グループ)。 off-meta anchor は空 (= 静的に委ねる)。
     try:
         from .combo_cooccurrence import cooc_score_map, cooccurring, n_decks
@@ -609,11 +637,18 @@ def find_combos(
         _boost_map, _cooc, _n_decks = {}, [], 0
 
     def _legal(cards: list[ComboCard]) -> list[ComboCard]:
-        # (1) 指定カードと違う色のリーダーは除外。 (2) 効果が要求するリーダー特徴が anchor と
-        # 非互換なカードは除外 (= 同じデッキに入れても効果が発動しない、 例: サッチ@ペル)。
+        # (1) 違う色のリーダーは除外。 (2) 効果が要求するリーダー (特徴/名前) が anchor と
+        # 非互換なら除外 (= サッチ@ペル)。 (3) 互換だが特定リーダー専用なら注記 (= チャカ は ビビ 専用)。
         cards = _filter_offcolor_leaders(cards, anchor_colors)
-        cards = [c for c in cards if _leader_feature_compatible(c.text, anchor_feats)]
-        return _dedup_parallels(cards)
+        out: list[ComboCard] = []
+        for c in cards:
+            compat, note = _leader_lock(c.text, anchor_feats, _leader_feats_by_name)
+            if not compat:
+                continue
+            if note and "リーダーが「" not in c.reason:
+                c.reason += f"。⚠ {note}"
+            out.append(c)
+        return _dedup_parallels(out)
 
     def _boosted(cards: list[ComboCard]) -> list[ComboCard]:
         # 実戦で anchor と共起する候補を加点 (= ランクを実戦に接地)。 cap +3。

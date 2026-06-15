@@ -221,6 +221,30 @@ def test_amplifier_excludes_self_only_rush(repo):
         assert "OP14-004" not in ids  # キャベンディッシュ (自身のみ)
 
 
+def test_leader_name_lock_note_and_exclusion(repo):
+    """リーダー名指定 (= チャカ: 「ネフェルタリ・ビビ」) は、 互換(ビビ=アラバスタ)なら
+    注記付きで残し、 非互換(白ひげ等)なら除外する (= ユーザー指摘)。"""
+    from engine.combo_finder import _leader_lock
+
+    lmap = {
+        "ネフェルタリ・ビビ": {"アラバスタ王国"},
+        "エドワード・ニューゲート": {"白ひげ海賊団"},
+    }
+    compat, note = _leader_lock(
+        "リーダーが「ネフェルタリ・ビビ」の場合、相手-3000", ["アラバスタ王国"], lmap
+    )
+    assert compat and "ネフェルタリ・ビビ" in note
+    compat2, _ = _leader_lock(
+        "リーダーが「エドワード・ニューゲート」の場合", ["アラバスタ王国"], lmap
+    )
+    assert not compat2  # 白ひげ専用 → アラバスタのペルでは除外
+
+    res = find_combos(repo, "OP04-013", per_group=30)
+    g = next(gr for gr in res.groups if gr.key == "enabler")
+    chaka = next((c for c in g.cards if c.card_id == "OP04-008"), None)
+    assert chaka is not None and "ネフェルタリ・ビビ" in chaka.reason
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
