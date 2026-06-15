@@ -1331,7 +1331,9 @@ def compute_score(
             from .gbm_value import gbm_score as _gbm_score
             _gv = _gbm_score(state, me_idx)
             if _gv is not None:
-                return _gv
+                # combo-readiness bonus (= flag off / 終局で 0、 配備AIの GBM value 経路)
+                from .combo_readiness import readiness_bonus as _cr_bonus
+                return _gv + _cr_bonus(state, me_idx)
         except Exception:
             pass
     # === Plan Step 3: NN backend (= model file 存在で auto 有効化) ===
@@ -1741,6 +1743,14 @@ def compute_score(
             if leader_unrested:
                 waste_penalty += 400                          # leader 未攻撃 = -400pt
             score -= waste_penalty
+
+    # === combo-readiness bonus (= 2026-06-15、 ONEPIECE_COMBO_READINESS=1 時のみ) ===
+    # デッキの実行コンボのピースが手札/場に揃っている度合いを value に加点 (= flag off で 0)。
+    try:
+        from .combo_readiness import readiness_bonus as _cr_bonus
+        score += _cr_bonus(state, me_idx)
+    except Exception:
+        pass
 
     return score
 
