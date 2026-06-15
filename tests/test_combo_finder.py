@@ -197,6 +197,34 @@ def test_accelerant_respects_search_cost_limit(repo):
     assert "PRB02-007" in ids2
 
 
+def test_find_deck_combos_extracts_intra_deck_edges(repo):
+    """デッキ内の実在コンボを edge 抽出する。 ペル(KO≤4000) + コーザ(相手-3000) = enabler。"""
+    from engine.combo_finder import find_deck_combos
+
+    ids = ["OP04-013", "EB01-004", "OP04-008", "OP13-012"]  # ペル/コーザ/チャカ/ビビ(search)
+    deck = [repo._by_id[i] for i in ids]
+    leader = repo._by_id["EB03-001"]  # ネフェルタリ・ビビ (アラバスタ王国)
+    m = find_deck_combos(deck, leader)
+    # ペル起点の enabler edge にコーザが入る
+    enabler = {(e.a_id, e.b_id) for e in m.edges if e.kind == "enabler"}
+    assert ("OP04-013", "EB01-004") in enabler
+    # 自己 edge は無い
+    assert all(e.a_id != e.b_id for e in m.edges)
+    # 候補はデッキ内に限る (= プール外は出ない)
+    deck_bases = {"OP04-013", "EB01-004", "OP04-008", "OP13-012", "EB03-001"}
+    for e in m.edges:
+        assert e.a_id in deck_bases and e.b_id in deck_bases
+
+
+def test_find_deck_combos_excludes_incompatible_leader(repo):
+    """別リーダー専用カードは、 実リーダーが非互換ならデッキコンボに入れない。"""
+    from engine.combo_finder import find_deck_combos, _card_ok_with_leader
+
+    # サッチ系「リーダー白ひげ」 要求は アラバスタ(ビビ) では非互換
+    assert _card_ok_with_leader("自分のリーダーが「白ひげ」の場合、カードを引く。", {"アラバスタ王国"}, "ネフェルタリ・ビビ") is False
+    assert _card_ok_with_leader("自分のリーダーが特徴《アラバスタ王国》を持つ場合、+1000。", {"アラバスタ王国"}, "ネフェルタリ・ビビ") is True
+
+
 def test_offcolor_leader_filter_unit():
     """指定色を含まないリーダーは除外、 含むリーダー/非リーダーは残る。"""
     from engine.combo_finder import ComboCard, _filter_offcolor_leaders

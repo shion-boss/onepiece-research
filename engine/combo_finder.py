@@ -76,6 +76,33 @@ class ComboResult:
     chains: list[ComboChain] = field(default_factory=list)  # 3-4枚 多枚コンボ
 
 
+@dataclass
+class ComboEdge:
+    """デッキ内の 2 枚コンボ (= a が起点、 b が相棒)。 強度 score 付き。"""
+    a_id: str          # base card_id (= 起点/ペイオフ)
+    b_id: str          # base card_id (= 相棒/下げ役/速攻付与 等)
+    kind: str          # enabler / payoff / amplifier / accelerant / tribal
+    score: float
+
+
+@dataclass
+class DeckComboMap:
+    """あるデッキ (= 確定リーダー + 50枚) の中に実在するコンボの静的マップ。
+    AI の combo-readiness 特徴量の入力 (= state の手札/場で揃った edge を集計する)。"""
+    edges: list[ComboEdge] = field(default_factory=list)
+    chains: list[ComboChain] = field(default_factory=list)
+
+    def card_ids(self) -> set[str]:
+        s: set[str] = set()
+        for e in self.edges:
+            s.add(e.a_id)
+            s.add(e.b_id)
+        for ch in self.chains:
+            for st in ch.steps:
+                s.add(_base_id(st.card_id))
+        return s
+
+
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
@@ -995,3 +1022,78 @@ def find_combos(
         groups=groups,
         chains=chains,
     )
+
+
+# --------------------------------------------------------------------------- #
+# デッキ内コンボ抽出 (= AI combo-readiness の入力土台)
+# --------------------------------------------------------------------------- #
+def _card_ok_with_leader(text: str, leader_feats: set[str], leader_name: str) -> bool:
+    """カードが要求するリーダー (特徴/名前) が、 実リーダーと両立するか (= デッキ scope は厳密判定)。
+
+    find_combos は anchor の特徴で代理判定していたが、 デッキでは leader が確定しているので
+    そのまま照合できる (= 精度向上)。 要求特徴は leader_feats に含まれ、 要求名は leader_name と
+    一致する必要がある。 要求なしは True。"""
+    req_feats = _required_leader_features(text)
+    if req_feats and not (req_feats & leader_feats):
+        return False
+    req_names = set(re.findall(r"リーダーが「([^」]+)」", text))
+    if req_names and leader_name not in req_names:
+        return False
+    return True
+
+
+def find_deck_combos(deck_cards: list, leader=None) -> DeckComboMap:
+    """デッキ (= 50枚 + 確定リーダー) の中に実在する 2枚コンボ/チェーンを強度付きで抽出する。
+
+    find_combos の matcher 群をそのまま流用し、 候補プールを「このデッキの札」 に絞る。
+    リーダーが確定しているので leader 互換は厳密化 (= _card_ok_with_leader)。 実戦共起ブーストは
+    不要 (= 札は既に選ばれている)。 card は CardDef でも InPlay でも可 (= _text/_features/... は
+    getattr ベース)、 ので game state の在場カードからも組める。
+
+    返り値の edges は base card_id 単位 (= パラレル/枚数は畳む)。 AI の combo-readiness は
+    「手札/場に edge の両端が揃っているか」 を強度で集計する。"""
+    pool: list = list(deck_cards)
+    if leader is not None and all(_base_id(getattr(c, "card_id", "")) != _base_id(getattr(leader, "card_id", "")) for c in pool):
+        pool = pool + [leader]
+    leader_feats = set(_features(leader)) if leader is not None else set()
+    leader_name = getattr(leader, "name", "") if leader is not None else ""
+
+    edges: list[ComboEdge] = []
+    seen: set[tuple] = set()
+    chains: list[ComboChain] = []
+
+    def _add(anchor, partner: ComboCard, kind: str) -> None:
+        a, b = _base_id(anchor.card_id), _base_id(partner.card_id)
+        if a == b:
+            return
+        if leader is not None and not _card_ok_with_leader(partner.text, leader_feats, leader_name):
+            return  # 相棒が別リーダー専用 → このデッキでは発動しない
+        key = (a, b, kind)
+        if key in seen:
+            return
+        seen.add(key)
+        edges.append(ComboEdge(a_id=a, b_id=b, kind=kind, score=partner.score))
+
+    for anchor in pool:
+        if leader is not None and not _card_ok_with_leader(_text(anchor), leader_feats, leader_name):
+            continue  # この札自体が別リーダー専用なら起点にしない
+        text = _text(anchor)
+        ko_t = _detect_ko_power_threshold(text)
+        if ko_t is not None:
+            for c in _match_enabler_powerdown(anchor, pool, ko_t):
+                _add(anchor, c, "enabler")
+        pd = _detect_self_powerdown(text)
+        if pd is not None and _powerdown_on_own_turn(text):
+            for c in _match_payoff_for_powerdown(anchor, pool, pd):
+                _add(anchor, c, "payoff")
+        if _is_attacker_trigger(text):
+            for c in _match_amplifier(anchor, pool):
+                _add(anchor, c, "amplifier")
+        for c in _match_accelerant(anchor, pool):
+            _add(anchor, c, "accelerant")
+        for c in _match_tribal(anchor, pool):
+            _add(anchor, c, "tribal")
+        for ch in _build_condition_chains(anchor, pool, set(_colors(anchor)), _features(anchor), ko_t):
+            chains.append(ch)
+
+    return DeckComboMap(edges=edges, chains=chains)
