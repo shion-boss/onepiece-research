@@ -9,11 +9,16 @@
 (a) value にコンボ準備度が無い (b) beam が仕込み手を中間枝刈り の 2 つの診断
 ([[project_combo_aware_ai]]) を、 探索を歪めず value 側から補正する狙い。
 
-⚠ 効くとは限らない。 v3 raw-DON 特徴が無改善だった前例があるので、 flag-gated で
-A/B し、 回帰0 かつ再現性ある改善が無ければ deploy しない (= measured 判定)。
+🛑 **2026-06-15 measured DEAD-END → value 配線は revert 済み**。 配備 ExploitBeam の GBM value に
+W*readiness を足す A/B (mirror、 N=80、 combo 主体 3 デッキ) は **全敗**:
+  W=300/1000/2500 で coby = 48/44/41% (= 単調に悪化、 W→0 で中立)、 1454=46% / bonney=48%。
+原因 = **準備度 (= ピースが揃った state) を value 加点すると「組成済みを抱える」 状態を
+キャンプする誘因**になり、 calibrated な GBM P(win) を歪めるだけ。 どの W でも net positive に
+ならない (= best case 中立)。 ⇒ eval.compute_score / exploit_beam_ai の配線は revert、 配備 AI 無傷。
 
-統合: engine/eval.compute_score が ONEPIECE_COMBO_READINESS=1 の時のみ、 GBM/線形 value に
-W * combo_readiness を加算する (= flag off で完全 no-op、 配備AI 無傷)。
+このモジュールは scaffold として残置 (= find_deck_combos と共に、 人間向け「対戦中の生きてる
+コンボ」 表示や、 将来「準備度でなく実行 delta を報酬化」 等の別設計の土台)。 value への
+再配線は readiness_bonus を compute_score に足すだけ (= 下記)、 ただし上記理由で非推奨。
 """
 from __future__ import annotations
 
