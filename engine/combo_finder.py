@@ -240,6 +240,31 @@ def _grants_rush_to_others(text: str) -> bool:
     return False
 
 
+def _rush_grant_can_target(text: str, anchor) -> bool:
+    """速攻付与の『対象制限』 を anchor が満たすか (= anchor に速攻を付与できるか)。
+    ⚠ 2026-06-14 ユーザー指摘: EB03-001 は『【アタック時】効果を持たないキャラ』 限定で、
+    アタック時持ちのペルには付与不可。 シャンクスも『ロジャー海賊団』 限定で非互換。"""
+    atext = _text(anchor)
+    # 「【...】効果を持たないキャラ」 → anchor がその効果持ちなら付与対象外
+    for kw in ("【アタック時】", "【登場時】", "【ブロッカー】"):
+        if f"{kw}効果を持たない" in text and kw in atext:
+            return False
+        if f"{kw}を持たない" in text and kw in atext:
+            return False
+    # コスト制限
+    m = re.search(r"コスト(\d+)以下の[^。]{0,24}キャラ", text)
+    if m and _cost(anchor) > int(m.group(1)):
+        return False
+    m = re.search(r"コスト(\d+)以上の[^。]{0,24}キャラ", text)
+    if m and _cost(anchor) < int(m.group(1)):
+        return False
+    # 特徴制限: 《X》/『X』 を(含む特徴を)持つキャラ
+    feat_reqs = re.findall(r"[『《]([^』》]+)[』》](?:を含む特徴)?を持つキャラ", text)
+    if feat_reqs and not (set(feat_reqs) & set(_features(anchor))):
+        return False
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # matcher 群 (= 各軸で候補 + score + reason を生成)
 # --------------------------------------------------------------------------- #
@@ -372,6 +397,8 @@ def _match_amplifier(anchor, all_cards) -> list[ComboCard]:
         t = _text(c)
         if not _grants_rush_to_others(t):
             continue  # 「このキャラは【速攻】を得る」 (= 自身のみ、 anchor に付与しない) を除外
+        if not _rush_grant_can_target(t, anchor):
+            continue  # 付与対象制限 (= アタック時持たない/特徴/コスト) に anchor が非合致
         s_color = 1.5 if anchor_colors & set(_colors(c)) else 0.0
         s_cost = _cost_eff(c) * 1.5
         s_consist = _consistency(c) * 1.0

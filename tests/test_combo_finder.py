@@ -245,6 +245,24 @@ def test_leader_name_lock_note_and_exclusion(repo):
     assert chaka is not None and "ネフェルタリ・ビビ" in chaka.reason
 
 
+def test_amplifier_respects_grant_target_restriction(repo):
+    """速攻付与の対象制限を anchor が満たさないなら amplifier 除外 (= ユーザー指摘)。
+    EB03-001=『【アタック時】効果を持たない』 限定→アタック時持ちのペルに付与不可。
+    シャンクス=『ロジャー海賊団』 限定→アラバスタのペルに付与不可。"""
+    from engine.combo_finder import _rush_grant_can_target, _text
+
+    peru = repo._by_id["OP04-013"]
+    assert not _rush_grant_can_target(_text(repo._by_id["EB03-001"]), peru)
+    assert not _rush_grant_can_target(_text(repo._by_id["OP12-007"]), peru)
+    assert _rush_grant_can_target(_text(repo._by_id["OP04-001"]), peru)  # 制限なし
+    res = find_combos(repo, "OP04-013", per_group=30)
+    amp = next((g for g in res.groups if g.key == "amplifier"), None)
+    if amp:
+        ids = {c.card_id for c in amp.cards}
+        assert "EB03-001" not in ids  # 嘘 (アタック時持たない限定)
+        assert "OP12-007" not in ids  # 嘘 (ロジャー海賊団限定)
+
+
 def test_unknown_card_raises(repo):
     with pytest.raises(KeyError):
         find_combos(repo, "NOPE-999")
