@@ -1,6 +1,6 @@
 # Q&A データ INDEX
 
-取得日: 2026-05-09T19:07:57.440681Z
+取得日: 2026-06-15T09:10:25.367900Z
 
 ## よくある質問 (FAQ)
 
@@ -35,6 +35,7 @@
 | ブースターパック 受け継がれる意志【OP-13】 | 88 | `db/faq/cardqa_op_13.json` |
 | ブースターパック 蒼海の七傑【OP-14】 | 110 | `db/faq/cardqa_op_14.json` |
 | ブースターパック 神の島の冒険【OP-15】 | 218 | `db/faq/cardqa_op_15.json` |
+| ブースターパック 決戦の刻【OP-16】 | 116 | `db/faq/cardqa_op_16.json` |
 | プレミアムブースター ONE PIECE CARD THE BEST【PRB-01】 | 8 | `db/faq/cardqa_prb_01.json` |
 | プレミアムブースター ONE PIECE CARD THE BEST vol.2【PRB-02】 | 22 | `db/faq/cardqa_prb_02.json` |
 | スタートデッキ 麦わらの一味【ST-01】 | 28 | `db/faq/cardqa_st_01.json` |
