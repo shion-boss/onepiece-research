@@ -4328,3 +4328,20 @@ def test_op16_041_buggy_plays_prisoner_on_impeldown_ko():
     me3.hand = [repo.get("OP16-042")]
     trigger_on_self_chara_ko(state3, me3, opp3, overlay, victim_card=repo.get("EB02-038"))
     assert not me3.characters  # DON 不足で発動しない
+
+
+def test_op16_002_reveal_8000_to_draw():
+    """OP16-002 (白ひげ reveal-cost クラス代表): 手札のパワー8000キャラを公開 (捨てない) → 1ドロー。"""
+    repo = _repo(); overlay = _overlay()
+    state = _make_state(repo, "OP01-003", overlay=overlay)
+    me, opp = state.players[0], state.players[1]
+    state.human_player_idx = None  # AI (= 無コストの reveal は得なので払う)
+    big = repo.get("OP14-044")  # パワー8000 キャラ
+    me.hand = [big]
+    me.deck = [repo.get("OP01-013")] * 5
+    ip = InPlay.of(repo.get("OP16-002"), sickness=True)
+    me.characters.append(ip)
+    from engine.effects import trigger_on_play
+    trigger_on_play(state, me, opp, ip, overlay)
+    assert big in me.hand            # 公開しただけ → 手札に残る
+    assert len(me.hand) == 2         # +1 ドロー (8000 + 引いた札)

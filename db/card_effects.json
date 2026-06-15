@@ -102884,5 +102884,257 @@
    ],
    "_fidelity_note": "公式「場を離れた時」 のうち KO 経路 (on_self_chara_ko = バトル/効果KO 双方) を実装。 KO でない離脱 (相手効果での手札/デッキ戻し等) は engine に一般 leave トリガーが無く未カバー (= インペルダウン軸の離脱は実質 KO が主)。"
   }
- ]
+ ],
+ "OP16-002": [
+  {
+   "_text": "OP16-002 【登場時】手札からパワー8000のキャラ1枚を公開できる：カード1枚を引く。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-004": [],
+ "OP16-006": [
+  {
+   "_text": "OP16-006 【登場時】自分のドン!!2枚をレストにできる：相手のパワー4000以下のキャラ1枚までをKO。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 2
+       }
+      ],
+      "effect": [
+       {
+        "ko": "one_opponent_character_power_le_4000"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-007": [
+  {
+   "_text": "OP16-007 【ブロッカー】【登場時】手札からパワー8000のキャラ1枚を公開できる：相手のキャラ1枚までを、このターン中、パワー-1000。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -1000,
+         "duration": "turn"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-008": [
+  {
+   "_text": "OP16-008 【登場時】自分の元々のパワー10000のキャラ1枚をトラッシュに置くことができる：相手のパワー8000以下のキャラ1枚までをKO。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "ko_self_chara": {
+         "count": 1,
+         "filter": {
+          "truly_original_power_eq": 10000
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "ko": "one_opponent_character_power_le_8000"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-009": [
+  {
+   "_text": "OP16-009 【登場時】手札からパワー8000のキャラ1枚を捨てることができる：このキャラは、次の相手のエンドフェイズ終了時まで、【速攻】を得て、パワー+2000。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "give_keyword": {
+         "target": "self",
+         "keyword": "速攻",
+         "duration": "next_opp_turn_end"
+        }
+       },
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 2000,
+         "duration": "next_opp_turn_end"
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-010": [
+  {
+   "_text": "OP16-010 【登場時】手札からパワー8000のキャラ1枚を公開できる：相手の元々のパワー2000以下のキャラ1枚までをKO。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "ko": {
+         "type": "one_opponent_character_filtered",
+         "filter": {
+          "truly_original_power_le": 2000
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-011": [
+  {
+   "_text": "OP16-011 【登場時】手札からパワー8000のキャラ1枚を公開できる：カード1枚を引く。",
+   "when": "on_play",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         },
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-011 【ドン!!×1】【アタック時】相手の元々のパワー2000以下のキャラ2枚までをKO。",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 1
+   },
+   "do": [
+    {
+     "ko_multi": [
+      {
+       "type": "one_opponent_character_filtered",
+       "filter": {
+        "truly_original_power_le": 2000
+       }
+      },
+      {
+       "type": "one_opponent_character_filtered",
+       "filter": {
+        "truly_original_power_le": 2000
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "OP16-013": [
+  {
+   "_text": "OP16-013 【KO時】相手の元々のパワー8000以下のキャラ1枚までをKO。",
+   "when": "on_ko",
+   "do": [
+    {
+     "ko": {
+      "type": "one_opponent_character_filtered",
+      "filter": {
+       "truly_original_power_le": 8000
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "OP16-016": []
 }
