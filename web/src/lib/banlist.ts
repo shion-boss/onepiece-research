@@ -9,6 +9,24 @@ export type BanInfo = {
 };
 
 /**
+ * パラレル / 別アート (= OP06-047_r1, OP06-047_p1 等) を base card_id に正規化する。
+ * 禁止は印刷バリエーション横断で適用されるので suffix を除いて突合する。
+ * base id ("OP06-047" / "ST10-001" / "P-114") は "_" を含まない。
+ */
+export function baseCardId(cardId: string): string {
+  const i = cardId.indexOf("_");
+  return i === -1 ? cardId : cardId.slice(0, i);
+}
+
+/** card_id (パラレル含む) から BanInfo を引く。 */
+export function banInfoFor(
+  banStatus: Record<string, BanInfo>,
+  cardId: string,
+): BanInfo | undefined {
+  return banStatus[cardId] ?? banStatus[baseCardId(cardId)];
+}
+
+/**
  * card_id → BanInfo の lookup を作る。 強さは forbidden > restricted > pair。
  * forbidden/restricted は単体で禁止/制限、 pair は 相方との同時採用のみ不可。
  */

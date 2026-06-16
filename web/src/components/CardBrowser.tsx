@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Card } from "@/lib/types";
-import type { BanInfo } from "@/lib/banlist";
+import { banInfoFor, type BanInfo } from "@/lib/banlist";
 import { CardTile } from "./CardTile";
 import { CardDetailModal } from "./CardDetailModal";
 
@@ -203,7 +203,7 @@ export function CardBrowser({
                 key={c.card_id}
                 card={c}
                 onClick={setSelected}
-                ban={banStatus[c.card_id]}
+                ban={banInfoFor(banStatus, c.card_id)}
               />
             ))}
           </div>
