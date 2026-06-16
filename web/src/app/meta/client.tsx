@@ -53,7 +53,7 @@ export function MetaPageClient({
           tab === "spectate"
             ? "デッキ A / B / seed を 選んで 「観戦開始」 で 1 試合 シミュレート → 盤面再生"
             : initialData
-            ? `${initialData.decks.length} デッキ × ${initialData.decks.length} の 勝率行列。 各 cell ${initialData.n_games} 戦 (seed=${initialData.seed})`
+            ? `${initialData.decks.length} デッキ × ${initialData.decks.length} の 勝率行列。 各 cell ${initialData.n_games} 戦 (先攻後攻 交互、 seed=${initialData.seed} で再現可)`
             : "デッキ間 N×N 勝率行列"
         }
         actions={tabs}
