@@ -77,9 +77,10 @@ def _compute_cell_worker(task):
         rep_kwargs["ai_factory_2"] = _aif
     elif ai_mode == "exploitbeam":
         # 2026-06-16: SmartOpponentAI (= deck別 greedy 切替) 廃止 → uniform ExploitBeam。
-        # 全16メタは deploy_results で既に ExploitBeam (= 切替 dormant)。 旧 SmartOpponentAI 産 matrix は
-        # stale/artifact な spread (calgara 76% 等) を示していた → uniform ExploitBeam + full analysis の
-        # clean matrix に置換 (= balanced な真値、 --ai-version ExploitBeam で計算)。
+        # 全16メタは deploy_results で既に ExploitBeam (= 切替 dormant)。 deck別 AI 切替を無くし
+        # 全デッキを同一 ExploitBeam (+ per-deck GBM + full analysis、 deployment と同一構成) で piloting →
+        # matrix の spread は AI 起因でなく デッキ実力差を反映。 full 再計算 (240 cells, N=20) で
+        # calgara 76.8% two-way が #1、 corazon 9.2% が最下位 = real (balanced ではない、 --ai-version ExploitBeam)。
         from engine.exploit_beam_ai import ExploitBeamAI
 
         def _aif1(rng, deck_analysis=None):
