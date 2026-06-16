@@ -1,5 +1,6 @@
 import type {
   ApplyImprovementResponse,
+  Banlist,
   Card,
   CardChange,
   CardFilters,
@@ -53,6 +54,12 @@ export async function fetchCards(filters: CardFilters = {}): Promise<Card[]> {
 export async function fetchSets(): Promise<SetInfo[]> {
   const res = await fetch(`${API}/api/sets`, { cache: "no-store" });
   if (!res.ok) throw new Error(`fetchSets failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchBanlist(): Promise<Banlist> {
+  const res = await fetch(`${API}/api/banlist`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchBanlist failed: ${res.status}`);
   return res.json();
 }
 

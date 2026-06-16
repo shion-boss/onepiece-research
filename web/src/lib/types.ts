@@ -131,6 +131,16 @@ export type CardRef = {
   name: string;
 };
 
+// db/banlist/master.json (GET /api/banlist)
+export type Banlist = {
+  standard_min_block: number;
+  fetched_at?: string;
+  source_url?: string;
+  forbidden: CardRef[];
+  restricted: CardRef[];
+  forbidden_pairs: { a: CardRef; b: CardRef }[];
+};
+
 export type DeckAnalysis = {
   slug: string;
   name: string;

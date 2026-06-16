@@ -1,8 +1,42 @@
 import type { Card } from "@/lib/types";
+import type { BanInfo } from "@/lib/banlist";
 import { CardImage } from "./CardImage";
 import { ColorChip } from "./ColorChip";
 
 const BLOCK_ICONS = ["", "①", "②", "③", "④", "⑤"] as const;
+
+function BanBadge({ ban }: { ban: BanInfo }) {
+  if (ban.kind === "forbidden") {
+    return (
+      <span
+        className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white shadow ring-1 ring-black/10"
+        title="禁止カード (= デッキに採用不可)"
+      >
+        禁止
+      </span>
+    );
+  }
+  if (ban.kind === "restricted") {
+    return (
+      <span
+        className="rounded bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white shadow ring-1 ring-black/10"
+        title="制限カード (= 採用枚数に制限)"
+      >
+        制限
+      </span>
+    );
+  }
+  // pair: 単体では合法だが 相方と同時採用不可
+  const partners = ban.partners?.join("・") ?? "";
+  return (
+    <span
+      className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-700 shadow ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-800"
+      title={`ペア制限: ${partners} と同時採用不可`}
+    >
+      ペア
+    </span>
+  );
+}
 
 function BlockBadge({ blockIcon }: { blockIcon: number }) {
   const label = BLOCK_ICONS[blockIcon] ?? String(blockIcon);
@@ -24,9 +58,11 @@ function BlockBadge({ blockIcon }: { blockIcon: number }) {
 export function CardTile({
   card,
   onClick,
+  ban,
 }: {
   card: Card;
   onClick?: (card: Card) => void;
+  ban?: BanInfo;
 }) {
   return (
     <button
@@ -43,6 +79,11 @@ export function CardTile({
         <div className="absolute right-1 top-1">
           <BlockBadge blockIcon={card.block_icon} />
         </div>
+        {ban && (
+          <div className="absolute left-1 top-1">
+            <BanBadge ban={ban} />
+          </div>
+        )}
       </div>
       <div className="flex items-start justify-between gap-2">
         <div className="text-sm font-medium leading-tight">{card.name}</div>
