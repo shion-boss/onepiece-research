@@ -76,15 +76,17 @@ def _compute_cell_worker(task):
         rep_kwargs["ai_factory_1"] = _aif
         rep_kwargs["ai_factory_2"] = _aif
     elif ai_mode == "exploitbeam":
-        # 配備 AI (= SmartOpponentAI、 deck別に ExploitBeam/greedy 自動切替)。 deck_a/deck_b
-        # それぞれの slug で構築 (= deploy_results を見て ExploitBeam か greedy を選ぶ)。
-        from engine.smart_opponent_ai import SmartOpponentAI
+        # 2026-06-16: SmartOpponentAI (= deck別 greedy 切替) 廃止 → uniform ExploitBeam。
+        # 全16メタは deploy_results で既に ExploitBeam (= 切替 dormant)。 旧 SmartOpponentAI 産 matrix は
+        # stale/artifact な spread (calgara 76% 等) を示していた → uniform ExploitBeam + full analysis の
+        # clean matrix に置換 (= balanced な真値、 --ai-version ExploitBeam で計算)。
+        from engine.exploit_beam_ai import ExploitBeamAI
 
         def _aif1(rng, deck_analysis=None):
-            return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_a)
+            return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": slug_a})
 
         def _aif2(rng, deck_analysis=None):
-            return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_b)
+            return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": slug_b})
 
         rep_kwargs["ai_factory_1"] = _aif1
         rep_kwargs["ai_factory_2"] = _aif2
@@ -209,7 +211,7 @@ def main() -> int:
             "default = GoalDirectedAI、 "
             "greedy = GreedyAI (= 高速、 1-2s/game)、 "
             "planning = PlanningAI (= 中間)、 "
-            "exploitbeam = 配備 SmartOpponentAI (= deck別 ExploitBeam/greedy 自動、 ~2.2s/game、 最新配備AI)"
+            "exploitbeam = 配備 ExploitBeam (= uniform、 SmartOpponentAI の deck別 greedy 切替は廃止 2026-06-16、 最新配備AI)"
         ),
     )
     ap.add_argument(

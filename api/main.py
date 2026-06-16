@@ -304,20 +304,20 @@ class MatrixSampleRequest(BaseModel):
 
 
 def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str]) -> dict:
-    """実践 AI (= 配備 SmartOpponentAI) を run_matchup に差す kwargs を返す。
+    """実践 AI (= 配備 ExploitBeam) を run_matchup に差す kwargs を返す。
 
     実践で 使う AI を 全ユーザー向け 対戦経路 (= 観戦 / deck対戦ランナー / replay / battle-report)
-    で 同一 に 揃える (= 2026-06-06、 ohtsuki 要望)。 人間vsAI (_build_default_ai_factory) と
-    同じ SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) を deck_a/deck_b の slug で構築。
-    slug が None / 未知 の deck は SmartOpponentAI が greedy に degrade (= 安全)。 deckN_analysis も
-    渡して GBM / heuristic を 有効化。 SmartOpponentAI は torch 非依存。"""
-    from engine.smart_opponent_ai import SmartOpponentAI
+    で 同一 に 揃える。 2026-06-16: SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) を廃止し
+    **uniform ExploitBeam** に統一。 理由: deploy_results で全16メタが既に ExploitBeam (= greedy 切替は
+    dormant) なので不変、 かつ user/未知デッキが greedy degrade でなく ExploitBeam に格上げされる。
+    deck_slug を deck_analysis に注入して per-deck GBM を解決 (= 無ければ board_eval に degrade)。"""
+    from engine.exploit_beam_ai import ExploitBeamAI
 
     def _a(rng, deck_analysis=None):
-        return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_a)
+        return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": slug_a})
 
     def _b(rng, deck_analysis=None):
-        return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=slug_b)
+        return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": slug_b})
 
     kw: dict = {"ai_factory_1": _a, "ai_factory_2": _b}
     for _slug, _key in ((slug_a, "deck1_analysis"), (slug_b, "deck2_analysis")):
@@ -3407,9 +3407,10 @@ def _load_deck_analysis(slug: str) -> Optional[dict]:
 
 
 def _build_default_ai_factory(deck_slug: str):
-    """人間の対戦相手 AI factory。 SmartOpponentAI (= deck別に ExploitBeam/greedy 自動切替、
-    [[project_70pct_vs_greedy]]) を 既定 に。 ExploitBeam は vs greedy 70-86% (= 手強い)、
-    検証で弱い deck は greedy fallback。 import/load 失敗時は GoalDirectedAI に degrade。
+    """人間の対戦相手 AI factory。 2026-06-16〜 **uniform ExploitBeam** を既定に (= SmartOpponentAI の
+    deck別 greedy 切替を廃止: 全16メタは deploy_results で既に ExploitBeam=切替 dormant、 user/未知デッキも
+    greedy でなく ExploitBeam に格上げ)。 ExploitBeam は vs greedy 70-86% ([[project_70pct_vs_greedy]])。
+    import/load 失敗時は GoalDirectedAI に degrade。
 
     ⚠ Vercel: ExploitBeam は sklearn + GBM load。 deploy 環境で重い場合は
     env ONEPIECE_HUMAN_AI=light で GoalDirectedAI に切替可。"""
@@ -3427,11 +3428,14 @@ def _build_default_ai_factory(deck_slug: str):
         from engine.harness import _default_ai_factory
         return _default_ai_factory
     try:
-        from engine.smart_opponent_ai import SmartOpponentAI
+        # 2026-06-16: SmartOpponentAI (= deck別 greedy 切替) 廃止 → uniform ExploitBeam。
+        # 全16メタは deploy_results で既に ExploitBeam (= 切替 dormant)、 user/未知デッキは
+        # greedy degrade でなく ExploitBeam に格上げ。 deck_slug 注入で per-deck GBM 解決。
+        from engine.exploit_beam_ai import ExploitBeamAI
 
-        def _smart_factory(rng, deck_analysis=None):
-            return SmartOpponentAI(rng=rng, deck_analysis=deck_analysis, deck_slug=deck_slug)
-        return _smart_factory
+        def _eb_factory(rng, deck_analysis=None):
+            return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": deck_slug})
+        return _eb_factory
     except Exception:
         from engine.harness import _default_ai_factory
         return _default_ai_factory

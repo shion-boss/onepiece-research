@@ -1,0 +1,134 @@
+{
+ "target": "cardrush_1455",
+ "cum": {
+  "cardrush_1342": [
+   10,
+   10
+  ],
+  "cardrush_1385": [
+   10,
+   10
+  ],
+  "cardrush_1392": [
+   10,
+   10
+  ],
+  "cardrush_1399": [
+   9,
+   11
+  ],
+  "cardrush_1439": [
+   12,
+   8
+  ],
+  "cardrush_1453": [
+   8,
+   12
+  ],
+  "cardrush_1454": [
+   12,
+   8
+  ],
+  "cardrush_1456": [
+   16,
+   4
+  ],
+  "tcgportal_bonney": [
+   10,
+   10
+  ],
+  "tcgportal_calgara": [
+   10,
+   10
+  ],
+  "tcgportal_coby": [
+   5,
+   15
+  ],
+  "tcgportal_corazon": [
+   10,
+   10
+  ],
+  "tcgportal_hancock": [
+   5,
+   15
+  ],
+  "tcgportal_op11_luffy": [
+   9,
+   11
+  ],
+  "tcgportal_op13_luffy": [
+   12,
+   8
+  ]
+ },
+ "runs": [
+  {
+   "ts": "2026-06-16T16:03:54",
+   "note": "refresh_round2",
+   "n_per": 20,
+   "wl": {
+    "cardrush_1342": [
+     10,
+     10
+    ],
+    "cardrush_1385": [
+     10,
+     10
+    ],
+    "cardrush_1392": [
+     10,
+     10
+    ],
+    "cardrush_1399": [
+     9,
+     11
+    ],
+    "cardrush_1439": [
+     12,
+     8
+    ],
+    "cardrush_1453": [
+     8,
+     12
+    ],
+    "cardrush_1454": [
+     12,
+     8
+    ],
+    "cardrush_1456": [
+     16,
+     4
+    ],
+    "tcgportal_bonney": [
+     10,
+     10
+    ],
+    "tcgportal_calgara": [
+     10,
+     10
+    ],
+    "tcgportal_coby": [
+     5,
+     15
+    ],
+    "tcgportal_corazon": [
+     10,
+     10
+    ],
+    "tcgportal_hancock": [
+     5,
+     15
+    ],
+    "tcgportal_op11_luffy": [
+     9,
+     11
+    ],
+    "tcgportal_op13_luffy": [
+     12,
+     8
+    ]
+   }
+  }
+ ]
+}

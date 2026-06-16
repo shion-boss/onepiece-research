@@ -1,9 +1,9 @@
 "use client";
 
-// 方針 (2026-06-06 更新): matrix データ は **配備 AI (= SmartOpponentAI = deck別に ExploitBeam/
-// greedy 自動切替、 現在 全16デッキ ExploitBeam)** で 計算した db/matchup_matrix.json を 表示する。
-// 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20。
-// ai_version "SmartOpponentAI_deployed" が 最新。 旧 GoalDirectedAI/GreedyAI 産 は stale。
+// 方針 (2026-06-16 更新): matrix データ は **配備 AI (= uniform ExploitBeam)** で 計算した
+// db/matchup_matrix.json を 表示する。 SmartOpponentAI の deck別 greedy 切替は廃止 (= 旧 matrix の
+// stale/artifact な spread を脱し、 全デッキ均等 piloting の balanced な真値に)。
+// 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam --workers 8 --n-games 20。
 import { useState } from "react";
 import type { MatchupMatrix } from "@/lib/types";
 import { MatchupHeatmap } from "@/components/MatchupHeatmap";
