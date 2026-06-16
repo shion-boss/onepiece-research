@@ -1,8 +1,10 @@
 "use client";
 
 // 方針 (2026-06-16 更新): matrix データ は **配備 AI (= uniform ExploitBeam)** で 計算した
-// db/matchup_matrix.json を 表示する。 SmartOpponentAI の deck別 greedy 切替は廃止 (= 旧 matrix の
-// stale/artifact な spread を脱し、 全デッキ均等 piloting の balanced な真値に)。
+// db/matchup_matrix.json を 表示する。 SmartOpponentAI の deck別 greedy/ExploitBeam 切替は廃止
+// (= AI 強度差と デッキ強度差が 混ざるのを防ぐ)。 全デッキを 同一 ExploitBeam で piloting するため、
+// matrix の spread は デッキ間マッチアップの 真の強弱を 反映する (= 上位/下位は AI 起因の artifact でなく
+// デッキ実力。 full 再計算で calgara 76.8% two-way が 実力と確認、 2026-06-16)。
 // 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam --workers 8 --n-games 20。
 import { useState } from "react";
 import type { MatchupMatrix } from "@/lib/types";
