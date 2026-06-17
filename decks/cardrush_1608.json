@@ -1,0 +1,73 @@
+{
+  "name": "青紫ルフィ",
+  "slug": "cardrush_1608",
+  "leader": "OP11-040",
+  "leader_name": "モンキー・Ｄ・ルフィ",
+  "source": "https://cardrush.media/onepiece/decks/1608",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-06-14",
+  "fetched_at": "2026-06-16T03:11:41Z",
+  "main": [
+    {
+      "card_id": "OP10-072",
+      "count": 3
+    },
+    {
+      "card_id": "EB01-061",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-119",
+      "count": 4
+    },
+    {
+      "card_id": "P-107",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-064",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-047",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-054",
+      "count": 2
+    },
+    {
+      "card_id": "OP13-043",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-056",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-051",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-058",
+      "count": 1
+    },
+    {
+      "card_id": "OP08-076",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-080",
+      "count": 4
+    }
+  ]
+}

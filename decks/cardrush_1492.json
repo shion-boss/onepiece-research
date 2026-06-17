@@ -1,0 +1,81 @@
+{
+  "name": "青黄ハンコック",
+  "slug": "cardrush_1492",
+  "leader": "OP14-041",
+  "leader_name": "ボア・ハンコック",
+  "source": "https://cardrush.media/onepiece/decks/1492",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-16",
+  "fetched_at": "2026-06-16T03:13:08Z",
+  "main": [
+    {
+      "card_id": "OP14-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-119",
+      "count": 3
+    },
+    {
+      "card_id": "OP08-050",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 1
+    },
+    {
+      "card_id": "OP14-105",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-108",
+      "count": 3
+    },
+    {
+      "card_id": "ST17-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-107",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-054",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-103",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-119",
+      "count": 1
+    },
+    {
+      "card_id": "EB01-059",
+      "count": 1
+    },
+    {
+      "card_id": "OP07-057",
+      "count": 1
+    }
+  ]
+}
