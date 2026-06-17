@@ -4874,7 +4874,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -9695,7 +9695,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -13174,7 +13174,10 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 2
+        "flip_life_face_up": true
+       },
+       {
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -15165,7 +15168,10 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 2
+        "flip_life_face_up": true
+       },
+       {
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -15187,7 +15193,10 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 2
+        "flip_life_face_up": true
+       },
+       {
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -21350,7 +21359,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -33652,7 +33661,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -33857,7 +33866,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -34842,7 +34851,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -58707,7 +58716,7 @@
         "rest_self": true
        },
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62667,7 +62676,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62711,7 +62720,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62737,7 +62746,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62781,7 +62790,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -101511,7 +101520,7 @@
    },
    "do": [
     {
-     "peek_self_life_top": 1
+     "flip_life_face_up_effect": 1
     }
    ]
   },
@@ -101539,7 +101548,7 @@
    },
    "do": [
     {
-     "peek_self_life_top": 1
+     "flip_life_face_up_effect": 1
     }
    ]
   },
