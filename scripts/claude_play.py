@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import os
 import pickle
 import random
 import sys
@@ -41,7 +42,8 @@ from engine.game import (
 )
 from engine.human_session import HumanAI, HumanSession
 from engine.llm_player_ai import LLMPlayerAI
-from engine.smart_opponent_ai import SmartOpponentAI
+from engine.smart_opponent_ai import SmartOpponentAI  # noqa: F401 (後方互換: 旧 mirror session)
+from engine.exploit_beam_ai import ExploitBeamAI
 import engine.core as _core
 
 STATE = ROOT / "db" / "claude_play" / "session.pkl"
@@ -69,13 +71,17 @@ def _load_analysis(slug: str):
     return None
 
 
-def _attach_ai(session: HumanSession, slug: str) -> None:
-    """SmartOpponentAI(ExploitBeam) + HumanAI を session に (再)注入。"""
-    ana = _load_analysis(slug)
-    session.ai = SmartOpponentAI(rng=session.rng, deck_analysis=ana, deck_slug=slug)
+def _opp_ai(rng, opp_slug: str):
+    """対戦相手 = 配備 ExploitBeam (per-deck GBM + analysis、 gauntlet/matrix と同一構成)。
+    set_ai_opp は呼ばない (= matrix/gauntlet の ExploitBeam は内部 greedy opp model を使う = 同条件)。"""
+    ana = _load_analysis(opp_slug)
+    return ExploitBeamAI(rng=rng, deck_analysis={**(ana or {}), "deck_slug": opp_slug})
+
+
+def _attach_ai(session: HumanSession, opp_slug: str) -> None:
+    """対戦相手 ExploitBeam + HumanAI を session に (再)注入。 opp_slug = AI 側のデッキ (非ミラー可)。"""
+    session.ai = _opp_ai(session.rng, opp_slug)
     session.human_ai = HumanAI(session)
-    if hasattr(session.ai, "set_ai_opp"):
-        session.ai.set_ai_opp(session.human_ai)
 
 
 def _peek_next_iid() -> int:
@@ -110,7 +116,7 @@ def _load() -> HumanSession:
         _core._iid = itertools.count(meta["next_iid"])
     with open(STATE, "rb") as f:
         session = pickle.load(f)
-    _attach_ai(session, meta["deck"])
+    _attach_ai(session, meta.get("opp", meta["deck"]))
     return session
 
 
@@ -146,6 +152,9 @@ def _act_sig(state, human_idx: int, a) -> str:
 
 
 def _record_divergence(session: HumanSession, idx: int) -> None:
+    # 既定 OFF (= 1手毎に my-side ExploitBeam を回すので重い)。 ONEPIECE_DIVLOG=1 で有効化。
+    if not os.environ.get("ONEPIECE_DIVLOG"):
+        return
     st = session.state
     try:
         from engine.core import Phase
@@ -154,10 +163,14 @@ def _record_divergence(session: HumanSession, idx: int) -> None:
         if st.game_over or st.phase != Phase.MAIN or st.turn_player_idx != session.human_idx:
             return
         acts = legal_actions(st)
-        if not (0 <= idx < len(acts)) or session.ai is None:
+        if not (0 <= idx < len(acts)):
             return
+        meta0 = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
+        my_slug = meta0.get("deck", "unknown")
+        # 私のデッキ (croc) を 配備 ExploitBeam が操縦したら何を選ぶか = 私の手との差 = AI 改善の信号
+        ref_ai = _opp_ai(random.Random(0), my_slug)
         my_act = acts[idx]
-        ai_act = session.ai.choose_action(fast_clone(st))
+        ai_act = ref_ai.choose_action(fast_clone(st))
         my_sig = _act_sig(st, session.human_idx, my_act)
         ai_sig = _act_sig(st, session.human_idx, ai_act)
         me = st.players[session.human_idx]; opp = st.players[1 - session.human_idx]
@@ -287,7 +300,8 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("start")
-    s.add_argument("--deck", default="cardrush_1342")
+    s.add_argument("--deck", default="cardrush_1342", help="私(Claude)のデッキ slug")
+    s.add_argument("--opp", default=None, help="相手AIのデッキ slug (省略時=ミラー)")
     g = s.add_mutually_exclusive_group()
     g.add_argument("--first", action="store_true", help="私が先攻")
     g.add_argument("--second", action="store_true", help="私が後攻")
@@ -326,9 +340,11 @@ def main() -> None:
 
     if args.cmd == "start":
         repo = _repo()
+        opp_slug = args.opp or args.deck
         deck_me = _load_deck(args.deck, repo)
-        deck_ai = _load_deck(args.deck, repo)
-        ana = _load_analysis(args.deck)
+        deck_ai = _load_deck(opp_slug, repo)
+        my_ana = _load_analysis(args.deck)
+        opp_ana = _load_analysis(opp_slug)
         overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
         human_first = (
             True if args.first else False if args.second else None if args.random else True
@@ -336,22 +352,22 @@ def main() -> None:
         session = HumanSession(
             deck_a=deck_me,
             deck_b=deck_ai,
-            ai_factory=lambda rng, da=None: SmartOpponentAI(
-                rng=rng, deck_analysis=da or ana, deck_slug=args.deck
-            ),
+            ai_factory=lambda rng, da=None: _opp_ai(rng, opp_slug),
             seed=args.seed,
             effects_overlay=overlay,
-            deck_a_analysis=ana,
-            deck_b_analysis=ana,
+            deck_a_analysis=my_ana,
+            deck_b_analysis=opp_ana,
             human_first=human_first,
         )
         META.parent.mkdir(parents=True, exist_ok=True)
         META.write_text(
-            json.dumps({"deck": args.deck, "seed": args.seed}), encoding="utf-8"
+            json.dumps({"deck": args.deck, "opp": opp_slug, "seed": args.seed}),
+            encoding="utf-8",
         )
         _save(session)
+        mode = f"{args.deck} (私) vs {opp_slug} (AI)" if opp_slug != args.deck else f"ミラー {args.deck}"
         first = "私(先攻)" if session.human_idx == 0 else "ExploitBeam(先攻)"
-        print(f"=== 新ゲーム: ミラー {args.deck} / {first} ===")
+        print(f"=== 新ゲーム: {mode} / {first} ===")
         _render(session)
         return
 
