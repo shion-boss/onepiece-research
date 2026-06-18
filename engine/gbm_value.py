@@ -117,7 +117,12 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
         x = [features(state, me_idx,
                       rich=(n_feat == len(FEATURE_KEYS_V2)),
                       v3=(n_feat == len(FEATURE_KEYS_V3)))]
-        p = float(model.predict_proba(x)[0][1])
+        # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
+        # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
+        if hasattr(model, "predict_proba"):
+            p = float(model.predict_proba(x)[0][1])
+        else:
+            p = min(1.0, max(0.0, float(model.predict(x)[0])))
         return (p - 0.5) * SCALE
     except Exception:
         return None
