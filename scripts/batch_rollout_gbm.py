@@ -65,6 +65,11 @@ def main():
                     help="all | non-gbm | meta | <slug,slug,...>")
     ap.add_argument("--games", type=int, default=220, help="学習ゲーム数")
     ap.add_argument("--rollout-label", type=int, default=12)
+    ap.add_argument("--rollout-ai", default="greedy",
+                    choices=["greedy", "light", "beam", "exploitbeam"],
+                    help="rollout policy (= ラベル教師。 beam は勝ちデッキの上積み用)")
+    ap.add_argument("--test-suffix", default="rollout",
+                    help="test pkl 名 db/value_gbm_<slug>_<suffix>.pkl (= beam上積みは beamroll)")
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--ab-games", type=int, default=20)
     ap.add_argument("--ab-workers", type=int, default=12,
@@ -87,7 +92,7 @@ def main():
             print(f"[{i+1}/{len(slugs)}] {slug}: skip (済 winrate={board[slug].get('winrate')})", flush=True)
             continue
         t0 = time.time()
-        test_pkl = REPO / "db" / f"value_gbm_{slug}_rollout.pkl"
+        test_pkl = REPO / "db" / f"value_gbm_{slug}_{args.test_suffix}.pkl"
         baseline = str(REPO / "db" / f"value_gbm_{slug}.pkl") if _has_gbm(slug) else "none"
         base_kind = "既存GBM" if baseline != "none" else "board_eval"
         # 1) train
@@ -95,6 +100,7 @@ def main():
             [sys.executable, str(REPO / "scripts" / "train_value_gbm.py"),
              "--deck", slug, "--games", str(args.games),
              "--rollout-label", str(args.rollout_label),
+             "--rollout-ai", args.rollout_ai,
              "--workers", str(args.workers), "--out", str(test_pkl)],
             capture_output=True, text=True, cwd=str(REPO))
         if r.returncode != 0 or not test_pkl.exists():
