@@ -31,6 +31,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from scripts.ab_value_gbm import run as ab_run
+from scripts.ab_value_gbm import run_parallel as ab_run_par
 
 
 def _all_deck_slugs() -> list[str]:
@@ -66,6 +67,8 @@ def main():
     ap.add_argument("--rollout-label", type=int, default=12)
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--ab-games", type=int, default=20)
+    ap.add_argument("--ab-workers", type=int, default=12,
+                    help="A/B mirror の並列度 (= ExploitBeam は ~10s/game なので high-N は並列必須)")
     ap.add_argument("--promote", action="store_true", help="勝率閾値超で本番GBMへ昇格")
     ap.add_argument("--promote-threshold", type=float, default=0.55)
     ap.add_argument("--scoreboard", type=Path,
@@ -99,9 +102,13 @@ def main():
             board[slug] = {"error": "train_failed"}
             args.scoreboard.write_text(json.dumps(board, ensure_ascii=False, indent=1))
             continue
-        # 2) A/B vs baseline
+        # 2) A/B vs baseline (high-N は並列で)
         try:
-            wr = ab_run(slug, str(test_pkl), baseline, args.ab_games, seed=100)
+            if args.ab_workers > 1:
+                wr = ab_run_par(slug, str(test_pkl), baseline, args.ab_games,
+                                seed=100, workers=args.ab_workers)
+            else:
+                wr = ab_run(slug, str(test_pkl), baseline, args.ab_games, seed=100)
         except Exception as e:
             print(f"[{i+1}/{len(slugs)}] {slug}: A/B失敗 {e}", flush=True)
             board[slug] = {"error": f"ab_failed:{e}"}
