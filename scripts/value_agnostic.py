@@ -22,7 +22,7 @@ from engine.deck import CardRepository, make_deck_from_dict
 from engine.effects import load_effect_overlay
 from engine.game import setup_game, play_until_main
 from engine.ai import play_one_action, GreedyAI
-from engine.gbm_value import features as board_features
+from engine.gbm_value import features as board_features, _card_potency
 
 REPO_ROOT = Path(os.getcwd())
 _REPO = CardRepository.from_json(REPO_ROOT / "db" / "cards.json")
@@ -80,6 +80,24 @@ def deck_features(slug):
     ] + [1.0 if c in lead_colors else 0.0 for c in _COLORS]
     _DF_CACHE[slug] = feats
     return feats
+
+
+def deck_recovery(slug):
+    """デッキの recovery 密度 (= life→hand/heal 効果数、 control/aggro の archetype gate 信号)。
+    gbm_value._zone_potency と同義 (= main deck + leader 全カードの recovery 計数、 ほぼ静的)。"""
+    d = _deck(slug)
+    pot = _card_potency()
+    rec = 0
+    for c in d.get("main", []):
+        cid = c.get("card_id") if isinstance(c, dict) else c
+        cnt = c.get("count", 1) if isinstance(c, dict) else 1
+        v = pot.get(cid)
+        if v:
+            rec += v[1] * cnt
+    lead = d.get("leader")
+    if lead and pot.get(lead):
+        rec += pot[lead][1]
+    return rec
 
 
 def _collect_game(task):
@@ -147,6 +165,18 @@ def main():
     rng.shuffle(pool)
     n_held_decks = max(6, len(pool) // 5)
     held_decks, train_decks = pool[:n_held_decks], pool[n_held_decks:]
+    # archetype cluster filter (= per-archetype value): recovery 密度で control/aggro を分けて学習。
+    # VA_RECOVERY_MAX=11 で aggro(非control)、 VA_RECOVERY_MIN=12 で control。 split は full pool
+    # seed-42 で固定 (= eval_agnostic_value と held 一致)、 その後に cluster で絞る。
+    rmax = os.environ.get("VA_RECOVERY_MAX")
+    rmin = os.environ.get("VA_RECOVERY_MIN")
+    if rmax is not None or rmin is not None:
+        lo = float(rmin) if rmin is not None else -1.0
+        hi = float(rmax) if rmax is not None else 1e9
+        keep = lambda s: lo <= deck_recovery(s) <= hi
+        train_decks = [s for s in train_decks if keep(s)]
+        held_decks = [s for s in held_decks if keep(s)]
+        print(f"recovery cluster [{lo},{hi}]")
     print(f"pool={len(pool)} decks | train={len(train_decks)} held-out={len(held_decks)}")
     print(f"held-out decks: {held_decks}")
 
