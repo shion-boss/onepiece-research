@@ -32,6 +32,97 @@ FEATURE_KEYS_V2 = FEATURE_KEYS + ("my_lethal", "opp_lethal", "my_counter", "opp_
 #   ROC も op13 0.725→0.729、 1342 0.812→0.814 でほぼ不変。 ⇒ raw DON は value を有意に改善せず、
 #   v3 GBM は deploy しない (= deployed は v2 のまま)。 この機構は 将来の別特徴 実験用の scaffold として残置。
 FEATURE_KEYS_V3 = FEATURE_KEYS_V2 + ("my_don_active", "opp_don_active")
+# v4 = 25 (2026-06-19): v2 + card-advantage エンジン潜在力 (= deck archetype 信号)。
+# 現特徴は即時盤面量のみ → control/aggro を区別できず単一 agnostic value が aggro を誤評価
+# (= Phase B 回帰、 [[project_deck_agnostic_value_selfplay]])。 overlay の draw/search/recursion
+# (engine) と life→hand/heal (recovery) 密度を 自/相手デッキ全体で計数し、 1-ply value に
+# 「このデッキは grind(control) 型か race(aggro) 型か」 を持たせる (= 多ターン性の proxy)。
+FEATURE_KEYS_V4 = FEATURE_KEYS_V2 + ("my_engine", "opp_engine", "my_recovery", "opp_recovery")
+
+# card-advantage を生む primitive (= grind/draw power)。 overlay 実測の key 名に厳密一致。
+_ENGINE_PRIMS = frozenset({
+    "draw", "draw_to_hand_size", "draw_per_hand_to_deck_bottom",
+    "draw_per_self_hand_discarded", "draw_per_self_chara_then_discard",
+    "search_top_n", "search", "search_from_trash",
+    "play_from_trash", "play_from_hand_or_trash",
+    "reveal_top_play", "reveal_top_then", "reveal_life_top_play",
+    "summon_from_deck",
+})
+# 防御的延命 (= ライフ→手札/回復、 「受ける」 control の署名)。
+_RECOVERY_PRIMS = frozenset({
+    "life_to_hand", "life_top_or_bottom_to_hand", "then_life_to_hand",
+    "put_top_to_life", "hand_to_self_life", "chara_to_self_life",
+    "hand_or_trash_to_self_life", "or_to_life",
+})
+_CARD_POTENCY: Optional[dict] = None
+
+
+def _card_potency() -> dict:
+    """card_id -> (engine_count, recovery_count)。 overlay から 1 度だけ計数 (= lazy, module cache)。"""
+    global _CARD_POTENCY
+    if _CARD_POTENCY is not None:
+        return _CARD_POTENCY
+    import json
+    from pathlib import Path
+    out: dict = {}
+    try:
+        ov = json.loads((Path(__file__).resolve().parent.parent / "db" /
+                         "card_effects.json").read_text(encoding="utf-8"))
+    except Exception:
+        ov = {}
+
+    def _walk(do, acc):
+        if isinstance(do, list):
+            for x in do:
+                _walk(x, acc)
+        elif isinstance(do, dict):
+            for k, v in do.items():
+                if k in _ENGINE_PRIMS:
+                    acc[0] += 1
+                if k in _RECOVERY_PRIMS:
+                    acc[1] += 1
+                if isinstance(v, (list, dict)):
+                    _walk(v, acc)
+
+    for cid, entry in ov.items():
+        acc = [0, 0]
+        if isinstance(entry, list):
+            for e in entry:
+                if isinstance(e, dict) and "do" in e:
+                    _walk(e["do"], acc)
+        if acc[0] or acc[1]:
+            out[cid] = (acc[0], acc[1])
+    _CARD_POTENCY = out
+    return out
+
+
+def _zone_potency(p) -> tuple:
+    """player の全ゾーン (deck/hand/trash/life/場/leader) のカードの engine/recovery 密度合計。
+    ≈ デッキ全体の card-advantage 密度 = ほぼ静的な archetype 記述子 (= ナミ control 高 / エネル aggro 低)。"""
+    pot = _card_potency()
+    eng = rec = 0
+
+    def _cid(c):
+        cid = getattr(c, "card_id", None)
+        if cid is None:
+            cid = getattr(getattr(c, "card", None), "card_id", None)
+        return cid
+
+    cards = []
+    for z in (p.deck, p.hand, p.trash, p.life, p.characters, p.stages):
+        cards.extend(z)
+    lead = getattr(p, "leader", None)
+    if lead is not None:
+        cards.append(lead)
+    for c in cards:
+        cid = _cid(c)
+        if cid is not None:
+            v = pot.get(cid)
+            if v:
+                eng += v[0]
+                rec += v[1]
+    return eng, rec
+
 
 _MODEL = None
 _MODEL_PATH: Optional[str] = None
@@ -39,7 +130,7 @@ SCALE = 1_000_000.0
 
 
 def features(state: Any, me_idx: int, rich: Optional[bool] = None,
-             v3: Optional[bool] = None) -> list:
+             v3: Optional[bool] = None, v4: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。"""
     from .eval import _player_metrics
@@ -62,8 +153,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         rich = os.environ.get("ONEPIECE_GBM_RICH") == "1"
     if v3 is None:
         v3 = os.environ.get("ONEPIECE_GBM_V3") == "1"
-    if v3:
-        rich = True  # v3 ⊃ v2
+    if v4 is None:
+        v4 = os.environ.get("ONEPIECE_GBM_V4") == "1"
+    if v3 or v4:
+        rich = True  # v3/v4 ⊃ v2
     if not rich:
         return base
     from .eval import lethal_estimate
@@ -80,6 +173,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
             int(getattr(me_p, "don_active", 0) or 0),
             int(getattr(opp_p, "don_active", 0) or 0),
         ]
+    if v4:
+        my_e, my_r = _zone_potency(me_p)
+        op_e, op_r = _zone_potency(opp_p)
+        out += [my_e, op_e, my_r, op_r]
     return out
 
 
@@ -116,7 +213,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
         n_feat = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
         x = [features(state, me_idx,
                       rich=(n_feat == len(FEATURE_KEYS_V2)),
-                      v3=(n_feat == len(FEATURE_KEYS_V3)))]
+                      v3=(n_feat == len(FEATURE_KEYS_V3)),
+                      v4=(n_feat == len(FEATURE_KEYS_V4)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
