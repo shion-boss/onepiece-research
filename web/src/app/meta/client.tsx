@@ -1,9 +1,11 @@
 "use client";
 
-// 方針 (2026-06-06 更新): matrix データ は **配備 AI (= SmartOpponentAI = deck別に ExploitBeam/
-// greedy 自動切替、 現在 全16デッキ ExploitBeam)** で 計算した db/matchup_matrix.json を 表示する。
-// 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20。
-// ai_version "SmartOpponentAI_deployed" が 最新。 旧 GoalDirectedAI/GreedyAI 産 は stale。
+// 方針 (2026-06-16 更新): matrix データ は **配備 AI (= uniform ExploitBeam)** で 計算した
+// db/matchup_matrix.json を 表示する。 SmartOpponentAI の deck別 greedy/ExploitBeam 切替は廃止
+// (= AI 強度差と デッキ強度差が 混ざるのを防ぐ)。 全デッキを 同一 ExploitBeam で piloting するため、
+// matrix の spread は デッキ間マッチアップの 真の強弱を 反映する (= 上位/下位は AI 起因の artifact でなく
+// デッキ実力。 full 再計算で calgara 76.8% two-way が 実力と確認、 2026-06-16)。
+// 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam --workers 8 --n-games 20。
 import { useState } from "react";
 import type { MatchupMatrix } from "@/lib/types";
 import { MatchupHeatmap } from "@/components/MatchupHeatmap";
@@ -53,7 +55,7 @@ export function MetaPageClient({
           tab === "spectate"
             ? "デッキ A / B / seed を 選んで 「観戦開始」 で 1 試合 シミュレート → 盤面再生"
             : initialData
-            ? `${initialData.decks.length} デッキ × ${initialData.decks.length} の 勝率行列。 各 cell ${initialData.n_games} 戦 (seed=${initialData.seed})`
+            ? `${initialData.decks.length} デッキ × ${initialData.decks.length} の 勝率行列。 各 cell ${initialData.n_games} 戦 (先攻後攻 交互、 seed=${initialData.seed} で再現可)`
             : "デッキ間 N×N 勝率行列"
         }
         actions={tabs}

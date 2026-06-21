@@ -1,0 +1,69 @@
+{
+  "name": "赤青エース",
+  "slug": "cardrush_1526",
+  "leader": "OP13-002",
+  "leader_name": "ポートガス・Ｄ・エース",
+  "source": "https://cardrush.media/onepiece/decks/1526",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-23",
+  "fetched_at": "2026-06-16T03:12:46Z",
+  "main": [
+    {
+      "card_id": "ST22-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-043",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-016",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-044",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-047",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-051",
+      "count": 4
+    },
+    {
+      "card_id": "ST23-001",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-007",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-042",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-118",
+      "count": 1
+    },
+    {
+      "card_id": "P-119",
+      "count": 2
+    },
+    {
+      "card_id": "ST22-015",
+      "count": 4
+    }
+  ]
+}

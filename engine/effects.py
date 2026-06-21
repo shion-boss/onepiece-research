@@ -446,6 +446,27 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                                 f"  {when} コスト: 該当手札 {dcnt} 枚 捨てる 対象 を 選択 待ち"
                             )
                             return
+                    # 非discard の任意コスト (= pay_don / life_to_hand / rest_self_don 等) も
+                    # 公式「〜することができる：効果」 は 払う/払わない を 本人 に 委ねる
+                    # (= discard と一貫、 2026-06-18)。 既存 optional_cost_then 機構経由で
+                    # optional_cost_confirm → 承認時に cost+effect を実行 (= 効果解決は共通パス)。
+                    # AI (= _should_human_pick False) は この branch を通らず 従来 auto-pay の
+                    # ため AI/matrix は不変。 discard 系は上で prompt 済 (= ここは非discardのみ)。
+                    nondiscard_real = {
+                        k: v for k, v in real_cost.items()
+                        if k not in ("discard_hand", "discard_hand_with_filter")
+                    }
+                    if nondiscard_real and _should_human_pick(state):
+                        oct_spec = {
+                            "cost": [{k: v} for k, v in nondiscard_real.items()],
+                            "effect": eff.get("do", []),
+                        }
+                        execute_effect(
+                            {"optional_cost_then": oct_spec}, state, me, opp, self_inplay
+                        )
+                        if state.pending_choice is not None:
+                            return  # optional_cost_confirm 待ち (= resume は resolve_pending_choice)
+                        continue  # 効果は optional_cost_then が解決済 → run_do_array skip
                     _pay_counter_cost(state, me, opp, self_inplay, real_cost)
             run_do_array(eff.get("do", []), state, me, opp, self_inplay)
             if state.pending_choice is not None:

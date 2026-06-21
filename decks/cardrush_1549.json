@@ -1,0 +1,69 @@
+{
+  "name": "黄カルガラ",
+  "slug": "cardrush_1549",
+  "leader": "OP08-098",
+  "leader_name": "カルガラ",
+  "source": "https://cardrush.media/onepiece/decks/1549",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-31",
+  "fetched_at": "2026-06-16T03:12:16Z",
+  "main": [
+    {
+      "card_id": "OP12-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-101",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-114",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-109",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-119",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-105",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-115",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-117",
+      "count": 4
+    }
+  ]
+}

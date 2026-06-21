@@ -339,6 +339,21 @@ def search_turn_plan(
     import os as _os
     _W_POLICY = float(_os.environ.get("ONEPIECE_PLAN_POLICY_W", "0"))
     _USE_POLICY = _W_POLICY > 0
+    # Play-timing PRIOR (= 2026-06-16): overlay の `if` 条件から導出した「効果が今 live な
+    # play/activate」 を beam 選別で優先探索する deck-agnostic prior。 既定 0 = 完全 no-op。
+    # W は **P(win) 単位** で解釈する (= 「この手を beam に残すために何 pt の勝率を上乗せするか」)。
+    # score の scale に合わせて変換: GBM (= (P-0.5)*SCALE、 meta デッキ) は ×SCALE、 GBM 無し
+    # (= 線形/NN eval、 ユーザーデッキ) は ×_PP_LINEAR_SCALE。 これで W の意味が deck 非依存になる。
+    _W_PLAY_PRIOR = float(_os.environ.get("ONEPIECE_PLAY_PRIOR_W", "0"))
+    _USE_PLAY_PRIOR = _W_PLAY_PRIOR > 0.0
+    _PP_LINEAR_SCALE = float(_os.environ.get("ONEPIECE_PLAY_PRIOR_LINEAR_SCALE", "6000"))
+    _PP_GBM_SCALE = 1_000_000.0
+    if _USE_PLAY_PRIOR:
+        from .deck_play_prior import play_prior_bonus  # 動的 import (= 無効時 skip)
+        try:
+            from .gbm_value import SCALE as _PP_GBM_SCALE  # 単一の真実 (= (P-0.5)*SCALE)
+        except Exception:
+            pass
     if _USE_POLICY:
         from .nn_eval import compute_policy_nn  # 動的 import (= NN 無効時 import skip)
 
@@ -576,6 +591,21 @@ def search_turn_plan(
                     prob = policy_dict.get(action_cls)
                     if prob is not None:
                         score = score + _W_POLICY * math.log(max(prob, 1e-6))
+
+                # Play-timing PRIOR: 条件付き効果が「今 live」 な play/activate を beam 選別で
+                # 優先探索 (= 仕込み/好機の手が中間枝刈りで死ぬのを防ぐ)。 deck-agnostic (overlay 由来)。
+                # ⚠ beam 選別スコアにのみ加算 — post-opp 最終 value (calibrated) には足さない
+                # (= prior であって value bias でない、 [[project_combo_aware_ai]] の轍を踏まない)。
+                if _USE_PLAY_PRIOR:
+                    try:
+                        _pb = play_prior_bonus(cur_state, action, me_idx)
+                        if _pb:
+                            _pp_scale = (_PP_GBM_SCALE
+                                         if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
+                                         else _PP_LINEAR_SCALE)
+                            score = score + _W_PLAY_PRIOR * _pb * _pp_scale
+                    except Exception:
+                        pass
 
                 # Plan Imit-3: imitation prior bonus (= 人間採用率の高いカードを beam に優先)
                 if _USE_IMIT:

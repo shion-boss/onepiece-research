@@ -1,0 +1,14 @@
+{
+ "value_defense": true,
+ "ab": {
+  "value_defense": {
+   "avg": 0.625,
+   "seeds": {
+    "100": 0.6,
+    "500": 0.65
+   },
+   "n_each": 60
+  }
+ },
+ "tuned_at": "2026-06-21"
+}

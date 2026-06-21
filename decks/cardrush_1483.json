@@ -1,0 +1,73 @@
+{
+  "name": "紫黄ロビン",
+  "slug": "cardrush_1483",
+  "leader": "OP09-062",
+  "leader_name": "ニコ・ロビン",
+  "source": "https://cardrush.media/onepiece/decks/1483",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-05-19",
+  "fetched_at": "2026-06-16T03:12:53Z",
+  "main": [
+    {
+      "card_id": "OP09-106",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-119",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-102",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-119",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-111",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-110",
+      "count": 3
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-108",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-113",
+      "count": 3
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-078",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-077",
+      "count": 4
+    }
+  ]
+}

@@ -1,5 +1,6 @@
-import { fetchCards, fetchSets } from "@/lib/api";
-import type { CardCategory, CardFilters, SetInfo } from "@/lib/types";
+import { fetchBanlist, fetchCards, fetchSets } from "@/lib/api";
+import type { Banlist, CardCategory, CardFilters, SetInfo } from "@/lib/types";
+import { buildBanStatus } from "@/lib/banlist";
 import { CardFilterBar } from "@/components/CardFilterBar";
 import { CardBrowser } from "@/components/CardBrowser";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -49,12 +50,20 @@ export default async function CardsPage({
 
   let cards: Awaited<ReturnType<typeof fetchCards>> = [];
   let sets: SetInfo[] = [];
+  let banlist: Banlist | null = null;
   let error: string | null = null;
   try {
     [cards, sets] = await Promise.all([fetchCards(filters), fetchSets()]);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
+  // banlist の取得失敗はカード表示を妨げない (= 目印が出ないだけ)
+  try {
+    banlist = await fetchBanlist();
+  } catch {
+    banlist = null;
+  }
+  const banStatus = buildBanStatus(banlist);
 
   return (
     <PageShell>
@@ -79,7 +88,7 @@ export default async function CardsPage({
           </div>
         </div>
       ) : (
-        <CardBrowser cards={cards} />
+        <CardBrowser cards={cards} banStatus={banStatus} />
       )}
     </PageShell>
   );

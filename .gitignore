@@ -251,3 +251,7 @@ db/claude_play/
 # claude_play 生成データ
 db/claude_play/divergence_*.jsonl
 db/claude_play/session.pkl
+
+# auto-tune: hash-keyed per-deck config (runtime user-deck cache) + staging
+db/deck_ai_config_h*.json
+db/_autotune/

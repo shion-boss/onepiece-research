@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Card } from "@/lib/types";
+import { banInfoFor, type BanInfo } from "@/lib/banlist";
 import { CardTile } from "./CardTile";
 import { CardDetailModal } from "./CardDetailModal";
 
@@ -36,7 +37,13 @@ const numClass =
  * サーバ側フィルタ (色 / カテゴリ / 特徴 / コスト / 名前 / レギュレーション) で
  * 取得済みの cards を受け取り、 即時に絞り込む (= 再 fetch なし)。
  */
-export function CardBrowser({ cards }: { cards: Card[] }) {
+export function CardBrowser({
+  cards,
+  banStatus = {},
+}: {
+  cards: Card[];
+  banStatus?: Record<string, BanInfo>;
+}) {
   const [selected, setSelected] = useState<Card | null>(null);
   const [powerMin, setPowerMin] = useState("");
   const [powerMax, setPowerMax] = useState("");
@@ -192,7 +199,12 @@ export function CardBrowser({ cards }: { cards: Card[] }) {
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {filtered.slice(0, visible).map((c) => (
-              <CardTile key={c.card_id} card={c} onClick={setSelected} />
+              <CardTile
+                key={c.card_id}
+                card={c}
+                onClick={setSelected}
+                ban={banInfoFor(banStatus, c.card_id)}
+              />
             ))}
           </div>
           {/* スクロール ページネーション用 sentinel */}

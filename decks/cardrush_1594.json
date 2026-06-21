@@ -1,0 +1,69 @@
+{
+  "name": "黒黄ティーチ",
+  "slug": "cardrush_1594",
+  "leader": "OP16-080",
+  "leader_name": "マーシャル・Ｄ・ティーチ",
+  "source": "https://cardrush.media/onepiece/decks/1594",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-06-07",
+  "fetched_at": "2026-06-16T03:11:48Z",
+  "main": [
+    {
+      "card_id": "OP09-095",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-103",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-119",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-108",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 1
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-086",
+      "count": 3
+    },
+    {
+      "card_id": "OP09-093",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-109",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-116",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-099",
+      "count": 4
+    }
+  ]
+}

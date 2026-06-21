@@ -4874,7 +4874,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -4907,16 +4907,24 @@
  ],
  "OP11-106": [
   {
-   "_text": "ゼウス (黄) 【登場時】コスト5以下キャラKO",
+   "_text": "ゼウス (黄) 【登場時】自分のライフの上か下から1枚を手札に加えることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
    "when": "on_play",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "life_top_or_bottom_to_hand": 1
+       }
+      ],
+      "effect": [
+       {
+        "ko": "one_opponent_character_cost_le_5"
+       }
+      ]
+     }
     }
-   ],
-   "cost": {
-    "life_top_or_bottom_to_hand": 1
-   }
+   ]
   }
  ],
  "OP13-042": [
@@ -9695,7 +9703,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -13174,7 +13182,10 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 2
+        "flip_life_face_up": true
+       },
+       {
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -15165,7 +15176,10 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 2
+        "flip_life_face_up": true
+       },
+       {
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -15187,7 +15201,10 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 2
+        "flip_life_face_up": true
+       },
+       {
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -21350,7 +21367,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -33383,16 +33400,24 @@
  ],
  "OP11-106_p2": [
   {
-   "_text": "ゼウス (黄) 【登場時】コスト5以下キャラKO",
+   "_text": "ゼウス (黄) 【登場時】自分のライフの上か下から1枚を手札に加えることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
    "when": "on_play",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "life_top_or_bottom_to_hand": 1
+       }
+      ],
+      "effect": [
+       {
+        "ko": "one_opponent_character_cost_le_5"
+       }
+      ]
+     }
     }
-   ],
-   "cost": {
-    "life_top_or_bottom_to_hand": 1
-   }
+   ]
   }
  ],
  "PRB02-006_p2": [
@@ -33652,7 +33677,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -33857,7 +33882,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -34842,7 +34867,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -37571,16 +37596,24 @@
  ],
  "OP11-106_p1": [
   {
-   "_text": "ゼウス (黄) 【登場時】コスト5以下キャラKO",
+   "_text": "ゼウス (黄) 【登場時】自分のライフの上か下から1枚を手札に加えることができる：相手のコスト5以下のキャラ1枚までを、KOする。",
    "when": "on_play",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "life_top_or_bottom_to_hand": 1
+       }
+      ],
+      "effect": [
+       {
+        "ko": "one_opponent_character_cost_le_5"
+       }
+      ]
+     }
     }
-   ],
-   "cost": {
-    "life_top_or_bottom_to_hand": 1
-   }
+   ]
   }
  ],
  "OP11-118_p1": [
@@ -58707,7 +58740,7 @@
         "rest_self": true
        },
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62667,7 +62700,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62711,7 +62744,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62737,7 +62770,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -62781,7 +62814,7 @@
      "optional_cost_then": {
       "cost": [
        {
-        "peek_self_life_top": 1
+        "flip_life_face_up": true
        }
       ],
       "effect": [
@@ -101511,7 +101544,7 @@
    },
    "do": [
     {
-     "peek_self_life_top": 1
+     "flip_life_face_up_effect": 1
     }
    ]
   },
@@ -101539,7 +101572,7 @@
    },
    "do": [
     {
-     "peek_self_life_top": 1
+     "flip_life_face_up_effect": 1
     }
    ]
   },

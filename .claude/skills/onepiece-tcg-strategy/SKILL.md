@@ -1,7 +1,7 @@
 ---
 name: onepiece-tcg-strategy
 description: ワンピースカードゲームの戦い方・プレイング・デッキ構築のコツ集。AI ヒューリスティック設計・デッキ分析・カウンター/DON管理/アタック順/ライフ管理など戦略判断が必要な時に参照する。engine/ai.py の choose_action / choose_defense や /decks/[slug]/analyze の評価ロジックを設計・レビューする際の判断指針として使う。
-last_checked: 2026-05-10
+last_checked: 2026-06-17
 ---
 
 # ワンピースカード 戦い方のコツ
@@ -130,6 +130,22 @@ last_checked: 2026-05-10
 > engine ヒューリスティック対応: `GreedyAI.choose_defense` のライフ別閾値と一致。
 > 上の表は engine の閾値を直接反映している。
 
+### ⚠ 2026-06 強者調査 + ohtsuki coaching による補正: 受け/守りは「ライフ × 相手盤面」の二軸
+
+上の単純な「ライフ別閾値」 だけだと **相手の盤面の広さ (= クロック) を見ておらず**、 横展開速攻
+(例: 黄カルガラ) に対し「守れる 5000-6000 を毎ターン受けて bleed → 低ライフで DON 集中され轢かれる」
+を招く (= human-play log で実証: 人間は full life で守り切って勝つ / 配備 AI は同デッキで 5→0、 対カルガラ ~30% の主因)。 強者の定石 (EN/JP 一致):
+
+* **ライフ 5→3 までは安いチップは気軽に受けてよい** (= ライフは資源、 被弾で +1 card)。 738fef5 の「高ライフでチップ受け」 はこの範囲では正しい。
+* **ただし「相手の盤面が広い時は守りの優先度が高い」** (JP 強者) / **理想は 2 ライフ以上を維持** (EN "stay at ~2 life")。
+* **0 ライフは厳禁**: 相手が全 DON を 1 体に集中 → カウンター不能 → 負け。 ≥1 ライフあれば相手は DON を複数アタッカーに振らざるを得ず、 1 つをカウンターで凌げる。
+* **「1 枚で守れる攻撃」 はコスパが良い → 基本守る** (= 安くライフを温存)。 受ける (= 738fef5) のは「手札を増やしたい (手札薄)」 か「守備に 2 枚以上かかる (割高)」 時に限定。
+* 判断は **価値比較**: [失うライフの価値] vs [切るカードの価値]。 ライフ価値は ①低ライフ ②相手がリーサル集中できる盤面 で上昇。 カード価値は「キャラは場に出す方が強い / プレミアムカウンターは本命の脅威に温存」。
+
+> engine 対応: `GreedyAI.choose_defense` の高ライフチップ受け (738fef5) は **ライフ×盤面の二軸** に
+> 拡張すべき。 ライフ≥4 かつ 相手盤面が小 → 受ける / ライフ≤3 or 相手盤面が広い → 1 枚で守れるなら守る。
+> 2026-06 試作 `_defend_cheap_chip` (1 枚防御を割安と評価): ドフラ vs カルガラ 33→42% (+9pt、 N=12、 要 N 増 + 全16回帰)。
+
 ---
 
 ## 5. カウンター管理
@@ -146,6 +162,13 @@ last_checked: 2026-05-10
   * 1k+2k = +3000 → ガップ ≤ 3000 (2 枚要求)
 * 複数枚要求される攻撃 = 強い
 * 相手の手札枚数からカウンター量を推測する
+
+### 要求値表 (= リーサル/攻撃設計の核、 2026-06 強者調査)
+
+* 同値攻撃に対する相手のカウンター要求値 = **付与 DON 数 × 1000 + 1000**。
+* **+1000 超 → 1 枚要求 / +2000 → 1〜2 枚 / +3000 → 2 枚確定 / +4000 → 最低 3 枚**。
+* リーサル可否 = 相手の総防御力 [手札枚数 + ライフ枚数 (ライフ2 なら 4000 カウンター保有を警戒) + ブロッカー数/power + トリガー + カウンターイベント (相手残 DON)] を、 自分の攻撃要求値の合計が上回るか。
+* **キャラはカウンターより場に出す方が強い** (= 攻撃手数 = リソース削り)。 1 ライフを守るのに「相手 2 ライフ分の価値のカード」 を切るのは損 (= 価値比較)。
 
 ### キャラ攻撃へのカウンター
 
@@ -305,3 +328,10 @@ last_checked: 2026-05-10
 * [ワンピースカードゲームデッキ構築ガイド (ワンハッピー)](https://www.onehappy.co.jp/blog/deck-building/)
 * [ワンピースカード ライフの取る順番 (OnePicard)](https://www.onepicard.online/Rules-QA/lifejunban/)
 * 公式ルール一次情報は `onepiece-tcg-rules` skill を参照
+
+### 2026-06 強者調査ソース (= §4 二軸補正 / §5 要求値表 の出典)
+
+* [ONE PIECE Card の基本と戦い方と考え方 (ひろし情報局 / note)](https://note.com/hiroshi_info/n/n64771faa4e77) — 守り方/カウンター/リーサル要求値/ドン管理の体系。 JP 強者の定石「相手盤面が広い時は守り優先」「階段方式アタック」「要求値表」 の出典
+* [One Piece Fundamentals: How To Take Life (CrossAi Caliber)](https://www.patreon.com/posts/one-piece-how-to-87794740) / [Ultimate Lethal Guide](https://www.patreon.com/posts/ultimate-one-110425799)
+* [Beginner Tips to Improve at OPTCG (Spell Mana)](https://spellmana.com/beginner-tips-to-improve-at-optcg-quickly-one-piece-card-game/) / [7 Beginner Tips (onepiece.gg)](https://onepiece.gg/7-beginner-tips-to-improve-at-one-piece-tcg-quickly/)
+* EN 強者の定石「ライフは資源 (受けて +1 card)」「ideally stay at ~2 life」「0 life = 相手 DON 集中で防御不能」「baiting」 の出典

@@ -1,0 +1,69 @@
+{
+  "name": "青黄ナミ",
+  "slug": "cardrush_1566",
+  "leader": "OP11-041",
+  "leader_name": "ナミ",
+  "source": "https://cardrush.media/onepiece/decks/1566",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトルEX",
+  "tournament_date": "2026-05-30",
+  "fetched_at": "2026-06-16T03:12:21Z",
+  "main": [
+    {
+      "card_id": "OP14-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-111",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-110",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 3
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-042",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-112",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-104",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-116",
+      "count": 2
+    },
+    {
+      "card_id": "EB03-060",
+      "count": 4
+    }
+  ]
+}

@@ -348,7 +348,13 @@ export function SpectateBoard({
       fireDefenseSuccess(defenderIdx === 0 ? "me" : "opp", sm[2] === "blocker survived");
       const c = coords();
       if (c) fireArrowBreak(c);
-      scheduleArrowClear();
+      // へし折り演出は自前で矢印を割って描くので、 持続(intact)矢印は即時消す
+      // (= 折れる矢印と無傷の矢印が二重に重なるのを防ぐ、 ohtsuki 2026-06-16)。
+      if (arrowClearTimer.current) {
+        clearTimeout(arrowClearTimer.current);
+        arrowClearTimer.current = null;
+      }
+      setArrowTarget(null);
       return;
     }
     // 攻撃成立 (= 防御失敗、 ライフ/KO) → 突き刺さり
@@ -548,6 +554,35 @@ export function SpectateBoard({
           tickId={frameDiff.eventTickId}
           persistent
         />
+        {/* 対戦終了時の勝者表示 (= 盤面中央に大きく明示、 ohtsuki 2026-06-16)。
+            ヘッダの小バッジに加え、 終了が一目で分かる overlay。 */}
+        <AnimatePresence>
+          {atEnd && winner != null && winner >= 0 && (
+            <motion.div
+              key="winner-banner"
+              className="pointer-events-none absolute inset-0 z-[70] flex items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35 }}
+            >
+              <motion.div
+                className="rounded-2xl border-2 border-amber-300 bg-black/80 px-12 py-7 text-center shadow-2xl ring-4 ring-amber-400/40 backdrop-blur-sm"
+                initial={{ scale: 0.85, y: 8 }}
+                animate={{ scale: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
+                <div className="text-xs font-bold tracking-[0.35em] text-amber-200">
+                  WINNER
+                </div>
+                <div className="mt-2 text-3xl font-extrabold text-white">
+                  {winner === 0 ? deckBottomName ?? "P0" : deckTopName ?? "P1"}
+                </div>
+                <div className="mt-1 text-xs text-amber-100/70">P{winner} の勝利</div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* ドン付与 pulse (= attached_dons 増加 card に「+DON」) */}
         <DonAttachPulseOverlay
           iids={donAttachedIids}
