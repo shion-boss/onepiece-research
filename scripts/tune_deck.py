@@ -78,6 +78,17 @@ def tune_one(slug, n_games, workers, seeds, threshold, dry_run):
 def _select_decks(spec: str) -> list[str]:
     if spec == "meta":
         return json.loads((REPO / "db" / "meta_decks.json").read_text())["meta_deck_slugs"]
+    if spec in ("no-pkl", "all"):
+        # user-deck 代表 = per-deck GBM pkl の無い decks/cardrush_*.json (= agnostic/board_eval 経路)。
+        out = []
+        for p in sorted((REPO / "decks").glob("cardrush_*.json")):
+            s = p.stem
+            if any(x in s for x in ("analysis", "target_v1", "locked")):
+                continue
+            if spec == "no-pkl" and (REPO / "db" / f"value_gbm_{s}.pkl").exists():
+                continue
+            out.append(s)
+        return out
     return [s.strip() for s in spec.split(",") if s.strip()]
 
 
