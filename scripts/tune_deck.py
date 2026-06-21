@@ -54,10 +54,23 @@ def tune_value_defense(slug, n_games, workers, seeds, threshold):
     return (avg >= threshold), avg, wrs
 
 
-def tune_one(slug, n_games, workers, seeds, threshold, dry_run):
-    cfg = _load_cfg(slug)
+def tune_one(slug, n_games, workers, seeds, threshold, dry_run,
+             deck_spec=None, cfg_path=None):
+    """slug (or deck_spec=path) を A/B → config を cfg_path (既定 slug-keyed) に書く。
+
+    deck_spec: A/B に渡す deck (= slug or decks 外の json path、 user deck 用)。
+    cfg_path: config 書込先 Path (= 既定 slug-keyed、 user deck は hash-keyed を渡す)。
+    """
+    deck_spec = deck_spec or slug
+    cfg_path = cfg_path or _cfg_path(slug)
+    cfg = {}
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except Exception:
+            cfg = {}
     print(f"\n========== tuning {slug} (seeds={seeds}, N={n_games} each) ==========")
-    deploy, avg, wrs = tune_value_defense(slug, n_games, workers, seeds, threshold)
+    deploy, avg, wrs = tune_value_defense(deck_spec, n_games, workers, seeds, threshold)
     tag = "ON" if deploy else "OFF"
     print(f"\n>>> {slug}: value_defense per-seed={['%.1f%%' % (w*100) for w in wrs]} "
           f"avg={avg:.1%} → {tag} (thr={threshold:.0%})")
@@ -68,10 +81,10 @@ def tune_one(slug, n_games, workers, seeds, threshold, dry_run):
     }
     cfg["tuned_at"] = time.strftime("%Y-%m-%d")
     if dry_run:
-        print(f"[dry-run] would write {_cfg_path(slug).name}: {json.dumps(cfg, ensure_ascii=False)}")
+        print(f"[dry-run] would write {cfg_path.name}: {json.dumps(cfg, ensure_ascii=False)}")
     else:
-        _cfg_path(slug).write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"[wrote] {_cfg_path(slug)}")
+        cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"[wrote] {cfg_path}")
     return cfg
 
 
@@ -104,15 +117,35 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--skip-existing", action="store_true",
                     help="既に config がある deck を skip (= batch の checkpoint 再開)")
+    ap.add_argument("--deck-json", default=None,
+                    help="任意 path の recipe を tune (= user deck、 decks/ 外)。 --hash 必須")
+    ap.add_argument("--hash", dest="deck_hash", default=None,
+                    help="--deck-json 用: config を deck_ai_config_h<hash>.json に書く (= 内容 keyed)")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",")]
+
+    # --- 単一 recipe を hash-keyed で tune (= auto-trigger / user deck 経路) ---
+    if args.deck_json:
+        from engine.deck_config import hash_config_path, recipe_hash
+        h = args.deck_hash
+        if not h:
+            rec = json.loads(Path(args.deck_json).read_text(encoding="utf-8"))
+            h = recipe_hash(rec.get("leader", ""), rec.get("main", []))
+        cfg_path = hash_config_path(h)
+        if args.skip_existing and cfg_path.exists():
+            print(f"[skip] hash {h} は config 済")
+            return
+        slug = Path(args.deck_json).stem
+        tune_one(slug, args.n_games, args.workers, seeds, args.threshold,
+                 args.dry_run, deck_spec=args.deck_json, cfg_path=cfg_path)
+        return
 
     if args.decks:
         slugs = _select_decks(args.decks)
     elif args.slug:
         slugs = [args.slug]
     else:
-        ap.error("slug か --decks を指定")
+        ap.error("slug か --decks か --deck-json を指定")
 
     summary = []
     for slug in slugs:

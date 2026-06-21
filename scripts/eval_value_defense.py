@@ -29,6 +29,18 @@ from engine.ai import play_one_action
 from engine.exploit_beam_ai import ExploitBeamAI
 
 
+def _deck_file(deck: str) -> str:
+    """deck が path (= / か .json を含む) ならそのまま、 slug なら decks/<slug>.json。"""
+    if deck.endswith(".json") or "/" in deck:
+        return deck
+    return f"decks/{deck}.json"
+
+
+def _deck_slug(deck: str) -> str:
+    from pathlib import Path as _P
+    return _P(deck).stem if (deck.endswith(".json") or "/" in deck) else deck
+
+
 def _mk(slug, value_defense, rng):
     ai = ExploitBeamAI(rng=rng, deck_analysis={"deck_slug": slug})
     ai._value_defense = bool(value_defense)
@@ -42,8 +54,9 @@ def _play_one(deck, overlay, dl, g, seed):
     st = setup_game(dl, dl, rng=rng, first_player=0, effects_overlay=overlay,
                     do_mulligan_and_finalize=True)
     play_until_main(st)
-    ais = {x_idx: _mk(deck, True, rng),
-           1 - x_idx: _mk(deck, False, random.Random(seed + g + 9999))}
+    _slug = _deck_slug(deck)
+    ais = {x_idx: _mk(_slug, True, rng),
+           1 - x_idx: _mk(_slug, False, random.Random(seed + g + 9999))}
     guard = 0
     while not st.game_over and guard < 4000:
         guard += 1
@@ -68,7 +81,7 @@ def _play_one(deck, overlay, dl, g, seed):
 def run(deck, n_games, seed):
     repo = CardRepository.from_json("db/cards.json")
     overlay = load_effect_overlay("db/card_effects.json")
-    dl = DeckList.from_json(f"decks/{deck}.json", repo)
+    dl = DeckList.from_json(_deck_file(deck), repo)
     x = y = d = 0
     t0 = time.time()
     for g in range(n_games):
@@ -85,7 +98,7 @@ _PAR: dict = {}
 def _init(deck):
     repo = CardRepository.from_json("db/cards.json")
     _PAR["overlay"] = load_effect_overlay("db/card_effects.json")
-    _PAR["dl"] = DeckList.from_json(f"decks/{deck}.json", repo)
+    _PAR["dl"] = DeckList.from_json(_deck_file(deck), repo)
     _PAR["deck"] = deck
 
 

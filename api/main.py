@@ -25,6 +25,7 @@ os.environ.setdefault("ONEPIECE_OPP_DERIVE", "1")
 
 import json
 import re
+import subprocess
 import sys
 import uuid
 from collections import OrderedDict
@@ -303,21 +304,31 @@ class MatrixSampleRequest(BaseModel):
     seed: int = 42
 
 
-def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str]) -> dict:
+def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str],
+                         hash_a: Optional[str] = None,
+                         hash_b: Optional[str] = None) -> dict:
     """実践 AI (= 配備 ExploitBeam) を run_matchup に差す kwargs を返す。
 
     実践で 使う AI を 全ユーザー向け 対戦経路 (= 観戦 / deck対戦ランナー / replay / battle-report)
     で 同一 に 揃える。 2026-06-16: SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) を廃止し
     **uniform ExploitBeam** に統一。 理由: deploy_results で全16メタが既に ExploitBeam (= greedy 切替は
     dormant) なので不変、 かつ user/未知デッキが greedy degrade でなく ExploitBeam に格上げされる。
-    deck_slug を deck_analysis に注入して per-deck GBM を解決 (= 無ければ board_eval に degrade)。"""
+    deck_slug を deck_analysis に注入して per-deck GBM を解決 (= 無ければ board_eval に degrade)。
+    hash_a/hash_b (= recipe 内容ハッシュ) を渡すと per-deck config を内容 keyed で解決 (= user deck、
+    auto-trigger が書いた deck_ai_config_h<hash>.json を消費。 slug 衝突回避)。"""
     from engine.exploit_beam_ai import ExploitBeamAI
 
     def _a(rng, deck_analysis=None):
-        return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": slug_a})
+        da = {**(deck_analysis or {}), "deck_slug": slug_a}
+        if hash_a:
+            da["deck_hash"] = hash_a
+        return ExploitBeamAI(rng=rng, deck_analysis=da)
 
     def _b(rng, deck_analysis=None):
-        return ExploitBeamAI(rng=rng, deck_analysis={**(deck_analysis or {}), "deck_slug": slug_b})
+        da = {**(deck_analysis or {}), "deck_slug": slug_b}
+        if hash_b:
+            da["deck_hash"] = hash_b
+        return ExploitBeamAI(rng=rng, deck_analysis=da)
 
     kw: dict = {"ai_factory_1": _a, "ai_factory_2": _b}
     for _slug, _key in ((slug_a, "deck1_analysis"), (slug_b, "deck2_analysis")):
@@ -963,6 +974,47 @@ class CreateDeckResponse(BaseModel):
     warnings: list[str]
 
 
+_AUTOTUNE_DIR = ROOT / "db" / "_autotune"
+
+
+def _maybe_autotune_deck(deck_dict: dict) -> None:
+    """deck 保存時に per-deck AI config を background で tune (= ONEPIECE_AUTOTUNE=1 で有効)。
+
+    内容ハッシュ keyed なので同一 recipe は 1 度だけ。 既に config があれば skip。 detached
+    subprocess で tune_deck を起動 (= save は即返る)。 ⚠ 本番多人数は job queue 推奨
+    (= multiuser P4)。 これは MVP (= env gate で安全、 既定 OFF)。 [[project_value_defense_per_deck_config]]。
+    """
+    if os.environ.get("ONEPIECE_AUTOTUNE") != "1":
+        return
+    try:
+        from engine.deck_config import recipe_hash, hash_config_path
+        leader = deck_dict.get("leader", "")
+        main = deck_dict.get("main", [])
+        if not leader or not main:
+            return
+        h = recipe_hash(leader, main)
+        if hash_config_path(h).exists():
+            return  # 同一 recipe は tune 済
+        _AUTOTUNE_DIR.mkdir(parents=True, exist_ok=True)
+        recipe_path = _AUTOTUNE_DIR / f"{h}.json"
+        recipe_path.write_text(
+            json.dumps({"leader": leader, "main": main}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        env = {**os.environ, "PYTHONPATH": str(ROOT)}
+        with open(_AUTOTUNE_DIR / f"{h}.log", "w") as logf:
+            subprocess.Popen(
+                [sys.executable, str(ROOT / "scripts" / "tune_deck.py"),
+                 "--deck-json", str(recipe_path), "--hash", h,
+                 "--n-games", "50", "--seeds", "100,500", "--workers", "6",
+                 "--skip-existing"],
+                cwd=str(ROOT), env=env, stdout=logf, stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+    except Exception:
+        pass  # auto-tune の失敗は deck 保存を妨げない
+
+
 def _slugify(s: str) -> str:
     """name から英数字スラグを生成。日本語は失敗 (空文字)、呼び出し側で fallback。"""
     s = re.sub(r"[^\w-]+", "_", (s or "").strip().lower())
@@ -1021,6 +1073,7 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
         )
     except ValueError:
         raise HTTPException(409, f"slug already exists: {slug}")
+    _maybe_autotune_deck(deck_dict)  # 新規 deck を background で自動最適化 (= ONEPIECE_AUTOTUNE=1)
     return CreateDeckResponse(slug=slug, path=f"user:{user_id}/{slug}", warnings=[])
 
 
@@ -1063,6 +1116,7 @@ def update_deck(slug: str, req: CreateDeckRequest, user_id: str = Depends(curren
         user_id, slug, name=deck_dict["name"], leader=req.leader,
         main=deck_dict["main"], regulation=req.regulation, overwrite=True,
     )
+    _maybe_autotune_deck(deck_dict)  # 内容変化時のみ tune (= hash 既存なら skip)
     return CreateDeckResponse(slug=slug, path=f"user:{user_id}/{slug}", warnings=[])
 
 
@@ -2352,9 +2406,13 @@ def run_match(req: MatchRequest):
     if req.deck_b_id and not getattr(deck_b, "slug", None):
         deck_b.slug = req.deck_b_id
 
-    # 実践 AI (= 配備 SmartOpponentAI) で対戦 (= 人間vsAI / matrix / 観戦 と同一)。
+    # 実践 AI (= 配備 ExploitBeam) で対戦 (= 人間vsAI / matrix / 観戦 と同一)。
     _a_slug = getattr(deck_a, "slug", None)
     _b_slug = getattr(deck_b, "slug", None)
+    # recipe 内容ハッシュで per-deck config を解決 (= user deck、 auto-trigger 産の hash config)。
+    from engine.deck_config import recipe_hash as _rh
+    _a_hash = _rh(deck_a_dict.get("leader", ""), deck_a_dict.get("main", []))
+    _b_hash = _rh(deck_b_dict.get("leader", ""), deck_b_dict.get("main", []))
     report = run_matchup(
         deck_a, deck_b,
         n_games=req.n_games,
@@ -2362,7 +2420,7 @@ def run_match(req: MatchRequest):
         keep_logs=True,
         record_replays=True,        # 改善提案で利用するため必ず replay 保存
         record_snapshots=True,
-        **_practice_run_kwargs(_a_slug, _b_slug),
+        **_practice_run_kwargs(_a_slug, _b_slug, _a_hash, _b_hash),
     )
 
     job_id = uuid.uuid4().hex[:12]
