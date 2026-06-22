@@ -310,7 +310,9 @@ onepiece_research/
 - `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
-  - **方針 (2026-06-06 更新): 表示用 matrix は 配備 AI (= SmartOpponentAI、 deck別に ExploitBeam/greedy 自動、 現在 全16デッキ ExploitBeam) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ai_version `SmartOpponentAI_deployed` が 最新。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --workers 8 --n-games 20` (= ~80分、 先攻/後攻は run_matchup が cell内で交互、 A vs B と B vs A は両方計算)。 旧 GoalDirectedAI/GreedyAI 産は stale。 ⚠ **配備AIの手が変わる変更後は要再計算** (例: 2026-06-13 offense force-attack 除去 f5dc1f7 で再計算実施)
+  - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 **ai_version `ExploitBeam_vd` が 最新** (= 2026-06-22、 meta 7/16 に value-defense per-deck config 配備済、 [[project_value_defense_per_deck_config]])。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam_vd --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 SmartOpponentAI_deployed/GoalDirectedAI 産は stale。
+    - ⚠ **value-defense (= per-deck config で ON の deck) は matrix を ~5x 遅くする** (= 全試合に防御 sim が乗る、 240cell N=20 で **~5.4h**)。 必ず `--incremental` + 新 `--ai-version` で起動し、 5 cell checkpoint + version 照合で **crash 時に同一コマンド再実行で自動 resume** (= 計算済 cell を reuse、 timeout 失敗対策)。
+    - ⚠ **配備AIの手が変わる変更後は要再計算** (例: 2026-06-13 offense force-attack 除去 / 2026-06-22 meta value-defense config 配備で再計算実施)。 deck の per-deck config (`db/deck_ai_config_*.json`) を変えたら その deck が絡む cell が stale
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
 - `overlay_when_missing.json`: cardqa sweep 結果 (X5、 missing 0)
 - `rules/*.pdf`: 公式ルール一次情報
