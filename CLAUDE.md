@@ -196,6 +196,8 @@ onepiece_research/
 
 **評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 ゴールは「全デッキが強くなる」 ことではなく、 「正しくゲームが行われ、 AI が意味ある効果の使い方・戦い方をしている」 こと。 評価すべきは AI の各手が (1) 盤面を有利に傾けたか (2) 布石か (3) 効果を意味あるタイミング/対象で発動しているか。 詳細: [[feedback_evaluation_axis]]。
 
+> **既知 artifact: matrix #1 = 黄カルガラ (74%) は AI piloting の artifact で deck power ではない** (= 2026-06-23 確定、 受容済)。 実メタでカルガラは Tier5 だが、 当 AI は proactive(展開→ドン付与→アルファ一斉攻撃)を ≫ reactive(control/除去/grind)で操作するため、 実メタの counter (黒control 等) が race して負け、 カルガラが過大評価される。 **deck-specific な value/prune では直らない事を A/B で確認済** (= value source 差替 / GBM+board_eval blend / self-KO prune / causal hard-block 全て勝率不変。 [[reference_calgara_counter_strategy]])。 根治は探索アーキ級 (= sim 仮想敵強化 / anti-race value) の大工事で、 現状は未着手。 matrix を読む際はカルガラ上位をこの caveat 込みで解釈する。
+
 ## Next.js 側の方針
 
 - **Next.js 16** + App Router(2026-05 時点 CNA で生成)
