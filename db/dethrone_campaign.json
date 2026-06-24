@@ -76,6 +76,66 @@
       "top_rowavg_after": 0.7,
       "new_top": "tcgportal_hancock",
       "rotated": true
+    },
+    {
+      "ts": "2026-06-24T08:37:41Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "tcgportal_bonney",
+      "iter": "iter5",
+      "baseline_wr": 0.5,
+      "candidate_wr": 0.825,
+      "cell_counter_vs_top": 0.75,
+      "cell_top_vs_counter": 0.1,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.7,
+      "top_rowavg_after": 0.6767,
+      "new_top": "tcgportal_hancock",
+      "rotated": true
+    },
+    {
+      "ts": "2026-06-24T08:56:22Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "cardrush_1453",
+      "iter": "iter4",
+      "baseline_wr": 0.3875,
+      "candidate_wr": 0.6125,
+      "cell_counter_vs_top": 0.625,
+      "cell_top_vs_counter": 0.4,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.6767,
+      "top_rowavg_after": 0.6658,
+      "new_top": "tcgportal_hancock",
+      "rotated": true
+    },
+    {
+      "ts": "2026-06-24T09:04:23Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "tcgportal_hancock",
+      "iter": "iter6",
+      "baseline_wr": 0.3125,
+      "candidate_wr": 0.5125,
+      "cell_counter_vs_top": 0.4,
+      "cell_top_vs_counter": 0.375,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.6658,
+      "top_rowavg_after": 0.6467,
+      "new_top": "tcgportal_hancock",
+      "rotated": true
+    },
+    {
+      "ts": "2026-06-24T09:26:14Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "cardrush_1385",
+      "iter": "iter6",
+      "baseline_wr": 0.0125,
+      "candidate_wr": 0.175,
+      "cell_counter_vs_top": 0.175,
+      "cell_top_vs_counter": 0.825,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.6467,
+      "top_rowavg_after": 0.635,
+      "new_top": "tcgportal_hancock",
+      "rotated": true
     }
   ]
 }
