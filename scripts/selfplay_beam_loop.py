@@ -35,7 +35,9 @@ from engine.gbm_value import features
 
 _REPO = CardRepository.from_json(ROOT / "db" / "cards.json")
 _OVERLAY = load_effect_overlay(ROOT / "db" / "card_effects.json")
-DECK, OPP = "cardrush_1467", "tcgportal_calgara"
+DECK = "cardrush_1467"
+OPPS = ["tcgportal_calgara"]  # 訓練相手の集合 = 現#1 + 過去の#1 を累積 (= 単一相手の過適合を防ぐ、 ohtsuki「ループで汎化」)
+OPP = OPPS[0]  # primary 標的 = #1 (in-loop eval / 命名用)
 BEAM_W, BEAM_D = 8, 6  # 既定 moderate(速度)。 配備忠実 deploy 用に main で 16/10 に上げられる
 
 
@@ -71,18 +73,18 @@ def _mk_enel(seed, epsilon, learn_gbm):
                          epsilon=epsilon, learn_gbm=learn_gbm, beam_width=BEAM_W, max_depth=BEAM_D)
 
 
-def _mk_cal(seed):
-    return ExploitBeamAI(rng=random.Random(seed + 7), deck_analysis={**_ana(OPP), "deck_slug": OPP},
+def _mk_cal(seed, opp):
+    return ExploitBeamAI(rng=random.Random(seed + 7), deck_analysis={**_ana(opp), "deck_slug": opp},
                          beam_width=BEAM_W, max_depth=BEAM_D)
 
 
-def _setup(enel_first, seed):
-    if enel_first:
-        st = setup_game(_dl(DECK), _dl(OPP), rng=random.Random(seed), first_player=0,
-                        effects_overlay=_OVERLAY, deck1_analysis=_ana(DECK), deck2_analysis=_ana(OPP))
+def _setup(deck_first, seed, opp):
+    if deck_first:
+        st = setup_game(_dl(DECK), _dl(opp), rng=random.Random(seed), first_player=0,
+                        effects_overlay=_OVERLAY, deck1_analysis=_ana(DECK), deck2_analysis=_ana(opp))
         return st, 0
-    st = setup_game(_dl(OPP), _dl(DECK), rng=random.Random(seed), first_player=0,
-                    effects_overlay=_OVERLAY, deck1_analysis=_ana(OPP), deck2_analysis=_ana(DECK))
+    st = setup_game(_dl(opp), _dl(DECK), rng=random.Random(seed), first_player=0,
+                    effects_overlay=_OVERLAY, deck1_analysis=_ana(opp), deck2_analysis=_ana(DECK))
     return st, 1
 
 
@@ -98,9 +100,10 @@ def _wire(st, ei, enel, cal):
 
 def gen_one(task):
     learn_gbm, epsilon, seed = task
-    st, ei = _setup(seed % 2 == 0, seed)
+    opp = OPPS[seed % len(OPPS)]  # 累積相手集合から rotate (= 多様化、 過適合防止)
+    st, ei = _setup(seed % 2 == 0, seed, opp)
     play_until_main(st)
-    ais = _wire(st, ei, _mk_enel(seed, epsilon, learn_gbm), _mk_cal(seed))
+    ais = _wire(st, ei, _mk_enel(seed, epsilon, learn_gbm), _mk_cal(seed, opp))
     recs = []
     n = 0
     while not st.game_over and n < 400:
@@ -121,9 +124,9 @@ def gen_one(task):
 
 def eval_one(task):
     learn_gbm, seed = task
-    st, ei = _setup(seed % 2 == 0, seed)
+    st, ei = _setup(seed % 2 == 0, seed, OPP)  # eval は primary #1 vs で一貫
     play_until_main(st)
-    ais = _wire(st, ei, _mk_enel(seed, 0.0, learn_gbm), _mk_cal(seed))
+    ais = _wire(st, ei, _mk_enel(seed, 0.0, learn_gbm), _mk_cal(seed, OPP))
     n_pump = n_atk = n = 0
     while not st.game_over and n < 400:
         me = st.turn_player_idx
@@ -152,7 +155,8 @@ def train_gbm(data):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--deck", default="cardrush_1467")
-    ap.add_argument("--opp", default="tcgportal_calgara")
+    ap.add_argument("--opp", default="tcgportal_calgara",
+                    help="標的 #1。 comma 区切りで複数可 = 累積相手集合(現#1+過去#1)で訓練→汎化。 eval/gateは先頭(primary)")
     ap.add_argument("--beam-width", type=int, default=8, help="8=moderate(速)/16=配備忠実")
     ap.add_argument("--max-depth", type=int, default=6, help="6=moderate/10=配備忠実")
     ap.add_argument("--iters", type=int, default=6)
@@ -162,14 +166,16 @@ def main():
     ap.add_argument("--eps-end", type=float, default=0.05)
     ap.add_argument("--workers", type=int, default=12)
     a = ap.parse_args()
-    global DECK, OPP
-    DECK, OPP = a.deck, a.opp
+    global DECK, OPP, OPPS
+    DECK = a.deck
+    OPPS = [s.strip() for s in a.opp.split(",")]  # comma list = 累積相手集合
+    OPP = OPPS[0]  # primary 標的 (eval/gate/命名)
     global BEAM_W, BEAM_D
     BEAM_W, BEAM_D = a.beam_width, a.max_depth
     outdir = ROOT / "db" / "_selfplay"
     outdir.mkdir(exist_ok=True)
-    print(f"beam-in-loop: {DECK}(beam learn) vs {OPP}(配備) | iters={a.iters} games={a.games} "
-          f"eval={a.eval} eps={a.epsilon}->{a.eps_end}", flush=True)
+    print(f"beam-in-loop: {DECK}(beam learn) vs {'+'.join(OPPS)}(配備、 eval=primary {OPP}) | "
+          f"iters={a.iters} games={a.games} eval={a.eval} eps={a.epsilon}->{a.eps_end}", flush=True)
     data: list = []
     learn_gbm = None
     hist = []
