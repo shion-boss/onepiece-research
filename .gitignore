@@ -255,3 +255,7 @@ db/claude_play/session.pkl
 # auto-tune: hash-keyed per-deck config (runtime user-deck cache) + staging
 db/deck_ai_config_h*.json
 db/_autotune/
+
+# self-play 学習成果物 (= GBM model pkl + run logs、 全て再生成可能)。
+# [[project_selfplay_self_improvement_engine]] / skill onepiece-selfplay-dethrone
+db/_selfplay/
