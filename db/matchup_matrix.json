@@ -1067,16 +1067,17 @@
         },
         {
           "deck_b": "tcgportal_calgara",
-          "winrate": 0.35,
-          "wins": 7,
-          "losses": 13,
+          "winrate": 0.4,
+          "wins": 16,
+          "losses": 24,
           "draws": 0,
           "avg_turns": 10.15,
           "deck_a_recipe_hash": "1d073d9ee725470c",
           "deck_b_recipe_hash": "f4ca7446f861d740",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-21T22:21:00Z",
-          "stale": false
+          "computed_at": "2026-06-24T06:51:30Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "tcgportal_coby",
@@ -1497,16 +1498,17 @@
         },
         {
           "deck_b": "tcgportal_calgara",
-          "winrate": 0.1,
-          "wins": 2,
-          "losses": 18,
+          "winrate": 0.35,
+          "wins": 14,
+          "losses": 26,
           "draws": 0,
           "avg_turns": 10,
           "deck_a_recipe_hash": "44c00971acf0315d",
           "deck_b_recipe_hash": "f4ca7446f861d740",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-21T23:02:50Z",
-          "stale": false
+          "computed_at": "2026-06-24T05:11:36Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "tcgportal_coby",
@@ -1712,16 +1714,17 @@
         },
         {
           "deck_b": "tcgportal_calgara",
-          "winrate": 0.3,
-          "wins": 6,
-          "losses": 14,
+          "winrate": 0.575,
+          "wins": 23,
+          "losses": 17,
           "draws": 0,
           "avg_turns": 10.3,
           "deck_a_recipe_hash": "56a98021faa1f7e3",
           "deck_b_recipe_hash": "f4ca7446f861d740",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-21T23:27:20Z",
-          "stale": false
+          "computed_at": "2026-06-24T07:01:36Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "tcgportal_coby",
@@ -2279,16 +2282,17 @@
         },
         {
           "deck_b": "cardrush_1439",
-          "winrate": 0.65,
-          "wins": 13,
-          "losses": 7,
+          "winrate": 0.6,
+          "wins": 24,
+          "losses": 16,
           "draws": 0,
           "avg_turns": 9.75,
           "deck_a_recipe_hash": "f4ca7446f861d740",
           "deck_b_recipe_hash": "1d073d9ee725470c",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T00:13:55Z",
-          "stale": false
+          "computed_at": "2026-06-24T06:51:30Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "cardrush_1453",
@@ -2305,29 +2309,31 @@
         },
         {
           "deck_b": "cardrush_1454",
-          "winrate": 0.65,
-          "wins": 13,
-          "losses": 7,
+          "winrate": 0.7,
+          "wins": 28,
+          "losses": 12,
           "draws": 0,
           "avg_turns": 9.65,
           "deck_a_recipe_hash": "f4ca7446f861d740",
           "deck_b_recipe_hash": "44c00971acf0315d",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T00:16:31Z",
-          "stale": false
+          "computed_at": "2026-06-24T05:11:36Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "cardrush_1455",
-          "winrate": 0.65,
-          "wins": 13,
-          "losses": 7,
+          "winrate": 0.425,
+          "wins": 17,
+          "losses": 23,
           "draws": 0,
           "avg_turns": 10.05,
           "deck_a_recipe_hash": "f4ca7446f861d740",
           "deck_b_recipe_hash": "56a98021faa1f7e3",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T00:15:08Z",
-          "stale": false
+          "computed_at": "2026-06-24T07:01:36Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "cardrush_1456",
@@ -2370,16 +2376,17 @@
         },
         {
           "deck_b": "tcgportal_coby",
-          "winrate": 0.85,
-          "wins": 17,
-          "losses": 3,
+          "winrate": 0.575,
+          "wins": 23,
+          "losses": 17,
           "draws": 0,
           "avg_turns": 9.55,
           "deck_a_recipe_hash": "f4ca7446f861d740",
           "deck_b_recipe_hash": "5128adb1fac112a5",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T00:32:34Z",
-          "stale": false
+          "computed_at": "2026-06-24T06:11:05Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "tcgportal_corazon",
@@ -2422,16 +2429,17 @@
         },
         {
           "deck_b": "tcgportal_op13_luffy",
-          "winrate": 0.7,
-          "wins": 14,
-          "losses": 6,
+          "winrate": 0.75,
+          "wins": 30,
+          "losses": 10,
           "draws": 0,
           "avg_turns": 9,
           "deck_a_recipe_hash": "f4ca7446f861d740",
           "deck_b_recipe_hash": "c8c3f0cd3671f1ae",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T00:19:52Z",
-          "stale": false
+          "computed_at": "2026-06-24T05:40:53Z",
+          "stale": false,
+          "selfplay_deployed": true
         }
       ],
       "partial_row": false
@@ -2572,16 +2580,17 @@
         },
         {
           "deck_b": "tcgportal_calgara",
-          "winrate": 0.05,
-          "wins": 1,
-          "losses": 19,
+          "winrate": 0.45,
+          "wins": 18,
+          "losses": 22,
           "draws": 0,
           "avg_turns": 10.05,
           "deck_a_recipe_hash": "5128adb1fac112a5",
           "deck_b_recipe_hash": "f4ca7446f861d740",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T01:00:23Z",
-          "stale": false
+          "computed_at": "2026-06-24T06:11:05Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "tcgportal_coby",
@@ -3432,16 +3441,17 @@
         },
         {
           "deck_b": "tcgportal_calgara",
-          "winrate": 0.05,
-          "wins": 1,
-          "losses": 19,
+          "winrate": 0.275,
+          "wins": 11,
+          "losses": 29,
           "draws": 0,
           "avg_turns": 9.35,
           "deck_a_recipe_hash": "c8c3f0cd3671f1ae",
           "deck_b_recipe_hash": "f4ca7446f861d740",
           "ai_version": "ExploitBeam_vd",
-          "computed_at": "2026-06-22T02:13:29Z",
-          "stale": false
+          "computed_at": "2026-06-24T05:40:53Z",
+          "stale": false,
+          "selfplay_deployed": true
         },
         {
           "deck_b": "tcgportal_coby",

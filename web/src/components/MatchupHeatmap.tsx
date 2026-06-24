@@ -17,18 +17,32 @@ export function MatchupHeatmap({ data }: { data: MatchupMatrix }) {
   const [sortByAvg, setSortByAvg] = useState(true);
 
   const { rows, decks } = useMemo(() => {
-    // 平均勝率を計算
-    const avgMap = new Map<string, number>();
+    // 強さ = **両 seat 平均** (= avg(cell(X,Y), 1-cell(Y,X)) で X 視点に統一)。
+    // ⚠ 自分の row だけ平均する deck_a-only は、 各 cell が独立実測 (N小) で非対称なため
+    // 片方しか見ず**符号を誤る** (= self-play で counter を強化すると #1 が逆に強く見える)。
+    // 両 seat 平均なら symmetric で正しい (= backend recompute_rank_vs_top._row_avgs と一致)。
+    const wmap = new Map<string, Map<string, number | null>>();
     for (const r of data.matrix) {
+      wmap.set(r.deck_a, new Map(r.row.map((c) => [c.deck_b, c.winrate])));
+    }
+    const slugs = data.matrix.map((r) => r.deck_a);
+    const avgMap = new Map<string, number>();
+    for (const x of slugs) {
       let sum = 0;
       let n = 0;
-      for (const c of r.row) {
-        if (c.winrate !== null) {
-          sum += c.winrate;
+      for (const y of slugs) {
+        if (y === x) continue;
+        const a = wmap.get(x)?.get(y);
+        const b = wmap.get(y)?.get(x);
+        const parts: number[] = [];
+        if (a != null) parts.push(a);
+        if (b != null) parts.push(1 - b);
+        if (parts.length) {
+          sum += parts.reduce((s, v) => s + v, 0) / parts.length;
           n++;
         }
       }
-      avgMap.set(r.deck_a, n > 0 ? sum / n : 0);
+      avgMap.set(x, n > 0 ? sum / n : 0);
     }
     let order = data.matrix.map((r) => r.deck_a);
     if (sortByAvg) {
@@ -75,10 +89,10 @@ export function MatchupHeatmap({ data }: { data: MatchupMatrix }) {
             checked={sortByAvg}
             onChange={(e) => setSortByAvg(e.target.checked)}
           />
-          平均勝率順 (強い順) でソート
+          両seat平均勝率順 (強い順) でソート
         </label>
         <span className="ml-auto text-xs text-zinc-500 dark:text-zinc-400">
-          色: 緑 = 勝ち越し / 赤 = 負け越し / 灰 = 五分
+          色: 緑 = 勝ち越し / 赤 = 負け越し / 灰 = 五分 / 枠線 = self-play 更新
         </span>
       </div>
 
@@ -104,7 +118,10 @@ export function MatchupHeatmap({ data }: { data: MatchupMatrix }) {
                   </Link>
                 </th>
               ))}
-              <th className="border-b border-l border-zinc-200 px-2 py-1 text-right font-medium dark:border-zinc-800">
+              <th
+                className="border-b border-l border-zinc-200 px-2 py-1 text-right font-medium dark:border-zinc-800"
+                title="両 seat 平均 = avg(自分が先手の勝率, 相手が先手の勝率を反転)。 deck_a-only より頑健で符号が正しい"
+              >
                 平均
               </th>
             </tr>
@@ -123,11 +140,11 @@ export function MatchupHeatmap({ data }: { data: MatchupMatrix }) {
                 {r.row.map((cell) => (
                   <td
                     key={cell.deck_b}
-                    className={`border-t border-zinc-200 px-1 py-1 text-center font-mono text-[11px] dark:border-zinc-800 ${winrateColor(cell.winrate)}`}
+                    className={`border-t border-zinc-200 px-1 py-1 text-center font-mono text-[11px] dark:border-zinc-800 ${winrateColor(cell.winrate)} ${cell.selfplay_deployed ? "ring-2 ring-inset ring-indigo-500" : ""}`}
                     title={
                       cell.winrate === null
                         ? "self"
-                        : `vs ${cell.deck_b}: ${cell.wins}-${cell.losses}${cell.draws ? `/d${cell.draws}` : ""} avg ${cell.avg_turns}t`
+                        : `vs ${cell.deck_b}: ${cell.wins}-${cell.losses}${cell.draws ? `/d${cell.draws}` : ""} avg ${cell.avg_turns}t${cell.selfplay_deployed ? " (self-play 打倒1位 campaign で更新)" : ""}`
                     }
                   >
                     {cell.winrate === null

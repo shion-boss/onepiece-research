@@ -41,16 +41,21 @@ ohtsuki が「対戦 AI を強くしたい」 系を言ったら起動。 **最�
 | 現 matrix(順位の真) | `db/matchup_matrix.json`(row-avg が順位) |
 | 1 位 gauntlet 測定 | `scripts/gauntlet.py`(全デッキ vs #1) |
 | **self-play 訓練(本体)** | `scripts/selfplay_beam_loop.py`(beam-in-loop、 deployable、 `--deck/--opp/--beam-width/--max-depth`) |
-| 学習 value の deploy 検証 | `scripts/test_learned_value_deploy.py`(配備 beam に差して vs #1) |
-| **順位 高速 recompute** | `scripts/recompute_rank_vs_top.py`(vs-#1 セルだけ差替、 全 matrix 再計算 不要) |
+| 学習 value の deploy 検証 | `scripts/test_learned_value_deploy.py`(配備 beam に差して vs #1、 `--deck/--opp/--beam-width`、 両 seat) |
+| ⭐**1 ラウンド実行(gate→deploy→永続化→recompute)** | `scripts/deploy_counter.py`(両 seat 実測 → baseline 超えたら deploy + **matrix 書き戻し** + 履歴。 = 本当に回す本体、 `--counter/--iter/--top/--n`) |
+| 順位 recompute(+ `--save` で永続化) | `scripts/recompute_rank_vs_top.py`(vs-#1 セル差替。 引数なし=現順位、 `--save`=matrix 書き戻し) |
+| campaign 履歴(audit) | `db/dethrone_campaign.json`(deploy 毎に round 追記。 rotated 判定の記録) |
 | 学習成果物 | `db/_selfplay/beamloop_<deck>_iter<N>.pkl`(gitignore) |
 | 補助 self-play 検証 | `selfplay_climb.py`(mirror)/`selfplay_vs_target.py`(1-ply、 安価な機構確認用) |
 
 ## 手順
 
-### 1. 現 #1 を特定
+### 1. 現 #1 を特定 ─ ⭐**毎ラウンド必ず再確認**(標的は動く)
 `db/matchup_matrix.json` の各 deck の row 平均勝率を見て最上位を取る(`recompute_rank_vs_top.py` を
-引数なしで実行すると現順位 top5 を出す)。 既定の標的はカルガラ(`tcgportal_calgara`)。
+引数なしで実行すると現順位 top5 を出す)。 ⚠**既定値(カルガラ)を仮定するな**。 deploy する度に
+`deploy_counter.py` が matrix を書き戻す(手順4.5)ので、 matrix が唯一の真実。 **毎回ここで実測**せよ
+(= ohtsuki「どのデッキが一位かを都度確認しないとだめ」、 2026-06-24)。 まだ何も deploy してなければ
+カルガラ(`tcgportal_calgara`)が #1。
 
 ### 2. 訓練する counter を選ぶ ─ ⭐効き所の見極めが最重要
 **gain ≈ (value の伸びしろ) × (投じた規模)**。 だから選び方が成否を決める:
@@ -78,29 +83,27 @@ nohup .venv/bin/python scripts/selfplay_beam_loop.py \
 - ノイズ大(単一試合ラベル)なら `--games` を増やす。 将来は rollout ラベルで variance↓
   ([[project_rollout_gbm_value]])。
 
-### 4. deploy(配備、 勝った時だけ)
-学習 value が baseline を **配備忠実な eval で** 超えたら配備:
+### 4〜6. deploy + 永続化 + recompute ─ ⭐**1 コマンドで回す(推奨)**
+`deploy_counter.py` が「両 seat 実測 gate → baseline 超えたら deploy → **matrix 書き戻し** →
+recompute → #1 交代判定 → 履歴追記」 を一括でやる(= 手順4・4.5・5・6)。 **これが本体**:
 ```bash
-# まず配備 beam に差して検証(回帰を配備しない gate):
-.venv/bin/python scripts/test_learned_value_deploy.py --arms default,iter<best> --n 80
-# 超えていれば配備(ExploitBeam が deck_slug から自動 load する正規の場所へ):
-cp db/_selfplay/beamloop_<counter>_iter<best>.pkl db/value_gbm_<counter>.pkl
+.venv/bin/python scripts/deploy_counter.py --counter <counter> --iter iter<best> \
+    --n 40 --beam-width 16 --max-depth 10   # --top 省略=matrix 現#1。 --dry-run で測るだけ
 ```
-⚠ moderate beam で訓練した value は配備フル beam で最適とは限らない。 **deploy 前に
-`test_learned_value_deploy.py`(配備構成)で baseline 超えを確認**。 理想は `--beam-width 16
---max-depth 10` で再訓練。 **回帰 value は配備しない**([[feedback_evaluation_axis]])。
+- ⚠ **配備忠実 eval (16/10 + value_defense は deck config 通り) で baseline(現 deployed value)超えを確認**。
+  超えなければ deploy しない(= 回帰を配備しない、 [[feedback_evaluation_axis]])。 moderate beam(8/6)で
+  訓練した value が 16/10 で効く保証はない(= 1-ply の transfer 失敗例あり)。 ここで初めて deployable 確定。
+- ⭐**書き戻しは seat 別**(`cell(counter,top)` と `cell(top,counter)` を独立実測して書く)。 symmetric
+  override(`recompute --override` の `w`/`1-w`)は seat 非対称を潰し、 calgara row-avg を**逆向き**に
+  動かしうる(2026-06-24 確認: enel=32% override で calgara 74.0→74.2% と上昇)。 deploy_counter は正しい向き。
+- **手順4.5 = 永続化が肝**(ohtsuki 2026-06-24)。 これが無いと deploy しても matrix が古いまま →
+  手順1 が旧 #1 を返し、 session を跨いで**回らない**。 `matchup_matrix.json` が唯一の真実、 deploy で更新。
 
-### 5. 順位を vs-#1 だけ差し替えて recompute
-全 matrix 再計算(240 cell, 数時間)は不要。 改善した counter の vs-#1 勝率だけ差し替え:
-```bash
-# 単発: 学習後の (counter vs #1) 勝率を測って override
-.venv/bin/python scripts/recompute_rank_vs_top.py --override <counter>=<winrate_0to1>
-# 一括: gauntlet を回したなら結果ファイルから
-.venv/bin/python scripts/recompute_rank_vs_top.py --gauntlet db/gauntlet_<top>.json
-```
-#1 の row-avg が下がって陥落したか表示される。 ⚠**#1 は頑健**(全相手の平均)。 1 本改善では落ちない
-(実演: 5 デッキ 58% でも calgara 74→67.7% で #1 維持。 12 デッキ ~50% で初めて陥落 → 新 #1 ハンコック)。
-→ **複数 counter × 複数 round** が要る = campaign 本質。
+⚠**#1 は頑健**(全相手の平均)。 1 本改善では落ちない(実演: 5 デッキ 58% でも calgara 74→67.7% で #1
+維持。 12 デッキ ~50% で初めて陥落 → 新 #1 ハンコック)。 → **複数 counter × 複数 round** が要る = campaign 本質。
+
+**手動でやる場合**(deploy_counter を使わない時)= `test_learned_value_deploy.py` で gate → `cp pkl
+db/value_gbm_<counter>.pkl` → `recompute_rank_vs_top.py --override <counter>=<wr> --save`(`--save` で永続化)。
 
 ### 6. 新 #1 へ再標的 → 繰り返す
 #1 が交代したら新 #1 を step1 の標的にして 2-6 を回す。 これが共進化キャンペーン。
@@ -112,6 +115,8 @@ cp db/_selfplay/beamloop_<counter>_iter<best>.pkl db/value_gbm_<counter>.pkl
 - **効き所を選べ**(board_eval=大 gain / 調整済 GBM=規模要)。 ここを外すと round 1 dofla のように flat。
 - **回帰を配備しない**。 deploy は配備忠実 eval で baseline 超えを確認した時だけ。
 - **#1 陥落は広範な改善の産物**。 1 本で諦めない、 複数 round 回す。
+- **#1 は毎ラウンド matrix で都度確認**(標的は動く、 既定値を仮定しない)。 deploy は **matrix に永続化**
+  (`deploy_counter.py` が seat 別に書き戻す)。 でないと session を跨いで回らない(2026-06-24 ohtsuki 指摘)。
 - **TCG は循環(じゃんけん)risk**。 1 位回転で相手を多様化するのが循環回避になっている。 単一固定相手 self-play
   だけだと plateau/循環。
 - **compute 重い → 背景実行 + checkpoint**。 大規模化は Phase 9 分散([[project_roadmap]])。

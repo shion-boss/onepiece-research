@@ -236,6 +236,9 @@ export type MatchupCell = {
   losses: number;
   draws: number;
   avg_turns: number;
+  // self-play 打倒1位 campaign が deploy 時に書き戻した cell (= deploy_counter.py)。
+  // 全 matrix 再計算でなく vs-#1 セルだけ更新した出自マーカー。
+  selfplay_deployed?: boolean;
 };
 
 export type MatchupRow = {

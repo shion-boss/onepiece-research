@@ -1,11 +1,12 @@
 "use client";
 
-// 方針 (2026-06-16 更新): matrix データ は **配備 AI (= uniform ExploitBeam)** で 計算した
-// db/matchup_matrix.json を 表示する。 SmartOpponentAI の deck別 greedy/ExploitBeam 切替は廃止
-// (= AI 強度差と デッキ強度差が 混ざるのを防ぐ)。 全デッキを 同一 ExploitBeam で piloting するため、
-// matrix の spread は デッキ間マッチアップの 真の強弱を 反映する (= 上位/下位は AI 起因の artifact でなく
-// デッキ実力。 full 再計算で calgara 76.8% two-way が 実力と確認、 2026-06-16)。
-// 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam --workers 8 --n-games 20。
+// 方針: matrix データ は 配備 AI (= uniform ExploitBeam) で 計算した db/matchup_matrix.json。
+// ランキング (= 平均列・ソート) は <MatchupHeatmap> 内で **両 seat 平均** で計算する
+// (deck_a-only は seat 非対称 noise で符号を誤るため不可、 backend recompute_rank_vs_top と一致)。
+// ⭐ 2026-06-24: self-play 打倒1位 campaign が counter を beam-in-loop で強化 → vs-#1 セルを
+// deploy_counter.py で書き戻し (= selfplay_deployed、 UI は枠線で表示)。 これで旧 #1 カルガラ
+// (= 旧 76.8% は AI piloting artifact) が陥落 → 新 #1 = ハンコック。 履歴 = db/dethrone_campaign.json。
+// 全 cell 整合の full 再計算: scripts/compute_matchup_matrix.py --ai-mode exploitbeam --workers 12 --n-games 20。
 import { useState } from "react";
 import type { MatchupMatrix } from "@/lib/types";
 import { MatchupHeatmap } from "@/components/MatchupHeatmap";

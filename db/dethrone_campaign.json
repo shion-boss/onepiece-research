@@ -1,0 +1,81 @@
+{
+  "rounds": [
+    {
+      "ts": "2026-06-24T05:11:36Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "cardrush_1454",
+      "iter": "iter4",
+      "baseline_wr": 0.2125,
+      "candidate_wr": 0.325,
+      "cell_counter_vs_top": 0.35,
+      "cell_top_vs_counter": 0.7,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.755,
+      "top_rowavg_after": 0.7483,
+      "new_top": "tcgportal_calgara",
+      "rotated": false,
+      "metric": "both_seats",
+      "note": "round1: enel(1454) self-play iter4 deploy. 配備GBM 21%→学習 32% (16/10,両seat). matrix deck初の実gain (dofla flat と対照)。 calgara 両seat -0.67pt (deck_a-only metric は誤って+0.3pt → 本runで both-seats に修正)。"
+    },
+    {
+      "ts": "2026-06-24T05:40:53Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "tcgportal_op13_luffy",
+      "iter": "iter5",
+      "baseline_wr": 0.1625,
+      "candidate_wr": 0.2625,
+      "cell_counter_vs_top": 0.275,
+      "cell_top_vs_counter": 0.75,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.7483,
+      "top_rowavg_after": 0.7425,
+      "new_top": "tcgportal_calgara",
+      "rotated": false
+    },
+    {
+      "ts": "2026-06-24T06:11:05Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "tcgportal_coby",
+      "iter": "iter7",
+      "baseline_wr": 0.15,
+      "candidate_wr": 0.4375,
+      "cell_counter_vs_top": 0.45,
+      "cell_top_vs_counter": 0.575,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.7425,
+      "top_rowavg_after": 0.72,
+      "new_top": "tcgportal_calgara",
+      "rotated": false
+    },
+    {
+      "ts": "2026-06-24T06:51:30Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "cardrush_1439",
+      "iter": "iter6",
+      "baseline_wr": 0.375,
+      "candidate_wr": 0.4,
+      "cell_counter_vs_top": 0.4,
+      "cell_top_vs_counter": 0.6,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.72,
+      "top_rowavg_after": 0.7167,
+      "new_top": "tcgportal_calgara",
+      "rotated": false
+    },
+    {
+      "ts": "2026-06-24T07:01:36Z",
+      "top_before": "tcgportal_calgara",
+      "counter": "cardrush_1455",
+      "iter": "iter6",
+      "baseline_wr": 0.35,
+      "candidate_wr": 0.575,
+      "cell_counter_vs_top": 0.575,
+      "cell_top_vs_counter": 0.425,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.7167,
+      "top_rowavg_after": 0.7,
+      "new_top": "tcgportal_hancock",
+      "rotated": true
+    }
+  ]
+}
