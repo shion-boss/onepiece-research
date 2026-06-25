@@ -1320,7 +1320,9 @@ def _field_power_contribution(fp_diff: float, w_field_power: float) -> float:
     """
     raw = fp_diff * w_field_power
     import os as _os
-    if not _os.environ.get("ONEPIECE_CONTROL_AWARE"):
+    # 既定 ON (= 複利ループ brick#1、 2026-06-25 gate: control +17.5pt / aggro -1.7pt no-harm /
+    # matrix-safe = GBM decks は linear sum 前に return)。 ONEPIECE_NO_FP_CAP=1 で opt-out。
+    if _os.environ.get("ONEPIECE_NO_FP_CAP"):
         return raw
     cap = float(_os.environ.get("ONEPIECE_FP_CAP", "6000"))
     if cap <= 0:
