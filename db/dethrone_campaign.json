@@ -371,6 +371,21 @@
       "top_rowavg_after": 0.7983,
       "new_top": "tcgportal_bonney",
       "rotated": false
+    },
+    {
+      "ts": "2026-06-25T07:45:12Z",
+      "top_before": "tcgportal_bonney",
+      "counter": "tcgportal_calgara",
+      "iter": "iter8",
+      "baseline_wr": 0.25,
+      "candidate_wr": 0.425,
+      "cell_counter_vs_top": 0.4,
+      "cell_top_vs_counter": 0.55,
+      "n_per_seat": 40,
+      "top_rowavg_before": 0.8056,
+      "top_rowavg_after": 0.8078,
+      "new_top": "tcgportal_bonney",
+      "rotated": false
     }
   ]
 }
