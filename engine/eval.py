@@ -1310,6 +1310,24 @@ def compute_breakdown(
     return out
 
 
+def _field_power_contribution(fp_diff: float, w_field_power: float) -> float:
+    """field_power 寄与。 ONEPIECE_CONTROL_AWARE=1 で soft-cap (= 物量支配を抑え、
+    control が「空盤面=大敗」と誤評価される growth-wall を緩和)。 env 無し時は従来通り linear。
+
+    field_power は pumped power (= DON+1000 等の一時 buff 込み) の総和。 attached_don と
+    二重計上気味 + 攻撃 phase で ±200k に爆発し life/lethal/control 信号を drown する。
+    cap*tanh(x/cap) で 正常域 (|x|<<cap) は ≈linear、 極端域は ±cap に飽和。
+    """
+    raw = fp_diff * w_field_power
+    import os as _os
+    if not _os.environ.get("ONEPIECE_CONTROL_AWARE"):
+        return raw
+    cap = float(_os.environ.get("ONEPIECE_FP_CAP", "6000"))
+    if cap <= 0:
+        return raw
+    return cap * math.tanh(raw / cap)
+
+
 def compute_score(
     state: GameState,
     me_idx: int,
@@ -1518,7 +1536,7 @@ def compute_score(
             sm["life"] * w_life_self - opp_life * w_life_opp
             + my_hand * w_hand_self - opp_hand * w_hand_opp
             + (sm["field_count"] - om["field_count"]) * weights.W_FIELD_COUNT
-            + (sm["field_power"] - om["field_power"]) * weights.W_FIELD_POWER
+            + _field_power_contribution(sm["field_power"] - om["field_power"], weights.W_FIELD_POWER)
             + (sm["don"] - om["don"]) * w_don
             + (sm["blocker"] - om["blocker"]) * w_blocker
             + (sm["attached_don"] - om["attached_don"]) * weights.W_ATTACHED_DON
@@ -1529,7 +1547,7 @@ def compute_score(
         score = (
             (sm["life"] - om["life"]) * weights.W_LIFE
             + (sm["field_count"] - om["field_count"]) * weights.W_FIELD_COUNT
-            + (sm["field_power"] - om["field_power"]) * weights.W_FIELD_POWER
+            + _field_power_contribution(sm["field_power"] - om["field_power"], weights.W_FIELD_POWER)
             + (sm["hand"] - om["hand"]) * weights.W_HAND
             + (sm["don"] - om["don"]) * weights.W_DON
             + (sm["blocker"] - om["blocker"]) * weights.W_BLOCKER
