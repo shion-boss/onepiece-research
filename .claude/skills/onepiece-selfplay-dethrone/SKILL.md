@@ -119,6 +119,11 @@ db/value_gbm_<counter>.pkl` → `recompute_rank_vs_top.py --override <counter>=<
   (`deploy_counter.py` が seat 別に書き戻す)。 でないと session を跨いで回らない(2026-06-24 ohtsuki 指摘)。
 - **TCG は循環(じゃんけん)risk**。 1 位回転で相手を多様化するのが循環回避になっている。 単一固定相手 self-play
   だけだと plateau/循環。
+- ⭐**じゃんけん構造ゆえ per-loop の regression は許容**(ohtsuki 2026-06-24)。 counter を #1 に最適化した
+  結果、 別の相手に多少弱くなるのは当然 → **regression を理由に deploy を revert しない**。 full 再計算は
+  「次の #1 を正しく特定する」 のが目的で、 regression-gate ではない。 **「次の #1 と戦う」 を繰り返すこと
+  自体が各デッキを横断的に鍛え(= population-based 多様化)、 単一相手への過適合を解いて最大限活かす**。 だから
+  deploy gate は「対象 #1 戦で baseline 超え」 だけ見れば良い(net 効果は loop 反復が均す)。
 - **compute 重い → 背景実行 + checkpoint**。 大規模化は Phase 9 分散([[project_roadmap]])。
 
 ## 関連
