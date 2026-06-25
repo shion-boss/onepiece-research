@@ -16,14 +16,15 @@ sys.path.insert(0, str(ROOT))
 from scripts.deploy_counter import _measure_seat  # 配備忠実 seat 計測を再利用
 
 
-def measure_control_vs_aggro(controls, aggro, n, bw, bd, seed=42, workers=12):
-    """各 control deck の vs-aggro both-seat 勝率を返す。"""
+def measure_control_vs_aggro(controls, aggro, n, bw, bd, seed=42, workers=12, control_gbm=None):
+    """各 control deck の vs-aggro both-seat 勝率を返す。
+    control_gbm: None=配備GBM auto / ""=board_eval強制(control側のみ。aggroは常に配備GBM)。"""
     tasks = []
     for i, c in enumerate(controls):
         # _measure_seat task = (cond, seat, counter, top, gbm, n, seed, bw, bd)
-        # counter=control, top=aggro, gbm=None → 配備 GBM auto-load (両者とも)
-        tasks.append((c, "cA", c, aggro, None, n, seed + i, bw, bd))
-        tasks.append((c, "tA", c, aggro, None, n, seed + 100 + i, bw, bd))
+        # counter=control(gbm=control_gbm), top=aggro(常に配備GBM=None)
+        tasks.append((c, "cA", c, aggro, control_gbm, n, seed + i, bw, bd))
+        tasks.append((c, "tA", c, aggro, control_gbm, n, seed + 100 + i, bw, bd))
     with mp.Pool(min(workers, len(tasks))) as p:
         res = p.map(_measure_seat, tasks, chunksize=1)
     # res: (cond=control_slug, seat, cw=control_wins, tw=aggro_wins, draws)
@@ -43,10 +44,18 @@ def main():
     ap.add_argument("--max-depth", type=int, default=10)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--label", default="")
+    ap.add_argument("--control-gbm", default=None,
+                    help='control側 value。 未指定=配備GBM / "" =board_eval強制(WS-A テスト用)')
+    ap.add_argument("--control-aware", action="store_true",
+                    help="ONEPIECE_CONTROL_AWARE=1 を立てる(field_power soft-cap)")
     a = ap.parse_args()
+    import os as _os
+    if a.control_aware:
+        _os.environ["ONEPIECE_CONTROL_AWARE"] = "1"
     t0 = time.time()
     print(f"=== control vs aggro({a.aggro}) | {a.label} | n={a.n}/seat beam={a.beam_width}/{a.max_depth} ===", flush=True)
-    agg = measure_control_vs_aggro(a.controls, a.aggro, a.n, a.beam_width, a.max_depth, a.seed)
+    agg = measure_control_vs_aggro(a.controls, a.aggro, a.n, a.beam_width, a.max_depth, a.seed,
+                                   control_gbm=a.control_gbm)
     tot_c = tot_g = 0
     for c in a.controls:
         d = agg.get(c, {})
