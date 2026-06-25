@@ -1414,6 +1414,21 @@ def compute_score(
         # archetype 別 重みを自動選択 (= state.archetypes[me_idx] 経由)。
         # 該当 archetype の ai_params_archetypes/<slug>.json があればそれ、 無ければ base。
         weights = select_weights_for_player(state, me_idx)
+    # WS-C anti-race: 既定 0 で死んでいる「相手 lethal 圏 × 自分は防御不能」 危険サイン項を
+    # 負の重みで起こし、 lethal race で負けている時に防御へ切り替える value を与える。
+    # 単一ターンの W_OPP_NEXT_LETHAL では拾えない multi-signal の危険を表現。 env-gated A/B。
+    import os as _os_ar
+    if _os_ar.environ.get("ONEPIECE_ANTI_RACE"):
+        import dataclasses as _dc_ar
+        _ars = float(_os_ar.environ.get("ONEPIECE_ANTI_RACE_SCALE", "1.0"))
+        weights = _dc_ar.replace(
+            weights,
+            W_INT_OPP_LETHAL_NO_COUNTER=int(-4000 * _ars),
+            W_INT_DEFENSIVE_COLLAPSE=int(-3500 * _ars),
+            W_INT_LOW_LIFE_NO_BLOCKER=int(-2500 * _ars),
+            W_INT_LOW_LIFE_LOW_HAND=int(-2000 * _ars),
+            W_INT_OPP_DA_PRESSURE=int(-2000 * _ars),
+        )
     if state.game_over:
         if state.winner == me_idx:
             return float(weights.W_GAME_OVER)
