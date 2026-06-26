@@ -538,6 +538,8 @@ class GreedyAI:
         # __init__ では opp.leader が分からないため、 ここでは flag のみ初期化。
         self._matchup_overrides_applied = False
         self._matchup_profile: Optional[matchup_model.MatchupProfile] = None
+        # 1ターン目に相手 leader から「考えた」攻略読み(弱点/脅威/方針)。 透明化のため log + 保持。
+        self.matchup_read: Optional[dict] = None
         self.finisher_hold_life: int = 3
 
         # role priority (R67): MatchupProfile 確定後に opp_archetype をキャッシュ。
@@ -799,6 +801,26 @@ class GreedyAI:
             return
         self._matchup_profile = profile
         self._matchup_overrides_applied = True  # 既存 flag は維持 (= 後方互換)
+
+        # === 1ターン目: 相手デッキの弱点・攻略法を「考える」(ohtsuki 案 2026-06-26) ===
+        # leader_profiles.json から相手 leader の脅威/弱点/vs_plan を引いて AI に持たせ、 1回だけ
+        # log で可視化(= AI が何を考えているか透明に)。 ⚠ プレイ上書きはしない(= hand-rule 注入は
+        # GBM に負ける検証済 [[project_leader_aware_matchup_ai]])。 read は belief seed/将来の検証用。
+        if self.matchup_read is None:
+            try:
+                read = matchup_model.analyze_opponent_matchup(state, me_idx)
+            except Exception:
+                read = None
+            self.matchup_read = read or {}
+            if read:
+                try:
+                    th = "、".join(read.get("threats", [])[:2])
+                    state.push_log(
+                        f"[攻略読み] vs {read.get('name','')}（{read.get('archetype','')}）"
+                        f" 脅威: {th} / 方針: {read.get('plan','')[:70]}"
+                    )
+                except Exception:
+                    pass
 
         overrides = matchup_model.lookup_matchup_overrides(
             profile.my_archetype, profile.opp_archetype

@@ -330,3 +330,44 @@ def _reset_caches_for_testing() -> None:
         deck_classifier.reset_default_classifier()
     except Exception:
         pass
+
+
+# === リーダー別マッチアップ攻略読み (2026-06-26, ohtsuki 案「1ターン目に相手デッキの弱点・攻略法を考える」) ===
+# db/leader_profiles.json (全18メタリーダーの能力/脅威/弱点/vs_plan/tags) を相手 leader card_id で引く。
+_LEADER_PROFILES_CACHE: Optional[dict] = None
+
+
+def read_leader_profile(opp_leader_card_id: str) -> Optional[dict]:
+    """相手 leader card_id → 攻略プロファイル (archetype/threats/vs_plan/tags 等)。 未登録は None。"""
+    global _LEADER_PROFILES_CACHE
+    if _LEADER_PROFILES_CACHE is None:
+        try:
+            p = _ROOT / "db" / "leader_profiles.json"
+            _LEADER_PROFILES_CACHE = json.loads(p.read_text(encoding="utf-8")).get("leaders", {})
+        except Exception:
+            _LEADER_PROFILES_CACHE = {}
+    if not opp_leader_card_id:
+        return None
+    return _LEADER_PROFILES_CACHE.get(opp_leader_card_id)
+
+
+def analyze_opponent_matchup(state: GameState, me_idx: int) -> Optional[dict]:
+    """1ターン目用: 相手 leader からデッキの弱点・攻略法・脅威を「考える」。
+    返り = {leader, name, archetype, threats[], plan(=vs_plan), tags[]} or None(未知)。
+    プレイを上書きするのでなく、 read として AI に持たせ・ログする(透明化)。"""
+    try:
+        opp = state.players[1 - me_idx]
+        lid = opp.leader.card.card_id
+    except Exception:
+        return None
+    prof = read_leader_profile(lid)
+    if not prof:
+        return None
+    return {
+        "leader": lid,
+        "name": prof.get("name", ""),
+        "archetype": prof.get("archetype", ""),
+        "threats": prof.get("threats", []),
+        "plan": prof.get("vs_plan", ""),
+        "tags": prof.get("tags", []),
+    }
