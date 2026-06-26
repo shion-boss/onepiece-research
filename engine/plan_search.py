@@ -792,35 +792,37 @@ def search_turn_plan(
     # eval項でなく plan penalty なので GBM 操縦でも効く。 現プラン: 「防御 leader を
     # danger zone (life≤閾値) へ chip するが lethal でない」 plan を penalty
     # = 盤面固めて一気に(alpha-strike)を促す。 赤黄ボニー EB04-001 が初エントリ。
-    _matchup_strat = None
+    # db/leader_profiles.json の相手リーダー tag をロード(= 人間の「相手デッキ予想」prior)。
+    _matchup_tags = frozenset()
     if _os.environ.get("ONEPIECE_MATCHUP_STRATEGY") == "1":
         try:
             import json as _json_ms
             from pathlib import Path as _Path_ms
-            _ms_all = _json_ms.loads(
-                (_Path_ms(__file__).resolve().parent.parent / "db" / "matchup_strategy.json")
+            _lp_all = _json_ms.loads(
+                (_Path_ms(__file__).resolve().parent.parent / "db" / "leader_profiles.json")
                 .read_text(encoding="utf-8")
             ).get("leaders", {})
             _opp_ld_id = state.players[1 - me_idx].leader.card.card_id
-            _matchup_strat = _ms_all.get(_opp_ld_id)
+            _matchup_tags = frozenset(_lp_all.get(_opp_ld_id, {}).get("tags", []))
         except Exception:
-            _matchup_strat = None
+            _matchup_tags = frozenset()
+    # 非lethal な opp-leader 攻撃を抑制すべき相手(ライフを与えるとドロー/低ライフで硬い)
+    _no_chip = bool(_matchup_tags & {"draw_on_life_loss", "defensive_buff_low_life"})
+    # GBM value は ±SCALE/2 (= ±500k) スケール。 penalty も同スケールで効かせないと
+    # argmax を動かせない(= 旧 -6000 が ノイズだった原因)。
+    _CHIP_PENALTY = float(_os.environ.get("ONEPIECE_CHIP_PENALTY", "120000"))
 
     def _matchup_chip_penalty(cur_state, plan) -> float:
-        """相手 leader が「danger zone で硬くなる/ドロー engine」型のとき、 lethal でない
-        leader chip を強く抑制(= 低ライフへ削って相手を太らせ防御buffを誘発する誤プレイを潰す)。"""
-        if not _matchup_strat:
+        """相手 leader が「ライフ→ドロー engine / 低ライフで硬い」型のとき、 lethal でない
+        leader 攻撃を抑制(= leader を pump して face を chip し、相手を太らせ防御buffを誘発し
+        DON を浪費する誤プレイを潰す)。 lethal なら許可。 control は盤面固めて一気に。"""
+        if not _no_chip:
             return 0.0
-        thr = _matchup_strat.get("plan", {}).get("avoid_chip_opp_leader_at_life_le", 0)
-        if thr <= 0:
-            return 0.0
-        opp_life = len(cur_state.players[1 - me_idx].life)
-        if opp_life <= 0 or opp_life > thr:
-            return 0.0  # lethal 達成(0)→許可 / まだ安全(>閾値)→chip OK
+        if len(cur_state.players[1 - me_idx].life) <= 0:
+            return 0.0  # lethal 達成 → 許可
         from .game import AttackLeader
-        if any(isinstance(a, AttackLeader) for a in plan):
-            return -6000  # danger zone への非lethal chip = 強く抑制(盤面固め優先)
-        return 0.0
+        n = sum(1 for a in plan if isinstance(a, AttackLeader))
+        return -_CHIP_PENALTY * n  # 非lethal leader 攻撃 1 回ごとに penalty
 
     # === post-opp re-rank (= 2026-06-04、 ONEPIECE_POSTOPP_EVAL=1): 完了プランを ===
     # 「自ターン終了 → 相手 (= deterministic greedy) のターンを sim → その後の盤面」 で eval。
