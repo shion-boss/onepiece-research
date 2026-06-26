@@ -34,8 +34,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-# ⭐ collection で v5 feature を記録するため、 子プロセス import 前に env を立てる。
-os.environ.setdefault("ONEPIECE_GBM_V5", "1")
+# ⭐ collection で v6(=v5 tag + interaction)feature を記録。 v6[:34]=v5, v6[:21]=v2 の
+# column-slice 不変性で 1 収集から v2/v5/v6 を同一 data 学習 (= 完全 isolation)。
+os.environ.setdefault("ONEPIECE_GBM_V6", "1")
 
 from engine.deck import CardRepository, DeckList
 from engine.effects import load_effect_overlay
@@ -43,7 +44,7 @@ from engine.game import (setup_game, play_until_main, legal_actions,
                          AttachDonToLeader, AttackLeader)
 from engine.ai import play_one_action
 from engine.exploit_beam_ai import ExploitBeamAI
-from engine.gbm_value import features, FEATURE_KEYS_V2, FEATURE_KEYS_V5
+from engine.gbm_value import features, FEATURE_KEYS_V2, FEATURE_KEYS_V5, FEATURE_KEYS_V6
 
 _REPO = CardRepository.from_json(ROOT / "db" / "cards.json")
 _OVERLAY = load_effect_overlay(ROOT / "db" / "card_effects.json")
@@ -117,7 +118,7 @@ def gen_one(task):
     while not st.game_over and n < 400:
         me = st.turn_player_idx
         try:
-            recs.append(features(st, ei, v5=True))  # 34-dim: v2 cols + opp leader tags
+            recs.append(features(st, ei, v6=True))  # 38-dim: v2 cols + opp tags + interactions
         except Exception:
             pass
         try:
@@ -171,48 +172,42 @@ def main():
     n_pos = sum(y)
     print(f"[collect] samples={len(X)} (pos={n_pos}/{len(y)}={n_pos/max(1,len(y))*100:.0f}%) "
           f"dim={len(X[0]) if X else 0} ({time.time()-t0:.0f}s)", flush=True)
-    assert X and len(X[0]) == len(FEATURE_KEYS_V5), f"expected v5 dim {len(FEATURE_KEYS_V5)}, got {len(X[0]) if X else 0}"
+    assert X and len(X[0]) == len(FEATURE_KEYS_V6), f"expected v6 dim {len(FEATURE_KEYS_V6)}, got {len(X[0]) if X else 0}"
 
-    # held-out AUC pre-filter: v2 (cols[:21]) vs v5 (full) を同一 split で
+    # held-out AUC pre-filter: v2(cols[:21]) / v5(cols[:34]) / v6(full 38) を同一 split で
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import roc_auc_score
-    n21 = len(FEATURE_KEYS_V2)
+    n21 = len(FEATURE_KEYS_V2); n34 = len(FEATURE_KEYS_V5)
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=1, stratify=y if 0 < n_pos < len(y) else None)
-    Xtr2 = [r[:n21] for r in Xtr]; Xte2 = [r[:n21] for r in Xte]
-    m2 = train_gbm(Xtr2, ytr); m5 = train_gbm(Xtr, ytr)
-    auc2 = roc_auc_score(yte, [p[1] for p in m2.predict_proba(Xte2)])
-    auc5 = roc_auc_score(yte, [p[1] for p in m5.predict_proba(Xte)])
-    print(f"[AUC held-out] v2(agnostic)={auc2:.4f}  v5(matchup)={auc5:.4f}  Δ={auc5-auc2:+.4f}", flush=True)
-    # ⭐ 早期/中盤 (turn<=8) のみで AUC: 終局盤面は board だけで自明 (ceiling) で matchup feature の
-    #   寄与が washout する。 勝敗が不確定で「攻略方針」が分岐する uncertain phase こそ条件付けが効く。
-    TURN_IDX = 16  # base feature の "turn"
+    slices = {"v2": n21, "v5": n34, "v6": len(FEATURE_KEYS_V6)}
+    models = {}
+    for arm, nf in slices.items():
+        models[arm] = train_gbm([r[:nf] for r in Xtr], ytr)
+    aucs = {arm: roc_auc_score(yte, [p[1] for p in models[arm].predict_proba([r[:slices[arm]] for r in Xte])])
+            for arm in slices}
+    print(f"[AUC held-out] v2={aucs['v2']:.4f}  v5={aucs['v5']:.4f}(Δ{aucs['v5']-aucs['v2']:+.4f})  "
+          f"v6={aucs['v6']:.4f}(Δvs_v5 {aucs['v6']-aucs['v5']:+.4f})", flush=True)
+    TURN_IDX = 16
     em = [i for i, r in enumerate(Xte) if r[TURN_IDX] <= 8]
     if len(set(yte[i] for i in em)) == 2 and len(em) >= 30:
         ye = [yte[i] for i in em]
-        a2 = roc_auc_score(ye, [m2.predict_proba([Xte2[i]])[0][1] for i in em])
-        a5 = roc_auc_score(ye, [m5.predict_proba([Xte[i]])[0][1] for i in em])
-        print(f"[AUC turn<=8 (uncertain phase, n={len(em)})] v2={a2:.4f}  v5={a5:.4f}  Δ={a5-a2:+.4f}", flush=True)
-
-    # feature importance: matchup tag 列がどれだけ寄与したか (= 学習が条件付けを使ったか)
-    imp = list(getattr(m5, "feature_importances_", []))
+        ea = {arm: roc_auc_score(ye, [models[arm].predict_proba([Xte[i][:slices[arm]]])[0][1] for i in em]) for arm in slices}
+        print(f"[AUC turn<=8 (n={len(em)})] v2={ea['v2']:.4f}  v5={ea['v5']:.4f}  v6={ea['v6']:.4f} "
+              f"(v6-v2 Δ={ea['v6']-ea['v2']:+.4f})", flush=True)
+    # importance: v6 の interaction 4列が selection 信号として効いたか
+    imp = list(getattr(models["v6"], "feature_importances_", []))
     if imp:
-        tag_imp = sum(imp[n21:])
-        print(f"[v5 importance] matchup-tag 13列 合計 importance = {tag_imp:.3f} "
-              f"(/1.0、 board 21列 = {sum(imp[:n21]):.3f})", flush=True)
-        tags = list(FEATURE_KEYS_V5[n21:])
-        top = sorted(zip(tags, imp[n21:]), key=lambda z: -z[1])[:5]
-        print("   top matchup tags:", ", ".join(f"{t}={v:.3f}" for t, v in top if v > 0), flush=True)
+        print(f"[v6 importance] tag13={sum(imp[n21:n34]):.3f}  interaction4={sum(imp[n34:]):.3f}  board21={sum(imp[:n21]):.3f}", flush=True)
+        ixk = list(FEATURE_KEYS_V6[n34:])
+        print("   interactions:", ", ".join(f"{k}={v:.3f}" for k, v in zip(ixk, imp[n34:])), flush=True)
 
-    # full data で deploy 用 model を再学習・保存 (= held-out でなく全 data)
-    m2_full = train_gbm([r[:n21] for r in X], y)
-    m5_full = train_gbm(X, y)
-    p2 = outdir / f"{prefix}v2.pkl"; p5 = outdir / f"{prefix}v5.pkl"
-    pickle.dump(m2_full, open(p2, "wb")); pickle.dump(m5_full, open(p5, "wb"))
-    print(f"[saved] {p2.name} (v2/21dim)  {p5.name} (v5/34dim)", flush=True)
-    print(f"\n[next] deploy A/B (per opp、 配備忠実 16/10 両seat):", flush=True)
-    for opp in OPPS:
-        print(f"  .venv/bin/python scripts/test_learned_value_deploy.py --deck {DECK} "
-              f"--opp {opp} --arms default,v2,v5 --pkl-prefix {prefix} --n 40", flush=True)
+    # full data で deploy 用 model を再学習・保存
+    for arm, nf in slices.items():
+        m = train_gbm([r[:nf] for r in X], y)
+        pickle.dump(m, open(outdir / f"{prefix}{arm}.pkl", "wb"))
+    print(f"[saved] {prefix}{{v2(21)/v5(34)/v6(38)}}.pkl", flush=True)
+    print(f"\n[next] deploy A/B: scripts/matchup_value_deploy_ab.py --deck {DECK} "
+          f"--opps {','.join(OPPS)} --prefix {prefix} --arms default,v2,v5,v6 --n 50", flush=True)
 
 
 if __name__ == "__main__":
