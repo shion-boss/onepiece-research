@@ -1,0 +1,160 @@
+{
+  "_doc": "リーダー知識ベース。相手リーダーが見えた時点で『人間が相手デッキを大体予想して戦う』を再現するための prior。各リーダーの能力を Claude が公式テキストから読み解き、tags(機械可読)+ own_plan(自分が握る時)+ vs_plan(相手にする時の攻略)+ threats を持つ。ExploitBeam が自/相手の両リーダーを見て探索バイアスに変換する(env ONEPIECE_MATCHUP_STRATEGY)。確率的 prior であり 100% でない(メタ外/未知デッキは fallback)。",
+  "_tags_glossary": {
+    "defensive_buff_low_life": "低ライフで自リーダーが硬くなる→低ライフへ chip しても倒しにくい+相手を太らせる",
+    "draw_on_life_loss": "ライフ→手札 でドロー/手札補充 engine→ライフを与える(=leader を攻撃する)と相手が太る",
+    "counter_pump": "相手ターンに leader/キャラを大きく pump→攻撃が壁される。確実に超える火力 or 除去で",
+    "redirect_protect": "攻撃対象を leader/キャラに変更して守る→狙ったキャラを KO しにくい",
+    "char_protect_to_life": "主力キャラが場を離れる代わりにライフ→手札等で守られる→主力が sticky",
+    "ramp": "DON 加速→大型/連打。序盤に圧をかけ ramp 完成前に削る",
+    "proactive_snowball": "攻撃時にキャラ展開/カード獲得で盤面雪だるま→盤面除去 or レースで先行",
+    "big_finisher": "1ターンで大ダメージの確定打点→ブロッカー/counter 温存し過信しない",
+    "cost_tax": "相手(=自分)のキャラにコスト税→展開が重くなる前提で計画"
+  },
+  "leaders": {
+    "EB04-001": {
+      "name": "ジュエリー・ボニー", "deck_slug": "tcgportal_bonney", "color": "赤/黄", "archetype": "aggro", "life": 4,
+      "self_ability": "相手ターン中ライフ≤1で+2000 / 起動: 相手キャラ-1000 + (ライフ≥2なら)ライフ→手札",
+      "tags": ["defensive_buff_low_life", "draw_on_life_loss", "big_finisher", "aggro"],
+      "own_plan": "4ライフ glass-cannon。速攻でテンポを取り、自ライフを払って手札/盤面に変換。低ライフほど leader が硬くなるので攻めに振り切ってよい。10000速攻フィニッシャーで詰める。",
+      "vs_plan": "⭐相手 leader を ライフ2以下へ chip しない(+2000防御buff誘発 + ライフ→手札で相手を太らせる二重の損)。lethal が見えるまで leader を殴らず盤面を固めて一気に(alpha-strike)。10000速攻フィニッシャーを警戒しブロッカー/counter を温存。",
+      "threats": ["低ライフ+2000で詰めにくい", "ライフ→手札のドロー engine", "10000速攻フィニッシャー(キャラ版ボニー)"]
+    },
+    "OP14-079": {
+      "name": "クロコダイル", "deck_slug": "cardrush_1385", "color": "黒", "archetype": "control",
+      "self_ability": "相手キャラは自分の効果で離れない(=anti-bounce) / 起動: 自B・WをKO代償→相手キャラ cost-10 + 山2 mill",
+      "tags": ["control"],
+      "own_plan": "黒コントロール。自 B・W を KO して相手キャラを cost-10(=KO-by-cost 払い倒し系の起点)、除去で盤面を捌いて grind。トラッシュを肥やしてオールサンデー/Mr.2 で蘇生リフィル。",
+      "vs_plan": "コントロール相手=長期戦。除去を撃たせてリソース勝負。anti-bounce で自分のバウンス除去が効かない点に注意。盤面より手数とライフで押す。",
+      "threats": ["cost-10 系の確定除去", "蘇生リフィル(オールサンデー8000)"]
+    },
+    "OP13-079": {
+      "name": "イム", "deck_slug": "cardrush_1392", "color": "黒", "archetype": "control",
+      "self_ability": "cost2+イベント不可 / 開始時マリージョアstage登場 / 起動: 天竜人 or 手札1捨て→ドロー",
+      "tags": ["control"],
+      "own_plan": "黒ステージコントロール。stage engine とドローでリソース差を作り、除去で grind。",
+      "vs_plan": "コントロール。stage を割れるなら割る。手数で攻める。cost2+イベントが無い=重いイベント counter は来ない前提。",
+      "threats": ["stage engine の継続アド", "除去"]
+    },
+    "OP15-002": {
+      "name": "ルーシー", "deck_slug": "cardrush_1399", "color": "赤/青", "archetype": "aggro-control",
+      "self_ability": "攻撃/相手攻撃時: イベント/ステージを任意枚捨て→1枚につき+1000(battle) / 起動: cost3+イベント発動済でドロー",
+      "tags": ["counter_pump", "aggro"],
+      "own_plan": "イベント/ステージを弾にした攻防一体 pump。攻撃でスパイク、防御で壁。手札のイベントを温存して使い所で。",
+      "vs_plan": "⭐counter-pump leader。攻撃も防御も+1000×捨て枚数で伸びる→中途半端な火力は壁され、相手の攻撃は急に大きくなる。確実に超える火力で殴り、相手の手札(イベント)枯れを狙う。",
+      "threats": ["攻防の+1000×N pump", "イベント連打"]
+    },
+    "OP11-041": {
+      "name": "ナミ", "deck_slug": "cardrush_1439", "color": "青/黄", "archetype": "control",
+      "self_ability": "自ターン ライフ離脱時 手札≤7でドロー / ドン×1 相手攻撃時 手札1捨て→+2000",
+      "tags": ["counter_pump", "draw_on_life_loss", "control"],
+      "own_plan": "青黄コントロール。防御+2000で耐え、ライフ→ドローでリソース回復しつつ grind。",
+      "vs_plan": "防御+2000 counter-pump + ライフ離脱でドロー → leader を不用意に削ると相手が太る。盤面除去で攻め手を削ぎ、過剰展開させない。確実に超える打点で。",
+      "threats": ["防御+2000", "ライフ離脱ドロー"]
+    },
+    "OP14-020": {
+      "name": "ジュラキュール・ミホーク", "deck_slug": "cardrush_1453", "color": "緑", "archetype": "ramp-big",
+      "self_ability": "相手が斬属性leaderなら+1000 / 起動: カード1レスト→cost5+いれば DON3アクティブ化(その後キャラ登場不可)",
+      "tags": ["ramp", "control"],
+      "own_plan": "緑ビッグ/ランプ。DON再活性で大型を早出し or 連続行動。",
+      "vs_plan": "緑ランプ=ramp完成前に圧。斬属性 leader だと相手+1000される点に留意。大型が出る前にライフを詰める。",
+      "threats": ["DON再活性からの大型/連打"]
+    },
+    "OP15-058": {
+      "name": "エネル", "deck_slug": "cardrush_1454", "color": "紫", "archetype": "ramp",
+      "self_ability": "ドンデッキ6枚 / 起動(2ターン目以降): DON active1+rest4 追加→キャラにrest DON4付与",
+      "tags": ["ramp", "big_finisher"],
+      "own_plan": "紫DONランプの極致。爆発的DONで大型キャラに大量付与→特大打点。",
+      "vs_plan": "⭐ramp deck。ramp が回る前(序盤)に圧をかけるのが鉄則。回り出すと特大打点が来るので、早期にライフを詰めるか展開を妨害。",
+      "threats": ["特大DON付与の一撃", "盤面の急拡大"]
+    },
+    "OP15-098": {
+      "name": "モンキー・D・ルフィ(空島)", "deck_slug": "cardrush_1455", "color": "黄", "archetype": "midrange",
+      "self_ability": "元パワー6000+の空島キャラが相手で離れる時、代わりにライフ→手札できる",
+      "tags": ["char_protect_to_life", "midrange"],
+      "own_plan": "黄空島ミッドレンジ。6000+空島キャラが除去されてもライフ回復に変換=sticky な盤面で押す。",
+      "vs_plan": "⭐主力(6000+空島)を除去してもライフ→手札で得されるので、除去の価値が下がる。バウンス/コスト操作で対処 or leader を直接詰める。盤面トレードは不利。",
+      "threats": ["sticky な6000+盤面", "除去への耐性(ライフ変換)"]
+    },
+    "OP13-002": {
+      "name": "ポートガス・D・エース", "deck_slug": "cardrush_1456", "color": "赤/青", "archetype": "aggro",
+      "self_ability": "相手攻撃時 手札1捨て→相手leader/キャラ-2000(battle) / ドン×1 被ダメ or 6000+KO時ドロー",
+      "tags": ["counter_pump", "draw_on_life_loss", "aggro"],
+      "own_plan": "赤青アグロ。防御の-2000で攻撃を捌き(キャラ攻撃を不発に)、トレード/被ダメでドロー。",
+      "vs_plan": "防御-2000=自分の攻撃が縮められ不発化 or 相手キャラ生存。確実に超える火力で。被ダメ/6000+KOでドローされるので無駄なトレードを避ける。",
+      "threats": ["防御-2000(攻撃不発化)", "トレードからのドロー"]
+    },
+    "OP09-062": {
+      "name": "ニコ・ロビン", "deck_slug": "cardrush_1483", "color": "紫/黄", "archetype": "ramp-control",
+      "self_ability": "バニッシュ(ダメージ時トリガー不発でトラッシュ) / 攻撃時 トリガー1捨て→DON1 rest追加(ramp)",
+      "tags": ["ramp", "control"],
+      "own_plan": "紫黄。攻撃でランプしつつバニッシュで相手のトリガーを封じる。",
+      "vs_plan": "leader 攻撃がバニッシュ=自分のライフトリガーが不発になる。ランプ前に圧。",
+      "threats": ["トリガー封じ(バニッシュ)", "ランプ"]
+    },
+    "OP14-041": {
+      "name": "ボア・ハンコック", "deck_slug": "cardrush_1492", "color": "青/黄", "archetype": "midrange",
+      "self_ability": "相手ターン中キャラ登場でドロー / ドン×1 5000+のAL/九蛇がKO時→相手ライフ→手札(life steal)",
+      "tags": ["draw_engine", "char_protect_to_life", "midrange"],
+      "own_plan": "青黄ミッドレンジ。相手ターンの登場でドロー(防御展開しつつ手札補充)、主力KOで相手ライフを奪う。",
+      "vs_plan": "相手ターンにキャラを出してドローするので、こちらの攻撃に対し展開+ドローされる。5000+のAL/九蛇キャラを安易にKOすると逆にライフを奪われる。盤面を作らせず leader を詰める。",
+      "threats": ["相手ターンのドロー engine", "KOトリガーの life steal"]
+    },
+    "OP13-001": {
+      "name": "モンキー・D・ルフィ(赤緑)", "deck_slug": "cardrush_1525", "color": "赤/緑", "archetype": "midrange",
+      "self_ability": "ドン×1 相手攻撃時 active DON≤5なら 任意枚レスト→1枚につき leader/麦わら +2000(battle)",
+      "tags": ["counter_pump", "midrange"],
+      "own_plan": "赤緑麦わら。防御で DON をレストして特大pump(+2000×N)→主力/leader が壁になる。",
+      "vs_plan": "⭐強力 counter-pump。open DON が多いほど防御 pump が大きい(+2000×レスト数)→攻撃が大きく壁される。相手 DON が少ない/タップ済の窓を突く、または除去で盤面を割る。",
+      "threats": ["+2000×N の特大防御 pump"]
+    },
+    "OP08-098": {
+      "name": "カルガラ", "deck_slug": "cardrush_1549", "color": "黄", "archetype": "aggro",
+      "self_ability": "ドン×1 攻撃時 場のDON以下cost のシャンドラの戦士を登場→ライフ→手札",
+      "tags": ["proactive_snowball", "draw_on_life_loss", "aggro"],
+      "own_plan": "黄アグロ。攻撃の度にキャラを展開して盤面雪だるま+ライフ→手札でアド。proactive に押す。",
+      "vs_plan": "攻撃ごとに盤面が増えライフ→手札で太る→盤面除去 or レースで先行。⚠AI matrix では #1 artifact だが実メタ Tier5(proactive 過大評価)。control/除去で咎められる。",
+      "threats": ["攻撃時のキャラ連鎖展開", "ライフ→手札アド"]
+    },
+    "OP16-080": {
+      "name": "マーシャル・D・ティーチ", "deck_slug": "cardrush_1594", "color": "黒/黄", "archetype": "control",
+      "self_ability": "相手ターン中 自キャラ全てcost+1 / 相手攻撃時 トリガー1捨て→対象を leader/黒ひげキャラへリダイレクト",
+      "tags": ["cost_tax", "redirect_protect", "control"],
+      "own_plan": "黒黄コントロール。相手のキャラに cost税(相手ターン+1)で展開を重くし、リダイレクトで主力を守る。",
+      "vs_plan": "⭐自分のキャラが相手ターンに cost+1 される(防御展開が重い)。攻撃はリダイレクトで leader/黒ひげキャラに逸らされる→狙ったキャラを KO しにくい。コスト税を織り込んで計画。",
+      "threats": ["cost+1 税", "攻撃リダイレクト保護"]
+    },
+    "OP11-040": {
+      "name": "モンキー・D・ルフィ(青紫)", "deck_slug": "cardrush_1608", "color": "青/紫", "archetype": "ramp-value",
+      "self_ability": "ターン開始時 DON8+なら 山5見て麦わら1枚を手札+残り操作",
+      "tags": ["ramp", "control"],
+      "own_plan": "青紫ランプ/バリュー。DON を伸ばし山操作でキーカードを引き込む。",
+      "vs_plan": "ランプバリュー。8DON 到達前に圧。長引くとカード差で負ける。",
+      "threats": ["DON8+のカード選択アド"]
+    },
+    "OP12-061": {
+      "name": "ドンキホーテ・ロシナンテ", "deck_slug": "cardrush_1609", "color": "紫/黄", "archetype": "midrange",
+      "self_ability": "ロー被KO時 代わりにライフ→手札(保護) / 起動 DON-1→次のcost4+ロー が cost-2",
+      "tags": ["char_protect_to_life", "control"],
+      "own_plan": "紫黄ローデッキ。ローを保護(sticky)しつつコスト軽減で大型ローを連打。",
+      "vs_plan": "ローが除去耐性(ライフ変換)で sticky。ロー以外を攻めるか leader を詰める。コスト軽減で大型ローが早く出る前提。",
+      "threats": ["ロー保護(sticky)", "大型ローの早出し"]
+    },
+    "OP11-001": {
+      "name": "コビー", "deck_slug": "tcgportal_coby", "color": "赤/黒", "archetype": "aggro",
+      "self_ability": "SWORDキャラは登場ターンにキャラ攻撃可(疑似rush) / 7000-海軍が相手効果で離れる時→トラッシュ3枚を山下(recursion耐性)",
+      "tags": ["proactive_snowball", "aggro"],
+      "own_plan": "赤黒アグロ。SWORD の疑似rush でテンポよくキャラを除去/攻撃、海軍の除去耐性で盤面維持。",
+      "vs_plan": "rush で出てすぐ殴られる→序盤の盤面を守りつつ、7000-海軍は除去しても山に戻る耐性あり。leader を詰めるレース or 大型で蓋。",
+      "threats": ["SWORD 疑似rush", "海軍の除去耐性"]
+    },
+    "OP14-060": {
+      "name": "ドンキホーテ・ドフラミンゴ", "deck_slug": "cardrush_1342", "color": "紫", "archetype": "control",
+      "self_ability": "相手攻撃時 ドン-1→攻撃対象を leader か ドンキホーテ海賊団キャラに変更(リダイレクト)",
+      "tags": ["redirect_protect", "control"],
+      "own_plan": "紫コントロール。リダイレクトで主力を守りつつ除去/盤面で grind。",
+      "vs_plan": "攻撃が leader/DK キャラに逸らされ、狙ったキャラを KO しにくい(相手のDON-1コストはかかる)。リダイレクト先も計算して、相手DONを枯らすか overwhelm。",
+      "threats": ["攻撃リダイレクト保護"]
+    }
+  }
+}
