@@ -362,6 +362,10 @@ def expected_counter_per_card(state: GameState, opp_idx: int) -> float:
 def expected_counter_total(state: GameState, opp_idx: int) -> int:
     """opp の手札に期待されるカウンター総量。"""
     opp = state.players[opp_idx]
+    import os as _os_or
+    if _os_or.environ.get("ONEPIECE_ORACLE_HAND") == "1":
+        # oracle: 実手札の真の counter 合計
+        return int(sum(int(getattr(c, "counter", 0) or 0) for c in opp.hand))
     return int(expected_counter_per_card(state, opp_idx) * len(opp.hand))
 
 
@@ -810,6 +814,11 @@ def determinize_state(
     MCTSAI の rollout / Lookahead の評価で、 opp.hand を見ない (= 公正な) 探索に使う。
     呼出し前に state を deepcopy しておくこと (本物を壊さないため)。
     """
+    import os as _os_or
+    if _os_or.environ.get("ONEPIECE_ORACLE_HAND") == "1":
+        # 完全情報(oracle)モード: opp.hand を resample せず実手札のまま使う
+        # = 探索/sim が相手の本当の手札を見て計画する(headroom 測定用)。
+        return
     if rng is None:
         rng = state.rng or random.Random()
     opp = state.players[opp_idx]
