@@ -38,6 +38,38 @@ FEATURE_KEYS_V3 = FEATURE_KEYS_V2 + ("my_don_active", "opp_don_active")
 # (engine) と life→hand/heal (recovery) 密度を 自/相手デッキ全体で計数し、 1-ply value に
 # 「このデッキは grind(control) 型か race(aggro) 型か」 を持たせる (= 多ターン性の proxy)。
 FEATURE_KEYS_V4 = FEATURE_KEYS_V2 + ("my_engine", "opp_engine", "my_recovery", "opp_recovery")
+# v5 = 34 (2026-06-26): 相手 leader の matchup tag (= leader_profiles.json の機械可読 tag) を
+# 直接 feature 化。 v2/v4 は board / deck-card-density のみで「相手が誰か(攻略すべき脅威)」を
+# 見ない (= opp-agnostic、 単一 value が matchup を区別できない)。 hand-rule 注入は学習 value に
+# 負ける (= [[project_leader_aware_matchup_ai]] -4.6pt) ので、 leader 理解を効かせる唯一の道 =
+# 学習 feature 化: 相手 leader tag を渡し、 GBM tree が matchup で分岐して board 重みを
+# 「相手攻略情報で可変」にする (= ohtsuki 案『評価関数の数値を相手デッキの攻略情報で可変的に』)。
+# tag は 1 ゲーム内で定数 → 多相手 self-play data (--opp comma list) で variance が出て初めて
+# tree が条件分けを学習できる (= 単一相手訓練では無意味、 必ず多相手で訓練)。
+# 語彙は固定順 (= 列の安定性が必須)。 leader_profiles の現行 13 tag を sorted で固定。
+_MATCHUP_TAG_VOCAB = (
+    "aggro", "big_finisher", "char_protect_to_life", "control", "cost_tax",
+    "counter_pump", "defensive_buff_low_life", "draw_engine", "draw_on_life_loss",
+    "midrange", "proactive_snowball", "ramp", "redirect_protect",
+)
+FEATURE_KEYS_V5 = FEATURE_KEYS_V2 + tuple("opp_" + t for t in _MATCHUP_TAG_VOCAB)
+
+
+def _opp_matchup_tag_vector(state: Any, me_idx: int) -> list:
+    """相手 leader → leader_profiles tag を 固定語彙の binary vector に。 未知 leader / 取得失敗は全0
+    (= neutral/unknown matchup、 fallback)。 推論・学習の両方で呼ばれる (= leader は公開情報)。"""
+    try:
+        opp = state.players[1 - me_idx]
+        lid = opp.leader.card.card_id
+    except Exception:
+        return [0.0] * len(_MATCHUP_TAG_VOCAB)
+    try:
+        from .matchup_model import read_leader_profile
+        prof = read_leader_profile(lid)
+    except Exception:
+        prof = None
+    tags = set(prof.get("tags", []) or []) if prof else set()
+    return [1.0 if t in tags else 0.0 for t in _MATCHUP_TAG_VOCAB]
 
 # card-advantage を生む primitive (= grind/draw power)。 overlay 実測の key 名に厳密一致。
 _ENGINE_PRIMS = frozenset({
@@ -130,9 +162,11 @@ SCALE = 1_000_000.0
 
 
 def features(state: Any, me_idx: int, rich: Optional[bool] = None,
-             v3: Optional[bool] = None, v4: Optional[bool] = None) -> list:
+             v3: Optional[bool] = None, v4: Optional[bool] = None,
+             v5: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
-    ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。"""
+    ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
+    v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。"""
     from .eval import _player_metrics
     me = _player_metrics(state.players[me_idx])
     opp = _player_metrics(state.players[1 - me_idx])
@@ -155,8 +189,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v3 = os.environ.get("ONEPIECE_GBM_V3") == "1"
     if v4 is None:
         v4 = os.environ.get("ONEPIECE_GBM_V4") == "1"
-    if v3 or v4:
-        rich = True  # v3/v4 ⊃ v2
+    if v5 is None:
+        v5 = os.environ.get("ONEPIECE_GBM_V5") == "1"
+    if v3 or v4 or v5:
+        rich = True  # v3/v4/v5 ⊃ v2
     if not rich:
         return base
     from .eval import lethal_estimate
@@ -177,6 +213,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         my_e, my_r = _zone_potency(me_p)
         op_e, op_r = _zone_potency(opp_p)
         out += [my_e, op_e, my_r, op_r]
+    if v5:
+        out += _opp_matchup_tag_vector(state, me_idx)
     return out
 
 
@@ -214,7 +252,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
         x = [features(state, me_idx,
                       rich=(n_feat == len(FEATURE_KEYS_V2)),
                       v3=(n_feat == len(FEATURE_KEYS_V3)),
-                      v4=(n_feat == len(FEATURE_KEYS_V4)))]
+                      v4=(n_feat == len(FEATURE_KEYS_V4)),
+                      v5=(n_feat == len(FEATURE_KEYS_V5)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
