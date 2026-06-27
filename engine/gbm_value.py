@@ -117,6 +117,40 @@ def _opp_matchup_interaction_vector(state: Any, me_idx: int) -> list:
     finisher_armed = opp_don_active if "big_finisher" in tags else 0.0
     return [buff_active, life_fed, counter_threat, finisher_armed]
 
+
+# v7 = 44 (2026-06-28): ohtsuki 原則『自分のやりたいこと(own-plan) と 相手にやらせたくないこと
+# (opp-denial) のバランスを 組み合わせ毎に考慮する』を value 設計に落とす。 v5/v6 は opp 情報
+# (脅威)のみ → value は「相手を知る」が「自分のやりたいこと vs denial のバランス」を持たない。
+# ドフラ vs ボニーの mispilot(リーダーにドンを注いで顔を race→counterで弾かれ全ターン浪費、
+# 本来は除去/denial に使うべき)が典型。 own-race へのコミット(my_leader_don)を opp の
+# aggressiveness と交互作用させ、 GBM tree が「速攻相手にリーダー race = バランス違反 = 悪」を
+# matchup 毎に学習できるようにする(手書きrule でなく学習で原則を実現、 [[feedback_evolutionary_over_tuning]])。
+_AGGRO_TAGS = frozenset({"aggro", "proactive_snowball"})
+FEATURE_KEYS_V7 = FEATURE_KEYS_V6 + (
+    "my_leader_don",            # own-plan: 自リーダーへのドン投資 (= race へのコミット度)
+    "opp_leader_don",           # 相手の leader-offense コミット
+    "my_active_chara",          # own-plan: 自分の active 攻撃体 (= 圧/盤面)
+    "opp_active_chara",         # denial: 相手の active 攻撃体 (= 捌くべき盤面圧)
+    "ix_my_leaderrace_vs_aggro",  # my_leader_don × opp_aggressive = 速攻相手にリーダー race (= バランス違反 flag)
+    "ix_opp_pressure_vs_aggro",   # opp_active_chara × opp_aggressive = 速攻相手の盤面圧 (= denial 優先度)
+)
+
+
+def _balance_features(state: Any, me_idx: int) -> list:
+    """own-plan(自分のやりたいこと) × opp-denial(相手にやらせたくないこと) のバランス信号。
+    own-race(リーダーへのドン)を opp の aggressiveness と掛け、 マッチ毎のバランスを学習可能に。"""
+    from .eval import _player_metrics
+    try:
+        me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
+        my_ld = float(getattr(me_p.leader, "attached_dons", 0) or 0)
+        opp_ld = float(getattr(opp_p.leader, "attached_dons", 0) or 0)
+        my_act = float(_player_metrics(me_p)["active_chara"])
+        opp_act = float(_player_metrics(opp_p)["active_chara"])
+    except Exception:
+        return [0.0] * 6
+    opp_aggr = 1.0 if (_opp_tag_set(state, me_idx) & _AGGRO_TAGS) else 0.0
+    return [my_ld, opp_ld, my_act, opp_act, my_ld * opp_aggr, opp_act * opp_aggr]
+
 # card-advantage を生む primitive (= grind/draw power)。 overlay 実測の key 名に厳密一致。
 _ENGINE_PRIMS = frozenset({
     "draw", "draw_to_hand_size", "draw_per_hand_to_deck_bottom",
@@ -209,11 +243,13 @@ SCALE = 1_000_000.0
 
 def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v3: Optional[bool] = None, v4: Optional[bool] = None,
-             v5: Optional[bool] = None, v6: Optional[bool] = None) -> list:
+             v5: Optional[bool] = None, v6: Optional[bool] = None,
+             v7: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
-    v6=True (env ONEPIECE_GBM_V6) で v5 + matchup interaction 4 列 (= 38、 board×matchup の交互作用)。"""
+    v6=True (env ONEPIECE_GBM_V6) で v5 + matchup interaction 4 列 (= 38、 board×matchup の交互作用)。
+    v7=True (env ONEPIECE_GBM_V7) で v6 + balance 6 列 (= 44、 own-plan×opp-denial のマッチ毎バランス)。"""
     from .eval import _player_metrics
     me = _player_metrics(state.players[me_idx])
     opp = _player_metrics(state.players[1 - me_idx])
@@ -240,6 +276,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v5 = os.environ.get("ONEPIECE_GBM_V5") == "1"
     if v6 is None:
         v6 = os.environ.get("ONEPIECE_GBM_V6") == "1"
+    if v7 is None:
+        v7 = os.environ.get("ONEPIECE_GBM_V7") == "1"
+    if v7:
+        v6 = True  # v7 ⊃ v6 (balance)
     if v6:
         v5 = True  # v6 ⊃ v5 (tag + interaction)
     if v3 or v4 or v5:
@@ -268,6 +308,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         out += _opp_matchup_tag_vector(state, me_idx)
     if v6:
         out += _opp_matchup_interaction_vector(state, me_idx)
+    if v7:
+        out += _balance_features(state, me_idx)
     return out
 
 
@@ -307,7 +349,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                       v3=(n_feat == len(FEATURE_KEYS_V3)),
                       v4=(n_feat == len(FEATURE_KEYS_V4)),
                       v5=(n_feat == len(FEATURE_KEYS_V5)),
-                      v6=(n_feat == len(FEATURE_KEYS_V6)))]
+                      v6=(n_feat == len(FEATURE_KEYS_V6)),
+                      v7=(n_feat == len(FEATURE_KEYS_V7)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
