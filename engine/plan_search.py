@@ -787,42 +787,12 @@ def search_turn_plan(
             return -3000  # leader 1 体 残し で -3000 (= 重く 抑制)
         return 0.0
 
-    # === マッチ別攻略 (= 2026-06-26、 ONEPIECE_MATCHUP_STRATEGY=1): 相手 leader を見て ===
-    # db/matchup_strategy.json の counter-plan を 探索 penalty に効かせる(外部脳の注入)。
-    # eval項でなく plan penalty なので GBM 操縦でも効く。 現プラン: 「防御 leader を
-    # danger zone (life≤閾値) へ chip するが lethal でない」 plan を penalty
-    # = 盤面固めて一気に(alpha-strike)を促す。 赤黄ボニー EB04-001 が初エントリ。
-    # db/leader_profiles.json の相手リーダー tag をロード(= 人間の「相手デッキ予想」prior)。
-    _matchup_tags = frozenset()
-    if _os.environ.get("ONEPIECE_MATCHUP_STRATEGY") == "1":
-        try:
-            import json as _json_ms
-            from pathlib import Path as _Path_ms
-            _lp_all = _json_ms.loads(
-                (_Path_ms(__file__).resolve().parent.parent / "db" / "leader_profiles.json")
-                .read_text(encoding="utf-8")
-            ).get("leaders", {})
-            _opp_ld_id = state.players[1 - me_idx].leader.card.card_id
-            _matchup_tags = frozenset(_lp_all.get(_opp_ld_id, {}).get("tags", []))
-        except Exception:
-            _matchup_tags = frozenset()
-    # 非lethal な opp-leader 攻撃を抑制すべき相手(ライフを与えるとドロー/低ライフで硬い)
-    _no_chip = bool(_matchup_tags & {"draw_on_life_loss", "defensive_buff_low_life"})
-    # GBM value は ±SCALE/2 (= ±500k) スケール。 penalty も同スケールで効かせないと
-    # argmax を動かせない(= 旧 -6000 が ノイズだった原因)。
-    _CHIP_PENALTY = float(_os.environ.get("ONEPIECE_CHIP_PENALTY", "120000"))
-
-    def _matchup_chip_penalty(cur_state, plan) -> float:
-        """相手 leader が「ライフ→ドロー engine / 低ライフで硬い」型のとき、 lethal でない
-        leader 攻撃を抑制(= leader を pump して face を chip し、相手を太らせ防御buffを誘発し
-        DON を浪費する誤プレイを潰す)。 lethal なら許可。 control は盤面固めて一気に。"""
-        if not _no_chip:
-            return 0.0
-        if len(cur_state.players[1 - me_idx].life) <= 0:
-            return 0.0  # lethal 達成 → 許可
-        from .game import AttackLeader
-        n = sum(1 for a in plan if isinstance(a, AttackLeader))
-        return -_CHIP_PENALTY * n  # 非lethal leader 攻撃 1 回ごとに penalty
+    # === マッチ別攻略 anti-chip rule は REVERT (2026-06-26): 高N(n=60)で net -4.6pt と
+    # 確認(crocodile -2.5 / dofla -6.7)。 配備 control AI の「leader pump→bonney chip」は
+    # 誤プレイでなく、 GBM(実 outcome 学習)の方が私の hand-rule より良く打っていた。
+    # = 学習 value > 手書き heuristic(本セッション再確認)。 知識ベース db/leader_profiles.json
+    # は資産として保持。 スケールバグ教訓(plan-penalty は GBM ±500k に対し桁不足でノイズ)も
+    # memory に記録。 [[project_leader_aware_matchup_ai]]。
 
     # === post-opp re-rank (= 2026-06-04、 ONEPIECE_POSTOPP_EVAL=1): 完了プランを ===
     # 「自ターン終了 → 相手 (= deterministic greedy) のターンを sim → その後の盤面」 で eval。
@@ -857,7 +827,6 @@ def search_turn_plan(
         s = _eval_state(cur_state, plan)
         s += _unused_attached_don_penalty(cur_state, plan)
         s += _unused_attacker_penalty_strong(cur_state, plan)
-        s += _matchup_chip_penalty(cur_state, plan)
         if s > best_score:
             best_score = s
             best_plan = plan
