@@ -807,9 +807,22 @@ def search_turn_plan(
     # control-vs-aggro の構造ギャップ ([[project_leader_aware_matchup_ai]] A 着手) 用。 my 未来ターンも
     # rollout policy で進めるため policy 質が効く (= greedy だと control を過小評価しうる → 段階改善)。
     _postopp_turns = max(1, int(_os.environ.get("ONEPIECE_POSTOPP_TURNS", "1")))
+    # 自分の未来ターンの rollout policy: 既定 greedy(速)、 ONEPIECE_POSTOPP_SELF_VALUE=1 で
+    # value-guided (= EvalGreedyAI、 matchup-aware GBM で操縦)。 greedy は control を過小評価し
+    # 深い lookahead で誤差が複利累積(= T3 悪化の原因)→ value-guided で control の grind を正確に rollout。
+    _postopp_self_value = _os.environ.get("ONEPIECE_POSTOPP_SELF_VALUE") == "1"
     _postopp_ai = None
+    _postopp_self_ai = None
     if _postopp:
         _postopp_ai = GreedyAI(rng=getattr(state, "rng", None))
+        if _postopp_self_value and _postopp_turns > 1:
+            try:
+                from .ai import EvalGreedyAI as _EGA
+                _postopp_self_ai = _EGA(rng=getattr(state, "rng", None))
+            except Exception:
+                _postopp_self_ai = _postopp_ai
+        else:
+            _postopp_self_ai = _postopp_ai
 
     def _eval_state(cur_state, plan):
         if not _postopp or cur_state.game_over:
@@ -829,8 +842,9 @@ def search_turn_plan(
                     _simulate_opp_turn(ev, opp_idx, _postopp_ai, _postopp_ai,
                                        hard_cap_actions=_postopp_cap)
                 if _i + 1 < _postopp_turns and not ev.game_over and ev.turn_player_idx == me_idx:
-                    # 自分の未来ターンも rollout (= grind の払いを value に見せる)
-                    _simulate_opp_turn(ev, me_idx, _postopp_ai, _postopp_ai,
+                    # 自分の未来ターンも rollout (= grind の払いを value に見せる)。
+                    # action は _postopp_self_ai (value-guided or greedy)、 相手 defense は greedy。
+                    _simulate_opp_turn(ev, me_idx, _postopp_self_ai, _postopp_ai,
                                        hard_cap_actions=_postopp_cap)
         except Exception:
             return compute_score(cur_state, me_idx)
