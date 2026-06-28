@@ -123,6 +123,14 @@ onepiece_research/
       **vs GreedyAI on cardrush_1342 = 72.7% (N=300)**。 GBM は `db/value_gbm_<slug>.pkl` を deck別に
       `scripts/train_value_gbm.py` で学習 (無ければ board_eval に degrade)。 教訓: 学習valueは正しい分布で使え /
       探索のmyopiaは deterministic opp の sim で補正。 `scripts/bench_ais_vs_greedy.py` で測定
+      - **⭐ matchup-条件付き value (= 2026-06-27、 v5/v6 feature、 [[project_leader_aware_matchup_ai]])**:
+        `gbm_value.py` の feature を相手 leader 情報で拡張 — v5(=相手 leader tag 13)/v6(=+ board×matchup
+        interaction 4 = 38dim)/v7(=+ own-plan×opp-denial balance 6 = 44dim、 未配備)。 `gbm_score` が model
+        次元で v1〜v7 自動判別(後方互換)。 **on-policy beam-in-loop で 11/16 deck に v6(38dim)配備**
+        (db/value_gbm_<slug>.pkl が 38dim = matchup-aware、 21dim = 旧 agnostic)。 効果: 配備 AI を +10〜29pt
+        改善、 実メタ tier_truth と rankΔ=1.0。 ⚠ 学習は `scripts/selfplay_beam_loop.py --opp <多相手comma>`
+        + `ONEPIECE_GBM_V6=1`、 配備 gate は `scripts/matchup_value_deploy_ab.py`(両seat 16/10)。 残課題 =
+        control-vs-aggro は構造的(multi-turn 探索が要、 value 路線は出し切り)
       - **⭐ offense force-attack 無効化 (= 2026-06-13、 main f5dc1f7)**: ExploitBeam は
         `_offense_force_attack=False` (DeepPlanningAI 既定 True、 ExploitBeam のみ override)。
         `DeepPlanningAI.choose_action` の leader/char「とりあえず攻撃/boost」 早期return群 (ai.py
@@ -196,7 +204,7 @@ onepiece_research/
 
 **評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 ゴールは「全デッキが強くなる」 ことではなく、 「正しくゲームが行われ、 AI が意味ある効果の使い方・戦い方をしている」 こと。 評価すべきは AI の各手が (1) 盤面を有利に傾けたか (2) 布石か (3) 効果を意味あるタイミング/対象で発動しているか。 詳細: [[feedback_evaluation_axis]]。
 
-> **既知 artifact: matrix #1 = 黄カルガラ (74%) は AI piloting の artifact で deck power ではない** (= 2026-06-23 確定、 受容済)。 実メタでカルガラは Tier5 だが、 当 AI は proactive(展開→ドン付与→アルファ一斉攻撃)を ≫ reactive(control/除去/grind)で操作するため、 実メタの counter (黒control 等) が race して負け、 カルガラが過大評価される。 **deck-specific な value/prune では直らない事を A/B で確認済** (= value source 差替 / GBM+board_eval blend / self-KO prune / causal hard-block 全て勝率不変。 [[reference_calgara_counter_strategy]])。 根治は探索アーキ級 (= sim 仮想敵強化 / anti-race value) の大工事で、 現状は未着手。 matrix を読む際はカルガラ上位をこの caveat 込みで解釈する。
+> **proactive≫reactive artifact = matchup-aware v6 で大幅に解消 (2026-06-28)**。 旧 matrix #1 = 黄カルガラ (74%) は AI が proactive(race) ≫ reactive(control/grind) で操縦する artifact だった。 **matchup-条件付き value (v5/v6、 相手 leader tag + interaction を学習 feature 化、 [[project_leader_aware_matchup_ai]]) を 11/16 deck に配備** (croc +29/im +25/calgara +18 等、 各 +10〜29pt) し、 ExploitBeam_v6 で matrix 再計算した結果、 **AI 順位が実メタ tier_truth と 平均 rankΔ=1.0 (10 中 6 完全一致、 8 が±1) まで一致**。 カルガラは #1(74%)→#4(69%) に降下、 bonney #1(87%)。 **残る乖離はちょうど control-vs-aggro 1点** (紫ドフラ 実A→AI#6、 ボニー 実B→AI#1)。 = 「value が race を止め denial を選ぶ」 は学べた(v7 balance feature で bonney +5.8 実証)が、 **control が aggro に勝つ多ターン除去+ライフ管理の line は 1-ply value + 単ターン beam では構築できず構造的に bound**。 根治は **multi-turn 探索アーキ(search architecture)の大工事** (= value 路線は v5→v7 で出し切り、 着手予定)。
 
 ## Next.js 側の方針
 
@@ -312,7 +320,7 @@ onepiece_research/
 - `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
-  - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 **ai_version `ExploitBeam_vd` が 最新** (= 2026-06-22、 meta 7/16 に value-defense per-deck config 配備済、 [[project_value_defense_per_deck_config]])。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam_vd --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 SmartOpponentAI_deployed/GoalDirectedAI 産は stale。
+  - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 **ai_version `ExploitBeam_v6` が 最新** (= 2026-06-27、 matchup-条件付き value (v5/v6) を 11/16 deck に配備、 実メタ rankΔ=1.0、 [[project_leader_aware_matchup_ai]])。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam_v6 --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 ExploitBeam_vd / SmartOpponentAI_deployed / GoalDirectedAI 産は stale。
     - ⚠ **value-defense (= per-deck config で ON の deck) は matrix を ~5x 遅くする** (= 全試合に防御 sim が乗る、 240cell N=20 で **~5.4h**)。 必ず `--incremental` + 新 `--ai-version` で起動し、 5 cell checkpoint + version 照合で **crash 時に同一コマンド再実行で自動 resume** (= 計算済 cell を reuse、 timeout 失敗対策)。
     - ⚠ **配備AIの手が変わる変更後は要再計算** (例: 2026-06-13 offense force-attack 除去 / 2026-06-22 meta value-defense config 配備で再計算実施)。 deck の per-deck config (`db/deck_ai_config_*.json`) を変えたら その deck が絡む cell が stale
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
