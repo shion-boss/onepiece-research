@@ -801,6 +801,12 @@ def search_turn_plan(
     # receding-horizon は維持 (= caller は best_plan[0] を取り再計画) なので robust。
     _postopp = _os.environ.get("ONEPIECE_POSTOPP_EVAL") == "1"
     _postopp_cap = int(_os.environ.get("ONEPIECE_POSTOPP_CAP", "30"))
+    # ⭐ multi-turn lookahead (= 2026-06-28、 ONEPIECE_POSTOPP_TURNS=N、 既定 1 = 現挙動):
+    # post-opp を「相手 N ターン + 自分 N-1 ターン を rollout した先」 で eval。 1-ply value が
+    # 見られない control の grind 払い (= 今受けて次以降に除去で勝つ) を value に乗せる狙い。
+    # control-vs-aggro の構造ギャップ ([[project_leader_aware_matchup_ai]] A 着手) 用。 my 未来ターンも
+    # rollout policy で進めるため policy 質が効く (= greedy だと control を過小評価しうる → 段階改善)。
+    _postopp_turns = max(1, int(_os.environ.get("ONEPIECE_POSTOPP_TURNS", "1")))
     _postopp_ai = None
     if _postopp:
         _postopp_ai = GreedyAI(rng=getattr(state, "rng", None))
@@ -814,9 +820,18 @@ def search_turn_plan(
             apply_action_fn = _apply
             if ev.phase == Phase.MAIN and ev.turn_player_idx == me_idx:
                 apply_action_fn(ev, _EP())
-            if not ev.game_over and ev.turn_player_idx == opp_idx:
-                _simulate_opp_turn(ev, opp_idx, _postopp_ai, _postopp_ai,
-                                   hard_cap_actions=_postopp_cap)
+            # N ラウンド rollout: [相手ターン sim] → (最後以外) [自分の未来ターン sim] を繰り返す。
+            # 最終ラウンドの相手ターン後 (= 自分の次 MAIN 開始盤面) で eval。 N=1 は現挙動と等価。
+            for _i in range(_postopp_turns):
+                if ev.game_over:
+                    break
+                if ev.turn_player_idx == opp_idx:
+                    _simulate_opp_turn(ev, opp_idx, _postopp_ai, _postopp_ai,
+                                       hard_cap_actions=_postopp_cap)
+                if _i + 1 < _postopp_turns and not ev.game_over and ev.turn_player_idx == me_idx:
+                    # 自分の未来ターンも rollout (= grind の払いを value に見せる)
+                    _simulate_opp_turn(ev, me_idx, _postopp_ai, _postopp_ai,
+                                       hard_cap_actions=_postopp_cap)
         except Exception:
             return compute_score(cur_state, me_idx)
         return compute_score(ev, me_idx)
