@@ -348,6 +348,13 @@ def search_turn_plan(
     _USE_PLAY_PRIOR = _W_PLAY_PRIOR > 0.0
     _PP_LINEAR_SCALE = float(_os.environ.get("ONEPIECE_PLAY_PRIOR_LINEAR_SCALE", "6000"))
     _PP_GBM_SCALE = 1_000_000.0
+    # concept play-prior (= 2026-06-29、 ONEPIECE_CONCEPT_PRIOR_W): deck の concept(設計上の方針)に
+    # 沿った key card play を beam 選別で加点 (= ramp deck はランプ/大型を優先探索)。 deck_play_prior と
+    # 同じ scale / asymmetric / beam-only 規律。 concept を持つ deck のみ作用([[project_leader_aware_matchup_ai]] A)。
+    _W_CONCEPT_PRIOR = float(_os.environ.get("ONEPIECE_CONCEPT_PRIOR_W", "0"))
+    _USE_CONCEPT_PRIOR = _W_CONCEPT_PRIOR > 0.0
+    if _USE_CONCEPT_PRIOR:
+        from .concept_play_prior import concept_play_bonus  # 動的 import
     if _USE_PLAY_PRIOR:
         from .deck_play_prior import play_prior_bonus  # 動的 import (= 無効時 skip)
         try:
@@ -604,6 +611,18 @@ def search_turn_plan(
                                          if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
                                          else _PP_LINEAR_SCALE)
                             score = score + _W_PLAY_PRIOR * _pb * _pp_scale
+                    except Exception:
+                        pass
+
+                # concept play-prior: deck の concept key card(ramp/big_threat 等)play を beam 選別で加点。
+                if _USE_CONCEPT_PRIOR:
+                    try:
+                        _cb = concept_play_bonus(cur_state, action, me_idx)
+                        if _cb:
+                            _cp_scale = (_PP_GBM_SCALE
+                                         if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
+                                         else _PP_LINEAR_SCALE)
+                            score = score + _W_CONCEPT_PRIOR * _cb * _cp_scale
                     except Exception:
                         pass
 

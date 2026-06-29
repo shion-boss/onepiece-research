@@ -4,9 +4,13 @@
  "decks": {
   "cardrush_1342": {
    "name": "紫ドフラミンゴ",
+   "leader": "OP14-060",
    "archetype": "ramp",
    "_old_tag": "control (誤り — role分析で ramp=29 支配、 除去control ではない)",
    "concept": "DON-ramp で先んじて 特大 sticky 盤面を築き制圧する proactive ramp",
+   "prior_roles": ["ramp", "big_threat"],
+   "prior_card_ids": ["OP14-072", "OP14-074", "OP14-071", "OP10-071", "OP14-069", "OP14-068"],
+   "_prior_note": "concept play-prior 用: ramp(ベビー5/モネ/ピーカ/トレーボル)+ big_threat(10c/8cドフラ)の play を beam 選別で加点 → ランプ→大型展開を実行させる(durdle/除去誤操縦の是正)",
    "controls": ["DON経済 (相手より先にDON)", "盤面サイズ (大型で圧殺)"],
    "win_by": "ランプで前のめりに大型ドンキホーテ海賊団を連打し、 sticky(ノラ/ヴェルゴ)で維持して盤面差で押し切る",
    "engine": {
