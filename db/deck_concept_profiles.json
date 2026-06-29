@@ -1,0 +1,55 @@
+{
+ "_doc": "per-deck コンセプト profile (= archetype 大カテゴリ内の各デッキ固有方針)。 ohtsuki『archetype 判定が粗い。 control デッキは何をコントロールしてどう勝つか、 各デッキ固有のコンセプトがある』([[project_leader_aware_matchup_ai]])。 card-pool role 分析(操縦非依存 ground truth、 scripts/analyze_deck_roles.py)+ 実メタ知識で authoring。 旧 leader_profiles の粗い tag / analysis.json の誤 archetype を置換する foundation。 win-corr data(scripts/derive_deck_concept.py)は『AI が concept を実行できてるか』の診断に使う(誤操縦デッキでは循環するので concept 導出には使わない)。",
+ "_schema": "archetype(大) > concept(方針) > controls(何を) > win_by(どう勝つ) > engine(役割別key card) > not(誤解しやすい非concept) > play_priority(操縦時の優先) > exec_gap(AIの実行ギャップ、data診断)",
+ "decks": {
+  "cardrush_1342": {
+   "name": "紫ドフラミンゴ",
+   "archetype": "ramp",
+   "_old_tag": "control (誤り — role分析で ramp=29 支配、 除去control ではない)",
+   "concept": "DON-ramp で先んじて 特大 sticky 盤面を築き制圧する proactive ramp",
+   "controls": ["DON経済 (相手より先にDON)", "盤面サイズ (大型で圧殺)"],
+   "win_by": "ランプで前のめりに大型ドンキホーテ海賊団を連打し、 sticky(ノラ/ヴェルゴ)で維持して盤面差で押し切る",
+   "engine": {
+    "ramp": ["OP14-072 ベビー5", "OP14-074 モネ", "OP14-071 ピーカ", "OP10-071 トレーボル"],
+    "threat": ["OP14-069 ドフラミンゴ(10c)", "OP14-068 ドフラミンゴ(8c)"],
+    "sticky": ["ノラ", "ヴェルゴ (離場代替=除去耐性)"],
+    "removal_support": ["OP10-079 神誅殺", "ST18-001 ウソ八", "神避"]
+   },
+   "not": ["reactive 除去 grind ではない (除去はサポート、 主筋でない)", "leader を pump して顔 race するデッキでもない (盤面有利時の詰めのみ)"],
+   "play_priority": ["1. ランプを最優先 (early に DON 加速)", "2. curve に沿って大型 threat を展開", "3. threat を sticky で保護", "4. 除去は相手の壁/keyだけに situational", "5. 盤面有利を築いてから leader 強化で詰め"],
+   "exec_gap": "AI #6(33%、 実A-tier乖離)。 負け試合は big_body≒0 = ランプ→大型展開が間に合わず。 vs aggro で『除去 control』と誤操縦し durdle、 ランプ前のめりを実行できていない (analysis.json の archetype/key card 誤ラベルが一因)"
+  },
+  "cardrush_1392": {
+   "name": "黒イム",
+   "archetype": "control",
+   "concept": "protection + defense + 手札 advantage で受け切り grind する 本物の reactive control",
+   "controls": ["相手の攻撃 (defense/protection で盤面維持)", "カードアド (長期戦の燃料)"],
+   "win_by": "protection(20)/defense(20) で盤面を守りつつ card_adv(24) で grind、 終盤に押し切る",
+   "engine": {"defense_protect": ["protection 20枚相当", "blocker"], "card_adv": ["draw/search 24枚相当"]},
+   "not": ["proactive ramp ではない", "go-wide aggro でもない"],
+   "play_priority": ["1. 受けてカードアドを稼ぐ", "2. protection で key を維持", "3. grind で相手の息切れを待つ"],
+   "exec_gap": "AI #8(31%、 実C-tier=おおむね一致)。 概ね正しく操縦できている (実メタも C-tier)"
+  },
+  "cardrush_1439": {
+   "name": "青黄ナミ",
+   "archetype": "control-tempo",
+   "concept": "除去(27) + カードアド(29) で tempo を握り value で勝つ removal-value control",
+   "controls": ["相手盤面 (removal)", "カードアド/tempo"],
+   "win_by": "除去で相手盤面を捌きつつ card_adv で手数を保ち、 tempo を握って value 勝ち",
+   "engine": {"removal": ["removal 27枚相当"], "card_adv": ["draw/search 29枚相当"]},
+   "not": ["大型 ramp ではない (big_body は勝ちに負相関)", "go-wide でもない"],
+   "play_priority": ["1. 除去で相手の脅威を捌く", "2. カードアドで手数を維持", "3. tempo を握って勝つ"],
+   "exec_gap": "AI #3(73%、 実A-tier=一致)。 AI が上手く操縦できている control の好例 (concept と value がかみ合っている)"
+  },
+  "cardrush_1385": {
+   "name": "黒クロコダイル",
+   "archetype": "midrange-value",
+   "concept": "card_adv(26) + removal(18) + go-wide(15) で value を稼ぐ midrange",
+   "controls": ["相手盤面 (removal)", "カードアド", "盤面 (go-wide)"],
+   "win_by": "除去とカードアドで有利を作り、 横並びの value で押す",
+   "not": ["ピュア control ではない (go-wide も使う)", "大型 ramp でもない"],
+   "play_priority": ["1. カードアドと除去で有利を作る", "2. go-wide で盤面を広げる", "3. value 差で勝つ"],
+   "exec_gap": "AI #15(28%、 実D-tier=おおむね一致だがやや過小)。 弱デッキ寄り"
+  }
+ }
+}

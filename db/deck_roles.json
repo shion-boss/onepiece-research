@@ -1,0 +1,439 @@
+{
+ "cardrush_1342": {
+  "name": "紫ドフラミンゴ",
+  "leader": "OP14-060",
+  "roles": {
+   "ramp": 29,
+   "removal": 22,
+   "big_threat": 13,
+   "card_adv": 13,
+   "go_wide": 12,
+   "protection": 6,
+   "defense": 6,
+   "recovery": 4
+  },
+  "big_threats": [
+   [
+    "ドンキホーテ・ドフラミンゴ",
+    "10"
+   ],
+   [
+    "ドンキホーテ・ドフラミンゴ",
+    "8"
+   ],
+   [
+    "ヴェルゴ",
+    "5"
+   ],
+   [
+    "シャーロット・カタクリ",
+    "8"
+   ]
+  ]
+ },
+ "cardrush_1385": {
+  "name": "黒クロコダイル",
+  "leader": "OP14-079",
+  "roles": {
+   "card_adv": 26,
+   "removal": 18,
+   "go_wide": 15,
+   "big_threat": 12,
+   "defense": 9
+  },
+  "big_threats": [
+   [
+    "ミス・オールサンデー",
+    "7"
+   ],
+   [
+    "クロコダイル",
+    "8"
+   ],
+   [
+    "モンキー・Ｄ・ルフィ",
+    "7"
+   ],
+   [
+    "マーシャル・D・ティーチ",
+    "10"
+   ]
+  ]
+ },
+ "cardrush_1392": {
+  "name": "黒イム",
+  "leader": "OP13-079",
+  "roles": {
+   "card_adv": 24,
+   "protection": 20,
+   "defense": 20,
+   "removal": 12,
+   "big_threat": 8,
+   "go_wide": 8
+  },
+  "big_threats": [
+   [
+    "シェパード・十・ピーター聖",
+    "7"
+   ],
+   [
+    "五老星",
+    "10"
+   ]
+  ]
+ },
+ "cardrush_1399": {
+  "name": "赤青ルーシー",
+  "leader": "OP15-002",
+  "roles": {
+   "card_adv": 22,
+   "removal": 15,
+   "defense": 12,
+   "go_wide": 12,
+   "big_threat": 5,
+   "protection": 4
+  },
+  "big_threats": [
+   [
+    "ゴール・D・ロジャー",
+    "10"
+   ],
+   [
+    "サボ",
+    "7"
+   ]
+  ]
+ },
+ "cardrush_1439": {
+  "name": "青黄ナミ",
+  "leader": "OP11-041",
+  "roles": {
+   "card_adv": 29,
+   "removal": 27,
+   "defense": 14,
+   "big_threat": 11,
+   "go_wide": 9,
+   "recovery": 8,
+   "ramp": 7
+  },
+  "big_threats": [
+   [
+    "ゲッコー・モリア",
+    "8"
+   ],
+   [
+    "ニコ・ロビン",
+    "7"
+   ],
+   [
+    "エドワード・ニューゲート",
+    "10"
+   ]
+  ]
+ },
+ "cardrush_1453": {
+  "name": "緑ミホーク",
+  "leader": "OP14-020",
+  "roles": {
+   "go_wide": 18,
+   "ramp": 18,
+   "card_adv": 16,
+   "defense": 16,
+   "removal": 15,
+   "big_threat": 8,
+   "protection": 4
+  },
+  "big_threats": [
+   [
+    "スモーカー",
+    "5"
+   ],
+   [
+    "ジュラキュール・ミホーク",
+    "9"
+   ],
+   [
+    "ロー＆ベポ",
+    "10"
+   ]
+  ]
+ },
+ "cardrush_1454": {
+  "name": "紫エネル",
+  "leader": "OP15-058",
+  "roles": {
+   "card_adv": 37,
+   "defense": 25,
+   "go_wide": 12,
+   "ramp": 9,
+   "removal": 8,
+   "protection": 4,
+   "big_threat": 4
+  },
+  "big_threats": [
+   [
+    "エネル",
+    "6"
+   ]
+  ]
+ },
+ "cardrush_1455": {
+  "name": "空島ルフィ",
+  "leader": "OP15-098",
+  "roles": {
+   "recovery": 18,
+   "card_adv": 15,
+   "removal": 13,
+   "go_wide": 12,
+   "defense": 12,
+   "big_threat": 10,
+   "ramp": 4
+  },
+  "big_threats": [
+   [
+    "モンキー・Ｄ・ルフィ",
+    "5"
+   ],
+   [
+    "ニコ・ロビン",
+    "7"
+   ],
+   [
+    "エネル",
+    "10"
+   ]
+  ]
+ },
+ "cardrush_1456": {
+  "name": "赤青エース",
+  "leader": "OP13-002",
+  "roles": {
+   "card_adv": 25,
+   "big_threat": 17,
+   "defense": 14,
+   "go_wide": 12,
+   "removal": 9,
+   "ramp": 8,
+   "recovery": 4
+  },
+  "big_threats": [
+   [
+    "ジョズ",
+    "6"
+   ],
+   [
+    "ボア・ハンコック",
+    "6"
+   ],
+   [
+    "ロロノア・ゾロ",
+    "7"
+   ],
+   [
+    "エドワード・ニューゲート",
+    "10"
+   ],
+   [
+    "ゴール・D・ロジャー",
+    "10"
+   ]
+  ]
+ },
+ "tcgportal_bonney": {
+  "name": "赤黄ボニー",
+  "leader": "EB04-001",
+  "roles": {
+   "card_adv": 20,
+   "defense": 20,
+   "go_wide": 18,
+   "big_threat": 14,
+   "removal": 12,
+   "recovery": 8,
+   "ramp": 4
+  },
+  "big_threats": [
+   [
+    "ロロノア・ゾロ",
+    "7"
+   ],
+   [
+    "ジュエリー・ボニー",
+    "9"
+   ],
+   [
+    "モンキー・D・ルフィ",
+    "10"
+   ],
+   [
+    "バーソロミュー・くま",
+    "7"
+   ]
+  ]
+ },
+ "tcgportal_calgara": {
+  "name": "黄カルガラ",
+  "leader": "OP08-098",
+  "roles": {
+   "card_adv": 26,
+   "go_wide": 11,
+   "removal": 8,
+   "ramp": 8,
+   "recovery": 8,
+   "defense": 8,
+   "big_threat": 8
+  },
+  "big_threats": [
+   [
+    "ワイパー",
+    "6"
+   ],
+   [
+    "カルガラ",
+    "6"
+   ],
+   [
+    "モンキー・Ｄ・ルフィ",
+    "5"
+   ]
+  ]
+ },
+ "tcgportal_coby": {
+  "name": "赤黒コビー",
+  "leader": "OP11-001",
+  "roles": {
+   "go_wide": 25,
+   "card_adv": 16,
+   "removal": 10,
+   "defense": 9,
+   "big_threat": 8,
+   "ramp": 4,
+   "protection": 4
+  },
+  "big_threats": [
+   [
+    "ヘルメッポ",
+    "6"
+   ],
+   [
+    "コビー",
+    "6"
+   ]
+  ]
+ },
+ "tcgportal_corazon": {
+  "name": "紫黄ロシナンテ",
+  "leader": "OP12-061",
+  "roles": {
+   "card_adv": 26,
+   "go_wide": 23,
+   "defense": 15,
+   "big_threat": 14,
+   "ramp": 10,
+   "recovery": 4,
+   "removal": 2,
+   "protection": 2
+  },
+  "big_threats": [
+   [
+    "ロシナンテ＆ロー",
+    "6"
+   ],
+   [
+    "トラファルガー・ロー",
+    "8"
+   ],
+   [
+    "トラファルガー・ロー",
+    "7"
+   ],
+   [
+    "ヴェルゴ",
+    "5"
+   ]
+  ]
+ },
+ "tcgportal_hancock": {
+  "name": "青黄ハンコック",
+  "leader": "OP14-041",
+  "roles": {
+   "card_adv": 18,
+   "recovery": 15,
+   "go_wide": 15,
+   "defense": 12,
+   "big_threat": 11,
+   "ramp": 7,
+   "removal": 3
+  },
+  "big_threats": [
+   [
+    "ゲッコー・モリア",
+    "8"
+   ],
+   [
+    "ボア・ハンコック",
+    "9"
+   ],
+   [
+    "バーソロミュー・くま",
+    "6"
+   ]
+  ]
+ },
+ "tcgportal_op11_luffy": {
+  "name": "青紫ルフィ",
+  "leader": "OP11-040",
+  "roles": {
+   "card_adv": 24,
+   "ramp": 24,
+   "go_wide": 18,
+   "defense": 12,
+   "big_threat": 8,
+   "removal": 4
+  },
+  "big_threats": [
+   [
+    "サンジ",
+    "9"
+   ],
+   [
+    "ドンキホーテ・ドフラミンゴ",
+    "8"
+   ]
+  ]
+ },
+ "tcgportal_op13_luffy": {
+  "name": "赤緑ルフィ（OP13）",
+  "leader": "OP13-001",
+  "roles": {
+   "ramp": 29,
+   "big_threat": 16,
+   "defense": 15,
+   "go_wide": 14,
+   "removal": 12,
+   "card_adv": 8,
+   "protection": 4
+  },
+  "big_threats": [
+   [
+    "サンジ",
+    "5"
+   ],
+   [
+    "モンキー・Ｄ・ルフィ",
+    "6"
+   ],
+   [
+    "ロロノア・ゾロ",
+    "7"
+   ],
+   [
+    "シャンクス",
+    "10"
+   ],
+   [
+    "ジュラキュール・ミホーク",
+    "8"
+   ]
+  ]
+ }
+}

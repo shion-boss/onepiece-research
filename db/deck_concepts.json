@@ -1,0 +1,898 @@
+{
+ "cardrush_1342": {
+  "winrate": 0.271,
+  "n": 48,
+  "win_corr_axes": [
+   "removal",
+   "face_pump",
+   "big_body"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.31,
+    "loss_avg": 9.57,
+    "z_diff": -0.24
+   },
+   "big_body": {
+    "win_avg": 0.85,
+    "loss_avg": 0.63,
+    "z_diff": 0.35
+   },
+   "go_wide": {
+    "win_avg": 5.92,
+    "loss_avg": 5.57,
+    "z_diff": 0.2
+   },
+   "cheap_flood": {
+    "win_avg": 2.85,
+    "loss_avg": 2.66,
+    "z_diff": 0.15
+   },
+   "removal": {
+    "win_avg": 2.31,
+    "loss_avg": 1.4,
+    "z_diff": 0.63
+   },
+   "face_pump": {
+    "win_avg": 3.85,
+    "loss_avg": 2.91,
+    "z_diff": 0.38
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.0,
+    "loss_avg": 0.94,
+    "z_diff": -0.7
+   },
+   "block": {
+    "win_avg": 3.69,
+    "loss_avg": 3.34,
+    "z_diff": 0.2
+   }
+  }
+ },
+ "cardrush_1385": {
+  "winrate": 0.167,
+  "n": 48,
+  "win_corr_axes": [
+   "go_wide",
+   "big_body",
+   "removal"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.88,
+    "loss_avg": 9.18,
+    "z_diff": 0.58
+   },
+   "big_body": {
+    "win_avg": 1.88,
+    "loss_avg": 0.9,
+    "z_diff": 0.97
+   },
+   "go_wide": {
+    "win_avg": 7.88,
+    "loss_avg": 5.53,
+    "z_diff": 1.24
+   },
+   "cheap_flood": {
+    "win_avg": 4.12,
+    "loss_avg": 2.83,
+    "z_diff": 0.87
+   },
+   "removal": {
+    "win_avg": 2.12,
+    "loss_avg": 0.93,
+    "z_diff": 0.9
+   },
+   "face_pump": {
+    "win_avg": 4.75,
+    "loss_avg": 3.27,
+    "z_diff": 0.57
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.25,
+    "loss_avg": 0.7,
+    "z_diff": -0.35
+   },
+   "block": {
+    "win_avg": 3.62,
+    "loss_avg": 3.05,
+    "z_diff": 0.24
+   }
+  }
+ },
+ "cardrush_1392": {
+  "winrate": 0.225,
+  "n": 40,
+  "win_corr_axes": [
+   "block",
+   "go_wide",
+   "face_pump"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.33,
+    "loss_avg": 9.06,
+    "z_diff": 0.21
+   },
+   "big_body": {
+    "win_avg": 0.44,
+    "loss_avg": 0.52,
+    "z_diff": -0.11
+   },
+   "go_wide": {
+    "win_avg": 5.67,
+    "loss_avg": 5.19,
+    "z_diff": 0.25
+   },
+   "cheap_flood": {
+    "win_avg": 1.89,
+    "loss_avg": 2.13,
+    "z_diff": -0.17
+   },
+   "removal": {
+    "win_avg": 1.22,
+    "loss_avg": 0.94,
+    "z_diff": 0.21
+   },
+   "face_pump": {
+    "win_avg": 2.89,
+    "loss_avg": 2.39,
+    "z_diff": 0.23
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.0,
+    "loss_avg": 1.0,
+    "z_diff": -0.63
+   },
+   "block": {
+    "win_avg": 3.78,
+    "loss_avg": 2.9,
+    "z_diff": 0.47
+   }
+  }
+ },
+ "cardrush_1399": {
+  "winrate": 0.188,
+  "n": 48,
+  "win_corr_axes": [
+   "removal",
+   "go_wide",
+   "cheap_flood"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.0,
+    "loss_avg": 9.1,
+    "z_diff": -0.09
+   },
+   "big_body": {
+    "win_avg": 0.56,
+    "loss_avg": 0.62,
+    "z_diff": -0.09
+   },
+   "go_wide": {
+    "win_avg": 4.89,
+    "loss_avg": 4.69,
+    "z_diff": 0.11
+   },
+   "cheap_flood": {
+    "win_avg": 2.78,
+    "loss_avg": 2.72,
+    "z_diff": 0.04
+   },
+   "removal": {
+    "win_avg": 1.67,
+    "loss_avg": 1.15,
+    "z_diff": 0.39
+   },
+   "face_pump": {
+    "win_avg": 2.89,
+    "loss_avg": 3.54,
+    "z_diff": -0.21
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.33,
+    "loss_avg": 0.67,
+    "z_diff": -0.26
+   },
+   "block": {
+    "win_avg": 2.67,
+    "loss_avg": 2.74,
+    "z_diff": -0.04
+   }
+  }
+ },
+ "cardrush_1439": {
+  "winrate": 0.625,
+  "n": 48,
+  "win_corr_axes": [
+   "cheap_flood",
+   "removal",
+   "face_pump"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.43,
+    "loss_avg": 9.5,
+    "z_diff": -0.06
+   },
+   "big_body": {
+    "win_avg": 0.67,
+    "loss_avg": 1.28,
+    "z_diff": -0.61
+   },
+   "go_wide": {
+    "win_avg": 5.13,
+    "loss_avg": 5.33,
+    "z_diff": -0.11
+   },
+   "cheap_flood": {
+    "win_avg": 2.07,
+    "loss_avg": 1.67,
+    "z_diff": 0.29
+   },
+   "removal": {
+    "win_avg": 1.23,
+    "loss_avg": 1.0,
+    "z_diff": 0.19
+   },
+   "face_pump": {
+    "win_avg": 4.63,
+    "loss_avg": 4.33,
+    "z_diff": 0.11
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.9,
+    "loss_avg": 1.72,
+    "z_diff": -0.52
+   },
+   "block": {
+    "win_avg": 2.43,
+    "loss_avg": 3.22,
+    "z_diff": -0.51
+   }
+  }
+ },
+ "cardrush_1453": {
+  "winrate": 0.425,
+  "n": 40,
+  "win_corr_axes": [
+   "go_wide",
+   "cheap_flood",
+   "big_body"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.41,
+    "loss_avg": 9.48,
+    "z_diff": -0.06
+   },
+   "big_body": {
+    "win_avg": 0.65,
+    "loss_avg": 0.39,
+    "z_diff": 0.36
+   },
+   "go_wide": {
+    "win_avg": 6.71,
+    "loss_avg": 5.87,
+    "z_diff": 0.55
+   },
+   "cheap_flood": {
+    "win_avg": 3.65,
+    "loss_avg": 2.96,
+    "z_diff": 0.45
+   },
+   "removal": {
+    "win_avg": 2.18,
+    "loss_avg": 1.7,
+    "z_diff": 0.31
+   },
+   "face_pump": {
+    "win_avg": 3.71,
+    "loss_avg": 4.04,
+    "z_diff": -0.13
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.47,
+    "loss_avg": 1.65,
+    "z_diff": -0.66
+   },
+   "block": {
+    "win_avg": 3.24,
+    "loss_avg": 2.87,
+    "z_diff": 0.21
+   }
+  }
+ },
+ "cardrush_1454": {
+  "winrate": 0.275,
+  "n": 40,
+  "win_corr_axes": [
+   "block",
+   "face_pump",
+   "go_wide"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 7.0,
+    "loss_avg": 8.28,
+    "z_diff": -0.66
+   },
+   "big_body": {
+    "win_avg": 0.09,
+    "loss_avg": 0.45,
+    "z_diff": -0.58
+   },
+   "go_wide": {
+    "win_avg": 6.09,
+    "loss_avg": 5.52,
+    "z_diff": 0.3
+   },
+   "cheap_flood": {
+    "win_avg": 3.09,
+    "loss_avg": 2.66,
+    "z_diff": 0.28
+   },
+   "removal": {
+    "win_avg": 2.09,
+    "loss_avg": 1.76,
+    "z_diff": 0.23
+   },
+   "face_pump": {
+    "win_avg": 3.27,
+    "loss_avg": 2.48,
+    "z_diff": 0.36
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.18,
+    "loss_avg": 0.97,
+    "z_diff": -0.68
+   },
+   "block": {
+    "win_avg": 3.27,
+    "loss_avg": 2.66,
+    "z_diff": 0.42
+   }
+  }
+ },
+ "cardrush_1455": {
+  "winrate": 0.725,
+  "n": 40,
+  "win_corr_axes": [
+   "block",
+   "removal",
+   "face_pump"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.17,
+    "loss_avg": 9.64,
+    "z_diff": -0.39
+   },
+   "big_body": {
+    "win_avg": 0.69,
+    "loss_avg": 1.0,
+    "z_diff": -0.38
+   },
+   "go_wide": {
+    "win_avg": 5.9,
+    "loss_avg": 6.45,
+    "z_diff": -0.29
+   },
+   "cheap_flood": {
+    "win_avg": 2.69,
+    "loss_avg": 2.73,
+    "z_diff": -0.03
+   },
+   "removal": {
+    "win_avg": 1.72,
+    "loss_avg": 1.36,
+    "z_diff": 0.25
+   },
+   "face_pump": {
+    "win_avg": 2.97,
+    "loss_avg": 2.73,
+    "z_diff": 0.09
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 1.1,
+    "loss_avg": 1.91,
+    "z_diff": -0.6
+   },
+   "block": {
+    "win_avg": 2.93,
+    "loss_avg": 2.36,
+    "z_diff": 0.38
+   }
+  }
+ },
+ "cardrush_1456": {
+  "winrate": 0.562,
+  "n": 48,
+  "win_corr_axes": [
+   "ramp_maxdon",
+   "removal",
+   "cheap_flood"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.48,
+    "loss_avg": 8.81,
+    "z_diff": 0.54
+   },
+   "big_body": {
+    "win_avg": 0.52,
+    "loss_avg": 0.62,
+    "z_diff": -0.14
+   },
+   "go_wide": {
+    "win_avg": 5.0,
+    "loss_avg": 4.81,
+    "z_diff": 0.1
+   },
+   "cheap_flood": {
+    "win_avg": 2.41,
+    "loss_avg": 2.14,
+    "z_diff": 0.24
+   },
+   "removal": {
+    "win_avg": 1.33,
+    "loss_avg": 0.76,
+    "z_diff": 0.46
+   },
+   "face_pump": {
+    "win_avg": 5.56,
+    "loss_avg": 5.14,
+    "z_diff": 0.16
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.44,
+    "loss_avg": 1.24,
+    "z_diff": -0.64
+   },
+   "block": {
+    "win_avg": 2.15,
+    "loss_avg": 2.57,
+    "z_diff": -0.34
+   }
+  }
+ },
+ "tcgportal_bonney": {
+  "winrate": 0.85,
+  "n": 40,
+  "win_corr_axes": [
+   "cheap_flood",
+   "go_wide",
+   "block"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.53,
+    "loss_avg": 9.33,
+    "z_diff": 0.16
+   },
+   "big_body": {
+    "win_avg": 1.03,
+    "loss_avg": 0.83,
+    "z_diff": 0.22
+   },
+   "go_wide": {
+    "win_avg": 6.5,
+    "loss_avg": 5.17,
+    "z_diff": 0.69
+   },
+   "cheap_flood": {
+    "win_avg": 3.5,
+    "loss_avg": 1.5,
+    "z_diff": 1.17
+   },
+   "removal": {
+    "win_avg": 1.74,
+    "loss_avg": 1.5,
+    "z_diff": 0.18
+   },
+   "face_pump": {
+    "win_avg": 3.32,
+    "loss_avg": 4.17,
+    "z_diff": -0.31
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 1.15,
+    "loss_avg": 2.17,
+    "z_diff": -0.84
+   },
+   "block": {
+    "win_avg": 3.68,
+    "loss_avg": 3.0,
+    "z_diff": 0.36
+   }
+  }
+ },
+ "tcgportal_calgara": {
+  "winrate": 0.45,
+  "n": 40,
+  "win_corr_axes": [
+   "cheap_flood",
+   "life_to_hand",
+   "removal"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 8.94,
+    "loss_avg": 9.05,
+    "z_diff": -0.09
+   },
+   "big_body": {
+    "win_avg": 0.11,
+    "loss_avg": 0.23,
+    "z_diff": -0.21
+   },
+   "go_wide": {
+    "win_avg": 4.94,
+    "loss_avg": 4.91,
+    "z_diff": 0.02
+   },
+   "cheap_flood": {
+    "win_avg": 2.78,
+    "loss_avg": 2.41,
+    "z_diff": 0.32
+   },
+   "removal": {
+    "win_avg": 1.17,
+    "loss_avg": 1.0,
+    "z_diff": 0.16
+   },
+   "face_pump": {
+    "win_avg": 3.56,
+    "loss_avg": 4.09,
+    "z_diff": -0.16
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 2.44,
+    "loss_avg": 2.05,
+    "z_diff": 0.21
+   },
+   "block": {
+    "win_avg": 3.44,
+    "loss_avg": 3.82,
+    "z_diff": -0.21
+   }
+  }
+ },
+ "tcgportal_coby": {
+  "winrate": 0.688,
+  "n": 48,
+  "win_corr_axes": [
+   "cheap_flood",
+   "leader_atk",
+   "go_wide"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.24,
+    "loss_avg": 9.6,
+    "z_diff": -0.32
+   },
+   "big_body": {
+    "win_avg": 0.09,
+    "loss_avg": 0.4,
+    "z_diff": -0.64
+   },
+   "go_wide": {
+    "win_avg": 5.67,
+    "loss_avg": 6.13,
+    "z_diff": -0.23
+   },
+   "cheap_flood": {
+    "win_avg": 2.42,
+    "loss_avg": 2.33,
+    "z_diff": 0.07
+   },
+   "removal": {
+    "win_avg": 1.91,
+    "loss_avg": 2.33,
+    "z_diff": -0.31
+   },
+   "face_pump": {
+    "win_avg": 2.79,
+    "loss_avg": 4.67,
+    "z_diff": -0.72
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.21,
+    "loss_avg": 1.27,
+    "z_diff": -0.94
+   },
+   "block": {
+    "win_avg": 3.36,
+    "loss_avg": 4.07,
+    "z_diff": -0.4
+   }
+  }
+ },
+ "tcgportal_corazon": {
+  "winrate": 0.062,
+  "n": 48,
+  "win_corr_axes": [
+   "face_pump",
+   "big_body",
+   "ramp_maxdon"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.67,
+    "loss_avg": 7.51,
+    "z_diff": 1.14
+   },
+   "big_body": {
+    "win_avg": 1.33,
+    "loss_avg": 0.33,
+    "z_diff": 1.49
+   },
+   "go_wide": {
+    "win_avg": 7.0,
+    "loss_avg": 5.78,
+    "z_diff": 0.52
+   },
+   "cheap_flood": {
+    "win_avg": 3.67,
+    "loss_avg": 3.78,
+    "z_diff": -0.04
+   },
+   "removal": {
+    "win_avg": 0.67,
+    "loss_avg": 0.93,
+    "z_diff": -0.29
+   },
+   "face_pump": {
+    "win_avg": 6.67,
+    "loss_avg": 2.24,
+    "z_diff": 1.92
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.0,
+    "loss_avg": 0.4,
+    "z_diff": -0.44
+   },
+   "block": {
+    "win_avg": 2.0,
+    "loss_avg": 2.42,
+    "z_diff": -0.25
+   }
+  }
+ },
+ "tcgportal_hancock": {
+  "winrate": 0.75,
+  "n": 48,
+  "win_corr_axes": [
+   "block",
+   "cheap_flood",
+   "leader_atk"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.06,
+    "loss_avg": 9.5,
+    "z_diff": -0.36
+   },
+   "big_body": {
+    "win_avg": 0.47,
+    "loss_avg": 1.0,
+    "z_diff": -0.72
+   },
+   "go_wide": {
+    "win_avg": 4.78,
+    "loss_avg": 4.83,
+    "z_diff": -0.04
+   },
+   "cheap_flood": {
+    "win_avg": 1.42,
+    "loss_avg": 1.42,
+    "z_diff": 0.0
+   },
+   "removal": {
+    "win_avg": 1.61,
+    "loss_avg": 1.67,
+    "z_diff": -0.05
+   },
+   "face_pump": {
+    "win_avg": 2.36,
+    "loss_avg": 2.5,
+    "z_diff": -0.08
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.92,
+    "loss_avg": 2.0,
+    "z_diff": -0.64
+   },
+   "block": {
+    "win_avg": 3.14,
+    "loss_avg": 3.08,
+    "z_diff": 0.03
+   }
+  }
+ },
+ "tcgportal_op11_luffy": {
+  "winrate": 0.438,
+  "n": 48,
+  "win_corr_axes": [
+   "ramp_maxdon",
+   "removal",
+   "leader_atk"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.86,
+    "loss_avg": 9.19,
+    "z_diff": 0.59
+   },
+   "big_body": {
+    "win_avg": 0.81,
+    "loss_avg": 1.0,
+    "z_diff": -0.22
+   },
+   "go_wide": {
+    "win_avg": 5.62,
+    "loss_avg": 5.7,
+    "z_diff": -0.04
+   },
+   "cheap_flood": {
+    "win_avg": 1.86,
+    "loss_avg": 2.33,
+    "z_diff": -0.46
+   },
+   "removal": {
+    "win_avg": 1.52,
+    "loss_avg": 1.33,
+    "z_diff": 0.15
+   },
+   "face_pump": {
+    "win_avg": 4.52,
+    "loss_avg": 4.78,
+    "z_diff": -0.09
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.43,
+    "loss_avg": 0.78,
+    "z_diff": -0.27
+   },
+   "block": {
+    "win_avg": 3.95,
+    "loss_avg": 4.3,
+    "z_diff": -0.14
+   }
+  }
+ },
+ "tcgportal_op13_luffy": {
+  "winrate": 0.396,
+  "n": 48,
+  "win_corr_axes": [
+   "face_pump",
+   "removal",
+   "ramp_maxdon"
+  ],
+  "signature": {
+   "ramp_maxdon": {
+    "win_avg": 9.53,
+    "loss_avg": 8.9,
+    "z_diff": 0.51
+   },
+   "big_body": {
+    "win_avg": 0.42,
+    "loss_avg": 0.62,
+    "z_diff": -0.28
+   },
+   "go_wide": {
+    "win_avg": 5.68,
+    "loss_avg": 5.21,
+    "z_diff": 0.32
+   },
+   "cheap_flood": {
+    "win_avg": 2.89,
+    "loss_avg": 2.72,
+    "z_diff": 0.15
+   },
+   "removal": {
+    "win_avg": 2.05,
+    "loss_avg": 1.0,
+    "z_diff": 0.84
+   },
+   "face_pump": {
+    "win_avg": 7.53,
+    "loss_avg": 3.31,
+    "z_diff": 1.14
+   },
+   "leader_atk": {
+    "win_avg": 0.0,
+    "loss_avg": 0.0,
+    "z_diff": 0.0
+   },
+   "life_to_hand": {
+    "win_avg": 0.26,
+    "loss_avg": 0.83,
+    "z_diff": -0.41
+   },
+   "block": {
+    "win_avg": 2.79,
+    "loss_avg": 2.83,
+    "z_diff": -0.02
+   }
+  }
+ }
+}
