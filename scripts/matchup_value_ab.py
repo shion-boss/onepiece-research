@@ -34,9 +34,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-# ⭐ collection で v6(=v5 tag + interaction)feature を記録。 v6[:34]=v5, v6[:21]=v2 の
-# column-slice 不変性で 1 収集から v2/v5/v6 を同一 data 学習 (= 完全 isolation)。
-os.environ.setdefault("ONEPIECE_GBM_V6", "1")
+# ⭐ collection で v8(=v6 + opp role-composition)feature を記録。 v8[:38]=v6, v8[:34]=v5, v8[:21]=v2 の
+# column-slice 不変性で 1 収集から v2/v5/v6/v8 を同一 data 学習 (= 完全 isolation)。
+os.environ.setdefault("ONEPIECE_GBM_V8", "1")
 
 from engine.deck import CardRepository, DeckList
 from engine.effects import load_effect_overlay
@@ -44,7 +44,7 @@ from engine.game import (setup_game, play_until_main, legal_actions,
                          AttachDonToLeader, AttackLeader)
 from engine.ai import play_one_action
 from engine.exploit_beam_ai import ExploitBeamAI
-from engine.gbm_value import features, FEATURE_KEYS_V2, FEATURE_KEYS_V5, FEATURE_KEYS_V6
+from engine.gbm_value import features, FEATURE_KEYS_V2, FEATURE_KEYS_V5, FEATURE_KEYS_V6, FEATURE_KEYS_V8
 
 _REPO = CardRepository.from_json(ROOT / "db" / "cards.json")
 _OVERLAY = load_effect_overlay(ROOT / "db" / "card_effects.json")
@@ -118,7 +118,7 @@ def gen_one(task):
     while not st.game_over and n < 400:
         me = st.turn_player_idx
         try:
-            recs.append(features(st, ei, v6=True))  # 38-dim: v2 cols + opp tags + interactions
+            recs.append(features(st, ei, v8=True))  # 46-dim: v6 + opp role-composition
         except Exception:
             pass
         try:
@@ -172,42 +172,43 @@ def main():
     n_pos = sum(y)
     print(f"[collect] samples={len(X)} (pos={n_pos}/{len(y)}={n_pos/max(1,len(y))*100:.0f}%) "
           f"dim={len(X[0]) if X else 0} ({time.time()-t0:.0f}s)", flush=True)
-    assert X and len(X[0]) == len(FEATURE_KEYS_V6), f"expected v6 dim {len(FEATURE_KEYS_V6)}, got {len(X[0]) if X else 0}"
+    assert X and len(X[0]) == len(FEATURE_KEYS_V8), f"expected v8 dim {len(FEATURE_KEYS_V8)}, got {len(X[0]) if X else 0}"
 
     # held-out AUC pre-filter: v2(cols[:21]) / v5(cols[:34]) / v6(full 38) を同一 split で
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import roc_auc_score
-    n21 = len(FEATURE_KEYS_V2); n34 = len(FEATURE_KEYS_V5)
+    n21 = len(FEATURE_KEYS_V2); n34 = len(FEATURE_KEYS_V5); n38 = len(FEATURE_KEYS_V6)
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=1, stratify=y if 0 < n_pos < len(y) else None)
-    slices = {"v2": n21, "v5": n34, "v6": len(FEATURE_KEYS_V6)}
+    slices = {"v2": n21, "v6": n38, "v8": len(FEATURE_KEYS_V8)}
     models = {}
     for arm, nf in slices.items():
         models[arm] = train_gbm([r[:nf] for r in Xtr], ytr)
     aucs = {arm: roc_auc_score(yte, [p[1] for p in models[arm].predict_proba([r[:slices[arm]] for r in Xte])])
             for arm in slices}
-    print(f"[AUC held-out] v2={aucs['v2']:.4f}  v5={aucs['v5']:.4f}(Δ{aucs['v5']-aucs['v2']:+.4f})  "
-          f"v6={aucs['v6']:.4f}(Δvs_v5 {aucs['v6']-aucs['v5']:+.4f})", flush=True)
+    print(f"[AUC held-out] v2={aucs['v2']:.4f}  v6={aucs['v6']:.4f}(Δ{aucs['v6']-aucs['v2']:+.4f})  "
+          f"v8={aucs['v8']:.4f}(Δvs_v6 {aucs['v8']-aucs['v6']:+.4f})", flush=True)
     TURN_IDX = 16
     em = [i for i, r in enumerate(Xte) if r[TURN_IDX] <= 8]
     if len(set(yte[i] for i in em)) == 2 and len(em) >= 30:
         ye = [yte[i] for i in em]
         ea = {arm: roc_auc_score(ye, [models[arm].predict_proba([Xte[i][:slices[arm]]])[0][1] for i in em]) for arm in slices}
-        print(f"[AUC turn<=8 (n={len(em)})] v2={ea['v2']:.4f}  v5={ea['v5']:.4f}  v6={ea['v6']:.4f} "
-              f"(v6-v2 Δ={ea['v6']-ea['v2']:+.4f})", flush=True)
-    # importance: v6 の interaction 4列が selection 信号として効いたか
-    imp = list(getattr(models["v6"], "feature_importances_", []))
+        print(f"[AUC turn<=8 (n={len(em)})] v2={ea['v2']:.4f}  v6={ea['v6']:.4f}  v8={ea['v8']:.4f} "
+              f"(v8-v6 Δ={ea['v8']-ea['v6']:+.4f})", flush=True)
+    # importance: v8 の opp role-composition 8列が selection 信号として効いたか
+    imp = list(getattr(models["v8"], "feature_importances_", []))
     if imp:
-        print(f"[v6 importance] tag13={sum(imp[n21:n34]):.3f}  interaction4={sum(imp[n34:]):.3f}  board21={sum(imp[:n21]):.3f}", flush=True)
-        ixk = list(FEATURE_KEYS_V6[n34:])
-        print("   interactions:", ", ".join(f"{k}={v:.3f}" for k, v in zip(ixk, imp[n34:])), flush=True)
+        print(f"[v8 importance] opprole8={sum(imp[n38:]):.3f}  v6part38={sum(imp[:n38]):.3f}", flush=True)
+        rk = list(FEATURE_KEYS_V8[n38:])
+        top = sorted(zip(rk, imp[n38:]), key=lambda z: -z[1])[:5]
+        print("   top opp-role:", ", ".join(f"{k}={v:.3f}" for k, v in top if v > 0), flush=True)
 
     # full data で deploy 用 model を再学習・保存
     for arm, nf in slices.items():
         m = train_gbm([r[:nf] for r in X], y)
         pickle.dump(m, open(outdir / f"{prefix}{arm}.pkl", "wb"))
-    print(f"[saved] {prefix}{{v2(21)/v5(34)/v6(38)}}.pkl", flush=True)
+    print(f"[saved] {prefix}{{v2(21)/v6(38)/v8(46)}}.pkl", flush=True)
     print(f"\n[next] deploy A/B: scripts/matchup_value_deploy_ab.py --deck {DECK} "
-          f"--opps {','.join(OPPS)} --prefix {prefix} --arms default,v2,v5,v6 --n 50", flush=True)
+          f"--opps {','.join(OPPS)} --prefix {prefix} --arms default,v6,v8 --n 50", flush=True)
 
 
 if __name__ == "__main__":

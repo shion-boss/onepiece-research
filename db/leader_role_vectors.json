@@ -1,0 +1,239 @@
+{
+ "_doc": "leader id → 正規化 role-composition(=相手 concept signature)。 matchup value v8 の opp 条件付け用。 db/deck_roles.json(card-pool分析)から生成。",
+ "dims": [
+  "ramp",
+  "big_threat",
+  "removal",
+  "protection",
+  "card_adv",
+  "go_wide",
+  "defense",
+  "recovery"
+ ],
+ "leaders": {
+  "OP14-060": {
+   "slug": "cardrush_1342",
+   "name": "紫ドフラミンゴ",
+   "vec": {
+    "ramp": 0.276,
+    "big_threat": 0.124,
+    "removal": 0.21,
+    "protection": 0.057,
+    "card_adv": 0.124,
+    "go_wide": 0.114,
+    "defense": 0.057,
+    "recovery": 0.038
+   }
+  },
+  "OP14-079": {
+   "slug": "cardrush_1385",
+   "name": "黒クロコダイル",
+   "vec": {
+    "ramp": 0.0,
+    "big_threat": 0.15,
+    "removal": 0.225,
+    "protection": 0.0,
+    "card_adv": 0.325,
+    "go_wide": 0.188,
+    "defense": 0.113,
+    "recovery": 0.0
+   }
+  },
+  "OP13-079": {
+   "slug": "cardrush_1392",
+   "name": "黒イム",
+   "vec": {
+    "ramp": 0.0,
+    "big_threat": 0.087,
+    "removal": 0.13,
+    "protection": 0.217,
+    "card_adv": 0.261,
+    "go_wide": 0.087,
+    "defense": 0.217,
+    "recovery": 0.0
+   }
+  },
+  "OP15-002": {
+   "slug": "cardrush_1399",
+   "name": "赤青ルーシー",
+   "vec": {
+    "ramp": 0.0,
+    "big_threat": 0.071,
+    "removal": 0.214,
+    "protection": 0.057,
+    "card_adv": 0.314,
+    "go_wide": 0.171,
+    "defense": 0.171,
+    "recovery": 0.0
+   }
+  },
+  "OP11-041": {
+   "slug": "cardrush_1439",
+   "name": "青黄ナミ",
+   "vec": {
+    "ramp": 0.067,
+    "big_threat": 0.105,
+    "removal": 0.257,
+    "protection": 0.0,
+    "card_adv": 0.276,
+    "go_wide": 0.086,
+    "defense": 0.133,
+    "recovery": 0.076
+   }
+  },
+  "OP14-020": {
+   "slug": "cardrush_1453",
+   "name": "緑ミホーク",
+   "vec": {
+    "ramp": 0.189,
+    "big_threat": 0.084,
+    "removal": 0.158,
+    "protection": 0.042,
+    "card_adv": 0.168,
+    "go_wide": 0.189,
+    "defense": 0.168,
+    "recovery": 0.0
+   }
+  },
+  "OP15-058": {
+   "slug": "cardrush_1454",
+   "name": "紫エネル",
+   "vec": {
+    "ramp": 0.091,
+    "big_threat": 0.04,
+    "removal": 0.081,
+    "protection": 0.04,
+    "card_adv": 0.374,
+    "go_wide": 0.121,
+    "defense": 0.253,
+    "recovery": 0.0
+   }
+  },
+  "OP15-098": {
+   "slug": "cardrush_1455",
+   "name": "空島ルフィ",
+   "vec": {
+    "ramp": 0.048,
+    "big_threat": 0.119,
+    "removal": 0.155,
+    "protection": 0.0,
+    "card_adv": 0.179,
+    "go_wide": 0.143,
+    "defense": 0.143,
+    "recovery": 0.214
+   }
+  },
+  "OP13-002": {
+   "slug": "cardrush_1456",
+   "name": "赤青エース",
+   "vec": {
+    "ramp": 0.09,
+    "big_threat": 0.191,
+    "removal": 0.101,
+    "protection": 0.0,
+    "card_adv": 0.281,
+    "go_wide": 0.135,
+    "defense": 0.157,
+    "recovery": 0.045
+   }
+  },
+  "EB04-001": {
+   "slug": "tcgportal_bonney",
+   "name": "赤黄ボニー",
+   "vec": {
+    "ramp": 0.042,
+    "big_threat": 0.146,
+    "removal": 0.125,
+    "protection": 0.0,
+    "card_adv": 0.208,
+    "go_wide": 0.188,
+    "defense": 0.208,
+    "recovery": 0.083
+   }
+  },
+  "OP08-098": {
+   "slug": "tcgportal_calgara",
+   "name": "黄カルガラ",
+   "vec": {
+    "ramp": 0.104,
+    "big_threat": 0.104,
+    "removal": 0.104,
+    "protection": 0.0,
+    "card_adv": 0.338,
+    "go_wide": 0.143,
+    "defense": 0.104,
+    "recovery": 0.104
+   }
+  },
+  "OP11-001": {
+   "slug": "tcgportal_coby",
+   "name": "赤黒コビー",
+   "vec": {
+    "ramp": 0.053,
+    "big_threat": 0.105,
+    "removal": 0.132,
+    "protection": 0.053,
+    "card_adv": 0.211,
+    "go_wide": 0.329,
+    "defense": 0.118,
+    "recovery": 0.0
+   }
+  },
+  "OP12-061": {
+   "slug": "tcgportal_corazon",
+   "name": "紫黄ロシナンテ",
+   "vec": {
+    "ramp": 0.104,
+    "big_threat": 0.146,
+    "removal": 0.021,
+    "protection": 0.021,
+    "card_adv": 0.271,
+    "go_wide": 0.24,
+    "defense": 0.156,
+    "recovery": 0.042
+   }
+  },
+  "OP14-041": {
+   "slug": "tcgportal_hancock",
+   "name": "青黄ハンコック",
+   "vec": {
+    "ramp": 0.086,
+    "big_threat": 0.136,
+    "removal": 0.037,
+    "protection": 0.0,
+    "card_adv": 0.222,
+    "go_wide": 0.185,
+    "defense": 0.148,
+    "recovery": 0.185
+   }
+  },
+  "OP11-040": {
+   "slug": "tcgportal_op11_luffy",
+   "name": "青紫ルフィ",
+   "vec": {
+    "ramp": 0.267,
+    "big_threat": 0.089,
+    "removal": 0.044,
+    "protection": 0.0,
+    "card_adv": 0.267,
+    "go_wide": 0.2,
+    "defense": 0.133,
+    "recovery": 0.0
+   }
+  },
+  "OP13-001": {
+   "slug": "tcgportal_op13_luffy",
+   "name": "赤緑ルフィ（OP13）",
+   "vec": {
+    "ramp": 0.296,
+    "big_threat": 0.163,
+    "removal": 0.122,
+    "protection": 0.041,
+    "card_adv": 0.082,
+    "go_wide": 0.143,
+    "defense": 0.153,
+    "recovery": 0.0
+   }
+  }
+ }
+}

@@ -151,6 +151,43 @@ def _balance_features(state: Any, me_idx: int) -> list:
     opp_aggr = 1.0 if (_opp_tag_set(state, me_idx) & _AGGRO_TAGS) else 0.0
     return [my_ld, opp_ld, my_act, opp_act, my_ld * opp_aggr, opp_act * opp_aggr]
 
+
+# v8 = 46 (2026-06-29): ohtsuki『archetype 判定が粗い。 相手 concept を matchup value の opp 条件付けに』
+# (= 効いた v5/v6 の延長、 [[project_leader_aware_matchup_ai]] B)。 v5 の粗い tag(13、 control が
+# dofla/im/nami を束ねる)を、 相手 deck の **role-composition signature**(= card-pool 分析の
+# 正規化 role 密度、 db/leader_role_vectors.json)で精緻化。 dofla= ramp0.28/nami= removal+cardadv/
+# im= protection+cardadv と「control」を細分 → value が相手 concept 毎に条件付けを学べる。 opp leader
+# (公開)で引く = 相手 deck を leader から予想する prior。 未知 leader は全0(neutral)。
+_ROLE_DIMS = ("ramp", "big_threat", "removal", "protection", "card_adv", "go_wide", "defense", "recovery")
+FEATURE_KEYS_V8 = FEATURE_KEYS_V6 + tuple("opprole_" + r for r in _ROLE_DIMS)
+_OPP_ROLE_CACHE: Optional[dict] = None
+
+
+def _opp_role_vector(state: Any, me_idx: int) -> list:
+    """相手 leader → role-composition signature(= concept、 正規化 role 密度 8 次元)。 未知は全0。"""
+    global _OPP_ROLE_CACHE
+    if _OPP_ROLE_CACHE is None:
+        try:
+            import json as _json
+            p = _REPO_ROOT_RV() / "db" / "leader_role_vectors.json"
+            _OPP_ROLE_CACHE = _json.loads(p.read_text(encoding="utf-8")).get("leaders", {})
+        except Exception:
+            _OPP_ROLE_CACHE = {}
+    try:
+        lid = state.players[1 - me_idx].leader.card.card_id
+    except Exception:
+        return [0.0] * len(_ROLE_DIMS)
+    e = _OPP_ROLE_CACHE.get(lid)
+    if not e:
+        return [0.0] * len(_ROLE_DIMS)
+    vec = e.get("vec", {})
+    return [float(vec.get(r, 0.0)) for r in _ROLE_DIMS]
+
+
+def _REPO_ROOT_RV():
+    from pathlib import Path as _P
+    return _P(__file__).resolve().parent.parent
+
 # card-advantage を生む primitive (= grind/draw power)。 overlay 実測の key 名に厳密一致。
 _ENGINE_PRIMS = frozenset({
     "draw", "draw_to_hand_size", "draw_per_hand_to_deck_bottom",
@@ -244,7 +281,7 @@ SCALE = 1_000_000.0
 def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v3: Optional[bool] = None, v4: Optional[bool] = None,
              v5: Optional[bool] = None, v6: Optional[bool] = None,
-             v7: Optional[bool] = None) -> list:
+             v7: Optional[bool] = None, v8: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -278,8 +315,12 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v6 = os.environ.get("ONEPIECE_GBM_V6") == "1"
     if v7 is None:
         v7 = os.environ.get("ONEPIECE_GBM_V7") == "1"
+    if v8 is None:
+        v8 = os.environ.get("ONEPIECE_GBM_V8") == "1"
     if v7:
         v6 = True  # v7 ⊃ v6 (balance)
+    if v8:
+        v6 = True  # v8 ⊃ v6 (opp role-composition)
     if v6:
         v5 = True  # v6 ⊃ v5 (tag + interaction)
     if v3 or v4 or v5:
@@ -310,6 +351,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         out += _opp_matchup_interaction_vector(state, me_idx)
     if v7:
         out += _balance_features(state, me_idx)
+    if v8:
+        out += _opp_role_vector(state, me_idx)
     return out
 
 
@@ -350,7 +393,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                       v4=(n_feat == len(FEATURE_KEYS_V4)),
                       v5=(n_feat == len(FEATURE_KEYS_V5)),
                       v6=(n_feat == len(FEATURE_KEYS_V6)),
-                      v7=(n_feat == len(FEATURE_KEYS_V7)))]
+                      v7=(n_feat == len(FEATURE_KEYS_V7)),
+                      v8=(n_feat == len(FEATURE_KEYS_V8)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
