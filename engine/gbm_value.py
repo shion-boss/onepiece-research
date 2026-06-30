@@ -162,6 +162,28 @@ _ROLE_DIMS = ("ramp", "big_threat", "removal", "protection", "card_adv", "go_wid
 FEATURE_KEYS_V8 = FEATURE_KEYS_V6 + tuple("opprole_" + r for r in _ROLE_DIMS)
 _OPP_ROLE_CACHE: Optional[dict] = None
 
+# v9 = 39 (2026-06-29): residual-guarantee。 ohtsuki『全デッキ同じ v に統一 + 新版は旧を下回るな
+# (v6⊇v2 なら最低 v2 同等のはず)』([[feedback_uniform_value_version]])。 v6 が deploy で v2 に
+# 負ける deck(corazon: win-starved 6% で AUC>v2 でも deploy<v2)を、 **v2 の予測を anchor 列として
+# 渡す**ことで構造保証: GBM は v2_anchor をそのまま出力する選択肢を持つ → v6 を v2 に anchor し、
+# matchup 列で上回れる時だけ補正 → **構造的に v2 を下回りにくい**。 win-starved deck は補正≒0 で
+# v9≈v2(回帰なし)、 強い deck は補正で v9>v2。 v2_anchor は companion v2 model(= value_gbm_<slug>
+# _v2anchor.pkl)の predict。 訓練/推論で同一に計算。
+FEATURE_KEYS_V9 = FEATURE_KEYS_V6 + ("v2_anchor",)
+
+
+def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
+    """companion v2 model(21-dim)の P(win) を anchor feature として返す。 失敗時 0.5(neutral)。"""
+    try:
+        m = _load(anchor_path)
+        # 明示 False で env (ONEPIECE_GBM_V5/V6/...) の上書きを遮断 → 純 v2 (21-dim) を保証。
+        x21 = features(state, me_idx, rich=True, v3=False, v4=False, v5=False, v6=False, v7=False, v8=False)
+        if hasattr(m, "predict_proba"):
+            return float(m.predict_proba([x21])[0][1])
+        return min(1.0, max(0.0, float(m.predict([x21])[0])))
+    except Exception:
+        return 0.5
+
 
 def _opp_role_vector(state: Any, me_idx: int) -> list:
     """相手 leader → role-composition signature(= concept、 正規化 role 密度 8 次元)。 未知は全0。"""
@@ -275,6 +297,7 @@ def _zone_potency(p) -> tuple:
 
 _MODEL = None
 _MODEL_PATH: Optional[str] = None
+_MODEL_CACHE: dict = {}  # path -> model (multi-slot: v9 は main + companion v2anchor を交互 load するため)
 SCALE = 1_000_000.0
 
 
@@ -358,13 +381,15 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
 
 def _load(path: str):
     global _MODEL, _MODEL_PATH
-    if _MODEL is not None and _MODEL_PATH == path:
-        return _MODEL
+    m = _MODEL_CACHE.get(path)
+    if m is not None:
+        return m
     import pickle
     with open(path, "rb") as f:
-        _MODEL = pickle.load(f)
-    _MODEL_PATH = path
-    return _MODEL
+        m = pickle.load(f)
+    _MODEL_CACHE[path] = m
+    _MODEL, _MODEL_PATH = m, path  # 後方互換 (旧 single-slot を参照する箇所向け)
+    return m
 
 
 def gbm_score(state: Any, me_idx: int) -> Optional[float]:
@@ -385,7 +410,26 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
         return 0.0
     try:
         model = _load(path)
-        # model の次元で v1(17)/v2(21)/v3(23) を自動判別 (= 既存 GBM を壊さず後方互換)。
+        # ── v9 residual wrapper (hard residual-guarantee) ─────────────────────
+        # dict {"kind":"v9_residual", "anchor": v2 model(21), "resid": 38-dim regressor, "lam": float}。
+        # p = clip(p_anchor + lam * resid(38feat))。 p_anchor は配備 v2 を**常に全強度**で base に置く →
+        # 構造的に v2 を下回らない(lam=0 で厳密 v2)。 resid は matchup/board 38 列の**残差**のみ学習
+        # (heavily regularized)→ 過適合した noise が base を上書きできない。 feature-anchor(v9 39-dim
+        # classifier)が deploy で regress した教訓: anchor を 1 feature にすると GBM が無視して 38 列の
+        # rare-win overfit に倒れる。 base+correction の分離で hard floor を担保。 [[feedback_uniform_value_version]]
+        if isinstance(model, dict) and model.get("kind") == "v9_residual":
+            feat21 = features(state, me_idx, rich=True, v3=False, v4=False,
+                              v5=False, v6=False, v7=False, v8=False)
+            feat38 = features(state, me_idx, v6=True, v7=False, v8=False)
+            anchor = model["anchor"]
+            if hasattr(anchor, "predict_proba"):
+                p_anchor = float(anchor.predict_proba([feat21])[0][1])
+            else:
+                p_anchor = min(1.0, max(0.0, float(anchor.predict([feat21])[0])))
+            resid = float(model["resid"].predict([feat38])[0])
+            p = min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
+            return (p - 0.5) * SCALE
+        # ── 通常 GBM (次元で v1(17)/v2(21)/.../v8(46) 自動判別、 後方互換) ───────
         n_feat = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
         x = [features(state, me_idx,
                       rich=(n_feat == len(FEATURE_KEYS_V2)),
