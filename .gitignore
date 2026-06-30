@@ -259,3 +259,7 @@ db/_autotune/
 # self-play 学習成果物 (= GBM model pkl + run logs、 全て再生成可能)。
 # [[project_selfplay_self_improvement_engine]] / skill onepiece-selfplay-dethrone
 db/_selfplay/
+
+# 実験スコアボード (= beam-upgrade / rollout-GBM 等の集計出力、 再生成可能)。
+# [[project_rollout_gbm_value]]
+db/*_scoreboard*.json
