@@ -191,6 +191,54 @@ def _record_divergence(session: HumanSession, idx: int) -> None:
         pass  # divergence ロギングはベストエフォート (= 対戦を止めない)
 
 
+def _record_distill_state(session) -> None:
+    """Claude の決定局面の v6 (38次元) 特徴量を pending buffer に記録。 game_over で outcome を付与し
+    distill corpus (= value 学習用) にする。 divergence(サマリ)と違い**全特徴量**を保存 = distill 可能。
+    ONEPIECE_DIVLOG=1 の時のみ (= 収集モード)。 ベストエフォート。"""
+    if not os.environ.get("ONEPIECE_DIVLOG"):
+        return
+    try:
+        from engine.core import Phase
+        from engine.gbm_value import features
+        st = session.state
+        if st.game_over or st.phase != Phase.MAIN or st.turn_player_idx != session.human_idx:
+            return
+        feat = features(st, session.human_idx, v6=True)  # 38-dim、 env 非依存
+        meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
+        slug = meta.get("deck", "unknown")
+        path = ROOT / "db" / "claude_play" / f"pending_{slug}.jsonl"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"feat": feat, "turn": int(getattr(st, "turn_number", 0))}) + "\n")
+    except Exception:
+        pass
+
+
+def _flush_distill(session) -> None:
+    """game_over 時、 pending 特徴量に outcome (Claude 勝=1/負=0) を付与し distill_<slug>.jsonl へ移す。
+    = 「Claude の良い play の局面 → 勝敗」 = value 学習データ (循環を破る expert 分布)。"""
+    try:
+        st = session.state
+        if not st.game_over:
+            return
+        meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
+        slug = meta.get("deck", "unknown")
+        pending = ROOT / "db" / "claude_play" / f"pending_{slug}.jsonl"
+        if not pending.exists():
+            return
+        y = 1 if getattr(st, "winner", -1) == session.human_idx else 0
+        out = ROOT / "db" / "claude_play" / f"distill_{slug}.jsonl"
+        with open(pending, encoding="utf-8") as pf, open(out, "a", encoding="utf-8") as of:
+            for line in pf:
+                try:
+                    r = json.loads(line); r["y"] = y
+                    of.write(json.dumps(r) + "\n")
+                except Exception:
+                    pass
+        pending.unlink()  # 次局のためにクリア
+    except Exception:
+        pass
+
+
 def _find_don_idx(session: HumanSession, iid: str):
     """iid (= leader iid or キャラ iid) への DON+1 アクション idx を返す。"""
     actions = legal_actions(session.state)
@@ -364,6 +412,7 @@ def main() -> None:
             json.dumps({"deck": args.deck, "opp": opp_slug, "seed": args.seed}),
             encoding="utf-8",
         )
+        (ROOT / "db" / "claude_play" / f"pending_{args.deck}.jsonl").unlink(missing_ok=True)
         _save(session)
         mode = f"{args.deck} (私) vs {opp_slug} (AI)" if opp_slug != args.deck else f"ミラー {args.deck}"
         first = "私(先攻)" if session.human_idx == 0 else "ExploitBeam(先攻)"
@@ -382,6 +431,7 @@ def main() -> None:
             session.apply_human_choice(picks)
         elif args.cmd == "move":
             _record_divergence(session, args.idx)
+            _record_distill_state(session)
             session.apply_human_action(args.idx)
         elif args.cmd == "choice":
             session.apply_human_choice(list(args.idx))
@@ -415,12 +465,14 @@ def main() -> None:
                 _render(session)
                 return
             _record_divergence(session, idx)
+            _record_distill_state(session)
             session.apply_human_action(idx)
     except ValueError as e:
         print(f"[不正な手] {e}")
         _render(session)
         return
 
+    _flush_distill(session)  # game_over なら pending 特徴量に勝敗ラベルを付与し distill corpus へ
     _save(session)
     _render(session)
 
