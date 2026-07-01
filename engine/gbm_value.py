@@ -171,6 +171,14 @@ _OPP_ROLE_CACHE: Optional[dict] = None
 # _v2anchor.pkl)の predict。 訓練/推論で同一に計算。
 FEATURE_KEYS_V9 = FEATURE_KEYS_V6 + ("v2_anchor",)
 
+# v6don = 40 (2026-06-30): v6 + active DON 経済 2 列 (me/opp の don_active)。
+# ohtsuki 観察『紫エネルが pay_don イベントを使いすぎて DON を戻しすぎ』([[feedback_don_quality_over_quantity]])。
+# 根因: value の DON feature は total_don のみ (= _player_metrics) で **active DON (= 今動かせる DON)**
+# を見ていない → pay_don イベントで active DON が枯れても value が気づけず乱発。 active_don を足すと
+# 「イベントを打つべきか (= DON を払う価値があるか)」 を value が学習できる。 v6 の末尾に append (=
+# v6don[:38] == v6、 column-slice 互換)。 per-deck 学習なので 6-DON エネル等は文脈込みで価格付けを学ぶ。
+FEATURE_KEYS_V6DON = FEATURE_KEYS_V6 + ("don_active_me", "don_active_opp")
+
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
     """companion v2 model(21-dim)の P(win) を anchor feature として返す。 失敗時 0.5(neutral)。"""
@@ -304,7 +312,8 @@ SCALE = 1_000_000.0
 def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v3: Optional[bool] = None, v4: Optional[bool] = None,
              v5: Optional[bool] = None, v6: Optional[bool] = None,
-             v7: Optional[bool] = None, v8: Optional[bool] = None) -> list:
+             v7: Optional[bool] = None, v8: Optional[bool] = None,
+             v6don: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -340,6 +349,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v7 = os.environ.get("ONEPIECE_GBM_V7") == "1"
     if v8 is None:
         v8 = os.environ.get("ONEPIECE_GBM_V8") == "1"
+    if v6don is None:
+        v6don = os.environ.get("ONEPIECE_GBM_V6DON") == "1"
+    if v6don:
+        v6 = True  # v6don ⊃ v6 (+ active DON 経済)。 末尾に don_active を append。
     if v7:
         v6 = True  # v7 ⊃ v6 (balance)
     if v8:
@@ -376,6 +389,13 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         out += _balance_features(state, me_idx)
     if v8:
         out += _opp_role_vector(state, me_idx)
+    if v6don:
+        # active DON 経済 (= 今動かせる DON)。 DON 配分 (召喚/イベント/付与) の最適化を value が
+        # 学習するための根本 feature ([[feedback_don_quality_over_quantity]])。 v6 末尾に append。
+        out += [
+            int(getattr(me_p, "don_active", 0) or 0),
+            int(getattr(opp_p, "don_active", 0) or 0),
+        ]
     return out
 
 
@@ -438,7 +458,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                       v5=(n_feat == len(FEATURE_KEYS_V5)),
                       v6=(n_feat == len(FEATURE_KEYS_V6)),
                       v7=(n_feat == len(FEATURE_KEYS_V7)),
-                      v8=(n_feat == len(FEATURE_KEYS_V8)))]
+                      v8=(n_feat == len(FEATURE_KEYS_V8)),
+                      v6don=(n_feat == len(FEATURE_KEYS_V6DON)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):

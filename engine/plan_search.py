@@ -869,13 +869,49 @@ def search_turn_plan(
             return compute_score(cur_state, me_idx)
         return compute_score(ev, me_idx)
 
-    best_plan: list = []
-    best_score = -float("inf")
+    scored = []
     for cur_state, plan in completed:
         s = _eval_state(cur_state, plan)
         s += _unused_attached_don_penalty(cur_state, plan)
         s += _unused_attacker_penalty_strong(cur_state, plan)
-        if s > best_score:
-            best_score = s
-            best_plan = plan
+        scored.append((s, plan))
+    if not scored:
+        return [], -float("inf")
+    # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
+    # argmax(exploit) でなく softmax(score/(T*sd)) で plan を確率サンプル → 「良さそうな手ほど
+    # 高確率、 だが接戦の uncertain な手も試す」。 打ってみないと良し悪しは分からない → 訓練で
+    # uncertain な手を試して outcome から学ぶ (= AlphaZero self-play、 ohtsuki 2026-07-01)。
+    # 既定 0 = off(argmax、 配備/eval は必ずこれ)。 訓練のみ T>0 (例 0.5〜1.0)。
+    import os as _os2
+    _temp = 0.0
+    try:
+        _temp = float(_os2.environ.get("ONEPIECE_PLAN_TEMPERATURE", "0") or 0)
+    except Exception:
+        _temp = 0.0
+    if _temp > 0 and len(scored) > 1:
+        import math as _m
+        import statistics as _st
+        from collections import defaultdict as _dd
+        _rng = getattr(state, "rng", None) or random
+        # ⭐ 探索は「実際に打つ手 = plan の first move」 単位で。 first move で group 化し、
+        # 各 first move の best plan score で softmax サンプル (= uncertain な"打つ手"を試す)。
+        # whole-plan sample だと top plan が同じ first move を共有し打つ手が変わらない為。
+        groups = _dd(list)
+        for s, plan in scored:
+            key = str(plan[0]) if plan else "__end__"
+            groups[key].append((s, plan))
+        best_per_move = [max(g, key=lambda x: x[0]) for g in groups.values()]  # [(s, plan)]
+        if len(best_per_move) > 1:
+            smax = max(s for s, _ in best_per_move)
+            sd = _st.pstdev([s for s, _ in best_per_move]) or 1.0
+            ws = [_m.exp((s - smax) / (_temp * sd)) for s, _ in best_per_move]
+            tot = sum(ws) or 1.0
+            r = _rng.random() * tot
+            acc = 0.0
+            for (s, plan), w in zip(best_per_move, ws):
+                acc += w
+                if acc >= r:
+                    return plan, s
+            return best_per_move[-1][1], best_per_move[-1][0]
+    best_score, best_plan = max(scored, key=lambda x: x[0])
     return best_plan, best_score

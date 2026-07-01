@@ -39,6 +39,8 @@ DECK = "cardrush_1467"
 OPPS = ["tcgportal_calgara"]  # 訓練相手の集合 = 現#1 + 過去の#1 を累積 (= 単一相手の過適合を防ぐ、 ohtsuki「ループで汎化」)
 OPP = OPPS[0]  # primary 標的 = #1 (in-loop eval / 命名用)
 BEAM_W, BEAM_D = 8, 6  # 既定 moderate(速度)。 配備忠実 deploy 用に main で 16/10 に上げられる
+TRAIN_POSTOPP_TURNS = 1  # 訓練時の手選択の多ターン探索深さ (1=現挙動)。 >1 で多ターン探索データ生成
+TRAIN_TEMP = 0.0  # 訓練時の温度探索 (0=argmax)。 >0 で beam 候補を softmax サンプル = uncertain な手を試す
 
 
 def _dl(s):
@@ -68,9 +70,13 @@ class ExploreBeamAI(ExploitBeamAI):
         return super().choose_action(state)
 
 
-def _mk_enel(seed, epsilon, learn_gbm):
+def _mk_enel(seed, epsilon, learn_gbm, postopp_turns=1, plan_temperature=0.0):
+    # postopp_turns>1 = 多ターン探索で手選択。 plan_temperature>0 = 温度サンプルで uncertain な手も試す
+    # (= AlphaZero self-play 探索、 打ってみないと良し悪しは分からない)。 どちらも**訓練時のみ**、
+    # eval(配備)は postopp_turns=1 + temperature=0(argmax)= 高速 value 推論。
     return ExploreBeamAI(rng=random.Random(seed), deck_analysis={**_ana(DECK), "deck_slug": DECK},
-                         epsilon=epsilon, learn_gbm=learn_gbm, beam_width=BEAM_W, max_depth=BEAM_D)
+                         epsilon=epsilon, learn_gbm=learn_gbm, beam_width=BEAM_W, max_depth=BEAM_D,
+                         postopp_turns=postopp_turns, plan_temperature=plan_temperature)
 
 
 def _mk_cal(seed, opp):
@@ -103,7 +109,9 @@ def gen_one(task):
     opp = OPPS[seed % len(OPPS)]  # 累積相手集合から rotate (= 多様化、 過適合防止)
     st, ei = _setup(seed % 2 == 0, seed, opp)
     play_until_main(st)
-    ais = _wire(st, ei, _mk_enel(seed, epsilon, learn_gbm), _mk_cal(seed, opp))
+    # 訓練の手選択: 多ターン探索(TRAIN_POSTOPP_TURNS) + 温度探索(TRAIN_TEMP、 uncertain な手を試す)。
+    ais = _wire(st, ei, _mk_enel(seed, epsilon, learn_gbm, postopp_turns=TRAIN_POSTOPP_TURNS,
+                                 plan_temperature=TRAIN_TEMP), _mk_cal(seed, opp))
     recs = []
     n = 0
     while not st.game_over and n < 400:
@@ -165,11 +173,17 @@ def main():
     ap.add_argument("--epsilon", type=float, default=0.25)
     ap.add_argument("--eps-end", type=float, default=0.05)
     ap.add_argument("--workers", type=int, default=12)
+    ap.add_argument("--train-postopp-turns", type=int, default=1,
+                    help="訓練時の手選択の多ターン探索深さ (1=現挙動/2=多ターン探索でデータ生成)。 eval は常に 1(高速配備)")
+    ap.add_argument("--train-temp", type=float, default=0.0,
+                    help="訓練時の温度探索 (0=argmax/0.5〜1.0=uncertain な手を試す)。 eval は常に 0(argmax配備)")
     a = ap.parse_args()
-    global DECK, OPP, OPPS
+    global DECK, OPP, OPPS, TRAIN_POSTOPP_TURNS, TRAIN_TEMP
     DECK = a.deck
     OPPS = [s.strip() for s in a.opp.split(",")]  # comma list = 累積相手集合
     OPP = OPPS[0]  # primary 標的 (eval/gate/命名)
+    TRAIN_POSTOPP_TURNS = a.train_postopp_turns
+    TRAIN_TEMP = a.train_temp
     global BEAM_W, BEAM_D
     BEAM_W, BEAM_D = a.beam_width, a.max_depth
     outdir = ROOT / "db" / "_selfplay"
