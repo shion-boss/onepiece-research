@@ -328,6 +328,7 @@ onepiece_research/
 - `rules/*.pdf`: 公式ルール一次情報
 - `faq/*.json`: 公式 FAQ + cardqa (2,500+ 件)
 - `banlist/master.json`: 禁止/制限カード
+- `opponent_deck_priors.json`: **相手デッキ belief モデル** (= leader → P(card|50枚) prior + 実大会レシピ bootstrap pool、 175 deck/20 leader)。 相手 leader (公開情報) から中身を推定し、 (1) value の threat feature (2) determinization サンプラー (3) 分析 UI の土台。 runtime = `engine/opponent_deck_model.py` (belief_for_leader / sample_main / top_cards、 seen で事後更新)。 builder = `scripts/build_opponent_deck_priors.py` (corpus = decks/*.json + decks/_archive/cardrush_raw/*.json)。 ⚠ **まだ配備 AI には未配線** (= linchpin 単体。 次に determinize + v6 feature へ接続予定、 [[project_opponent_deck_belief_model]])
 
 ## 開発コマンド
 
