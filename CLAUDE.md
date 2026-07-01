@@ -328,7 +328,8 @@ onepiece_research/
 - `rules/*.pdf`: 公式ルール一次情報
 - `faq/*.json`: 公式 FAQ + cardqa (2,500+ 件)
 - `banlist/master.json`: 禁止/制限カード
-- `opponent_deck_priors.json`: **相手デッキ belief モデル** (= leader → P(card|50枚) prior + 実大会レシピ bootstrap pool、 175 deck/20 leader)。 相手 leader (公開情報) から中身を推定し、 (1) value の threat feature (2) determinization サンプラー (3) 分析 UI の土台。 runtime = `engine/opponent_deck_model.py` (belief_for_leader / sample_main / top_cards、 seen で事後更新)。 builder = `scripts/build_opponent_deck_priors.py` (corpus = decks/*.json + decks/_archive/cardrush_raw/*.json)。 ⚠ **まだ配備 AI には未配線** (= linchpin 単体。 次に determinize + v6 feature へ接続予定、 [[project_opponent_deck_belief_model]])
+- `opponent_deck_priors.json`: **相手デッキ belief モデル** (= B軸 相手理解、 leader → P(card|50枚) prior + 実大会レシピ bootstrap pool、 175 deck/20 leader)。 相手 leader (公開情報) から中身を推定し、 (1) value の threat feature (2) determinization サンプラー (3) 分析 UI の土台。 runtime = `engine/opponent_deck_model.py` (belief_for_leader / sample_main / top_cards、 seen で事後更新)。 builder = `scripts/build_opponent_deck_priors.py` (corpus = decks/*.json + decks/_archive/cardrush_raw/*.json)。 ⚠ **まだ配備 AI には未配線** (= linchpin 単体。 次に determinize + v6 feature へ接続予定、 [[project_opponent_deck_belief_model]])
+- `leader_effect_profiles.json`: **リーダー効果の型 + 使い方 prior** (= A軸 自分理解、 opponent_deck_priors の対称、 318 leader)。 overlay の DSL から効果を分類 — timing(active=起動で時を選ぶ / attack / reactive / automatic / passive)× role(draw_engine/ramp/removal/aggression/enabler/develop/life_defense) → usage_pattern(engine_use_often / hold_for_threat / enabler_this_turn 等)。 「リーダー効果を いつ/どう 使うと強いか」 の粗い prior (精密な timing は多ターン探索 + Claude 教師が埋める、 play ログ無い為)。 runtime = `engine/leader_effect_profile.py` (primary_usage / when_decision / usage_hint / active_effects)。 builder = `scripts/build_leader_effect_profiles.py`。 ⚠ **まだ配備 AI には未配線** ([[project_opponent_deck_belief_model]] の A軸)
 
 ## 開発コマンド
 
