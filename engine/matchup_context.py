@@ -172,7 +172,11 @@ def format_context_text(ctx: dict[str, Any]) -> str:
         lines.append(f"[相手] {opp.get('leader_name')} が握る/積む脅威 ({conf}):")
         for t in opp.get("top_threats", []):
             p = int(round(t["prob"] * 100))
-            lines.append(f"  {t['name'] or t['card_id']} ({t['category']}, {p}% × {t['exp_count']}枚)")
+            cost = t.get("cost")
+            cost_s = f"cost{cost}, " if cost is not None else ""
+            lines.append(
+                f"  {t['name'] or t['card_id']} ({cost_s}{t['category']}, {p}%×{t['exp_count']}枚)"
+            )
     else:
         lines.append("[相手] 未知 leader — belief 予測なし")
     return "\n".join(lines)

@@ -292,6 +292,20 @@ def _render(session: HumanSession) -> None:
         print(f"\n*** ゲーム終了: 勝者 = {who} (turn {st.turn_number}) ***")
         return
 
+    # A軸(自リーダー使い方 prior) + B軸(相手が握る/積む脅威 belief、 見えた札で事後 sharpening)
+    # を Claude に提示 → 良手 demonstrate の材料。 これで教師(Claude)の判断が上がり、 蒸留 value
+    # の label 品質が上がる (= 教師の質が生徒の天井、 [[project_superhuman_ai_distillation]])。
+    # render を絶対に壊さない (try/except)。 cloud agent も同 render を観測に使う。
+    try:
+        from engine import matchup_context as _mc
+        _ctx = _mc.format_context_text(_mc.describe_matchup_context(st, session.human_idx))
+        if _ctx.strip():
+            print()
+            print("[マッチ情報 (prior)]")
+            print(_ctx)
+    except Exception:
+        pass
+
     pk = session.pending_kind
     pp = session.pending_payload or {}
     print()
