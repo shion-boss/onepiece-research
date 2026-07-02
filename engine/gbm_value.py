@@ -179,13 +179,21 @@ FEATURE_KEYS_V9 = FEATURE_KEYS_V6 + ("v2_anchor",)
 # v6don[:38] == v6、 column-slice 互換)。 per-deck 学習なので 6-DON エネル等は文脈込みで価格付けを学ぶ。
 FEATURE_KEYS_V6DON = FEATURE_KEYS_V6 + ("don_active_me", "don_active_opp")
 
+# v10 = 54 (2026-07-02): **agnostic value の own-deck 条件付け**。 v8(= v6 + 相手 role vector)に
+# 自 leader の role vector(myrole 8)を足し、 matchup を **自archetype × 相手archetype × 盤面** で
+# 対称に条件付ける。 per-deck value では自 deck が固定=定数で無意味(deploy-null)だが、 多デッキを
+# pool して学習する 1 個の *agnostic* value では「今どの archetype を操縦中か」を GBM tree が deck 毎に
+# 分岐して board 重みを可変化する essential な信号 = **user/未知デッキに汎化する非依存 value の鍵**。
+# 全て inference 計算可(自/相手 leader は公開情報、 role vector は db/leader_role_vectors.json)。
+FEATURE_KEYS_V10 = FEATURE_KEYS_V8 + tuple("myrole_" + r for r in _ROLE_DIMS)
+
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
     """companion v2 model(21-dim)の P(win) を anchor feature として返す。 失敗時 0.5(neutral)。"""
     try:
         m = _load(anchor_path)
         # 明示 False で env (ONEPIECE_GBM_V5/V6/...) の上書きを遮断 → 純 v2 (21-dim) を保証。
-        x21 = features(state, me_idx, rich=True, v3=False, v4=False, v5=False, v6=False, v7=False, v8=False)
+        x21 = features(state, me_idx, rich=True, v3=False, v4=False, v5=False, v6=False, v7=False, v8=False, v10=False)
         if hasattr(m, "predict_proba"):
             return float(m.predict_proba([x21])[0][1])
         return min(1.0, max(0.0, float(m.predict([x21])[0])))
@@ -205,6 +213,29 @@ def _opp_role_vector(state: Any, me_idx: int) -> list:
             _OPP_ROLE_CACHE = {}
     try:
         lid = state.players[1 - me_idx].leader.card.card_id
+    except Exception:
+        return [0.0] * len(_ROLE_DIMS)
+    e = _OPP_ROLE_CACHE.get(lid)
+    if not e:
+        return [0.0] * len(_ROLE_DIMS)
+    vec = e.get("vec", {})
+    return [float(vec.get(r, 0.0)) for r in _ROLE_DIMS]
+
+
+def _my_role_vector(state: Any, me_idx: int) -> list:
+    """自分 leader → role-composition signature(自デッキ archetype、 8次元)。 `_opp_role_vector` の
+    own-side 対称。 未知 leader は全0。 per-deck value では定数で無意味だが、 多デッキ pool の *agnostic*
+    value では「自分が何 archetype を操縦中か」を 1 model が deck 毎に可変化する essential な条件付け。"""
+    global _OPP_ROLE_CACHE
+    if _OPP_ROLE_CACHE is None:
+        try:
+            import json as _json
+            p = _REPO_ROOT_RV() / "db" / "leader_role_vectors.json"
+            _OPP_ROLE_CACHE = _json.loads(p.read_text(encoding="utf-8")).get("leaders", {})
+        except Exception:
+            _OPP_ROLE_CACHE = {}
+    try:
+        lid = state.players[me_idx].leader.card.card_id
     except Exception:
         return [0.0] * len(_ROLE_DIMS)
     e = _OPP_ROLE_CACHE.get(lid)
@@ -313,7 +344,7 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v3: Optional[bool] = None, v4: Optional[bool] = None,
              v5: Optional[bool] = None, v6: Optional[bool] = None,
              v7: Optional[bool] = None, v8: Optional[bool] = None,
-             v6don: Optional[bool] = None) -> list:
+             v6don: Optional[bool] = None, v10: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -351,6 +382,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v8 = os.environ.get("ONEPIECE_GBM_V8") == "1"
     if v6don is None:
         v6don = os.environ.get("ONEPIECE_GBM_V6DON") == "1"
+    if v10 is None:
+        v10 = os.environ.get("ONEPIECE_GBM_V10") == "1"
+    if v10:
+        v8 = True  # v10 ⊃ v8 (= v6 + opp role) + 自 role vector。 末尾に myrole を append。
     if v6don:
         v6 = True  # v6don ⊃ v6 (+ active DON 経済)。 末尾に don_active を append。
     if v7:
@@ -389,6 +424,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         out += _balance_features(state, me_idx)
     if v8:
         out += _opp_role_vector(state, me_idx)
+    if v10:
+        # 自 leader の role vector (= own-deck archetype 条件付け)。 v8 の opp role の直後に append し
+        # FEATURE_KEYS_V10 = FEATURE_KEYS_V8 + myrole の列順と一致させる。
+        out += _my_role_vector(state, me_idx)
     if v6don:
         # active DON 経済 (= 今動かせる DON)。 DON 配分 (召喚/イベント/付与) の最適化を value が
         # 学習するための根本 feature ([[feedback_don_quality_over_quantity]])。 v6 末尾に append。
@@ -439,8 +478,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
         # rare-win overfit に倒れる。 base+correction の分離で hard floor を担保。 [[feedback_uniform_value_version]]
         if isinstance(model, dict) and model.get("kind") == "v9_residual":
             feat21 = features(state, me_idx, rich=True, v3=False, v4=False,
-                              v5=False, v6=False, v7=False, v8=False)
-            feat38 = features(state, me_idx, v6=True, v7=False, v8=False)
+                              v5=False, v6=False, v7=False, v8=False, v10=False)
+            feat38 = features(state, me_idx, v6=True, v7=False, v8=False, v10=False)
             anchor = model["anchor"]
             if hasattr(anchor, "predict_proba"):
                 p_anchor = float(anchor.predict_proba([feat21])[0][1])
@@ -459,7 +498,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                       v6=(n_feat == len(FEATURE_KEYS_V6)),
                       v7=(n_feat == len(FEATURE_KEYS_V7)),
                       v8=(n_feat == len(FEATURE_KEYS_V8)),
-                      v6don=(n_feat == len(FEATURE_KEYS_V6DON)))]
+                      v6don=(n_feat == len(FEATURE_KEYS_V6DON)),
+                      v10=(n_feat == len(FEATURE_KEYS_V10)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
