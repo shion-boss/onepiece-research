@@ -100,6 +100,20 @@ def deck_recovery(slug):
     return rec
 
 
+# board feature の version を切替 (= 2026-07-02): 既定 rich(v2 21dim、 後方互換)。
+# VA_BOARD_VERSION=v10 で自+相手 role 条件付き 54dim(= 配備可能な agnostic 条件付け feature)。
+# deck_features(訓練専用・inference 不能)と違い v10 は全 inference 計算可 → 配備できる非依存 value。
+def _board_kw():
+    bv = os.environ.get("VA_BOARD_VERSION", "rich")
+    if bv == "v10":
+        return {"v10": True}
+    if bv == "v8":
+        return {"v8": True}
+    if bv == "v6":
+        return {"v6": True}
+    return {"rich": True}
+
+
 def _collect_game(task):
     """1 ゲーム greedy self-play。 各ターン頭で両者の (board++deck) 特徴をサンプル、
     終局の勝敗をラベルにして返す。 戻り値 = [(feat_vector, label), ...]。"""
@@ -123,8 +137,9 @@ def _collect_game(task):
         cur = state.turn_player_idx
         if cur != last_tp:  # 手番が変わった = ターン頭付近 → サンプル
             try:
-                samples.append((board_features(state, 0, rich=True),
-                                board_features(state, 1, rich=True)))
+                _bkw = _board_kw()
+                samples.append((board_features(state, 0, **_bkw),
+                                board_features(state, 1, **_bkw)))
             except Exception:
                 pass
             last_tp = cur
