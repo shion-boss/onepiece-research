@@ -46,8 +46,14 @@ from engine.smart_opponent_ai import SmartOpponentAI  # noqa: F401 (後方互換
 from engine.exploit_beam_ai import ExploitBeamAI
 import engine.core as _core
 
-STATE = ROOT / "db" / "claude_play" / "session.pkl"
-META = ROOT / "db" / "claude_play" / "meta.json"
+# 並列収集用 (2026-07-02): ONEPIECE_PLAY_DIR で session / DIVLOG 出力先を分離可能
+# (既定 db/claude_play)。 各 subagent に別 dir を渡せば衝突せず並列で claude_play を回せる。
+import os as _os
+_pd = _os.environ.get("ONEPIECE_PLAY_DIR")
+PLAY_DIR = Path(_pd) if _pd else ROOT / "db" / "claude_play"
+PLAY_DIR.mkdir(parents=True, exist_ok=True)
+STATE = PLAY_DIR / "session.pkl"
+META = PLAY_DIR / "meta.json"
 
 
 def _repo() -> CardRepository:
@@ -184,7 +190,7 @@ def _record_divergence(session: HumanSession, idx: int) -> None:
         }
         meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
         slug = meta.get("deck", "unknown")
-        path = ROOT / "db" / "claude_play" / f"divergence_{slug}.jsonl"
+        path = PLAY_DIR / f"divergence_{slug}.jsonl"
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     except Exception:
@@ -206,7 +212,7 @@ def _record_distill_state(session) -> None:
         feat = features(st, session.human_idx, v6=True)  # 38-dim、 env 非依存
         meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
         slug = meta.get("deck", "unknown")
-        path = ROOT / "db" / "claude_play" / f"pending_{slug}.jsonl"
+        path = PLAY_DIR / f"pending_{slug}.jsonl"
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"feat": feat, "turn": int(getattr(st, "turn_number", 0))}) + "\n")
     except Exception:
@@ -222,11 +228,11 @@ def _flush_distill(session) -> None:
             return
         meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
         slug = meta.get("deck", "unknown")
-        pending = ROOT / "db" / "claude_play" / f"pending_{slug}.jsonl"
+        pending = PLAY_DIR / f"pending_{slug}.jsonl"
         if not pending.exists():
             return
         y = 1 if getattr(st, "winner", -1) == session.human_idx else 0
-        out = ROOT / "db" / "claude_play" / f"distill_{slug}.jsonl"
+        out = PLAY_DIR / f"distill_{slug}.jsonl"
         with open(pending, encoding="utf-8") as pf, open(out, "a", encoding="utf-8") as of:
             for line in pf:
                 try:
@@ -428,7 +434,7 @@ def main() -> None:
             json.dumps({"deck": args.deck, "opp": opp_slug, "seed": args.seed}),
             encoding="utf-8",
         )
-        (ROOT / "db" / "claude_play" / f"pending_{args.deck}.jsonl").unlink(missing_ok=True)
+        (PLAY_DIR / f"pending_{args.deck}.jsonl").unlink(missing_ok=True)
         _save(session)
         mode = f"{args.deck} (私) vs {opp_slug} (AI)" if opp_slug != args.deck else f"ミラー {args.deck}"
         first = "私(先攻)" if session.human_idx == 0 else "ExploitBeam(先攻)"
