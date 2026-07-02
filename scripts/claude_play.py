@@ -327,6 +327,8 @@ def _render(session: HumanSession) -> None:
         for i, a in enumerate(actions):
             print(f"  {i}: {R._describe_action(a, st)}")
         print("  -> move <idx>")
+        print("  ⚠ idx は 1 手ごとに再構成され変わる。move を盲目連打せず、毎手 show で読み直せ。")
+        print("     攻撃/DON付与は idx シフトしない iid 版を優先: attack <iid> <target|leader> [--don N] / don <iid> <n>")
     elif pk == "defense":
         att = R._find_inplay(st, pp.get("attacker_iid"))
         if pp.get("is_leader_attack"):
