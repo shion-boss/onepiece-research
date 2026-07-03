@@ -30,6 +30,11 @@ def main():
     ap.add_argument("--lam", type=float, default=0.5, help="target = lam*mc + (1-lam)*v_next")
     ap.add_argument("--out", required=True)
     ap.add_argument("--holdout", type=float, default=0.2)
+    ap.add_argument("--residual", default=None,
+                    help="残差アンカー mode: 配備 value pkl path。 resid = 塊target - v_self を学習し "
+                         "{kind:block_residual, anchor, resid, lam} を保存(小サンプルでも補正だけ学ぶ)")
+    ap.add_argument("--deploy-lam", type=float, default=1.0,
+                    help="残差 mode の配備時 λ (V_new = V_配備 + deploy_lam*resid、 0=厳密配備 floor)")
     a = ap.parse_args()
 
     rows = [json.loads(l) for l in open(ROOT / a.inp, encoding="utf-8")]
@@ -57,6 +62,36 @@ def main():
     n_ho = max(1, int(len(rows) * a.holdout))
     ho, tr = idx[:n_ho], idx[n_ho:]
 
+    import pickle
+    out = ROOT / a.out
+
+    if a.residual:
+        # 残差アンカー: resid = 塊target - v_self を v11 feat で学習。 配備 value を base に補正だけ。
+        anchor = pickle.load(open(ROOT / a.residual, "rb"))
+        resid_target = y - v_self  # y=塊target, v_self=配備 value P(win)
+        print(f"[residual] anchor={a.residual} (dim={getattr(anchor,'n_features_in_','?')})  "
+              f"resid_target: mean={resid_target.mean():+.3f} std={resid_target.std():.3f}")
+        # 過学習を抑えるため浅く・強正則化(補正は小さいはず)
+        resid = GradientBoostingRegressor(n_estimators=200, max_depth=2, learning_rate=0.03,
+                                          subsample=0.7, random_state=0)
+        resid.fit(X[tr], resid_target[tr])
+        # holdout: V_new = clip(v_self + deploy_lam*resid) の AUC(vs mc)
+        pred_resid = resid.predict(X[ho])
+        p_new = np.clip(v_self[ho] + a.deploy_lam * pred_resid, 0, 1)
+        p_base = np.clip(v_self[ho], 0, 1)
+        try:
+            auc_new = roc_auc_score(mc[ho], p_new)
+            auc_base = roc_auc_score(mc[ho], p_base)
+        except ValueError:
+            auc_new = auc_base = float("nan")
+        print(f"[holdout] n={n_ho}  AUC 配備base={auc_base:.3f} -> block_residual={auc_new:.3f} "
+              f"(deploy_lam={a.deploy_lam})")
+        with open(out, "wb") as f:
+            pickle.dump({"kind": "block_residual", "anchor": anchor, "resid": resid,
+                         "lam": a.deploy_lam}, f)
+        print(f"[saved] {out}  (block_residual, resid dim={X.shape[1]}, deploy_lam={a.deploy_lam})")
+        return
+
     model = GradientBoostingRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
                                       subsample=0.8, random_state=0)
     model.fit(X[tr], y[tr])
@@ -70,8 +105,6 @@ def main():
     mse = float(np.mean((pred_ho - y[ho]) ** 2))
     print(f"[holdout] n={n_ho}  AUC(vs mc)={auc:.3f}  MSE(vs target)={mse:.4f}")
 
-    out = ROOT / a.out
-    import pickle
     with open(out, "wb") as f:
         pickle.dump(model, f)
     print(f"[saved] {out}  (dim={X.shape[1]}, lam={a.lam})")

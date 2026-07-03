@@ -563,6 +563,29 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
             resid = float(model["resid"].predict([feat38])[0])
             p = min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
             return (p - 0.5) * SCALE
+        # ── block_residual (塊帰結 + v11 threat の残差アンカー) ─────────────────
+        # dict {"kind":"block_residual", "anchor": 配備value model, "resid": v11(41) regressor, "lam"}。
+        # p = clip(p_配備 + lam * resid(v11feat))。 anchor = 配備 value を全強度 base に(hard floor、
+        # lam=0 で厳密 配備)。 resid は 塊帰結 target と 配備 value の差を v11(相手threat×exposure)で
+        # 学習 → 小サンプルでも「補正だけ」学べる(全 value 再学習の壊滅を回避、 2026-07-03 の 304サンプル
+        # 5% 教訓)。 anchor は次元自動判別で dispatch。 [[project_block_value_architecture]]
+        if isinstance(model, dict) and model.get("kind") == "block_residual":
+            anchor = model["anchor"]
+            an = int(getattr(anchor, "n_features_in_", len(FEATURE_KEYS_V6)))
+            xa = features(state, me_idx,
+                          rich=(an == len(FEATURE_KEYS_V2)), v3=(an == len(FEATURE_KEYS_V3)),
+                          v4=(an == len(FEATURE_KEYS_V4)), v5=(an == len(FEATURE_KEYS_V5)),
+                          v6=(an == len(FEATURE_KEYS_V6)), v7=(an == len(FEATURE_KEYS_V7)),
+                          v8=(an == len(FEATURE_KEYS_V8)), v6don=(an == len(FEATURE_KEYS_V6DON)),
+                          v10=(an == len(FEATURE_KEYS_V10)), v11=(an == len(FEATURE_KEYS_V11)))
+            if hasattr(anchor, "predict_proba"):
+                p_anchor = float(anchor.predict_proba([xa])[0][1])
+            else:
+                p_anchor = min(1.0, max(0.0, float(anchor.predict([xa])[0])))
+            feat11 = features(state, me_idx, v11=True)
+            resid = float(model["resid"].predict([feat11])[0])
+            p = min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
+            return (p - 0.5) * SCALE
         # ── 通常 GBM (次元で v1(17)/v2(21)/.../v8(46) 自動判別、 後方互換) ───────
         n_feat = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
         x = [features(state, me_idx,
