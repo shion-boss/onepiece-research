@@ -1,0 +1,82 @@
+{
+ "EB02-010": {
+  "rush_exp": 0.0,
+  "aggro_exp": 6.0
+ },
+ "EB04-001": {
+  "rush_exp": 0.0,
+  "aggro_exp": 6.0
+ },
+ "OP08-098": {
+  "rush_exp": 0.0,
+  "aggro_exp": 7.0
+ },
+ "OP09-062": {
+  "rush_exp": 0.0,
+  "aggro_exp": 7.0
+ },
+ "OP11-001": {
+  "rush_exp": 0.0,
+  "aggro_exp": 11.5
+ },
+ "OP11-040": {
+  "rush_exp": 0.0,
+  "aggro_exp": 8.0
+ },
+ "OP11-041": {
+  "rush_exp": 0.0,
+  "aggro_exp": 6.029
+ },
+ "OP12-041": {
+  "rush_exp": 0.0,
+  "aggro_exp": 6.0
+ },
+ "OP12-061": {
+  "rush_exp": 2.0,
+  "aggro_exp": 5.25
+ },
+ "OP13-001": {
+  "rush_exp": 0.0,
+  "aggro_exp": 3.833
+ },
+ "OP13-002": {
+  "rush_exp": 1.583,
+  "aggro_exp": 3.542
+ },
+ "OP13-079": {
+  "rush_exp": 0.0,
+  "aggro_exp": 4.0
+ },
+ "OP14-020": {
+  "rush_exp": 0.0,
+  "aggro_exp": 0.353
+ },
+ "OP14-041": {
+  "rush_exp": 0.0,
+  "aggro_exp": 7.778
+ },
+ "OP14-060": {
+  "rush_exp": 0.0,
+  "aggro_exp": 3.0
+ },
+ "OP14-079": {
+  "rush_exp": 0.0,
+  "aggro_exp": 3.0
+ },
+ "OP15-002": {
+  "rush_exp": 1.188,
+  "aggro_exp": 2.844
+ },
+ "OP15-058": {
+  "rush_exp": 0.0,
+  "aggro_exp": 5.298
+ },
+ "OP15-098": {
+  "rush_exp": 0.0,
+  "aggro_exp": 2.107
+ },
+ "OP16-080": {
+  "rush_exp": 0.0,
+  "aggro_exp": 3.333
+ }
+}

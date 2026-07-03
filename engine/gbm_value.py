@@ -187,6 +187,20 @@ FEATURE_KEYS_V6DON = FEATURE_KEYS_V6 + ("don_active_me", "don_active_opp")
 # 全て inference 計算可(自/相手 leader は公開情報、 role vector は db/leader_role_vectors.json)。
 FEATURE_KEYS_V10 = FEATURE_KEYS_V8 + tuple("myrole_" + r for r in _ROLE_DIMS)
 
+# v11 = 41 (2026-07-03): **防御保持の意思決定を条件付ける threat×exposure interaction**
+# (ohtsuki: 「ブロッカー付きキャラを攻撃に使わない方が良いターンと使っても平気なターン」)。
+# 現 v6 の blocker 特徴は has_keyword_active で **rested を見ない** → ブロッカーで殴って exposure が
+# 上がっても value に映らない穴があった。 v11 で:
+#  - me_avail_blocker : **unrested** ブロッカー数 (= 攻撃で減る、 手ごとに変わる board 信号)。 穴の直接修正
+#  - ix_incoming_unblocked : max(0, 相手 active 攻撃役 − 自 avail_blocker) = 次ターン通る攻撃見込み。
+#      me_avail_blocker で手ごとに変わる → selection-relevant (v6 教訓: ゲーム内定数は順位を変えず null)
+#  - ix_deck_threat_exposure : 相手デッキの速攻/aggro belief (db/opp_aggro_threat.json、 未見の rush
+#      finisher) を 自 avail_blocker で gate = deck-level threat × exposure。 belief は定数だが interaction
+#      で手ごとに変わる。 相手手札枚数/盤面は既に v6 base にある (opp_hand/opp_field_power)
+FEATURE_KEYS_V11 = FEATURE_KEYS_V6 + (
+    "me_avail_blocker", "ix_incoming_unblocked", "ix_deck_threat_exposure",
+)
+
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
     """companion v2 model(21-dim)の P(win) を anchor feature として返す。 失敗時 0.5(neutral)。"""
@@ -199,6 +213,60 @@ def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
         return min(1.0, max(0.0, float(m.predict([x21])[0])))
     except Exception:
         return 0.5
+
+
+_AGGRO_THREAT_CACHE: dict = {}  # leader_id -> deck aggro index (lazy load)
+
+
+def _avail_blockers(player: Any) -> int:
+    """unrested(= 実際に防御できる)ブロッカー数。 has_keyword_active は rested を見ないので自前で。"""
+    try:
+        return sum(
+            1 for c in player.characters
+            if c.has_keyword_active("ブロッカー") and not getattr(c, "rested", False)
+        )
+    except Exception:
+        return 0
+
+
+def _opp_deck_aggro(state: Any, me_idx: int) -> float:
+    """相手 leader の deck-level 速攻/aggro belief 指数 (db/opp_aggro_threat.json)。 未知 leader は 0。"""
+    global _AGGRO_THREAT_CACHE
+    if not _AGGRO_THREAT_CACHE:
+        try:
+            import json as _json
+            p = _REPO_ROOT_RV() / "db" / "opp_aggro_threat.json"
+            raw = _json.loads(p.read_text(encoding="utf-8"))
+            _AGGRO_THREAT_CACHE = {
+                lid: float(v.get("rush_exp", 0.0)) + 0.2 * float(v.get("aggro_exp", 0.0))
+                for lid, v in raw.items()
+            }
+        except Exception:
+            _AGGRO_THREAT_CACHE = {"_": 0.0}
+    try:
+        lid = state.players[1 - me_idx].leader.card.card_id
+    except Exception:
+        return 0.0
+    return _AGGRO_THREAT_CACHE.get(lid, 0.0)
+
+
+def _defense_threat_features(state: Any, me_idx: int) -> list:
+    """v11: 防御保持の意思決定を条件付ける 3 特徴 (avail_blocker + threat×exposure interaction)。"""
+    me_p = state.players[me_idx]
+    opp_p = state.players[1 - me_idx]
+    me_avail = _avail_blockers(me_p)
+    # 相手の active 攻撃役 (= 次ターン殴ってくる駒。 rush でない召喚酔いは除く)
+    try:
+        opp_attackers = sum(
+            1 for c in opp_p.characters
+            if not getattr(c, "rested", False)
+            and (not getattr(c, "summoning_sickness", False) or getattr(c, "is_rush_now", False))
+        )
+    except Exception:
+        opp_attackers = 0
+    incoming_unblocked = max(0.0, float(opp_attackers) - float(me_avail))
+    deck_threat = _opp_deck_aggro(state, me_idx) / (1.0 + float(me_avail))
+    return [float(me_avail), incoming_unblocked, deck_threat]
 
 
 def _opp_role_vector(state: Any, me_idx: int) -> list:
@@ -344,7 +412,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v3: Optional[bool] = None, v4: Optional[bool] = None,
              v5: Optional[bool] = None, v6: Optional[bool] = None,
              v7: Optional[bool] = None, v8: Optional[bool] = None,
-             v6don: Optional[bool] = None, v10: Optional[bool] = None) -> list:
+             v6don: Optional[bool] = None, v10: Optional[bool] = None,
+             v11: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -384,6 +453,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v6don = os.environ.get("ONEPIECE_GBM_V6DON") == "1"
     if v10 is None:
         v10 = os.environ.get("ONEPIECE_GBM_V10") == "1"
+    if v11 is None:
+        v11 = os.environ.get("ONEPIECE_GBM_V11") == "1"
+    if v11:
+        v6 = True  # v11 ⊃ v6 (+ defense-threat interaction)。 末尾に 3 列 append。
     if v10:
         v8 = True  # v10 ⊃ v8 (= v6 + opp role) + 自 role vector。 末尾に myrole を append。
     if v6don:
@@ -435,6 +508,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
             int(getattr(me_p, "don_active", 0) or 0),
             int(getattr(opp_p, "don_active", 0) or 0),
         ]
+    if v11:
+        out += _defense_threat_features(state, me_idx)
     return out
 
 
@@ -499,7 +574,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                       v7=(n_feat == len(FEATURE_KEYS_V7)),
                       v8=(n_feat == len(FEATURE_KEYS_V8)),
                       v6don=(n_feat == len(FEATURE_KEYS_V6DON)),
-                      v10=(n_feat == len(FEATURE_KEYS_V10)))]
+                      v10=(n_feat == len(FEATURE_KEYS_V10)),
+                      v11=(n_feat == len(FEATURE_KEYS_V11)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
