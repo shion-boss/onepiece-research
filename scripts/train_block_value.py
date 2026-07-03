@@ -35,6 +35,8 @@ def main():
                          "{kind:block_residual, anchor, resid, lam} を保存(小サンプルでも補正だけ学ぶ)")
     ap.add_argument("--deploy-lam", type=float, default=1.0,
                     help="残差 mode の配備時 λ (V_new = V_配備 + deploy_lam*resid、 0=厳密配備 floor)")
+    ap.add_argument("--center", action="store_true",
+                    help="残差 target から一律 calibration シフトを除き feature条件付き補正だけ残す")
     a = ap.parse_args()
 
     rows = [json.loads(l) for l in open(ROOT / a.inp, encoding="utf-8")]
@@ -69,8 +71,14 @@ def main():
         # 残差アンカー: resid = 塊target - v_self を v11 feat で学習。 配備 value を base に補正だけ。
         anchor = pickle.load(open(ROOT / a.residual, "rb"))
         resid_target = y - v_self  # y=塊target, v_self=配備 value P(win)
+        shift = float(resid_target.mean())
+        if a.center:
+            # 一律の calibration シフトを除き feature条件付きの補正だけ残す(配備 value の水準を保つ)。
+            # aggro 悪化の原因が「一律楽観シフト」なら、 これで消えるはず。
+            resid_target = resid_target - shift
         print(f"[residual] anchor={a.residual} (dim={getattr(anchor,'n_features_in_','?')})  "
-              f"resid_target: mean={resid_target.mean():+.3f} std={resid_target.std():.3f}")
+              f"resid_target: mean={resid_target.mean():+.3f} std={resid_target.std():.3f} "
+              f"(center={a.center}, 除去シフト={shift:+.3f})")
         # 過学習を抑えるため浅く・強正則化(補正は小さいはず)
         resid = GradientBoostingRegressor(n_estimators=200, max_depth=2, learning_rate=0.03,
                                           subsample=0.7, random_state=0)
