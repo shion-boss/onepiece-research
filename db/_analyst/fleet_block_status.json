@@ -1,0 +1,98 @@
+{
+ "cardrush_1454": {
+  "default_wr": 32.5,
+  "v11cent_wr": 39.5,
+  "delta": 7.0,
+  "deployed": true
+ },
+ "tcgportal_calgara": {
+  "default_wr": 45.0,
+  "v11cent_wr": 47.5,
+  "delta": 2.5,
+  "deployed": true
+ },
+ "cardrush_1342": {
+  "default_wr": 37.5,
+  "v11cent_wr": 33.1,
+  "delta": -4.4,
+  "deployed": false
+ },
+ "cardrush_1385": {
+  "default_wr": 22.5,
+  "v11cent_wr": 16.2,
+  "delta": -6.3,
+  "deployed": false
+ },
+ "cardrush_1392": {
+  "default_wr": 25.6,
+  "v11cent_wr": 28.7,
+  "delta": 3.1,
+  "deployed": true
+ },
+ "cardrush_1399": {
+  "default_wr": 21.9,
+  "v11cent_wr": 17.5,
+  "delta": -4.4,
+  "deployed": false
+ },
+ "cardrush_1439": {
+  "default_wr": 47.5,
+  "v11cent_wr": 45.0,
+  "delta": -2.5,
+  "deployed": false
+ },
+ "cardrush_1453": {
+  "default_wr": 34.4,
+  "v11cent_wr": 35.0,
+  "delta": 0.6,
+  "deployed": true
+ },
+ "cardrush_1455": {
+  "default_wr": 45.6,
+  "v11cent_wr": 52.5,
+  "delta": 6.9,
+  "deployed": true
+ },
+ "cardrush_1456": {
+  "default_wr": 43.1,
+  "v11cent_wr": 40.6,
+  "delta": -2.5,
+  "deployed": false
+ },
+ "tcgportal_bonney": {
+  "default_wr": 74.4,
+  "v11cent_wr": 80.6,
+  "delta": 6.2,
+  "deployed": true
+ },
+ "tcgportal_coby": {
+  "default_wr": 41.9,
+  "v11cent_wr": 40.6,
+  "delta": -1.3,
+  "deployed": false
+ },
+ "tcgportal_corazon": {
+  "default_wr": 10.0,
+  "v11cent_wr": 1.9,
+  "delta": -8.1,
+  "deployed": false
+ },
+ "tcgportal_hancock": {
+  "default_wr": 51.9,
+  "v11cent_wr": 44.4,
+  "delta": -7.5,
+  "deployed": false
+ },
+ "tcgportal_op11_luffy": {
+  "default_wr": 31.2,
+  "v11cent_wr": 29.4,
+  "delta": -1.8,
+  "deployed": false
+ },
+ "tcgportal_op13_luffy": {
+  "default_wr": 26.2,
+  "v11cent_wr": 13.8,
+  "delta": -12.4,
+  "deployed": false
+ }
+}
