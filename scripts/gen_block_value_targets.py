@@ -116,6 +116,8 @@ def main():
                     help="bootstrap 元 value pkl (既定 db/value_gbm_<deck>.pkl)")
     ap.add_argument("--feat", default="v6", choices=["v6", "v11", "v12"],
                     help="記録する特徴 (v11 = v6 + 防御-threat 3、 v12 = v11 + 中身バレ相手 4)")
+    ap.add_argument("--seed-base", type=int, default=900,
+                    help="対局 seed の基点 (= ラウンド毎に変えて新規対局を生成)")
     a = ap.parse_args()
     global _FEAT
     _FEAT = a.feat
@@ -137,7 +139,7 @@ def main():
         for opp in a.opponents:
             do = _deck(opp)
             for i in range(a.n_games):
-                res = _play(dt, do, a.deck, opp, 900 + i)
+                res = _play(dt, do, a.deck, opp, a.seed_base + i)
                 if not res:
                     continue
                 rows, z = res
