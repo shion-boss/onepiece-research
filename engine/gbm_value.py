@@ -568,6 +568,41 @@ def _load(path: str):
     return m
 
 
+def _feat_for_dim(state, me_idx, n):
+    """次元 n に一致する feature version を自動判別して返す。"""
+    return features(state, me_idx,
+                    rich=(n == len(FEATURE_KEYS_V2)), v3=(n == len(FEATURE_KEYS_V3)),
+                    v4=(n == len(FEATURE_KEYS_V4)), v5=(n == len(FEATURE_KEYS_V5)),
+                    v6=(n == len(FEATURE_KEYS_V6)), v7=(n == len(FEATURE_KEYS_V7)),
+                    v8=(n == len(FEATURE_KEYS_V8)), v6don=(n == len(FEATURE_KEYS_V6DON)),
+                    v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
+                    v12=(n == len(FEATURE_KEYS_V12)))
+
+
+def _model_pwin(model: Any, state: Any, me_idx: int) -> float:
+    """任意 model (plain GBM / v9_residual / block_residual dict) の P(win) を [0,1] で返す。
+    dict wrapper の anchor が更に dict でも **再帰で解ける** → 反復で value を合成できる
+    (V_{k+1} = block_residual(anchor=V_k))。 [[project_block_value_architecture]]"""
+    if isinstance(model, dict) and model.get("kind") == "v9_residual":
+        p_anchor = _model_pwin(model["anchor"], state, me_idx)
+        feat38 = features(state, me_idx, v6=True, v7=False, v8=False, v10=False)
+        resid = float(model["resid"].predict([feat38])[0])
+        return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
+    if isinstance(model, dict) and model.get("kind") == "block_residual":
+        p_anchor = _model_pwin(model["anchor"], state, me_idx)
+        rn = int(getattr(model["resid"], "n_features_in_", len(FEATURE_KEYS_V11)))
+        rfeat = features(state, me_idx, v12=(rn == len(FEATURE_KEYS_V12)),
+                         v11=(rn == len(FEATURE_KEYS_V11)))
+        resid = float(model["resid"].predict([rfeat])[0])
+        return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
+    # plain sklearn model (次元自動判別、 classifier/regressor 両対応)
+    n = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
+    x = [_feat_for_dim(state, me_idx, n)]
+    if hasattr(model, "predict_proba"):
+        return float(model.predict_proba(x)[0][1])
+    return min(1.0, max(0.0, float(model.predict(x)[0])))
+
+
 def gbm_score(state: Any, me_idx: int) -> Optional[float]:
     """ONEPIECE_GBM_VALUE_PATH の GBM で leaf value を返す (= 未設定なら None)。
 
@@ -585,72 +620,9 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
             return -float(DEFAULT_WEIGHTS.W_GAME_OVER)
         return 0.0
     try:
-        model = _load(path)
-        # ── v9 residual wrapper (hard residual-guarantee) ─────────────────────
-        # dict {"kind":"v9_residual", "anchor": v2 model(21), "resid": 38-dim regressor, "lam": float}。
-        # p = clip(p_anchor + lam * resid(38feat))。 p_anchor は配備 v2 を**常に全強度**で base に置く →
-        # 構造的に v2 を下回らない(lam=0 で厳密 v2)。 resid は matchup/board 38 列の**残差**のみ学習
-        # (heavily regularized)→ 過適合した noise が base を上書きできない。 feature-anchor(v9 39-dim
-        # classifier)が deploy で regress した教訓: anchor を 1 feature にすると GBM が無視して 38 列の
-        # rare-win overfit に倒れる。 base+correction の分離で hard floor を担保。 [[feedback_uniform_value_version]]
-        if isinstance(model, dict) and model.get("kind") == "v9_residual":
-            feat21 = features(state, me_idx, rich=True, v3=False, v4=False,
-                              v5=False, v6=False, v7=False, v8=False, v10=False)
-            feat38 = features(state, me_idx, v6=True, v7=False, v8=False, v10=False)
-            anchor = model["anchor"]
-            if hasattr(anchor, "predict_proba"):
-                p_anchor = float(anchor.predict_proba([feat21])[0][1])
-            else:
-                p_anchor = min(1.0, max(0.0, float(anchor.predict([feat21])[0])))
-            resid = float(model["resid"].predict([feat38])[0])
-            p = min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
-            return (p - 0.5) * SCALE
-        # ── block_residual (塊帰結 + v11 threat の残差アンカー) ─────────────────
-        # dict {"kind":"block_residual", "anchor": 配備value model, "resid": v11(41) regressor, "lam"}。
-        # p = clip(p_配備 + lam * resid(v11feat))。 anchor = 配備 value を全強度 base に(hard floor、
-        # lam=0 で厳密 配備)。 resid は 塊帰結 target と 配備 value の差を v11(相手threat×exposure)で
-        # 学習 → 小サンプルでも「補正だけ」学べる(全 value 再学習の壊滅を回避、 2026-07-03 の 304サンプル
-        # 5% 教訓)。 anchor は次元自動判別で dispatch。 [[project_block_value_architecture]]
-        if isinstance(model, dict) and model.get("kind") == "block_residual":
-            anchor = model["anchor"]
-            an = int(getattr(anchor, "n_features_in_", len(FEATURE_KEYS_V6)))
-            xa = features(state, me_idx,
-                          rich=(an == len(FEATURE_KEYS_V2)), v3=(an == len(FEATURE_KEYS_V3)),
-                          v4=(an == len(FEATURE_KEYS_V4)), v5=(an == len(FEATURE_KEYS_V5)),
-                          v6=(an == len(FEATURE_KEYS_V6)), v7=(an == len(FEATURE_KEYS_V7)),
-                          v8=(an == len(FEATURE_KEYS_V8)), v6don=(an == len(FEATURE_KEYS_V6DON)),
-                          v10=(an == len(FEATURE_KEYS_V10)), v11=(an == len(FEATURE_KEYS_V11)),
-                      v12=(an == len(FEATURE_KEYS_V12)))
-            if hasattr(anchor, "predict_proba"):
-                p_anchor = float(anchor.predict_proba([xa])[0][1])
-            else:
-                p_anchor = min(1.0, max(0.0, float(anchor.predict([xa])[0])))
-            rn = int(getattr(model["resid"], "n_features_in_", len(FEATURE_KEYS_V11)))
-            rfeat = features(state, me_idx, v12=(rn == len(FEATURE_KEYS_V12)),
-                             v11=(rn == len(FEATURE_KEYS_V11)))
-            resid = float(model["resid"].predict([rfeat])[0])
-            p = min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
-            return (p - 0.5) * SCALE
-        # ── 通常 GBM (次元で v1(17)/v2(21)/.../v8(46) 自動判別、 後方互換) ───────
-        n_feat = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
-        x = [features(state, me_idx,
-                      rich=(n_feat == len(FEATURE_KEYS_V2)),
-                      v3=(n_feat == len(FEATURE_KEYS_V3)),
-                      v4=(n_feat == len(FEATURE_KEYS_V4)),
-                      v5=(n_feat == len(FEATURE_KEYS_V5)),
-                      v6=(n_feat == len(FEATURE_KEYS_V6)),
-                      v7=(n_feat == len(FEATURE_KEYS_V7)),
-                      v8=(n_feat == len(FEATURE_KEYS_V8)),
-                      v6don=(n_feat == len(FEATURE_KEYS_V6DON)),
-                      v10=(n_feat == len(FEATURE_KEYS_V10)),
-                      v11=(n_feat == len(FEATURE_KEYS_V11)),
-                      v12=(n_feat == len(FEATURE_KEYS_V12)))]
-        # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
-        # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
-        if hasattr(model, "predict_proba"):
-            p = float(model.predict_proba(x)[0][1])
-        else:
-            p = min(1.0, max(0.0, float(model.predict(x)[0])))
+        # v9_residual / block_residual(anchor が更に dict でも再帰)/ plain GBM を _model_pwin で
+        # 統一処理。 anchor 合成可 → V_{k+1}=block_residual(anchor=V_k) で反復できる。
+        p = _model_pwin(_load(path), state, me_idx)
         return (p - 0.5) * SCALE
     except Exception:
         return None
