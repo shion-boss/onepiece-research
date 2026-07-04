@@ -5688,6 +5688,11 @@ def _execute_effect_body(
             # 「相手の手札 N 枚を公開する」 OP01-105 等。 公開のみ (= 情報公開)、 効果なし。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 2))
             revealed = opp.hand[:n]
+            # 公開したカードは known_hand_card_ids に記録 (= 中身バレを確定情報化)。
+            # play/discard で normalize_known_hand が退場分を削除。 重複は normalize が hand 数で cap。
+            for c in revealed:
+                if c.card_id not in opp.known_hand_card_ids:
+                    opp.known_hand_card_ids.append(c.card_id)
             state.push_log(f"  効果: 相手手札 {n} 枚公開 → {[c.name for c in revealed]}")
         elif k == "discard_self_to_deck_top":
             # 自分の手札 N 枚をデッキの上に置く (ST17-001 等)。

@@ -56,7 +56,7 @@ def _pwin(state, idx):
     return min(1.0, max(0.0, s / SCALE + 0.5))
 
 
-_FEAT_V11 = False  # main で --feat v11 のとき True(= 防御-threat 3 列を足す)
+_FEAT = "v6"  # main で --feat 設定(v6 / v11 / v12)
 
 
 def _play(deck_t, deck_o, slug_t, slug_o, seed):
@@ -76,7 +76,12 @@ def _play(deck_t, deck_o, slug_t, slug_o, seed):
         cur = st.turn_player_idx
         if st.phase == Phase.MAIN and cur == 0 and cur != last_tp:  # target 手番頭のみ
             try:
-                feat = features(st, 0, v11=True) if _FEAT_V11 else features(st, 0, v6=True)
+                if _FEAT == "v12":
+                    feat = features(st, 0, v12=True)
+                elif _FEAT == "v11":
+                    feat = features(st, 0, v11=True)
+                else:
+                    feat = features(st, 0, v6=True)
                 caps.append((feat, _pwin(st, 0)))
             except Exception:
                 pass
@@ -109,11 +114,11 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--value-path", default=None,
                     help="bootstrap 元 value pkl (既定 db/value_gbm_<deck>.pkl)")
-    ap.add_argument("--feat", default="v6", choices=["v6", "v11"],
-                    help="記録する特徴 (v11 = v6 + 防御-threat 3 列)")
+    ap.add_argument("--feat", default="v6", choices=["v6", "v11", "v12"],
+                    help="記録する特徴 (v11 = v6 + 防御-threat 3、 v12 = v11 + 中身バレ相手 4)")
     a = ap.parse_args()
-    global _FEAT_V11
-    _FEAT_V11 = (a.feat == "v11")
+    global _FEAT
+    _FEAT = a.feat
 
     vpath = a.value_path or str(ROOT / "db" / f"value_gbm_{a.deck}.pkl")
     if Path(vpath).exists():

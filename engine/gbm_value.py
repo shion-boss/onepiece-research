@@ -201,6 +201,19 @@ FEATURE_KEYS_V11 = FEATURE_KEYS_V6 + (
     "me_avail_blocker", "ix_incoming_unblocked", "ix_deck_threat_exposure",
 )
 
+# v12 = 45 (2026-07-04): **サーチ等で中身バレした相手手札カード**(ohtsuki: 「相手の手札の中の
+# サーチ等で取得した中身バレしている特定のカード」)。 engine は `Player.known_hand_card_ids` で
+# 公開済カードを追跡し board_eval は使うのに、 学習 value(v11)に無かった gap(docs/evaluation_metrics_reference.md)。
+#  - opp_known_finisher : 相手手札で見えたフィニッシャー数(= 確定した脅威)
+#  - opp_known_removal  : 相手手札で見えた除去札数(= 自盤面が飛ぶリスク)
+#  - opp_known_counter  : 相手手札で見えた counter 総量(= 自攻撃が通りにくい確定防御資源)
+#  - ix_known_fin_expo  : 見えたフィニッシャー / (1+自 avail_blocker) = 脅威 × 自防御の交互作用(手ごとに変わる)
+# = belief(v11 deck_threat)でなく **確定情報**。 隠匿の穴を確定情報で埋める。 block_residual 枠で安全検証。
+# ⚠ 45 dim(v7=44 と衝突回避のため 4 列)。 dim 自動判別の一意性が必須。
+FEATURE_KEYS_V12 = FEATURE_KEYS_V11 + (
+    "opp_known_finisher", "opp_known_removal", "opp_known_counter", "ix_known_fin_expo",
+)
+
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
     """companion v2 model(21-dim)の P(win) を anchor feature として返す。 失敗時 0.5(neutral)。"""
@@ -267,6 +280,29 @@ def _defense_threat_features(state: Any, me_idx: int) -> list:
     incoming_unblocked = max(0.0, float(opp_attackers) - float(me_avail))
     deck_threat = _opp_deck_aggro(state, me_idx) / (1.0 + float(me_avail))
     return [float(me_avail), incoming_unblocked, deck_threat]
+
+
+def _revealed_opp_features(state: Any, me_idx: int) -> list:
+    """v12: サーチ等で中身バレした相手手札カードの脅威(known_hand_card_ids = 確定情報)。"""
+    try:
+        from .eval import opp_known_finisher_count, _get_card_role
+        opp = state.players[1 - me_idx]
+        known_fin = float(opp_known_finisher_count(opp))
+        known_ids = list(getattr(opp, "known_hand_card_ids", []) or [])
+        known_rem = float(sum(1 for cid in known_ids if _get_card_role(cid) == "removal"))
+        # 見えた相手カードの counter 総量(hand の該当カードから)
+        known_counter = 0
+        hand_by_id = {}
+        for c in opp.hand:
+            hand_by_id.setdefault(c.card_id, []).append(int(getattr(c, "counter", 0) or 0))
+        for cid in known_ids:
+            if hand_by_id.get(cid):
+                known_counter += hand_by_id[cid].pop()
+    except Exception:
+        return [0.0, 0.0, 0.0, 0.0]
+    me_avail = _avail_blockers(state.players[me_idx])
+    ix = known_fin / (1.0 + float(me_avail))
+    return [known_fin, known_rem, float(known_counter), ix]
 
 
 def _opp_role_vector(state: Any, me_idx: int) -> list:
@@ -413,7 +449,7 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v5: Optional[bool] = None, v6: Optional[bool] = None,
              v7: Optional[bool] = None, v8: Optional[bool] = None,
              v6don: Optional[bool] = None, v10: Optional[bool] = None,
-             v11: Optional[bool] = None) -> list:
+             v11: Optional[bool] = None, v12: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -455,6 +491,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v10 = os.environ.get("ONEPIECE_GBM_V10") == "1"
     if v11 is None:
         v11 = os.environ.get("ONEPIECE_GBM_V11") == "1"
+    if v12 is None:
+        v12 = os.environ.get("ONEPIECE_GBM_V12") == "1"
+    if v12:
+        v11 = True  # v12 ⊃ v11 (+ 中身バレ相手カード)。 v11 の 3 列の後に 3 列 append。
     if v11:
         v6 = True  # v11 ⊃ v6 (+ defense-threat interaction)。 末尾に 3 列 append。
     if v10:
@@ -510,6 +550,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         ]
     if v11:
         out += _defense_threat_features(state, me_idx)
+    if v12:
+        out += _revealed_opp_features(state, me_idx)
     return out
 
 
@@ -577,13 +619,16 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                           v4=(an == len(FEATURE_KEYS_V4)), v5=(an == len(FEATURE_KEYS_V5)),
                           v6=(an == len(FEATURE_KEYS_V6)), v7=(an == len(FEATURE_KEYS_V7)),
                           v8=(an == len(FEATURE_KEYS_V8)), v6don=(an == len(FEATURE_KEYS_V6DON)),
-                          v10=(an == len(FEATURE_KEYS_V10)), v11=(an == len(FEATURE_KEYS_V11)))
+                          v10=(an == len(FEATURE_KEYS_V10)), v11=(an == len(FEATURE_KEYS_V11)),
+                      v12=(an == len(FEATURE_KEYS_V12)))
             if hasattr(anchor, "predict_proba"):
                 p_anchor = float(anchor.predict_proba([xa])[0][1])
             else:
                 p_anchor = min(1.0, max(0.0, float(anchor.predict([xa])[0])))
-            feat11 = features(state, me_idx, v11=True)
-            resid = float(model["resid"].predict([feat11])[0])
+            rn = int(getattr(model["resid"], "n_features_in_", len(FEATURE_KEYS_V11)))
+            rfeat = features(state, me_idx, v12=(rn == len(FEATURE_KEYS_V12)),
+                             v11=(rn == len(FEATURE_KEYS_V11)))
+            resid = float(model["resid"].predict([rfeat])[0])
             p = min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
             return (p - 0.5) * SCALE
         # ── 通常 GBM (次元で v1(17)/v2(21)/.../v8(46) 自動判別、 後方互換) ───────
@@ -598,7 +643,8 @@ def gbm_score(state: Any, me_idx: int) -> Optional[float]:
                       v8=(n_feat == len(FEATURE_KEYS_V8)),
                       v6don=(n_feat == len(FEATURE_KEYS_V6DON)),
                       v10=(n_feat == len(FEATURE_KEYS_V10)),
-                      v11=(n_feat == len(FEATURE_KEYS_V11)))]
+                      v11=(n_feat == len(FEATURE_KEYS_V11)),
+                      v12=(n_feat == len(FEATURE_KEYS_V12)))]
         # classifier (= predict_proba) と regressor (= predict、 rollout 勝率を直接回帰、
         # 2026-06-18 検証ハーネス組み込み) の両対応。 regressor は [0,1] にクリップ。
         if hasattr(model, "predict_proba"):
