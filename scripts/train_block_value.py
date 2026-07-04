@@ -37,6 +37,8 @@ def main():
                     help="残差 mode の配備時 λ (V_new = V_配備 + deploy_lam*resid、 0=厳密配備 floor)")
     ap.add_argument("--center", action="store_true",
                     help="残差 target から一律 calibration シフトを除き feature条件付き補正だけ残す")
+    ap.add_argument("--resid-estimators", type=int, default=200, help="残差 GBM の木数(学習量↑で↑)")
+    ap.add_argument("--resid-depth", type=int, default=2, help="残差 GBM の深さ(学習量↑で↑)")
     a = ap.parse_args()
 
     rows = [json.loads(l) for l in open(ROOT / a.inp, encoding="utf-8")]
@@ -79,8 +81,9 @@ def main():
         print(f"[residual] anchor={a.residual} (dim={getattr(anchor,'n_features_in_','?')})  "
               f"resid_target: mean={resid_target.mean():+.3f} std={resid_target.std():.3f} "
               f"(center={a.center}, 除去シフト={shift:+.3f})")
-        # 過学習を抑えるため浅く・強正則化(補正は小さいはず)
-        resid = GradientBoostingRegressor(n_estimators=200, max_depth=2, learning_rate=0.03,
+        # 過学習を抑えるため浅く・強正則化(補正は小さいはず)。 学習量が増えたら容量を上げる。
+        resid = GradientBoostingRegressor(n_estimators=a.resid_estimators,
+                                          max_depth=a.resid_depth, learning_rate=0.03,
                                           subsample=0.7, random_state=0)
         resid.fit(X[tr], resid_target[tr])
         # holdout: V_new = clip(v_self + deploy_lam*resid) の AUC(vs mc)
