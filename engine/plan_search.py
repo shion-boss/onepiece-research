@@ -889,7 +889,7 @@ def search_turn_plan(
         else:
             _postopp_self_ai = _postopp_ai
 
-    def _eval_state(cur_state, plan):
+    def _eval_state(cur_state, plan, turns):
         if not _postopp or cur_state.game_over:
             return compute_score(cur_state, me_idx)
         ev = fast_clone(cur_state)
@@ -900,28 +900,45 @@ def search_turn_plan(
                 apply_action_fn(ev, _EP())
             # N ラウンド rollout: [相手ターン sim] → (最後以外) [自分の未来ターン sim] を繰り返す。
             # 最終ラウンドの相手ターン後 (= 自分の次 MAIN 開始盤面) で eval。 N=1 は現挙動と等価。
-            for _i in range(_postopp_turns):
+            for _i in range(turns):
                 if ev.game_over:
                     break
                 if ev.turn_player_idx == opp_idx:
-                    # 相手 action = _postopp_opp_ai (greedy or value-guided)、 自 defense = greedy 固定
                     _simulate_opp_turn(ev, opp_idx, _postopp_opp_ai, _postopp_ai,
                                        hard_cap_actions=_postopp_cap)
-                if _i + 1 < _postopp_turns and not ev.game_over and ev.turn_player_idx == me_idx:
-                    # 自分の未来ターンも rollout (= grind の払いを value に見せる)。
-                    # action は _postopp_self_ai (value-guided or greedy)、 相手 defense は greedy。
+                if _i + 1 < turns and not ev.game_over and ev.turn_player_idx == me_idx:
                     _simulate_opp_turn(ev, me_idx, _postopp_self_ai, _postopp_ai,
                                        hard_cap_actions=_postopp_cap)
         except Exception:
             return compute_score(cur_state, me_idx)
         return compute_score(ev, me_idx)
 
+    def _penalty(cur_state, plan):
+        return (_unused_attached_don_penalty(cur_state, plan)
+                + _unused_attacker_penalty_strong(cur_state, plan))
+
+    # ⭐ 多ターン探索の bound(病的爆発対策、 2026-07-06): turns>1 の深 rollout は高コストなので
+    # **全 completed plan でなく、 安価な 1-round score の上位 K plan だけ**深 N-round で再評価する。
+    # 残りは 1-round score のまま。 = 深 rollout を K 回に cap → 高分岐 game でも爆発しない
+    # (turns=2 が 4.6h ハングした真因は completed plan 数 × 深 rollout)。 K = ONEPIECE_POSTOPP_TOPK(既定 12)。
+    _topk = int(_os.environ.get("ONEPIECE_POSTOPP_TOPK", "12"))
     scored = []
-    for cur_state, plan in completed:
-        s = _eval_state(cur_state, plan)
-        s += _unused_attached_don_penalty(cur_state, plan)
-        s += _unused_attacker_penalty_strong(cur_state, plan)
-        scored.append((s, plan))
+    if _postopp_turns > 1 and len(completed) > _topk:
+        cheap = []
+        for cur_state, plan in completed:
+            s1 = _eval_state(cur_state, plan, 1) + _penalty(cur_state, plan)
+            cheap.append((s1, cur_state, plan))
+        cheap.sort(key=lambda x: -x[0])
+        for i, (s1, cur_state, plan) in enumerate(cheap):
+            if i < _topk:
+                s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
+            else:
+                s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
+            scored.append((s, plan))
+    else:
+        for cur_state, plan in completed:
+            s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
+            scored.append((s, plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
