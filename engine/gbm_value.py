@@ -588,6 +588,23 @@ def _reuse_ok(feats, n):
     return feats is not None and len(feats) >= n and n in _PREFIX_SAFE_DIMS
 
 
+def _fast_val(model: Any, x: list) -> float:
+    """GB classifier/regressor を float32 _raw_predict で高速評価(sklearn の validate_data/check_array
+    の per-call 検証を回避、 profile: value の predict の ~1.4x)。 classifier=P(win)(sigmoid)、
+    regressor=raw。 想定外は標準 predict に fallback(= 完全に安全)。"""
+    try:
+        import numpy as _np
+        X = _np.asarray([x], dtype=_np.float32)
+        raw = float(model._raw_predict(X).ravel()[0])
+        if hasattr(model, "predict_proba"):
+            return 1.0 / (1.0 + _np.exp(-raw))  # classifier: sigmoid(decision)
+        return raw  # regressor: _raw_predict == predict
+    except Exception:
+        if hasattr(model, "predict_proba"):
+            return float(model.predict_proba([x])[0][1])
+        return float(model.predict([x])[0])
+
+
 def _model_pwin(model: Any, state: Any, me_idx: int, _feats: Optional[list] = None) -> float:
     """任意 model (plain GBM / v9_residual / block_residual dict) の P(win) を [0,1] で返す。
     dict wrapper の anchor が更に dict でも **再帰で解ける** → 反復で value を合成できる
@@ -600,7 +617,7 @@ def _model_pwin(model: Any, state: Any, me_idx: int, _feats: Optional[list] = No
         feat38 = _feats[:38] if _reuse_ok(_feats, 38) \
             else features(state, me_idx, v6=True, v7=False, v8=False, v10=False)
         p_anchor = _model_pwin(model["anchor"], state, me_idx, _feats=feat38)
-        resid = float(model["resid"].predict([feat38])[0])
+        resid = _fast_val(model["resid"], feat38)
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     if isinstance(model, dict) and model.get("kind") == "block_residual":
         rn = int(getattr(model["resid"], "n_features_in_", len(FEATURE_KEYS_V11)))
@@ -609,14 +626,13 @@ def _model_pwin(model: Any, state: Any, me_idx: int, _feats: Optional[list] = No
                           v11=(rn == len(FEATURE_KEYS_V11)))
         # anchor は rfeat の prefix を再利用(v6⊂v11⊂v12 の prefix 一致)
         p_anchor = _model_pwin(model["anchor"], state, me_idx, _feats=rfeat)
-        resid = float(model["resid"].predict([rfeat])[0])
+        resid = _fast_val(model["resid"], rfeat)
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     # plain sklearn model (次元自動判別、 classifier/regressor 両対応)
     n = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
-    x = [_feats[:n]] if _reuse_ok(_feats, n) else [_feat_for_dim(state, me_idx, n)]
-    if hasattr(model, "predict_proba"):
-        return float(model.predict_proba(x)[0][1])
-    return min(1.0, max(0.0, float(model.predict(x)[0])))
+    x = _feats[:n] if _reuse_ok(_feats, n) else _feat_for_dim(state, me_idx, n)
+    v = _fast_val(model, x)
+    return v if hasattr(model, "predict_proba") else min(1.0, max(0.0, v))
 
 
 def gbm_score(state: Any, me_idx: int) -> Optional[float]:
