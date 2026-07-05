@@ -25,6 +25,9 @@ import copy
 import random
 from typing import TYPE_CHECKING, Optional
 
+# fast_clone が clone に与える軽量 RNG の決定的 seed(exact RNG deepcopy 回避、 profile _deepcopy_tuple 主因)
+_CLONE_RNG_COUNTER = 0
+
 from .core import Phase
 from .eval import compute_score
 from .game import (
@@ -70,6 +73,19 @@ def fast_clone(state: "GameState") -> "GameState":
     if saved_fired is not None:
         # 一時 None 化 で deepcopy 対象外 → 後で 原 + cloned 共に 共有 参照 を 戻す
         state._fired_target_counts = None  # type: ignore[attr-defined]
+    # ⚡ deck/hand/trash/life は CardDef(immutable、 deepcopy が self を返す=共有前提)のリスト。
+    # deepcopy は各カードを訪問する overhead(profile: deepcopy が sim の ~37%)。 一時退避して
+    # deepcopy 対象外にし、 clone には list()(浅い複製=CardDef 共有・リストは独立)を後付けする。
+    saved_cardlists = [(p.deck, p.hand, p.trash, p.life) for p in state.players]
+    for p in state.players:
+        p.deck, p.hand, p.trash, p.life = [], [], [], []
+    # ⚡ state.rng(Mersenne Twister)の deepcopy = 625-int state tuple の複製で高コスト
+    # (profile: _deepcopy_tuple ~5.7s の主因)。 探索の hypothetical 評価には exact RNG stream は
+    # 不要(固定 determinization で十分)→ 退避して clone には軽い新 Random を与える。 seed は
+    # module counter で決定的(= 同一入力→同一探索、 reproducible)。
+    saved_rng = getattr(state, "rng", None)
+    if saved_rng is not None:
+        state.rng = None
     try:
         cloned = copy.deepcopy(state)
     finally:
@@ -82,6 +98,18 @@ def fast_clone(state: "GameState") -> "GameState":
         state.record_snapshots = saved_rec
         if saved_fired is not None:
             state._fired_target_counts = saved_fired  # type: ignore[attr-defined]
+        for p, (d, h, t, l) in zip(state.players, saved_cardlists):
+            p.deck, p.hand, p.trash, p.life = d, h, t, l
+        if saved_rng is not None:
+            state.rng = saved_rng
+    # clone 側: CardDef リストを浅く複製(CardDef 共有、 リスト自体は独立=append/remove が原に非影響)
+    for cp, (d, h, t, l) in zip(cloned.players, saved_cardlists):
+        cp.deck, cp.hand, cp.trash, cp.life = list(d), list(h), list(t), list(l)
+    # clone に軽い新 Random(決定的 seed)。 探索内 random 効果は固定 determinization で解決。
+    if saved_rng is not None:
+        global _CLONE_RNG_COUNTER
+        _CLONE_RNG_COUNTER = (_CLONE_RNG_COUNTER + 1) & 0x7FFFFFFF
+        cloned.rng = random.Random(_CLONE_RNG_COUNTER)
 
     # cloned 側: overlay / hook は元参照を共有 (= 不変)。 log 系は空のまま (= plan 内では不要)
     cloned.effects_overlay = saved_overlay
