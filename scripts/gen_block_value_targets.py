@@ -58,6 +58,7 @@ def _pwin(state, idx):
 
 _FEAT = "v6"  # main で --feat 設定(v6 / v11 / v12)
 _MY_TEMP = 0.0  # 自分(target=idx0)の塊探索温度(>0=探索)。 相手は常に argmax(現最強)
+_MY_GBM = None  # 自分(idx0)の value pkl 明示指定(= base v6 で打たせる等)。 None=auto-resolve
 
 
 def _play(deck_t, deck_o, slug_t, slug_o, seed):
@@ -69,7 +70,7 @@ def _play(deck_t, deck_o, slug_t, slug_o, seed):
     play_until_main(st)
     ais = [
         ExploitBeamAI(rng=random.Random(seed * 3 + 1), deck_analysis={"deck_slug": slug_t},
-                      plan_temperature=_MY_TEMP),
+                      plan_temperature=_MY_TEMP, gbm_path=_MY_GBM),
         ExploitBeamAI(rng=random.Random(seed * 5 + 2), deck_analysis={"deck_slug": slug_o}),
     ]
     caps = []  # [(feat, v_self)] in target-turn order
@@ -123,10 +124,13 @@ def main():
                     help="対局 seed の基点 (= ラウンド毎に変えて新規対局を生成)")
     ap.add_argument("--my-temperature", type=float, default=0.0,
                     help="自分(idx0)の塊探索温度 (>0=探索して被覆↑、 相手は常に現最強argmax)")
+    ap.add_argument("--my-gbm-path", default=None,
+                    help="自分(idx0)の value pkl 明示指定 (= base v6 で打たせる等、 既定 auto-resolve)")
     a = ap.parse_args()
-    global _FEAT, _MY_TEMP
+    global _FEAT, _MY_TEMP, _MY_GBM
     _FEAT = a.feat
     _MY_TEMP = a.my_temperature
+    _MY_GBM = str(ROOT / a.my_gbm_path) if a.my_gbm_path else None
 
     vpath = a.value_path or str(ROOT / "db" / f"value_gbm_{a.deck}.pkl")
     if Path(vpath).exists():
