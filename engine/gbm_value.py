@@ -579,25 +579,41 @@ def _feat_for_dim(state, me_idx, n):
                     v12=(n == len(FEATURE_KEYS_V12)))
 
 
-def _model_pwin(model: Any, state: Any, me_idx: int) -> float:
+# prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は
+# v2 から分岐するので不可)。 _feats[:n] は n がこの集合のときだけ安全。
+_PREFIX_SAFE_DIMS = frozenset({17, 21, 34, 38, 41, 45})
+
+
+def _reuse_ok(feats, n):
+    return feats is not None and len(feats) >= n and n in _PREFIX_SAFE_DIMS
+
+
+def _model_pwin(model: Any, state: Any, me_idx: int, _feats: Optional[list] = None) -> float:
     """任意 model (plain GBM / v9_residual / block_residual dict) の P(win) を [0,1] で返す。
     dict wrapper の anchor が更に dict でも **再帰で解ける** → 反復で value を合成できる
-    (V_{k+1} = block_residual(anchor=V_k))。 [[project_block_value_architecture]]"""
+    (V_{k+1} = block_residual(anchor=V_k))。 [[project_block_value_architecture]]
+
+    ⚡ 速度: FEATURE_KEYS_V1⊂V2⊂V5⊂V6⊂V11⊂V12 は prefix 一致(features() が prefix 順に build)
+    なので、 最大次元の feature を 1 回計算し小次元は slice で再利用(_feats)。 block_residual の
+    anchor(v6=38)+resid(v11=41)で 2 回計算していた feature を 1 回に(profile: value の ~半分が feature 計算)。"""
     if isinstance(model, dict) and model.get("kind") == "v9_residual":
-        p_anchor = _model_pwin(model["anchor"], state, me_idx)
-        feat38 = features(state, me_idx, v6=True, v7=False, v8=False, v10=False)
+        feat38 = _feats[:38] if _reuse_ok(_feats, 38) \
+            else features(state, me_idx, v6=True, v7=False, v8=False, v10=False)
+        p_anchor = _model_pwin(model["anchor"], state, me_idx, _feats=feat38)
         resid = float(model["resid"].predict([feat38])[0])
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     if isinstance(model, dict) and model.get("kind") == "block_residual":
-        p_anchor = _model_pwin(model["anchor"], state, me_idx)
         rn = int(getattr(model["resid"], "n_features_in_", len(FEATURE_KEYS_V11)))
-        rfeat = features(state, me_idx, v12=(rn == len(FEATURE_KEYS_V12)),
-                         v11=(rn == len(FEATURE_KEYS_V11)))
+        rfeat = _feats[:rn] if _reuse_ok(_feats, rn) \
+            else features(state, me_idx, v12=(rn == len(FEATURE_KEYS_V12)),
+                          v11=(rn == len(FEATURE_KEYS_V11)))
+        # anchor は rfeat の prefix を再利用(v6⊂v11⊂v12 の prefix 一致)
+        p_anchor = _model_pwin(model["anchor"], state, me_idx, _feats=rfeat)
         resid = float(model["resid"].predict([rfeat])[0])
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     # plain sklearn model (次元自動判別、 classifier/regressor 両対応)
     n = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
-    x = [_feat_for_dim(state, me_idx, n)]
+    x = [_feats[:n]] if _reuse_ok(_feats, n) else [_feat_for_dim(state, me_idx, n)]
     if hasattr(model, "predict_proba"):
         return float(model.predict_proba(x)[0][1])
     return min(1.0, max(0.0, float(model.predict(x)[0])))
