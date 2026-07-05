@@ -57,16 +57,19 @@ def _pwin(state, idx):
 
 
 _FEAT = "v6"  # main で --feat 設定(v6 / v11 / v12)
+_MY_TEMP = 0.0  # 自分(target=idx0)の塊探索温度(>0=探索)。 相手は常に argmax(現最強)
 
 
 def _play(deck_t, deck_o, slug_t, slug_o, seed):
     """target=idx0 固定。 各 target 手番頭 s_t で (feat, v_self) を記録、
-    塊帰結 v_next = 次 target 手番頭の P(win)(終局なら z) を後付けで解決。"""
+    塊帰結 v_next = 次 target 手番頭の P(win)(終局なら z) を後付けで解決。
+    自分(idx0)= 温度探索(_MY_TEMP)、 相手(idx1)= argmax(=現最強、 塊を punish)。"""
     st = setup_game(deck_t, deck_o, rng=random.Random(seed),
                     first_player=seed % 2, effects_overlay=_OVERLAY)
     play_until_main(st)
     ais = [
-        ExploitBeamAI(rng=random.Random(seed * 3 + 1), deck_analysis={"deck_slug": slug_t}),
+        ExploitBeamAI(rng=random.Random(seed * 3 + 1), deck_analysis={"deck_slug": slug_t},
+                      plan_temperature=_MY_TEMP),
         ExploitBeamAI(rng=random.Random(seed * 5 + 2), deck_analysis={"deck_slug": slug_o}),
     ]
     caps = []  # [(feat, v_self)] in target-turn order
@@ -118,9 +121,12 @@ def main():
                     help="記録する特徴 (v11 = v6 + 防御-threat 3、 v12 = v11 + 中身バレ相手 4)")
     ap.add_argument("--seed-base", type=int, default=900,
                     help="対局 seed の基点 (= ラウンド毎に変えて新規対局を生成)")
+    ap.add_argument("--my-temperature", type=float, default=0.0,
+                    help="自分(idx0)の塊探索温度 (>0=探索して被覆↑、 相手は常に現最強argmax)")
     a = ap.parse_args()
-    global _FEAT
+    global _FEAT, _MY_TEMP
     _FEAT = a.feat
+    _MY_TEMP = a.my_temperature
 
     vpath = a.value_path or str(ROOT / "db" / f"value_gbm_{a.deck}.pkl")
     if Path(vpath).exists():
@@ -149,7 +155,7 @@ def main():
                 f.flush()
                 n_games += 1
                 n_win += int(z)
-                print(f"  {a.deck} vs {opp} seed{900+i}: z={int(z)} (+{len(rows)} rounds)",
+                print(f"  {a.deck} vs {opp} seed{a.seed_base+i}: z={int(z)} (+{len(rows)} rounds)",
                       flush=True)
     print(f"\n[done] {n_games} games, {n_samp} round-samples, target 勝率={n_win/max(1,n_games)*100:.0f}% "
           f"-> {out}")
