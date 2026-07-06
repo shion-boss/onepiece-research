@@ -28,6 +28,40 @@ from typing import TYPE_CHECKING, Optional
 # fast_clone が clone に与える軽量 RNG の決定的 seed(exact RNG deepcopy 回避、 profile _deepcopy_tuple 主因)
 _CLONE_RNG_COUNTER = 0
 
+# ⭐ 非対称多ターン探索(2026-07-06、 ohtsuki 設計): 自ターン=探索 / 相手ターン=安い1本応手 /
+# 自の未来ターンも探索(rollout でなく)。 相手を探索しないので爆発せず、 value は探索 play の
+# 訓練で自己成長する(相手応手の見積もりが複利で良くなる)。 ONEPIECE_ASYM_MULTITURN=1 で opt-in。
+# _ASYM_GUARD > 0 の間は入れ子 search_turn_plan を turns=1 に強制(無限再帰防止)。
+_ASYM_GUARD = 0
+
+
+def _asym_my_turn(state, me_idx, ai_opp, ai_self, bw, bd):
+    """自の未来ターンを SEARCH(shallow beam)して best plan を適用(= 非対称多ターンの "自=探索")。
+    _ASYM_GUARD で入れ子の深い eval を止める。 失敗は部分適用で許容(rollout 相当)。"""
+    global _ASYM_GUARD
+    _ASYM_GUARD += 1
+    try:
+        plan, _ = search_turn_plan(state, ai_opp, beam_width=bw, max_depth=bd,
+                                   max_turns=1, ai_self=ai_self)
+        from .game import apply_action as _apply, EndPhase as _EP
+        for act in plan:
+            if getattr(state, "game_over", False):
+                break
+            try:
+                _apply(state, act)
+            except Exception:
+                break
+        if (not getattr(state, "game_over", False) and state.phase == Phase.MAIN
+                and state.turn_player_idx == me_idx):
+            try:
+                _apply(state, _EP())
+            except Exception:
+                pass
+    except Exception:
+        pass
+    finally:
+        _ASYM_GUARD -= 1
+
 from .core import Phase
 from .eval import compute_score
 from .game import (
@@ -854,6 +888,11 @@ def search_turn_plan(
     # control-vs-aggro の構造ギャップ ([[project_leader_aware_matchup_ai]] A 着手) 用。 my 未来ターンも
     # rollout policy で進めるため policy 質が効く (= greedy だと control を過小評価しうる → 段階改善)。
     _postopp_turns = max(1, int(_os.environ.get("ONEPIECE_POSTOPP_TURNS", "1")))
+    # 非対称多ターンの入れ子(自の未来ターン探索)中は turns=1 に強制(無限再帰防止)
+    if _ASYM_GUARD > 0:
+        _postopp_turns = 1
+    # 自ターン=探索 mode(自の未来ターンを rollout でなく beam 探索)。 opt-in。
+    _asym = _os.environ.get("ONEPIECE_ASYM_MULTITURN") == "1" and _ASYM_GUARD == 0
     # 自分の未来ターンの rollout policy: 既定 greedy(速)、 ONEPIECE_POSTOPP_SELF_VALUE=1 で
     # value-guided (= EvalGreedyAI、 matchup-aware GBM で操縦)。 greedy は control を過小評価し
     # 深い lookahead で誤差が複利累積(= T3 悪化の原因)→ value-guided で control の grind を正確に rollout。
@@ -907,8 +946,14 @@ def search_turn_plan(
                     _simulate_opp_turn(ev, opp_idx, _postopp_opp_ai, _postopp_ai,
                                        hard_cap_actions=_postopp_cap)
                 if _i + 1 < turns and not ev.game_over and ev.turn_player_idx == me_idx:
-                    _simulate_opp_turn(ev, me_idx, _postopp_self_ai, _postopp_ai,
-                                       hard_cap_actions=_postopp_cap)
+                    if _asym:
+                        # 自の未来ターン = SEARCH(beam、 shallow)して best plan 適用(非対称設計)
+                        _asym_my_turn(ev, me_idx, _postopp_ai, _postopp_ai,
+                                      bw=max(4, beam_width // 2), bd=max_depth)
+                    else:
+                        # 従来 = rollout(1本 policy 応手)
+                        _simulate_opp_turn(ev, me_idx, _postopp_self_ai, _postopp_ai,
+                                           hard_cap_actions=_postopp_cap)
         except Exception:
             return compute_score(cur_state, me_idx)
         return compute_score(ev, me_idx)
