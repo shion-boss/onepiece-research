@@ -69,32 +69,11 @@ def _field(p):
 # ─────────────────────────────────────────────────────────────────────────
 # 資源効率群(D): DON コスパ / 資源 denial
 # ─────────────────────────────────────────────────────────────────────────
-@eval_function("resource_denial", "denial")
-def ef_resource_denial(ctx: EvalContext) -> float:
-    """このプランで減らした相手リソース(life + 手札 + 盤面キャラ)。 = 相手を削る量。
-    盤面 value が過小評価する一時的/条件付き除去・手札破壊を直接 credit する軸。"""
-    o, c = ctx.opp(ctx.orig), ctx.opp(ctx.cur)
-    life_rm = _life(o) - _life(c)
-    hand_rm = _hand(o) - _hand(c)
-    field_rm = _field(o) - _field(c)
-    # 重みは暫定(life > 盤面 > 手札 の粗い序列)。 combiner が最終調整。
-    return 3.0 * life_rm + 2.0 * field_rm + 1.5 * hand_rm
-
-
-@eval_function("don_cospa", "efficiency")
-def ef_don_cospa(ctx: EvalContext) -> float:
-    """DON コスパ = 相手リソース削減 ÷ 実効 DON コスト(デッキに戻す ≤2 は無料、 ohtsuki)。
-    「少ない DON で最大の削減」を報酬。 ≤2 DON return の無料除去(ドン!!-1)を高評価にする狙い。"""
-    denial = ef_resource_denial(ctx)
-    if denial <= 0:
-        return 0.0
-    mo, mc = ctx.me(ctx.orig), ctx.me(ctx.cur)
-    # このターン使った DON(total_don の減少)。 デッキに戻す ≤2 は無料 → 実効から引く。
-    don_used = max(0, getattr(mo, "total_don", 0) - getattr(mc, "total_don", 0))
-    eff_don = max(1.0, float(don_used) - 2.0)  # ≤2 は無傷
-    return denial / eff_don
-
-
+# ⚠ 剪定(2026-07-06): resource_denial(life+/hand-/field を合成)と don_cospa(それ÷DON)を削除。
+# 顔攻撃は life→hand で life削り(+)と手札"増"(-)が逆向き → 合成すると相殺 = lossy(combiner が
+# 分離不能)。 原則「評価関数は測るだけ、 処理(合成/重み)は combiner だけ」に反する。 アトミックな
+# opp_life_removed / opp_hand_removed / opp_field_removed / don_used_this_turn を残し、 combiner が
+# life-pressure と hand-denial と DON コスパを **別々に学習** する(life→hand trade-off も学べる)。
 # ─────────────────────────────────────────────────────────────────────────
 # 攻撃判断群(F/E): 相手手札カウンター推定 / 攻撃先
 # ─────────────────────────────────────────────────────────────────────────
@@ -339,21 +318,8 @@ def ef_plan_length(ctx):
 # ─────────────────────────────────────────────────────────────────────────
 # 推論軸(生盤面特徴が持てない "計算/評価"。 = 天井を超える本命)
 # ─────────────────────────────────────────────────────────────────────────
-@eval_function("attack_vs_counter", "attack")
-def ef_attack_vs_counter(ctx):
-    """自分の攻撃圧(rested キャラ power)− 相手の推定カウンター総量 = 相手の防御を貫く余力。
-    正 = カウンターを超えて打点/強制(ohtsuki「パワーで相手に何を削るか強制」)。 生特徴に無い計算。"""
-    p = ctx.me(ctx.cur)
-    attack_power = sum(int(getattr(c, "power", 0) or 0) for c in getattr(p, "characters", [])
-                       if getattr(c, "rested", False))
-    try:
-        from . import hand_estimator
-        opp_counter = hand_estimator.expected_counter_total(ctx.cur, ctx.opp_idx)
-    except Exception:
-        opp_counter = 0
-    return (attack_power - float(opp_counter)) / 1000.0
-
-
+# ⚠ 剪定: attack_vs_counter(attack_power − opp_counter の合成)を削除。 attack_power_committed(r=0.95
+# で冗長)と opp_counter_threat が既にアトミックにあり、 combiner が「攻撃圧 vs 相手カウンター」を学習。
 @eval_function("threat_removed_power", "denial")
 def ef_threat_removed_power(ctx):
     """このターンで盤面から除いた相手キャラの power 合計(= 除去した"脅威の大きさ"。 数でなく質、
