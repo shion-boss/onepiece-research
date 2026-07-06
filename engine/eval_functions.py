@@ -202,6 +202,21 @@ def ef_don_used_this_turn(ctx):
                      - getattr(ctx.me(ctx.cur), "total_don", 0)))
 
 
+@eval_function("don_cospa", "efficiency")
+def ef_don_cospa(ctx):
+    """⭐ ohtsuki weakness #2 = DON コスパ(より少ない DON で相手 life/盤面を多く減らす)。
+    比(impact/DON)= tree combiner が atomic 軸から合成できない構造 → 明示軸にする価値。
+    分子 = life 除去 + 盤面除去(life→hand の相殺を避けるため hand破壊は別軸 opp_hand_removed に分離)。
+    分母 = 使った DON。 ≤2 の DON 返却(エネル ドン!!-1)は次ターン refill なので疑似無料寄りに割引。"""
+    life_rm = _life(ctx.opp(ctx.orig)) - _life(ctx.opp(ctx.cur))
+    field_rm = _field(ctx.opp(ctx.orig)) - _field(ctx.opp(ctx.cur))
+    impact = float(life_rm + field_rm)
+    don_spent = float(max(0, getattr(ctx.me(ctx.orig), "total_don", 0)
+                          - getattr(ctx.me(ctx.cur), "total_don", 0)))
+    eff_don = don_spent - 2.0 if don_spent > 2.0 else don_spent * 0.3  # ≤2 返却は疑似無料寄り
+    return impact / max(1.0, eff_don)
+
+
 @eval_function("don_reserve_active", "defense")
 def ef_don_reserve_active(ctx):
     """ターン終了時の active DON(= カウンター用 reserve)。 少量は防御に有用(過度は無駄)。
@@ -287,6 +302,108 @@ def ef_attack_power_committed(ctx):
                if getattr(c, "rested", False)) / 1000.0
 
 
+def _pw(c):
+    return int(getattr(c, "power", 0) or 0)
+
+
+def _pow_by_iid(p):
+    d = {}
+    lead = getattr(p, "leader", None)
+    if lead is not None:
+        d[getattr(lead, "instance_id", None)] = _pw(lead)
+    for c in getattr(p, "characters", []):
+        d[getattr(c, "instance_id", None)] = _pw(c)
+    return d
+
+
+@eval_function("forced_defense", "attack")
+def ef_forced_defense(ctx):
+    """⭐ 盤面に無い情報 = 各攻撃が相手に強制する防御コスト(ohtsuki: 「同パワー=手札1枚 or ライフ強制、
+    +1000=2枚、+2000=イベント強制」)。 攻撃ごとに (攻撃力 − 被攻撃者パワー) を 1000 単位 + base 1
+    (必ず応答 or 損失)で総和。 = 相手の "強制選択" の量(結果=盤面 でなく、 選択を迫る圧)。
+    attacker power は cur(DON 付与後)、 target power は orig(battle 解決前)で見る。"""
+    from .game import AttackLeader, AttackCharacter
+    tgt_pow = _pow_by_iid(ctx.opp(ctx.orig))          # 被攻撃者(攻撃時)
+    atk_pow = _pow_by_iid(ctx.me(ctx.cur))            # 攻撃者(DON 付与後)
+    opp_leader_iid = getattr(getattr(ctx.opp(ctx.orig), "leader", None), "instance_id", None)
+    total = 0.0
+    for a in ctx.plan:
+        if isinstance(a, AttackLeader):
+            tp = tgt_pow.get(opp_leader_iid, 5000)
+        elif isinstance(a, AttackCharacter):
+            tp = tgt_pow.get(a.target_iid, 0)
+        else:
+            continue
+        ap = atk_pow.get(a.attacker_iid, 0)
+        if ap < tp:
+            continue                                    # 攻撃力 < 対象 = 弾かれ何も強制しない
+        total += 1.0 + (ap - tp) / 1000.0               # base 1(応答 or 損失)+ 上回り counter-quanta
+    return total
+
+
+@eval_function("forced_vs_counter", "attack")
+def ef_forced_vs_counter(ctx):
+    """⭐ 盤面に無い情報 = 強制圧 と 相手の推定カウンター資源 の相互作用(belief)。 相手の counter が
+    少ないほど 強制が "ライフ/手札 の実損" に化ける(良い)、 多いほど counter を吐かせるだけ。
+    forced_defense × (1 − 相手カウンター充足率)を粗く近似。 = 攻撃先/パワー調整が有効かの非盤面判断。"""
+    fd = ef_forced_defense(ctx)
+    try:
+        from . import hand_estimator
+        ct = hand_estimator.expected_counter_total(ctx.cur, ctx.opp_idx)   # 相手手札の期待 counter
+    except Exception:
+        ct = 0.0
+    # 強制した counter-quanta を相手 counter がどれだけ吸収できるか。 吸収しきれない分 = 実損に化ける
+    forced_quanta = fd * 1000.0
+    leak = max(0.0, forced_quanta - float(ct)) / 1000.0
+    return leak
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 効果・コンボ群(G、 盤面外 = value が見られない「効果活用」。 ohtsuki weakness #1)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("effects_used", "effect")
+def ef_effects_used(ctx):
+    """このターンに発動した起動メイン効果(ActivateMain)の数 = 効果を能動的に使ったか。
+    ガンマナイフ(除去)/ロー(手札破壊)等はここ。 盤面 value は "効果を使った事実" を持たない。"""
+    try:
+        from .game import ActivateMain
+        return float(sum(1 for a in ctx.plan if isinstance(a, ActivateMain)))
+    except Exception:
+        return 0.0
+
+
+@eval_function("effect_potential_left", "effect")
+def ef_effect_potential_left(ctx):
+    """⭐ 取りこぼし = ターン終了時に「使えるのに使わなかった」起動メイン効果の数(負の信号)。
+    list_activate_main_effects(cur) が今なお fireable な効果を返す = DON/条件を満たすのに未使用。
+    ohtsuki weakness #1(効果を最大活用しない)を直接測る非盤面軸。"""
+    ov = getattr(ctx.cur, "effects_overlay", None)
+    if not ov:
+        return 0.0
+    try:
+        from .effects import list_activate_main_effects
+        avail = list_activate_main_effects(ctx.cur, ctx.me(ctx.cur), ov)
+        return -float(len(avail))
+    except Exception:
+        return 0.0
+
+
+@eval_function("my_effect_sources_idle", "effect")
+def ef_my_effect_sources_idle(ctx):
+    """盤面外の "効果駒の遊び" = 起動メイン効果を持つ自駒のうち、 このターン一度も効果を使わずに
+    ターンを終えた数(効果エンジンを回していない)。 potential_left と近いが "駒単位" で数える。"""
+    ov = getattr(ctx.cur, "effects_overlay", None)
+    if not ov:
+        return 0.0
+    try:
+        from .effects import list_activate_main_effects
+        avail = list_activate_main_effects(ctx.cur, ctx.me(ctx.cur), ov)
+        idle_sources = {getattr(s, "instance_id", id(s)) for s, _ in avail}
+        return -float(len(idle_sources))
+    except Exception:
+        return 0.0
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # レース群(I)
 # ─────────────────────────────────────────────────────────────────────────
@@ -357,6 +474,25 @@ def eval_vector(orig, cur, plan, me_idx) -> dict[str, float]:
         except Exception:
             out[name] = 0.0
     return out
+
+
+# 非盤面 bonus: value(盤面)を置換せず nudge する用。 combiner が board 支配で非盤面を薄めるため、
+# ohtsuki の知識軸(強制/コスパ/効果活用)を明示的に up-weight して探索を寄せる。 各軸は「高いほど良い」
+# に揃えて符号済み(effect_potential_left は未使用効果で負 = ペナルティ)。 スケールは軸の典型値で正規化。
+_NONBOARD_BONUS_WEIGHTS = {
+    "forced_defense": 0.25,        # 攻撃の強制(counter/ライフを吐かせる)
+    "forced_vs_counter": 0.35,     # 強制 × 相手カウンター不足(実損に化ける)
+    "don_cospa": 0.30,             # DON コスパ(少 DON で多 denial)
+    "effects_used": 0.30,          # 効果を能動的に使う(weakness #1)
+    "effect_potential_left": 0.20, # 取りこぼし penalty(未使用効果ぶん負)
+    "my_effect_sources_idle": 0.15,
+}
+
+
+def nonboard_bonus(orig, cur, plan, me_idx) -> float:
+    """非盤面推論軸の重み付き和(value に加算する nudge 用、 [-~2, ~2] 程度)。"""
+    vec = eval_vector(orig, cur, plan, me_idx)
+    return sum(vec.get(k, 0.0) * w for k, w in _NONBOARD_BONUS_WEIGHTS.items())
 
 
 def combine(vec: dict[str, float], weights: dict[str, float] | None = None) -> float:

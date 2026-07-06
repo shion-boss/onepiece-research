@@ -971,6 +971,19 @@ def search_turn_plan(
     # P(win) → beam が最善手を選ぶ(= 生 value の代替)。 性能: 安価 value で並べ top-K だけ combiner で
     # 再score(eval_vector は belief 含み高コストなので)。 ONEPIECE_EVAL_COMBINER=<pkl path> で opt-in。
     _eval_combiner = _os.environ.get("ONEPIECE_EVAL_COMBINER")
+    # ⭐ 非盤面 bonus nudge(2026-07-06): value を置換せず、 ohtsuki の推論軸(強制/コスパ/効果活用)を
+    # λ·bonus で加算して探索を寄せる。 ONEPIECE_NONBOARD_BONUS=λ で opt-in(既定 OFF)。 combiner mode とは排他。
+    _nb_lambda = float(_os.environ.get("ONEPIECE_NONBOARD_BONUS", "0") or "0")
+
+    def _nb_add(cur_state, plan):
+        if _nb_lambda == 0.0 or getattr(cur_state, "game_over", False):
+            return 0.0
+        try:
+            from . import eval_functions as _EF2
+            return _nb_lambda * _EF2.nonboard_bonus(state, cur_state, plan, me_idx) * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1002,11 +1015,11 @@ def search_turn_plan(
                 s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             else:
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
-            scored.append((s, plan))
+            scored.append((s + _nb_add(cur_state, plan), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
-            scored.append((s, plan))
+            scored.append((s + _nb_add(cur_state, plan), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):

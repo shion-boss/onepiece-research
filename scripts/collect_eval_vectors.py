@@ -42,21 +42,24 @@ def _play(deck_a, deck_o, slug_a, slug_o, seed):
     records = []  # (turn, player, vec)
     orig = None
     cur_turn_player = None
+    plan_acc = []  # そのターンプレイヤーが打った行動列(= 推論軸 forced_defense/effects_used 等が読む plan)
     k = 0
     while not st.game_over and st.turn_number < 50 and k < 1500:
         tp = st.turn_player_idx
         if tp != cur_turn_player:
-            # 前ターンの締め: 前プレイヤーの vec を記録(orig=前ターン頭、 cur=今 = そのターン終了後)
+            # 前ターンの締め: 前プレイヤーの vec を記録(orig=前ターン頭、 cur=今、 plan=そのターンの行動列)
             if orig is not None and cur_turn_player is not None:
                 try:
-                    vec = EF.eval_vector(orig, st, [], cur_turn_player)
+                    vec = EF.eval_vector(orig, st, plan_acc, cur_turn_player)
                     records.append((st.turn_number, cur_turn_player, vec))
                 except Exception:
                     pass
             orig = fast_clone(st)
             cur_turn_player = tp
+            plan_acc = []
         try:
-            play_one_action(st, ais[tp], ais[1 - tp])
+            action = play_one_action(st, ais[tp], ais[1 - tp])
+            plan_acc.append(action)
         except Exception:
             break
         k += 1
