@@ -967,8 +967,31 @@ def search_turn_plan(
     # 残りは 1-round score のまま。 = 深 rollout を K 回に cap → 高分岐 game でも爆発しない
     # (turns=2 が 4.6h ハングした真因は completed plan 数 × 深 rollout)。 K = ONEPIECE_POSTOPP_TOPK(既定 12)。
     _topk = int(_os.environ.get("ONEPIECE_POSTOPP_TOPK", "12"))
+    # ⭐ 多軸評価 combiner mode(2026-07-06、 ohtsuki 設計): 候補plan の評価ベクトル → 学習 combiner で
+    # P(win) → beam が最善手を選ぶ(= 生 value の代替)。 性能: 安価 value で並べ top-K だけ combiner で
+    # 再score(eval_vector は belief 含み高コストなので)。 ONEPIECE_EVAL_COMBINER=<pkl path> で opt-in。
+    _eval_combiner = _os.environ.get("ONEPIECE_EVAL_COMBINER")
     scored = []
-    if _postopp_turns > 1 and len(completed) > _topk:
+    if _eval_combiner:
+        from .gbm_value import SCALE as _CSCALE
+        from . import eval_functions as _EF
+        tmp = []
+        for cur_state, plan in completed:
+            s1 = _eval_state(cur_state, plan, 1) + _penalty(cur_state, plan)
+            tmp.append((s1, cur_state, plan))
+        tmp.sort(key=lambda x: -x[0])
+        _ck = int(_os.environ.get("ONEPIECE_EVAL_COMBINER_TOPK", "16"))
+        for i, (s1, cur_state, plan) in enumerate(tmp):
+            if i < _ck and not getattr(cur_state, "game_over", False):
+                try:
+                    pw = _EF.combiner_pwin(state, cur_state, plan, me_idx, _eval_combiner)
+                    s = (pw - 0.5) * _CSCALE + _penalty(cur_state, plan)
+                except Exception:
+                    s = s1
+            else:
+                s = s1
+            scored.append((s, plan))
+    elif _postopp_turns > 1 and len(completed) > _topk:
         cheap = []
         for cur_state, plan in completed:
             s1 = _eval_state(cur_state, plan, 1) + _penalty(cur_state, plan)

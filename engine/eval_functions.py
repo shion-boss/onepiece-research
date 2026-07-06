@@ -360,8 +360,47 @@ def eval_vector(orig, cur, plan, me_idx) -> dict[str, float]:
 
 
 def combine(vec: dict[str, float], weights: dict[str, float] | None = None) -> float:
-    """評価ベクトルを最終スコアに(Phase1 = 重み付き和)。 weights 無しは全軸 0(= 無害)。
-    Phase2 で学習 combiner に差し替え予定(評価ベクトル → 勝率)。"""
+    """評価ベクトルを最終スコアに(Phase1 = 重み付き和)。 weights 無しは全軸 0(= 無害)。"""
     if not weights:
         return 0.0
     return sum(vec.get(k, 0.0) * w for k, w in weights.items())
+
+
+# ── 学習 combiner(Phase2): 評価ベクトル → P(win)。 beam の value 代替 ────────────
+_COMBINER_CACHE: dict = {}
+
+
+def _load_combiner(path: str):
+    m = _COMBINER_CACHE.get(path)
+    if m is None:
+        import pickle
+        with open(path, "rb") as f:
+            m = pickle.load(f)
+        _COMBINER_CACHE[path] = m
+    return m
+
+
+def _sigmoid(z: float) -> float:
+    import math
+    if z >= 0:
+        return 1.0 / (1.0 + math.exp(-z))
+    e = math.exp(z)
+    return e / (1.0 + e)
+
+
+def combiner_pwin(orig, cur, plan, me_idx, path: str) -> float:
+    """combiner で候補plan の評価ベクトル → P(win)。 beam が最善手を選ぶ value。
+    combiner pkl は 2 種類を受ける:
+      - {"model": sklearn, "axes": [...]}          学習 combiner(self-play 勝敗で fit)
+      - {"kind":"linear","weights":{axis:w},"bias":b}  hand-prior 線形(知識で符号固定 = 逆因果矯正)
+    """
+    c = _load_combiner(path)
+    vec = eval_vector(orig, cur, plan, me_idx)
+    if c.get("kind") == "linear":
+        z = float(c.get("bias", 0.0)) + sum(vec.get(k, 0.0) * w for k, w in c["weights"].items())
+        return _sigmoid(z)
+    x = [[float(vec.get(k, 0.0)) for k in c["axes"]]]
+    try:
+        return float(c["model"].predict_proba(x)[0][1])
+    except Exception:
+        return 0.5
