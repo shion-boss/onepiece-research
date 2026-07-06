@@ -120,6 +120,222 @@ def ef_lethal_progress(ctx: EvalContext) -> float:
         return 0.0
 
 
+def _power(p):
+    return sum(int(getattr(c, "power", 0) or 0) for c in getattr(p, "characters", []))
+
+
+def _active_attackers(p):
+    n = 0
+    for c in getattr(p, "characters", []):
+        if getattr(c, "rested", False):
+            continue
+        if not getattr(c, "summoning_sickness", False) or getattr(c, "is_rush_now", False):
+            n += 1
+    return n
+
+
+def _avail_blockers(p):
+    return sum(1 for c in getattr(p, "characters", [])
+               if c.has_keyword_active("ブロッカー") and not getattr(c, "rested", False))
+
+
+def _counter_in_hand(p):
+    return sum(int(getattr(c, "counter", 0) or 0) for c in getattr(p, "hand", []))
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 位置・盤面群(A)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("board_power_diff", "position")
+def ef_board_power_diff(ctx):
+    return (_power(ctx.me(ctx.cur)) - _power(ctx.opp(ctx.cur))) / 1000.0
+
+
+@eval_function("board_count_diff", "position")
+def ef_board_count_diff(ctx):
+    return float(_field(ctx.me(ctx.cur)) - _field(ctx.opp(ctx.cur)))
+
+
+@eval_function("active_attacker_diff", "position")
+def ef_active_attacker_diff(ctx):
+    return float(_active_attackers(ctx.me(ctx.cur)) - _active_attackers(ctx.opp(ctx.cur)))
+
+
+@eval_function("my_avail_blocker", "position")
+def ef_my_avail_blocker(ctx):
+    """次の相手ターンに防御できる自分のブロッカー数(exposure の逆)。"""
+    return float(_avail_blockers(ctx.me(ctx.cur)))
+
+
+@eval_function("opp_active_blocker", "position")
+def ef_opp_active_blocker(ctx):
+    """相手の active ブロッカー数 = 自分の攻撃を止める壁(負の信号)。"""
+    return -float(_avail_blockers(ctx.opp(ctx.cur)))
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# ライフ群(B)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("life_diff", "life")
+def ef_life_diff(ctx):
+    return float(_life(ctx.me(ctx.cur)) - _life(ctx.opp(ctx.cur)))
+
+
+@eval_function("opp_life_pressure", "life")
+def ef_opp_life_pressure(ctx):
+    """相手ライフが低いほど高(=リーサル圏に近い)。 5 - opp_life。"""
+    return float(5 - _life(ctx.opp(ctx.cur)))
+
+
+@eval_function("my_life_buffer", "life")
+def ef_my_life_buffer(ctx):
+    """自分のライフ buffer(低いと危険 = 負)。"""
+    return float(_life(ctx.me(ctx.cur)) - 2)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 手札群(C)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("card_advantage", "hand")
+def ef_card_advantage(ctx):
+    return float(_hand(ctx.me(ctx.cur)) - _hand(ctx.opp(ctx.cur)))
+
+
+@eval_function("my_counter_value", "hand")
+def ef_my_counter_value(ctx):
+    """自分の手札のカウンター総量(= 次の相手ターンの防御資源)。"""
+    return _counter_in_hand(ctx.me(ctx.cur)) / 1000.0
+
+
+@eval_function("opp_hand_size", "hand")
+def ef_opp_hand_size(ctx):
+    """相手の手札枚数(多い=相手のリソース = 負)。"""
+    return -float(_hand(ctx.opp(ctx.cur)))
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# DON 群(D)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("don_used_this_turn", "efficiency")
+def ef_don_used_this_turn(ctx):
+    """このターンに使った DON(= 展開量。 遊ばせてない)。 total_don の減少。"""
+    return float(max(0, getattr(ctx.me(ctx.orig), "total_don", 0)
+                     - getattr(ctx.me(ctx.cur), "total_don", 0)))
+
+
+@eval_function("don_reserve_active", "defense")
+def ef_don_reserve_active(ctx):
+    """ターン終了時の active DON(= カウンター用 reserve)。 少量は防御に有用(過度は無駄)。
+    符号は combiner が学習(脅威高い時は正、 低い時は負を学べる)。"""
+    return float(getattr(ctx.me(ctx.cur), "don_active", 0))
+
+
+@eval_function("attached_don_on_active", "efficiency")
+def ef_attached_don_on_active(ctx):
+    """未 rest(攻撃予定/した)キャラに付いた DON(= 有効付与)vs rested でない遊び。"""
+    p = ctx.me(ctx.cur)
+    useful = sum(c.attached_dons for c in getattr(p, "characters", [])
+                 if getattr(c, "attached_dons", 0) > 0 and getattr(c, "rested", False))
+    wasted = sum(c.attached_dons for c in ([p.leader] + list(getattr(p, "characters", [])))
+                 if getattr(c, "attached_dons", 0) > 0 and not getattr(c, "rested", False))
+    return float(useful - wasted)  # 攻撃済みキャラの付与=有効、 未攻撃の付与=無駄
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 相手推定群(E、 belief)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("opp_blocker_prob", "belief")
+def ef_opp_blocker_prob(ctx):
+    """相手が手札にブロッカーを持つ確率(belief)= 攻撃が止まるリスク(負)。"""
+    try:
+        from . import hand_estimator
+        return -float(hand_estimator.probability_of_blocker_in_hand(ctx.cur, ctx.opp_idx))
+    except Exception:
+        return 0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 資源 denial 詳細群(H、 個別信号 = combiner が life/hand/field を別々に weigh)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("opp_life_removed", "denial")
+def ef_opp_life_removed(ctx):
+    return float(_life(ctx.opp(ctx.orig)) - _life(ctx.opp(ctx.cur)))
+
+
+@eval_function("opp_hand_removed", "denial")
+def ef_opp_hand_removed(ctx):
+    """相手手札を減らした量(手札破壊)。 ohtsuki weakness ③。"""
+    return float(_hand(ctx.opp(ctx.orig)) - _hand(ctx.opp(ctx.cur)))
+
+
+@eval_function("opp_field_removed", "denial")
+def ef_opp_field_removed(ctx):
+    """相手盤面キャラを減らした量(除去)。"""
+    return float(_field(ctx.opp(ctx.orig)) - _field(ctx.opp(ctx.cur)))
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 攻撃判断群(F、 ohtsuki の attack 知識を信号化)
+# ─────────────────────────────────────────────────────────────────────────
+def _count_attacks(plan):
+    try:
+        from .game import AttackLeader, AttackCharacter
+        leader = sum(1 for a in plan if isinstance(a, AttackLeader))
+        chara = sum(1 for a in plan if isinstance(a, AttackCharacter))
+        return leader, chara
+    except Exception:
+        return 0, 0
+
+
+@eval_function("attacks_on_leader", "attack")
+def ef_attacks_on_leader(ctx):
+    """リーダーへの攻撃回数(= 基本の顔詰め、 打点/防御強制)。"""
+    return float(_count_attacks(ctx.plan)[0])
+
+
+@eval_function("attacks_on_chara", "attack")
+def ef_attacks_on_chara(ctx):
+    """キャラへの攻撃回数(除去狙い)。 threat 除去なら価値、 無駄ならコスパ悪。"""
+    return float(_count_attacks(ctx.plan)[1])
+
+
+@eval_function("attack_power_committed", "attack")
+def ef_attack_power_committed(ctx):
+    """攻撃に乗せた総パワー(= 相手に防御を強制する量。 +1000/+2000 で counter/ライフ強制)。
+    rested になった自キャラ(=攻撃した)の power 合計 で近似。"""
+    p = ctx.me(ctx.cur)
+    return sum(int(getattr(c, "power", 0) or 0) for c in getattr(p, "characters", [])
+               if getattr(c, "rested", False)) / 1000.0
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# レース群(I)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("opp_next_lethal", "race")
+def ef_opp_next_lethal(ctx):
+    """相手の次ターンのリーサル脅威(= 自分の clock、 負)。"""
+    try:
+        from .eval import lethal_estimate
+        return -float(lethal_estimate(ctx.cur, ctx.opp_idx))
+    except Exception:
+        return 0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# テンポ・効果群(G)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("cards_played", "tempo")
+def ef_cards_played(ctx):
+    """このターンにプレイしたカード数(展開)= 場のキャラ増 で近似。"""
+    return float(_field(ctx.me(ctx.cur)) - _field(ctx.me(ctx.orig)))
+
+
+@eval_function("plan_length", "tempo")
+def ef_plan_length(ctx):
+    """プランの action 数(= このターンの活動量。 過小なら手抜き)。"""
+    return float(len(ctx.plan))
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # ベクトル算出
 # ─────────────────────────────────────────────────────────────────────────
