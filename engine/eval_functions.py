@@ -337,6 +337,48 @@ def ef_plan_length(ctx):
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# 推論軸(生盤面特徴が持てない "計算/評価"。 = 天井を超える本命)
+# ─────────────────────────────────────────────────────────────────────────
+@eval_function("attack_vs_counter", "attack")
+def ef_attack_vs_counter(ctx):
+    """自分の攻撃圧(rested キャラ power)− 相手の推定カウンター総量 = 相手の防御を貫く余力。
+    正 = カウンターを超えて打点/強制(ohtsuki「パワーで相手に何を削るか強制」)。 生特徴に無い計算。"""
+    p = ctx.me(ctx.cur)
+    attack_power = sum(int(getattr(c, "power", 0) or 0) for c in getattr(p, "characters", [])
+                       if getattr(c, "rested", False))
+    try:
+        from . import hand_estimator
+        opp_counter = hand_estimator.expected_counter_total(ctx.cur, ctx.opp_idx)
+    except Exception:
+        opp_counter = 0
+    return (attack_power - float(opp_counter)) / 1000.0
+
+
+@eval_function("threat_removed_power", "denial")
+def ef_threat_removed_power(ctx):
+    """このターンで盤面から除いた相手キャラの power 合計(= 除去した"脅威の大きさ"。 数でなく質、
+    ohtsuki「効果が嫌なキャラ/大きいキャラの除去」)。 instance_id で orig→cur の消えたキャラを特定。"""
+    o = {getattr(c, "instance_id", id(c)): int(getattr(c, "power", 0) or 0)
+         for c in getattr(ctx.opp(ctx.orig), "characters", [])}
+    cur_ids = {getattr(c, "instance_id", id(c)) for c in getattr(ctx.opp(ctx.cur), "characters", [])}
+    return sum(pw for iid, pw in o.items() if iid not in cur_ids) / 1000.0
+
+
+@eval_function("opp_board_threat", "belief")
+def ef_opp_board_threat(ctx):
+    """相手盤面の総 power(= 自分が次ターン受ける危険)。 負の信号。"""
+    return -_power(ctx.opp(ctx.cur)) / 1000.0
+
+
+@eval_function("net_tempo_swing", "tempo")
+def ef_net_tempo_swing(ctx):
+    """このターンの盤面 power の純増減(自増 − 相手増)= このターンで盤面差をどれだけ動かしたか。"""
+    my_d = _power(ctx.me(ctx.cur)) - _power(ctx.me(ctx.orig))
+    opp_d = _power(ctx.opp(ctx.cur)) - _power(ctx.opp(ctx.orig))
+    return (my_d - opp_d) / 1000.0
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # ベクトル算出
 # ─────────────────────────────────────────────────────────────────────────
 def eval_vector(orig, cur, plan, me_idx) -> dict[str, float]:
