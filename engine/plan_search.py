@@ -989,6 +989,11 @@ def search_turn_plan(
     # beam を攻撃に寄せる(相手ライフが低いほど強く)。 ONEPIECE_FACE_AGGRO=W で opt-in(既定 OFF・no-harm)。
     _face_w = float(_os.environ.get("ONEPIECE_FACE_AGGRO", "0") or "0")
 
+    # belief 条件付け(ONEPIECE_FACE_AGGRO_BELIEF=1): 相手のカウンター推定が少ない時だけ攻撃を推す。
+    # blanket face-aggro が gate 落ちた真因 = 相手が counter を持つ局面(攻撃が餌になる)にも過剰適用。
+    # discriminator = 相手 counter の少なさ → belief で scale して「通る攻撃」だけ boost。
+    _face_belief = _os.environ.get("ONEPIECE_FACE_AGGRO_BELIEF") == "1"
+
     def _face_add(plan):
         if _face_w == 0.0:
             return 0.0
@@ -999,7 +1004,16 @@ def search_turn_plan(
                 return 0.0
             opp_life = len(getattr(state.players[1 - me_idx], "life", []))
             press = max(1.0, 6.0 - opp_life)          # 相手ライフ低いほど攻撃価値↑
-            return _face_w * n_face * press * 10000.0
+            scarcity = 1.0
+            if _face_belief:
+                # 相手カウンター推定が少ないほど scarcity↑(攻撃が通る)、 多いほど 0 に(餌になる)
+                try:
+                    from . import hand_estimator as _he
+                    ct = _he.expected_counter_total(state, 1 - me_idx)  # 期待 counter 総量
+                    scarcity = max(0.0, 1.0 - float(ct) / 4000.0)       # ~4000 で 0(2 counter 分)
+                except Exception:
+                    scarcity = 0.5
+            return _face_w * n_face * press * scarcity * 10000.0
         except Exception:
             return 0.0
 

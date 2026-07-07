@@ -53,14 +53,18 @@ def _play(seed, face_on):
         cur = st.turn_player_idx
         if cur == hero_idx and face_on:   # hero の手番だけ face-aggro を有効化
             os.environ["ONEPIECE_FACE_AGGRO"] = W
+            if os.environ.get("AB_BELIEF") == "1":
+                os.environ["ONEPIECE_FACE_AGGRO_BELIEF"] = "1"
         else:
             os.environ.pop("ONEPIECE_FACE_AGGRO", None)
+            os.environ.pop("ONEPIECE_FACE_AGGRO_BELIEF", None)
         try:
             play_one_action(st, ais[cur], ais[1 - cur])
         except Exception:
             break
         n += 1
     os.environ.pop("ONEPIECE_FACE_AGGRO", None)
+    os.environ.pop("ONEPIECE_FACE_AGGRO_BELIEF", None)
     if not st.game_over:
         return "draw"
     w = getattr(st, "winner", -1)
