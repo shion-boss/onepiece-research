@@ -34,15 +34,24 @@ def _mk(slug, seed):
     return ExploitBeamAI(rng=random.Random(seed), beam_width=16, max_depth=10, deck_analysis={"deck_slug": slug})
 
 
+TURN_CAP = int(os.environ.get("AB_TURN_CAP", "40"))  # 公式 floor_rule 40 ターン(超過=both_lose=引分)
+
+
 def _play(seed, face_on):
-    st = setup_game(_deck(HERO), _deck(OPP), rng=random.Random(seed),
-                    first_player=seed % 2, effects_overlay=_OVERLAY)
+    # ⭐ P0/P1 を seed で均等化(run_matchup と同じ = engine の going-first/P0 優位 bias を除去)。
+    # 偶数 seed: Enel=P0、 奇数 seed: Enel=P1(デッキ順入替)。 hero の手番だけ face-aggro。
+    hero_p0 = (seed % 2 == 0)
+    if hero_p0:
+        st = setup_game(_deck(HERO), _deck(OPP), rng=random.Random(seed), first_player=0, effects_overlay=_OVERLAY)
+        ais = [_mk(HERO, seed * 3 + 1), _mk(OPP, seed * 5 + 2)]; hero_idx = 0
+    else:
+        st = setup_game(_deck(OPP), _deck(HERO), rng=random.Random(seed), first_player=0, effects_overlay=_OVERLAY)
+        ais = [_mk(OPP, seed * 5 + 2), _mk(HERO, seed * 3 + 1)]; hero_idx = 1
     play_until_main(st)
-    ais = [_mk(HERO, seed * 3 + 1), _mk(OPP, seed * 5 + 2)]
     n = 0
-    while not st.game_over and st.turn_number < 50 and n < 1500:
+    while not st.game_over and st.turn_number < TURN_CAP and n < 1500:
         cur = st.turn_player_idx
-        if cur == 0 and face_on:   # hero の手番だけ face-aggro を有効化
+        if cur == hero_idx and face_on:   # hero の手番だけ face-aggro を有効化
             os.environ["ONEPIECE_FACE_AGGRO"] = W
         else:
             os.environ.pop("ONEPIECE_FACE_AGGRO", None)
@@ -53,9 +62,9 @@ def _play(seed, face_on):
         n += 1
     os.environ.pop("ONEPIECE_FACE_AGGRO", None)
     if not st.game_over:
-        return None
+        return "draw"
     w = getattr(st, "winner", -1)
-    return 1 if w == 0 else (0 if w == 1 else None)
+    return 1 if w == hero_idx else (0 if w == (1 - hero_idx) else "draw")
 
 
 def _one(seed):
@@ -70,13 +79,14 @@ def main():
     with mp.Pool(workers) as p:
         res = p.map(_one, seeds)
     on_w = sum(1 for r in res if r[0] == 1)
-    on_n = sum(1 for r in res if r[0] is not None)
+    on_d = sum(1 for r in res if r[0] == "draw")
     off_w = sum(1 for r in res if r[1] == 1)
-    off_n = sum(1 for r in res if r[1] is not None)
-    print(f"エネル vs カルガラ  face_aggro W={W}  N={n}  ({time.time()-t0:.0f}s)")
-    print(f"  face_aggro ON : hero {on_w}/{on_n} = {100*on_w/max(1,on_n):.0f}%")
-    print(f"  face_aggro OFF: hero {off_w}/{off_n} = {100*off_w/max(1,off_n):.0f}%")
-    print(f"  Δ = {100*on_w/max(1,on_n) - 100*off_w/max(1,off_n):+.0f}pt")
+    off_d = sum(1 for r in res if r[1] == "draw")
+    # 公式ルール: 勝率 = hero_wins / N_total(引分は非勝ち)
+    print(f"エネル vs カルガラ  face_aggro W={W}  N={n}  TURN_CAP={TURN_CAP}  ({time.time()-t0:.0f}s)")
+    print(f"  face_aggro ON : hero勝ち {on_w}/{n} = {100*on_w/n:.0f}%  (引分 {on_d})")
+    print(f"  face_aggro OFF: hero勝ち {off_w}/{n} = {100*off_w/n:.0f}%  (引分 {off_d})")
+    print(f"  Δ(hero勝率) = {100*on_w/n - 100*off_w/n:+.0f}pt")
 
 
 if __name__ == "__main__":
