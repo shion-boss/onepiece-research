@@ -87,15 +87,18 @@ _CFG = {}  # worker 共有設定
 
 
 def _scan_game(g):
-    """1 ゲーム分を走査 → (errors, n_decidable)。 worker(別プロセス)で実行。"""
+    """1 ゲーム分を走査 → (errors, n_decidable)。 worker(別プロセス)で実行。
+    ⭐ P0/P1 均等化(harness bias 修正): 偶数 g は hero=P0、 奇数 g は hero=P1(デッキ順入替)。"""
     deck, opp, rollouts, thr, seed_base = _CFG["deck"], _CFG["opp"], _CFG["rollouts"], _CFG["thr"], _CFG["seed_base"]
-    HERO = 0
     errors = []
     n_pos = 0
-    st = setup_game(_deck(deck), _deck(opp), rng=random.Random(seed_base + g),
-                    first_player=g % 2, effects_overlay=_OVERLAY)
+    if g % 2 == 0:
+        st = setup_game(_deck(deck), _deck(opp), rng=random.Random(seed_base + g), first_player=0, effects_overlay=_OVERLAY)
+        ais = [_mk(deck, 555 + g), _mk(opp, 777 + g)]; HERO = 0
+    else:
+        st = setup_game(_deck(opp), _deck(deck), rng=random.Random(seed_base + g), first_player=0, effects_overlay=_OVERLAY)
+        ais = [_mk(opp, 777 + g), _mk(deck, 555 + g)]; HERO = 1
     play_until_main(st)
-    ais = [_mk(deck, 555 + g), _mk(opp, 777 + g)]
     steps = 0
     while not st.game_over and st.turn_number < 50 and steps < 500:
         tp = st.turn_player_idx
@@ -103,7 +106,7 @@ def _scan_game(g):
         if tp == HERO and st.turn_number >= 3 and len([x for x in acts if not isinstance(x, EndPhase)]) >= 4 and steps % 2 == 0:
             dep_idx = None
             try:
-                dep = ais[0].choose_action(fast_clone(st))
+                dep = ais[HERO].choose_action(fast_clone(st))
                 for i, aa in enumerate(acts):
                     if aa == dep: dep_idx = i; break
             except Exception:
@@ -121,12 +124,12 @@ def _scan_game(g):
                         if wc > best_w:
                             best_idx, best_w = ci, wc
                     if best_idx != dep_idx and best_w - wdep >= thr:
-                        errors.append({"game": seed_base + g, "turn": st.turn_number,
-                                       "deployed_move": PP.render_action(st, acts[dep_idx], 0),
-                                       "best_move": PP.render_action(st, acts[best_idx], 0),
+                        errors.append({"game": seed_base + g, "turn": st.turn_number, "hero_idx": HERO,
+                                       "deployed_move": PP.render_action(st, acts[dep_idx], HERO),
+                                       "best_move": PP.render_action(st, acts[best_idx], HERO),
                                        "win_deployed": round(wdep, 3), "win_best": round(best_w, 3),
                                        "delta": round(best_w - wdep, 3),
-                                       "render": PP.render_position(st, 0)})
+                                       "render": PP.render_position(st, HERO)})
         try:
             play_one_action(st, ais[tp], ais[1 - tp])
         except Exception:
