@@ -34,6 +34,7 @@ HERO_AI_SEED = 555
 OPP_AI_SEED = 777
 FIRST_PLAYER = 0                  # hero = player 0
 POS_FILE = ROOT / "db" / "_analyst" / "claude_pilot_positions.json"
+CORPUS_FILE = ROOT / "db" / "_analyst" / "claude_pilot_corpus.jsonl"  # 検証済み改善の蓄積(蒸留元)
 
 
 def _deck(slug):
@@ -161,18 +162,18 @@ def _winrate_of(st, action_idx, n=8, base_seed=0):
     return w / n
 
 
-def do_extract(n_positions):
+def do_extract(n_positions, seed_base=GAME_SEED):
     positions = []
     md = ["# Claude 操縦 PoC — エネル判断局面(競り合いのみ)\n",
           f"対戦: エネル(P0)vs カルガラ(P1)。 各局面で **あなた(エネル)** の最善手を 1 つ選ぶ。\n",
           "配備 AI の手で勝率 0.3-0.7 の decidable 局面だけ抽出(負け/勝ち確定局面は手の質を測れない)。\n"]
     g = 0
     scanned = 0
-    while len(positions) < n_positions and g < 40:
-        st = setup_game(_deck(HERO_DECK), _deck(OPP_DECK), rng=random.Random(GAME_SEED + g),
+    while len(positions) < n_positions and g < 60:
+        st = setup_game(_deck(HERO_DECK), _deck(OPP_DECK), rng=random.Random(seed_base + g),
                         first_player=FIRST_PLAYER, effects_overlay=_OVERLAY)
         play_until_main(st)
-        ais = [_mk_ai(HERO_DECK, HERO_AI_SEED + g), _mk_ai(OPP_DECK, OPP_AI_SEED + g)]
+        ais = [_mk_ai(HERO_DECK, HERO_AI_SEED + seed_base + g), _mk_ai(OPP_DECK, OPP_AI_SEED + seed_base + g)]
         ordinal = -1
         steps = 0
         while not st.game_over and st.turn_number < 50 and steps < 500 and len(positions) < n_positions:
@@ -194,18 +195,19 @@ def do_extract(n_positions):
                         wr = _winrate_of(fast_clone(st), dep_idx, n=8, base_seed=91 * scanned)
                         if 0.30 <= wr <= 0.70:
                             pid = len(positions)
-                            md.append(f"\n---\n\n## 局面 {pid}(game {g}, 配備手勝率≈{wr:.2f})\n")
-                            md.append(render_position(st, 0))
+                            rendered = render_position(st, 0)
+                            md.append(f"\n---\n\n## 局面 {pid}(game {seed_base}+{g}, 配備手勝率≈{wr:.2f})\n")
+                            md.append(rendered)
                             md.append("\n**選択肢**:")
                             for i, a in enumerate(acts):
                                 md.append(f"  [{i}] {render_action(st, a, 0)}")
-                            pkl = POS_FILE.parent / f"pilot_pos_{pid}.pkl"
+                            pkl = POS_FILE.parent / f"pilot_pos_{seed_base}_{pid}.pkl"
                             pkl.write_bytes(pickle.dumps(fast_clone(st)))
-                            positions.append({"pid": pid, "game": g, "n_actions": len(acts),
+                            positions.append({"pid": pid, "game": seed_base + g, "n_actions": len(acts),
                                               "deployed_idx": dep_idx, "pkl": str(pkl),
-                                              "dep_winrate": round(wr, 3),
+                                              "dep_winrate": round(wr, 3), "render": rendered,
                                               "action_reprs": [render_action(st, a, 0) for a in acts]})
-                            print(f"  局面 {pid} 採用(game {g}, 配備手勝率 {wr:.2f}), scanned {scanned}", flush=True)
+                            print(f"  局面 {pid} 採用(game {seed_base}+{g}, 配備手勝率 {wr:.2f}), scanned {scanned}", flush=True)
             try:
                 play_one_action(st, ais[tp], ais[1 - tp])
             except Exception:
@@ -302,22 +304,33 @@ def do_verify(choices, rollouts):
         my_r = pos["action_reprs"][my_idx]
         dep_r = pos["action_reprs"][dep_idx] if dep_idx is not None else "?"
         print(f"  局面{pos['pid']}: Claude {wc:.2f}[{my_r}] vs 配備 {wd:.2f}[{dep_r}]  Δ{d:+.2f}")
+        # ⭐ 検証済み改善(Claude が明確に良い)を corpus に蓄積 = 蒸留元
+        if d >= 0.15 and dep_idx is not None:
+            with open(CORPUS_FILE, "a", encoding="utf-8") as cf:
+                cf.write(json.dumps({"pid": pos["pid"], "game": pos.get("game"),
+                                     "dep_winrate": pos.get("dep_winrate"),
+                                     "claude_move": my_r, "deployed_move": dep_r,
+                                     "win_claude": round(wc, 3), "win_deployed": round(wd, 3),
+                                     "delta": round(d, 3), "render": pos.get("render", "")},
+                                    ensure_ascii=False) + "\n")
     if n:
         print(f"\n=== PoC 結果({n}局面 × {rollouts} rollouts)===")
         print(f"平均勝率: Claude {sum_c/n:.3f} vs 配備 {sum_d/n:.3f}  (Δ {(sum_c-sum_d)/n:+.3f})")
         print(f"Claude が明確に良い: {claude_better} / 配備が良い: {dep_better} / 互角: {tie}")
+        print(f"corpus(検証済み改善 Δ≥0.15)= {CORPUS_FILE}")
 
 
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="mode", required=True)
     pe = sub.add_parser("extract"); pe.add_argument("--n", type=int, default=10)
+    pe.add_argument("--seed-base", type=int, default=GAME_SEED)
     pv = sub.add_parser("verify")
     pv.add_argument("--choices", required=True, help="カンマ区切りの index(局面順)")
     pv.add_argument("--rollouts", type=int, default=16)
     a = ap.parse_args()
     if a.mode == "extract":
-        do_extract(a.n)
+        do_extract(a.n, a.seed_base)
     else:
         choices = [int(x) for x in a.choices.split(",")]
         do_verify(choices, a.rollouts)
