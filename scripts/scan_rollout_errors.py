@@ -11,6 +11,7 @@ Claude は生成された誤り corpus の**パターン分析→蒸留(fix 化)
 """
 from __future__ import annotations
 import argparse, json, random, sys
+import multiprocessing as mp
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -82,6 +83,58 @@ def _candidate_idxs(acts, dep_idx):
     return cand[:7]
 
 
+_CFG = {}  # worker 共有設定
+
+
+def _scan_game(g):
+    """1 ゲーム分を走査 → (errors, n_decidable)。 worker(別プロセス)で実行。"""
+    deck, opp, rollouts, thr, seed_base = _CFG["deck"], _CFG["opp"], _CFG["rollouts"], _CFG["thr"], _CFG["seed_base"]
+    HERO = 0
+    errors = []
+    n_pos = 0
+    st = setup_game(_deck(deck), _deck(opp), rng=random.Random(seed_base + g),
+                    first_player=g % 2, effects_overlay=_OVERLAY)
+    play_until_main(st)
+    ais = [_mk(deck, 555 + g), _mk(opp, 777 + g)]
+    steps = 0
+    while not st.game_over and st.turn_number < 50 and steps < 500:
+        tp = st.turn_player_idx
+        acts = legal_actions(st)
+        if tp == HERO and st.turn_number >= 3 and len([x for x in acts if not isinstance(x, EndPhase)]) >= 4 and steps % 2 == 0:
+            dep_idx = None
+            try:
+                dep = ais[0].choose_action(fast_clone(st))
+                for i, aa in enumerate(acts):
+                    if aa == dep: dep_idx = i; break
+            except Exception:
+                pass
+            if dep_idx is not None:
+                sb = 97 * (g * 100 + n_pos + 1) + seed_base
+                wdep = _winrate(fast_clone(st), dep_idx, HERO, deck, opp, rollouts, sb)
+                if 0.25 <= wdep <= 0.75:
+                    n_pos += 1
+                    best_idx, best_w = dep_idx, wdep
+                    for ci in _candidate_idxs(acts, dep_idx):
+                        if ci == dep_idx:
+                            continue
+                        wc = _winrate(fast_clone(st), ci, HERO, deck, opp, rollouts, sb)
+                        if wc > best_w:
+                            best_idx, best_w = ci, wc
+                    if best_idx != dep_idx and best_w - wdep >= thr:
+                        errors.append({"game": seed_base + g, "turn": st.turn_number,
+                                       "deployed_move": PP.render_action(st, acts[dep_idx], 0),
+                                       "best_move": PP.render_action(st, acts[best_idx], 0),
+                                       "win_deployed": round(wdep, 3), "win_best": round(best_w, 3),
+                                       "delta": round(best_w - wdep, 3),
+                                       "render": PP.render_position(st, 0)})
+        try:
+            play_one_action(st, ais[tp], ais[1 - tp])
+        except Exception:
+            break
+        steps += 1
+    return errors, n_pos
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--deck", default="cardrush_1454")
@@ -90,61 +143,24 @@ def main():
     ap.add_argument("--rollouts", type=int, default=14)
     ap.add_argument("--thr", type=float, default=0.15)
     ap.add_argument("--seed-base", type=int, default=50000)
+    ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--out", default="db/_analyst/rollout_errors.jsonl")
     a = ap.parse_args()
     out = ROOT / a.out
     out.parent.mkdir(parents=True, exist_ok=True)
-    fout = open(out, "a", encoding="utf-8")
-    HERO = 0
-    n_pos = n_err = 0
-    for g in range(a.games):
-        st = setup_game(_deck(a.deck), _deck(a.opp), rng=random.Random(a.seed_base + g),
-                        first_player=g % 2, effects_overlay=_OVERLAY)
-        play_until_main(st)
-        ais = [_mk(a.deck, 555 + g), _mk(a.opp, 777 + g)]
-        steps = 0
-        while not st.game_over and st.turn_number < 50 and steps < 500:
-            tp = st.turn_player_idx
-            acts = legal_actions(st)
-            if tp == HERO and st.turn_number >= 3 and len([x for x in acts if not isinstance(x, EndPhase)]) >= 4 and steps % 2 == 0:
-                dep_idx = None
-                try:
-                    dep = ais[0].choose_action(fast_clone(st))
-                    for i, aa in enumerate(acts):
-                        if aa == dep: dep_idx = i; break
-                except Exception:
-                    pass
-                if dep_idx is not None:
-                    sb = 97 * (n_pos + 1) + a.seed_base
-                    wdep = _winrate(fast_clone(st), dep_idx, HERO, a.deck, a.opp, a.rollouts, sb)
-                    if 0.25 <= wdep <= 0.75:  # decidable のみ
-                        n_pos += 1
-                        best_idx, best_w = dep_idx, wdep
-                        for ci in _candidate_idxs(acts, dep_idx):
-                            if ci == dep_idx:
-                                continue
-                            wc = _winrate(fast_clone(st), ci, HERO, a.deck, a.opp, a.rollouts, sb)
-                            if wc > best_w:
-                                best_idx, best_w = ci, wc
-                        if best_idx != dep_idx and best_w - wdep >= a.thr:
-                            n_err += 1
-                            rec = {"game": a.seed_base + g, "turn": st.turn_number,
-                                   "deployed_move": PP.render_action(st, acts[dep_idx], 0),
-                                   "best_move": PP.render_action(st, acts[best_idx], 0),
-                                   "win_deployed": round(wdep, 3), "win_best": round(best_w, 3),
-                                   "delta": round(best_w - wdep, 3),
-                                   "render": PP.render_position(st, 0)}
-                            fout.write(json.dumps(rec, ensure_ascii=False) + "\n"); fout.flush()
-                            print(f"  [誤り {n_err}] t{st.turn_number} 配備 {wdep:.2f}[{rec['deployed_move']}] "
-                                  f"→ 最良 {best_w:.2f}[{rec['best_move']}] Δ{best_w-wdep:+.2f}", flush=True)
-            try:
-                play_one_action(st, ais[tp], ais[1 - tp])
-            except Exception:
-                break
-            steps += 1
-        print(f"  game {g+1}/{a.games} 完了(累計 decidable {n_pos}, 誤り {n_err})", flush=True)
-    fout.close()
-    print(f"\n[done] decidable 局面 {n_pos}, 誤り検出 {n_err}(誤り率 {100*n_err/max(1,n_pos):.0f}%)-> {out}")
+    _CFG.update(deck=a.deck, opp=a.opp, rollouts=a.rollouts, thr=a.thr, seed_base=a.seed_base)
+    with mp.Pool(a.workers) as p:
+        results = p.map(_scan_game, range(a.games))
+    n_pos = sum(r[1] for r in results)
+    all_err = [e for r in results for e in r[0]]
+    with open(out, "a", encoding="utf-8") as fout:
+        for rec in all_err:
+            fout.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    for e in all_err:
+        print(f"  [誤り] t{e['turn']} 配備 {e['win_deployed']:.2f}[{e['deployed_move']}] "
+              f"→ 最良 {e['win_best']:.2f}[{e['best_move']}] Δ{e['delta']:+.2f}")
+    print(f"\n[done] decidable 局面 {n_pos}, 誤り検出 {len(all_err)}"
+          f"(誤り率 {100*len(all_err)/max(1,n_pos):.0f}%)-> {out}")
 
 
 if __name__ == "__main__":

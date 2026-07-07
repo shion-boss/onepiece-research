@@ -984,6 +984,25 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ 顔攻撃ボーナス(2026-07-07、 rollout 誤り scan 発): 配備 AI は 41% の局面で顔を殴らなさすぎ
+    # (誤りの 74% で最良手=顔攻撃、 取り逃し Δ0.28)。 plan 中の「相手リーダーへの攻撃」数を報酬化して
+    # beam を攻撃に寄せる(相手ライフが低いほど強く)。 ONEPIECE_FACE_AGGRO=W で opt-in(既定 OFF・no-harm)。
+    _face_w = float(_os.environ.get("ONEPIECE_FACE_AGGRO", "0") or "0")
+
+    def _face_add(plan):
+        if _face_w == 0.0:
+            return 0.0
+        try:
+            from .game import AttackLeader as _AL
+            n_face = sum(1 for a in plan if isinstance(a, _AL))
+            if n_face == 0:
+                return 0.0
+            opp_life = len(getattr(state.players[1 - me_idx], "life", []))
+            press = max(1.0, 6.0 - opp_life)          # 相手ライフ低いほど攻撃価値↑
+            return _face_w * n_face * press * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1015,11 +1034,11 @@ def search_turn_plan(
                 s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             else:
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
-            scored.append((s + _nb_add(cur_state, plan), plan))
+            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
-            scored.append((s + _nb_add(cur_state, plan), plan))
+            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
