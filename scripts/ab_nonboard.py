@@ -26,6 +26,7 @@ _OVERLAY = load_effect_overlay(REPO_ROOT / "db" / "card_effects.json")
 
 SLUG = os.environ["AB_SLUG"]
 BONUS = os.environ["AB_BONUS"]  # nonboard bonus lambda
+BASE_VALUE = os.environ.get("AB_BASE_VALUE")  # 両側の base value を固定(例: v6 = _pre_block.pkl)
 
 
 def _load():
@@ -37,8 +38,11 @@ def _load():
 
 
 def _beam(seed):
-    return ExploitBeamAI(rng=random.Random(seed), beam_width=16, max_depth=10,
-                         deck_analysis={"deck_slug": SLUG})
+    ai = ExploitBeamAI(rng=random.Random(seed), beam_width=16, max_depth=10,
+                       deck_analysis={"deck_slug": SLUG})
+    if BASE_VALUE:
+        ai._gbm_path = str(REPO_ROOT / BASE_VALUE)  # base value を固定(v6 等)
+    return ai
 
 
 def _one(seed):

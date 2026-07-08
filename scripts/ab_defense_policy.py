@@ -27,17 +27,22 @@ OPP = "tcgportal_calgara"
 TURN_CAP = int(os.environ.get("AB_TURN_CAP", "40"))
 
 
+LIFE_THR = int(os.environ.get("AB_LIFE_THR", "2"))  # ライフ > これ ならリーダー攻撃は受ける(chip許容)
+
+
 class MinimalDefenseAI(ExploitBeamAI):
-    """choose_defense を「極力受ける」に override。 ただしその攻撃を受けるとライフ 0 になる時だけ
-    親(value_defense)の防御に委ねる(= lethal は守る、 それ以外は資源温存)。"""
+    """refined 保守防御: リーダー攻撃は**ライフに余裕がある間(> LIFE_THR)は受ける**(chip 許容で
+    カウンター資源を温存)。 ライフ低下時 (<= LIFE_THR) は配備防御に委ねる。 キャラ攻撃(盤面 KO 脅威)は
+    常に配備防御に委ねる(価値あるキャラは守る)。 = 人間的な「早いチップは受け、 効く時に守る」。"""
     def choose_defense(self, state, attacker, target, is_leader_attack, defender):
         try:
-            # リーダー攻撃で自分のライフが 1 (受けると 0=敗北) の時だけ親に委ねる
-            if is_leader_attack and len(getattr(defender, "life", [])) <= 1:
-                return super().choose_defense(state, attacker, target, is_leader_attack, defender)
+            if not is_leader_attack:
+                return super().choose_defense(state, attacker, target, is_leader_attack, defender)  # キャラ守る
+            if len(getattr(defender, "life", [])) <= LIFE_THR:
+                return super().choose_defense(state, attacker, target, is_leader_attack, defender)  # 低ライフは守る
         except Exception:
             pass
-        return (None, ())   # block せず counter せず = 受ける
+        return (None, ())   # ライフ余裕あるリーダー攻撃 = 受ける(資源温存)
 
 
 def _deck(s):
