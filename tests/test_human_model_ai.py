@@ -98,11 +98,11 @@ def test_balanced_human_keeps_char_attack(monkeypatch):
 
 
 def test_aggression_gate_requires_min_samples(monkeypatch):
-    """データ薄 (sample < 30) なら aggression が高くても redirect しない (= 正直)。"""
+    """データ薄 (sample < MIN_SAMPLES=10) なら aggression が高くても redirect しない (= 正直)。"""
     from engine.game import AttackCharacter
     state, atk = _setup_own_attack_turn()
     char_atk = AttackCharacter(atk.instance_id, 999)
     monkeypatch.setattr(GreedyAI, "choose_action", lambda self, st: char_atk)
     hm = HumanModelAI(rng=__import__("random").Random(1),
-                      model={"sample_size": 10, "aggression": 0.96})
+                      model={"sample_size": 8, "aggression": 0.96})
     assert hm.choose_action(state) is char_atk

@@ -11,8 +11,11 @@
   - defense_activity / counter_value_avg: 人間は counter を厚く使う傾向 → 防御を greedy より
     手厚くする (= リーダー被弾を手札カウンターで防ぐ)。
 
-⚠ データ量律速。 sample_size < MIN_SAMPLES の間は **greedy に degrade** (= 8 試合では
-≈greedy、 正直)。 公開サーバの試合が増えるほど人間らしくなる (= フライホイール)。
+⚠ データ量律速。 sample_size < MIN_SAMPLES の間は **greedy に degrade**。 ただしモデル化する
+パラメータは 防御頻度・counter値・顔詰め比率 の **粗い比率/平均** で少数でも安定する上、
+発火閾値(防御 0.30 / 顔 0.60)自体が高め = 一貫した傾向でないと跨げないので、 MIN_SAMPLES=10
+でも「人間が実際に指した手」から意味ある signal を拾える (2026-07-08 ohtsuki 指摘)。 API の
+収集バッチ(batch_size=10)と揃える。 公開サーバの試合が増えるほど精度向上 (= フライホイール)。
 """
 from __future__ import annotations
 
@@ -44,8 +47,9 @@ class HumanModelAI(GreedyAI):
     """
 
     name = "HumanModel"
-    # この試合数を下回る間は greedy に degrade (= 統計的に意味が出ない)。
-    MIN_SAMPLES = 30
+    # この試合数を下回る間は greedy に degrade。 粗い比率/平均パラメータ + 高めの発火閾値なので
+    # 10 試合でも「人間が実際に指した手」から意味ある signal を拾える (2026-07-08、 batch_size=10 と整合)。
+    MIN_SAMPLES = 10
     # defense_activity (= 1 ターンあたり防御アクション数) がこの値以上なら「防御手厚い人間」。
     DEFENSE_ACTIVE_THRESHOLD = 0.30
     # aggression (= 顔狙い攻撃比率) がこの値以上なら「顔詰め型」 → キャラ攻撃を顔へ寄せる。
