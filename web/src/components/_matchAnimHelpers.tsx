@@ -1051,6 +1051,17 @@ type ToastItem = { id: number; text: string; category: string };
 
 /** log 文字列 から 「効果:」 行 を 抽出 し、 効果 種別 を 色 分け。 */
 function categorizeEffectLog(text: string): { category: string; clean: string } | null {
+  // 置換 / 無効化 / 耐性 系を最優先で検出 (= "効果:" prefix を持たない log 行も拾う)。
+  // 例: "離脱置換 (replace_leave): ヴェルゴ → ヴェルゴ の効果で代替" / "バトルでKOされない" /
+  //     "KO を無効化" 等。 「KOしたのに効かない!」 が 何で無効化されたか を明示する (ohtsuki 指摘)。
+  const rep = text.match(/(?:離脱)?置換\s*\(replace_(?:leave|ko|rest)\):\s*([^\s→]+)/);
+  if (rep) {
+    return { category: "prevent", clean: `置換効果: ${rep[1]} の離脱を無効化` };
+  }
+  if (/KOされない|KO ?を?無効|離脱を無効|バニッシュ.*無効|効果を無効|ダメージを?無効|受けない/.test(text)) {
+    const who = text.match(/効果:\s*(.+)/);
+    return { category: "prevent", clean: (who ? who[1].trim() : text.replace(/^T\d+ P\d+:\s*/, "").trim()) };
+  }
   const m = text.match(/効果:\s*(.+)/);
   if (!m) return null;
   const body = m[1].trim();
@@ -1075,6 +1086,9 @@ const TOAST_COLORS: Record<string, string> = {
   keyword: "border-emerald-400 bg-emerald-900/85 text-emerald-100",
   rest: "border-violet-400 bg-violet-900/85 text-violet-100",
   hand: "border-yellow-400 bg-yellow-900/85 text-yellow-100",
+  // 置換 / 無効化 / 耐性 = 相手 or 自分の効果を打ち消す "防御" 系。 太い枠 + ring で最も目立たせる
+  // (= 「KOしたのに効かない!」 の分かりにくさ対策、 2026-07-08 ohtsuki 指摘)。
+  prevent: "border-sky-300 bg-sky-800/90 text-sky-50 ring-2 ring-sky-400/60",
   default: "border-zinc-300 bg-zinc-800/85 text-zinc-100",
 };
 
