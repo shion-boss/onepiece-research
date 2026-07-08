@@ -1152,6 +1152,73 @@ export function EffectToastOverlay({ log }: { log: string[] }) {
 }
 
 // --------------------------------------------------------------------------
+// OpponentRevealOverlay: 相手が公開した手札カード (= サーチ「公開して手札に加える」/ reveal 効果)
+// を、 相手の known_hand_card_ids の増分から検出して確認画面(カード画像)で見せる (ohtsuki 提案:
+// 「相手がサーチで何を選んだかはモーダルで確認画面に出してもいい」)。 公開情報なので表示してよい。
+// --------------------------------------------------------------------------
+export function OpponentRevealOverlay({ knownIds }: { knownIds: string[] }) {
+  const [reveals, setReveals] = useState<{ id: number; cardId: string }[]>([]);
+  const prevRef = useRef<string[] | null>(null);
+  const nextIdRef = useRef(0);
+  const key = knownIds.join("|");
+  useEffect(() => {
+    const prev = prevRef.current;
+    // 初回 (mount/リロード) は既存の公開分を演出せず、 現状を基準として記録するだけ。
+    if (prev === null) {
+      prevRef.current = knownIds;
+      return;
+    }
+    // 前回に無い card_id (= 今 公開された分)。 同名複数公開は count 差で拾う。
+    const prevCount = new Map<string, number>();
+    for (const c of prev) prevCount.set(c, (prevCount.get(c) ?? 0) + 1);
+    const added: string[] = [];
+    for (const c of knownIds) {
+      const n = prevCount.get(c) ?? 0;
+      if (n > 0) prevCount.set(c, n - 1);
+      else added.push(c);
+    }
+    prevRef.current = knownIds;
+    if (added.length === 0) return;
+    const items = added.map((cardId) => ({ id: nextIdRef.current++, cardId }));
+    setReveals((cur) => [...cur, ...items].slice(-3));
+    items.forEach((it) => {
+      setTimeout(
+        () => setReveals((cur) => cur.filter((x) => x.id !== it.id)),
+        3200,
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  if (reveals.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center gap-3">
+      <AnimatePresence>
+        {reveals.map((r) => (
+          <motion.div
+            key={r.id}
+            initial={{ opacity: 0, scale: 0.6, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center gap-2 rounded-xl border-2 border-cyan-300 bg-zinc-900/90 p-4 shadow-2xl ring-2 ring-cyan-400/50 backdrop-blur"
+          >
+            <span className="text-sm font-bold text-cyan-100">
+              相手が公開（サーチ等）
+            </span>
+            <CardImage
+              cardId={r.cardId}
+              alt={r.cardId}
+              className="h-44 w-auto rounded shadow-lg"
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // CounterPlayOverlay: 手札 counter ドロップ 時 「+N」 popup + カード trash slide
 // --------------------------------------------------------------------------
 

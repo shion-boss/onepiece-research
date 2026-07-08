@@ -29,6 +29,7 @@ import {
   LeftCharaGhostList,
   AnimatedNumber,
   EffectToastOverlay,
+  OpponentRevealOverlay,
   AttackBeamOverlay,
   AttackTargetArrowOverlay,
   PlayedCardOverlay,
@@ -1744,6 +1745,9 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 
       {/* 効果 log toast (= 「効果:」 行 を 中央上部 で 1.6秒 表示) */}
       <EffectToastOverlay log={state.log} />
+
+      {/* 相手が公開 (サーチ等) したカードを確認画面で表示 (= 公開情報、 known_hand の増分検出) */}
+      <OpponentRevealOverlay knownIds={opp.known_hand_card_ids ?? []} />
 
       {/* 手札から使用 された カード を 中央 で 大型表示 → trash 方向 slide-fade */}
       <PlayedCardOverlay

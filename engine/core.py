@@ -863,6 +863,9 @@ def _player_snapshot(p) -> dict:
         "stages": [_inplay_snapshot(s) for s in p.stages],
         "hand": [c.card_id for c in p.hand],
         "hand_count": len(p.hand),
+        # 公開済 (= サーチ「公開して手札に加える」/ reveal 効果) の手札 card_id。 相手視点でも
+        # 見てよい情報 = UI で「相手がサーチで公開したカード」を確認画面に出す用 (ohtsuki 提案)。
+        "known_hand_card_ids": list(p.known_hand_card_ids),
         "life_count": len(p.life),
         "trash": [c.card_id for c in p.trash],
         "trash_count": len(p.trash),

@@ -290,6 +290,7 @@ export type PlayerSnapshot = {
   stages: CharSnapshot[];
   hand: string[];
   hand_count: number;
+  known_hand_card_ids?: string[]; // 公開済 (サーチ等) の手札 card_id。 相手のものも見てよい情報
   life_count: number;
   trash: string[];
   trash_count: number;
