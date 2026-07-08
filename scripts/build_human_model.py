@@ -239,17 +239,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--log-dir", default=str(ROOT / "db" / "human_play_log"))
     ap.add_argument("--out", default=str(ROOT / "db" / "human_model.json"))
-    ap.add_argument("--no-mark-trained", action="store_true",
-                    help="学習消費として human_play_trained.json を更新しない (= 進捗バーを進めない)")
+    ap.add_argument("--mark-trained", action="store_true",
+                    help="学習消費として human_play_trained.json を更新 (= 進捗ゲージを次バッチへリセット)。"
+                         " 既定 OFF: 解析目的の実行でユーザーの進捗ゲージを勝手に空にしないため opt-in。")
     args = ap.parse_args()
     model = build(Path(args.log_dir))
     Path(args.out).write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(model, ensure_ascii=False, indent=2))
     print(f"\n→ {args.out}")
-    if not args.no_mark_trained:
+    if args.mark_trained:
         merged = _mark_trained(Path(args.log_dir))
         print(f"→ 学習消費を記録 (matchup {len(merged)} 件) db/human_play_trained.json"
-              f"  (進捗バーは次バッチへリセット)")
+              f"  (進捗ゲージは次バッチへリセット)")
+    else:
+        print("→ 進捗ゲージは維持 (学習消費マークは --mark-trained で opt-in)")
 
 
 if __name__ == "__main__":
