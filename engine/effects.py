@@ -671,6 +671,21 @@ def _request_self_hand_discard(state: GameState, me: Player, self_inplay: Option
     return True
 
 
+def _worst_hand_idx(hand: list) -> int:
+    """最も捨てて惜しくない手札の index(counter 低 → cost 低 → power 低)。 高 counter の防御札を温存。
+    AI が手札を捨てる場面で random を使うと 探索(beam)の value 評価が その手札選択の分だけ無意味に
+    なる(= random 解決を前提に action を評価してしまう)。 AI の discard は常にこれで決める
+    (2026-07-08 ohtsuki 指摘「ランダムなところがあると折角の value が意味なくなる」)。"""
+    return min(
+        range(len(hand)),
+        key=lambda i: (
+            int(getattr(hand[i], "counter", 0) or 0),
+            int(hand[i].cost) if hand[i].cost is not None else 0,
+            int(hand[i].power) if hand[i].power is not None else 0,
+        ),
+    )
+
+
 def _don_return_sources(me: Player) -> list:
     """ドン返却の選択元(area active/rested + 各キャラ/リーダーの付与ドン)。 UI modal 用。"""
     sources: list = []
@@ -737,12 +752,9 @@ def _pay_counter_cost(
     if discard_n > 0:
         actual = min(discard_n, len(me.hand))
         for _ in range(actual):
-            # AI/fallback: random でなく「最も価値の低い札」を捨てる(= counter 低→cost 低を優先、
-            # 高 counter の防御札は温存)。 2026-07-08 監査(AI が最悪札を捨てられる様に)。
-            i = min(range(len(me.hand)),
-                    key=lambda j: (int(getattr(me.hand[j], "counter", 0) or 0),
-                                   int(me.hand[j].cost) if me.hand[j].cost is not None else 0))
-            me.trash.append(me.hand.pop(i))
+            # AI/fallback: random でなく「最も価値の低い札」を捨てる(counter 低→cost 低→power 低)。
+            # 高 counter の防御札を温存。 2026-07-08 監査(AI の discard は常に最悪札)。
+            me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
         state.push_log(f"  counter コスト: 手札 {actual} 枚 捨て")
         if actual > 0 and state.effects_overlay:
             trigger_on_self_hand_discarded(
@@ -2991,12 +3003,11 @@ def _execute_effect_body(
                     me.trash.append(me.hand.pop(hi))
                     actually_discarded += 1
             else:
-                # AI / 候補 <= n: 旧 random 挙動 (= 候補 全捨て に 等しい 場合 が ほとんど)
+                # AI / 候補 <= n: 最悪札から捨てる(random だと beam の value 評価が薄まる)。
                 for _ in range(n):
                     if not me.hand:
                         break
-                    idx = state.rng.randrange(len(me.hand))
-                    me.trash.append(me.hand.pop(idx))
+                    me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
                     actually_discarded += 1
             state.push_log(f"  効果: 自手札 {actually_discarded} 枚 トラッシュ")
             if actually_discarded > 0 and state.effects_overlay:
@@ -4958,14 +4969,13 @@ def _execute_effect_body(
                 f"{' (shuffle)' if shuffle_after else ''}"
             )
         elif k == "self_hand_to_size":
-            # 自分の手札が N 枚になるように手札を捨てる(捨てる札は人間が選択、 AI は random)
+            # 自分の手札が N 枚になるように手札を捨てる(捨てる札は人間が選択、 AI は最悪札から)
             target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))
             to_discard = len(me.hand) - target_size
             if to_discard > 0 and _request_self_hand_discard(state, me, self_inplay, to_discard):
                 return True
             while len(me.hand) > target_size:
-                idx = state.rng.randrange(len(me.hand))
-                me.trash.append(me.hand.pop(idx))
+                me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
             state.push_log(f"  効果: 自手札を {target_size} 枚に")
         elif k == "draw_to_hand_size":
             # 自分の手札が N 枚になるようにカードを引く (= 不足分のみドロー、 既に N 枚以上なら 0)。
@@ -5941,7 +5951,7 @@ def _execute_effect_body(
             for _ in range(nd):
                 if not me.hand:
                     break
-                me.trash.append(me.hand.pop(state.rng.randrange(len(me.hand))))
+                me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
             state.push_log(f"  効果: {cnt}キャラで{nd}ドロー→{nd}捨て")
         elif k == "reduce_play_cost_filtered_turn":
             # 「このターン中、 次に登場させる(filter)キャラの支払うコストは N 少なくなる」
@@ -5957,11 +5967,12 @@ def _execute_effect_body(
             me.cannot_attack_leader_until_turn_end = True
             state.push_log("  効果: このターン中 リーダーにアタック不可")
         elif k == "opp_hand_to_size":
-            # 「相手は手札が N 枚になるように、 自身の手札を捨てる」 (OP05-058 等)。
+            # 「相手は手札が N 枚になるように、 自身の手札を捨てる」 (OP05-058 等)。 = 相手が選ぶ。
+            # 相手=AI は最悪札から手放す(良い札を残す)。 相手=人間は本来選ばせるべきだが 非 actor
+            # (相手ターン中の被対象)の halt 機構が未整備 → 当面は同じ最悪札 default(random より妥当)。
             target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))
             while len(opp.hand) > target_size:
-                idx = state.rng.randrange(len(opp.hand))
-                opp.trash.append(opp.hand.pop(idx))
+                opp.trash.append(opp.hand.pop(_worst_hand_idx(opp.hand)))
             state.push_log(f"  効果: 相手手札を{target_size}枚に")
         elif k == "return_self_don_to_match_opp":
             # 「相手の場のドンの枚数と同じになるように自分の場のドンをドンデッキに戻す」
@@ -6477,15 +6488,14 @@ def _execute_effect_body(
                 removed += take_r
             state.push_log(f"  効果: 相手ドン {removed} 枚をドンデッキへ戻す")
         elif k == "opp_hand_to_deck_bottom":
-            # 相手は自身の手札 N 枚を選び (簡略: ランダム or 末尾) デッキの下に置く。
-            # 現実的には AI が判断するが、 簡略でランダムを採用。
+            # 相手は自身の手札 N 枚を選び デッキの下に置く。 = 相手が選ぶ → 相手=AI は最悪札を手放す
+            # (良い札を残す)。 相手=人間は本来選ばせるべきだが 非 actor halt 未整備 → 最悪札 default。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             moved = 0
             for _ in range(n):
                 if not opp.hand:
                     break
-                idx = state.rng.randrange(len(opp.hand))
-                opp.deck.append(opp.hand.pop(idx))
+                opp.deck.append(opp.hand.pop(_worst_hand_idx(opp.hand)))
                 moved += 1
             state.push_log(f"  効果: 相手手札 {moved} 枚をデッキ下へ")
         elif k == "self_hand_to_deck_bottom":
@@ -8698,9 +8708,8 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             for _ in range(limit):
                 if not me.hand:
                     break
-                idx = state.rng.randrange(len(me.hand))
-                me.trash.append(me.hand.pop(idx))
-            state.push_log(f"  効果: 自手札 {limit} 枚 トラッシュ (= 人間 skip 後 random fallback)")
+                me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
+            state.push_log(f"  効果: 自手札 {limit} 枚 トラッシュ (= 人間 skip 後 最悪札 fallback)")
             return
         # discard_only: 既に draw 等が済んでいる系(draw_per_self_chara_then_discard / self_hand_to_size)
         # は primitive を再実行せず、 選んだ手札を捨てるだけ(= 再 draw を防ぐ)。
@@ -9019,11 +9028,9 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             defender.don_active -= rest_don
             defender.don_rested += rest_don
         if discard_n > 0:
-            import random as _rng
-            rng = state.rng or _rng.Random()
+            # 防御側の手札 discard もその所有者が選ぶ → 最悪札から(AI の value 判断を random で薄めない)。
             for _ in range(min(discard_n, len(defender.hand))):
-                i = rng.randrange(len(defender.hand))
-                defender.trash.append(defender.hand.pop(i))
+                defender.trash.append(defender.hand.pop(_worst_hand_idx(defender.hand)))
         bundle = state.effects_overlay.get(source.card.card_id) if state.effects_overlay else None
         eff = bundle.effects[eff_idx] if (bundle and 0 <= eff_idx < len(bundle.effects)) else None
         if eff is None:
@@ -10404,14 +10411,11 @@ def _pay_end_of_turn_cost(
     if cost.get("rest_self") and not source.rested:
         source.rested = True
         state.push_log(f"  ターン終了コスト: 自レスト {source.card.name}")
-    # discard_hand: random (= activate_main と 同 semantics、 modal 拡張 は 別 issue)
+    # discard_hand: 自手札はプレイヤーが選ぶ → AI は最悪札から(random で value を薄めない)。
     discard_n = int(cost.get("discard_hand", 0))
     if discard_n > 0:
-        import random as _rng
-        rng = state.rng or _rng.Random()
         for _ in range(min(discard_n, len(me.hand))):
-            i = rng.randrange(len(me.hand))
-            me.trash.append(me.hand.pop(i))
+            me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
         state.push_log(f"  ターン終了コスト: 手札{discard_n}捨て")
     # return_self_chara_to_hand: filter 該当 chara を N 枚 手札 戻し
     rsc = cost.get("return_self_chara_to_hand")
@@ -11612,8 +11616,8 @@ def _pay_replace_cost(
             for _ in range(n):
                 if not me.hand:
                     break
-                idx = state.rng.randrange(len(me.hand))
-                me.trash.append(me.hand.pop(idx))
+                # 自手札の discard はプレイヤーが選ぶ(公式)。 AI は最悪札から(random で value を薄めない)。
+                me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
                 state.push_log(f"  離脱置換コスト: 手札ランダム1枚捨て")
         elif "discard_hand" in cs:
             n = int(cs["discard_hand"])
@@ -12534,12 +12538,11 @@ def fire_activate_main(
             )
             return
         elif not is_resume:
-            # AI / pending 不要: random で 自動 捨 て (= 旧 logic 維 持)
+            # AI / pending 不要: 最悪札から捨てる(random だと beam の value 評価が薄まる)。
             for _ in range(actual_n):
                 if not me.hand:
                     break
-                idx = state.rng.randrange(len(me.hand))
-                me.trash.append(me.hand.pop(idx))
+                me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
                 state.push_log(f"  起動メインコスト: 手札1捨て")
         # is_resume + picked_idxs なし は 既 払 い 済 と み な し no-op (= 想 定 外 だ が safe)
     # discard_hand_or_trash_filtered_chara: 「特徴X キャラ か 手札1枚 を トラッシュ」 選択コスト
@@ -12616,8 +12619,7 @@ def fire_activate_main(
                 for _ in range(n):
                     if not me.hand:
                         break
-                    idx = state.rng.randrange(len(me.hand))
-                    me.trash.append(me.hand.pop(idx))
+                    me.trash.append(me.hand.pop(_worst_hand_idx(me.hand)))
                     state.push_log(f"  起動メインコスト: 手札1捨て")
             elif chara_cands:
                 chara_cands.sort(key=lambda c: c.power)
