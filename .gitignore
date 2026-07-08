@@ -263,3 +263,8 @@ db/_selfplay/
 # 実験スコアボード (= beam-upgrade / rollout-GBM 等の集計出力、 再生成可能)。
 # [[project_rollout_gbm_value]]
 db/*_scoreboard*.json
+
+# 分析・実験スクラッチ (= 対戦ログ / 評価ベクトル / rollout scan / PoC 局面 等、 全て再生成可能)。
+# [[project_rollout_teacher_loop]] / [[project_multi_eval_functions]] / [[project_block_value_architecture]]
+db/_analyst/
+!db/_analyst/fleet_block_status.json
