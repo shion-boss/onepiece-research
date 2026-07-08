@@ -737,7 +737,11 @@ def _pay_counter_cost(
     if discard_n > 0:
         actual = min(discard_n, len(me.hand))
         for _ in range(actual):
-            i = state.rng.randrange(len(me.hand))
+            # AI/fallback: random でなく「最も価値の低い札」を捨てる(= counter 低→cost 低を優先、
+            # 高 counter の防御札は温存)。 2026-07-08 監査(AI が最悪札を捨てられる様に)。
+            i = min(range(len(me.hand)),
+                    key=lambda j: (int(getattr(me.hand[j], "counter", 0) or 0),
+                                   int(me.hand[j].cost) if me.hand[j].cost is not None else 0))
             me.trash.append(me.hand.pop(i))
         state.push_log(f"  counter コスト: 手札 {actual} 枚 捨て")
         if actual > 0 and state.effects_overlay:
@@ -4033,17 +4037,19 @@ def _execute_effect_body(
                 chosen_i = ordered_i[:limit]
                 picked: list[CardDef] = [me.deck.pop(i) for i in sorted(chosen_i, reverse=True)]
             else:
-                # AI / 候補 ≤ limit: 旧 自動 pick (= filter マッチ 先頭 N 枚)
-                found = 0
-                picked = []
-                remaining: list[CardDef] = []
-                for c in me.deck:
-                    if found < limit and _matches_filter(c, filt):
-                        picked.append(c)
-                        found += 1
-                    else:
-                        remaining.append(c)
-                me.deck = remaining
+                # AI / 候補 ≤ limit: filter マッチから 価値順 に N 枚。 旧実装は「デッキ順先頭N」
+                # だったが 探索前デッキはシャッフル済 = 実質ランダム抽出だった。 2026-07-08 監査:
+                # AI は最も価値の高い札(= コスト高→パワー高、 環境で最も影響が大きい)を取る。
+                # 人間は上の search_pick modal で任意選択(候補≤limit の局面のみ この自動 path)。
+                match_pos = sorted(
+                    (i for i in matching_idxs),
+                    key=lambda i: (int(getattr(me.deck[i], "cost", 0) or 0),
+                                   int(getattr(me.deck[i], "power", 0) or 0)),
+                    reverse=True,
+                )[:limit]
+                chosen = set(match_pos)
+                picked = [me.deck[i] for i in match_pos]
+                me.deck = [c for i, c in enumerate(me.deck) if i not in chosen]
             # Phase 7I: search 経路は公開して手札に加える (opp に見える)
             for c in picked:
                 me.add_to_hand_publicly(c)
