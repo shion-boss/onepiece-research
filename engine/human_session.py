@@ -835,6 +835,10 @@ class HumanSession:
         for _f in frames:
             if isinstance(_f.get("log"), str):
                 _f["log"] = _redact_log_line_for_ui(_f["log"], self.human_idx)
+        # 相手の伏せ手札を payload から除く (= 公開分 known のみ、 内部 snapshot は無改変)。
+        frames = [_redact_snapshot_for_ui(_f, self.human_idx) for _f in frames]
+        if last_snap is not None:
+            last_snap = _redact_snapshot_for_ui(last_snap, self.human_idx)
         # 今この盤面で人間プレイヤーの手札/場に揃っているデッキ内コンボ (= 対戦時活用)。
         try:
             from .combo_readiness import live_deck_combos
@@ -889,6 +893,32 @@ def _redact_log_line_for_ui(line: str, viewer_idx: int) -> str:
 def _redact_log_for_ui(lines, viewer_idx: int) -> list:
     """UI 用ログ行リストを viewer 視点で秘匿マスク (内部 state.log は無改変)。"""
     return [_redact_log_line_for_ui(l, viewer_idx) for l in lines]
+
+
+def _redact_snapshot_for_ui(snap, human_idx: int):
+    """UI 用 snapshot の秘匿マスク (= 内部 state.snapshots は無改変。 「UIに表示する情報と実際の情報は
+    分ける」)。 相手(= ai_idx)の手札は公開分(known_hand_card_ids = サーチ「公開して手札に加える」等で
+    公開したカード)だけを payload に載せ、 伏せ手札の card_id は送らない (= payload を覗いても相手の
+    手札は見えない。 face-down 表示は hand_count で正しく出る)。 trash / 場 は公開領域なのでそのまま。
+    自分(human)の手札は無改変。 shallow copy で内部 snapshot を破壊しない。"""
+    if not isinstance(snap, dict):
+        return snap
+    players = snap.get("players")
+    if not isinstance(players, list):
+        return snap
+    ai_idx = 1 - human_idx
+    if ai_idx < 0 or ai_idx >= len(players):
+        return snap
+    opp = players[ai_idx]
+    if not isinstance(opp, dict):
+        return snap
+    new_snap = dict(snap)
+    new_players = list(players)
+    opp2 = dict(opp)
+    opp2["hand"] = list(opp2.get("known_hand_card_ids") or [])  # 公開分のみ (伏せ手札は送らない)
+    new_players[ai_idx] = opp2
+    new_snap["players"] = new_players
+    return new_snap
 
 
 def _action_to_dict(action, idx: int) -> dict:
