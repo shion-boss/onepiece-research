@@ -3928,18 +3928,28 @@ def _execute_effect_body(
             me.don_active += n
             state.push_log(f"  効果: ドン{n}枚をアクティブに")
         elif k == "pay_don":
-            # ドン-N: 場のドン (active 優先, 足りなければ rested) N 枚をドンデッキに戻す。
-            # コストとして使う (緑紫ルフィ 起動メイン ドン-2 等)
+            # ドン-N: 場のドン N 枚をドンデッキに戻す。 コストとして使う (緑紫ルフィ 起動メイン ドン-2 等)。
+            # 既定は active 優先 (= AI/test 不変)。 ただし人間が don_return_pick modal で「レストから何枚戻すか」を
+            # 選んだ場合 state._don_return_rested_first (int) を hint として尊重する (= 人間の DON 返却選択、 2026-07-08)。
             n = int(v)
-            taken = min(n, me.don_active)
-            me.don_active -= taken
-            me.don_remaining_in_deck += taken
-            removed = taken
-            if removed < n:
-                more = min(n - removed, me.don_rested)
-                me.don_rested -= more
-                me.don_remaining_in_deck += more
-                removed += more
+            rested_first = getattr(state, "_don_return_rested_first", None)
+            removed = 0
+            if rested_first is not None:
+                # 人間選択: レストから rested_first 枚 → 残りを active → まだ足りねばレスト
+                r = min(int(rested_first), n, me.don_rested)
+                me.don_rested -= r; me.don_remaining_in_deck += r; removed += r
+                a = min(n - removed, me.don_active)
+                me.don_active -= a; me.don_remaining_in_deck += a; removed += a
+                if removed < n:
+                    r2 = min(n - removed, me.don_rested)
+                    me.don_rested -= r2; me.don_remaining_in_deck += r2; removed += r2
+                state._don_return_rested_first = None  # 消費(1 回限り)
+            else:
+                taken = min(n, me.don_active)
+                me.don_active -= taken; me.don_remaining_in_deck += taken; removed = taken
+                if removed < n:
+                    more = min(n - removed, me.don_rested)
+                    me.don_rested -= more; me.don_remaining_in_deck += more; removed += more
             state.push_log(f"  効果: 自ドン -{removed} (ドンデッキへ)")
             if removed > 0 and state.effects_overlay:
                 trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=removed)
@@ -8233,6 +8243,44 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             state.push_log(f"  効果: 任意コスト 見送り ({choice.get('source_name', '')})")
             return
         spec["_cost_confirmed"] = True
+        # ⭐ pay_don コストで active/rested 両方持つ → 人間に「どちらを戻すか」選ばせる (2026-07-08)。
+        pd_n = 0
+        for cs in (spec.get("cost") or []):
+            if isinstance(cs, dict) and "pay_don" in cs:
+                pd_n = int(cs.get("pay_don", 0) or 0)
+                break
+        lo = max(0, pd_n - me.don_active); hi = min(pd_n, me.don_rested)
+        if pd_n > 0 and hi > lo and not spec.get("_don_split_done"):
+            # 複数 split が可能 = 真の選択。 don_return_pick modal で「レストから何枚戻すか」を選ばせる。
+            state.pending_choice = {
+                "kind": "don_return_pick", "spec": spec,
+                "self_inplay_iid": self_inplay_iid, "pay_don": pd_n,
+                "rested_min": lo, "rested_max": hi,
+                "don_active": me.don_active, "don_rested": me.don_rested,
+                "source_name": choice.get("source_name", ""),
+                "prompt": f"ドン-{pd_n}: レストのドンとアクティブのドン、どちらを戻しますか？",
+            }
+            return
+        execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "don_return_pick":
+        # 人間が pay_don コストで「レストから何枚戻すか」を選択 (残りは active から)。
+        # picks[0] = レストから戻す枚数 (rested_min..rested_max)。 未指定/範囲外は rested_max (= レスト優先=最適) に。
+        spec = dict(choice.get("spec") or {})
+        self_inplay_iid = choice.get("self_inplay_iid")
+        self_inplay = None
+        if self_inplay_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages, *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == self_inplay_iid:
+                    self_inplay = ip; break
+        lo = int(choice.get("rested_min", 0)); hi = int(choice.get("rested_max", 0))
+        r = picks[0] if (picks and picks[0] is not None) else hi
+        r = max(lo, min(hi, int(r)))
+        state.pending_choice = None
+        state._don_return_rested_first = r  # pay_don が読む hint
+        spec["_don_split_done"] = True      # 再入で modal を出さない
+        state.push_log(f"  効果: ドン返却 = レスト{r}枚 / アクティブ{choice.get('pay_don',0)-r}枚")
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
         return
 
