@@ -4757,6 +4757,9 @@ function TargetPickModal({
           attached_dons: number;
           owner: "self" | "opp";
           is_leader: boolean;
+          // 盤面と同じ状態表示 (2026-07-08): 召喚酔い / keywords。
+          summoning_sickness?: boolean;
+          keywords?: string[];
           // イム OP13-079 起動メイン: 手札候補 (axis:"hand") は擬似 iid 負値 + hand_idx 持ち。
           // キャラ候補 (axis:"chara") と 1 つの modal に混在する。
           hand_idx?: number;
@@ -4839,6 +4842,32 @@ function TargetPickModal({
                 </span>
                 <span className="absolute bottom-0 right-0 rounded-tl bg-black/80 px-1.5 text-xs font-bold text-white">
                   P{c.power}
+                </span>
+                {/* 盤面と同じ状態表示: 召喚酔い / レスト / keywords / 付与ドン (2026-07-08) */}
+                <span className="absolute top-0 right-0 flex max-w-[85%] flex-col items-end gap-0.5 p-0.5">
+                  {c.summoning_sickness && !(c.keywords ?? []).includes("速攻") ? (
+                    <span className="rounded bg-sky-600/90 px-1 text-[10px] font-bold text-white">
+                      召喚酔い
+                    </span>
+                  ) : null}
+                  {c.rested ? (
+                    <span className="rounded bg-zinc-600/90 px-1 text-[10px] font-bold text-white">
+                      レスト
+                    </span>
+                  ) : null}
+                  {(c.keywords ?? []).map((kw) => (
+                    <span
+                      key={kw}
+                      className="rounded bg-violet-600/90 px-1 text-[10px] font-bold text-white"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                  {c.attached_dons > 0 ? (
+                    <span className="rounded bg-amber-600/90 px-1 text-[10px] font-bold text-white">
+                      DON+{c.attached_dons}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             );

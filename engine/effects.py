@@ -1688,6 +1688,15 @@ def _maybe_request_target_pick(
             "power": c.power,
             "rested": c.rested,
             "attached_dons": c.attached_dons,
+            # 盤面と同じ状態表示のため summoning_sickness / keywords を含める (2026-07-08、 ohtsuki 要望)。
+            # _inplay_snapshot と同じフィールド → モーダルでも召喚酔い/速攻/ブロッカー等が判る。
+            "summoning_sickness": getattr(c, "summoning_sickness", False),
+            "keywords": sorted({
+                *(["速攻"] if getattr(c, "is_rush_now", False) else []),
+                *(["ブロッカー"] if getattr(c, "is_blocker_now", False) else []),
+                *(["ダブルアタック"] if getattr(c, "is_double_attack_now", False) else []),
+                *(["バニッシュ"] if getattr(c, "is_banish_now", False) else []),
+            }),
             "owner": owner,
             "is_leader": c is (me.leader if owner == "self" else opp.leader),
         })
