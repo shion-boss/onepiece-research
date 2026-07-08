@@ -1792,6 +1792,13 @@ def _resolve_target(
         if t == "self_chara_or_leader_named":
             name = target_spec.get("name", "")
             cands = [ip for ip in [me.leader, *me.characters] if ip.card.name == name]
+            # 同名(例「エネル」)が リーダーとキャラで複数居る場合、 人間は modal で選べる
+            # (2026-07-08、 ohtsuki 指摘: 放電/神の裁き counter でキャラのエネルを選べなかった bug)。
+            if len(cands) > 1 and outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description=f"「{name}」1枚を選択(リーダー/キャラ)",
+            ):
+                return []
             return cands[:1]
         if t == "all_self_chara_named":
             name = target_spec.get("name", "")
