@@ -4083,12 +4083,27 @@ def _execute_effect_body(
             spec = v if isinstance(v, dict) else {"target": "self", "keyword": "速攻"}
             target_spec = spec.get("target", "self")
             duration = spec.get("duration", "turn")
-            # 選択肢があれば AI が選ぶ。 優先順位 = ブロッカー (守備) > ダブルアタック (攻撃) > バニッシュ > 速攻
+            # 選択肢があれば: 人間は modal で選択、 AI は優先順位で自動
+            # (= ブロッカー(守備) > ダブルアタック(攻撃) > バニッシュ > 速攻)。
+            # カタリーナ・デボン OP09-084 等「ダブルアタックかバニッシュかブロッカーを得る」の3択。
             if "keywords" in spec:
-                kws = spec["keywords"]
-                priority = ["ブロッカー", "ダブルアタック", "バニッシュ", "速攻", "ブロック不可"]
-                chosen = next((p for p in priority if p in kws), kws[0] if kws else "速攻")
-                keyword = chosen
+                kws = list(spec["keywords"])
+                chosen_kw = spec.get("_chosen_keyword")
+                if chosen_kw is None and len(kws) > 1 and _should_human_pick(state):
+                    state.pending_choice = {
+                        "kind": "give_keyword_choice",
+                        "options": [{"idx": i, "label": kw} for i, kw in enumerate(kws)],
+                        "keywords": kws,
+                        "spec": v,
+                        "self_inplay_iid": (self_inplay.instance_id if self_inplay is not None else None),
+                        "prompt": "付与するキーワードを選んでください。",
+                    }
+                    return  # 選択待ち(resolve_pending_choice で _chosen_keyword 付き再実行)
+                if chosen_kw is not None and chosen_kw in kws:
+                    keyword = chosen_kw
+                else:
+                    priority = ["ブロッカー", "ダブルアタック", "バニッシュ", "速攻", "ブロック不可"]
+                    keyword = next((p for p in priority if p in kws), kws[0] if kws else "速攻")
             else:
                 keyword = spec.get("keyword", "速攻")
             targets = _resolve_target(
@@ -8359,6 +8374,25 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         spec["_don_split_done"] = True
         state.push_log(f"  効果: ドン返却割当 = {alloc}")
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "give_keyword_choice":
+        # カタリーナ・デボン等「ダブルアタックかバニッシュかブロッカーを得る」の3択を人間が選択。
+        # picks[0] = keywords の index。 _chosen_keyword 付きで give_keyword を再実行。
+        kws = choice.get("keywords", [])
+        spec = choice.get("spec")
+        self_inplay_iid = choice.get("self_inplay_iid")
+        self_inplay = None
+        if self_inplay_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages, *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == self_inplay_iid:
+                    self_inplay = ip
+                    break
+        idx = int(picks[0]) if (picks and picks[0] is not None) else 0
+        chosen = kws[idx] if (0 <= idx < len(kws)) else (kws[0] if kws else "速攻")
+        state.pending_choice = None
+        new_spec = {**(spec if isinstance(spec, dict) else {}), "_chosen_keyword": chosen}
+        execute_effect({"give_keyword": new_spec}, state, me, opp, self_inplay)
         return
 
     if kind == "play_from_trash_or_life_pick":

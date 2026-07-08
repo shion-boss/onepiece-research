@@ -1987,6 +1987,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "give_keyword_choice" ? (
+          /* カタリーナ・デボン等「ダブルアタック/バニッシュ/ブロッカー」の3択を人間が選択。
+             options=[{idx,label}] を OptionPickModal 形式で再利用、 picks=[idx] を submit。 */
+          <OptionPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "optional_cost_confirm" ? (
           /* 任意コスト (= 公式「〜できる：」) の pay/skip を 人間 に 委ねる。
              払う → picks=[1] (= engine が _cost_confirmed 付きで cost+effect 再実行)、
