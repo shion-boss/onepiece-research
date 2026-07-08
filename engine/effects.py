@@ -523,7 +523,7 @@ def _can_pay_counter_cost(
     if discard_n > 0 and len(me.hand) < discard_n:
         return False
     pay_don = int(cost.get("pay_don", 0))
-    if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
+    if pay_don > 0 and _pay_don_capacity(state, me) < pay_don:
         return False
     rest_don = int(cost.get("rest_self_don", 0))
     if rest_don > 0 and me.don_active < rest_don:
@@ -572,12 +572,12 @@ def _can_pay_counter_cost(
 
 
 def _pay_don_capacity(state: GameState, me: Player) -> int:
-    """ドン-N で返却可能な「場のドン」総数。 人間操作中のみ付与ドンを含める(= AI は area のみで従来挙動/
-    matrix 不変、 人間は公式通り付与ドンも返却可)。 2026-07-08 ohtsuki 指摘。"""
-    area = me.don_active + me.don_rested
-    if _should_human_pick(state):
-        return area + sum(getattr(ip, "attached_dons", 0) for ip in [me.leader, *me.characters])
-    return area
+    """ドン-N で返却可能な「場のドン」総数 = cost area(active/rested)+ 各キャラ/リーダーの付与ドン。
+    公式通り付与ドンも返却可(FAQ 準拠)= AI も含め全員。 既定支払いは area 優先なので通常時の挙動は
+    従来通り、 area 不足時のみ付与ドンで払える(= エネル等が自分の ドン‼-X カードを正しく撃てる)。
+    2026-07-08 ohtsuki 指摘(matrix 不変より正確性優先)。"""
+    return (me.don_active + me.don_rested
+            + sum(getattr(ip, "attached_dons", 0) for ip in [me.leader, *me.characters]))
 
 
 def _don_return_sources(me: Player) -> list:
@@ -614,7 +614,8 @@ def _pay_don_from_field(state: GameState, me: Player, n: int, alloc: Optional[di
                     ip.attached_dons -= k2; me.don_remaining_in_deck += k2; removed += k2
                     break
         return removed
-    # 既定: area active → rested → 付与ドン(area で足りる通常ケースは従来通り = AI 挙動 ほぼ不変)
+    # 既定(alloc 未指定 = AI): area active → rested → 付与ドン。 area で足りる通常ケースは従来通り
+    # (= AI 挙動不変)、 area 不足時のみ付与ドンで払える(公式通り、 = AI も自分の ドン‼-X カードを撃てる)。
     taken = min(n, me.don_active); me.don_active -= taken; me.don_remaining_in_deck += taken; removed += taken
     if removed < n:
         more = min(n - removed, me.don_rested); me.don_rested -= more; me.don_remaining_in_deck += more; removed += more
@@ -654,15 +655,13 @@ def _pay_counter_cost(
             )
     pay_don = int(cost.get("pay_don", 0))
     if pay_don > 0:
-        from_active = min(me.don_active, pay_don)
-        me.don_active -= from_active
-        me.don_remaining_in_deck += from_active
-        rest_more = min(pay_don - from_active, me.don_rested)
-        me.don_rested -= rest_more
-        me.don_remaining_in_deck += rest_more
-        state.push_log(f"  counter コスト: ドン-{pay_don}")
-        if (from_active + rest_more) > 0 and state.effects_overlay:
-            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=from_active + rest_more)
+        # area active→rested→付与ドン(既定)。 人間が alloc を選んでいればそれを尊重(= AI も人間も
+        # 同じ選択肢: 付与ドンも返却可、 2026-07-08)。
+        removed = _pay_don_from_field(state, me, pay_don, getattr(state, "_don_return_alloc", None))
+        state._don_return_alloc = None
+        state.push_log(f"  counter コスト: ドン-{removed}")
+        if removed > 0 and state.effects_overlay:
+            trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=removed)
     rest_don = int(cost.get("rest_self_don", 0))
     if rest_don > 0:
         actual = min(rest_don, me.don_active)
@@ -11835,7 +11834,7 @@ def _can_pay_activate_cost(
         if inplay not in me.characters and inplay not in me.stages:
             return False
     pay_don = int(cost.get("pay_don", 0))
-    if pay_don > 0 and (me.don_active + me.don_rested) < pay_don:
+    if pay_don > 0 and _pay_don_capacity(state, me) < pay_don:
         return False
     rest_self_don = int(cost.get("rest_self_don", 0))
     if rest_self_don > 0 and me.don_active < rest_self_don:
