@@ -571,6 +571,62 @@ def _can_pay_counter_cost(
     return True
 
 
+def _pay_don_capacity(state: GameState, me: Player) -> int:
+    """ドン-N で返却可能な「場のドン」総数。 人間操作中のみ付与ドンを含める(= AI は area のみで従来挙動/
+    matrix 不変、 人間は公式通り付与ドンも返却可)。 2026-07-08 ohtsuki 指摘。"""
+    area = me.don_active + me.don_rested
+    if _should_human_pick(state):
+        return area + sum(getattr(ip, "attached_dons", 0) for ip in [me.leader, *me.characters])
+    return area
+
+
+def _don_return_sources(me: Player) -> list:
+    """ドン返却の選択元(area active/rested + 各キャラ/リーダーの付与ドン)。 UI modal 用。"""
+    sources: list = []
+    if me.don_active > 0:
+        sources.append({"key": "active", "label": "アクティブのドン", "avail": me.don_active})
+    if me.don_rested > 0:
+        sources.append({"key": "rested", "label": "レストのドン", "avail": me.don_rested})
+    for ip in [me.leader, *me.characters]:
+        ad = getattr(ip, "attached_dons", 0)
+        if ad > 0:
+            sources.append({"key": str(ip.instance_id),
+                            "label": f"{ip.card.name}の付与ドン", "avail": ad, "attached": True})
+    return sources
+
+
+def _pay_don_from_field(state: GameState, me: Player, n: int, alloc: Optional[dict] = None) -> int:
+    """ドン-N のコスト支払い: 場のドン(cost area の active/rested + キャラ/リーダーの付与ドン)を n 枚
+    ドンデッキに戻す。 「場のドン」に付与ドンを含むのは公式(FAQ 準拠、 ohtsuki 指摘 2026-07-08)。
+    alloc={"active":a,"rested":r,"attached":{iid:cnt}} 指定時はその割当(= 人間の選択)。 未指定は
+    area active→rested→付与ドン(power 低い順で温存)の既定。 戻した総数を返す。"""
+    removed = 0
+    if alloc is not None:
+        a = min(int(alloc.get("active", 0)), me.don_active)
+        me.don_active -= a; me.don_remaining_in_deck += a; removed += a
+        r = min(int(alloc.get("rested", 0)), me.don_rested)
+        me.don_rested -= r; me.don_remaining_in_deck += r; removed += r
+        for iid_s, cnt in (alloc.get("attached") or {}).items():
+            iid = int(iid_s)
+            for ip in [me.leader, *me.characters]:
+                if ip.instance_id == iid:
+                    k2 = min(int(cnt), ip.attached_dons)
+                    ip.attached_dons -= k2; me.don_remaining_in_deck += k2; removed += k2
+                    break
+        return removed
+    # 既定: area active → rested → 付与ドン(area で足りる通常ケースは従来通り = AI 挙動 ほぼ不変)
+    taken = min(n, me.don_active); me.don_active -= taken; me.don_remaining_in_deck += taken; removed += taken
+    if removed < n:
+        more = min(n - removed, me.don_rested); me.don_rested -= more; me.don_remaining_in_deck += more; removed += more
+    if removed < n:  # area 不足 → 付与ドンから(power 低い順で温存)
+        for ip in sorted([*me.characters, me.leader], key=lambda x: x.power):
+            if removed >= n:
+                break
+            take = min(n - removed, ip.attached_dons)
+            ip.attached_dons -= take; me.don_remaining_in_deck += take; removed += take
+    return removed
+
+
 def _pay_counter_cost(
     state: GameState,
     me: Player,
@@ -3944,28 +4000,13 @@ def _execute_effect_body(
             me.don_active += n
             state.push_log(f"  効果: ドン{n}枚をアクティブに")
         elif k == "pay_don":
-            # ドン-N: 場のドン N 枚をドンデッキに戻す。 コストとして使う (緑紫ルフィ 起動メイン ドン-2 等)。
-            # 既定は active 優先 (= AI/test 不変)。 ただし人間が don_return_pick modal で「レストから何枚戻すか」を
-            # 選んだ場合 state._don_return_rested_first (int) を hint として尊重する (= 人間の DON 返却選択、 2026-07-08)。
+            # ドン-N: 場のドン N 枚をドンデッキに戻す。 「場のドン」= cost area(active/rested)+ キャラ/リーダーに
+            # 付与されたドン (公式: 付与ドンも返却可、 FAQ 準拠、 ohtsuki 指摘 2026-07-08)。
+            # 既定は area active→rested→(不足なら)付与ドン(= AI/従来を保ちつつ付与 fallback で払える様に)。
+            # 人間が don_return_pick modal で割当を選んだ場合 state._don_return_alloc を尊重(付与ドン含む)。
             n = int(v)
-            rested_first = getattr(state, "_don_return_rested_first", None)
-            removed = 0
-            if rested_first is not None:
-                # 人間選択: レストから rested_first 枚 → 残りを active → まだ足りねばレスト
-                r = min(int(rested_first), n, me.don_rested)
-                me.don_rested -= r; me.don_remaining_in_deck += r; removed += r
-                a = min(n - removed, me.don_active)
-                me.don_active -= a; me.don_remaining_in_deck += a; removed += a
-                if removed < n:
-                    r2 = min(n - removed, me.don_rested)
-                    me.don_rested -= r2; me.don_remaining_in_deck += r2; removed += r2
-                state._don_return_rested_first = None  # 消費(1 回限り)
-            else:
-                taken = min(n, me.don_active)
-                me.don_active -= taken; me.don_remaining_in_deck += taken; removed = taken
-                if removed < n:
-                    more = min(n - removed, me.don_rested)
-                    me.don_rested -= more; me.don_remaining_in_deck += more; removed += more
+            removed = _pay_don_from_field(state, me, n, getattr(state, "_don_return_alloc", None))
+            state._don_return_alloc = None
             state.push_log(f"  効果: 自ドン -{removed} (ドンデッキへ)")
             if removed > 0 and state.effects_overlay:
                 trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=removed)
@@ -7364,7 +7405,7 @@ def _execute_effect_body(
                         break
                 elif "pay_don" in cs:
                     n = int(cs.get("pay_don", 0))
-                    if (me.don_active + me.don_rested) < n:
+                    if _pay_don_capacity(state, me) < n:   # 人間は付与ドンも返却可(2026-07-08)
                         can_pay = False
                         break
                 elif "rest_self_don" in cs:
@@ -8259,30 +8300,29 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             state.push_log(f"  効果: 任意コスト 見送り ({choice.get('source_name', '')})")
             return
         spec["_cost_confirmed"] = True
-        # ⭐ pay_don コストで active/rested 両方持つ → 人間に「どちらを戻すか」選ばせる (2026-07-08)。
+        # ⭐ pay_don コストで「場のドン」(area active/rested + 各キャラ/リーダーの付与ドン)の返却元を
+        # 人間に選ばせる (2026-07-08、 ohtsuki 指摘: 付与ドンも返却可)。
         pd_n = 0
         for cs in (spec.get("cost") or []):
             if isinstance(cs, dict) and "pay_don" in cs:
                 pd_n = int(cs.get("pay_don", 0) or 0)
                 break
-        lo = max(0, pd_n - me.don_active); hi = min(pd_n, me.don_rested)
-        if pd_n > 0 and hi > lo and not spec.get("_don_split_done"):
-            # 複数 split が可能 = 真の選択。 don_return_pick modal で「レストから何枚戻すか」を選ばせる。
+        sources = _don_return_sources(me)
+        total_avail = sum(s["avail"] for s in sources)
+        if pd_n > 0 and len(sources) >= 2 and pd_n < total_avail and not spec.get("_don_split_done"):
             state.pending_choice = {
                 "kind": "don_return_pick", "spec": spec,
                 "self_inplay_iid": self_inplay_iid, "pay_don": pd_n,
-                "rested_min": lo, "rested_max": hi,
-                "don_active": me.don_active, "don_rested": me.don_rested,
-                "source_name": choice.get("source_name", ""),
-                "prompt": f"ドン-{pd_n}: レストのドンとアクティブのドン、どちらを戻しますか？",
+                "sources": sources, "source_name": choice.get("source_name", ""),
+                "prompt": f"ドン-{pd_n}: 戻すドンを {pd_n}枚 選んでください。",
             }
             return
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
         return
 
     if kind == "don_return_pick":
-        # 人間が pay_don コストで「レストから何枚戻すか」を選択 (残りは active から)。
-        # picks[0] = レストから戻す枚数 (rested_min..rested_max)。 未指定/範囲外は rested_max (= レスト優先=最適) に。
+        # 人間が pay_don コストで返却元を選択。 picks = source index のリスト(1 ドンにつき 1 index、 長さ pay_don)。
+        # 不足分は area 優先で補完。 割当を state._don_return_alloc にして再実行 → pay_don が消費。
         spec = dict(choice.get("spec") or {})
         self_inplay_iid = choice.get("self_inplay_iid")
         self_inplay = None
@@ -8290,13 +8330,35 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             for ip in [*me.characters, me.leader, *me.stages, *opp.characters, opp.leader, *opp.stages]:
                 if ip.instance_id == self_inplay_iid:
                     self_inplay = ip; break
-        lo = int(choice.get("rested_min", 0)); hi = int(choice.get("rested_max", 0))
-        r = picks[0] if (picks and picks[0] is not None) else hi
-        r = max(lo, min(hi, int(r)))
+        sources = choice.get("sources", [])
+        pd_n = int(choice.get("pay_don", 0))
+        alloc = {"active": 0, "rested": 0, "attached": {}}
+        avail = {i: int(s["avail"]) for i, s in enumerate(sources)}
+
+        def _add_src(i):
+            key = sources[i]["key"]
+            if key == "active":
+                alloc["active"] += 1
+            elif key == "rested":
+                alloc["rested"] += 1
+            else:
+                alloc["attached"][key] = alloc["attached"].get(key, 0) + 1
+            avail[i] -= 1
+
+        used = 0
+        for i in (picks or []):
+            if used >= pd_n:
+                break
+            if isinstance(i, int) and 0 <= i < len(sources) and avail.get(i, 0) > 0:
+                _add_src(i); used += 1
+        if used < pd_n:  # 不足は avail のある source から順に補完(area 優先 = sources 先頭順)
+            for i in range(len(sources)):
+                while used < pd_n and avail.get(i, 0) > 0:
+                    _add_src(i); used += 1
         state.pending_choice = None
-        state._don_return_rested_first = r  # pay_don が読む hint
-        spec["_don_split_done"] = True      # 再入で modal を出さない
-        state.push_log(f"  効果: ドン返却 = レスト{r}枚 / アクティブ{choice.get('pay_don',0)-r}枚")
+        state._don_return_alloc = alloc
+        spec["_don_split_done"] = True
+        state.push_log(f"  効果: ドン返却割当 = {alloc}")
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
         return
 

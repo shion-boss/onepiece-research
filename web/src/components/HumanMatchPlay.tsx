@@ -7188,20 +7188,29 @@ function DonReturnPickModal({
   busy: boolean;
 }) {
   const payDon = Number(payload.pay_don ?? 1);
-  const restedMin = Number(payload.rested_min ?? 0);
-  const restedMax = Number(payload.rested_max ?? 0);
+  const sources =
+    (payload.sources as
+      | { key: string; label: string; avail: number; attached?: boolean }[]
+      | undefined) ?? [];
   const prompt = String(
-    payload.prompt ?? `ドン-${payDon}: どのドンを戻しますか？`,
+    payload.prompt ?? `ドン-${payDon}: 戻すドンを ${payDon}枚 選んでください。`,
   );
-  // 選択肢 = レストから戻す枚数 r (restedMin..restedMax)。 submit は picks=[r]。
-  const options: number[] = [];
-  for (let r = restedMax; r >= restedMin; r--) options.push(r);
-  const label = (r: number) =>
-    payDon === 1
-      ? r === 1
-        ? "レストのドンを戻す"
-        : "アクティブのドンを戻す"
-      : `レスト ${r}枚 / アクティブ ${payDon - r}枚 を戻す`;
+  // picked = source index のリスト(重複可、 各 source は avail まで)。 長さ = payDon で確定可。
+  const [picked, setPicked] = useState<number[]>([]);
+  const countFor = (i: number) => picked.filter((x) => x === i).length;
+
+  function clickSource(i: number) {
+    const s = sources[i];
+    if (!s) return;
+    if (countFor(i) >= s.avail) return; // その source の上限
+    const next = [...picked, i];
+    if (next.length >= payDon) {
+      onSubmit(next); // 必要枚数に達したら確定
+      return;
+    }
+    setPicked(next);
+  }
+
   return (
     <div
       onClick={(e) => e.stopPropagation()}
@@ -7209,24 +7218,67 @@ function DonReturnPickModal({
       style={{ right: "488px" }}
     >
       <div className="flex w-full max-w-md flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
-        <h3 className="mb-2 text-lg font-bold text-amber-200">ドン返却</h3>
+        <div className="mb-2 flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-amber-200">ドン返却</h3>
+          <span className="ml-auto text-sm font-bold text-emerald-300">
+            選択 {picked.length} / {payDon}
+          </span>
+        </div>
         <p className="mb-4 text-sm text-zinc-200">{prompt}</p>
         <div className="flex flex-col gap-2">
-          {options.map((r) => (
+          {sources.map((s, i) => {
+            const c = countFor(i);
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clickSource(i);
+                }}
+                disabled={busy || c >= s.avail}
+                className={
+                  "flex items-center justify-between rounded px-4 py-2 text-sm font-bold text-white shadow disabled:opacity-40 " +
+                  (s.attached
+                    ? "bg-violet-600 hover:bg-violet-500"
+                    : "bg-amber-500 hover:bg-amber-400")
+                }
+              >
+                <span>{s.label}</span>
+                <span className="text-xs opacity-90">
+                  {c > 0 ? `選択${c} / ` : ""}
+                  残{s.avail - c}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {payDon > 1 ? (
+          <div className="mt-3 flex items-center gap-2">
             <button
-              key={r}
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onSubmit([r]);
+                setPicked([]);
               }}
-              disabled={busy}
-              className="rounded bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+              disabled={busy || picked.length === 0}
+              className="rounded border border-zinc-500 bg-zinc-700 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
             >
-              {label(r)}
+              リセット
             </button>
-          ))}
-        </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmit(picked);
+              }}
+              disabled={busy || picked.length !== payDon}
+              className="ml-auto rounded bg-emerald-600 px-5 py-1.5 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              確定
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
