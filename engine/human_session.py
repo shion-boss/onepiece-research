@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import random
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -829,6 +830,11 @@ class HumanSession:
         # 最終 snapshot は state.snapshots 末尾 を 取る (= 既存 仕組み と整合)
         last_snap = self.state.snapshots[-1] if self.state.snapshots else None
         frames = self._consume_new_frames()
+        # UI 用ログの秘匿マスク (= 内部 state.log は無改変、 表示用のみ redact)。 frames の log 文字列
+        # にも同じ redact をかける (= animation 分類の keyword は残るので挙動不変)。
+        for _f in frames:
+            if isinstance(_f.get("log"), str):
+                _f["log"] = _redact_log_line_for_ui(_f["log"], self.human_idx)
         # 今この盤面で人間プレイヤーの手札/場に揃っているデッキ内コンボ (= 対戦時活用)。
         try:
             from .combo_readiness import live_deck_combos
@@ -849,7 +855,7 @@ class HumanSession:
             "ai_idx": self.ai_idx,
             "pending_kind": self.pending_kind,
             "pending_payload": self.pending_payload,
-            "log": list(self.state.log[-30:]),  # 直近 30 行
+            "log": _redact_log_for_ui(list(self.state.log[-30:]), self.human_idx),  # 直近 30 行(UI用 redact)
             "snapshot": last_snap,
             "frames": frames,
             "legal_actions": self.legal_actions_for_human(),
@@ -858,6 +864,31 @@ class HumanSession:
             "deck_b_slug": self.deck_b_slug,
             "live_combos": live_combos,
         }
+
+
+_LIFE_TAKE_PAREN_RE = re.compile(r"\([^)]*\)\s*$")
+_LOG_PREFIX_RE = re.compile(r"^T\d+ P(\d+):")
+
+
+def _redact_log_line_for_ui(line: str, viewer_idx: int) -> str:
+    """UI 表示用ログの秘匿マスク (= 内部 state.log とは分離。 ohtsuki「UIに表示するlogと実際のlogは
+    分けるべき、 トレードオフではない」)。 公式 rule_manual: リーダーがダメージを受けた時、 取った
+    ライフは「自分だけ確認」= 相手はトリガーを使わない限り中身を知らない。 → 攻撃側 (= ターン
+    プレイヤー P{idx}) が viewer のとき、 相手が受けたライフの中身 (ライフ受け取り / life->hand =
+    トリガー不使用で手札へ) のカード名を伏せる。 trigger->* (発動=公開済) や BANISH (trash=公開
+    領域) はそのまま。 「life->hand」「ライフ受け取り」 keyword は残すので frame の animation 分類は不変。"""
+    if not isinstance(line, str):
+        return line
+    m = _LOG_PREFIX_RE.match(line)
+    if (m and int(m.group(1)) == viewer_idx
+            and ("ライフ受け取り" in line or "life->hand" in line)):
+        return _LIFE_TAKE_PAREN_RE.sub("(相手のみ確認)", line)
+    return line
+
+
+def _redact_log_for_ui(lines, viewer_idx: int) -> list:
+    """UI 用ログ行リストを viewer 視点で秘匿マスク (内部 state.log は無改変)。"""
+    return [_redact_log_line_for_ui(l, viewer_idx) for l in lines]
 
 
 def _action_to_dict(action, idx: int) -> dict:
