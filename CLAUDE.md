@@ -131,13 +131,18 @@ onepiece_research/
         改善、 実メタ tier_truth と rankΔ=1.0。 ⚠ 学習は `scripts/selfplay_beam_loop.py --opp <多相手comma>`
         + `ONEPIECE_GBM_V6=1`、 配備 gate は `scripts/matchup_value_deploy_ab.py`(両seat 16/10)。 残課題 =
         control-vs-aggro は構造的(multi-turn 探索が要、 value 路線は出し切り)
-      - **⭐ offense force-attack 無効化 (= 2026-06-13、 main f5dc1f7)**: ExploitBeam は
-        `_offense_force_attack=False` (DeepPlanningAI 既定 True、 ExploitBeam のみ override)。
-        `DeepPlanningAI.choose_action` の leader/char「とりあえず攻撃/boost」 早期return群 (ai.py
-        2741-2831) は beam の旧 board_eval myopia の backstop だったが、 post-opp+GBM で myopia 解消後は
-        **優れた探索を crude heuristic が上書きする弊害** に転化 → 無効化し turn 計画を beam に委ねる。
-        lethal-check (`_use_lethal_check`) は別flagで常時有効。 配備ミラー A/B 全16デッキ平均 ~66% vs
-        旧挙動 (14勝58-84%/2中立/回帰0)。 汎用 flag A/B = `scripts/ab_flag.py`。 詳細 [[project_engine_search_levers_exhausted]]
+      - **⭐ offense force-attack 再有効化 (= 2026-07-08、 `_offense_force_attack=True`)**: 一度
+        2026-06-13 に無効化した (= beam に委ねる、 配備ミラー A/B 平均 ~66% を根拠) が、 **ohtsuki の実戦
+        フィードバックで復活**。 「AIはあんまり攻撃してこない=怖くない、 カウンター不要、 手札枯渇しない」
+        「相手の手札が増えるより減らない方が嫌」。 実ログ計測: AI-Bonney が 2/3 game で 0〜1回/5-6T しか
+        攻撃せず = 病的に消極的 (rollout scanner も独立に「74% 局面で最良手=顔攻撃」検出)。 **無効化を
+        正当化したミラー A/B は passivity を罰せない** (両者消極 = 手札を削れない弊害を測れない、 人間モデル
+        (粗)でも punish 不足)。 force-attack コードは元々「完全 block でも相手 counter1枚=手札-1で価値」
+        「leader 攻撃はノーコストで相手手札-1期待」= ohtsuki の原理で書かれ、 boost は lethal_pressure 時
+        のみに絞る refine 済で crude でない。 `DeepPlanningAI.choose_action` 早期return群 (ai.py 2763-2840)。
+        lethal-check (`_use_lethal_check`) は別flagで常時有効。 ⚠ ミラー勝率は下がりうるが受容 (= mirror ≠
+        human 品質、 [[feedback_evaluation_axis]])、 **要 matrix 再計算**。 汎用 flag A/B = `scripts/ab_flag.py`。
+        深掘り: value が「相手手札を削る圧」を過小評価する構造 = 次の value fix 候補 [[feedback_ai_too_passive_attack_pressure]]
     - **AI 実行モード (2026-06-03〜、 [[feedback_eval_specs_in_pure_lookup]])**: GoalDirectedAI は target spec を 2 モードで使う。
       - **pure_lookup (= 既定)**: `_choose_action_pure_lookup` で spec bonus argmax、 beam を bypass (~50ms/手)。 **GoalDirectedAI 使用時** (= harness ライブラリ default・corpus 収集・online 学習) は これ。 spec が policy そのもの。 spec coverage 不足の局面のみ GreedyAI fallback (= 実測 88% は spec hit)。 ⚠ 配備の practice/matrix/観戦 は SmartOpponentAI なので この経路を通らない
       - **beam plan_search (= opt-out)**: `pure_lookup=False` or env `ONEPIECE_PURE_LOOKUP=0` で PlanningAI の beam(4/6) を使い、 spec を葉 eval に bonus 加算。 `scripts/eval_goal_directed_mirror.py` (beam 強度測定) と plan_search 内部 opp_sim のみ
