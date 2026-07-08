@@ -81,11 +81,18 @@ def _mk_enel(seed, epsilon, learn_gbm, postopp_turns=1, plan_temperature=0.0):
 
 
 def _mk_cal(seed, opp):
-    # OPP_AI="racer": 顔詰めレーサーで消極的 value を罰する (= 攻撃的相手で self-play、 ohtsuki 提案)。
+    # 攻撃的相手で self-play (ohtsuki 提案)。 racer=弱(greedy+顔)/ beamracer=強(ExploitBeam+顔)。
+    # ⚠ 弱 racer は強い ExploitBeam に一蹴され 98% 天井=学習 signal 無し。 beamracer は 75% まで
+    #   落とせる=学習余地あり(2026-07-08 実測)。 訓練は beamracer 推奨。
     if OPP_AI == "racer":
         from engine.ai_experimental import AggressiveRacerAI
         return AggressiveRacerAI(rng=random.Random(seed + 7),
                                  deck_analysis={**_ana(opp), "deck_slug": opp})
+    if OPP_AI == "beamracer":
+        from engine.ai_experimental import AggressiveBeamRacerAI
+        return AggressiveBeamRacerAI(rng=random.Random(seed + 7),
+                                     deck_analysis={**_ana(opp), "deck_slug": opp},
+                                     beam_width=BEAM_W, max_depth=BEAM_D)
     return ExploitBeamAI(rng=random.Random(seed + 7), deck_analysis={**_ana(opp), "deck_slug": opp},
                          beam_width=BEAM_W, max_depth=BEAM_D)
 
@@ -171,8 +178,8 @@ def main():
     ap.add_argument("--deck", default="cardrush_1467")
     ap.add_argument("--opp", default="tcgportal_calgara",
                     help="標的 #1。 comma 区切りで複数可 = 累積相手集合(現#1+過去#1)で訓練→汎化。 eval/gateは先頭(primary)")
-    ap.add_argument("--opp-ai", default="exploitbeam", choices=["exploitbeam", "racer"],
-                    help="相手 AI。 racer=AggressiveRacerAI(顔詰め)で消極性を罰し「圧をかける/受ける」を学習")
+    ap.add_argument("--opp-ai", default="exploitbeam", choices=["exploitbeam", "racer", "beamracer"],
+                    help="相手 AI。 racer=弱(greedy+顔、 98%天井)/ beamracer=強(ExploitBeam+顔、 75%=学習余地あり、 推奨)")
     ap.add_argument("--beam-width", type=int, default=8, help="8=moderate(速)/16=配備忠実")
     ap.add_argument("--max-depth", type=int, default=6, help="6=moderate/10=配備忠実")
     ap.add_argument("--iters", type=int, default=6)

@@ -16,6 +16,7 @@ from typing import Optional
 from .ai import GreedyAI, PlanningAI, legal_actions
 from .core import GameState
 from .game import EndPhase
+from .exploit_beam_ai import ExploitBeamAI
 from .nn_flags import nn_disabled  # torch 非依存 path (= 2026-05-20、 Vercel OOM 対策)
 
 
@@ -61,19 +62,33 @@ class AggressiveRacerAI(GreedyAI):
     name = "AggressiveRacer"
 
     def choose_action(self, state: GameState):
-        from .game import legal_actions as _la, AttackLeader, AttackCharacter
-        base = super().choose_action(state)
-        # greedy が「終了」or「キャラ攻撃(trade)」を選んだ → 顔が殴れるなら顔を最優先。
-        if isinstance(base, (EndPhase, AttackCharacter)):
-            leader_atks = [a for a in _la(state) if isinstance(a, AttackLeader)]
-            if leader_atks:
-                # 同一 attacker で顔が殴れるならそれ、 無ければ任意の顔アタック。
-                if isinstance(base, AttackCharacter):
-                    same = next((a for a in leader_atks
-                                 if a.attacker_iid == base.attacker_iid), None)
-                    return same or leader_atks[0]
-                return leader_atks[0]
-        return base
+        return _face_priority(state, super().choose_action(state))
+
+
+def _face_priority(state, base):
+    """base 手が「終了 or キャラ攻撃(trade)」の時、 顔アタックが legal なら顔を最優先に差し替える。
+    = 展開/効果/lethal は base(greedy or ExploitBeam)に任せつつ、 レースは常に顔へ。"""
+    from .game import legal_actions as _la, AttackLeader, AttackCharacter
+    if isinstance(base, (EndPhase, AttackCharacter)):
+        leader_atks = [a for a in _la(state) if isinstance(a, AttackLeader)]
+        if leader_atks:
+            if isinstance(base, AttackCharacter):
+                same = next((a for a in leader_atks
+                             if a.attacker_iid == base.attacker_iid), None)
+                return same or leader_atks[0]
+            return leader_atks[0]
+    return base
+
+
+class AggressiveBeamRacerAI(ExploitBeamAI):
+    """**強い**レーサー = ExploitBeam(強い探索+GBM value)ベースで、 手選択後に顔を最優先化。
+    crude greedy racer は強い ExploitBeam に一蹴され訓練 signal にならない(実測 98% 天井)為、
+    「攻撃的 かつ 強い」相手として self-play 訓練に使う。 2026-07-08。"""
+
+    name = "AggressiveBeamRacer"
+
+    def choose_action(self, state: GameState):
+        return _face_priority(state, super().choose_action(state))
 
 
 # ------------------------------------------------------------------ #
