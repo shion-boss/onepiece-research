@@ -613,6 +613,45 @@ def _describe_do_list(do_list: list) -> str:
     return " → ".join(parts) if parts else "この効果"
 
 
+def _chara_cost_cand(c) -> dict:
+    """self_chara_cost_pick / target_pick 用のキャラ候補 dict(盤面と同じ状態表示付き)。"""
+    return {
+        "iid": c.instance_id, "card_id": c.card.card_id, "name": c.card.name,
+        "power": c.power, "rested": c.rested, "attached_dons": c.attached_dons,
+        "summoning_sickness": getattr(c, "summoning_sickness", False),
+        "keywords": sorted({
+            *(["速攻"] if getattr(c, "is_rush_now", False) else []),
+            *(["ブロッカー"] if getattr(c, "is_blocker_now", False) else []),
+            *(["ダブルアタック"] if getattr(c, "is_double_attack_now", False) else []),
+            *(["バニッシュ"] if getattr(c, "is_banish_now", False) else []),
+        }),
+        "owner": "self", "is_leader": False,
+    }
+
+
+def _maybe_pick_self_chara_cost(state: GameState, me: Player, self_inplay: Optional[InPlay],
+                                cands: list, count: int, action: str, remaining_do: list) -> bool:
+    """コストで自キャラを KO/手札/デッキ下 にする時、 人間なら「どのキャラを犠牲にするか」を選ばせる。
+    action = "ko" | "hand" | "deck_bottom"。 remaining_do = 残りコスト+効果(continuation)。
+    人間 + 候補 > count で self_chara_cost_pick modal を立て True。 AI/候補<=count は False(呼び元 auto)。
+    2026-07-08 監査(inline cost のキャラ自動選択)。"""
+    if not (_should_human_pick(state) and count > 0 and len(cands) > count):
+        return False
+    state.pending_choice = {
+        "kind": "self_chara_cost_pick", "action": action, "limit": count,
+        "candidates": [_chara_cost_cand(c) for c in cands],
+        "source_iid": self_inplay.instance_id if self_inplay is not None else None,
+        "description": {"ko": "コスト: KOする自キャラを選択",
+                        "hand": "コスト: 手札に戻す自キャラを選択",
+                        "deck_bottom": "コスト: デッキ下に置く自キャラを選択"}.get(action, "コスト: 自キャラを選択"),
+        "_continuation": {"do": list(remaining_do),
+                          "owner_idx": state.players.index(me),
+                          "source_iid": self_inplay.instance_id if self_inplay is not None else None},
+    }
+    state.push_log(f"  効果コスト: 自キャラ {count} 枚 ({action}) → 人間 選択 待ち(候補 {len(cands)})")
+    return True
+
+
 def _request_self_hand_discard(state: GameState, me: Player, self_inplay: Optional[InPlay], limit: int) -> bool:
     """人間操作中 + 候補 > limit なら self_hand_discard_pick(discard_only)modal を立て True。
     AI/候補<=limit は False(呼び元が従来の random discard)。 = 自手札 discard の人間選択(2026-07-08 監査)。"""
@@ -7961,6 +8000,9 @@ def _execute_effect_body(
                     # AI 簡易: power 低い順に取り出す。
                     cands = [c for c in me.characters if _matches_filter(c.card, rh_filt)]
                     cands.sort(key=lambda c: c.power)
+                    if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, rh_count, "hand",
+                                                   list(cost_specs[_ci + 1:]) + list(effect_specs)):
+                        return True
                     moved = 0
                     targets_to_move = set()
                     for c in cands:
@@ -7992,6 +8034,9 @@ def _execute_effect_body(
                     # AI 簡易: filter 一致の中から power 低い順 (= 最も惜しくないキャラ) を取り出す。
                     cands = [c for c in me.characters if _matches_filter(c.card, rb_filt)]
                     cands.sort(key=lambda c: c.power)
+                    if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, rb_count, "deck_bottom",
+                                                   list(cost_specs[_ci + 1:]) + list(effect_specs)):
+                        return True
                     moved = 0
                     targets_to_move = set()
                     for c in cands:
@@ -8029,6 +8074,9 @@ def _execute_effect_body(
                                  and c.instance_id == self_inplay.instance_id)
                     ]
                     cands.sort(key=lambda c: c.power)  # AI 簡易: power 低い順を犠牲
+                    if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, kc_count, "ko",
+                                                   list(cost_specs[_ci + 1:]) + list(effect_specs)):
+                        return True  # 人間選択待ち(continuation で残りコスト+効果)
                     to_ko = {c.instance_id for c in cands[:kc_count]}
                     new_chars = []
                     for c in me.characters:
@@ -8448,6 +8496,32 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         spec["_don_split_done"] = True
         state.push_log(f"  効果: ドン返却割当 = {alloc}")
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "self_chara_cost_pick":
+        # コストで犠牲にする自キャラを人間が選択(ko/hand/deck_bottom)。 picks = candidates idx list。
+        # 残りコスト+効果は _continuation で解決後に自動実行(resolve_pending_choice 上位)。
+        cands = choice.get("candidates", [])
+        action = choice.get("action", "ko")
+        limit = int(choice.get("limit", 1))
+        picks_iids = {cands[i]["iid"] for i in (picks or []) if 0 <= i < len(cands)}
+        state.pending_choice = None
+        moved = 0
+        for c in list(me.characters):
+            if moved >= limit:
+                break
+            if c.instance_id in picks_iids:
+                me.characters.remove(c)
+                if c.attached_dons > 0:
+                    me.don_rested += c.attached_dons
+                if action == "ko":
+                    me.trash.append(c.card)
+                elif action == "hand":
+                    me.hand.append(c.card)
+                elif action == "deck_bottom":
+                    me.deck.append(c.card)
+                state.push_log(f"  効果コスト: 自キャラ {action} → {c.card.name}")
+                moved += 1
         return
 
     if kind == "give_keyword_choice":

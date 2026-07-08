@@ -1932,6 +1932,15 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "self_chara_cost_pick" ? (
+          /* コストで犠牲にする自キャラを選択(KO/手札/デッキ下)。 candidates は target_pick 形式なので
+             TargetPickModal を再利用。 */
+          <TargetPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "activate_main_cost_pick" ? (
           /* activate_main の cost (= ko_self_with_filter / rest_self_target_name) で
              候補 > 1 の 時 の 人間 modal。 TargetPickModal を 再利用 (= candidates +
