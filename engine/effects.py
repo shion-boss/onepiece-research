@@ -7364,6 +7364,19 @@ def _execute_effect_body(
                 return False
             spec_val = v if isinstance(v, dict) else {}
             to_place = spec_val.get("to", "top")
+            # 人間: 並べ替え modal(1枚目がデッキへ)を本人が選択。 AI は価値最大をデッキへ+残りソート。
+            if _should_human_pick(state) and len(me.life) >= 2:
+                state.pending_choice = {
+                    "kind": "scry_life_reorder", "owner": "self", "depth": len(me.life),
+                    "one_to_deck": to_place,
+                    "cards": [{"card_id": c.card_id, "name": c.name,
+                               "trigger": bool(getattr(c, "trigger", None)),
+                               "counter": int(getattr(c, "counter", 0) or 0),
+                               "power": int(getattr(c, "power", 0) or 0)} for c in me.life],
+                    "description": f"ライフ全{len(me.life)}枚を並び替え(1枚目をデッキの{'下' if to_place=='bottom' else '上'}へ)",
+                }
+                state.push_log(f"  効果: ライフ→デッキ + 並び替え 選択 待ち")
+                return True
             def _life_value(card):
                 trig = 1 if getattr(card, "trigger", None) else 0
                 counter = int(getattr(card, "counter", 0) or 0)
@@ -7384,9 +7397,20 @@ def _execute_effect_body(
                 state.push_log(f"  効果: ライフ→デッキ上: {to_deck.name} + ライフ {len(rest)} 枚並べ替え")
         elif k == "scry_all_life_reorder":
             # 公式: 「自分のライフすべてを見て、 好きな順番で置く」
-            # ST13-012 マキノ 後文 等。 spec: True | {} (引数なし)。
+            # ST13-012 マキノ 後文 等。 spec: True | {} (引数なし)。 人間なら並べ替えを本人が選択。
             if not me.life:
                 return False
+            if _should_human_pick(state) and len(me.life) >= 2:
+                state.pending_choice = {
+                    "kind": "scry_life_reorder", "owner": "self", "depth": len(me.life),
+                    "cards": [{"card_id": c.card_id, "name": c.name,
+                               "trigger": bool(getattr(c, "trigger", None)),
+                               "counter": int(getattr(c, "counter", 0) or 0),
+                               "power": int(getattr(c, "power", 0) or 0)} for c in me.life],
+                    "description": f"自分のライフ全{len(me.life)}枚を並び替え",
+                }
+                state.push_log(f"  効果: ライフ {len(me.life)} 枚 並び替え 選択 待ち")
+                return True
             def _life_value(card):
                 trig = 1 if getattr(card, "trigger", None) else 0
                 counter = int(getattr(card, "counter", 0) or 0)
@@ -9252,8 +9276,17 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                 ordered.append(i)
         new_seen = [seen[i] for i in ordered]
         target_pl.life = new_seen + rest
+        # scry_all_life_one_to_deck: 並べ替えた1枚目をデッキへ(top/bottom)、 残りをライフに。
+        one_to_deck = choice.get("one_to_deck")
+        if one_to_deck and target_pl.life:
+            top = target_pl.life.pop(0)
+            if one_to_deck == "bottom":
+                target_pl.deck.append(top)
+            else:
+                target_pl.deck.insert(0, top)
+            state.push_log(f"  効果: 人間選択 → {top.name} をデッキの{'下' if one_to_deck=='bottom' else '上'}へ")
         state.push_log(
-            f"  効果: 人間選択 → 自ライフ上{actual_depth}枚 並び替え {ordered}"
+            f"  効果: 人間選択 → 自ライフ 並び替え {ordered}"
         )
         state.pending_choice = None
         return
