@@ -4475,7 +4475,17 @@ def _execute_effect_body(
             if not me.characters:
                 state.push_log("  効果: 戻す自キャラなし (不発)")
                 return False
-            victim = min(me.characters, key=lambda c: (c.power, c.card.cost))
+            # 2026-07-08 監査: 人間は「どの自キャラを手札に戻すか」を選べる(target_pick modal)。
+            picks_iids = spec_val.get("_iid_picks")
+            if picks_iids is None and len(me.characters) > 1 and _maybe_request_target_pick(
+                    state, list(me.characters), 1, k, dict(spec_val), self_inplay,
+                    description="手札に戻す自キャラを選択(その後 異なる色のキャラを登場)"):
+                return True
+            if picks_iids:
+                victim = next((c for c in me.characters if c.instance_id in picks_iids),
+                              min(me.characters, key=lambda c: (c.power, c.card.cost)))
+            else:
+                victim = min(me.characters, key=lambda c: (c.power, c.card.cost))
             bounced_colors = set(victim.card.color)
             me.characters.remove(victim)
             me.hand.append(victim.card)
@@ -5665,13 +5675,12 @@ def _execute_effect_body(
                 # 相手 視点 の 「自分のドン が ドンデッキ に 戻った時」 trigger
                 trigger_on_self_don_returned_to_deck(state, opp, me, state.effects_overlay, count=removed)
         elif k == "hand_to_deck_bottom":
-            # 「自分の手札 N 枚を デッキの下 に 置く」 (= self_hand_to_deck_bottom の typo / alias、
-            # ST22-002_p1 イゾウ 1 card)。 簡易: 先頭 から N 枚 (= UI 上 random 同等)。
+            # 「自分の手札 N 枚を デッキの下 に 置く」 = self_hand_to_deck_bottom の alias。
+            # 2026-07-08 監査: 旧実装は「先頭 N 枚」自動で 人間が選べなかった。 → 人間選択 modal +
+            # AI ヒューリスティック(コスト最高=死札)を持つ self_hand_to_deck_bottom に委譲。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
-            actual = min(n, len(me.hand))
-            for _ in range(actual):
-                me.deck.append(me.hand.pop(0))
-            state.push_log(f"  効果: 自手札 {actual} 枚 → デッキ下")
+            return execute_effect({"self_hand_to_deck_bottom": {"amount": n, "to": "bottom"}},
+                                  state, me, opp, self_inplay)
         elif k == "summon_stage_from_deck_with_feature":
             # 「自分の特徴 X を持つステージ 1 枚 を デッキ から 場 に 出す」 (OP13-079 等)。
             # spec: "特徴名" (= string)
@@ -5823,10 +5832,20 @@ def _execute_effect_body(
             if len(cands) < 2:
                 state.push_log(f"  効果: swap_opp_power 該当 2 枚未満 (不発)")
                 return False
-            # AI 簡易: 最強 + 最弱 を選んでスワップ (= 弱体化最大化)
-            cands.sort(key=lambda c: c.card.power)
-            weakest = cands[0]
-            strongest = cands[-1]
+            # 2026-07-08 監査: 人間は「入れ替える相手キャラ2枚」を選べる(target_pick modal)。
+            picks_iids = spec_val.get("_iid_picks")
+            if picks_iids is None and _maybe_request_target_pick(
+                    state, list(cands), 2, k, dict(spec_val), self_inplay,
+                    description="元々のパワーを入れ替える相手キャラ2枚を選択"):
+                return True
+            chosen = [c for c in cands if c.instance_id in picks_iids] if picks_iids else []
+            if len(chosen) >= 2:
+                weakest, strongest = chosen[0], chosen[1]
+            else:
+                # AI / 選択不足: 最強 + 最弱 を選んでスワップ (= 弱体化最大化)
+                cands.sort(key=lambda c: c.card.power)
+                weakest = cands[0]
+                strongest = cands[-1]
             w_power = weakest.card.power
             s_power = strongest.card.power
             weakest.turn_base_power_override = s_power
@@ -5876,18 +5895,14 @@ def _execute_effect_body(
                     opp.known_hand_card_ids.append(c.card_id)
             state.push_log(f"  効果: 相手手札 {n} 枚公開 → {[c.name for c in revealed]}")
         elif k == "discard_self_to_deck_top":
-            # 自分の手札 N 枚をデッキの上に置く (ST17-001 等)。
+            # 自分の手札 N 枚をデッキの上に置く (ST17-001 等)。 2026-07-08 監査: 旧実装は「先頭 N 枚」
+            # 自動で 人間が どの札を上に置くか選べなかった。 → 人間選択 modal を持つ
+            # self_hand_to_deck_bottom(to="top")に委譲。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
             if not me.hand:
                 return False
-            # AI 簡易: 弱いカードをデッキ上 (= 次ドローを犠牲)
-            # 公式は任意選択だが、 シンプル: index 0 のカード (= 古い手札)
-            moved = []
-            for _ in range(min(n, len(me.hand))):
-                c = me.hand.pop(0)
-                me.deck.insert(0, c)
-                moved.append(c.name)
-            state.push_log(f"  効果: 自手札 {len(moved)} 枚 → デッキ上 ({moved})")
+            return execute_effect({"self_hand_to_deck_bottom": {"amount": n, "to": "top"}},
+                                  state, me, opp, self_inplay)
         elif k == "return_attached_don_to_cost_rested":
             # 「自分の付与されているドン!! N 枚を、 コストエリアにレストで戻す」 (ST28-004 等)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
@@ -5966,10 +5981,20 @@ def _execute_effect_body(
         elif k == "swap_base_power_self_leader_chara":
             # 「自分のリーダーとキャラ1枚を選び、 元々のパワーをこのバトル中入れ替える」 (OP14-009)。
             # AI: 最高 power の自キャラと leader を入替。 turn_base_power_override 使用。
+            # 2026-07-08 監査: 人間は「どのキャラと入替えるか」を選べる(target_pick modal)。
             if not me.characters:
                 state.push_log("  効果: 入替対象キャラなし (不発)")
                 return False
-            ch = max(me.characters, key=lambda c: c.power)
+            picks_iids = v.get("_iid_picks") if isinstance(v, dict) else None
+            if picks_iids is None and len(me.characters) > 1 and _maybe_request_target_pick(
+                    state, list(me.characters), 1, k, (v if isinstance(v, dict) else {}), self_inplay,
+                    description="元々のパワーをリーダーと入れ替えるキャラを選択"):
+                return True
+            if picks_iids:
+                ch = next((c for c in me.characters if c.instance_id in picks_iids),
+                          max(me.characters, key=lambda c: c.power))
+            else:
+                ch = max(me.characters, key=lambda c: c.power)
             ld_base = me.leader.turn_base_power_override if me.leader.turn_base_power_override is not None else me.leader.card.power
             ch_base = ch.turn_base_power_override if ch.turn_base_power_override is not None else ch.card.power
             me.leader.turn_base_power_override = ch_base
