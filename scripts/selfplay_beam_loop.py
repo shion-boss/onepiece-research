@@ -41,6 +41,7 @@ OPP = OPPS[0]  # primary 標的 = #1 (in-loop eval / 命名用)
 BEAM_W, BEAM_D = 8, 6  # 既定 moderate(速度)。 配備忠実 deploy 用に main で 16/10 に上げられる
 TRAIN_POSTOPP_TURNS = 1  # 訓練時の手選択の多ターン探索深さ (1=現挙動)。 >1 で多ターン探索データ生成
 TRAIN_TEMP = 0.0  # 訓練時の温度探索 (0=argmax)。 >0 で beam 候補を softmax サンプル = uncertain な手を試す
+OPP_AI = "exploitbeam"  # 相手 AI。 "racer"=AggressiveRacerAI(顔詰め)で消極性を罰し「圧をかける/受ける」を学ばせる
 
 
 def _dl(s):
@@ -80,6 +81,11 @@ def _mk_enel(seed, epsilon, learn_gbm, postopp_turns=1, plan_temperature=0.0):
 
 
 def _mk_cal(seed, opp):
+    # OPP_AI="racer": 顔詰めレーサーで消極的 value を罰する (= 攻撃的相手で self-play、 ohtsuki 提案)。
+    if OPP_AI == "racer":
+        from engine.ai_experimental import AggressiveRacerAI
+        return AggressiveRacerAI(rng=random.Random(seed + 7),
+                                 deck_analysis={**_ana(opp), "deck_slug": opp})
     return ExploitBeamAI(rng=random.Random(seed + 7), deck_analysis={**_ana(opp), "deck_slug": opp},
                          beam_width=BEAM_W, max_depth=BEAM_D)
 
@@ -165,6 +171,8 @@ def main():
     ap.add_argument("--deck", default="cardrush_1467")
     ap.add_argument("--opp", default="tcgportal_calgara",
                     help="標的 #1。 comma 区切りで複数可 = 累積相手集合(現#1+過去#1)で訓練→汎化。 eval/gateは先頭(primary)")
+    ap.add_argument("--opp-ai", default="exploitbeam", choices=["exploitbeam", "racer"],
+                    help="相手 AI。 racer=AggressiveRacerAI(顔詰め)で消極性を罰し「圧をかける/受ける」を学習")
     ap.add_argument("--beam-width", type=int, default=8, help="8=moderate(速)/16=配備忠実")
     ap.add_argument("--max-depth", type=int, default=6, help="6=moderate/10=配備忠実")
     ap.add_argument("--iters", type=int, default=6)
@@ -178,12 +186,13 @@ def main():
     ap.add_argument("--train-temp", type=float, default=0.0,
                     help="訓練時の温度探索 (0=argmax/0.5〜1.0=uncertain な手を試す)。 eval は常に 0(argmax配備)")
     a = ap.parse_args()
-    global DECK, OPP, OPPS, TRAIN_POSTOPP_TURNS, TRAIN_TEMP
+    global DECK, OPP, OPPS, TRAIN_POSTOPP_TURNS, TRAIN_TEMP, OPP_AI
     DECK = a.deck
     OPPS = [s.strip() for s in a.opp.split(",")]  # comma list = 累積相手集合
     OPP = OPPS[0]  # primary 標的 (eval/gate/命名)
     TRAIN_POSTOPP_TURNS = a.train_postopp_turns
     TRAIN_TEMP = a.train_temp
+    OPP_AI = a.opp_ai
     global BEAM_W, BEAM_D
     BEAM_W, BEAM_D = a.beam_width, a.max_depth
     outdir = ROOT / "db" / "_selfplay"

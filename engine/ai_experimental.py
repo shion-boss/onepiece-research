@@ -40,9 +40,48 @@ class _NoNNPlanningBase(PlanningAI):
 
 
 # ------------------------------------------------------------------ #
+# C0: AggressiveRacerAI (= 2026-07-08、 self-play の「攻撃的な相手」)
+#   - GreedyAI ベース。 展開はそのまま、 ただし **顔アタックが legal なら常に最優先**。
+#   - = 消極的 AI を罰する racer 仮想敵。 ohtsuki「相手の攻撃性上げて self-play したら」。
+#   ⚠ 既存 AggressivePlanningAI は eval.py が ONEPIECE_AGGRO_* を読まないため実質 no-op。
+#     本クラスは env に依存せず choose_action で直接顔を強制するので確実に攻撃的。
+# ------------------------------------------------------------------ #
+
+
+class AggressiveRacerAI(GreedyAI):
+    """常に相手リーダーを詰めるレーサー相手モデル。
+
+    greedy の展開/効果/lethal はそのまま活かしつつ、 greedy が「攻撃せず終了」 or
+    「キャラ同士のトレード」を選んだ局面で **顔アタックが可能なら顔へ強制**。 = 手札/盤面より
+    リーダー打点を優先し、 相手に counter/受けを強要する。 消極的な配備 AI を self-play/eval で
+    罰する仮想敵として使う (greedy/ミラーでは passivity を罰せない為)。 defense は greedy のまま
+    (= レースなので過剰防御しない greedy 既定で十分)。
+    """
+
+    name = "AggressiveRacer"
+
+    def choose_action(self, state: GameState):
+        from .game import legal_actions as _la, AttackLeader, AttackCharacter
+        base = super().choose_action(state)
+        # greedy が「終了」or「キャラ攻撃(trade)」を選んだ → 顔が殴れるなら顔を最優先。
+        if isinstance(base, (EndPhase, AttackCharacter)):
+            leader_atks = [a for a in _la(state) if isinstance(a, AttackLeader)]
+            if leader_atks:
+                # 同一 attacker で顔が殴れるならそれ、 無ければ任意の顔アタック。
+                if isinstance(base, AttackCharacter):
+                    same = next((a for a in leader_atks
+                                 if a.attacker_iid == base.attacker_iid), None)
+                    return same or leader_atks[0]
+                return leader_atks[0]
+        return base
+
+
+# ------------------------------------------------------------------ #
 # C1: AggressivePlanningAI
 #   - W_LETHAL / W_OPP_LIFE / W_FIELD_POWER を増幅
 #   - 「殴って勝つ」 を強化する weights override
+#   ⚠ 2026-07-08 注記: eval.py は ONEPIECE_AGGRO_* を読まない → multiplier は無効 (実質 no-op)。
+#     攻撃的相手が必要なら上の AggressiveRacerAI を使う。
 # ------------------------------------------------------------------ #
 
 
