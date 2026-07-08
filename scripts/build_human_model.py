@@ -189,15 +189,67 @@ def build(log_dir: Path) -> dict:
     }
 
 
+def _parse_matchup_from_name(name: str):
+    """log ファイル名 → (human_deck, ai_deck) or None。 api/main.py の _parse_play_log_name と同形式。"""
+    base = name.rsplit("/", 1)[-1]
+    if base.endswith(".json"):
+        base = base[:-5]
+    if "_" not in base or "_vs_" not in base:
+        return None
+    _ts, rest = base.split("_", 1)
+    if "_vs_" not in rest:
+        return None
+    human, right = rest.split("_vs_", 1)
+    parts = right.rsplit("_", 2)  # [ai, tag, sid(-suffix)]
+    if len(parts) < 3:
+        return None
+    return human, parts[0]
+
+
+def _mark_trained(log_dir: Path) -> dict:
+    """「学習に使った」時点の matchup 別 累計件数を db/human_play_trained.json に記録する。
+    = ohtsuki 「学習に使ったら分母に 10 足す」 の実体。 api の progress は
+    new_games = games - trained_upto で計る (= 次バッチへの進捗)。 abandoned は除外。"""
+    from collections import Counter
+    counts: Counter = Counter()
+    for f in glob.glob(str(log_dir / "*.json")):
+        parsed = _parse_matchup_from_name(Path(f).name)
+        if not parsed:
+            continue
+        base = Path(f).name
+        if "_abandoned_" in base or base.endswith("_abandoned.json"):
+            continue
+        human, ai = parsed
+        counts[f"{human}__vs__{ai}"] += 1
+    out = ROOT / "db" / "human_play_trained.json"
+    prev = {}
+    try:
+        prev = json.loads(out.read_text(encoding="utf-8"))
+    except Exception:
+        prev = {}
+    # trained_upto は「消費済み累計」= 現時点の全件数へ更新 (単調増加でのみ上書き)。
+    merged = dict(prev)
+    for k, c in counts.items():
+        merged[k] = max(int(prev.get(k, 0)), int(c))
+    out.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+    return merged
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--log-dir", default=str(ROOT / "db" / "human_play_log"))
     ap.add_argument("--out", default=str(ROOT / "db" / "human_model.json"))
+    ap.add_argument("--no-mark-trained", action="store_true",
+                    help="学習消費として human_play_trained.json を更新しない (= 進捗バーを進めない)")
     args = ap.parse_args()
     model = build(Path(args.log_dir))
     Path(args.out).write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(model, ensure_ascii=False, indent=2))
     print(f"\n→ {args.out}")
+    if not args.no_mark_trained:
+        merged = _mark_trained(Path(args.log_dir))
+        print(f"→ 学習消費を記録 (matchup {len(merged)} 件) db/human_play_trained.json"
+              f"  (進捗バーは次バッチへリセット)")
 
 
 if __name__ == "__main__":

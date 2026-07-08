@@ -2261,17 +2261,20 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
 type HumanPlayMatchup = {
   human_deck: string;
   ai_deck: string;
-  games: number;
+  games: number; // 累計
+  new_games: number; // 前回学習以降 (= 今バッチの進捗)
+  trained_upto: number;
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
-  progress_pct: number;
+  progress_pct: number; // new_games / batch_size (100% 超あり)
 };
 type HumanPlayStats = {
   total_games: number;
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
+  batch_size: number;
   training_threshold: number;
   matchups_tracked: number;
   matchups_ready: number;
@@ -2304,16 +2307,17 @@ function ContributionPanel({
 
   const nameOf = (slug: string) =>
     decks.find((d) => d.slug === slug)?.name ?? slug;
-  const thr = stats.training_threshold;
-  // 学習ラインに最も近い (未到達) マッチアップ = 次の貢献先
+  const thr = stats.batch_size ?? stats.training_threshold;
+  // 今バッチ (前回学習以降) が学習ラインに最も近い (未到達) マッチアップ = 次の貢献先
   const nextUp = [...stats.by_matchup]
-    .filter((m) => m.games < thr)
-    .sort((a, b) => b.games - a.games)[0];
+    .filter((m) => m.new_games < thr)
+    .sort((a, b) => b.new_games - a.new_games)[0];
   // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
   const selected = stats.by_matchup.find(
     (m) => m.human_deck === deckA && m.ai_deck === deckB,
   );
-  const selGames = selected?.games ?? 0;
+  const selGames = selected?.games ?? 0; // 累計
+  const selNew = selected?.new_games ?? 0; // 今バッチ
   const selPct = selected?.progress_pct ?? 0;
   const selWr = selected && selGames ? Math.round(selected.human_winrate * 100) : null;
 
@@ -2341,24 +2345,27 @@ function ContributionPanel({
             <span className="text-zinc-400">(AI)</span>
           </span>
           <span className="shrink-0 tabular-nums text-zinc-500">
-            {selGames}/{thr} 戦
+            今バッチ {selNew}/{thr}
+            {selGames > selNew && (
+              <span className="ml-1 text-zinc-400">（累計 {selGames}）</span>
+            )}
           </span>
         </div>
         <div className="relative mt-2 h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
           <div
             className={
               "absolute inset-y-0 left-0 rounded-full " +
-              (selGames >= thr ? "bg-emerald-500" : "bg-cyan-500")
+              (selNew >= thr ? "bg-emerald-500" : "bg-cyan-500")
             }
-            style={{ width: `${selPct}%` }}
+            style={{ width: `${Math.min(100, selPct)}%` }}
           />
         </div>
         <div className="mt-1.5 text-xs text-cyan-800 dark:text-cyan-200">
           {selGames === 0
             ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
-            : selGames >= thr
-              ? `学習ライン到達済み（${thr}戦）。 さらに対戦すると精度が上がります。`
-              : `あと ${thr - selGames} 戦で この組み合わせが学習ラインに到達します。`}
+            : selNew >= thr
+              ? `次バッチ分に到達（${thr}戦）。 このデータは次の学習に回せます。さらに対戦すると精度が上がります。`
+              : `あと ${thr - selNew} 戦で この組み合わせが次の学習バッチに到達します。`}
           {selWr !== null && (
             <span className="ml-1 text-zinc-500">
               ／ この組合せの人間勝率 {selWr}%
@@ -2393,8 +2400,8 @@ function ContributionPanel({
 
       {nextUp && (
         <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-          あと <b>{thr - nextUp.games}</b> 戦で「{nameOf(nextUp.human_deck)} vs{" "}
-          {nameOf(nextUp.ai_deck)}」 が学習ラインに到達。 この組み合わせで対戦すると
+          あと <b>{thr - nextUp.new_games}</b> 戦で「{nameOf(nextUp.human_deck)} vs{" "}
+          {nameOf(nextUp.ai_deck)}」 が次の学習バッチに到達。 この組み合わせで対戦すると
           貢献度が大きいです。
         </div>
       )}
@@ -2411,13 +2418,16 @@ function ContributionPanel({
                 <div
                   className={
                     "absolute inset-y-0 left-0 rounded-full " +
-                    (m.games >= thr ? "bg-emerald-500" : "bg-cyan-500")
+                    (m.new_games >= thr ? "bg-emerald-500" : "bg-cyan-500")
                   }
-                  style={{ width: `${m.progress_pct}%` }}
+                  style={{ width: `${Math.min(100, m.progress_pct)}%` }}
                 />
               </div>
-              <span className="w-12 shrink-0 text-right tabular-nums text-zinc-500">
-                {m.games}/{thr}
+              <span className="w-16 shrink-0 text-right tabular-nums text-zinc-500">
+                {m.new_games}/{thr}
+                {m.games > m.new_games && (
+                  <span className="ml-0.5 text-zinc-400">·{m.games}</span>
+                )}
               </span>
             </div>
           ))}

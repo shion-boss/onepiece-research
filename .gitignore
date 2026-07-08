@@ -176,6 +176,8 @@ db/mcts_rollout_by_deck.tar.gz
 
 # Human Play 対戦 log (= Vercel Blob から sync した personal data、 commit しない)
 db/human_play_log/
+# 学習消費マーカー (= 「学習に使った時点の matchup 別累計」 の runtime 状態、 log 依存で commit しない)
+db/human_play_trained.json
 
 # =========================================================================
 # Runtime data (= 2026-05-29、 [[feedback_corpus_methodology]])

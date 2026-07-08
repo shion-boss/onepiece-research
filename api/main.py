@@ -3650,8 +3650,24 @@ def _human_match_response(
     return payload
 
 
-# 1 マッチアップが「相手モデル学習に使える」 目安件数 (= MIN_SAMPLES と整合)。
-_HUMAN_PLAY_THRESHOLD = 40
+# 1 バッチ(= 「相手モデル学習に回す」 収集単位)の目安件数。 小さめにして早く学習に回す
+# (2026-07-08 ohtsuki 「10 件ずつでいい」)。 ⚠ これは収集マイルストーンの UI 表示であって、
+# 実際の human_model は全ログ global + MIN_SAMPLES=30 未満は greedy degrade
+# (engine/human_model_ai.py) なので 「10 で AI が強くなる」 ではなく 「10 貯まったら学習に回す目安」。
+_HUMAN_PLAY_THRESHOLD = 10
+
+# 「学習に使ったら分母に 10 足す」 (ohtsuki) の実体: matchup 別に 前回学習で消費済みの累計件数を記録し、
+# progress は 「前回学習以降の新規件数 / THRESHOLD」 で計る。 100% 超も表示 (= 11 件目以降も記録・活用)。
+_HUMAN_PLAY_TRAINED_PATH = ROOT / "db" / "human_play_trained.json"
+
+
+def _load_human_play_trained() -> dict:
+    """matchup key 'human__vs__ai' → 前回学習で消費済みの累計件数。 無ければ空 dict。"""
+    try:
+        import json as _json
+        return _json.loads(_HUMAN_PLAY_TRAINED_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def _parse_play_log_name(name: str):
@@ -3717,17 +3733,22 @@ def _aggregate_human_play_stats() -> dict:
             v["ai_wins"] += 1
             aw += 1
 
+    trained = _load_human_play_trained()
     by_matchup = []
     ready = 0
     for (human, ai), v in sorted(mm.items(), key=lambda kv: -kv[1]["games"]):
         g = v["games"]
-        if g >= _HUMAN_PLAY_THRESHOLD:
+        trained_upto = int(trained.get(f"{human}__vs__{ai}", 0))
+        new_games = max(0, g - trained_upto)  # 前回学習以降の新規件数 (= 次のバッチへの進捗)
+        if new_games >= _HUMAN_PLAY_THRESHOLD:
             ready += 1
         by_matchup.append({
             "human_deck": human, "ai_deck": ai, "games": g,
+            "new_games": new_games, "trained_upto": trained_upto,
             "human_wins": v["human_wins"], "ai_wins": v["ai_wins"],
             "human_winrate": round(v["human_wins"] / g, 3) if g else 0.0,
-            "progress_pct": min(100, round(g / _HUMAN_PLAY_THRESHOLD * 100)),
+            # 100% 超も表示 (= 11 件目以降も記録・学習に回す)。 分母 = 1 バッチ(THRESHOLD)。
+            "progress_pct": round(new_games / _HUMAN_PLAY_THRESHOLD * 100),
         })
     return {
         "total_games": total,
@@ -3735,7 +3756,8 @@ def _aggregate_human_play_stats() -> dict:
         "ai_wins": aw,
         "abandoned": abandoned,
         "human_winrate": round(hw / total, 3) if total else 0.0,
-        "training_threshold": _HUMAN_PLAY_THRESHOLD,
+        "batch_size": _HUMAN_PLAY_THRESHOLD,
+        "training_threshold": _HUMAN_PLAY_THRESHOLD,  # 後方互換 (= batch_size と同値)
         "matchups_tracked": len(by_matchup),
         "matchups_ready": ready,
         "by_matchup": by_matchup,
