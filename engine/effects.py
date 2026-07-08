@@ -613,6 +613,25 @@ def _describe_do_list(do_list: list) -> str:
     return " → ".join(parts) if parts else "この効果"
 
 
+def _request_self_hand_discard(state: GameState, me: Player, self_inplay: Optional[InPlay], limit: int) -> bool:
+    """人間操作中 + 候補 > limit なら self_hand_discard_pick(discard_only)modal を立て True。
+    AI/候補<=limit は False(呼び元が従来の random discard)。 = 自手札 discard の人間選択(2026-07-08 監査)。"""
+    if not (_should_human_pick(state) and limit > 0 and len(me.hand) > limit):
+        return False
+    state.pending_choice = {
+        "kind": "self_hand_discard_pick",
+        "discard_only": True,
+        "candidates": [{"hand_idx": i, "card_id": c.card_id, "name": c.name,
+                        "cost": int(c.cost) if c.cost is not None else 0,
+                        "power": int(c.power) if c.power is not None else 0}
+                       for i, c in enumerate(me.hand)],
+        "limit": limit,
+        "source_iid": self_inplay.instance_id if self_inplay else None,
+    }
+    state.push_log(f"  効果: 自手札 {limit} 枚 トラッシュ → 人間 選択 待ち(候補 {len(me.hand)})")
+    return True
+
+
 def _don_return_sources(me: Player) -> list:
     """ドン返却の選択元(area active/rested + 各キャラ/リーダーの付与ドン)。 UI modal 用。"""
     sources: list = []
@@ -4884,8 +4903,11 @@ def _execute_effect_body(
                 f"{' (shuffle)' if shuffle_after else ''}"
             )
         elif k == "self_hand_to_size":
-            # 自分の手札が N 枚になるように手札を捨てる
+            # 自分の手札が N 枚になるように手札を捨てる(捨てる札は人間が選択、 AI は random)
             target_size = int(v) if not isinstance(v, dict) else int(v.get("size", 5))
+            to_discard = len(me.hand) - target_size
+            if to_discard > 0 and _request_self_hand_discard(state, me, self_inplay, to_discard):
+                return True
             while len(me.hand) > target_size:
                 idx = state.rng.randrange(len(me.hand))
                 me.trash.append(me.hand.pop(idx))
@@ -5854,6 +5876,8 @@ def _execute_effect_body(
                 return False
             drawn = me.draw(cnt)
             nd = len(drawn)
+            if nd > 0 and _request_self_hand_discard(state, me, self_inplay, nd):
+                return True  # draw 済み、 discard 対象は人間が選択(discard_only)
             for _ in range(nd):
                 if not me.hand:
                     break
@@ -8549,13 +8573,22 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                 me.trash.append(me.hand.pop(idx))
             state.push_log(f"  効果: 自手札 {limit} 枚 トラッシュ (= 人間 skip 後 random fallback)")
             return
+        # discard_only: 既に draw 等が済んでいる系(draw_per_self_chara_then_discard / self_hand_to_size)
+        # は primitive を再実行せず、 選んだ手札を捨てるだけ(= 再 draw を防ぐ)。
+        if choice.get("discard_only"):
+            for hi in sorted(set(hand_idxs), reverse=True)[: int(choice.get("limit", len(hand_idxs)))]:
+                if 0 <= hi < len(me.hand):
+                    me.trash.append(me.hand.pop(hi))
+            state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 トラッシュ")
+            return
         if isinstance(primitive_value, dict):
             new_spec = dict(primitive_value)
         else:
             new_spec = {"amount": int(choice.get("limit", 1))}
         new_spec["_picked_hand_idxs"] = hand_idxs
+        prim = choice.get("primitive_kind", "trash_self_hand_random")
         state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 トラッシュ")
-        execute_effect({"trash_self_hand_random": new_spec}, state, me, opp, self_inplay)
+        execute_effect({prim: new_spec}, state, me, opp, self_inplay)
         return
 
     if kind == "self_hand_to_deck_pick":
