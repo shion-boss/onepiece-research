@@ -1996,6 +1996,14 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "don_return_pick" ? (
+          /* ドン-N のコスト支払いで、 レスト/アクティブどちらのドンを戻すか人間が選択。
+             picks=[レストから戻す枚数] (= engine の don_return_pick 解決が読む)。 */
+          <DonReturnPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "play_from_hand_pick" ? (
           <PlayFromHandPickModal
             payload={state.pending_payload}
@@ -7135,6 +7143,60 @@ function OptionalCostConfirmModal({
           >
             コストを払う
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DonReturnPickModal({
+  payload,
+  onSubmit,
+  busy,
+}: {
+  payload: Record<string, unknown>;
+  onSubmit: (picks: number[]) => void;
+  busy: boolean;
+}) {
+  const payDon = Number(payload.pay_don ?? 1);
+  const restedMin = Number(payload.rested_min ?? 0);
+  const restedMax = Number(payload.rested_max ?? 0);
+  const prompt = String(
+    payload.prompt ?? `ドン-${payDon}: どのドンを戻しますか？`,
+  );
+  // 選択肢 = レストから戻す枚数 r (restedMin..restedMax)。 submit は picks=[r]。
+  const options: number[] = [];
+  for (let r = restedMax; r >= restedMin; r--) options.push(r);
+  const label = (r: number) =>
+    payDon === 1
+      ? r === 1
+        ? "レストのドンを戻す"
+        : "アクティブのドンを戻す"
+      : `レスト ${r}枚 / アクティブ ${payDon - r}枚 を戻す`;
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 bottom-0 left-0 z-50 flex items-center justify-center bg-black/85 p-6"
+      style={{ right: "488px" }}
+    >
+      <div className="flex w-full max-w-md flex-col rounded-lg border-2 border-amber-400 bg-zinc-900 p-5 shadow-2xl">
+        <h3 className="mb-2 text-lg font-bold text-amber-200">ドン返却</h3>
+        <p className="mb-4 text-sm text-zinc-200">{prompt}</p>
+        <div className="flex flex-col gap-2">
+          {options.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmit([r]);
+              }}
+              disabled={busy}
+              className="rounded bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow hover:bg-amber-400 disabled:opacity-50"
+            >
+              {label(r)}
+            </button>
+          ))}
         </div>
       </div>
     </div>
