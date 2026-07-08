@@ -580,6 +580,39 @@ def _pay_don_capacity(state: GameState, me: Player) -> int:
             + sum(getattr(ip, "attached_dons", 0) for ip in [me.leader, *me.characters]))
 
 
+_DO_LABEL_JP = {
+    "draw": "カードを引く", "ko": "KOする", "ko_multi": "KOする", "power_pump": "パワー増減",
+    "life_to_hand": "ライフを手札に", "life_top_or_bottom_to_hand": "ライフを手札に",
+    "put_top_to_life": "デッキ上をライフに", "hand_to_self_life": "手札をライフに",
+    "search": "デッキから手札に", "play_from_trash": "トラッシュから登場", "play_from_hand": "手札から登場",
+    "rest": "レストにする", "rest_opp_don": "相手ドンをレスト", "add_don": "ドンを追加",
+    "add_rested_don": "レストドンを追加", "attach_don": "ドンを付与", "untap_don": "ドンをアクティブに",
+    "trash_opp_hand_random": "相手手札を捨てさせる", "trash_self_hand_random": "手札を捨てる",
+    "return_to_hand": "手札に戻す", "return_to_deck_bottom": "デッキ下に戻す",
+    "give_keyword": "キーワード付与", "give_rush": "速攻付与", "set_base_power": "パワーを変更",
+    "reduce_play_cost": "コスト軽減", "set_base_cost": "コストを変更", "cost_minus": "コスト減",
+    "draw_per_self_hand_discarded": "捨てた分引く", "mill_opp_life_to_trash": "相手ライフをトラッシュ",
+}
+
+
+def _describe_do_list(do_list: list) -> str:
+    """choice の option(do-spec リスト)を人間向け短文ラベルに。 主要 primitive の日本語 + 数値。"""
+    parts: list[str] = []
+    for d in (do_list or [])[:3]:
+        if not isinstance(d, dict):
+            continue
+        for key in d:
+            jp = _DO_LABEL_JP.get(key)
+            if jp:
+                val = d[key]
+                if isinstance(val, (int, float)) and key in ("draw", "add_don"):
+                    parts.append(f"{jp}{int(val)}")
+                else:
+                    parts.append(jp)
+            break
+    return " → ".join(parts) if parts else "この効果"
+
+
 def _don_return_sources(me: Player) -> list:
     """ドン返却の選択元(area active/rested + 各キャラ/リーダーの付与ドン)。 UI modal 用。"""
     sources: list = []
@@ -8026,6 +8059,23 @@ def _execute_effect_body(
             spec_val = v if isinstance(v, dict) else {"options": v}
             options = spec_val.get("options", [])
             if not options:
+                return True
+
+            def _norm_choice_opt(opt):
+                inner = opt.get("do", opt) if isinstance(opt, dict) else opt
+                return inner if isinstance(inner, list) else [inner]
+
+            # 人間: 「AするかBする」を modal で選択(option_pick 再利用)。 AI: heuristic 自動。
+            if len(options) >= 2 and _should_human_pick(state):
+                norm = [_norm_choice_opt(o) for o in options]
+                state.pending_choice = {
+                    "kind": "option_pick",
+                    "optional": False,
+                    "options": [{"idx": i, "label": _describe_do_list(d)} for i, d in enumerate(norm)],
+                    "_full_options": [{"do": d, "label": _describe_do_list(d)} for d in norm],
+                    "_self_inplay_iid": self_inplay.instance_id if self_inplay else None,
+                }
+                state.push_log(f"  効果: choice 選択 待ち ({len(options)}択)")
                 return True
             heuristic = spec_val.get("heuristic", "life_count")
             idx = 0
