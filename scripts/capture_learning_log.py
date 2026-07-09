@@ -298,8 +298,14 @@ def main():
                             "did_mulligan": bool(getattr(st.players[i], "did_mulligan", False)),
                             "hand_after": len(st.players[i].hand),
                             "state": _mul_state})
-        ais = [_wrap(ExploitBeamAI(rng=random.Random(seed*5+1), beam_width=16, max_depth=10, deck_analysis={"deck_slug": a.a}), records),
-               _wrap(ExploitBeamAI(rng=random.Random(seed*7+3), beam_width=16, max_depth=10, deck_analysis={"deck_slug": a.b}), records)]
+        # ⚠ setup_game は fp で席を入替える (players[0]=deck a.a は fp==0 の時のみ)。
+        # AI の deck_slug (config/GBM) を **実際にその席に座ったデッキ** に合わせる。
+        # これを怠ると fp==1 の全 game で AI が別デッキの config で打ち play が壊れる
+        # (= 本 session で Ace vs Calgara を 5% と誤測した真因)。
+        p0_slug = a.a if fp == 0 else a.b
+        p1_slug = a.b if fp == 0 else a.a
+        ais = [_wrap(ExploitBeamAI(rng=random.Random(seed*5+1), beam_width=16, max_depth=10, deck_analysis={"deck_slug": p0_slug}), records),
+               _wrap(ExploitBeamAI(rng=random.Random(seed*7+3), beam_width=16, max_depth=10, deck_analysis={"deck_slug": p1_slug}), records)]
         # 防御決定を記録 (real state identity で beam sim を除外) = 盲点その1
         for i in (0, 1):
             _wrap_defense(ais[i], records, st, i)
