@@ -26,6 +26,7 @@ _raw = json.load(open(R / "db" / "cards.json"))
 _cardsL = _raw if isinstance(_raw, list) else _raw["cards"]
 _CTR = {c["card_id"]: (int(c["counter"]) if str(c.get("counter", "")).isdigit() else 0) for c in _cardsL}
 _MODEL = get_default_model()
+_SKIP_CEILING = False  # --skip-ceiling で True: 大量バッチ用に counter上界MCを省く
 
 
 def _deck(slug):
@@ -108,7 +109,7 @@ def _record(state, action, me_idx):
             rec["atk_power"] = int(atk.power); rec["atk_attached_don"] = atk.attached_dons
         rec["target_kind"] = "leader" if isinstance(action, AttackLeader) else "char"
     # 相手 counter 上界の確率推定(read)+ 実 counter(ground truth) — 攻撃決定のみ(高速化)
-    if isinstance(action, (AttackLeader, AttackCharacter)):
+    if isinstance(action, (AttackLeader, AttackCharacter)) and not _SKIP_CEILING:
         try:
             cc = _counter_ceiling(opp.leader.card.card_id, opp)
             if cc:
@@ -274,8 +275,12 @@ def main():
     ap.add_argument("--n", type=int, default=1, help="game 数")
     ap.add_argument("--first-player", type=int, default=-1,
                     help="席固定: 0=deck a(hero)先攻 / 1=deck b先攻 / -1=g%%2 で交互(既定)")
+    ap.add_argument("--skip-ceiling", action="store_true",
+                    help="counter上界MCを省く(大量バッチ・clean bug走査用に高速化)")
     ap.add_argument("--out", default="db/_analyst/learning_log_test.jsonl")
     a = ap.parse_args()
+    global _SKIP_CEILING
+    _SKIP_CEILING = a.skip_ceiling
     _install_effect_hooks()  # trigger / optional-cost 発動判断を記録可能に
     all_records = []
     p0_wins = 0; done = 0
