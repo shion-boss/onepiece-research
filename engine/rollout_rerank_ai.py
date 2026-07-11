@@ -38,7 +38,8 @@ class RolloutRerankAI(ExploitBeamAI):
     def __init__(self, *args, ro_cand: int = 4, ro_n: int = 3,
                  ro_opp_slug: Optional[str] = None, ro_turn_cap: int = 40,
                  ro_determinize: bool = True, ro_reveal_p: float = 0.0,
-                 ro_hand_predict: bool = False, **kwargs):
+                 ro_hand_predict: bool = False, ro_feature_reveal: bool = False,
+                 ro_feature_predict: bool = False, ro_crn: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self._ro_cand = ro_cand
         self._ro_n = ro_n
@@ -48,6 +49,14 @@ class RolloutRerankAI(ExploitBeamAI):
         # 手札予測器の accuracy 代理: 各相手カードを確率 p で真の位置(hand/deck)に固定、
         # 残りを一様 redeal。 p=0=一様(予測無し)、 p=1=full-info(完全予測)。 天井曲線の測定用。
         self._ro_reveal_p = ro_reveal_p
+        # ⭐ ④⑤ ceiling (2026-07-11): 相手手札の「特徴カウント」(rush/counter2000/blocker/removal)
+        # だけを真値として固定し、 exact card は隠して redeal。 = 「特徴を確実に知る」公平プレイ。
+        # 予測器 (③ AUC0.63) が到達しうる上限を測る。 これが +0 なら ④⑤ Q-pipeline は無意味。
+        self._ro_feature_reveal = ro_feature_reveal
+        # ⑤ 配備形 (2026-07-11): feature-reveal の「真値」を ③ 予測器の belief に置換 (覗かない公平)。
+        self._ro_feature_predict = ro_feature_predict
+        # CRN(common random numbers): 候補評価を同一 world で paired 化(predict-mode の分散低減)。
+        self._ro_crn = ro_crn
         # ⭐ ohtsuki 案: 学習した「盤面→手札」予測器で相手手札を weighted-sample (一様でなく)。
         # db/hand_predictor_<ro_opp_slug>.pkl があれば load。 覗かない公平のまま予測で補填。
         self._ro_hand_predict = ro_hand_predict
@@ -131,6 +140,12 @@ class RolloutRerankAI(ExploitBeamAI):
         opp = state.players[opp_idx]
         hand = list(getattr(opp, "hand", []))
         deck = list(getattr(opp, "deck", []))
+        if self._ro_feature_reveal:
+            self._determinize_feature_reveal(state, me_idx, opp, hand, deck, r)
+            return
+        if self._ro_feature_predict:
+            self._determinize_feature_predict(state, me_idx, opp, hand, deck, r)
+            return
         weights = self._predict_hand_weights(state, opp_idx) if self._ro_hand_predict else None
         # reveal-p: 各カードを確率 p で真の位置に固定、 残りを redeal (index-safe)
         fixed_hand, pool = [], []
@@ -159,6 +174,95 @@ class RolloutRerankAI(ExploitBeamAI):
         d = list(getattr(me, "deck", []))
         r.shuffle(d)
         me.deck = d
+
+    def _determinize_feature_reveal(self, state, me_idx, opp, hand, deck, r):
+        """相手手札の feature カウント (rush/counter2000/blocker/removal) だけを真値として固定し、
+        exact card 同一性は隠して redeal。 = ④⑤ の ceiling (特徴を確実に知る公平プレイ)。"""
+        from engine.hand_feature_predictor import _card_features, FEATURES
+        target = {f: 0 for f in FEATURES}
+        for c in hand:
+            fe = _card_features(c)
+            for f in FEATURES:
+                if fe.get(f):
+                    target[f] += 1
+        self._redeal_to_targets(state, me_idx, opp, hand, deck, r, target)
+
+    def _determinize_feature_predict(self, state, me_idx, opp, hand, deck, r):
+        """⑤ 配備形: ③ HandFeaturePredictor で P(相手手札に特徴F)を推定 → 各 rollout で
+        Bernoulli(P_F) をサンプル → その指標に手札を合わせて redeal。 = 「予測した特徴belief」を
+        rollout に注入(覗かない公平)。 予測器の確信度が gain を決める(曖昧なら hedge で +0)。"""
+        from engine.hand_feature_predictor import get_default, FEATURES
+        opp_idx = 1 - me_idx
+        lid = self._opp_leader_id(state, opp_idx)
+        probs = get_default().predict(lid, state, opp_idx) if lid else {}
+        # 各 feature の指標を Bernoulli(P) でサンプル → target = 1(有り) / 0(無し=強制ゼロ)
+        target = {f: (1 if r.random() < float(probs.get(f, 0.0)) else 0) for f in FEATURES}
+        self._redeal_to_targets(state, me_idx, opp, hand, deck, r, target)
+
+    @staticmethod
+    def _opp_leader_id(state, opp_idx):
+        opp = state.players[opp_idx]
+        ld = getattr(opp, "leader", None)
+        if ld is None:
+            return None
+        return getattr(ld, "card_id", None) or getattr(getattr(ld, "card", None), "card_id", None)
+
+    def _redeal_to_targets(self, state, me_idx, opp, hand, deck, r, target):
+        """(hand+deck) プールから手札を target[feature] カウントに合わせて redeal。 exact card は隠す。
+        target=0 の feature は手札から極力排除(=「確実に持っていない」信号)。 multiset/手札枚数を保存。"""
+        from engine.hand_feature_predictor import _card_features, FEATURES
+        pool = hand + deck
+        r.shuffle(pool)
+        feats = [_card_features(c) for c in pool]  # CardDef 直接 (hand/deck 要素)
+        n_hand = len(hand)
+        taken = [False] * len(pool)
+        taken_order = []
+        cur = {f: 0 for f in FEATURES}
+        # 稀少 feature 優先で満たす。 各充足で「他 feature の target 超過」を最小化するカードを選び、
+        # 相関 feature の漏れ(removal+blocker 等)を抑える。
+        for f in FEATURES:
+            while cur[f] < target.get(f, 0):
+                best_i, best_cost = -1, 999
+                for i in range(len(pool)):
+                    if taken[i] or not feats[i].get(f):
+                        continue
+                    cost = sum(1 for g in FEATURES
+                               if g != f and feats[i].get(g) and cur[g] >= target.get(g, 0))
+                    if cost < best_cost:
+                        best_cost, best_i = cost, i
+                        if cost == 0:
+                            break
+                if best_i < 0:
+                    break  # pool に f-card が尽きた
+                taken[best_i] = True
+                taken_order.append(best_i)
+                for g in FEATURES:
+                    if feats[best_i].get(g):
+                        cur[g] += 1
+        need = n_hand - len(taken_order)
+        rem_idx = [i for i in range(len(pool)) if not taken[i]]
+        if need > 0:
+            # target=0 の feature を持つカードを避け(強制ゼロ尊重)、 次に feature 無しを優先
+            zero_f = [f for f in FEATURES if target.get(f, 0) == 0]
+
+            def _fill_key(i):
+                violates_zero = any(feats[i].get(f) for f in zero_f)
+                has_any = any(feats[i].get(f) for f in FEATURES)
+                return (1 if violates_zero else 0, 1 if has_any else 0)
+            rem_idx.sort(key=_fill_key)
+            taken_order += rem_idx[:need]
+            rem_idx = rem_idx[need:]
+        elif need < 0:
+            # dual-feature hand を単一 feature の pool card で満たすと n_hand 超過 (稀): 余りを deck へ
+            rem_idx = taken_order[n_hand:] + rem_idx
+            taken_order = taken_order[:n_hand]
+        new_hand = [pool[i] for i in taken_order]
+        remaining = [pool[i] for i in rem_idx]
+        r.shuffle(remaining)
+        opp.hand = new_hand
+        opp.deck = remaining
+        me = state.players[me_idx]
+        d = list(getattr(me, "deck", [])); r.shuffle(d); me.deck = d
 
     def _rollout_winrate(self, base, cand_idx: int, me_idx: int, seed: int) -> float:
         b = fast_clone(base)
@@ -222,7 +326,13 @@ class RolloutRerankAI(ExploitBeamAI):
         for ci in cands:
             w = 0.0
             for si in range(self._ro_n):
-                seed = self._ro_seq * 100003 + ci * 131 + si * 17
+                # CRN(common random numbers): seed を ci 非依存にし、 全候補を同一 determinize world +
+                # 同一 downstream RNG で評価 → paired 比較 → predict-mode の Bernoulli feature sampling
+                # 分散を除去(候補は「打つ手」だけが違う)。 ci 依存(既定)は独立 world = 高分散。
+                if self._ro_crn:
+                    seed = self._ro_seq * 100003 + si * 17
+                else:
+                    seed = self._ro_seq * 100003 + ci * 131 + si * 17
                 w += self._rollout_winrate(state, ci, me_idx, seed)
             w /= self._ro_n
             if w > best_w:

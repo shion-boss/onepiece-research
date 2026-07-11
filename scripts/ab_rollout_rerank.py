@@ -34,6 +34,10 @@ RO = int(os.environ.get("RR_RO", "3"))
 WORKERS = int(os.environ.get("RR_WORKERS", "12"))
 REVEAL_P = float(os.environ.get("RR_REVEAL_P", "0.0"))  # 手札予測 accuracy 代理 (0=一様, 1=full-info)
 HAND_PREDICT = os.environ.get("RR_HAND_PREDICT", "0") == "1"  # 学習した手札予測器で weighted-sample
+FEATURE_REVEAL = os.environ.get("RR_FEATURE_REVEAL", "0") == "1"  # ④⑤ ceiling: 手札 feature を確実に知る
+FEATURE_PREDICT = os.environ.get("RR_FEATURE_PREDICT", "0") == "1"  # ⑤ 配備形: ③予測器 belief で feature をサンプル
+CRN = os.environ.get("RR_CRN", "0") == "1"  # common random numbers: 候補を同一 world で paired 評価(分散低減)
+SEED_BASE = int(os.environ.get("RR_SEED_BASE", "3000"))  # 独立 replication 用 (pool して N を増やす)
 TURN_CAP = 40
 
 
@@ -51,7 +55,8 @@ def _hero(slug, seed, rerank):
     return RolloutRerankAI(rng=random.Random(seed), beam_width=16, max_depth=10,
                            deck_analysis={"deck_slug": slug}, ro_cand=CAND, ro_n=RO,
                            ro_opp_slug=OPP, ro_determinize=True, ro_reveal_p=REVEAL_P,
-                           ro_hand_predict=HAND_PREDICT)
+                           ro_hand_predict=HAND_PREDICT, ro_feature_reveal=FEATURE_REVEAL,
+                           ro_feature_predict=FEATURE_PREDICT, ro_crn=CRN)
 
 
 def _play(seed, rerank):
@@ -86,7 +91,7 @@ def _one_b(seed):
 
 
 def main():
-    seeds = list(range(3000, 3000 + N))
+    seeds = list(range(SEED_BASE, SEED_BASE + N))
     t0 = time.time()
     print(f"RolloutRerank(determinize) A/B: {HERO} vs {OPP}  N={N} CAND={CAND} RO={RO}", flush=True)
     with mp.Pool(WORKERS) as p:
