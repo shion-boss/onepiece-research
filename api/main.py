@@ -3464,14 +3464,18 @@ def _load_deck_analysis(slug: str) -> Optional[dict]:
     return None
 
 
-def _build_default_ai_factory(deck_slug: str):
+def _build_default_ai_factory(deck_slug: str, opp_slug: Optional[str] = None):
     """人間の対戦相手 AI factory。 2026-06-16〜 **uniform ExploitBeam** を既定に (= SmartOpponentAI の
     deck別 greedy 切替を廃止: 全16メタは deploy_results で既に ExploitBeam=切替 dormant、 user/未知デッキも
     greedy でなく ExploitBeam に格上げ)。 ExploitBeam は vs greedy 70-86% ([[project_70pct_vs_greedy]])。
     import/load 失敗時は GoalDirectedAI に degrade。
 
     ⚠ Vercel: ExploitBeam は sklearn + GBM load。 deploy 環境で重い場合は
-    env ONEPIECE_HUMAN_AI=light で GoalDirectedAI に切替可。"""
+    env ONEPIECE_HUMAN_AI=light で GoalDirectedAI に切替可。
+
+    ⚠ rollout-rerank mode は撤回 (2026-07-11): 見かけの +43pt は full-info rollout が相手隠匿手札を
+    覗く情報優位の artifact で、 公平(determinize)版は +0pt = 配備 value を超えない
+    ([[project_experience_pruning_result]])。 engine/rollout_rerank_ai.py は研究用に残置。"""
     import os as _os
     _mode = _os.environ.get("ONEPIECE_HUMAN_AI")
     if _mode == "llm":

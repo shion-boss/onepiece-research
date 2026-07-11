@@ -42,6 +42,26 @@ def _mk(slug, seed):
     return ExploitBeamAI(rng=random.Random(seed), beam_width=16, max_depth=10, deck_analysis={"deck_slug": slug})
 
 
+# rollout downstream policy: exploit(=配備同等・重い) / greedy(=高速・配備可能かの検証)。
+_RO_DOWN = os.environ.get("AB_RO_DOWNSTREAM", "exploit")
+
+
+def _mk_ro(slug, seed):
+    if _RO_DOWN == "greedy":
+        from engine.ai import GreedyAI
+        return GreedyAI(rng=random.Random(seed), deck_analysis={"deck_slug": slug})
+    if _RO_DOWN == "goal":
+        from engine.goal_directed_ai import GoalDirectedAI
+        return GoalDirectedAI(rng=random.Random(seed), deck_analysis={"deck_slug": slug})
+    if _RO_DOWN == "light":
+        from engine.ai import LightDeepPlanningAI
+        ai = LightDeepPlanningAI(rng=random.Random(seed), beam_width=4, max_depth=6, adaptive=False)
+        from engine.ai import GreedyAI
+        ai.set_ai_opp(GreedyAI(rng=random.Random(seed + 1)))
+        return ai
+    return _mk(slug, seed)
+
+
 def _reshuffle(state, seed):
     r = random.Random(seed)
     for p in state.players:
@@ -54,7 +74,7 @@ def _rollout(state, action, hero_idx, hero_slug, opp_slug, si):
     except Exception:
         return 0.5
     dr = [None, None]
-    dr[hero_idx] = _mk(hero_slug, 900 + si); dr[1 - hero_idx] = _mk(opp_slug, 950 + si)
+    dr[hero_idx] = _mk_ro(hero_slug, 900 + si); dr[1 - hero_idx] = _mk_ro(opp_slug, 950 + si)
     steps = 0
     while not state.game_over and state.turn_number < TURN_CAP and steps < 400:
         cur = state.turn_player_idx

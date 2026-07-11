@@ -546,6 +546,13 @@ def search_turn_plan(
             # ai.prune_mechanical_waste は副作用なし、 全消えなら原リストを返す保険付き。
             from .ai import prune_mechanical_waste
             la = prune_mechanical_waste(cur_state, la)
+            # 経験ベース Q(s,a) 枝刈り (2026-07-10、 ohtsuki案): 明確に劣る候補を除く。
+            # env ONEPIECE_QPRUNE_MARGIN>0 で有効(既定 0=no-harm)。 選ぶでなく切る=Pareto狙い。
+            try:
+                from .q_prune import q_prune as _qprune
+                la = _qprune(cur_state, me_idx, la)
+            except Exception:
+                pass
             if not la:
                 completed.append((cur_state, plan))
                 continue

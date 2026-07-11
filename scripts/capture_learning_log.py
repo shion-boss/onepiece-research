@@ -14,9 +14,26 @@ from collections import Counter
 sys.path.insert(0, os.getcwd())
 from engine.deck import CardRepository, make_deck_from_dict
 from engine.effects import load_effect_overlay
-from engine.game import (setup_game, play_until_main, AttackLeader, AttackCharacter)
+from engine.game import (setup_game, play_until_main, AttackLeader, AttackCharacter, legal_actions)
 from engine.ai import play_one_action
 from engine.exploit_beam_ai import ExploitBeamAI
+from engine.ai import GreedyAI, LookaheadAI, PlanningAI
+from engine.goal_directed_ai import GoalDirectedAI
+
+
+def _make_opp_ai(kind, slug, seed):
+    """多様な特性の対戦相手AIを構築(population-based 多様化)。"""
+    da = {"deck_slug": slug}
+    rng = random.Random(seed)
+    if kind == "greedy":     return GreedyAI(rng=rng, deck_analysis=da)            # 近視眼
+    if kind == "lookahead":  return LookaheadAI(rng=rng, deck_analysis=da)         # 浅い先読み
+    if kind == "planning":   return PlanningAI(rng=rng, deck_analysis=da, beam_width=4, max_depth=6)  # beam(post-opp無)
+    if kind == "goal":       return GoalDirectedAI(rng=rng, deck_analysis=da)      # 目標駆動
+    if kind == "exploit_be": return ExploitBeamAI(rng=rng, beam_width=16, max_depth=10, deck_analysis=da)  # board_eval
+    return ExploitBeamAI(rng=rng, beam_width=16, max_depth=10, deck_analysis=da)   # 既定=強
+
+
+_OPP_POOL = ["greedy", "lookahead", "planning", "goal", "exploit_be"]  # 弱→強の特性spread
 from engine.opponent_deck_model import get_default_model
 
 R = Path(os.getcwd())
@@ -27,6 +44,10 @@ _cardsL = _raw if isinstance(_raw, list) else _raw["cards"]
 _CTR = {c["card_id"]: (int(c["counter"]) if str(c.get("counter", "")).isdigit() else 0) for c in _cardsL}
 _MODEL = get_default_model()
 _SKIP_CEILING = False  # --skip-ceiling で True: 大量バッチ用に counter上界MCを省く
+_REC_FEAT = False      # --record-feat で True: v6 特徴を記録(Q(s,a)学習用、 state省略)
+_EPSILON = 0.0         # --epsilon: ε-greedy 探索率(悪手を corpus に含めるため)
+_VARY_OPP = False      # --vary-opp: 対戦相手AIを毎game 多様な特性から抽選(population多様化)
+from engine.gbm_value import features as _gbm_features
 
 
 def _deck(slug):
@@ -119,7 +140,15 @@ def _record(state, action, me_idx):
             pass
     rec["opp_actual_counter_total"] = sum(_CTR.get(c.card_id, 0) for c in opp.hand)
     rec["action_detail"] = _action_detail(action)  # どのカード/対象/ドン数
-    rec["state"] = _full_state(state)               # game の完全 state
+    if _REC_FEAT:
+        # v6 state 特徴 (= Q(s,a) 学習用、 beam 推論と同一 feature)。 action 側は
+        # action/action_detail/atk_power から encode(train script 側で)。
+        try:
+            rec["feat"] = [float(x) for x in _gbm_features(state, me_idx, v6=True)]
+        except Exception:
+            pass
+    if not _REC_FEAT:
+        rec["state"] = _full_state(state)           # feat mode では state 省略(軽量化)
     return rec
 
 
@@ -175,6 +204,12 @@ def _wrap(ai, records):
     orig = ai.choose_action
     def wrapped(state):
         act = orig(state)
+        # ε-greedy: 確率εで legal からランダム置換 → corpus に「悪手+その帰結」を含める
+        # (= Q(s,a) 学習には悪手のサンプルが必須。 配備 AI の good-move-only では学べない)
+        if _EPSILON > 0.0 and state.phase.name == "MAIN" and random.random() < _EPSILON:
+            acts = legal_actions(state)
+            if acts:
+                act = random.choice(acts)
         try:
             if state.phase.name == "MAIN":
                 records.append(_record(state, act, state.turn_player_idx))
@@ -277,10 +312,21 @@ def main():
                     help="席固定: 0=deck a(hero)先攻 / 1=deck b先攻 / -1=g%%2 で交互(既定)")
     ap.add_argument("--skip-ceiling", action="store_true",
                     help="counter上界MCを省く(大量バッチ・clean bug走査用に高速化)")
+    ap.add_argument("--record-feat", action="store_true",
+                    help="v6特徴を記録(Q(s,a)学習用、 state省略で軽量)")
+    ap.add_argument("--epsilon", type=float, default=0.0,
+                    help="ε-greedy探索率(悪手をcorpusに含める、 Q学習に必須)")
+    ap.add_argument("--vary-opp", action="store_true",
+                    help="対戦相手AIを毎game 多様な特性(greedy/lookahead/planning/goal/exploit)から抽選")
     ap.add_argument("--out", default="db/_analyst/learning_log_test.jsonl")
+    ap.add_argument("--hero-qprune-margin", type=float, default=None,
+                    help="オンポリシー再収集: hero が q_prune margin で悪手を刈った状態で対戦(policy iteration)")
     a = ap.parse_args()
-    global _SKIP_CEILING
+    global _SKIP_CEILING, _REC_FEAT, _EPSILON, _VARY_OPP
     _SKIP_CEILING = a.skip_ceiling
+    _REC_FEAT = a.record_feat
+    _EPSILON = a.epsilon
+    _VARY_OPP = a.vary_opp
     _install_effect_hooks()  # trigger / optional-cost 発動判断を記録可能に
     all_records = []
     p0_wins = 0; done = 0
@@ -304,8 +350,22 @@ def main():
         # (= 本 session で Ace vs Calgara を 5% と誤測した真因)。
         p0_slug = a.a if fp == 0 else a.b
         p1_slug = a.b if fp == 0 else a.a
-        ais = [_wrap(ExploitBeamAI(rng=random.Random(seed*5+1), beam_width=16, max_depth=10, deck_analysis={"deck_slug": p0_slug}), records),
-               _wrap(ExploitBeamAI(rng=random.Random(seed*7+3), beam_width=16, max_depth=10, deck_analysis={"deck_slug": p1_slug}), records)]
+        if _VARY_OPP:
+            # hero(deck a)=強い配備AI固定、 opponent(deck b)=毎game 多様な特性AIを抽選
+            opp_kind = random.choice(_OPP_POOL)
+            hero_seat = 0 if fp == 0 else 1
+            opp_seat = 1 - hero_seat
+            ais = [None, None]
+            _hero_ai = ExploitBeamAI(rng=random.Random(seed*5+1), beam_width=16, max_depth=10,
+                                     deck_analysis={"deck_slug": a.a})
+            if a.hero_qprune_margin is not None:
+                _hero_ai._qprune_margin = a.hero_qprune_margin  # オンポリシー: hero が悪手を刈る
+            ais[hero_seat] = _wrap(_hero_ai, records)
+            ais[opp_seat] = _wrap(_make_opp_ai(opp_kind, a.b, seed*7+3), records)
+            records.append({"kind": "meta", "turn": 0, "player_idx": opp_seat, "opp_kind": opp_kind})
+        else:
+            ais = [_wrap(ExploitBeamAI(rng=random.Random(seed*5+1), beam_width=16, max_depth=10, deck_analysis={"deck_slug": p0_slug}), records),
+                   _wrap(ExploitBeamAI(rng=random.Random(seed*7+3), beam_width=16, max_depth=10, deck_analysis={"deck_slug": p1_slug}), records)]
         # 防御決定を記録 (real state identity で beam sim を除外) = 盲点その1
         for i in (0, 1):
             _wrap_defense(ais[i], records, st, i)
