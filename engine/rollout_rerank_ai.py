@@ -40,7 +40,8 @@ class RolloutRerankAI(ExploitBeamAI):
                  ro_determinize: bool = True, ro_reveal_p: float = 0.0,
                  ro_hand_predict: bool = False, ro_feature_reveal: bool = False,
                  ro_feature_predict: bool = False, ro_crn: bool = False,
-                 ro_feature_map: bool = False, ro_map_thresh: float = 0.5, **kwargs):
+                 ro_feature_map: bool = False, ro_map_thresh: float = 0.5,
+                 ro_log_shifts: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self._ro_cand = ro_cand
         self._ro_n = ro_n
@@ -61,6 +62,9 @@ class RolloutRerankAI(ExploitBeamAI):
         # ⭐ MAP-commit (ohtsuki 人間モデル): 最尤な手札特徴に決め打ち (hedge でなく commit)。
         self._ro_feature_map = ro_feature_map
         self._ro_map_thresh = ro_map_thresh
+        # 診断: 各決定で belief が base の手を変えたか (must-react vs gameplan の分解)。 peek=ログ専用。
+        self._ro_log_shifts = ro_log_shifts
+        self.shift_log = []
         # ⭐ ohtsuki 案: 学習した「盤面→手札」予測器で相手手札を weighted-sample (一様でなく)。
         # db/hand_predictor_<ro_opp_slug>.pkl があれば load。 覗かない公平のまま予測で補填。
         self._ro_hand_predict = ro_hand_predict
@@ -349,4 +353,39 @@ class RolloutRerankAI(ExploitBeamAI):
                 best_w, best_idx = w, ci
         # 再計算した legal_actions は同順(MAIN は自 hand/board 依存)なので index で返す
         cur_acts = legal_actions(state)
-        return self._track(cur_acts[best_idx] if best_idx < len(cur_acts) else dep)
+        chosen = cur_acts[best_idx] if best_idx < len(cur_acts) else dep
+        if self._ro_log_shifts:
+            self._log_shift(state, me_idx, acts, dep_idx, best_idx, chosen, dep, len(cands))
+        return self._track(chosen)
+
+    @staticmethod
+    def _action_kind(a):
+        if isinstance(a, AttackLeader):
+            return "atk_leader"
+        if isinstance(a, AttackCharacter):
+            return "atk_char"
+        if isinstance(a, ActivateMain):
+            return "activate"
+        if isinstance(a, PlayCharacter):
+            return "play"
+        return type(a).__name__
+
+    def _log_shift(self, state, me_idx, acts, dep_idx, best_idx, chosen, dep, n_cands):
+        """診断: この決定で belief(feature-reveal/predict)が base の手を変えたか + 相手手札の真特徴/belief。"""
+        from engine.hand_feature_predictor import _card_features, FEATURES, get_default
+        opp_idx = 1 - me_idx
+        opp = state.players[opp_idx]
+        true_ind = {f: (1 if any(_card_features(c).get(f) for c in getattr(opp, "hand", [])) else 0)
+                    for f in FEATURES}
+        lid = self._opp_leader_id(state, opp_idx)
+        belief = get_default().predict(lid, state, opp_idx) if lid else {}
+        shifted = (best_idx != dep_idx)
+        self.shift_log.append({
+            "turn": state.turn_number,
+            "shifted": shifted,
+            "base_kind": self._action_kind(dep),
+            "chosen_kind": self._action_kind(chosen),
+            "n_cands": n_cands,
+            "true": true_ind,
+            "belief": {f: round(float(belief.get(f, 0.0)), 3) for f in FEATURES},
+        })
