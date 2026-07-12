@@ -39,7 +39,8 @@ class RolloutRerankAI(ExploitBeamAI):
                  ro_opp_slug: Optional[str] = None, ro_turn_cap: int = 40,
                  ro_determinize: bool = True, ro_reveal_p: float = 0.0,
                  ro_hand_predict: bool = False, ro_feature_reveal: bool = False,
-                 ro_feature_predict: bool = False, ro_crn: bool = False, **kwargs):
+                 ro_feature_predict: bool = False, ro_crn: bool = False,
+                 ro_feature_map: bool = False, ro_map_thresh: float = 0.5, **kwargs):
         super().__init__(*args, **kwargs)
         self._ro_cand = ro_cand
         self._ro_n = ro_n
@@ -57,6 +58,9 @@ class RolloutRerankAI(ExploitBeamAI):
         self._ro_feature_predict = ro_feature_predict
         # CRN(common random numbers): 候補評価を同一 world で paired 化(predict-mode の分散低減)。
         self._ro_crn = ro_crn
+        # ⭐ MAP-commit (ohtsuki 人間モデル): 最尤な手札特徴に決め打ち (hedge でなく commit)。
+        self._ro_feature_map = ro_feature_map
+        self._ro_map_thresh = ro_map_thresh
         # ⭐ ohtsuki 案: 学習した「盤面→手札」予測器で相手手札を weighted-sample (一様でなく)。
         # db/hand_predictor_<ro_opp_slug>.pkl があれば load。 覗かない公平のまま予測で補填。
         self._ro_hand_predict = ro_hand_predict
@@ -195,8 +199,14 @@ class RolloutRerankAI(ExploitBeamAI):
         opp_idx = 1 - me_idx
         lid = self._opp_leader_id(state, opp_idx)
         probs = get_default().predict(lid, state, opp_idx) if lid else {}
-        # 各 feature の指標を Bernoulli(P) でサンプル → target = 1(有り) / 0(無し=強制ゼロ)
-        target = {f: (1 if r.random() < float(probs.get(f, 0.0)) else 0) for f in FEATURES}
+        if self._ro_feature_map:
+            # ⭐ MAP-commit (ohtsuki 人間モデル): 最尤な手札状態に決め打ちで賭ける (hedge しない)。
+            # P>=閾 → 特徴「有り」として確実に扱う。 各 choose_action で board 込み再予測 =
+            # 「状況が変わるたび仮説を組み立てなおす」。 曖昧でも一番ありそうな方に commit。
+            target = {f: (1 if float(probs.get(f, 0.0)) >= self._ro_map_thresh else 0) for f in FEATURES}
+        else:
+            # Bernoulli(P) sample = belief を marginalize (hedge)。 曖昧だと base と同手 → +0。
+            target = {f: (1 if r.random() < float(probs.get(f, 0.0)) else 0) for f in FEATURES}
         self._redeal_to_targets(state, me_idx, opp, hand, deck, r, target)
 
     @staticmethod
