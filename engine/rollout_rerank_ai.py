@@ -41,7 +41,8 @@ class RolloutRerankAI(ExploitBeamAI):
                  ro_hand_predict: bool = False, ro_feature_reveal: bool = False,
                  ro_feature_predict: bool = False, ro_crn: bool = False,
                  ro_feature_map: bool = False, ro_map_thresh: float = 0.5,
-                 ro_log_shifts: bool = False, **kwargs):
+                 ro_log_shifts: bool = False, ro_risk_aware: bool = False,
+                 ro_risk_k: float = 2.0, ro_adv_thresh: float = 0.35, **kwargs):
         super().__init__(*args, **kwargs)
         self._ro_cand = ro_cand
         self._ro_n = ro_n
@@ -65,6 +66,15 @@ class RolloutRerankAI(ExploitBeamAI):
         # 診断: 各決定で belief が base の手を変えたか (must-react vs gameplan の分解)。 peek=ログ専用。
         self._ro_log_shifts = ro_log_shifts
         self.shift_log = []
+        # ⭐ risk-aware「踏まない」(ohtsuki): 予測で plausible な脅威を特定 → 有利時はその脅威で崩れる手を
+        # 減点(平均でなく最悪plausibleを回避)。 予測(不確定情報)を hedge でなく回避に使う。
+        self._ro_risk_aware = ro_risk_aware
+        self._ro_risk_k = ro_risk_k          # risk 回避の強さ (lead に比例)
+        self._ro_adv_thresh = ro_adv_thresh  # P(feature) >= これ なら plausible な脅威として固定
+        # 診断: risk-aware が発火(lam>0)した回数 / 実際に argmax を変えた回数 / 全 rerank 決定数
+        self.risk_fires = 0
+        self.risk_changes = 0
+        self.rerank_decisions = 0
         # ⭐ ohtsuki 案: 学習した「盤面→手札」予測器で相手手札を weighted-sample (一様でなく)。
         # db/hand_predictor_<ro_opp_slug>.pkl があれば load。 覗かない公平のまま予測で補填。
         self._ro_hand_predict = ro_hand_predict
@@ -278,10 +288,53 @@ class RolloutRerankAI(ExploitBeamAI):
         me = state.players[me_idx]
         d = list(getattr(me, "deck", [])); r.shuffle(d); me.deck = d
 
-    def _rollout_winrate(self, base, cand_idx: int, me_idx: int, seed: int) -> float:
+    def _determinize_adversarial(self, state, me_idx, seed):
+        """予測で plausible(P>=閾)な脅威を手札に present で固定 = 「相手が持ってたら痛い最悪plausible手」。
+        脅威以外は自然に pool から埋める(強制排除しない)。 risk-aware「踏まない」の下振れ評価用。"""
+        from engine.hand_feature_predictor import _card_features, get_default, FEATURES
+        r = random.Random(seed)
+        opp_idx = 1 - me_idx
+        opp = state.players[opp_idx]
+        hand = list(getattr(opp, "hand", []))
+        deck = list(getattr(opp, "deck", []))
+        lid = self._opp_leader_id(state, opp_idx)
+        probs = get_default().predict(lid, state, opp_idx) if lid else {}
+        threats = [f for f in FEATURES if float(probs.get(f, 0.0)) >= self._ro_adv_thresh]
+        pool = hand + deck
+        r.shuffle(pool)
+        feats = [_card_features(c) for c in pool]
+        n_hand = len(hand)
+        taken = [False] * len(pool)
+        taken_order = []
+        for f in threats:  # 各 plausible 脅威を最低1枚 hand に固定
+            for i in range(len(pool)):
+                if not taken[i] and feats[i].get(f):
+                    taken[i] = True
+                    taken_order.append(i)
+                    break
+        rem = [i for i in range(len(pool)) if not taken[i]]
+        need = n_hand - len(taken_order)
+        if need > 0:
+            taken_order += rem[:need]
+            rem = rem[need:]
+        elif need < 0:
+            rem = taken_order[n_hand:] + rem
+            taken_order = taken_order[:n_hand]
+        opp.hand = [pool[i] for i in taken_order]
+        remaining = [pool[i] for i in rem]
+        r.shuffle(remaining)
+        opp.deck = remaining
+        me = state.players[me_idx]
+        d = list(getattr(me, "deck", [])); r.shuffle(d); me.deck = d
+
+    def _rollout_winrate(self, base, cand_idx: int, me_idx: int, seed: int,
+                         adversarial: bool = False) -> float:
         b = fast_clone(base)
         if self._ro_determinize:
-            self._determinize(b, me_idx, seed)
+            if adversarial:
+                self._determinize_adversarial(b, me_idx, seed)
+            else:
+                self._determinize(b, me_idx, seed)
         acts = legal_actions(b)
         if cand_idx >= len(acts):
             return 0.5
@@ -336,7 +389,8 @@ class RolloutRerankAI(ExploitBeamAI):
         if len(cands) <= 1:
             return self._track(dep)
         self._ro_seq += 1
-        best_idx, best_w = (dep_idx if dep_idx is not None else cands[0]), -1.0
+        # 各候補の belief 勝率 (通常 determinize) を計算
+        wr = {}
         for ci in cands:
             w = 0.0
             for si in range(self._ro_n):
@@ -348,9 +402,31 @@ class RolloutRerankAI(ExploitBeamAI):
                 else:
                     seed = self._ro_seq * 100003 + ci * 131 + si * 17
                 w += self._rollout_winrate(state, ci, me_idx, seed)
-            w /= self._ro_n
-            if w > best_w:
-                best_w, best_idx = w, ci
+            wr[ci] = w / self._ro_n
+        score = dict(wr)
+        self.rerank_decisions += 1
+        if self._ro_risk_aware:
+            # ⭐「踏まない」: lead(=最善候補の belief 勝率)が高い時ほど、 plausible 脅威で崩れる手を減点。
+            # 有利=リード保持で下振れ回避、 不利=λ≈0 で通常 belief 評価(勝ち筋に賭ける)。
+            lead = max(wr.values()) if wr else 0.5
+            lam = self._ro_risk_k * max(0.0, lead - 0.55)
+            if lam > 0:
+                self.risk_fires += 1
+                wr_argmax = max(wr, key=lambda c: wr[c])
+                for ci in cands:
+                    adv = 0.0
+                    for si in range(self._ro_n):
+                        seed = self._ro_seq * 100003 + 777 + ci * 131 + si * 17
+                        adv += self._rollout_winrate(state, ci, me_idx, seed, adversarial=True)
+                    adv /= self._ro_n
+                    # 脅威世界で belief より大きく落ちる手ほど減点 (= 相手の out を踏む手)
+                    score[ci] = wr[ci] - lam * max(0.0, wr[ci] - adv)
+                if max(score, key=lambda c: score[c]) != wr_argmax:
+                    self.risk_changes += 1
+        best_idx, best_w = (dep_idx if dep_idx is not None else cands[0]), -1.0
+        for ci in cands:
+            if score[ci] > best_w:
+                best_w, best_idx = score[ci], ci
         # 再計算した legal_actions は同順(MAIN は自 hand/board 依存)なので index で返す
         cur_acts = legal_actions(state)
         chosen = cur_acts[best_idx] if best_idx < len(cur_acts) else dep

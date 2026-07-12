@@ -37,6 +37,9 @@ HAND_PREDICT = os.environ.get("RR_HAND_PREDICT", "0") == "1"  # 学習した手�
 FEATURE_REVEAL = os.environ.get("RR_FEATURE_REVEAL", "0") == "1"  # ④⑤ ceiling: 手札 feature を確実に知る
 FEATURE_PREDICT = os.environ.get("RR_FEATURE_PREDICT", "0") == "1"  # ⑤ 配備形: ③予測器 belief で feature をサンプル
 CRN = os.environ.get("RR_CRN", "0") == "1"  # common random numbers: 候補を同一 world で paired 評価(分散低減)
+RISK = os.environ.get("RR_RISK", "0") == "1"  # risk-aware「踏まない」: 有利時に plausible 脅威で崩れる手を回避
+RISK_K = float(os.environ.get("RR_RISK_K", "2.0"))
+ADV_THRESH = float(os.environ.get("RR_ADV_THRESH", "0.35"))
 FEATURE_MAP = os.environ.get("RR_FEATURE_MAP", "0") == "1"  # MAP-commit: 最尤な手札特徴に決め打ち(hedge しない)
 MAP_THRESH = float(os.environ.get("RR_MAP_THRESH", "0.5"))
 SEED_BASE = int(os.environ.get("RR_SEED_BASE", "3000"))  # 独立 replication 用 (pool して N を増やす)
@@ -59,7 +62,8 @@ def _hero(slug, seed, rerank):
                            ro_opp_slug=OPP, ro_determinize=True, ro_reveal_p=REVEAL_P,
                            ro_hand_predict=HAND_PREDICT, ro_feature_reveal=FEATURE_REVEAL,
                            ro_feature_predict=FEATURE_PREDICT, ro_crn=CRN,
-                           ro_feature_map=FEATURE_MAP, ro_map_thresh=MAP_THRESH)
+                           ro_feature_map=FEATURE_MAP, ro_map_thresh=MAP_THRESH,
+                           ro_risk_aware=RISK, ro_risk_k=RISK_K, ro_adv_thresh=ADV_THRESH)
 
 
 def _play(seed, rerank):
