@@ -9,6 +9,9 @@
 export const DEV_USER_COOKIE = "onepiece_dev_user";
 export const DEV_DEFAULT_USER = "local";
 
+/** Clerk 有効フラグ。 publishable key が build 時 env にあれば本番認証、 無ければ dev cookie。 */
+export const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]+)`));
@@ -28,11 +31,19 @@ export function setDevUser(id: string): void {
 }
 
 /**
- * API 呼び出しに付ける認証ヘッダ。 クライアントでのみ有効 (= document がある)。
- * サーバコンポーネントからは cookie を読んで明示的に渡す (= fetchDecks(extraHeaders))。
- * 本番 Clerk では Authorization: Bearer に差し替える (= ここが唯一の変更点)。
+ * API 呼び出しに付ける認証ヘッダ (クライアント)。 async = Clerk の getToken() が非同期な為。
+ * - Clerk 有効: window.Clerk.session.getToken() の JWT を `Authorization: Bearer` で送る。
+ * - dev (Clerk 無): `X-Dev-User` ヘッダ (cookie の dev user)。
+ * サーバコンポーネントからは serverAuthHeaders() を使う (= auth-server.ts)。
  */
-export function authHeaders(): Record<string, string> {
+export async function authHeaders(): Promise<Record<string, string>> {
   if (typeof document === "undefined") return {};
+  if (CLERK_ENABLED) {
+    const w = window as unknown as {
+      Clerk?: { session?: { getToken?: () => Promise<string | null> } };
+    };
+    const token = await w.Clerk?.session?.getToken?.();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
   return { "X-Dev-User": getDevUser() };
 }

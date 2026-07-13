@@ -1,0 +1,191 @@
+<!-- @dsCard group="App" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OPTCG — VSCode-style Direction</title>
+<style>
+  /* ==========================================================================
+     VSCode-style — ダーク IDE の質感
+     activitybar + sidebar + editor(tabs) + statusbar。 青アクセント / 高密度 / 小角丸。
+     ========================================================================== */
+  :root{
+    --editor:#1f1f1f; --sidebar:#181818; --activity:#181818; --titlebar:#181818;
+    --panel:#202020; --input:#313131;
+    --border:#2b2b2b; --border-2:#3c3c3c;
+    --fg:#cccccc; --fg-bright:#ffffff; --fg-muted:#8b8b8b; --fg-dim:#6e6e6e;
+    --blue:#0078d4; --blue-hover:#026ec1; --blue-status:#007acc; --link:#4daafc;
+    --sel:#04395e; --sel-border:#0078d4; --hover:#2a2d2e;
+    --green:#4ec9b0; --red:#f14c4c; --yellow:#cca700; --purple:#c586c0;
+    --mono:"Cascadia Code",ui-monospace,Consolas,Menlo,monospace;
+    --sans:-apple-system,"Segoe UI",system-ui,"Noto Sans JP",sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ background:var(--editor); color:var(--fg); font-family:var(--sans); font-size:13px;
+    -webkit-font-smoothing:antialiased; }
+  .ide{ display:flex; flex-direction:column; height:100vh; }
+
+  /* titlebar */
+  .titlebar{ height:36px; background:var(--titlebar); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px; padding:0 12px; color:var(--fg-muted); font-size:12px; }
+  .titlebar .dot{ width:12px; height:12px; border-radius:50%; }
+  .titlebar .crumb b{ color:var(--fg); font-weight:500; }
+  .titlebar .crumb span{ color:var(--fg-dim); }
+
+  .body{ flex:1; display:flex; min-height:0; }
+
+  /* activity bar */
+  .activity{ width:48px; background:var(--activity); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; padding-top:8px; gap:4px; }
+  .activity .ico{ width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+    color:var(--fg-dim); cursor:pointer; border-left:2px solid transparent; }
+  .activity .ico:hover{ color:var(--fg); }
+  .activity .ico.on{ color:var(--fg-bright); border-left-color:var(--fg-bright); }
+  .activity .spacer{ flex:1; }
+  .activity svg{ width:22px; height:22px; }
+
+  /* sidebar */
+  .sidebar{ width:250px; background:var(--sidebar); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; }
+  .side-head{ height:35px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 8px 0 16px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--fg-muted); }
+  .side-head .acts{ display:flex; gap:6px; color:var(--fg-dim); }
+  .section{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg-muted);
+    padding:8px 16px 4px; display:flex; align-items:center; gap:6px; }
+  .row{ display:flex; align-items:center; gap:8px; padding:4px 16px; cursor:pointer; color:var(--fg); }
+  .row:hover{ background:var(--hover); }
+  .row.sel{ background:var(--sel); box-shadow:inset 2px 0 0 var(--sel-border); }
+  .row .cdot{ width:9px; height:9px; border-radius:2px; flex:none; }
+  .row .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .tag{ font-size:10px; color:var(--fg-dim); }
+  .row .lock{ color:var(--fg-dim); }
+  .new{ color:var(--link); padding:6px 16px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+  .new:hover{ text-decoration:underline; }
+
+  /* editor */
+  .editor{ flex:1; display:flex; flex-direction:column; background:var(--editor); min-width:0; }
+  .tabs{ height:35px; display:flex; background:var(--sidebar); border-bottom:1px solid var(--border); }
+  .tab{ display:flex; align-items:center; gap:8px; padding:0 14px; font-size:12px; color:var(--fg-muted);
+    border-right:1px solid var(--border); cursor:pointer; }
+  .tab.on{ background:var(--editor); color:var(--fg-bright); box-shadow:inset 0 1px 0 var(--blue); }
+  .tab .cdot{ width:8px; height:8px; border-radius:2px; }
+  .content{ flex:1; overflow:auto; padding:26px 32px; }
+
+  .h1{ font-size:22px; font-weight:600; color:var(--fg-bright); margin:0; display:flex; align-items:center; gap:10px; }
+  .h1 .cdot{ width:12px; height:12px; border-radius:3px; }
+  .path{ color:var(--fg-dim); font-family:var(--mono); font-size:12px; margin-top:4px; }
+  .meta-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); margin-top:22px; }
+  .cell{ background:var(--panel); padding:12px 14px; }
+  .cell .k{ font-size:11px; color:var(--fg-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .cell .v{ font-size:16px; color:var(--fg-bright); margin-top:4px; }
+  .cell .v.mono{ font-family:var(--mono); font-size:14px; }
+  .cell .v .ok{ color:var(--green); }
+
+  .btns{ display:flex; gap:10px; margin-top:24px; }
+  .btn{ font-family:var(--sans); font-size:13px; border-radius:4px; padding:8px 16px; cursor:pointer; border:1px solid transparent; }
+  .btn-primary{ background:var(--blue); color:#fff; }
+  .btn-primary:hover{ background:var(--blue-hover); }
+  .btn-second{ background:var(--input); color:var(--fg); border-color:var(--border-2); }
+  .btn-second:hover{ background:#3a3a3a; }
+
+  .h2{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--fg-muted); margin:30px 0 10px; }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+  .card{ border:1px solid var(--border-2); border-radius:4px; background:var(--panel); overflow:hidden; }
+  .card .top{ height:4px; }
+  .card .in{ padding:10px 12px; }
+  .card .cn{ color:var(--fg-bright); font-weight:500; }
+  .card .cm{ color:var(--fg-muted); font-size:12px; margin-top:4px; font-family:var(--mono); }
+
+  /* status bar */
+  .status{ height:24px; background:var(--blue-status); color:#fff; display:flex; align-items:center;
+    padding:0 4px; font-size:12px; }
+  .status .item{ display:flex; align-items:center; gap:5px; padding:0 8px; height:100%; }
+  .status .item:hover{ background:rgba(255,255,255,.14); }
+  .status .spacer{ flex:1; }
+  .status svg{ width:13px; height:13px; }
+</style>
+</head>
+<body>
+<div class="ide">
+  <div class="titlebar">
+    <span class="dot" style="background:#ff5f57"></span>
+    <span class="dot" style="background:#febc2e"></span>
+    <span class="dot" style="background:#28c840"></span>
+    <div class="crumb" style="margin-left:8px;">
+      OPTCG <span>▸</span> <span>マイデッキ</span> <span>▸</span> <b>紫ドフラミンゴ.deck</b>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- activity bar -->
+    <div class="activity">
+      <div class="ico" title="カード"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="14" height="16" rx="1.5"/><path d="M7 3h13v15"/></svg></div>
+      <div class="ico on" title="デッキ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 20V9"/></svg></div>
+      <div class="ico" title="対戦"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 4l14 8-14 8z"/></svg></div>
+      <div class="ico" title="カード検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></div>
+      <div class="spacer"></div>
+      <div class="ico" title="アカウント"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+      <div class="ico" title="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
+    </div>
+
+    <!-- sidebar -->
+    <div class="sidebar">
+      <div class="side-head"><span>エクスプローラー</span></div>
+      <div class="section">▾ マイデッキ (非公開)</div>
+      <div class="row sel"><span class="cdot" style="background:#c586c0"></span><span class="name">紫ドフラミンゴ</span><svg class="lock" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+      <div class="row"><span class="cdot" style="background:#4a4a52"></span><span class="name">黒クロコダイル</span></div>
+      <div class="row"><span class="cdot" style="background:#3794ff"></span><span class="name">青ナミ (試作)</span></div>
+      <div class="new">＋ 新規デッキ</div>
+      <div class="section" style="margin-top:8px;">▸ 環境デッキ (相手候補)</div>
+      <div class="row"><span class="cdot" style="background:#cca700"></span><span class="name">黄カルガラ</span><span class="tag">meta</span></div>
+      <div class="row"><span class="cdot" style="background:#f14c4c"></span><span class="name">赤エース</span><span class="tag">meta</span></div>
+    </div>
+
+    <!-- editor -->
+    <div class="editor">
+      <div class="tabs">
+        <div class="tab on"><span class="cdot" style="background:#c586c0"></span> 紫ドフラミンゴ.deck</div>
+        <div class="tab"><span class="cdot" style="background:#0078d4"></span> 対戦</div>
+      </div>
+      <div class="content">
+        <h1 class="h1"><span class="cdot" style="background:#c586c0"></span> 紫ドフラミンゴ</h1>
+        <div class="path">decks/mine/dofla.deck · OP14-060 · 非公開</div>
+
+        <div class="meta-grid">
+          <div class="cell"><div class="k">リーダー</div><div class="v mono">OP14-060</div></div>
+          <div class="cell"><div class="k">枚数</div><div class="v mono">50 / 50 <span class="ok">✓</span></div></div>
+          <div class="cell"><div class="k">色</div><div class="v">紫</div></div>
+          <div class="cell"><div class="k">対 AI 勝率</div><div class="v">62%</div></div>
+        </div>
+
+        <div class="btns">
+          <button class="btn btn-primary">▶ 対戦する</button>
+          <button class="btn btn-second">編集</button>
+          <button class="btn btn-second">分析</button>
+        </div>
+
+        <div class="h2">キーカード</div>
+        <div class="cards">
+          <div class="card"><div class="top" style="background:#c586c0"></div><div class="in"><div class="cn">ドフラミンゴ</div><div class="cm">OP14-060</div></div></div>
+          <div class="card"><div class="top" style="background:#c586c0"></div><div class="in"><div class="cn">トレーボル</div><div class="cm">OP14-072</div></div></div>
+          <div class="card"><div class="top" style="background:#c586c0"></div><div class="in"><div class="cn">ヴェルゴ</div><div class="cm">OP14-066</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- status bar -->
+  <div class="status">
+    <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg> local</div>
+    <div class="item">環境: OP16</div>
+    <div class="spacer"></div>
+    <div class="item">AI: ExploitBeam</div>
+    <div class="item">50/50 枚 ✓</div>
+    <div class="item">非公開</div>
+  </div>
+</div>
+</body>
+</html>

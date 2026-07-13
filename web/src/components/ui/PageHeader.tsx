@@ -20,23 +20,20 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <header className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
+    <header className="border-b pb-4" style={{ borderColor: "var(--border-1)" }}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div
-            className="mt-1 h-7 w-1 rounded-full"
-            style={{
-              background:
-                "linear-gradient(180deg, var(--brand) 0%, var(--accent) 100%)",
-            }}
+            className="mt-1 h-7 w-1 rounded-sm"
+            style={{ background: "var(--brand)" }}
             aria-hidden
           />
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-strong)]">
               {title}
             </h1>
             {description && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 {description}
               </p>
             )}
@@ -45,7 +42,7 @@ export function PageHeader({
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
       {meta && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[color:var(--text-muted)]">
           {meta}
         </div>
       )}

@@ -1,70 +1,78 @@
 import Link from "next/link";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
 
-const FEATURES = [
-  {
-    href: "/cards",
-    label: "カード",
-    description: "全 4,518 枚 の 検索・ フィルタ・ 詳細表示",
-  },
-  {
-    href: "/decks",
-    label: "デッキ",
-    description: "メタデッキ 16 件 の 管理・ 静的分析・ AI vs AI 対戦",
-  },
-  {
-    href: "/play",
-    label: "対戦",
-    description: "人間 が AI と 対戦 (= プレイ感確認 / 学習データ収集)",
-  },
-  {
-    href: "/research",
-    label: "研究",
-    description: "対策デッキ 探索 (= クイック / 進化的 アルゴリズム)",
-  },
-  {
-    href: "/meta",
-    label: "メタ分析",
-    description: "デッキ間 N×N 勝率行列 + AI vs AI ライブ観戦",
-  },
-  {
-    href: "/faq",
-    label: "Q&A",
-    description: "公式ルール Q&A 横断検索 (= 2,500+ 件)",
-  },
-] as const;
+// VSCode の "Welcome" タブ風ランディング。 公開プロダクトの 3 機能 + カード/Q&A に絞る
+// (研究/メタ分析/コンボ探索 は非表示、 PUBLIC_MODE でナビからも撤去済み)。
+const START: { href: string; label: string; desc: string; primary?: boolean }[] = [
+  { href: "/play", label: "対戦する", desc: "自分のデッキで AI と対戦する", primary: true },
+  { href: "/decks/new", label: "デッキを作る", desc: "推しキャラでデッキを構築（非公開で保存）" },
+  { href: "/decks", label: "マイデッキ", desc: "保存したデッキの一覧・分析" },
+  { href: "/cards", label: "カードを見る", desc: "全カードの検索・フィルタ" },
+  { href: "/faq", label: "ルール Q&A", desc: "公式ルール・カードの裁定を検索" },
+];
 
 export default function Home() {
   return (
     <PageShell>
-      <PageHeader
-        title="ワンピースカード研究所"
-        description="公式準拠 100% の OPTCG エンジン 上で、 デッキ研究 と AI 対戦 を 集合知 で 進める 研究プラットフォーム"
-      />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map(({ href, label, description }) => (
-          <Link
-            key={href}
-            href={href}
-            className="surface-panel group flex flex-col gap-2 p-5 transition-colors hover:border-[color:var(--brand)] hover:bg-[color:var(--brand-soft)] dark:hover:bg-zinc-900"
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center gap-3">
+          <span
+            className="flex h-11 w-11 items-center justify-center rounded text-base font-bold text-white"
+            style={{ background: "var(--brand)" }}
+            aria-hidden
           >
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium text-zinc-900 dark:text-zinc-100">
-                {label}
-              </h2>
+            OP
+          </span>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-strong)]">
+              OPTCG 対戦コンパニオン
+            </h1>
+            <p className="font-mono text-xs text-[color:var(--text-muted)]">
+              One Piece Card Game · 公式準拠エンジン + AI 対戦
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-5 text-sm text-[color:var(--text-default)]">
+          推しキャラのデッキを組んで、環境デッキの AI と対戦。自分の一手がどこまで通用するかを試そう。
+        </p>
+
+        <div className="mt-8 text-[11px] font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
+          スタート
+        </div>
+        <div
+          className="mt-2 overflow-hidden rounded-[var(--radius)] border"
+          style={{ borderColor: "var(--border-1)" }}
+        >
+          {START.map((s) => (
+            <Link
+              key={s.href}
+              href={s.href}
+              className="group flex items-center justify-between gap-4 border-t px-4 py-3 transition-colors first:border-t-0 hover:bg-[var(--list-hover)]"
+              style={{ borderColor: "var(--border-1)" }}
+            >
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: s.primary ? "var(--brand-strong)" : "var(--text-strong)" }}
+                >
+                  {s.label}
+                </span>
+                <span className="text-xs text-[color:var(--text-muted)]">{s.desc}</span>
+              </div>
               <span
-                className="text-zinc-400 transition-all group-hover:translate-x-0.5 group-hover:text-[color:var(--brand)] dark:text-zinc-500"
+                className="text-[color:var(--text-muted)] transition-transform group-hover:translate-x-0.5"
                 aria-hidden
               >
                 →
               </span>
-            </div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {description}
-            </p>
-          </Link>
-        ))}
+            </Link>
+          ))}
+        </div>
+
+        <p className="mt-6 font-mono text-[11px] text-[color:var(--text-muted)]">
+          公式準拠 100% · 全 4,675 カード登録済み
+        </p>
       </div>
     </PageShell>
   );

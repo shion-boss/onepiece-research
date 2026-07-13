@@ -117,6 +117,50 @@ async def rate_limit_middleware(request: Request, call_next):
         bucket.append(now)
     return await call_next(request)
 
+
+# --------------------------------------------------------------------------- #
+# 公開モード (= 一般公開デプロイ) のガード。 研究/管理/重い計算 endpoint を 403 で塞ぐ。
+# UI からナビ非表示にするだけでは直叩き (curl) できてしまうので、 ここが本当の防御線
+# (= API enforce)。 ローカル (PUBLIC_MODE 未設定) は全機能そのまま = 研究環境を温存。
+# 開けておくもの: read (cards/faq)、 対戦 (human_match)、 デッキ CRUD/検証/分析。
+# --------------------------------------------------------------------------- #
+_PUBLIC_BLOCKED_PREFIXES = (
+    "/api/research",         # self-play 研究セッション制御 (起動/停止) — 開発者専用
+    "/api/match",            # AI vs AI シミュレーション (重い)。 /api/human_match は対象外 (対戦は許可)
+    "/api/explore",          # 対策デッキ探索 (重い)
+    "/api/audit",            # 内部監査ダッシュボード
+    "/api/combos",           # コンボ探索 (moderate、 nav から撤去)
+    "/api/meta",             # メタ分析 matrix (研究成果、 nav から撤去)
+    "/api/decks/generate",   # デッキ自動生成 (重い)
+    "/api/decks/build",      # コアカード自動構築 (重い)
+)
+_PUBLIC_BLOCKED_SUFFIXES = (
+    "/improvements",         # デッキ改善提案 (重い sim)
+    "/apply-improvement",
+    "/improvements/mcts",
+    "/mcts-game",
+    "/generate-article",     # 記事生成 (LLM 課金)
+    "/battle-report",
+)
+
+
+def _is_public_blocked(path: str) -> bool:
+    if any(path.startswith(p) for p in _PUBLIC_BLOCKED_PREFIXES):
+        return True
+    return any(path.endswith(s) for s in _PUBLIC_BLOCKED_SUFFIXES)
+
+
+@app.middleware("http")
+async def public_mode_guard(request: Request, call_next):
+    if os.environ.get("PUBLIC_MODE") and request.method != "OPTIONS":
+        if _is_public_blocked(request.url.path):
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                {"detail": "この機能は公開モードでは無効です"}, status_code=403
+            )
+    return await call_next(request)
+
+
 # 起動時にカードリポジトリを1回だけロード
 _repo: Optional[CardRepository] = None
 
@@ -3380,6 +3424,11 @@ class HumanSessionSpec(BaseModel):
     deck_a_slug: str
     deck_b_slug: str
     human_first: bool  # 開始時に確定済み の bool
+    # 人間の非公開デッキ (per-user DB) を対戦に使うための inline recipe。 開始時に auth 付きで
+    # resolve して埋め込む → 以降の reconstruct は spec だけで自己完結 (DB/auth 不要、 client が
+    # echo する)。 メタデッキは slug で解決できるので通常 None ({leader, main, ...})。
+    deck_a_inline: Optional[dict] = None
+    deck_b_inline: Optional[dict] = None
 
 
 class HumanActionLog(BaseModel):
@@ -3514,8 +3563,16 @@ def _build_human_session(spec: HumanSessionSpec):
     ensure_spec_loaded(spec.deck_a_slug)
     ensure_spec_loaded(spec.deck_b_slug)
 
-    deck_a = _load_deck_by_slug(spec.deck_a_slug)
-    deck_b = _load_deck_by_slug(spec.deck_b_slug)
+    # 人間デッキ (deck_a) は spec に inline 埋め込みされた per-user recipe を優先
+    # (= 非公開デッキ対戦。 auth/DB 無しで reconstruct 可)。 無ければ従来通り slug 解決。
+    if spec.deck_a_inline:
+        deck_a = make_deck_from_dict(spec.deck_a_inline, get_repo())
+    else:
+        deck_a = _load_deck_by_slug(spec.deck_a_slug)
+    if spec.deck_b_inline:
+        deck_b = make_deck_from_dict(spec.deck_b_inline, get_repo())
+    else:
+        deck_b = _load_deck_by_slug(spec.deck_b_slug)
     overlay_path = ROOT / "db" / "card_effects.json"
     overlay = load_effect_overlay(overlay_path)
 
@@ -3609,8 +3666,13 @@ def _action_log_to_payload(log: list["HumanActionLog"]) -> list[dict]:
 
 
 @app.post("/api/human_match")
-def human_match_start(req: HumanMatchStart):
-    """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。"""
+def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_id)):
+    """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。
+
+    deck_a (= 人間 使用) は自分の非公開デッキ (per-user DB) を含みうるので、 auth 付きで
+    resolve して spec に inline 埋め込みする (= 以降の action call は spec 自己完結で
+    reconstruct、 DB/auth 不要)。 メタデッキ (= AI 相手 deck_b) は slug で解決できる。
+    """
     # human_first None なら ここで 確定 (= rng 経由ではなく Python random で 単発決定)。
     # 以降 spec.human_first は 確定 bool として 渡る → reconstruct で 同じ first_player。
     import random as _r
@@ -3618,11 +3680,14 @@ def human_match_start(req: HumanMatchStart):
     human_first = req.human_first
     if human_first is None:
         human_first = _r.Random(req.seed or 42).random() < 0.5
+    # 人間デッキを resolve (メタ=リポジトリ / user=per-user DB)。 存在しなければ 404。
+    deck_a_inline = _resolve_deck_dict(req.deck_a_slug, user_id)
     spec = HumanSessionSpec(
         seed=req.seed or 42,
         deck_a_slug=req.deck_a_slug,
         deck_b_slug=req.deck_b_slug,
         human_first=bool(human_first),
+        deck_a_inline=deck_a_inline,
     )
 
     session = _build_human_session(spec)

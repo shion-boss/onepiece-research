@@ -53,7 +53,7 @@ import {
  * 人間 vs AI 対戦 component (= OPTCGSim 風 + 重ね 手札 + D&D 対応)。
  */
 
-type DeckOption = { slug: string; name: string };
+type DeckOption = { slug: string; name: string; kind?: string };
 
 type Selection =
   | null
@@ -95,8 +95,13 @@ type DropTarget =
   | { kind: "self_counter"; handIdx: number };
 
 export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
-  const [deckA, setDeckA] = useState<string>(decks[0]?.slug ?? "");
-  const [deckB, setDeckB] = useState<string>(decks[0]?.slug ?? "");
+  // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
+  const firstUserDeck =
+    decks.find((d) => d.kind === "user")?.slug ?? decks[0]?.slug ?? "";
+  const firstMetaDeck =
+    decks.find((d) => d.kind === "meta")?.slug ?? decks[0]?.slug ?? "";
+  const [deckA, setDeckA] = useState<string>(firstUserDeck);
+  const [deckB, setDeckB] = useState<string>(firstMetaDeck);
   const [seed, setSeed] = useState<number>(42);
   const [humanFirst, setHumanFirst] = useState<"random" | "first" | "second">(
     "random",
@@ -2470,16 +2475,24 @@ function StartPanel({
 }) {
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
+  // 人間側 = 自分のデッキ (kind:user)、 AI 側 = メタ(相手) デッキ (kind:meta)。
+  // 空なら fallback で dead-end 回避 (= 新規ユーザー / 移行期 / dev)。
+  const myDecks = decks.filter((d) => d.kind === "user");
+  const metaDecks = decks.filter((d) => d.kind === "meta");
+  const humanOptions = myDecks.length ? myDecks : decks;
+  const aiOptions = metaDecks.length ? metaDecks : decks;
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       {/* Hero header */}
-      <header className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-8 shadow-sm dark:border-zinc-800 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-rose-950/30">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          人間 vs AI 対戦
+      <header
+        className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-6"
+        style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
+      >
+        <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
+          対戦
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          AI と ドラッグ&ドロップ で 実戦練習。 手札 → 自フィールド で
-          deploy、 自キャラ → 相手 で attack、 DON → 自リーダー/キャラ で attach。
+        <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
+          自分のデッキと相手 (AI) を選んで対戦開始。 ドラッグ&ドロップで deploy / attack / DON 付与。
         </p>
       </header>
 
@@ -2487,9 +2500,12 @@ function StartPanel({
       {/* VS panel: 2 deck cards + center VS */}
       <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
         {/* 人間 side */}
-        <div className="flex flex-col gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-5 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40">
+        <div
+          className="flex flex-col gap-3 rounded-[var(--radius)] border border-t-2 bg-[color:var(--surface-1)] p-4"
+          style={{ borderColor: "var(--border-1)", borderTopColor: "var(--accent)" }}
+        >
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-emerald-500 px-3 py-0.5 text-xs font-bold text-white">
+            <span className="rounded px-2 py-0.5 text-xs font-bold text-black" style={{ background: "var(--accent)" }}>
               人間
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -2501,16 +2517,24 @@ function StartPanel({
             <select
               value={deckA}
               onChange={(e) => setDeckA(e.target.value)}
-              className="rounded-md border border-emerald-300 bg-white p-2 text-sm font-semibold text-zinc-900 dark:border-emerald-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
               disabled={busy}
             >
-              {decks.map((d) => (
+              {humanOptions.map((d) => (
                 <option key={d.slug} value={d.slug}>
                   {d.name}
                 </option>
               ))}
             </select>
           </label>
+          {myDecks.length === 0 && (
+            <a
+              href="/decks/new"
+              className="text-xs font-medium text-[color:var(--brand)] underline underline-offset-2"
+            >
+              自分のデッキを作成する
+            </a>
+          )}
           {humanDeck && (
             <div className="text-xs text-zinc-500">
               選択中: <span className="font-mono">{humanDeck.slug}</span>
@@ -2526,9 +2550,12 @@ function StartPanel({
         </div>
 
         {/* AI side */}
-        <div className="flex flex-col gap-3 rounded-xl border-2 border-rose-300 bg-rose-50/60 p-5 shadow-sm dark:border-rose-700 dark:bg-rose-950/40">
+        <div
+          className="flex flex-col gap-3 rounded-[var(--radius)] border border-t-2 bg-[color:var(--surface-1)] p-4"
+          style={{ borderColor: "var(--border-1)", borderTopColor: "var(--danger)" }}
+        >
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-rose-500 px-3 py-0.5 text-xs font-bold text-white">
+            <span className="rounded px-2 py-0.5 text-xs font-bold text-white" style={{ background: "var(--danger)" }}>
               AI
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -2540,10 +2567,10 @@ function StartPanel({
             <select
               value={deckB}
               onChange={(e) => setDeckB(e.target.value)}
-              className="rounded-md border border-rose-300 bg-white p-2 text-sm font-semibold text-zinc-900 dark:border-rose-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
               disabled={busy}
             >
-              {decks.map((d) => (
+              {aiOptions.map((d) => (
                 <option key={d.slug} value={d.slug}>
                   {d.name}
                 </option>
@@ -2559,8 +2586,8 @@ function StartPanel({
       </div>
 
       {/* Match options */}
-      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">
+      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+        <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">
           対戦オプション
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2612,7 +2639,8 @@ function StartPanel({
         type="button"
         onClick={onStart}
         disabled={busy || !deckA || !deckB}
-        className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-5 text-xl font-bold text-white shadow-lg transition hover:from-emerald-400 hover:to-emerald-500 hover:shadow-xl active:scale-[0.98] disabled:from-zinc-400 disabled:to-zinc-500 disabled:opacity-50"
+        className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
+        style={{ background: "var(--brand)" }}
       >
         {busy ? "開始中..." : "▶ 対戦 開始"}
       </button>

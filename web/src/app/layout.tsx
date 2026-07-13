@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
+import { WorkspaceShell } from "@/components/WorkspaceShell";
+
+// Clerk 有効 (= publishable key が env にある) 時のみ <ClerkProvider> で包む。
+// dev (キー無) は provider 無しで従来どおり = ローカルは Clerk 不要。
+const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,17 +28,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  const tree = (
     <html
       lang="ja"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-screen">
-          <Sidebar />
-          <div className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
-            {children}
-          </div>
-        </body>
+      <body className="h-screen overflow-hidden">
+        <WorkspaceShell>{children}</WorkspaceShell>
+      </body>
     </html>
   );
+  return CLERK_ENABLED ? <ClerkProvider>{tree}</ClerkProvider> : tree;
 }

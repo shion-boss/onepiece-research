@@ -97,7 +97,7 @@ export async function fetchDecks(
 ): Promise<DeckSummary[]> {
   const res = await fetch(`${API}/api/decks`, {
     cache: "no-store",
-    headers: { ...authHeaders(), ...extra },
+    headers: { ...(await authHeaders()), ...extra },
   });
   if (!res.ok) throw new Error(`fetchDecks failed: ${res.status}`);
   return res.json();
@@ -109,7 +109,7 @@ export async function fetchDeck(
 ): Promise<DeckDetail> {
   const res = await fetch(`${API}/api/decks/${encodeURIComponent(slug)}`, {
     cache: "no-store",
-    headers: { ...authHeaders(), ...extra },
+    headers: { ...(await authHeaders()), ...extra },
   });
   if (!res.ok) throw new Error(`fetchDeck failed: ${res.status}`);
   return res.json();
@@ -121,7 +121,7 @@ export async function fetchDeckAnalysis(
 ): Promise<DeckAnalysis> {
   const res = await fetch(
     `${API}/api/decks/${encodeURIComponent(slug)}/analyze`,
-    { cache: "no-store", headers: { ...authHeaders(), ...extra } },
+    { cache: "no-store", headers: { ...(await authHeaders()), ...extra } },
   );
   if (!res.ok) throw new Error(`fetchDeckAnalysis failed: ${res.status}`);
   return res.json();
@@ -194,7 +194,7 @@ export async function fetchDeckStrategy(
 ): Promise<DeckStrategy> {
   const res = await fetch(
     `${API}/api/decks/${encodeURIComponent(slug)}/strategy`,
-    { cache: "no-store", headers: { ...authHeaders(), ...extra } },
+    { cache: "no-store", headers: { ...(await authHeaders()), ...extra } },
   );
   if (!res.ok) {
     const detail = await res.text();
@@ -243,7 +243,7 @@ export async function saveDeckToServer(
 ): Promise<CreateDeckResponse> {
   const res = await fetch(`${API}/api/decks`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...authHeaders() },
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(req),
     cache: "no-store",
   });
@@ -509,7 +509,7 @@ export async function generateDeck(
 ): Promise<GenerateDeckResponse> {
   const res = await fetch(`${API}/api/decks/generate`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...authHeaders() },
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(req),
     cache: "no-store",
   });
@@ -704,7 +704,9 @@ export async function startHumanMatch(
 ): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // authHeaders: 自分の非公開デッキ (deck_a) を per-user DB から resolve するのに必要。
+    // dev = X-Dev-User / 本番 Clerk = Bearer。
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
       deck_a_slug: deckASlug,
       deck_b_slug: deckBSlug,
