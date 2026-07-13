@@ -3842,10 +3842,16 @@ export function LogSidebar({
   log,
   aiIdx,
   sessionId,
+  lineFrames,
+  onJump,
 }: {
   log: string[];
   aiIdx: number;
   sessionId: string | null;
+  /** 各ログ行に対応する snapshot index (= クリックでその盤面へ移動、 観戦replay用)。 */
+  lineFrames?: number[];
+  /** ログ行クリックで呼ぶ (frame index を渡す)。 */
+  onJump?: (frame: number) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // log が 増える 度 に 最下部 (= 最新行) へ 自動 スクロール
@@ -3908,11 +3914,32 @@ export function LogSidebar({
                 </div>,
               );
             }
+            const isLast = i === log.length - 1;
+            const canJump = !!onJump && !!lineFrames;
+            // 背景 = 手番側の色 (最新行は濃く)。 sub は最新時のみ着色。
+            const bg = isHuman
+              ? isLast
+                ? "bg-emerald-500/30 "
+                : isSub
+                  ? ""
+                  : "bg-emerald-500/10 "
+              : isAI
+                ? isLast
+                  ? "bg-rose-500/30 "
+                  : isSub
+                    ? ""
+                    : "bg-rose-500/10 "
+                : "";
             rows.push(
               <div
                 key={i}
+                onClick={canJump ? () => onJump!(lineFrames![i]) : undefined}
                 className={
-                  "cursor-context-menu border-b border-zinc-700/40 py-0.5 transition-colors hover:bg-zinc-700/30 " +
+                  "border-b border-zinc-700/40 transition-colors hover:brightness-125 " +
+                  (canJump ? "cursor-pointer " : "cursor-context-menu ") +
+                  // 最新の一番下は大きく強調
+                  (isLast ? "rounded py-1.5 text-sm font-semibold " : "py-0.5 ") +
+                  bg +
                   (isSub ? "pl-4 text-zinc-400 " : "") +
                   (!isSub && isAI ? "text-rose-100 " : "") +
                   (!isSub && isHuman ? "text-emerald-100 " : "") +
@@ -3922,7 +3949,9 @@ export function LogSidebar({
                 title={
                   hasComment
                     ? `${shown} (コメント済)`
-                    : `${shown} — 右クリックで メモ`
+                    : canJump
+                      ? `${shown} — クリックでこの盤面へ / 右クリックで メモ`
+                      : `${shown} — 右クリックで メモ`
                 }
                 onContextMenu={(e) => {
                   if (!sessionId) return;

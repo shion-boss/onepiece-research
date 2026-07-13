@@ -382,10 +382,17 @@ export function SpectateBoard({
   // perspective: players[1] = 上 (相手枠)、 players[0] = 下 (自分枠)。 観戦なので両方 reveal。
   const top = snap.players[1];
   const bottom = snap.players[0];
-  const log = snapshots
+  // 各ログ行に「どの snapshot(frame) の行か」を付与 (= クリックでその盤面へ移動)。
+  const logEntries = snapshots
     .slice(0, clampedIdx + 1)
-    .flatMap((s) => ((s.log as unknown as string) || "").split("\n"))
-    .filter((l) => l && l.trim().length > 0);
+    .flatMap((s, si) =>
+      ((s.log as unknown as string) || "")
+        .split("\n")
+        .filter((l) => l && l.trim().length > 0)
+        .map((text) => ({ text, frame: si })),
+    );
+  const log = logEntries.map((e) => e.text);
+  const lineFrames = logEntries.map((e) => e.frame);
   const atEnd = clampedIdx >= total - 1;
   const onHover = (h: HoverInfo) => setHovered(h);
   const fieldPower = (p: typeof top) =>
@@ -460,7 +467,16 @@ export function SpectateBoard({
       {/* 左 (= 人間vsAI と同じ min-w-280 flex-1): 相手info + log(コメント可) + 自分stat + 自手札 */}
       <div className="flex min-w-[280px] flex-1 min-h-0 flex-col gap-2">
         <OpponentInfoPanel opp={top} reveal onHover={onHover} />
-        <LogSidebar log={log} aiIdx={1} sessionId={replayKey ?? null} />
+        <LogSidebar
+          log={log}
+          aiIdx={1}
+          sessionId={replayKey ?? null}
+          lineFrames={lineFrames}
+          onJump={(f) => {
+            setPlaying(false);
+            setIdx(f);
+          }}
+        />
         <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
           <StatBadge
             player={bottom}
