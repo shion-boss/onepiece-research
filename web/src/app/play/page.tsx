@@ -1,6 +1,6 @@
 import { fetchDecks } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
-import { HumanMatchPlay } from "@/components/HumanMatchPlay";
+import { PlayModes } from "@/components/PlayModes";
 import { PageShell } from "@/components/ui/PageShell";
 
 export default async function PlayPage({
@@ -43,7 +43,7 @@ export default async function PlayPage({
   // HumanMatchPlay は full-screen 対戦 UI なので PageShell では wrap しない
   return (
     <main className="flex w-full flex-1 flex-col">
-      <HumanMatchPlay decks={decks} initialDeckA={sp?.deck} />
+      <PlayModes decks={decks} initialDeckA={sp?.deck} />
     </main>
   );
 }
