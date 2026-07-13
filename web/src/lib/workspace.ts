@@ -9,17 +9,20 @@ interface WorkspaceState {
   tabs: Tab[];
   activeView: ActivityView;
   sidebarOpen: boolean;
+  collapsedFolders: string[];
   openTab: (t: Tab) => void;
   closeTab: (id: string) => void;
   setView: (v: ActivityView) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (b: boolean) => void;
+  toggleFolder: (f: string) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
   tabs: [],
   activeView: "explorer",
   sidebarOpen: true,
+  collapsedFolders: [],
   openTab: (t) =>
     set((s) =>
       s.tabs.some((x) => x.id === t.id)
@@ -30,6 +33,12 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   setView: (v) => set({ activeView: v, sidebarOpen: true }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (b) => set({ sidebarOpen: b }),
+  toggleFolder: (f) =>
+    set((s) => ({
+      collapsedFolders: s.collapsedFolders.includes(f)
+        ? s.collapsedFolders.filter((x) => x !== f)
+        : [...s.collapsedFolders, f],
+    })),
 }));
 
 // パス → タブ表示名。 未知は末尾セグメント。

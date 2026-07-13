@@ -243,8 +243,8 @@ const IconFolder = (
 function ExplorerPanel({ path }: { path: string }) {
   const [decks, setDecks] = useState<DeckRow[] | null>(null);
   const [extraFolders, setExtraFolders] = useState<string[]>([]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const { collapsedFolders, toggleFolder } = useWorkspace();
 
   const reload = useCallback(() => {
     fetchDecks()
@@ -270,13 +270,6 @@ function ExplorerPanel({ path }: { path: string }) {
     }
     reload();
   };
-  const toggle = (f: string) =>
-    setCollapsed((p) => {
-      const n = new Set(p);
-      if (n.has(f)) n.delete(f);
-      else n.add(f);
-      return n;
-    });
   const newFolder = () => {
     const name = window.prompt("新しいフォルダ名");
     if (name && name.trim()) setExtraFolders((p) => Array.from(new Set([...p, name.trim()])));
@@ -346,11 +339,11 @@ function ExplorerPanel({ path }: { path: string }) {
 
       {folderNames.map((f) => {
         const items = mine.filter((d) => (d.folder || "") === f);
-        const open = !collapsed.has(f);
+        const open = !collapsedFolders.includes(f);
         return (
           <div key={f} className={dragOver === f ? "bg-[var(--brand-soft)]" : ""} {...dropProps(f)}>
             <div className="group flex items-center gap-1 px-2 py-1 text-[12px] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]">
-              <button type="button" onClick={() => toggle(f)} className="flex min-w-0 flex-1 items-center gap-1 text-left">
+              <button type="button" onClick={() => toggleFolder(f)} className="flex min-w-0 flex-1 items-center gap-1 text-left">
                 <span
                   className="shrink-0"
                   style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .1s" }}
@@ -378,10 +371,13 @@ function ExplorerPanel({ path }: { path: string }) {
                 解体
               </button>
             </div>
-            {open &&
-              items.map((d) => (
-                <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} indent />
-              ))}
+            {open && (
+              <div className="border-l" style={{ marginLeft: "15px", borderColor: "var(--border-2)" }}>
+                {items.map((d) => (
+                  <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} indent />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -423,7 +419,7 @@ function MyDeckRow({ deck, active, indent }: { deck: DeckRow; active: boolean; i
       role="button"
       title={deck.name}
       className={`flex cursor-pointer items-center gap-2 py-1.5 text-[13px] hover:bg-[var(--list-hover)] ${
-        indent ? "pl-8 pr-4" : "px-4"
+        indent ? "pl-4 pr-3" : "px-4"
       }`}
       style={
         active
