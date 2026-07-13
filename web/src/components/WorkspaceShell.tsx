@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import { useWorkspace, tabTitleFor, type ActivityView } from "@/lib/workspace";
 import { AuthControls } from "./AuthControls";
 import { StatusBar } from "./StatusBar";
@@ -52,8 +59,17 @@ const COLOR_HEX: Record<string, string> = {
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const path = usePathname() || "/";
   const router = useRouter();
-  const { tabs, openTab, closeTab, activeView, setView, sidebarOpen, toggleSidebar } =
-    useWorkspace();
+  const {
+    tabs,
+    openTab,
+    closeTab,
+    activeView,
+    setView,
+    sidebarOpen,
+    toggleSidebar,
+    sidebarWidth,
+    setSidebarWidth,
+  } = useWorkspace();
   const [matchActive, setMatchActive] = useState(false);
 
   useEffect(() => {
@@ -107,6 +123,26 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     );
   };
 
+  // サイドバー幅のドラッグリサイズ (VSCode 風)。 activity bar (48px) の右から測る。
+  const startResize = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev: MouseEvent) => {
+      setSidebarWidth(Math.min(560, Math.max(160, startW + (ev.clientX - startX))));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1">
@@ -121,9 +157,10 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
         {/* sidebar panel */}
         {sidebarOpen && (
+          <>
           <aside
-            className="flex w-56 shrink-0 flex-col border-r"
-            style={{ background: "var(--sidebar-bg)", borderColor: "var(--border-1)" }}
+            className="flex shrink-0 flex-col border-r"
+            style={{ background: "var(--sidebar-bg)", borderColor: "var(--border-1)", width: sidebarWidth }}
           >
             <div className="flex items-center gap-2 border-b px-3 py-3" style={{ borderColor: "var(--border-1)" }}>
               <span
@@ -142,6 +179,13 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
               <AuthControls />
             </div>
           </aside>
+          {/* リサイザー: ドラッグでサイドバー幅を変更 */}
+          <div
+            onMouseDown={startResize}
+            title="ドラッグで幅を変更"
+            className="w-1 shrink-0 cursor-col-resize hover:bg-[color:var(--brand)]"
+          />
+          </>
         )}
 
         {/* editor: tabs + content */}

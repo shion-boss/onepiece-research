@@ -9,12 +9,14 @@ interface WorkspaceState {
   tabs: Tab[];
   activeView: ActivityView;
   sidebarOpen: boolean;
+  sidebarWidth: number;
   collapsedFolders: string[];
   openTab: (t: Tab) => void;
   closeTab: (id: string) => void;
   setView: (v: ActivityView) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (b: boolean) => void;
+  setSidebarWidth: (w: number) => void;
   toggleFolder: (f: string) => void;
 }
 
@@ -22,6 +24,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   tabs: [],
   activeView: "explorer",
   sidebarOpen: true,
+  sidebarWidth: 224,
   collapsedFolders: [],
   openTab: (t) =>
     set((s) =>
@@ -33,6 +36,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   setView: (v) => set({ activeView: v, sidebarOpen: true }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (b) => set({ sidebarOpen: b }),
+  setSidebarWidth: (w) => set({ sidebarWidth: w }),
   toggleFolder: (f) =>
     set((s) => ({
       collapsedFolders: s.collapsedFolders.includes(f)
