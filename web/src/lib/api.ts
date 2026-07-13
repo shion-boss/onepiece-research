@@ -278,6 +278,10 @@ export function renameFolder(oldName: string, newName: string): Promise<void> {
 export function deleteFolder(folder: string): Promise<void> {
   return postJson(`/api/folders/delete`, { folder });
 }
+/** デッキの表示名を変更 (slug は不変)。 */
+export function renameDeck(slug: string, name: string): Promise<void> {
+  return postJson(`/api/decks/${encodeURIComponent(slug)}/name`, { name });
+}
 
 export async function validateDeckOnServer(
   req: CreateDeckRequest,

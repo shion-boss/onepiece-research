@@ -48,6 +48,26 @@ def test_folder_survives_deck_update(store):
     assert store.get_deck("alice", "d1")["folder"] == "青"
 
 
+def test_rename_deck_name(store):
+    client = TestClient(m.app)
+    d = json.loads(Path("decks/cardrush_1342.json").read_text(encoding="utf-8"))
+    slug = client.post(
+        "/api/decks",
+        json={"name": "旧名", "leader": d["leader"], "main": d["main"]},
+        headers={"X-Dev-User": "alice"},
+    ).json()["slug"]
+    # 名前変更 → /api/decks に反映 (slug は不変)
+    r = client.post(f"/api/decks/{slug}/name", json={"name": "新しい名前"}, headers={"X-Dev-User": "alice"})
+    assert r.status_code == 200, r.text
+    decks = client.get("/api/decks", headers={"X-Dev-User": "alice"}).json()
+    row = next(x for x in decks if x["slug"] == slug)
+    assert row["name"] == "新しい名前"
+    # 空名は 400、 他人は 404、 メタは 403
+    assert client.post(f"/api/decks/{slug}/name", json={"name": " "}, headers={"X-Dev-User": "alice"}).status_code == 400
+    assert client.post(f"/api/decks/{slug}/name", json={"name": "x"}, headers={"X-Dev-User": "bob"}).status_code == 404
+    assert client.post("/api/decks/cardrush_1342/name", json={"name": "x"}, headers={"X-Dev-User": "alice"}).status_code == 403
+
+
 def test_api_move_folder_and_isolation(store):
     client = TestClient(m.app)
     d = json.loads(Path("decks/cardrush_1342.json").read_text(encoding="utf-8"))

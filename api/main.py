@@ -1207,6 +1207,23 @@ def move_deck_folder(slug: str, req: MoveFolderRequest, user_id: str = Depends(c
     return {"ok": True, "folder": req.folder.strip()}
 
 
+class RenameDeckRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/decks/{slug}/name")
+def rename_deck(slug: str, req: RenameDeckRequest, user_id: str = Depends(current_user_id)):
+    """自分のデッキの表示名を変更 (slug は不変)。 メタは read-only、 他人のは 404。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(403, "meta(環境) decks are read-only")
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not user_store.set_deck_name(user_id, slug, name):
+        raise HTTPException(404, f"deck not found: {slug}")
+    return {"ok": True, "name": name}
+
+
 @app.post("/api/folders/rename")
 def rename_folder_ep(req: RenameFolderRequest, user_id: str = Depends(current_user_id)):
     """フォルダ名を変更 (= 中の全デッキの folder を付け替え)。"""

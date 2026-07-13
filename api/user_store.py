@@ -226,6 +226,23 @@ def set_deck_folder(owner_id: str, slug: str, folder: str) -> bool:
         conn.close()
 
 
+def set_deck_name(owner_id: str, slug: str, name: str) -> bool:
+    """1 デッキの表示名を変更 (slug は不変)。 存在し owner 一致なら True。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE user_decks SET name = {_PH}, updated_at = {_PH} "
+                f"WHERE owner_id = {_PH} AND slug = {_PH}",
+                (name, _now(), owner_id, slug),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def rename_folder(owner_id: str, old: str, new: str) -> int:
     """フォルダ名変更 (= folder == old の全デッキを new に)。 移動件数を返す。"""
     init_schema()

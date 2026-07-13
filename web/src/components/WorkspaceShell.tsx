@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from
 import { useWorkspace, tabTitleFor, type ActivityView } from "@/lib/workspace";
 import { AuthControls } from "./AuthControls";
 import { StatusBar } from "./StatusBar";
-import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder } from "@/lib/api";
+import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder, renameDeck } from "@/lib/api";
 
 // ---- icons (VSCode codicon 風の細線 SVG) ----
 const svg = (p: ReactNode) => (
@@ -361,7 +361,7 @@ function ExplorerPanel({ path }: { path: string }) {
                   {open && (
                     <div className="border-l" style={{ marginLeft: "10px", borderColor: "var(--border-2)" }}>
                       {items.map((d) => (
-                        <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} />
+                        <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} onChanged={reload} />
                       ))}
                     </div>
                   )}
@@ -369,7 +369,7 @@ function ExplorerPanel({ path }: { path: string }) {
               );
             })}
             {rootDecks.map((d) => (
-              <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} />
+              <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} onChanged={reload} />
             ))}
             <Link
               href="/decks/new"
@@ -396,7 +396,15 @@ function ExplorerPanel({ path }: { path: string }) {
   );
 }
 
-function MyDeckRow({ deck, active }: { deck: DeckRow; active: boolean }) {
+function MyDeckRow({
+  deck,
+  active,
+  onChanged,
+}: {
+  deck: DeckRow;
+  active: boolean;
+  onChanged?: () => void;
+}) {
   const router = useRouter();
   const color = deck.leader_color?.[0];
   return (
@@ -409,7 +417,7 @@ function MyDeckRow({ deck, active }: { deck: DeckRow; active: boolean }) {
       onClick={() => router.push(`/decks/${deck.slug}`)}
       role="button"
       title={deck.name}
-      className="flex cursor-pointer items-center gap-2 py-1.5 pl-3 pr-3 text-[13px] hover:bg-[var(--list-hover)]"
+      className="group flex cursor-pointer items-center gap-2 py-1.5 pl-3 pr-2 text-[13px] hover:bg-[var(--list-hover)]"
       style={
         active
           ? { background: "var(--brand-soft)", color: "#fff", boxShadow: "inset 2px 0 0 var(--brand)" }
@@ -421,6 +429,25 @@ function MyDeckRow({ deck, active }: { deck: DeckRow; active: boolean }) {
         style={{ background: (color && COLOR_HEX[color]) || "#4a4a52" }}
       />
       <span className="flex-1 truncate">{deck.name}</span>
+      <button
+        type="button"
+        title="名前を変更"
+        onClick={async (e) => {
+          e.stopPropagation();
+          const name = window.prompt("デッキ名を変更", deck.name);
+          if (name && name.trim() && name.trim() !== deck.name) {
+            try {
+              await renameDeck(deck.slug, name.trim());
+            } catch {
+              window.alert("名前を変更できませんでした。自分で作成したデッキのみ変更できます。");
+            }
+            onChanged?.();
+          }
+        }}
+        className="hidden shrink-0 text-[10px] text-[color:var(--text-muted)] hover:text-white group-hover:block"
+      >
+        名変
+      </button>
     </div>
   );
 }
