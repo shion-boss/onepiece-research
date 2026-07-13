@@ -446,11 +446,34 @@ class RolloutRerankAI(ExploitBeamAI):
             return "play"
         return type(a).__name__
 
+    @staticmethod
+    def _cname(c):
+        return getattr(c, "name", None) or getattr(c, "card_id", "?")
+
+    def _describe_action(self, state, action, me_idx):
+        """行動を可読文字列に(手札から出す札名 / 攻撃者・対象 を含める)。"""
+        t = type(action).__name__
+        v = dict(vars(action)) if hasattr(action, "__dict__") else {}
+        p = state.players[me_idx]
+        hand = getattr(p, "hand", [])
+        chars = getattr(p, "characters", [])
+        if "hand_idx" in v and isinstance(v["hand_idx"], int) and 0 <= v["hand_idx"] < len(hand):
+            return f"{t}({self._cname(hand[v['hand_idx']])})"
+        if t in ("AttackLeader", "AttackCharacter"):
+            ai = v.get("attacker_idx", v.get("attacker"))
+            atk = "leader"
+            if isinstance(ai, int) and 0 <= ai < len(chars):
+                atk = self._cname(chars[ai])
+            tgt = "→leader" if t == "AttackLeader" else f"→char{v.get('target_idx', v.get('target',''))}"
+            return f"Atk({atk}{tgt})"
+        return f"{t}({v})" if v else t
+
     def _log_shift(self, state, me_idx, acts, dep_idx, best_idx, chosen, dep, n_cands):
-        """診断: この決定で belief(feature-reveal/predict)が base の手を変えたか + 相手手札の真特徴/belief。"""
+        """診断: この決定で belief が base の手を変えたか + 相手の真手札/盤面/ライフ の具体 snapshot。"""
         from engine.hand_feature_predictor import _card_features, FEATURES, get_default
         opp_idx = 1 - me_idx
         opp = state.players[opp_idx]
+        me = state.players[me_idx]
         true_ind = {f: (1 if any(_card_features(c).get(f) for c in getattr(opp, "hand", [])) else 0)
                     for f in FEATURES}
         lid = self._opp_leader_id(state, opp_idx)
@@ -464,4 +487,14 @@ class RolloutRerankAI(ExploitBeamAI):
             "n_cands": n_cands,
             "true": true_ind,
             "belief": {f: round(float(belief.get(f, 0.0)), 3) for f in FEATURES},
+            # 具体 snapshot (case study 用)
+            "me_life": len(getattr(me, "life", []) or []),
+            "opp_life": len(getattr(opp, "life", []) or []),
+            "me_don": (int(getattr(me, "don_active", 0) or 0), int(getattr(me, "don_rested", 0) or 0)),
+            "me_hand": [self._cname(c) for c in getattr(me, "hand", [])],
+            "me_board": [self._cname(getattr(c, "card", c)) for c in getattr(me, "characters", [])],
+            "opp_board": [self._cname(getattr(c, "card", c)) for c in getattr(opp, "characters", [])],
+            "opp_TRUE_hand": [self._cname(c) for c in getattr(opp, "hand", [])],
+            "base_move": self._describe_action(state, dep, me_idx),
+            "chosen_move": self._describe_action(state, chosen, me_idx),
         })
