@@ -71,7 +71,7 @@ export default async function CardsPage({
         title="カード"
         description="全 4,673 枚 の 検索 + フィルタ"
         actions={
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+          <div className="text-sm text-[color:var(--text-muted)]">
             {error ? "—" : `${cards.length} 件${cards.length >= 2000 ? " (上限 2000)" : ""}`}
           </div>
         }
@@ -80,11 +80,11 @@ export default async function CardsPage({
       <CardFilterBar sets={sets} />
 
       {error ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-4 text-sm text-[color:var(--danger)]">
           <div className="font-medium">API への 接続に 失敗しました</div>
           <div className="mt-1 font-mono text-xs">{error}</div>
-          <div className="mt-2 text-red-800 dark:text-red-300">
-            <code className="rounded bg-red-100 px-1 dark:bg-red-900">uvicorn api.main:app --reload --port 8000</code> を 起動してください。
+          <div className="mt-2 text-[color:var(--text-default)]">
+            <code className="rounded-[var(--radius-sm)] bg-[color:var(--surface-2)] px-1">uvicorn api.main:app --reload --port 8000</code> を 起動してください。
           </div>
         </div>
       ) : (

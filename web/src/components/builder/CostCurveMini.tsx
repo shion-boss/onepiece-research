@@ -16,13 +16,13 @@ export function CostCurveMini({ entries }: { entries: BuilderEntry[] }) {
         {counts.map((n, cost) => (
           <div
             key={cost}
-            className="flex-1 rounded-t bg-zinc-300 dark:bg-zinc-700"
+            className="flex-1 rounded-t-[var(--radius-sm)] bg-[color:var(--brand)]"
             style={{ height: `${(n / max) * 100}%` }}
             title={`cost ${cost}: ${n} 枚`}
           />
         ))}
       </div>
-      <div className="flex gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+      <div className="flex gap-1 text-[10px] text-[color:var(--text-muted)]">
         {counts.map((_, cost) => (
           <div key={cost} className="flex-1 text-center">
             {cost}

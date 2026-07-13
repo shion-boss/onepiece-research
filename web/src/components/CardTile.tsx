@@ -9,7 +9,7 @@ function BanBadge({ ban }: { ban: BanInfo }) {
   if (ban.kind === "forbidden") {
     return (
       <span
-        className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white shadow ring-1 ring-black/10"
+        className="rounded-[var(--radius-sm)] bg-[color:var(--danger)] px-1.5 py-0.5 text-xs font-bold text-white"
         title="禁止カード (= デッキに採用不可)"
       >
         禁止
@@ -19,7 +19,7 @@ function BanBadge({ ban }: { ban: BanInfo }) {
   if (ban.kind === "restricted") {
     return (
       <span
-        className="rounded bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white shadow ring-1 ring-black/10"
+        className="rounded-[var(--radius-sm)] bg-[color:var(--warning)] px-1.5 py-0.5 text-xs font-bold text-[color:var(--background)]"
         title="制限カード (= 採用枚数に制限)"
       >
         制限
@@ -30,7 +30,7 @@ function BanBadge({ ban }: { ban: BanInfo }) {
   const partners = ban.partners?.join("・") ?? "";
   return (
     <span
-      className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-700 shadow ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-800"
+      className="rounded-[var(--radius-sm)] bg-[color:var(--warning)]/15 px-1.5 py-0.5 text-xs font-bold text-[color:var(--warning)] ring-1 ring-[color:var(--warning)]/40"
       title={`ペア制限: ${partners} と同時採用不可`}
     >
       ペア
@@ -43,10 +43,10 @@ function BlockBadge({ blockIcon }: { blockIcon: number }) {
   const isStandardIllegal = blockIcon < 2;
   return (
     <span
-      className={`rounded px-1 py-0.5 font-mono text-xs font-bold ${
+      className={`rounded-[var(--radius-sm)] px-1 py-0.5 font-mono text-xs font-bold ${
         isStandardIllegal
-          ? "bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400"
-          : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+          ? "bg-[color:var(--danger)]/15 text-[color:var(--danger)]"
+          : "bg-[color:var(--surface-2)] text-[color:var(--text-muted)]"
       }`}
       title={isStandardIllegal ? "スタンダード使用不可 (block①)" : `block${label}`}
     >
@@ -68,7 +68,7 @@ export function CardTile({
     <button
       type="button"
       onClick={() => onClick?.(card)}
-      className="group flex flex-col gap-2 rounded-lg border border-zinc-200 p-2 text-left transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
+      className="group flex flex-col gap-2 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-2 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
     >
       <div className="relative">
         <CardImage
@@ -86,8 +86,8 @@ export function CardTile({
         )}
       </div>
       <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-medium leading-tight">{card.name}</div>
-        <div className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="text-sm font-medium leading-tight text-[color:var(--text-strong)]">{card.name}</div>
+        <div className="shrink-0 text-xs text-[color:var(--text-muted)]">
           {card.category === "LEADER" ? "—" : card.cost}
         </div>
       </div>
@@ -96,7 +96,7 @@ export function CardTile({
           <ColorChip key={c} color={c} />
         ))}
         {card.category !== "LEADER" && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs text-[color:var(--text-muted)]">
             P{card.power}
           </span>
         )}

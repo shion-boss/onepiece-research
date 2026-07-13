@@ -28,7 +28,7 @@ export function DeckResearchWorkflow({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="mb-2 text-lg font-medium">何をしたい?</h2>
+        <h2 className="mb-2 text-lg font-medium text-[color:var(--text-strong)]">何をしたい?</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {GOALS.map((g) => {
             const active = goal === g.id;
@@ -37,17 +37,17 @@ export function DeckResearchWorkflow({
                 key={g.id}
                 type="button"
                 onClick={() => setGoal(g.id)}
-                className={`flex flex-col gap-1 rounded-lg border-2 p-3 text-left transition ${
+                className={`flex flex-col gap-1 rounded-[var(--radius)] border p-3 text-left transition ${
                   active
-                    ? goalActiveClass(g.id)
-                    : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
+                    ? "border-[color:var(--brand)] bg-[color:var(--brand-soft)]/40"
+                    : "border-[color:var(--border-1)] bg-[color:var(--surface-1)] hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
                 }`}
               >
-                <div className="text-base font-medium">
+                <div className="text-base font-medium text-[color:var(--text-strong)]">
                   <span className="mr-1">{g.emoji}</span>
                   {g.label}
                 </div>
-                <div className="text-xs text-zinc-500">{g.sub}</div>
+                <div className="text-xs text-[color:var(--text-muted)]">{g.sub}</div>
               </button>
             );
           })}
@@ -57,18 +57,18 @@ export function DeckResearchWorkflow({
       {goal === "improve" && (
         <>
           {/* 🔬 研究 hub への導線 (= 短時間クイック / 長時間進化的 を両方提供) */}
-          <div className="flex items-center justify-between rounded-lg border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-blue-50 p-3 dark:border-purple-700 dark:from-purple-950/30 dark:to-blue-950/30">
+          <div className="flex items-center justify-between rounded-[var(--radius)] border border-[color:var(--brand-soft-border)] bg-[color:var(--brand-soft)]/30 p-3">
             <div>
-              <div className="text-sm font-semibold">
+              <div className="text-sm font-semibold text-[color:var(--text-strong)]">
                 🔬 対策デッキを研究する (= /research)
               </div>
-              <div className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+              <div className="mt-0.5 text-xs text-[color:var(--text-muted)]">
                 クイック (= 数分) / 進化的 (= 数時間) を選んで 最強対策デッキを探索
               </div>
             </div>
             <Link
               href={`/research/new?target=${encodeURIComponent(selfSlug)}`}
-              className="rounded bg-purple-600 px-3 py-2 text-xs font-medium text-white hover:bg-purple-500"
+              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2 text-xs font-medium text-white hover:bg-[color:var(--brand-strong)]"
             >
               研究を開始 →
             </Link>
@@ -81,12 +81,6 @@ export function DeckResearchWorkflow({
       )}
     </div>
   );
-}
-
-function goalActiveClass(g: Goal): string {
-  if (g === "improve")
-    return "border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950/30";
-  return "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/30";
 }
 
 // ============================================================================ #
@@ -166,7 +160,7 @@ function ImproveWorkflow({
                   max={20}
                   value={exploreSeeds}
                   onChange={(e) => setExploreSeeds(Number(e.target.value) || 10)}
-                  className="w-12 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
+                  className="w-12 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1 py-0.5 text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
                 />
               </label>
               ×
@@ -178,16 +172,16 @@ function ImproveWorkflow({
                   max={50}
                   value={exploreNGames}
                   onChange={(e) => setExploreNGames(Number(e.target.value) || 10)}
-                  className="w-12 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
+                  className="w-12 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1 py-0.5 text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
                 />
               </label>
-              <span className="font-bold">= {exploreSeeds * exploreNGames} 試合</span>
+              <span className="font-bold text-[color:var(--text-strong)]">= {exploreSeeds * exploreNGames} 試合</span>
             </div>
             <button
               type="button"
               onClick={handleExplore}
               disabled={running || !opponent}
-              className="rounded bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
             >
               {running
                 ? progress
@@ -196,12 +190,12 @@ function ImproveWorkflow({
                 : "🔍 改善探索を実行"}
             </button>
             {error && (
-              <div className="rounded bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              <div className="rounded-[var(--radius)] bg-[color:var(--danger)]/10 p-2 text-xs text-[color:var(--danger)]">
                 {error}
               </div>
             )}
             {exploreResult && (
-              <div className="rounded bg-green-50 p-2 text-xs text-green-800 dark:bg-green-950/30 dark:text-green-300">
+              <div className="rounded-[var(--radius)] bg-[color:var(--accent)]/10 p-2 text-xs text-[color:var(--accent)]">
                 ✓ 完了: {exploreResult.nGames} 試合 / 勝率{" "}
                 {(exploreResult.winrate * 100).toFixed(1)}%
                 <span className="ml-2 font-bold">
@@ -225,7 +219,7 @@ function ImproveWorkflow({
         n={3}
         title="検証 (= 提案適用後に勝率を再測定)"
         body={
-          <div className="text-xs text-zinc-500">
+          <div className="text-xs text-[color:var(--text-muted)]">
             提案を適用したら「⚔️ 強さを測りたい」 ゴールに切り替えて、 改善前後の勝率を比較。
           </div>
         }
@@ -292,7 +286,7 @@ function EvaluateWorkflow({
                   step={10}
                   value={n}
                   onChange={(e) => setN(Number(e.target.value) || 50)}
-                  className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
+                  className="w-16 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1 py-0.5 text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
                 />
               </label>
             </div>
@@ -300,12 +294,12 @@ function EvaluateWorkflow({
               type="button"
               onClick={handleEvaluate}
               disabled={running || !opponent}
-              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
             >
               {running ? "実戦中…" : `⚔️ 実践を実行 (${n} 試合)`}
             </button>
             {error && (
-              <div className="rounded bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              <div className="rounded-[var(--radius)] bg-[color:var(--danger)]/10 p-2 text-xs text-[color:var(--danger)]">
                 {error}
               </div>
             )}
@@ -336,12 +330,12 @@ function Step({
   body: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-bold dark:bg-zinc-800">
+        <span className="rounded-full bg-[color:var(--surface-3)] px-2 py-0.5 text-xs font-bold text-[color:var(--text-default)]">
           Step {n}
         </span>
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className="text-sm font-medium text-[color:var(--text-strong)]">{title}</h3>
       </div>
       <div>{body}</div>
     </div>
@@ -363,7 +357,7 @@ function OpponentSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-0.5 text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
       >
         {opponents.map((o) => (
           <option key={o.slug} value={o.slug}>
@@ -389,7 +383,7 @@ function SeedInput({
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="w-16 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
+        className="w-16 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1 py-0.5 text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
       />
     </label>
   );
@@ -407,29 +401,29 @@ function MatchResult({
   const winrate = result.deck_a_winrate;
   const winrateClass =
     winrate >= 0.55
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-[color:var(--accent)]"
       : winrate <= 0.45
-        ? "text-red-600 dark:text-red-400"
-        : "text-zinc-700 dark:text-zinc-300";
+        ? "text-[color:var(--danger)]"
+        : "text-[color:var(--text-default)]";
   return (
     <div className="space-y-2">
       <div className="flex items-baseline gap-2">
-        <span className="text-sm text-zinc-500">{selfName} の勝率</span>
+        <span className="text-sm text-[color:var(--text-muted)]">{selfName} の勝率</span>
         <span className={`font-mono text-3xl font-semibold ${winrateClass}`}>
           {(winrate * 100).toFixed(1)}%
         </span>
-        <span className="text-sm text-zinc-500">
+        <span className="text-sm text-[color:var(--text-muted)]">
           ({result.deck_a_wins}-{result.deck_b_wins}
           {result.draws > 0 && `, ${result.draws} draws`})
         </span>
       </div>
-      <div className="text-xs text-zinc-500">
+      <div className="text-xs text-[color:var(--text-muted)]">
         平均 {result.avg_turns.toFixed(1)} ターン / 勝者残ライフ{" "}
         {result.avg_life_left_winner.toFixed(2)}
       </div>
       <Link
         href={`/decks/${encodeURIComponent(selfSlug)}/match/${encodeURIComponent(result.job_id)}`}
-        className="inline-block text-xs text-blue-600 hover:underline dark:text-blue-400"
+        className="inline-block text-xs text-[color:var(--brand-strong)] hover:underline"
       >
         📜 試合ログを見る ({result.job_id}) →
       </Link>

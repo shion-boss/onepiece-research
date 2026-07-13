@@ -31,12 +31,12 @@ export function LeaderPicker({
 
   if (error) {
     return (
-      <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+      <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-3 text-sm text-[color:var(--danger)]">
         リーダー読み込み失敗: {error}
       </div>
     );
   }
-  if (!leaders) return <div className="text-sm text-zinc-500">読み込み中…</div>;
+  if (!leaders) return <div className="text-sm text-[color:var(--text-muted)]">読み込み中…</div>;
 
   const filtered = filter
     ? leaders.filter(
@@ -53,28 +53,28 @@ export function LeaderPicker({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="リーダー名 / ID で絞り込み"
-          className="w-full rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+          className="w-full rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
         />
       </div>
 
       {current && (
-        <div className={`flex items-center gap-3 rounded border p-2 ${
+        <div className={`flex items-center gap-3 rounded-[var(--radius)] border p-2 ${
           regulation === "standard" && current.block_icon < 2
-            ? "border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-950/30"
-            : "border-zinc-300 dark:border-zinc-700"
+            ? "border-[color:var(--danger)]/50 bg-[color:var(--danger)]/10"
+            : "border-[color:var(--border-2)]"
         }`}>
           <CardImage
             cardId={current.card_id}
             alt={current.name}
-            className="h-16 w-12 rounded object-cover"
+            className="h-16 w-12 rounded-[var(--radius-sm)] object-cover"
           />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{current.name}</div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="text-sm font-medium text-[color:var(--text-strong)]">{current.name}</div>
+            <div className="text-xs text-[color:var(--text-muted)]">
               {current.card_id} · life {current.life}
             </div>
             {regulation === "standard" && current.block_icon < 2 && (
-              <div className="mt-0.5 text-xs font-medium text-red-600 dark:text-red-400">
+              <div className="mt-0.5 text-xs font-medium text-[color:var(--danger)]">
                 スタンダード使用不可 (block①)
               </div>
             )}
@@ -93,18 +93,18 @@ export function LeaderPicker({
             key={l.card_id}
             type="button"
             onClick={() => onPick(l)}
-            className={`flex flex-col gap-1 rounded border p-1 text-left transition hover:border-zinc-400 dark:hover:border-zinc-500 ${
+            className={`flex flex-col gap-1 rounded-[var(--radius-sm)] border p-1 text-left transition hover:border-[color:var(--brand)] ${
               current?.card_id === l.card_id
-                ? "border-zinc-900 dark:border-zinc-100"
-                : "border-zinc-200 dark:border-zinc-800"
+                ? "border-[color:var(--brand)]"
+                : "border-[color:var(--border-1)]"
             }`}
           >
             <CardImage
               cardId={l.card_id}
               alt={l.name}
-              className="aspect-[5/7] w-full rounded object-cover"
+              className="aspect-[5/7] w-full rounded-[var(--radius-sm)] object-cover"
             />
-            <div className="truncate text-xs">{l.name}</div>
+            <div className="truncate text-xs text-[color:var(--text-default)]">{l.name}</div>
           </button>
         ))}
       </div>

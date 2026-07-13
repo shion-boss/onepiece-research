@@ -35,12 +35,12 @@ export default async function DecksPage() {
       />
 
       {error ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-4 text-sm text-[color:var(--danger)]">
           <div className="font-medium">API への 接続に 失敗しました</div>
           <div className="mt-1 font-mono text-xs">{error}</div>
         </div>
       ) : decks.length === 0 ? (
-        <div className="surface-panel p-6 text-sm text-zinc-500 dark:text-zinc-400">
+        <div className="surface-panel p-6 text-sm text-[color:var(--text-muted)]">
           まだ デッキが 登録されていません。
         </div>
       ) : (
@@ -51,7 +51,7 @@ export default async function DecksPage() {
             <div className="flex flex-col gap-6">
               {userDecks.length > 0 && (
                 <section>
-                  <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                  <h2 className="mb-2 text-sm font-semibold text-[color:var(--text-default)]">
                     マイデッキ ({userDecks.length})
                   </h2>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -62,7 +62,7 @@ export default async function DecksPage() {
                 </section>
               )}
               <section>
-                <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                <h2 className="mb-2 text-sm font-semibold text-[color:var(--text-default)]">
                   環境デッキ ({metaDecks.length})
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2">

@@ -26,7 +26,7 @@ export function DevUserSwitcher() {
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <span className="text-zinc-400" title="開発用: 本番では Clerk ログインに置換">
+      <span className="text-[color:var(--text-muted)]" title="開発用: 本番では Clerk ログインに置換">
         user
       </span>
       {editing ? (
@@ -40,7 +40,7 @@ export function DevUserSwitcher() {
           }}
           onBlur={() => setEditing(false)}
           placeholder={user}
-          className="w-24 rounded border border-zinc-300 bg-white px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-24 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1.5 py-0.5 text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
         />
       ) : (
         <button
@@ -49,7 +49,7 @@ export function DevUserSwitcher() {
             setDraft(user);
             setEditing(true);
           }}
-          className="rounded border border-zinc-300 px-1.5 py-0.5 font-mono text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] px-1.5 py-0.5 font-mono text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
           title="クリックで開発ユーザーを切替"
         >
           {user}

@@ -6,25 +6,26 @@ export function DeckSummaryTile({ deck }: { deck: DeckSummary }) {
   return (
     <Link
       href={`/decks/${encodeURIComponent(deck.slug)}`}
-      className="block rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-500"
+      className="block rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4 transition hover:-translate-y-0.5 hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-medium">{deck.name}</span>
+            <span className="text-lg font-medium text-[color:var(--text-strong)]">{deck.name}</span>
             {deck.regulation && (
               <span
-                className={`rounded px-1.5 py-0.5 text-xs font-bold ${
+                className="rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-bold"
+                style={
                   deck.regulation === "standard"
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                    : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-                }`}
+                    ? { background: "var(--brand-soft)", color: "var(--brand-strong)" }
+                    : { background: "var(--surface-3)", color: "var(--text-default)" }
+                }
               >
                 {deck.regulation === "standard" ? "STD" : "EX"}
               </span>
             )}
           </div>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="text-xs text-[color:var(--text-muted)]">
             {deck.leader_name} ({deck.leader})
           </div>
         </div>
@@ -34,7 +35,7 @@ export function DeckSummaryTile({ deck }: { deck: DeckSummary }) {
           ))}
         </div>
       </div>
-      <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="mt-2 text-xs text-[color:var(--text-muted)]">
         {deck.main_count} 枚 / unique {deck.unique}
       </div>
     </Link>

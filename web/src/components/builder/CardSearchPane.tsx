@@ -78,7 +78,7 @@ export function CardSearchPane({
 
   if (leaderColors.length === 0) {
     return (
-      <div className="rounded border border-zinc-200 p-6 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+      <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] p-6 text-sm text-[color:var(--text-muted)]">
         リーダーを選ぶとカードが表示されます
       </div>
     );
@@ -94,10 +94,10 @@ export function CardSearchPane({
                 type="button"
                 onClick={() => setFilterColor("")}
                 aria-pressed={!filterColor}
-                className={`rounded px-2 py-1 text-xs ${
+                className={`rounded-[var(--radius-sm)] px-2 py-1 text-xs ${
                   !filterColor
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "bg-zinc-100 dark:bg-zinc-800"
+                    ? "bg-[color:var(--brand)] text-white"
+                    : "bg-[color:var(--surface-2)] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
                 }`}
               >
                 {leaderColors.join("/")}
@@ -108,10 +108,10 @@ export function CardSearchPane({
                   type="button"
                   onClick={() => setFilterColor(c)}
                   aria-pressed={filterColor === c}
-                  className={`rounded px-2 py-1 text-xs ${
+                  className={`rounded-[var(--radius-sm)] px-2 py-1 text-xs ${
                     filterColor === c
-                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                      : "bg-zinc-100 dark:bg-zinc-800"
+                      ? "bg-[color:var(--brand)] text-white"
+                      : "bg-[color:var(--surface-2)] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
                   }`}
                 >
                   {c}
@@ -119,7 +119,7 @@ export function CardSearchPane({
               ))}
             </>
           ) : (
-            <span className="rounded bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800">
+            <span className="rounded-[var(--radius-sm)] bg-[color:var(--surface-2)] px-2 py-1 text-xs text-[color:var(--text-default)]">
               {leaderColors[0]}
             </span>
           )}
@@ -128,7 +128,7 @@ export function CardSearchPane({
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as CardCategory | "")}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
         >
           <option value="">all categories</option>
           {CATEGORIES.map((c) => (
@@ -138,14 +138,14 @@ export function CardSearchPane({
           ))}
         </select>
 
-        <label className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+        <label className="flex items-center gap-1 text-xs text-[color:var(--text-muted)]">
           cost
           <input
             type="number"
             value={costGe}
             onChange={(e) => setCostGe(e.target.value)}
             placeholder="ge"
-            className="w-12 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
+            className="w-12 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1 py-0.5 text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
           />
           〜
           <input
@@ -153,7 +153,7 @@ export function CardSearchPane({
             value={costLe}
             onChange={(e) => setCostLe(e.target.value)}
             placeholder="le"
-            className="w-12 rounded border border-zinc-300 bg-transparent px-1 py-0.5 dark:border-zinc-700"
+            className="w-12 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-1 py-0.5 text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
           />
         </label>
 
@@ -162,31 +162,32 @@ export function CardSearchPane({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="カード名"
-          className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+          className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
         />
 
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        <span className="text-xs text-[color:var(--text-muted)]">
           {loading ? "読み込み中…" : `${cards.length} 件`}
         </span>
         <span
-          className={`rounded px-1.5 py-0.5 text-xs font-bold ${
+          className="rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-bold"
+          style={
             regulation === "standard"
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-              : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-          }`}
+              ? { background: "var(--brand-soft)", color: "var(--brand-strong)" }
+              : { background: "var(--surface-3)", color: "var(--text-default)" }
+          }
         >
           {regulation === "standard" ? "STD" : "EX"}
         </span>
       </div>
 
       {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-2 text-xs text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-2 text-xs text-[color:var(--danger)]">
           {error}
         </div>
       )}
 
       {onMarkCore && (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+        <p className="text-xs text-[color:var(--text-muted)]">
           右クリック or Ctrl+クリックでコアカードに指定 / 解除
         </p>
       )}
@@ -214,23 +215,23 @@ export function CardSearchPane({
               }}
               disabled={disabled && !onMarkCore}
               title={c.text || c.name}
-              className={`group relative flex flex-col gap-1 rounded border p-1 text-left transition ${
+              className={`group relative flex flex-col gap-1 rounded-[var(--radius-sm)] border p-1 text-left transition ${
                 isCore
-                  ? "border-amber-400 dark:border-amber-500"
-                  : "border-zinc-200 hover:border-zinc-400 disabled:opacity-40 dark:border-zinc-800 dark:hover:border-zinc-500"
+                  ? "border-[color:var(--warning)]"
+                  : "border-[color:var(--border-1)] hover:border-[color:var(--brand)] disabled:opacity-40"
               } ${disabled && !isCore ? "opacity-40" : ""}`}
             >
               <CardImage
                 cardId={c.card_id}
                 alt={c.name}
-                className="aspect-[5/7] w-full rounded object-cover"
+                className="aspect-[5/7] w-full rounded-[var(--radius-sm)] object-cover"
               />
               <div className="flex items-center justify-between text-xs">
-                <span className="truncate">{c.name}</span>
-                <span className="shrink-0 text-zinc-500">{c.cost}</span>
+                <span className="truncate text-[color:var(--text-default)]">{c.name}</span>
+                <span className="shrink-0 text-[color:var(--text-muted)]">{c.cost}</span>
               </div>
               {used > 0 && (
-                <span className="absolute right-1 top-1 rounded bg-zinc-900/80 px-1 text-xs font-mono text-white">
+                <span className="absolute right-1 top-1 rounded-[var(--radius-sm)] bg-black/80 px-1 text-xs font-mono text-white">
                   ×{used}
                 </span>
               )}
@@ -246,14 +247,14 @@ export function CardSearchPane({
 
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-[148px] overflow-hidden rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="fixed z-50 min-w-[148px] overflow-hidden rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] py-1 shadow-sm"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             disabled={countOf(contextMenu.card.card_id) >= 4}
-            className="w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+            className="w-full px-3 py-1.5 text-left text-sm text-[color:var(--text-default)] hover:bg-[var(--list-hover)] disabled:opacity-40"
             onClick={() => {
               onAdd(contextMenu.card);
               setContextMenu(null);
@@ -264,7 +265,7 @@ export function CardSearchPane({
           {onMarkCore && (
             <button
               type="button"
-              className="w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="w-full px-3 py-1.5 text-left text-sm text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
               onClick={() => {
                 onMarkCore(contextMenu.card);
                 setContextMenu(null);

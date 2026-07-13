@@ -27,9 +27,9 @@ const SORT_LABELS: Record<Sort, string> = {
 };
 
 const selectClass =
-  "rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]";
 const numClass =
-  "w-20 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-20 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]";
 
 /**
  * クライアント側の二次絞り込み (パワー / 属性 / カウンター / トリガー) + 並び替え +
@@ -106,10 +106,10 @@ export function CardBrowser({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-3 text-xs dark:border-zinc-800">
-        <span className="font-medium text-zinc-500 dark:text-zinc-400">絞り込み</span>
+      <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3 text-xs">
+        <span className="font-medium text-[color:var(--text-muted)]">絞り込み</span>
 
-        <label className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
+        <label className="flex items-center gap-1 text-[color:var(--text-muted)]">
           パワー
           <input
             type="number"
@@ -163,10 +163,10 @@ export function CardBrowser({
           type="button"
           onClick={() => setTriggerOnly((v) => !v)}
           aria-pressed={triggerOnly}
-          className={`rounded px-2 py-1 font-medium ${
+          className={`rounded-[var(--radius-sm)] px-2 py-1 font-medium ${
             triggerOnly
-              ? "bg-blue-600 text-white"
-              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              ? "bg-[color:var(--brand)] text-white"
+              : "bg-[color:var(--surface-2)] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
           }`}
         >
           トリガー有り
@@ -186,13 +186,13 @@ export function CardBrowser({
         </select>
       </div>
 
-      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="text-xs text-[color:var(--text-muted)]">
         {refined}
         {filtered.length > 0 ? `${shown} 件 表示中` : ""}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded border border-zinc-200 p-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] p-6 text-center text-sm text-[color:var(--text-muted)]">
           該当するカードがありません
         </div>
       ) : (
@@ -210,7 +210,7 @@ export function CardBrowser({
           {/* スクロール ページネーション用 sentinel */}
           <div ref={sentinelRef} className="h-1" aria-hidden />
           {shown < filtered.length && (
-            <div className="py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
+            <div className="py-4 text-center text-xs text-[color:var(--text-muted)]">
               スクロールで さらに 読み込み… ({shown} / {filtered.length})
             </div>
           )}

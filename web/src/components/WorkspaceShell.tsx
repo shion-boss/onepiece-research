@@ -23,11 +23,25 @@ const chevron = (
   </svg>
 );
 
-const ACTIVITY: { view: ActivityView; label: string; icon: ReactNode }[] = [
+const IconFaq = svg(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.6 9.2a2.4 2.4 0 1 1 3.3 2.2c-.7.4-1.1.9-1.1 1.8" />
+    <path d="M12 16.6h.01" strokeLinecap="round" />
+  </>,
+);
+
+// 主要ツール (上部) と Q&A (下部) を分ける = VSCode のアクティビティバー流。
+const ACTIVITY_MAIN: { view: ActivityView; label: string; icon: ReactNode }[] = [
   { view: "explorer", label: "デッキ", icon: IconDeck },
   { view: "cards", label: "カード", icon: IconCards },
   { view: "play", label: "対戦", icon: IconPlay },
 ];
+const FAQ_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
+  view: "faq",
+  label: "ルール Q&A",
+  icon: IconFaq,
+};
 
 type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[] };
 
@@ -77,6 +91,22 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     else setView(v);
   };
 
+  const renderAct = (a: { view: ActivityView; label: string; icon: ReactNode }) => {
+    const on = a.view === activeView && sidebarOpen;
+    return (
+      <button
+        key={a.view}
+        type="button"
+        title={a.label}
+        onClick={() => onActivity(a.view)}
+        className="flex h-11 w-full items-center justify-center border-l-2 transition-colors"
+        style={{ color: on ? "#fff" : "var(--text-muted)", borderLeftColor: on ? "#fff" : "transparent" }}
+      >
+        {a.icon}
+      </button>
+    );
+  };
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1">
@@ -85,24 +115,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           className="flex w-12 shrink-0 flex-col items-center border-r pt-2"
           style={{ background: "var(--activity-bar)", borderColor: "var(--border-1)" }}
         >
-          {ACTIVITY.map((a) => {
-            const on = a.view === activeView && sidebarOpen;
-            return (
-              <button
-                key={a.view}
-                type="button"
-                title={a.label}
-                onClick={() => onActivity(a.view)}
-                className="flex h-11 w-full items-center justify-center border-l-2 transition-colors"
-                style={{
-                  color: on ? "#fff" : "var(--text-muted)",
-                  borderLeftColor: on ? "#fff" : "transparent",
-                }}
-              >
-                {a.icon}
-              </button>
-            );
-          })}
+          {ACTIVITY_MAIN.map(renderAct)}
+          <div className="flex-1" />
+          {renderAct(FAQ_ACT)}
         </div>
 
         {/* sidebar panel */}
@@ -206,6 +221,17 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
       </div>
     );
   }
+  if (view === "faq") {
+    return (
+      <div className="py-2">
+        <PanelHeader>ルール Q&amp;A</PanelHeader>
+        <PanelLink href="/faq" active={path === "/faq"}>Q&amp;A を開く</PanelLink>
+        <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
+          公式ルール・カードの裁定を検索できます。
+        </p>
+      </div>
+    );
+  }
   return <ExplorerPanel path={path} />;
 }
 
@@ -242,10 +268,6 @@ function ExplorerPanel({ path }: { path: string }) {
         {meta.map((d) => (
           <DeckRowLink key={d.slug} deck={d} active={path === `/decks/${d.slug}`} meta />
         ))}
-      </div>
-      <div className="mt-2">
-        <Section label="メニュー" />
-        <PanelLink href="/faq" active={path === "/faq"}>ルール Q&amp;A</PanelLink>
       </div>
     </div>
   );

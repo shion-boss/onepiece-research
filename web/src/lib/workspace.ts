@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 export type Tab = { id: string; title: string };
-export type ActivityView = "explorer" | "cards" | "play";
+export type ActivityView = "explorer" | "cards" | "play" | "faq";
 
 interface WorkspaceState {
   tabs: Tab[];

@@ -27,30 +27,30 @@ export function MatchHistorySection({ deckSlug }: { deckSlug: string }) {
 
   if (loading) {
     return (
-      <div className="text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="text-sm text-[color:var(--text-muted)]">
         履歴読み込み中…
       </div>
     );
   }
   if (error) {
     return (
-      <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+      <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-3 text-sm text-[color:var(--danger)]">
         {error}
       </div>
     );
   }
   if (rows.length === 0) {
     return (
-      <div className="rounded border border-zinc-200 p-3 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+      <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] p-3 text-sm text-[color:var(--text-muted)]">
         まだ対戦履歴がありません (上の対戦ランナーで実行すると蓄積されます)
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+    <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[color:var(--border-1)]">
       <table className="w-full text-sm">
-        <thead className="bg-zinc-50 dark:bg-zinc-900">
+        <thead className="bg-[color:var(--surface-2)]">
           <tr className="text-left">
             <th className="p-2 font-medium">日時</th>
             <th className="p-2 font-medium">対戦相手</th>
@@ -71,17 +71,17 @@ export function MatchHistorySection({ deckSlug }: { deckSlug: string }) {
             const oppWins = isA ? r.deck_b_wins : r.deck_a_wins;
             const wrColor =
               myWinrate >= 0.55
-                ? "text-emerald-600 dark:text-emerald-400"
+                ? "text-[color:var(--accent)]"
                 : myWinrate <= 0.45
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-zinc-700 dark:text-zinc-300";
+                  ? "text-[color:var(--danger)]"
+                  : "text-[color:var(--text-default)]";
 
             return (
               <tr
                 key={r.job_id}
-                className="border-t border-zinc-200 dark:border-zinc-800"
+                className="border-t border-[color:var(--border-1)]"
               >
-                <td className="p-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                <td className="p-2 font-mono text-xs text-[color:var(--text-muted)]">
                   {r.timestamp.replace("T", " ").replace("Z", "")}
                 </td>
                 <td className="p-2">{oppName}</td>
@@ -95,7 +95,7 @@ export function MatchHistorySection({ deckSlug }: { deckSlug: string }) {
                 <td className="p-2 text-right font-mono text-xs">
                   {r.avg_turns.toFixed(1)}
                 </td>
-                <td className="p-2 text-right font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                <td className="p-2 text-right font-mono text-xs text-[color:var(--text-muted)]">
                   {r.seed}
                 </td>
               </tr>

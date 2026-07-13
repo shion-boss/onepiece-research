@@ -41,11 +41,11 @@ export function DeckMatchupRow({ slug }: Props) {
   }, []);
 
   if (loading) {
-    return <div className="text-sm text-zinc-500">対戦データ読み込み中...</div>;
+    return <div className="text-sm text-[color:var(--text-muted)]">対戦データ読み込み中...</div>;
   }
   if (error) {
     return (
-      <div className="text-sm text-zinc-500">
+      <div className="text-sm text-[color:var(--text-muted)]">
         matchup matrix 未生成 ({error})。<br />
         <code className="font-mono text-xs">
           .venv/bin/python scripts/compute_matchup_matrix.py
@@ -59,7 +59,7 @@ export function DeckMatchupRow({ slug }: Props) {
   const row = matrix.matrix.find((r) => r.deck_a === slug);
   if (!row) {
     return (
-      <div className="text-sm text-zinc-500">
+      <div className="text-sm text-[color:var(--text-muted)]">
         このデッキ ({slug}) は matchup matrix に登録されていません。
       </div>
     );
@@ -97,10 +97,10 @@ export function DeckMatchupRow({ slug }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-3 text-sm">
-        <span className="rounded bg-zinc-100 px-2 py-1 font-mono dark:bg-zinc-800">
+        <span className="rounded-[var(--radius-sm)] bg-[color:var(--surface-2)] px-2 py-1 font-mono text-[color:var(--text-default)]">
           総合勝率 {(overallRate * 100).toFixed(1)}%
         </span>
-        <span className="text-zinc-600 dark:text-zinc-400">
+        <span className="text-[color:var(--text-muted)]">
           {total.wins}勝 {total.losses}敗 {total.draws}分 / 計 {totalGames} 戦
           (n={matrix.n_games}/対戦)
         </span>
@@ -113,35 +113,39 @@ export function DeckMatchupRow({ slug }: Props) {
           >
             <Link
               href={`/decks/${encodeURIComponent(opp.slug)}`}
-              className="truncate hover:underline"
+              className="truncate text-[color:var(--text-default)] hover:text-[color:var(--brand-strong)] hover:underline"
               title={opp.name}
             >
               {opp.name}
             </Link>
-            <div className="relative h-4 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+            <div className="relative h-4 overflow-hidden rounded-[var(--radius-sm)] bg-[color:var(--surface-2)]">
               {opp.winrate !== null && (
                 <div
-                  className={`absolute inset-y-0 left-0 ${
-                    opp.winrate >= 0.6
-                      ? "bg-emerald-500"
-                      : opp.winrate >= 0.4
-                        ? "bg-amber-400"
-                        : "bg-rose-500"
-                  }`}
-                  style={{ width: `${Math.round(opp.winrate * 100)}%` }}
+                  className="absolute inset-y-0 left-0"
+                  style={{
+                    width: `${Math.round(opp.winrate * 100)}%`,
+                    background:
+                      opp.winrate >= 0.6
+                        ? "var(--accent)"
+                        : opp.winrate >= 0.4
+                          ? "var(--warning)"
+                          : "var(--danger)",
+                  }}
                 />
               )}
             </div>
             <span
-              className={`text-right font-mono ${
-                opp.winrate === null
-                  ? "text-zinc-400"
-                  : opp.winrate >= 0.6
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : opp.winrate >= 0.4
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-rose-700 dark:text-rose-400"
-              }`}
+              className="text-right font-mono"
+              style={{
+                color:
+                  opp.winrate === null
+                    ? "var(--text-muted)"
+                    : opp.winrate >= 0.6
+                      ? "var(--accent)"
+                      : opp.winrate >= 0.4
+                        ? "var(--warning)"
+                        : "var(--danger)",
+              }}
             >
               {opp.winrate === null
                 ? "—"
@@ -150,7 +154,7 @@ export function DeckMatchupRow({ slug }: Props) {
           </li>
         ))}
       </ul>
-      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="text-xs text-[color:var(--text-muted)]">
         matrix 計算日時: {new Date(matrix.computed_at).toLocaleString("ja-JP")}
       </div>
     </div>

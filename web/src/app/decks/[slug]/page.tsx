@@ -27,7 +27,7 @@ export default async function DeckDetailPage({
   if (error) {
     return (
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-4 text-sm text-[color:var(--danger)]">
           <div className="font-medium">読み込み失敗</div>
           <div className="mt-1 font-mono">{error}</div>
         </div>
@@ -66,12 +66,12 @@ export default async function DeckDetailPage({
           <CardImage
             cardId={detail.leader}
             alt={summary?.leader_name ?? detail.leader}
-            className="h-32 w-[91px] rounded-lg object-cover shadow"
+            className="h-32 w-[91px] rounded-[var(--radius)] object-cover"
           />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-strong)]">
               {detail.name ?? slug}
             </h1>
             {summary && (
@@ -83,24 +83,24 @@ export default async function DeckDetailPage({
             )}
           </div>
           {summary && (
-            <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            <div className="mt-1 text-sm text-[color:var(--text-default)]">
               リーダー: {summary.leader_name}{" "}
               <span className="font-mono text-xs">({summary.leader})</span>
             </div>
           )}
-          <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+          <div className="mt-0.5 text-sm text-[color:var(--text-muted)]">
             {totalCards} 枚 / unique {uniqueIds.length}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href={`/decks/${encodeURIComponent(slug)}/analyze`}
-              className="inline-block rounded border border-zinc-300 px-3 py-1 text-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              className="inline-block rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1 text-sm text-[color:var(--text-default)] transition hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
             >
               分析を見る
             </Link>
             <Link
               href={`/decks/new?from=${encodeURIComponent(slug)}`}
-              className="inline-block rounded border border-zinc-300 px-3 py-1 text-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              className="inline-block rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1 text-sm text-[color:var(--text-default)] transition hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
             >
               コピーして編集
             </Link>
@@ -115,13 +115,13 @@ export default async function DeckDetailPage({
       />
 
       <section className="space-y-2">
-        <h2 className="text-lg font-medium">直近の対戦履歴</h2>
+        <h2 className="text-lg font-medium text-[color:var(--text-strong)]">直近の対戦履歴</h2>
         <MatchHistorySection deckSlug={slug} />
       </section>
 
       {/* メインデッキ カードグリッド */}
       <section>
-        <h2 className="mb-3 text-lg font-medium">
+        <h2 className="mb-3 text-lg font-medium text-[color:var(--text-strong)]">
           メインデッキ ({totalCards} 枚 / unique {uniqueIds.length})
         </h2>
         <ul className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
@@ -139,7 +139,7 @@ export default async function DeckDetailPage({
                     ×{entry.count}
                   </span>
                 </div>
-                <div className="truncate text-center text-[10px] leading-tight text-zinc-600 dark:text-zinc-400">
+                <div className="truncate text-center text-[10px] leading-tight text-[color:var(--text-muted)]">
                   {card?.name ?? entry.card_id}
                 </div>
               </li>
