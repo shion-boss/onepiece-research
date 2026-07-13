@@ -7,11 +7,13 @@ import { SpectateBoard } from "@/components/SpectateBoard";
 import { CardImage } from "@/components/CardImage";
 
 /**
- * AI vs AI 観戦パネル。 デッキ A / B / seed を選ぶと選択中のリーダーがプレビュー表示され、
- * 「観戦開始」で API が 1 試合シミュレート → SpectateBoard で自動再生 (autoPlay)。
+ * AI vs AI 観戦パネル。 各サイド (P0/P1) で カテゴリ (環境デッキ / マイデッキ) を選んでから
+ * デッキを選ぶ。 選択中のリーダーがプレビュー表示され、 「観戦開始」で 1 試合シミュレート →
+ * SpectateBoard で自動再生 (autoPlay)。
  */
 
 type DeckOption = { slug: string; name: string; kind?: string; leader?: string };
+type Category = "meta" | "user";
 
 const INPUT =
   "w-full min-w-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]";
@@ -27,16 +29,21 @@ export function MatrixSpectate({
   initialDeckB?: string;
   initialSeed?: number;
 }) {
+  const catOf = (slug: string | undefined): Category =>
+    (decks.find((d) => d.slug === slug)?.kind as Category) ?? "meta";
+  const inCat = (cat: Category) => decks.filter((d) => (d.kind ?? "meta") === cat);
+  const nth = (cat: Category, n: number) =>
+    inCat(cat)[n]?.slug ?? inCat(cat)[0]?.slug ?? decks[0]?.slug ?? "";
   const has = (slug: string | undefined) =>
     !!slug && decks.some((d) => d.slug === slug);
-  const [deckA, setDeckA] = useState<string>(
-    has(initialDeckA) ? (initialDeckA as string) : decks[0]?.slug ?? "",
-  );
-  const [deckB, setDeckB] = useState<string>(
-    has(initialDeckB)
-      ? (initialDeckB as string)
-      : decks[1]?.slug ?? decks[0]?.slug ?? "",
-  );
+
+  const initCatA: Category = has(initialDeckA) ? catOf(initialDeckA) : "meta";
+  const initCatB: Category = has(initialDeckB) ? catOf(initialDeckB) : "meta";
+
+  const [catA, setCatA] = useState<Category>(initCatA);
+  const [catB, setCatB] = useState<Category>(initCatB);
+  const [deckA, setDeckA] = useState<string>(has(initialDeckA) ? (initialDeckA as string) : nth(initCatA, 0));
+  const [deckB, setDeckB] = useState<string>(has(initialDeckB) ? (initialDeckB as string) : nth(initCatB, 1));
   const [seed, setSeed] = useState<number>(initialSeed ?? 42);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +52,16 @@ export function MatrixSpectate({
 
   const optA = decks.find((d) => d.slug === deckA);
   const optB = decks.find((d) => d.slug === deckB);
+
+  // カテゴリ切替時は そのカテゴリの先頭デッキに合わせる。
+  const changeCatA = (c: Category) => {
+    setCatA(c);
+    setDeckA(nth(c, 0));
+  };
+  const changeCatB = (c: Category) => {
+    setCatB(c);
+    setDeckB(nth(c, 0));
+  };
 
   async function handleStart() {
     setError(null);
@@ -67,61 +84,50 @@ export function MatrixSpectate({
     }
   }
 
-  function handleRandomSeed() {
-    setSeed(Math.floor(Math.random() * 1_000_000));
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {/* セレクタ + ボタン (上部固定) */}
+      {/* セレクタ (上部固定) */}
       <div
         className="shrink-0 rounded-[var(--radius)] border p-3"
         style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}
       >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_140px_auto] sm:items-end">
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
-            <span className="text-[color:var(--text-muted)]">P0 デッキ</span>
-            <select
-              value={deckA}
-              onChange={(e) => setDeckA(e.target.value)}
-              className={INPUT}
-              disabled={running}
-            >
-              {decks.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
-            <span className="text-[color:var(--text-muted)]">P1 デッキ</span>
-            <select
-              value={deckB}
-              onChange={(e) => setDeckB(e.target.value)}
-              className={INPUT}
-              disabled={running}
-            >
-              {decks.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <SideSelector
+            label="P0"
+            accent="var(--accent)"
+            decks={decks}
+            category={catA}
+            deck={deckA}
+            onCategory={changeCatA}
+            onDeck={setDeckA}
+            disabled={running}
+          />
+          <SideSelector
+            label="P1"
+            accent="var(--danger)"
+            decks={decks}
+            category={catB}
+            deck={deckB}
+            onCategory={changeCatB}
+            onDeck={setDeckB}
+            disabled={running}
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs">
             <span className="text-[color:var(--text-muted)]">seed</span>
             <div className="flex gap-1">
               <input
                 type="number"
                 value={seed}
                 onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-                className={INPUT}
+                className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]"
                 disabled={running}
               />
               <button
                 type="button"
-                onClick={handleRandomSeed}
+                onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
                 className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
                 disabled={running}
                 title="ランダム seed"
@@ -134,7 +140,7 @@ export function MatrixSpectate({
             type="button"
             onClick={handleStart}
             disabled={running || !deckA || !deckB}
-            className="shrink-0 rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {running ? "計算中..." : "観戦開始"}
           </button>
@@ -181,7 +187,7 @@ export function MatrixSpectate({
         ) : null}
       </div>
 
-      {/* 下部: replay があれば盤面、 無ければリーダープレビュー (選択で切替) */}
+      {/* 下部: replay があれば盤面、 無ければリーダープレビュー */}
       {replay ? (
         <SpectateBoard
           snapshots={replay.snapshots}
@@ -221,6 +227,81 @@ export function MatrixSpectate({
   );
 }
 
+function SideSelector({
+  label,
+  accent,
+  decks,
+  category,
+  deck,
+  onCategory,
+  onDeck,
+  disabled,
+}: {
+  label: string;
+  accent: string;
+  decks: DeckOption[];
+  category: Category;
+  deck: string;
+  onCategory: (c: Category) => void;
+  onDeck: (slug: string) => void;
+  disabled: boolean;
+}) {
+  const filtered = decks.filter((d) => (d.kind ?? "meta") === category);
+  const cats: { key: Category; label: string }[] = [
+    { key: "meta", label: "環境デッキ" },
+    { key: "user", label: "マイデッキ" },
+  ];
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: accent }}>
+          {label}
+        </span>
+        <span className="text-xs text-[color:var(--text-muted)]">デッキ</span>
+      </div>
+      {/* カテゴリ選択 (先に選ぶ) */}
+      <div className="flex gap-1">
+        {cats.map((c) => {
+          const active = category === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onCategory(c.key)}
+              disabled={disabled}
+              className="flex-1 rounded-[var(--radius)] border px-2 py-1 text-xs font-medium transition-colors"
+              style={
+                active
+                  ? { background: "var(--brand)", borderColor: "transparent", color: "#fff" }
+                  : { borderColor: "var(--border-2)", color: "var(--text-default)" }
+              }
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      {/* デッキ選択 (カテゴリで絞る) */}
+      <select
+        value={deck}
+        onChange={(e) => onDeck(e.target.value)}
+        className={INPUT}
+        disabled={disabled || filtered.length === 0}
+      >
+        {filtered.length === 0 ? (
+          <option value="">（このカテゴリにデッキがありません）</option>
+        ) : (
+          filtered.map((d) => (
+            <option key={d.slug} value={d.slug}>
+              {d.name}
+            </option>
+          ))
+        )}
+      </select>
+    </div>
+  );
+}
+
 function LeaderCard({
   tag,
   leader,
@@ -234,10 +315,7 @@ function LeaderCard({
 }) {
   return (
     <div className="flex w-36 flex-col items-center gap-1.5">
-      <span
-        className="rounded px-2 py-0.5 text-[10px] font-bold text-white"
-        style={{ background: accent }}
-      >
+      <span className="rounded px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: accent }}>
         {tag}
       </span>
       {leader ? (
@@ -254,9 +332,7 @@ function LeaderCard({
           未選択
         </div>
       )}
-      <span className="max-w-full truncate text-xs text-[color:var(--text-default)]">
-        {name ?? "—"}
-      </span>
+      <span className="max-w-full truncate text-xs text-[color:var(--text-default)]">{name ?? "—"}</span>
     </div>
   );
 }
