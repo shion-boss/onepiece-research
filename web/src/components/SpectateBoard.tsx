@@ -473,7 +473,7 @@ export function SpectateBoard({
           sessionId={replayKey ?? null}
           lineFrames={lineFrames}
           onJump={(f) => {
-            setPlaying(false);
+            // 再生状態は維持 (= 再生中ならその盤面から続けて再生)。
             setIdx(f);
           }}
         />
