@@ -4,14 +4,14 @@ import { useState } from "react";
 import { runMatrixSampleReplay } from "@/lib/api";
 import type { ReplayResponse } from "@/lib/types";
 import { SpectateBoard } from "@/components/SpectateBoard";
-import { CardPreloader } from "@/components/CardPreloader";
+import { CardImage } from "@/components/CardImage";
 
 /**
- * AI vs AI 観戦パネル。 デッキ A / B / seed を選んで「観戦開始」を押すと、 API が 1 試合
- * シミュレートして 盤面 snapshot 付き replay を返す → SpectateBoard で自動再生 (autoPlay)。
+ * AI vs AI 観戦パネル。 デッキ A / B / seed を選ぶと選択中のリーダーがプレビュー表示され、
+ * 「観戦開始」で API が 1 試合シミュレート → SpectateBoard で自動再生 (autoPlay)。
  */
 
-type DeckOption = { slug: string; name: string; kind?: string };
+type DeckOption = { slug: string; name: string; kind?: string; leader?: string };
 
 const INPUT =
   "w-full min-w-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]";
@@ -39,12 +39,14 @@ export function MatrixSpectate({
   );
   const [seed, setSeed] = useState<number>(initialSeed ?? 42);
   const [running, setRunning] = useState(false);
-  const [preloading, setPreloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
 
-  function handleStart() {
+  const optA = decks.find((d) => d.slug === deckA);
+  const optB = decks.find((d) => d.slug === deckB);
+
+  async function handleStart() {
     setError(null);
     setReplay(null);
     setElapsed(null);
@@ -52,11 +54,6 @@ export function MatrixSpectate({
       setError("両方のデッキを選択してください");
       return;
     }
-    setPreloading(true);
-  }
-
-  async function runReplayAfterPreload() {
-    setPreloading(false);
     setRunning(true);
     const t0 = performance.now();
     try {
@@ -136,10 +133,10 @@ export function MatrixSpectate({
           <button
             type="button"
             onClick={handleStart}
-            disabled={running || preloading || !deckA || !deckB}
+            disabled={running || !deckA || !deckB}
             className="shrink-0 rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {preloading ? "読込中..." : running ? "計算中..." : "観戦開始"}
+            {running ? "計算中..." : "観戦開始"}
           </button>
         </div>
 
@@ -150,7 +147,10 @@ export function MatrixSpectate({
         ) : null}
 
         {replay ? (
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] px-3 py-1.5 text-xs" style={{ background: "var(--surface-2)" }}>
+          <div
+            className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius)] px-3 py-1.5 text-xs"
+            style={{ background: "var(--surface-2)" }}
+          >
             <span
               className="font-semibold"
               style={{
@@ -181,33 +181,8 @@ export function MatrixSpectate({
         ) : null}
       </div>
 
-      {/* preload / 計算中 / SpectateBoard は flex-1 で残り高さを取る */}
-      {preloading ? (
-        <div
-          className="flex flex-1 items-center justify-center overflow-auto rounded-[var(--radius)]"
-          style={{ background: "var(--surface-1)" }}
-        >
-          <CardPreloader
-            deckSlugA={deckA}
-            deckSlugB={deckB}
-            deckNameA={decks.find((d) => d.slug === deckA)?.name}
-            deckNameB={decks.find((d) => d.slug === deckB)?.name}
-            onComplete={runReplayAfterPreload}
-            title="観戦準備中... カード を 読み込んでいます"
-          />
-        </div>
-      ) : running ? (
-        <div
-          className="flex flex-1 items-center justify-center rounded-[var(--radius)] p-6 text-sm text-[color:var(--text-muted)]"
-          style={{ background: "var(--surface-1)" }}
-        >
-          <span
-            className="inline-block h-2 w-2 animate-pulse rounded-full align-middle"
-            style={{ background: "var(--brand)" }}
-          />
-          <span className="ml-2">シミュレート中... AI 同士が対戦しています（通常 3〜5 秒）</span>
-        </div>
-      ) : replay ? (
+      {/* 下部: replay があれば盤面、 無ければリーダープレビュー (選択で切替) */}
+      {replay ? (
         <SpectateBoard
           snapshots={replay.snapshots}
           deckBottomName={replay.deck_a_name}
@@ -218,10 +193,70 @@ export function MatrixSpectate({
           autoPlay
         />
       ) : (
-        <div className="flex flex-1 items-center justify-center rounded-[var(--radius)] border border-dashed p-6 text-sm text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
-          デッキ / seed を選んで「観戦開始」を押すと、AI 同士の対戦を頭から自動再生します。
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-5 rounded-[var(--radius)] p-6"
+          style={{ background: "var(--surface-1)" }}
+        >
+          <div className="flex items-center justify-center gap-6">
+            <LeaderCard tag="P0" leader={optA?.leader} name={optA?.name} accent="var(--accent)" />
+            <span className="text-2xl font-black italic text-[color:var(--text-muted)]">VS</span>
+            <LeaderCard tag="P1" leader={optB?.leader} name={optB?.name} accent="var(--danger)" />
+          </div>
+          {running ? (
+            <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+              <span
+                className="inline-block h-2 w-2 animate-pulse rounded-full"
+                style={{ background: "var(--brand)" }}
+              />
+              シミュレート中... AI 同士が対戦しています（通常 3〜5 秒）
+            </div>
+          ) : (
+            <p className="text-sm text-[color:var(--text-muted)]">
+              「観戦開始」で、この 2 デッキの AI 対戦を頭から自動再生します。
+            </p>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function LeaderCard({
+  tag,
+  leader,
+  name,
+  accent,
+}: {
+  tag: string;
+  leader?: string;
+  name?: string;
+  accent: string;
+}) {
+  return (
+    <div className="flex w-36 flex-col items-center gap-1.5">
+      <span
+        className="rounded px-2 py-0.5 text-[10px] font-bold text-white"
+        style={{ background: accent }}
+      >
+        {tag}
+      </span>
+      {leader ? (
+        <CardImage
+          cardId={leader}
+          alt={name ?? leader}
+          className="h-40 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover"
+        />
+      ) : (
+        <div
+          className="flex h-40 w-[103px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]"
+          style={{ borderColor: "var(--border-2)" }}
+        >
+          未選択
+        </div>
+      )}
+      <span className="max-w-full truncate text-xs text-[color:var(--text-default)]">
+        {name ?? "—"}
+      </span>
     </div>
   );
 }
