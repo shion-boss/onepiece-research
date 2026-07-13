@@ -265,8 +265,11 @@ function ExplorerPanel({ path }: { path: string }) {
   const move = async (slug: string, folder: string) => {
     try {
       await moveDeckToFolder(slug, folder);
-    } catch {
-      /* noop */
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        "このデッキは移動できませんでした。自分で作成したデッキ（マイデッキ）のみフォルダに入れられます。",
+      );
     }
     reload();
   };
@@ -301,6 +304,7 @@ function ExplorerPanel({ path }: { path: string }) {
     onDragOver: (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      e.dataTransfer.dropEffect = "move"; // これが無いとブラウザがドロップを拒否する
       setDragOver(folder);
     },
     onDragLeave: () => setDragOver((d) => (d === folder ? null : d)),
