@@ -191,6 +191,7 @@ export function SpectateBoard({
   winner,
   onClose,
   replayKey,
+  autoPlay,
 }: {
   snapshots: StateSnapshot[];
   deckTopName?: string;
@@ -201,6 +202,8 @@ export function SpectateBoard({
   onClose?: () => void;
   /** コメントを紐づける replay 識別子 (= LogSidebar の sessionId)。 非null でコメント有効。 */
   replayKey?: string;
+  /** マウント時に自動再生を開始する (= AI vs AI 観戦で開始後すぐ再生)。 */
+  autoPlay?: boolean;
 }) {
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -230,6 +233,11 @@ export function SpectateBoard({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [playing, clampedIdx, total, speed]);
+
+  // マウント時に自動再生 (= 観戦開始後、 初期盤面で止まらず頭から再生する)。
+  useEffect(() => {
+    if (autoPlay && total > 1) setPlaying(true);
+  }, [autoPlay, total]);
 
   // 盤面データパネルのドラッグ移動 (= window mousemove/up を dragging 中のみ購読)。
   useEffect(() => {
