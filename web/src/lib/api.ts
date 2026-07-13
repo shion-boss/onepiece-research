@@ -254,6 +254,29 @@ export async function saveDeckToServer(
   return res.json();
 }
 
+async function postJson(path: string, body: unknown): Promise<void> {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`${path} failed: ${res.status} ${await res.text().catch(() => "")}`);
+}
+
+/** デッキをフォルダへ移動 ("" = ルート)。 */
+export function moveDeckToFolder(slug: string, folder: string): Promise<void> {
+  return postJson(`/api/decks/${encodeURIComponent(slug)}/folder`, { folder });
+}
+/** フォルダ名を変更 (中の全デッキを付け替え)。 */
+export function renameFolder(oldName: string, newName: string): Promise<void> {
+  return postJson(`/api/folders/rename`, { old: oldName, new: newName });
+}
+/** フォルダを解体 (中のデッキをルートへ)。 */
+export function deleteFolder(folder: string): Promise<void> {
+  return postJson(`/api/folders/delete`, { folder });
+}
+
 export async function validateDeckOnServer(
   req: CreateDeckRequest,
 ): Promise<ValidateDeckResponse> {

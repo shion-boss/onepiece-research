@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from "react";
 import { useWorkspace, tabTitleFor, type ActivityView } from "@/lib/workspace";
 import { AuthControls } from "./AuthControls";
 import { StatusBar } from "./StatusBar";
-import { fetchDecks } from "@/lib/api";
+import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder } from "@/lib/api";
 
 // ---- icons (VSCode codicon 風の細線 SVG) ----
 const svg = (p: ReactNode) => (
@@ -43,7 +43,7 @@ const FAQ_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
   icon: IconFaq,
 };
 
-type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[] };
+type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[]; folder?: string };
 
 const COLOR_HEX: Record<string, string> = {
   赤: "#f14c4c", 緑: "#4ec9b0", 青: "#3794ff", 紫: "#c586c0", 黒: "#6a6a72", 黄: "#cca700",
@@ -116,7 +116,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           style={{ background: "var(--activity-bar)", borderColor: "var(--border-1)" }}
         >
           {ACTIVITY_MAIN.map(renderAct)}
-          <div className="flex-1" />
           {renderAct(FAQ_ACT)}
         </div>
 
@@ -235,40 +234,208 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
   return <ExplorerPanel path={path} />;
 }
 
+const IconFolder = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </svg>
+);
+
 function ExplorerPanel({ path }: { path: string }) {
   const [decks, setDecks] = useState<DeckRow[] | null>(null);
-  useEffect(() => {
-    let alive = true;
+  const [extraFolders, setExtraFolders] = useState<string[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
     fetchDecks()
-      .then((d) => alive && setDecks(d as DeckRow[]))
-      .catch(() => alive && setDecks([]));
-    return () => {
-      alive = false;
-    };
+      .then((d) => setDecks(d as DeckRow[]))
+      .catch(() => setDecks([]));
   }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
   const mine = decks?.filter((d) => d.kind === "user") ?? [];
   const meta = decks?.filter((d) => d.kind === "meta") ?? [];
+  const rootDecks = mine.filter((d) => !(d.folder && d.folder.length));
+  const folderNames = Array.from(
+    new Set([...mine.map((d) => d.folder || "").filter(Boolean), ...extraFolders]),
+  ).sort((a, b) => a.localeCompare(b, "ja"));
+
+  const move = async (slug: string, folder: string) => {
+    try {
+      await moveDeckToFolder(slug, folder);
+    } catch {
+      /* noop */
+    }
+    reload();
+  };
+  const toggle = (f: string) =>
+    setCollapsed((p) => {
+      const n = new Set(p);
+      if (n.has(f)) n.delete(f);
+      else n.add(f);
+      return n;
+    });
+  const newFolder = () => {
+    const name = window.prompt("新しいフォルダ名");
+    if (name && name.trim()) setExtraFolders((p) => Array.from(new Set([...p, name.trim()])));
+  };
+  const renameF = async (f: string) => {
+    const name = window.prompt("フォルダ名を変更", f);
+    if (name && name.trim() && name.trim() !== f) {
+      try {
+        await renameFolder(f, name.trim());
+      } catch {
+        /* noop */
+      }
+      setExtraFolders((p) => p.map((x) => (x === f ? name.trim() : x)));
+      reload();
+    }
+  };
+  const deleteF = async (f: string) => {
+    if (window.confirm(`フォルダ「${f}」を解体します。中のデッキはルートに戻ります。`)) {
+      try {
+        await deleteFolder(f);
+      } catch {
+        /* noop */
+      }
+      setExtraFolders((p) => p.filter((x) => x !== f));
+      reload();
+    }
+  };
+  const dropProps = (folder: string) => ({
+    onDragOver: (e: DragEvent) => {
+      e.preventDefault();
+      setDragOver(folder);
+    },
+    onDragLeave: () => setDragOver((d) => (d === folder ? null : d)),
+    onDrop: (e: DragEvent) => {
+      e.preventDefault();
+      const slug = e.dataTransfer.getData("text/deck");
+      setDragOver(null);
+      if (slug) move(slug, folder);
+    },
+  });
+
   return (
     <div className="py-2">
-      <PanelHeader>エクスプローラー</PanelHeader>
-      <Section label="マイデッキ（非公開）" />
-      {decks === null && <Muted>読み込み中…</Muted>}
-      {decks !== null && mine.length === 0 && <Muted>まだデッキがありません</Muted>}
-      {mine.map((d) => (
-        <DeckRowLink key={d.slug} deck={d} active={path === `/decks/${d.slug}`} />
-      ))}
+      <div className="flex items-center justify-between pr-2">
+        <PanelHeader>エクスプローラー</PanelHeader>
+        <button
+          type="button"
+          title="新しいフォルダ"
+          onClick={newFolder}
+          className="text-[color:var(--text-muted)] hover:text-white"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <path d="M12 11v4M10 13h4" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div className={`rounded-sm ${dragOver === "" ? "bg-[var(--brand-soft)]" : ""}`} {...dropProps("")}>
+        <Section label="マイデッキ（非公開）" />
+        {decks === null && <Muted>読み込み中…</Muted>}
+        {decks !== null && mine.length === 0 && <Muted>まだデッキがありません</Muted>}
+        {rootDecks.map((d) => (
+          <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} />
+        ))}
+      </div>
+
+      {folderNames.map((f) => {
+        const items = mine.filter((d) => (d.folder || "") === f);
+        const open = !collapsed.has(f);
+        return (
+          <div key={f} className={dragOver === f ? "bg-[var(--brand-soft)]" : ""} {...dropProps(f)}>
+            <div className="group flex items-center gap-1 px-2 py-1 text-[12px] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]">
+              <button type="button" onClick={() => toggle(f)} className="flex min-w-0 flex-1 items-center gap-1 text-left">
+                <span
+                  className="shrink-0"
+                  style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .1s" }}
+                >
+                  {chevron}
+                </span>
+                {IconFolder}
+                <span className="flex-1 truncate">{f}</span>
+                <span className="text-[10px] text-[color:var(--text-muted)]">{items.length}</span>
+              </button>
+              <button
+                type="button"
+                title="名前変更"
+                onClick={() => renameF(f)}
+                className="hidden text-[10px] text-[color:var(--text-muted)] hover:text-white group-hover:block"
+              >
+                名変
+              </button>
+              <button
+                type="button"
+                title="解体"
+                onClick={() => deleteF(f)}
+                className="hidden text-[10px] text-[color:var(--text-muted)] hover:text-[color:var(--danger)] group-hover:block"
+              >
+                解体
+              </button>
+            </div>
+            {open &&
+              items.map((d) => (
+                <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} indent />
+              ))}
+          </div>
+        );
+      })}
+
       <Link
         href="/decks/new"
         className="flex items-center gap-2 px-4 py-1.5 text-[13px] text-[color:var(--brand-strong)] hover:bg-[var(--list-hover)]"
       >
         ＋ 新規デッキ
       </Link>
+
       <div className="mt-2">
         <Section label="環境デッキ（相手候補）" />
         {meta.map((d) => (
           <DeckRowLink key={d.slug} deck={d} active={path === `/decks/${d.slug}`} meta />
         ))}
       </div>
+
+      {folderNames.length > 0 && (
+        <p className="px-4 pt-2 text-[10px] leading-relaxed text-[color:var(--text-muted)]">
+          デッキをフォルダにドラッグして整理できます。
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MyDeckRow({ deck, active, indent }: { deck: DeckRow; active: boolean; indent?: boolean }) {
+  const router = useRouter();
+  const color = deck.leader_color?.[0];
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/deck", deck.slug);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onClick={() => router.push(`/decks/${deck.slug}`)}
+      role="button"
+      title={deck.name}
+      className={`flex cursor-pointer items-center gap-2 py-1.5 text-[13px] hover:bg-[var(--list-hover)] ${
+        indent ? "pl-8 pr-4" : "px-4"
+      }`}
+      style={
+        active
+          ? { background: "var(--brand-soft)", color: "#fff", boxShadow: "inset 2px 0 0 var(--brand)" }
+          : { color: "var(--text-default)" }
+      }
+    >
+      <span
+        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+        style={{ background: (color && COLOR_HEX[color]) || "#4a4a52" }}
+      />
+      <span className="flex-1 truncate">{deck.name}</span>
     </div>
   );
 }

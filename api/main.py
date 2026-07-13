@@ -876,6 +876,7 @@ class DeckSummary(BaseModel):
     unique: int
     regulation: Optional[str] = None
     kind: str = "user"            # "meta" (環境・正準) | "user" (ユーザー作成)
+    folder: str = ""              # ユーザーデッキの所属フォルダ ("" = ルート)
 
 
 def _list_deck_files() -> list[Path]:
@@ -934,6 +935,7 @@ def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
         leader_name=leader_name, leader_color=leader_color,
         main_count=sum(int(e.get("count", 1)) for e in d.get("main", [])),
         unique=len(d.get("main", [])), regulation=d.get("regulation"), kind=kind,
+        folder=d.get("folder") or "",
     )
 
 
@@ -1177,6 +1179,46 @@ def delete_deck(slug: str, user_id: str = Depends(current_user_id)):
         out_path.unlink()
         return None
     raise HTTPException(404, f"deck not found: {slug}")
+
+
+# --------------------------------------------------------------------------- #
+# フォルダ管理 (= マイデッキを VSCode explorer 風に整理)。 全て auth + owner-scoped。
+# --------------------------------------------------------------------------- #
+class MoveFolderRequest(BaseModel):
+    folder: str = ""
+
+
+class RenameFolderRequest(BaseModel):
+    old: str
+    new: str
+
+
+class FolderRequest(BaseModel):
+    folder: str
+
+
+@app.post("/api/decks/{slug}/folder")
+def move_deck_folder(slug: str, req: MoveFolderRequest, user_id: str = Depends(current_user_id)):
+    """自分のデッキを指定フォルダへ移動 ("" = ルート)。 メタは不可。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(403, "meta(環境) decks cannot be foldered")
+    if not user_store.set_deck_folder(user_id, slug, req.folder.strip()):
+        raise HTTPException(404, f"deck not found: {slug}")
+    return {"ok": True, "folder": req.folder.strip()}
+
+
+@app.post("/api/folders/rename")
+def rename_folder_ep(req: RenameFolderRequest, user_id: str = Depends(current_user_id)):
+    """フォルダ名を変更 (= 中の全デッキの folder を付け替え)。"""
+    moved = user_store.rename_folder(user_id, req.old.strip(), req.new.strip())
+    return {"moved": moved}
+
+
+@app.post("/api/folders/delete")
+def delete_folder_ep(req: FolderRequest, user_id: str = Depends(current_user_id)):
+    """フォルダを解体 (= 中のデッキをルートへ。 デッキは消さない)。"""
+    moved = user_store.remove_folder(user_id, req.folder.strip())
+    return {"moved": moved}
 
 
 @app.post("/api/decks/validate", response_model=ValidateDeckResponse)

@@ -66,6 +66,7 @@ def init_schema() -> None:
             main TEXT NOT NULL,
             regulation TEXT,
             visibility TEXT DEFAULT 'private',
+            folder TEXT DEFAULT '',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             PRIMARY KEY (owner_id, slug)
@@ -79,9 +80,24 @@ def init_schema() -> None:
             cur = conn.cursor()
             for stmt in ddl:
                 cur.execute(stmt)
+            # migration: 既存 DB に folder 列を追加 (無ければ)。 事前チェックで失敗文を
+            # 出さない (= Postgres の transaction abort を避ける)。
+            if not _column_exists(cur, "user_decks", "folder"):
+                cur.execute("ALTER TABLE user_decks ADD COLUMN folder TEXT DEFAULT ''")
     finally:
         conn.close()
     _SCHEMA_READY = True
+
+
+def _column_exists(cur, table: str, col: str) -> bool:
+    if _USE_POSTGRES:
+        cur.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s",
+            (table, col),
+        )
+        return cur.fetchone() is not None
+    cur.execute(f"PRAGMA table_info({table})")
+    return any(r["name"] == col for r in cur.fetchall())
 
 
 def ensure_user(user_id: str, email: Optional[str] = None) -> None:
@@ -186,3 +202,47 @@ def delete_deck(owner_id: str, slug: str) -> bool:
             return cur.rowcount > 0
     finally:
         conn.close()
+
+
+# --------------------------------------------------------------------------- #
+# フォルダ管理 (= マイデッキを VSCode の explorer 風にフォルダで整理)。
+# folder は単なるパス文字列 (例 "赤単" / "aggro/red"、 "" = ルート)。 フォルダ実体は
+# デッキの folder 値から導出する (= 空フォルダは持たない、 別テーブル不要)。
+# --------------------------------------------------------------------------- #
+def set_deck_folder(owner_id: str, slug: str, folder: str) -> bool:
+    """1 デッキの所属フォルダを設定。 存在し owner 一致なら True。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE user_decks SET folder = {_PH}, updated_at = {_PH} "
+                f"WHERE owner_id = {_PH} AND slug = {_PH}",
+                (folder or "", _now(), owner_id, slug),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def rename_folder(owner_id: str, old: str, new: str) -> int:
+    """フォルダ名変更 (= folder == old の全デッキを new に)。 移動件数を返す。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE user_decks SET folder = {_PH}, updated_at = {_PH} "
+                f"WHERE owner_id = {_PH} AND folder = {_PH}",
+                (new or "", _now(), owner_id, old),
+            )
+            return cur.rowcount
+    finally:
+        conn.close()
+
+
+def remove_folder(owner_id: str, folder: str) -> int:
+    """フォルダを解体 (= 中のデッキをルートへ)。 デッキ自体は消さない。"""
+    return rename_folder(owner_id, folder, "")

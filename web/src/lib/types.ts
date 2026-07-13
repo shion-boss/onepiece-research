@@ -105,6 +105,7 @@ export type DeckSummary = {
   unique: number;
   regulation?: Regulation;
   kind?: "meta" | "user"; // 環境デッキ(正準) か ユーザー作成か
+  folder?: string; // ユーザーデッキの所属フォルダ ("" = ルート)
 };
 
 export type DeckDetail = DeckSpec & {
