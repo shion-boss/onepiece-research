@@ -954,8 +954,11 @@ def search_turn_plan(
                                        hard_cap_actions=_postopp_cap)
                 if _i + 1 < turns and not ev.game_over and ev.turn_player_idx == me_idx:
                     if _asym:
-                        # 自の未来ターン = SEARCH(beam、 shallow)して best plan 適用(非対称設計)
-                        _asym_my_turn(ev, me_idx, _postopp_ai, _postopp_ai,
+                        # 自の未来ターン = SEARCH(beam、 shallow)して best plan 適用(非対称設計)。
+                        # ⭐ 2026-07-13: 入れ子 search の post-opp sim を value 誘導 AI に(opp_value/
+                        # self_value 尊重)。 greedy strawman だと future turn が build に向かわず shift 過小。
+                        # search(asym)× value(EvalGreedy)を合成 = 最強 self-policy。
+                        _asym_my_turn(ev, me_idx, _postopp_opp_ai, _postopp_self_ai,
                                       bw=max(4, beam_width // 2), bd=max_depth)
                     else:
                         # 従来 = rollout(1本 policy 応手)
