@@ -77,9 +77,9 @@ def _run(kw):
 def main():
     configs = [
         ("base(turns=1)", {}),
-        ("MT t2 opp+self_value", dict(postopp_turns=2, postopp_opp_value=True, postopp_self_value=True)),
-        ("MT t2 asym(search future)", dict(postopp_turns=2, postopp_opp_value=True, asym_multiturn=True)),
-        ("MT t3 opp+self_value", dict(postopp_turns=3, postopp_opp_value=True, postopp_self_value=True)),
+        ("MT t2 opp+self (best so far)", dict(postopp_turns=2, postopp_opp_value=True, postopp_self_value=True)),
+        ("MT t2 opp+self+asym (search×value)", dict(postopp_turns=2, postopp_opp_value=True, postopp_self_value=True, asym_multiturn=True)),
+        ("MT t3 opp+self+asym", dict(postopp_turns=3, postopp_opp_value=True, postopp_self_value=True, asym_multiturn=True)),
     ]
     print(f"{HERO} vs {OPP}  hero MAIN 決定の action-kind 分布\n")
     for label, kw in configs:
