@@ -49,7 +49,8 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
 export function tabTitleFor(path: string): string {
   const map: Record<string, string> = {
     "/": "ようこそ",
-    "/play": "対戦",
+    "/play": "人間 vs AI",
+    "/watch": "AI vs AI 観戦",
     "/decks": "マイデッキ",
     "/decks/new": "新規デッキ",
     "/decks/generate": "デッキ生成",

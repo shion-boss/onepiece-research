@@ -257,9 +257,10 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
     return (
       <div className="py-2">
         <PanelHeader>対戦</PanelHeader>
-        <PanelLink href="/play" active={path === "/play"}>対戦をはじめる</PanelLink>
+        <PanelLink href="/play" active={path === "/play"}>人間 vs AI</PanelLink>
+        <PanelLink href="/watch" active={path === "/watch"}>AI vs AI（観戦）</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          自分の（非公開）デッキを選んで、環境デッキの AI と対戦します。
+          人間 vs AI = 自分のデッキでプレイ / AI vs AI = 2 デッキを選んで観戦。
         </p>
       </div>
     );
