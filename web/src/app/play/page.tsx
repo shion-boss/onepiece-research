@@ -3,7 +3,12 @@ import { serverAuthHeaders } from "@/lib/auth-server";
 import { HumanMatchPlay } from "@/components/HumanMatchPlay";
 import { PageShell } from "@/components/ui/PageShell";
 
-export default async function PlayPage() {
+export default async function PlayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deck?: string }>;
+}) {
+  const sp = await searchParams;
   let decks: { slug: string; name: string; kind?: string }[] = [];
   let error: string | null = null;
   try {
@@ -38,7 +43,7 @@ export default async function PlayPage() {
   // HumanMatchPlay は full-screen 対戦 UI なので PageShell では wrap しない
   return (
     <main className="flex w-full flex-1 flex-col">
-      <HumanMatchPlay decks={decks} />
+      <HumanMatchPlay decks={decks} initialDeckA={sp?.deck} />
     </main>
   );
 }

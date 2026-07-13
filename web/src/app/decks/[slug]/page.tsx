@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchCard, fetchDeck, fetchDecks } from "@/lib/api";
-import type { Card, DeckDetail, DeckSummary } from "@/lib/types";
+import {
+  fetchCard,
+  fetchDeck,
+  fetchDecks,
+  fetchDeckAnalysis,
+  fetchDeckStrategy,
+} from "@/lib/api";
+import { serverAuthHeaders } from "@/lib/auth-server";
+import type { Card, DeckAnalysis, DeckDetail, DeckStrategy, DeckSummary } from "@/lib/types";
 import { CardImage } from "@/components/CardImage";
 import { ColorChip } from "@/components/ColorChip";
-import { DeckResearchWorkflow } from "@/components/DeckResearchWorkflow";
+import { DeckStrategyPanel } from "@/components/DeckStrategyPanel";
+import { DeckCombosPanel } from "@/components/DeckCombosPanel";
+import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
 
 export default async function DeckDetailPage({
@@ -15,11 +24,12 @@ export default async function DeckDetailPage({
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
 
+  const ah = await serverAuthHeaders();
   let detail: DeckDetail | null = null;
   let decks: DeckSummary[] = [];
   let error: string | null = null;
   try {
-    [detail, decks] = await Promise.all([fetchDeck(slug), fetchDecks()]);
+    [detail, decks] = await Promise.all([fetchDeck(slug, ah), fetchDecks(ah)]);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -38,7 +48,18 @@ export default async function DeckDetailPage({
   if (!detail) notFound();
 
   const summary = decks.find((d) => d.slug === slug);
-  const opponents = decks.filter((d) => d.slug !== slug);
+
+  // 分析 (このページの主役) を取得。 失敗は致命的でない。
+  let analysis: DeckAnalysis | null = null;
+  let strategy: DeckStrategy | null = null;
+  try {
+    [analysis, strategy] = await Promise.all([
+      fetchDeckAnalysis(slug, ah).catch(() => null),
+      fetchDeckStrategy(slug, ah).catch(() => null),
+    ]);
+  } catch {
+    /* noop */
+  }
 
   const uniqueIds = Array.from(new Set(detail.main.map((e) => e.card_id)));
   const cardDetails = await Promise.all(
@@ -93,14 +114,14 @@ export default async function DeckDetailPage({
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
-              href={`/decks/${encodeURIComponent(slug)}/analyze`}
-              className="inline-block rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1 text-sm text-[color:var(--text-default)] transition hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
+              href={`/play?deck=${encodeURIComponent(slug)}`}
+              className="inline-block rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[color:var(--brand-strong)]"
             >
-              分析を見る
+              このデッキで対戦
             </Link>
             <Link
               href={`/decks/new?from=${encodeURIComponent(slug)}`}
-              className="inline-block rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1 text-sm text-[color:var(--text-default)] transition hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
+              className="inline-block rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1.5 text-sm text-[color:var(--text-default)] transition hover:border-[color:var(--brand)] hover:bg-[var(--list-hover)]"
             >
               コピーして編集
             </Link>
@@ -108,11 +129,18 @@ export default async function DeckDetailPage({
         </div>
       </header>
 
-      <DeckResearchWorkflow
-        selfSlug={slug}
-        selfName={detail.name ?? slug}
-        opponents={opponents}
-      />
+      {/* 分析 (= このページの主役): 戦略・コンボ・チャート */}
+      {analysis ? (
+        <div className="space-y-4">
+          {strategy && <DeckStrategyPanel strategy={strategy} />}
+          <DeckCombosPanel combos={analysis.combos} />
+          <DeckAnalyzeCharts data={analysis} />
+        </div>
+      ) : (
+        <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4 text-sm text-[color:var(--text-muted)]">
+          分析を読み込めませんでした。
+        </div>
+      )}
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium text-[color:var(--text-strong)]">直近の対戦履歴</h2>

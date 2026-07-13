@@ -94,13 +94,22 @@ type DropTarget =
   | { kind: "opp_chara"; iid: number }
   | { kind: "self_counter"; handIdx: number };
 
-export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
+export function HumanMatchPlay({
+  decks,
+  initialDeckA,
+}: {
+  decks: DeckOption[];
+  initialDeckA?: string;
+}) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
   const firstUserDeck =
     decks.find((d) => d.kind === "user")?.slug ?? decks[0]?.slug ?? "";
   const firstMetaDeck =
     decks.find((d) => d.kind === "meta")?.slug ?? decks[0]?.slug ?? "";
-  const [deckA, setDeckA] = useState<string>(firstUserDeck);
+  // /play?deck=slug で指定されたデッキがあれば人間側の既定に (= デッキ詳細から「対戦」)。
+  const defaultDeckA =
+    initialDeckA && decks.some((d) => d.slug === initialDeckA) ? initialDeckA : firstUserDeck;
+  const [deckA, setDeckA] = useState<string>(defaultDeckA);
   const [deckB, setDeckB] = useState<string>(firstMetaDeck);
   const [seed, setSeed] = useState<number>(42);
   const [humanFirst, setHumanFirst] = useState<"random" | "first" | "second">(
