@@ -46,7 +46,8 @@ export async function fetchCards(filters: CardFilters = {}): Promise<Card[]> {
   for (const [k, v] of Object.entries(filters)) {
     if (v != null && v !== "") params.set(k, String(v));
   }
-  const res = await fetch(`${API}/api/cards?${params}`, { cache: "no-store" });
+  // カード DB は不変・公開データ → force-cache で再取得しない。
+  const res = await fetch(`${API}/api/cards?${params}`, { cache: "force-cache" });
   if (!res.ok) throw new Error(`fetchCards failed: ${res.status}`);
   return res.json();
 }
@@ -64,8 +65,9 @@ export async function fetchBanlist(): Promise<Banlist> {
 }
 
 export async function fetchCard(cardId: string): Promise<Card> {
+  // カード単体は不変 → force-cache (デッキ詳細で 1 枚ずつ引く分を毎回再取得しない)。
   const res = await fetch(`${API}/api/cards/${encodeURIComponent(cardId)}`, {
-    cache: "no-store",
+    cache: "force-cache",
   });
   if (!res.ok) throw new Error(`fetchCard failed: ${res.status}`);
   return res.json();
