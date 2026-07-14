@@ -53,7 +53,7 @@ import {
  * 人間 vs AI 対戦 component (= OPTCGSim 風 + 重ね 手札 + D&D 対応)。
  */
 
-type DeckOption = { slug: string; name: string; kind?: string };
+type DeckOption = { slug: string; name: string; kind?: string; leader?: string };
 
 type Selection =
   | null
@@ -2521,6 +2521,15 @@ function StartPanel({
               あなたが操作
             </span>
           </div>
+          <div className="flex justify-center">
+            {humanDeck?.leader ? (
+              <CardImage cardId={humanDeck.leader} alt={humanDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+            ) : (
+              <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
+                未選択
+              </div>
+            )}
+          </div>
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-zinc-500">デッキ選択</span>
             <select
@@ -2570,6 +2579,15 @@ function StartPanel({
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               AI が操作
             </span>
+          </div>
+          <div className="flex justify-center">
+            {aiDeck?.leader ? (
+              <CardImage cardId={aiDeck.leader} alt={aiDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+            ) : (
+              <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
+                未選択
+              </div>
+            )}
           </div>
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-zinc-500">デッキ選択</span>

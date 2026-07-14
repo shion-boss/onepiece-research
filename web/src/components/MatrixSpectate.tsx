@@ -18,6 +18,7 @@ export function MatrixSpectate({
 }) {
   const sel = useDeckSelect(decks, initialDeckA, initialDeckB);
   const [seed, setSeed] = useState(42);
+  const [firstPlayer, setFirstPlayer] = useState<"p0" | "p1" | "random">("p0");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
@@ -29,9 +30,11 @@ export function MatrixSpectate({
       setError("両方のデッキを選択してください");
       return;
     }
+    // 先攻: p0=deck_a 先攻 / p1=deck_b 先攻 / random は毎回どちらか。
+    const fp = firstPlayer === "p1" ? 1 : firstPlayer === "p0" ? 0 : Math.round(Math.random());
     setRunning(true);
     try {
-      setReplay(await runMatrixSampleReplay(sel.deckA, sel.deckB, seed));
+      setReplay(await runMatrixSampleReplay(sel.deckA, sel.deckB, seed, fp));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -70,25 +73,45 @@ export function MatrixSpectate({
         disabled={running}
         footer={
           <div className="flex flex-col gap-3">
-            <label className="flex items-center gap-2 text-xs">
-              <span className="text-[color:var(--text-muted)]">seed（この試合を再現）</span>
-              <input
-                type="number"
-                value={seed}
-                onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-                disabled={running}
-                className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]"
-              />
-              <button
-                type="button"
-                onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
-                disabled={running}
-                className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1.5 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
-                title="ランダム seed"
-              >
-                ⟳
-              </button>
-            </label>
+            <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+              <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">対戦オプション</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="text-[color:var(--text-muted)]">先攻 / 後攻</span>
+                  <select
+                    value={firstPlayer}
+                    onChange={(e) => setFirstPlayer(e.target.value as "p0" | "p1" | "random")}
+                    disabled={running}
+                    className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm text-[color:var(--text-strong)]"
+                  >
+                    <option value="p0">P0 が先攻</option>
+                    <option value="p1">P1 が先攻</option>
+                    <option value="random">ランダム</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="text-[color:var(--text-muted)]">seed（同じ値で再現可能）</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={seed}
+                      onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
+                      disabled={running}
+                      className="flex-1 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-mono text-[color:var(--text-strong)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
+                      disabled={running}
+                      className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-3 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
+                      title="ランダム seed"
+                    >
+                      ⟳
+                    </button>
+                  </div>
+                </label>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleStart}

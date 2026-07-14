@@ -629,11 +629,12 @@ export async function runMatrixSampleReplay(
   deckA: string,
   deckB: string,
   seed = 42,
+  firstPlayer = 0,
 ): Promise<ReplayResponse> {
   const res = await fetch(`${API}/api/matrix/sample/replay`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed }),
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed, first_player: firstPlayer }),
     cache: "no-store",
   });
   if (!res.ok) {

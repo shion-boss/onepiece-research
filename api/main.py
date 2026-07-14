@@ -346,6 +346,7 @@ class MatrixSampleRequest(BaseModel):
     deck_a: str
     deck_b: str
     seed: int = 42
+    first_player: int = 0  # 0=deck_a(P0)先攻, 1=deck_b(P1)先攻
 
 
 def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str],
@@ -407,15 +408,18 @@ def matrix_sample_replay(req: MatrixSampleRequest, user_id: str = Depends(curren
 
     # 実践 AI (= 配備 SmartOpponentAI) を deck_a/deck_b の slug で構築 (= _practice_run_kwargs)。
     # 人間vsAI / matrix / deck対戦ランナー と 同一。
+    # first_player: run_matchup は first_player = game_index % 2 で決める。 deck_b(P1) 先攻 は
+    # game_index=1 を only_game_index で 1 試合だけ回す (deck 順は変えないので P0=deck_a のまま)。
+    fp = 1 if req.first_player == 1 else 0
     rep = _run(
         da, db,
-        n_games=1, seed=req.seed,
+        n_games=fp + 1, seed=req.seed, only_game_index=fp,
         effects_overlay=overlay,
         keep_logs=True, enforce_rules=False,
         record_snapshots=True,
         **_practice_run_kwargs(req.deck_a, req.deck_b),
     )
-    g = rep.games[0]
+    g = rep.games[fp]
     # ReplayResponse は file 末尾で定義されているため文字列名で response_model 指定。
     # 実体は dict で返してもエンドポイント契約に従う (Pydantic ↔ FastAPI が validate)。
     return {

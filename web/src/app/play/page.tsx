@@ -9,12 +9,12 @@ export default async function PlayPage({
   searchParams: Promise<{ deck?: string }>;
 }) {
   const sp = await searchParams;
-  let decks: { slug: string; name: string; kind?: string }[] = [];
+  let decks: { slug: string; name: string; kind?: string; leader?: string }[] = [];
   let error: string | null = null;
   try {
     // serverAuthHeaders で自分 (ログインユーザー) の非公開デッキも取得 (= 対戦の人間側候補)。
     const raw = await fetchDecks(await serverAuthHeaders());
-    decks = raw.map((d) => ({ slug: d.slug, name: d.name ?? d.slug, kind: d.kind }));
+    decks = raw.map((d) => ({ slug: d.slug, name: d.name ?? d.slug, kind: d.kind, leader: d.leader }));
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
