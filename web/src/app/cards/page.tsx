@@ -45,7 +45,8 @@ export default async function CardsPage({
     set: get("set"),
     // "standard" = block_icon >= 2、未指定 = 全件
     block_icon_ge: regulationRaw === "standard" ? 2 : undefined,
-    limit: 2000,
+    // 全カード (現状 4,673 枚) を取得。 表示は無限スクロールなので上限は不要。
+    limit: 10000,
   };
 
   let cards: Awaited<ReturnType<typeof fetchCards>> = [];
@@ -72,7 +73,7 @@ export default async function CardsPage({
         description="全 4,673 枚 の 検索 + フィルタ"
         actions={
           <div className="text-sm text-[color:var(--text-muted)]">
-            {error ? "—" : `${cards.length} 件${cards.length >= 2000 ? " (上限 2000)" : ""}`}
+            {error ? "—" : `${cards.length} 件`}
           </div>
         }
       />

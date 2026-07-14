@@ -742,7 +742,7 @@ def list_cards(
     cost_ge: Optional[int] = Query(None),
     name_contains: Optional[str] = Query(None),
     block_icon_ge: Optional[int] = Query(None, description="ブロックアイコン下限 (Standard=2)"),
-    limit: int = Query(200, ge=1, le=2000),
+    limit: int = Query(200, ge=1, le=10000),
 ):
     repo = get_repo()
     cards = []
