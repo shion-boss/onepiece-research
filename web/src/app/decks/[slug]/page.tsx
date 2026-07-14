@@ -15,6 +15,7 @@ import { DeckStrategyPanel } from "@/components/DeckStrategyPanel";
 import { DeckCombosPanel } from "@/components/DeckCombosPanel";
 import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
+import { DeckMainGrid } from "@/components/DeckMainGrid";
 
 export default async function DeckDetailPage({
   params,
@@ -152,28 +153,10 @@ export default async function DeckDetailPage({
         <h2 className="mb-3 text-lg font-medium text-[color:var(--text-strong)]">
           メインデッキ ({totalCards} 枚 / unique {uniqueIds.length})
         </h2>
-        <ul className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
-          {sortedEntries.map((entry) => {
-            const card = cardById.get(entry.card_id);
-            return (
-              <li key={entry.card_id} className="flex flex-col gap-0.5">
-                <div className="relative">
-                  <CardImage
-                    cardId={entry.card_id}
-                    alt={card?.name ?? entry.card_id}
-                    className="aspect-[5/7] w-full rounded object-cover"
-                  />
-                  <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[10px] font-semibold leading-5 text-white">
-                    ×{entry.count}
-                  </span>
-                </div>
-                <div className="truncate text-center text-[10px] leading-tight text-[color:var(--text-muted)]">
-                  {card?.name ?? entry.card_id}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <DeckMainGrid
+          entries={sortedEntries.map((e) => ({ card_id: e.card_id, count: e.count }))}
+          cards={cardDetails.filter((c): c is Card => c !== null)}
+        />
       </section>
     </main>
   );
