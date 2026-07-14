@@ -14,7 +14,7 @@ function restrictionNotes(card: Card, ban?: BanInfo): { title: string; desc: str
     notes.push({ title: "制限カード", desc: "制限リストに指定されています。採用できる枚数に制限があります。", tone: "warning" });
   } else if (ban?.kind === "pair") {
     const partners = formatBanPartners(ban.partners) || "特定のカード";
-    notes.push({ title: "ペア制限", desc: `${partners} と同じデッキに同時採用できません（どちらか一方のみ）。`, tone: "warning" });
+    notes.push({ title: "ペア制限", desc: `${partners} と同じデッキに同時採用できません。`, tone: "warning" });
   }
   // block①〜②未満 = スタンダードレギュレーション使用不可 (block_icon は 1〜5、 CardTile の判定に合わせる)
   if (card.block_icon >= 1 && card.block_icon < 2) {
