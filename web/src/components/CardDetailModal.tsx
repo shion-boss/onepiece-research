@@ -1,17 +1,39 @@
 "use client";
 
 import type { Card } from "@/lib/types";
+import type { BanInfo } from "@/lib/banlist";
 import { CardImage } from "./CardImage";
 import { ColorChip } from "./ColorChip";
+
+// 規制 (禁止/制限/ペア) + スタンダード使用可否 の補足説明を組み立てる。
+function restrictionNotes(card: Card, ban?: BanInfo): { title: string; desc: string; tone: "danger" | "warning" }[] {
+  const notes: { title: string; desc: string; tone: "danger" | "warning" }[] = [];
+  if (ban?.kind === "forbidden") {
+    notes.push({ title: "禁止カード", desc: "禁止リストに指定されています。デッキに採用できません。", tone: "danger" });
+  } else if (ban?.kind === "restricted") {
+    notes.push({ title: "制限カード", desc: "制限リストに指定されています。採用できる枚数に制限があります。", tone: "warning" });
+  } else if (ban?.kind === "pair") {
+    const partners = ban.partners?.join("・") ?? "特定のカード";
+    notes.push({ title: "ペア制限", desc: `${partners} と同じデッキに同時採用できません（どちらか一方のみ）。`, tone: "warning" });
+  }
+  // block①〜②未満 = スタンダードレギュレーション使用不可 (block_icon は 1〜5、 CardTile の判定に合わせる)
+  if (card.block_icon >= 1 && card.block_icon < 2) {
+    notes.push({ title: "スタンダード使用不可", desc: "現行スタンダードレギュレーション（block② 以降）では使用できません。", tone: "danger" });
+  }
+  return notes;
+}
 
 export function CardDetailModal({
   card,
   onClose,
+  ban,
 }: {
   card: Card | null;
   onClose: () => void;
+  ban?: BanInfo;
 }) {
   if (!card) return null;
+  const notes = restrictionNotes(card, ban);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -60,6 +82,25 @@ export function CardDetailModal({
               {card.rarity}
             </span>
           </div>
+          {notes.length > 0 && (
+            <div className="space-y-2">
+              {notes.map((n) => {
+                const color = n.tone === "danger" ? "var(--danger)" : "var(--warning)";
+                return (
+                  <div
+                    key={n.title}
+                    className="rounded-[var(--radius)] border-l-2 p-3"
+                    style={{ borderColor: color, background: "color-mix(in srgb, " + color + " 10%, transparent)" }}
+                  >
+                    <div className="text-sm font-semibold" style={{ color }}>
+                      {n.title}
+                    </div>
+                    <p className="mt-0.5 text-xs text-[color:var(--text-default)]">{n.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <dl className="grid grid-cols-3 gap-2 text-sm">
             <Stat label="cost" value={card.cost} />
             <Stat label="power" value={card.power} />

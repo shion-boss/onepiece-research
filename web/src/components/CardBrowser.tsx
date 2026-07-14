@@ -239,7 +239,11 @@ export function CardBrowser({
         </>
       )}
 
-      <CardDetailModal card={selected} onClose={() => setSelected(null)} />
+      <CardDetailModal
+        card={selected}
+        onClose={() => setSelected(null)}
+        ban={selected ? banInfoFor(banStatus, selected.card_id) : undefined}
+      />
     </div>
   );
 }
