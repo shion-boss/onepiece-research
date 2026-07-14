@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TerritoryTreemap, type TerritoryItem } from "./TerritoryTreemap";
+import { VersusGauge } from "./VersusGauge";
 import { seedStat, totals, type LeaderRef, type Period } from "@/lib/battleSeed";
 
 const NEUTRAL_THRESHOLD = 5; // 対戦 <5 は未開拓 (グレー)
@@ -10,7 +11,7 @@ const NEUTRAL_THRESHOLD = 5; // 対戦 <5 は未開拓 (グレー)
 export function BattleDashboard({ leaders }: { leaders: LeaderRef[] }) {
   const [period, setPeriod] = useState<Period>("all");
 
-  const { items, games, winRate, humanLeaders, aiLeaders } = useMemo(() => {
+  const { items, games, winRate, humanWins, aiWins, humanLeaders, aiLeaders } = useMemo(() => {
     const its: TerritoryItem[] = leaders.map((l) => {
       const s = seedStat(l.id, period);
       return {
@@ -23,10 +24,13 @@ export function BattleDashboard({ leaders }: { leaders: LeaderRef[] }) {
     });
     const t = totals(leaders, period);
     const contested = its.filter((i) => !i.neutral && i.matches > 0);
+    const hWins = Math.round(t.winRate * t.games);
     return {
       items: its,
       games: t.games,
       winRate: t.winRate,
+      humanWins: hWins,
+      aiWins: t.games - hWins,
       humanLeaders: contested.filter((i) => i.win >= 0.5).length,
       aiLeaders: contested.filter((i) => i.win < 0.5).length,
     };
@@ -70,6 +74,9 @@ export function BattleDashboard({ leaders }: { leaders: LeaderRef[] }) {
           <Legend color="#6a6a72" label="未開拓" />
         </div>
       </div>
+
+      {/* 人間 vs AI 合計ゲージ (陣取りの上) */}
+      <VersusGauge humanWins={humanWins} aiWins={aiWins} label={period === "all" ? "全期間の勝敗" : "今月の勝敗"} />
 
       {/* 陣取り treemap */}
       <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>

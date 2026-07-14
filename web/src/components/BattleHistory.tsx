@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TerritoryTreemap, type TerritoryItem } from "./TerritoryTreemap";
+import { VersusGauge } from "./VersusGauge";
 import { seedStat, totals, type LeaderRef } from "@/lib/battleSeed";
 
 const NEUTRAL_THRESHOLD = 5;
@@ -79,6 +80,11 @@ export function BattleHistory({ leaders }: { leaders: LeaderRef[] }) {
         <h2 className="text-lg font-medium text-[color:var(--text-strong)]">{selInfo.label} の陣取り</h2>
         <span className="text-sm text-[color:var(--text-muted)]">人間勝率 {Math.round(selInfo.winRate * 100)}% ・ {selInfo.games.toLocaleString()} 戦</span>
       </div>
+      <VersusGauge
+        humanWins={Math.round(selInfo.winRate * selInfo.games)}
+        aiWins={selInfo.games - Math.round(selInfo.winRate * selInfo.games)}
+        label={`${selInfo.label}の勝敗`}
+      />
       <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
         <TerritoryTreemap items={items} />
       </div>
