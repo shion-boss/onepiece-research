@@ -100,9 +100,21 @@ const Grid = memo(function Grid({
           onMouseEnter={() => onEnter(i)}
           onClick={() => onClick(i)}
           title={c.owner ? `${c.owner.name}（${c.ownerName}）` : "空きマス"}
-          className="aspect-square rounded-[1px] transition-transform hover:z-10 hover:scale-[1.35]"
-          style={{ background: c.color, outline: selected === i ? "2px solid #fff" : undefined, outlineOffset: selected === i ? -1 : undefined }}
-        />
+          className="relative aspect-square overflow-hidden rounded-[1px] transition-transform hover:z-10 hover:scale-[1.6]"
+          style={{ background: c.color, boxShadow: c.owner ? `inset 0 0 0 1px ${c.color}` : undefined, outline: selected === i ? "2px solid #fff" : undefined, outlineOffset: selected === i ? -1 : undefined }}
+        >
+          {c.owner && (
+            // カード上部を正方形に切り出して表示 (= キャラ部分)。
+            <img
+              src={`/cards/${c.owner.id}.png`}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className="absolute inset-0 h-full w-full object-cover object-top"
+            />
+          )}
+        </button>
       ))}
     </div>
   );
