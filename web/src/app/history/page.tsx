@@ -1,11 +1,11 @@
 import { fetchCards } from "@/lib/api";
-import type { LeaderRef } from "@/lib/battleSeed";
+import type { BoardLeader } from "@/components/TerritoryBoard";
 import { BattleHistory } from "@/components/BattleHistory";
 import { PageShell } from "@/components/ui/PageShell";
 
-// 戦いの歴史: 月ごとの陣取りスナップショット (現状は seed)。
+// 戦いの歴史: 左=月メニュー(無限スクロール) / 右=選択月の最終陣地 (現状は seed)。
 export default async function HistoryPage() {
-  let leaders: LeaderRef[] = [];
+  const leaders: BoardLeader[] = [];
   let error: string | null = null;
   try {
     const cards = await fetchCards({ category: "LEADER", limit: 10000 });
@@ -14,7 +14,7 @@ export default async function HistoryPage() {
       const base = c.card_id.split("_")[0];
       if (seen.has(base)) continue;
       seen.add(base);
-      leaders.push({ id: base, name: c.name });
+      leaders.push({ id: base, name: c.name, color: c.color?.[0] ?? "黒" });
     }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
@@ -32,7 +32,7 @@ export default async function HistoryPage() {
   }
 
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <main className="flex min-h-0 w-full flex-1 flex-col">
       <BattleHistory leaders={leaders} />
     </main>
   );

@@ -24,7 +24,7 @@ const ZOOM = CARD_W / CROP; // 画像全幅 = L*ZOOM セル (大きく見せる�
 const HOFF = (CARD_W - CROP) / 2 / CROP; // 横方向センタリング量 (L 単位)
 
 // block: w×h ブロックの一部で、 このセルはブロック内 (r,c)。 面積>=4 の占領のみ画像を分割表示。
-type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { w: number; h: number; r: number; c: number } | null };
+export type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { w: number; h: number; r: number; c: number } | null };
 
 function hash(n: number): number {
   let h = (n ^ 0x9e3779b9) >>> 0;
@@ -35,7 +35,7 @@ function hash(n: number): number {
 
 // 盤を矩形ブロック (1..4 × 1..4) で敷き詰める。 占領で面積>=4 のブロックはカード上部の正方形を
 // 「長い方に合わせて」配置し w×h に分割して 1 枚の画像に (縦は上詰め / 横は中央)。 それ以外は色のみ。
-function seedCells(leaders: BoardLeader[]): Cell[] {
+export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
   const cells: (Cell | null)[] = new Array(N).fill(null);
   if (leaders.length === 0) return cells.map(() => ({ owner: null, ownerName: null, color: EMPTY, block: null }));
 
@@ -53,17 +53,17 @@ function seedCells(leaders: BoardLeader[]): Cell[] {
     for (let x = 0; x < COLS; x++) {
       const idx = y * COLS + x;
       if (cells[idx] !== null) continue;
-      let w = pickDim(hash(idx));
-      let h = pickDim(hash(idx * 7 + 3));
+      let w = pickDim(hash(idx + salt));
+      let h = pickDim(hash(idx * 7 + 3 + salt));
       // 収まるまで長い方から縮める。
       while ((w > 1 || h > 1) && !free(x, y, w, h)) {
         if (w >= h && w > 1) w--;
         else if (h > 1) h--;
         else w--;
       }
-      const owned = hash(idx * 2 + 7) % 100 < 55;
-      const ld = owned ? leaders[hash(idx * 3 + 13) % leaders.length] : null;
-      const ownerName = owned ? `プレイヤー${(hash(idx * 5 + 1) % 9000) + 1000}` : null;
+      const owned = hash(idx * 2 + 7 + salt) % 100 < 55;
+      const ld = owned ? leaders[hash(idx * 3 + 13 + salt) % leaders.length] : null;
+      const ownerName = owned ? `プレイヤー${(hash(idx * 5 + 1 + salt) % 9000) + 1000}` : null;
       const color = ld ? COLOR_HEX[ld.color] ?? "#888" : EMPTY;
       const useImg = !!ld && w * h >= 4;
       for (let dy = 0; dy < h; dy++) {
@@ -110,7 +110,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="min-w-0 flex-1 rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-          <Grid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
+          <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
         </div>
         <PreviewPanel cell={active} idx={activeIdx} selected={selected} />
       </div>
@@ -118,7 +118,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
   );
 }
 
-const Grid = memo(function Grid({
+export const BoardGrid = memo(function BoardGrid({
   cells,
   selected,
   onEnter,
