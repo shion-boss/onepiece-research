@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
-import { CardImage } from "./CardImage";
+import { CellHistoryPanel } from "./CellHistoryPanel";
 
 // 陣取り盤: 1024 マス (32×32)。 各マスは占領者(人間)の推しリーダーの色。 空きマスは中立。
 // ホバーでリーダーが分かる / クリックで対象マス選択 → そのマスに挑戦 (占領マス=占領者デッキの AI、
@@ -112,7 +112,19 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
         <div className="min-w-0 flex-1 rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
           <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
         </div>
-        <PreviewPanel cell={active} idx={activeIdx} selected={selected} />
+        <div className="flex w-full shrink-0 flex-col gap-3 lg:w-72">
+          {selected != null && (
+            <button
+              type="button"
+              disabled
+              title="対戦連携は次段で実装"
+              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {cells[selected]?.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
+            </button>
+          )}
+          <CellHistoryPanel cell={active} idx={activeIdx} leaders={leaders} />
+        </div>
       </div>
     </div>
   );
@@ -178,34 +190,3 @@ export const BoardGrid = memo(function BoardGrid({
   );
 });
 
-function PreviewPanel({ cell, idx, selected }: { cell: Cell | null; idx: number | null; selected: number | null }) {
-  return (
-    <div className="w-full shrink-0 self-start rounded-[var(--radius)] border p-4 lg:w-64" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-      {idx == null ? (
-        <div className="py-8 text-center text-sm text-[color:var(--text-muted)]">マスにホバー / クリックで詳細</div>
-      ) : cell?.owner ? (
-        <div className="flex flex-col items-center gap-2">
-          <div className="text-[11px] uppercase tracking-wider text-[color:var(--text-muted)]">占領マス #{idx + 1}</div>
-          <CardImage cardId={cell.owner.id} alt={cell.owner.name} className="h-40 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
-          <div className="text-center">
-            <div className="text-sm font-semibold text-[color:var(--text-strong)]">{cell.owner.name}</div>
-            <div className="text-xs text-[color:var(--text-muted)]">占領者: {cell.ownerName}</div>
-          </div>
-          <button type="button" disabled={selected !== idx} className="mt-1 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40" title="対戦連携は次段で実装">
-            {selected === idx ? "このマスに挑戦（防衛戦）" : "クリックで選択"}
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-3">
-          <div className="text-[11px] uppercase tracking-wider text-[color:var(--text-muted)]">空きマス #{idx + 1}</div>
-          <div className="flex h-40 w-[110px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
-            未占領
-          </div>
-          <button type="button" disabled={selected !== idx} className="mt-1 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40" title="対戦連携は次段で実装">
-            {selected === idx ? "このマスに挑戦（ランダムAI）" : "クリックで選択"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}

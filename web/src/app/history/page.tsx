@@ -32,8 +32,8 @@ export default async function HistoryPage() {
   }
 
   return (
-    <main className="flex min-h-0 w-full flex-1 flex-col">
+    <div className="h-full w-full">
       <BattleHistory leaders={leaders} />
-    </main>
+    </div>
   );
 }
