@@ -1067,14 +1067,19 @@ def list_decks(user_id: str = Depends(current_user_id)):
     """メタ(環境)デッキ (= 全員共通) + ログインユーザー自身のデッキ (= per-user DB)。"""
     repo = get_repo()
     out: list[DeckSummary] = []
-    # メタ(環境)デッキ = リポジトリ JSON (decks/*.json)。 ユーザーデッキは DB なので混ざらない。
+    # メタ(環境)デッキ = リポジトリ JSON (decks/*.json) の **meta 登録分のみ**。
+    # meta 未登録の decks/*.json (= cardrush 取込等の残置ファイル) は「誰のものでもない」ので
+    # 一覧に出さない (= 以前は kind:"user" で全ユーザーに露出し、 per-user DB に無いため
+    # フォルダ移動/リネームが 404 になっていた。 マイデッキ = per-user DB のみ が正)。
     for path in _list_deck_files():
         try:
             d = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue
         slug = d.get("slug") or path.stem
-        out.append(_deck_summary(repo, d, slug, "meta" if _is_meta_deck(slug) else "user"))
+        if not _is_meta_deck(slug):
+            continue
+        out.append(_deck_summary(repo, d, slug, "meta"))
     # 自分のデッキ (= per-user DB)
     for d in user_store.list_decks(user_id):
         out.append(_deck_summary(repo, d, d["slug"], "user"))
