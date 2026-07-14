@@ -97,23 +97,26 @@ function CellDetail({ cell, idx, leaders }: { cell: Cell; idx: number; leaders: 
   const battles = seedBattles(idx, cell, leaders);
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        {cell.owner ? (
-          <>
-            <CardImage cardId={cell.owner.id} alt={cell.owner.name} className="h-24 w-auto rounded border border-[color:var(--border-1)] object-cover" />
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">マス #{idx + 1} の占領者</div>
-              <div className="truncate text-base font-semibold text-[color:var(--text-strong)]">{cell.owner.name}</div>
-              <div className="truncate text-xs text-[color:var(--text-muted)]">{cell.ownerName}</div>
-            </div>
-          </>
-        ) : (
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">マス #{idx + 1}</div>
-            <div className="text-sm font-semibold text-[color:var(--text-strong)]">空きマス（未占領）</div>
+      {cell.owner ? (
+        <div className="flex flex-col items-center gap-2">
+          <div className="self-start text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">マス #{idx + 1} の占領リーダー</div>
+          <CardImage
+            cardId={cell.owner.id}
+            alt={cell.owner.name}
+            className="w-full max-w-[240px] rounded-[var(--radius)] object-cover"
+            style={{ aspectRatio: "5 / 7", boxShadow: "0 0 0 3px var(--brand)" }}
+          />
+          <div className="text-center">
+            <div className="text-lg font-bold text-[color:var(--text-strong)]">{cell.owner.name}</div>
+            <div className="text-xs text-[color:var(--text-muted)]">占領者: {cell.ownerName}</div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">マス #{idx + 1}</div>
+          <div className="text-base font-semibold text-[color:var(--text-strong)]">空きマス（未占領）</div>
+        </div>
+      )}
 
       <div>
         <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-[color:var(--text-muted)]">このマスの戦い（挑戦者 vs 防衛、新しい順）</div>
