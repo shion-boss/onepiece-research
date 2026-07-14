@@ -2489,12 +2489,45 @@ function StartPanel({
   const router = useRouter();
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
-  // 人間側 = 自分のデッキ (kind:user)、 AI 側 = メタ(相手) デッキ (kind:meta)。
-  // 空なら fallback で dead-end 回避 (= 新規ユーザー / 移行期 / dev)。
+  // 両サイド 環境デッキ / マイデッキ を選べる (= AI vs AI と同じカテゴリ切替)。
   const myDecks = decks.filter((d) => d.kind === "user");
-  const metaDecks = decks.filter((d) => d.kind === "meta");
-  const humanOptions = myDecks.length ? myDecks : decks;
-  const aiOptions = metaDecks.length ? metaDecks : decks;
+  const inCat = (cat: "meta" | "user") => decks.filter((d) => (d.kind ?? "meta") === cat);
+  const catOf = (slug: string): "meta" | "user" =>
+    (decks.find((d) => d.slug === slug)?.kind as "meta" | "user") ?? "meta";
+  const [catA, setCatA] = useState<"meta" | "user">(catOf(deckA));
+  const [catB, setCatB] = useState<"meta" | "user">(catOf(deckB));
+  const optionsA = inCat(catA).length ? inCat(catA) : decks;
+  const optionsB = inCat(catB).length ? inCat(catB) : decks;
+  const changeCatA = (c: "meta" | "user") => {
+    setCatA(c);
+    const first = inCat(c)[0]?.slug;
+    if (first) setDeckA(first);
+  };
+  const changeCatB = (c: "meta" | "user") => {
+    setCatB(c);
+    const first = inCat(c)[0]?.slug;
+    if (first) setDeckB(first);
+  };
+  // カテゴリ切替ボタン (= AI vs AI の SideCard と同スタイル)。
+  const CatToggle = ({ cat, onChange }: { cat: "meta" | "user"; onChange: (c: "meta" | "user") => void }) => (
+    <div className="flex gap-1">
+      {([["meta", "環境デッキ"], ["user", "マイデッキ"]] as const).map(([key, label]) => {
+        const active = cat === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            disabled={busy}
+            className="flex-1 rounded-[var(--radius)] border px-2 py-1 text-xs font-medium transition-colors"
+            style={active ? { background: "var(--brand)", borderColor: "transparent", color: "#fff" } : { borderColor: "var(--border-2)", color: "var(--text-default)" }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       {/* Hero header */}
@@ -2542,6 +2575,7 @@ function StartPanel({
               </div>
             )}
           </div>
+          <CatToggle cat={catA} onChange={changeCatA} />
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-zinc-500">デッキ選択</span>
             <select
@@ -2550,14 +2584,14 @@ function StartPanel({
               className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
               disabled={busy}
             >
-              {humanOptions.map((d) => (
+              {optionsA.map((d) => (
                 <option key={d.slug} value={d.slug}>
                   {d.name}
                 </option>
               ))}
             </select>
           </label>
-          {myDecks.length === 0 && (
+          {catA === "user" && myDecks.length === 0 && (
             <a
               href="/decks/new"
               className="text-xs font-medium text-[color:var(--brand)] underline underline-offset-2"
@@ -2608,6 +2642,7 @@ function StartPanel({
               </div>
             )}
           </div>
+          <CatToggle cat={catB} onChange={changeCatB} />
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-zinc-500">デッキ選択</span>
             <select
@@ -2616,7 +2651,7 @@ function StartPanel({
               className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
               disabled={busy}
             >
-              {aiOptions.map((d) => (
+              {optionsB.map((d) => (
                 <option key={d.slug} value={d.slug}>
                   {d.name}
                 </option>

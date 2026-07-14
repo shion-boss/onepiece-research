@@ -3862,14 +3862,18 @@ def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_
     human_first = req.human_first
     if human_first is None:
         human_first = _r.Random(req.seed or 42).random() < 0.5
-    # 人間デッキを resolve (メタ=リポジトリ / user=per-user DB)。 存在しなければ 404。
+    # 両デッキを resolve (メタ=リポジトリ / user=per-user DB)。 存在しなければ 404。
+    # 人間側 (deck_a) だけでなく AI 側 (deck_b) も inline 埋め込みする (= 両サイド
+    # 環境デッキ / マイデッキ を選べる、 かつ reconstruct は spec 自己完結)。
     deck_a_inline = _resolve_deck_dict(req.deck_a_slug, user_id)
+    deck_b_inline = _resolve_deck_dict(req.deck_b_slug, user_id)
     spec = HumanSessionSpec(
         seed=req.seed or 42,
         deck_a_slug=req.deck_a_slug,
         deck_b_slug=req.deck_b_slug,
         human_first=bool(human_first),
         deck_a_inline=deck_a_inline,
+        deck_b_inline=deck_b_inline,
     )
 
     session = _build_human_session(spec)
