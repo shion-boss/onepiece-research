@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Suspense,
   useCallback,
   useEffect,
   useState,
@@ -10,10 +11,11 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { useWorkspace, tabTitleFor, type ActivityView } from "@/lib/workspace";
+import { useWorkspace, type ActivityView } from "@/lib/workspace";
 import { AuthControls } from "./AuthControls";
 import { StatusBar } from "./StatusBar";
 import { CardsSidebar } from "./CardsSidebar";
+import { CurrentTabSync } from "./CurrentTabSync";
 import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder, renameDeck } from "@/lib/api";
 
 // ---- icons (VSCode codicon 風の細線 SVG) ----
@@ -62,7 +64,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const {
     tabs,
-    openTab,
+    activeTabId,
     closeTab,
     activeView,
     setView,
@@ -85,20 +87,13 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     if (!path.startsWith("/play")) setMatchActive(false);
   }, [path]);
 
-  // 現在のルートをタブとして開く (= 遷移した先が自動でタブになる)。
-  // ルート "/" は「タブ無し = ようこそ/空状態」画面なのでタブ化しない。
-  useEffect(() => {
-    if (path === "/") return;
-    openTab({ id: path, title: tabTitleFor(path) });
-  }, [path, openTab]);
-
   // 対戦中 (full-screen board) はシェルの chrome を隠す。
   if (path.startsWith("/play") && matchActive) return <>{children}</>;
 
   const onCloseTab = (id: string) => {
     const idx = tabs.findIndex((t) => t.id === id);
     closeTab(id);
-    if (id === path) {
+    if (id === activeTabId) {
       const rest = tabs.filter((t) => t.id !== id);
       const next = rest[idx] ?? rest[idx - 1] ?? rest[rest.length - 1];
       router.push(next ? next.id : "/");
@@ -148,6 +143,10 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
+      {/* URL → タブ同期 (useSearchParams を隔離するため Suspense に包む) */}
+      <Suspense fallback={null}>
+        <CurrentTabSync />
+      </Suspense>
       <div className="flex min-h-0 flex-1">
         {/* activity bar */}
         <div
@@ -199,7 +198,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             style={{ background: "var(--sidebar-bg)", borderColor: "var(--border-1)" }}
           >
             {tabs.map((t) => {
-              const on = t.id === path;
+              const on = t.id === activeTabId;
               return (
                 <div
                   key={t.id}

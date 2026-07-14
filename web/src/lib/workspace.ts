@@ -7,12 +7,14 @@ export type ActivityView = "explorer" | "cards" | "play" | "faq";
 
 interface WorkspaceState {
   tabs: Tab[];
+  activeTabId: string; // 現在アクティブなタブ ID (= pathname、 /cards は絞り込みクエリ込み)
   activeView: ActivityView;
   sidebarOpen: boolean;
   sidebarWidth: number;
   collapsedFolders: string[];
   openTab: (t: Tab) => void;
   closeTab: (id: string) => void;
+  setActiveTabId: (id: string) => void;
   setView: (v: ActivityView) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (b: boolean) => void;
@@ -22,6 +24,7 @@ interface WorkspaceState {
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
   tabs: [],
+  activeTabId: "/",
   activeView: "explorer",
   sidebarOpen: true,
   sidebarWidth: 224,
@@ -33,6 +36,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
         : { tabs: [...s.tabs, t] },
     ),
   closeTab: (id) => set((s) => ({ tabs: s.tabs.filter((x) => x.id !== id) })),
+  setActiveTabId: (id) => set({ activeTabId: id }),
   setView: (v) => set({ activeView: v, sidebarOpen: true }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (b) => set({ sidebarOpen: b }),
