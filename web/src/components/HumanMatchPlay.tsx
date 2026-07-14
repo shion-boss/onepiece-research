@@ -2498,7 +2498,7 @@ function StartPanel({
         style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
       >
         <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
-          対戦
+          人間 vs AI
         </h1>
         <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
           自分のデッキと相手 (AI) を選んで対戦開始。 ドラッグ&ドロップで deploy / attack / DON 付与。
