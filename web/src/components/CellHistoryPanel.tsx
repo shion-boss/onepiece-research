@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { CardImage } from "./CardImage";
 import type { Cell, BoardLeader } from "./TerritoryBoard";
 
@@ -66,11 +67,52 @@ function seedBattles(idx: number, cell: Cell, leaders: BoardLeader[]): Battle[] 
   return out;
 }
 
-export function CellHistoryPanel({ cell, idx, leaders }: { cell: Cell | null; idx: number | null; leaders: BoardLeader[] }) {
-  if (idx == null) return null;
+// 右パネル: 固定ヘッダー(ホバー切替トグル) + 本体 (選択マスの詳細 or 説明文)。
+export function CellPanel({
+  cell,
+  idx,
+  leaders,
+  hoverEnabled,
+  onToggleHover,
+  actionSlot,
+}: {
+  cell: Cell | null;
+  idx: number | null;
+  leaders: BoardLeader[];
+  hoverEnabled: boolean;
+  onToggleHover: () => void;
+  actionSlot?: ReactNode;
+}) {
   return (
-    <div className="w-full rounded-[var(--radius)] border p-3" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-      <CellDetail cell={cell!} idx={idx} leaders={leaders} />
+    <div className="w-full">
+      {/* 固定ヘッダー */}
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
+        <span className="text-xs font-semibold text-[color:var(--text-strong)]">マス情報</span>
+        <button
+          type="button"
+          onClick={onToggleHover}
+          aria-pressed={hoverEnabled}
+          title="オンにすると、 マスにホバーするだけで表示が切り替わります (固定中を除く)"
+          className="ml-auto flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors"
+          style={hoverEnabled ? { background: "var(--brand)", borderColor: "transparent", color: "#fff" } : { borderColor: "var(--border-2)", color: "var(--text-muted)" }}
+        >
+          <span className={`inline-block h-2 w-2 rounded-full ${hoverEnabled ? "bg-white" : "bg-[color:var(--text-muted)]"}`} />
+          ホバーで切替 {hoverEnabled ? "ON" : "OFF"}
+        </button>
+      </div>
+
+      <div className="p-3">
+        {actionSlot}
+        {idx != null ? (
+          <CellDetail cell={cell!} idx={idx} leaders={leaders} />
+        ) : (
+          <p className="px-1 py-8 text-center text-sm leading-relaxed text-[color:var(--text-muted)]">
+            マスをクリックすると、
+            <br />
+            その陣地の占領リーダーと戦いの履歴を確認できます。
+          </p>
+        )}
+      </div>
     </div>
   );
 }

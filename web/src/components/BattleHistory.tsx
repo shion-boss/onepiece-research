@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardGrid, seedCells, type BoardLeader } from "./TerritoryBoard";
-import { CellHistoryPanel } from "./CellHistoryPanel";
+import { CellPanel } from "./CellHistoryPanel";
 import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
 
@@ -33,6 +33,8 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const [count, setCount] = useState(PAGE);
   const [sel, setSel] = useState(monthAt(1).key);
   const [selected, setSelected] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [hoverEnabled, setHoverEnabled] = useState(false); // 既定=ホバー切替なし
 
   // 今月(進行中)は歴史に含めない → i=1 (先月) から過去へ。
   const months = useMemo(() => Array.from({ length: Math.min(count, MAX_MONTHS) }, (_, i) => monthAt(i + 1)), [count]);
@@ -40,17 +42,22 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const cells = useMemo(() => seedCells(leaders, monthSalt(sel)), [leaders, sel]);
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
-  // 歴史はホバーで切り替えない (ちらつき防止)。 クリックのみで右パネルを切替 (再クリックで解除)。
-  const NOOP = useCallback(() => {}, []);
+  // クリックで固定 (再クリックで解除)。 固定中はホバー無視。 ホバー切替は toggle ON かつ未固定時のみ。
   const onClick = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
-  const active = selected != null ? cells[selected] : null;
+  const onEnter = useCallback((i: number) => setHovered(i), []);
+  const NOOP = useCallback(() => {}, []);
+  const activeIdx = selected != null ? selected : hoverEnabled ? hovered : null;
+  const active = activeIdx != null ? cells[activeIdx] : null;
 
   // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。 左は初期幅より狭くできない。
   const left = useResizable(128, 128, 300);
   const right = useResizable(288, 240, 560, true);
 
-  // 月切替で選択をクリア (盤が変わるため)。
-  useEffect(() => setSelected(null), [sel]);
+  // 月切替で選択/ホバーをクリア (盤が変わるため)。
+  useEffect(() => {
+    setSelected(null);
+    setHovered(null);
+  }, [sel]);
 
   // 無限スクロール: sentinel が見えたら 12 ヶ月追加 (aside 内でスクロール)。
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -108,15 +115,15 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
             </p>
           </header>
           <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-            <BoardGrid cells={cells} selected={selected} onEnter={NOOP} onClick={onClick} onLeave={NOOP} />
+            <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={NOOP} />
           </div>
         </div>
       </main>
 
-      {/* 右: ホバー中マスの戦い履歴 (左端ハンドルでリサイズ) */}
+      {/* 右: 選択マスの詳細 (固定ヘッダー + トグル、 左端ハンドルでリサイズ) */}
       <ResizeHandle onMouseDown={right.onMouseDown} />
-      <div className="log-scroll shrink-0 overflow-y-auto border-l p-3" style={{ width: right.width, borderColor: "var(--border-1)" }}>
-        <CellHistoryPanel cell={active} idx={selected} leaders={leaders} />
+      <div className="log-scroll shrink-0 overflow-y-auto border-l" style={{ width: right.width, borderColor: "var(--border-1)" }}>
+        <CellPanel cell={active} idx={activeIdx} leaders={leaders} hoverEnabled={hoverEnabled} onToggleHover={() => setHoverEnabled((v) => !v)} />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
-import { CellHistoryPanel } from "./CellHistoryPanel";
+import { CellPanel } from "./CellHistoryPanel";
 import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
 
@@ -93,7 +93,9 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
   const onClick = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
   const onLeave = useCallback(() => setHovered(null), []);
 
-  const activeIdx = selected ?? hovered; // 固定中は selected を優先 (ホバー無視)
+  const [hoverEnabled, setHoverEnabled] = useState(false); // 既定=ホバー切替なし
+  // 固定中は selected を優先。 未固定時は toggle ON のときだけホバー追従。
+  const activeIdx = selected != null ? selected : hoverEnabled ? hovered : null;
   const active = activeIdx != null ? cells[activeIdx] : null;
   const right = useResizable(288, 240, 560, true); // 右パネル幅ドラッグ
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
@@ -109,7 +111,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="text-[color:var(--text-muted)]">占領 <span className="font-bold text-[color:var(--text-strong)]">{occupied}</span> / 空き <span className="font-bold text-[color:var(--text-strong)]">{N - occupied}</span></span>
-        <span className="ml-auto text-xs text-[color:var(--text-muted)]">ホバーで履歴表示 ・ クリックで固定（再クリックで解除）・ 固定中は観戦ボタンまで操作可</span>
+        <span className="ml-auto text-xs text-[color:var(--text-muted)]">クリックでマスの詳細を表示（再クリックで解除）・ 右パネルのトグルでホバー切替も可</span>
       </div>
 
       <div className="flex flex-col gap-2 lg:flex-row lg:gap-0">
@@ -118,18 +120,26 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
         </div>
         {/* 右パネル (左端ハンドルでドラッグリサイズ) */}
         <ResizeHandle onMouseDown={right.onMouseDown} />
-        <div className="flex shrink-0 flex-col gap-3 lg:pl-1" style={{ width: right.width }}>
-          {selected != null && (
-            <button
-              type="button"
-              disabled
-              title="対戦連携は次段で実装"
-              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {cells[selected]?.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
-            </button>
-          )}
-          <CellHistoryPanel cell={active} idx={activeIdx} leaders={leaders} />
+        <div className="shrink-0 lg:pl-1" style={{ width: right.width }}>
+          <CellPanel
+            cell={active}
+            idx={activeIdx}
+            leaders={leaders}
+            hoverEnabled={hoverEnabled}
+            onToggleHover={() => setHoverEnabled((v) => !v)}
+            actionSlot={
+              selected != null ? (
+                <button
+                  type="button"
+                  disabled
+                  title="対戦連携は次段で実装"
+                  className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {cells[selected]?.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
+                </button>
+              ) : null
+            }
+          />
         </div>
       </div>
     </div>
