@@ -29,6 +29,7 @@ import type {
   GameAnalysisResponse,
   ReplayResponse,
   MatrixBatchResult,
+  MatrixGameResult,
   ResearchBestDeckResponse,
   ResearchCandidate,
   ResearchSessionConfig,
@@ -658,6 +659,26 @@ export async function runMatrixSampleBatch(
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`runMatrixSampleBatch failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+/** 2 デッキで 1 試合だけ実行 (seed/swap は client 指定)。 10連戦を 1 試合ずつ逐次表示する用。 */
+export async function runMatrixSampleGame(
+  deckA: string,
+  deckB: string,
+  seed: number,
+  swap: boolean,
+): Promise<MatrixGameResult> {
+  const res = await fetch(`${API}/api/matrix/sample/game`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed, swap }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`runMatrixSampleGame failed: ${res.status} ${text}`);
   }
   return res.json();
 }

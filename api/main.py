@@ -494,6 +494,64 @@ def matrix_sample_batch(req: MatrixBatchRequest, user_id: str = Depends(current_
     }
 
 
+_BATCH_OVERLAY_CACHE = None
+
+
+def _get_batch_overlay():
+    """batch / single-game 用に overlay を 1 回だけ load してキャッシュ (= per-game 逐次実行で 52ms×N を避ける)。"""
+    global _BATCH_OVERLAY_CACHE
+    if _BATCH_OVERLAY_CACHE is None:
+        _BATCH_OVERLAY_CACHE = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    return _BATCH_OVERLAY_CACHE
+
+
+class MatrixGameRequest(BaseModel):
+    deck_a: str
+    deck_b: str
+    seed: int = 42
+    swap: bool = False  # true なら deck 順を入替えて実行 (= P1(deck_b) 先攻)
+
+
+@app.post("/api/matrix/sample/game")
+def matrix_sample_game(req: MatrixGameRequest, user_id: str = Depends(current_user_id)):
+    """指定 2 デッキで 1 試合だけ実行 (snapshot 無しで高速)。 client が seed/swap を決めて
+    N 回呼ぶことで、 結果を 1 試合ずつ逐次表示できる。 winner は常に P0(deck_a) 基準。
+    観戦は swap 試合のみ deck 順を入替えて /replay を同 seed で呼べば正確に再現できる。"""
+    from engine.harness import run_matchup as _run
+
+    if not req.deck_a or not req.deck_b:
+        raise HTTPException(400, "deck_a と deck_b は必須")
+    overlay = _get_batch_overlay()
+    da = _resolve_decklist(req.deck_a, user_id)
+    db = _resolve_decklist(req.deck_b, user_id)
+    swap = bool(req.swap)
+    # swap 時は deck 順を入替えて run。 run_matchup(n_games=1) の deck1 が常に先攻。
+    if swap:
+        d1, d2, kw = db, da, _practice_run_kwargs(req.deck_b, req.deck_a)
+    else:
+        d1, d2, kw = da, db, _practice_run_kwargs(req.deck_a, req.deck_b)
+    rep = _run(
+        d1, d2, n_games=1, seed=req.seed, effects_overlay=overlay,
+        keep_logs=False, enforce_rules=False, record_snapshots=False, **kw,
+    )
+    w1 = rep.games[0].winner  # deck1 基準 (0=d1, 1=d2)
+    if w1 is None or w1 == -1:
+        w = -1
+    elif not swap:
+        w = w1  # d1=da → 0=P0(da), 1=P1(db)
+    else:
+        w = 1 - w1  # d1=db=P1 → 0(db)→P1, 1(da)→P0
+    return {
+        "deck_a_name": da.name,
+        "deck_b_name": db.name,
+        "seed": req.seed,
+        "swap": swap,
+        "first_player": 1 if swap else 0,
+        "winner": w,
+        "turns": rep.games[0].turns,
+    }
+
+
 @app.get("/api/matrix/log/tail")
 def matrix_log_tail(lines: int = 50):
     """matrix の per-game NDJSON log の末尾 N 行を返す。

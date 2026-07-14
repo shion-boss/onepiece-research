@@ -360,6 +360,20 @@ export type MatrixBatchResult = {
   }[];
 };
 
+// 1 試合だけ実行した結果 (10連戦を 1 試合ずつ逐次表示する用)。
+export type MatrixGameResult = {
+  deck_a_name: string;
+  deck_b_name: string;
+  seed: number;
+  swap: boolean;
+  first_player: number;
+  winner: number; // P0(deck_a) 基準: 0=P0勝, 1=P1勝, -1=引分
+  turns: number;
+};
+
+// 逐次表示用の 1 試合行 (MatrixBatchResult.games[number] と同形)。
+export type MatrixBatchGame = MatrixBatchResult["games"][number];
+
 // === 試合後分析 ===
 export type EvalPoint = {
   snap_idx: number;

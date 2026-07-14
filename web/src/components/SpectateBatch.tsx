@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { runMatrixSampleReplay, runMatrixSampleBatch } from "@/lib/api";
-import type { ReplayResponse, MatrixBatchResult } from "@/lib/types";
+import { useRef, useState } from "react";
+import { runMatrixSampleReplay, runMatrixSampleGame } from "@/lib/api";
+import type { ReplayResponse, MatrixBatchGame } from "@/lib/types";
 import { SpectateBoard } from "@/components/SpectateBoard";
 import { SpectateVsPanel, useDeckSelect, type SpectateDeck } from "@/components/SpectateVsPanel";
 
-// AI vs AI 10連戦(勝率): 10 戦 (前半 P0 先攻 / 後半 P1 先攻) して勝率を出し、 各試合を観戦。
+const N_GAMES = 10;
+
+// AI vs AI 10連戦(勝率): 10 戦 (前半 P0 先攻 / 後半 P1 先攻) を 1 試合ずつ実行し、
+// 結果が出るたびに逐次表示。 各試合は同 seed の replay で観戦できる。
 export function SpectateBatch({
   decks,
   initialDeckA,
@@ -17,34 +20,54 @@ export function SpectateBatch({
   initialDeckB?: string;
 }) {
   const sel = useDeckSelect(decks, initialDeckA, initialDeckB);
-  const [running, setRunning] = useState(false);
-  const [batchRunning, setBatchRunning] = useState(false);
+  const [running, setRunning] = useState(false); // 単発観戦の replay ロード中
+  const [batchRunning, setBatchRunning] = useState(false); // 10連戦 実行中
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
-  const [batch, setBatch] = useState<MatrixBatchResult | null>(null);
+  const [games, setGames] = useState<MatrixBatchGame[]>([]);
+  const [names, setNames] = useState<{ a: string; b: string } | null>(null);
+  const runIdRef = useRef(0);
   const busy = running || batchRunning;
 
   async function handleBatch() {
     setError(null);
     setReplay(null);
-    setBatch(null);
+    setGames([]);
+    setNames(null);
     if (!sel.deckA || !sel.deckB) {
       setError("両方のデッキを選択してください");
       return;
     }
-    // 毎回ランダムな基準 seed で 10 戦 (seed 欄は無いので内部で決める)。
+    const runId = ++runIdRef.current; // 途中で再実行されたら古い loop を捨てる
     const base = Math.floor(Math.random() * 1_000_000);
+    const half = Math.floor(N_GAMES / 2);
     setBatchRunning(true);
     try {
-      setBatch(await runMatrixSampleBatch(sel.deckA, sel.deckB, base, 10));
+      for (let i = 0; i < N_GAMES; i++) {
+        const swap = i >= half; // 前半 da 先攻 / 後半 db 先攻
+        const r = await runMatrixSampleGame(sel.deckA, sel.deckB, base + i, swap);
+        if (runId !== runIdRef.current) return; // stale
+        if (i === 0) setNames({ a: r.deck_a_name, b: r.deck_b_name });
+        setGames((prev) => [
+          ...prev,
+          {
+            game_index: i,
+            seed: r.seed,
+            winner: r.winner,
+            turns: r.turns,
+            first_player: r.first_player,
+            swap: r.swap,
+          },
+        ]);
+      }
     } catch (e) {
-      setError(String(e));
+      if (runId === runIdRef.current) setError(String(e));
     } finally {
-      setBatchRunning(false);
+      if (runId === runIdRef.current) setBatchRunning(false);
     }
   }
 
-  async function spectate(game: MatrixBatchResult["games"][number]) {
+  async function spectate(game: MatrixBatchGame) {
     setError(null);
     setRunning(true);
     try {
@@ -78,7 +101,7 @@ export function SpectateBatch({
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       <SpectateVsPanel
         title="AI vs AI 10連戦（勝率）"
-        subtitle="2 デッキで 10 戦（前半 P0 先攻 / 後半 P1 先攻）して勝率を出し、各試合を観戦できます。"
+        subtitle="2 デッキで 10 戦（前半 P0 先攻 / 後半 P1 先攻）します。結果は 1 試合ずつ表示され、各試合を観戦できます。"
         decks={decks}
         catA={sel.catA}
         catB={sel.catB}
@@ -98,43 +121,60 @@ export function SpectateBatch({
               className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
               style={{ background: "var(--brand)" }}
             >
-              {batchRunning ? "実行中..." : "▶ 10連戦を実行"}
+              {batchRunning ? `実行中... ${games.length}/${N_GAMES}` : "▶ 10連戦を実行"}
             </button>
-            {batchRunning && (
-              <span className="text-sm text-[color:var(--text-muted)]">
-                10 連戦を計算中... AI 同士が 10 試合対戦しています（30〜60 秒）
-              </span>
-            )}
             {error && <span className="text-sm text-[color:var(--danger)]">{error}</span>}
           </div>
         }
       />
-      {batch && <BatchResults batch={batch} loading={running} onSpectate={spectate} />}
+      {(games.length > 0 || batchRunning) && (
+        <BatchResults
+          games={games}
+          total={N_GAMES}
+          deckAName={names?.a ?? "P0"}
+          deckBName={names?.b ?? "P1"}
+          batchRunning={batchRunning}
+          replayLoading={running}
+          onSpectate={spectate}
+        />
+      )}
     </div>
   );
 }
 
 function BatchResults({
-  batch,
-  loading,
+  games,
+  total,
+  deckAName,
+  deckBName,
+  batchRunning,
+  replayLoading,
   onSpectate,
 }: {
-  batch: MatrixBatchResult;
-  loading: boolean;
-  onSpectate: (game: MatrixBatchResult["games"][number]) => void;
+  games: MatrixBatchGame[];
+  total: number;
+  deckAName: string;
+  deckBName: string;
+  batchRunning: boolean;
+  replayLoading: boolean;
+  onSpectate: (game: MatrixBatchGame) => void;
 }) {
-  const total = batch.n_games || 1;
-  const p0pct = Math.round((batch.p0_wins / total) * 100);
-  const p1pct = Math.round((batch.p1_wins / total) * 100);
+  const done = games.length;
+  const p0 = games.filter((g) => g.winner === 0).length;
+  const p1 = games.filter((g) => g.winner === 1).length;
+  const draws = games.filter((g) => g.winner === -1).length;
+  const denom = done || 1;
+  const p0pct = Math.round((p0 / denom) * 100);
+  const p1pct = Math.round((p1 / denom) * 100);
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 pb-8">
       <div className="rounded-[var(--radius)] border p-4" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
         <div className="flex items-center justify-between text-sm">
           <span className="font-semibold" style={{ color: "var(--accent)" }}>
-            P0 {batch.deck_a_name}　{batch.p0_wins}勝
+            P0 {deckAName}　{p0}勝
           </span>
           <span className="font-semibold" style={{ color: "var(--danger)" }}>
-            {batch.p1_wins}勝　{batch.deck_b_name} P1
+            {p1}勝　{deckBName} P1
           </span>
         </div>
         <div className="mt-1.5 flex h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-3)" }}>
@@ -142,13 +182,15 @@ function BatchResults({
           <div style={{ width: `${p1pct}%`, background: "var(--danger)" }} />
         </div>
         <div className="mt-1 text-center text-xs text-[color:var(--text-muted)]">
-          全 {total} 戦 · P0 {p0pct}% / P1 {p1pct}% · 引分 {batch.draws} ・ 先攻は 5 戦ずつ入替
+          {batchRunning
+            ? `対戦中... ${done}/${total} 完了 · P0 ${p0}勝 / P1 ${p1}勝 ・ 引分 ${draws}`
+            : `全 ${done} 戦 · P0 ${p0pct}% / P1 ${p1pct}% · 引分 ${draws} ・ 先攻は 5 戦ずつ入替`}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
         <div className="text-[11px] font-medium uppercase tracking-wider text-[color:var(--text-muted)]">各試合（クリックで観戦）</div>
-        {batch.games.map((g) => (
+        {games.map((g) => (
           <div
             key={g.game_index}
             className="flex items-center gap-2 rounded-[var(--radius)] border px-2.5 py-1.5 text-sm"
@@ -166,13 +208,22 @@ function BatchResults({
             <button
               type="button"
               onClick={() => onSpectate(g)}
-              disabled={loading}
+              disabled={replayLoading}
               className="rounded-[var(--radius)] bg-[color:var(--brand)] px-2.5 py-1 text-xs font-medium text-white hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
             >
               観戦
             </button>
           </div>
         ))}
+        {batchRunning && (
+          <div
+            className="flex items-center gap-2 rounded-[var(--radius)] border border-dashed px-2.5 py-1.5 text-sm text-[color:var(--text-muted)]"
+            style={{ borderColor: "var(--border-2)" }}
+          >
+            <span className="w-10">#{done + 1}</span>
+            <span>対戦中...</span>
+          </div>
+        )}
       </div>
     </div>
   );
