@@ -1,7 +1,7 @@
 "use client";
 
 import type { Card } from "@/lib/types";
-import type { BanInfo } from "@/lib/banlist";
+import { type BanInfo, formatBanPartners } from "@/lib/banlist";
 import { CardImage } from "./CardImage";
 import { ColorChip } from "./ColorChip";
 
@@ -13,7 +13,7 @@ function restrictionNotes(card: Card, ban?: BanInfo): { title: string; desc: str
   } else if (ban?.kind === "restricted") {
     notes.push({ title: "制限カード", desc: "制限リストに指定されています。採用できる枚数に制限があります。", tone: "warning" });
   } else if (ban?.kind === "pair") {
-    const partners = ban.partners?.join("・") ?? "特定のカード";
+    const partners = formatBanPartners(ban.partners) || "特定のカード";
     notes.push({ title: "ペア制限", desc: `${partners} と同じデッキに同時採用できません（どちらか一方のみ）。`, tone: "warning" });
   }
   // block①〜②未満 = スタンダードレギュレーション使用不可 (block_icon は 1〜5、 CardTile の判定に合わせる)

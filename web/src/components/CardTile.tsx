@@ -1,5 +1,5 @@
 import type { Card } from "@/lib/types";
-import type { BanInfo } from "@/lib/banlist";
+import { type BanInfo, formatBanPartners } from "@/lib/banlist";
 import { CardImage } from "./CardImage";
 import { ColorChip } from "./ColorChip";
 
@@ -27,7 +27,7 @@ function BanBadge({ ban }: { ban: BanInfo }) {
     );
   }
   // pair: 単体では合法だが 相方と同時採用不可
-  const partners = ban.partners?.join("・") ?? "";
+  const partners = formatBanPartners(ban.partners);
   return (
     <span
       className="rounded-[var(--radius-sm)] bg-[color:var(--warning)]/15 px-1.5 py-0.5 text-xs font-bold text-[color:var(--warning)] ring-1 ring-[color:var(--warning)]/40"
