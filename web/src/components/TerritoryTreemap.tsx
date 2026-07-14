@@ -86,18 +86,41 @@ export function TerritoryTreemap({ items }: { items: TerritoryItem[] }) {
 }
 
 function Tile({ it }: { it: Placed }) {
-  const lead = it.win >= 0.5;
-  const territory = it.neutral ? NEUTRAL : lead ? HUMAN : AI;
+  const human = it.win >= 0.5;
+  const strength = Math.min(1, Math.abs(it.win - 0.5) * 2); // 0..1 (優位の強さ)
   const showText = it.w >= 92;
+
+  // 人間優位 = 明るく鮮明 / AI優位 = 暗く褪せる / 未開拓 = くすませる。
+  let filter: string;
+  let overlay: { color: string; opacity: number };
+  let ring: string;
+  let glow = "";
+  if (it.neutral) {
+    filter = "grayscale(0.75) brightness(0.68)";
+    overlay = { color: "#000", opacity: 0.3 };
+    ring = NEUTRAL;
+  } else if (human) {
+    filter = `saturate(${1 + 0.55 * strength}) brightness(${1 + 0.09 * strength}) contrast(${1 + 0.05 * strength})`;
+    overlay = { color: HUMAN, opacity: 0.06 * strength };
+    ring = HUMAN;
+    glow = `0 0 ${6 + 10 * strength}px rgba(78,201,176,${0.25 + 0.4 * strength})`;
+  } else {
+    filter = `grayscale(${0.35 + 0.6 * strength}) brightness(${1 - 0.55 * strength})`;
+    overlay = { color: "#000", opacity: 0.15 + 0.45 * strength };
+    ring = "#7a2b2b";
+  }
+
   return (
     <div
-      style={{ width: it.w, height: it.h }}
+      style={{ width: it.w, height: it.h, boxShadow: glow || undefined }}
       className="relative shrink-0 overflow-hidden rounded"
       title={`${it.name} ・ ${it.matches}戦 ・ 人間 ${Math.round(it.win * 100)}%`}
     >
-      <CardImage cardId={it.id} alt={it.name} className="block h-full w-full object-cover" />
-      <div className="pointer-events-none absolute inset-0" style={{ boxShadow: `inset 0 0 0 2px ${territory}` }} />
-      <div className="pointer-events-none absolute inset-0" style={{ background: territory, opacity: it.neutral ? 0.4 : 0.12 + Math.abs(it.win - 0.5) * 0.5 }} />
+      <CardImage cardId={it.id} alt={it.name} className="block h-full w-full object-cover" style={{ filter }} />
+      <div className="pointer-events-none absolute inset-0" style={{ boxShadow: `inset 0 0 0 2px ${ring}` }} />
+      {overlay.opacity > 0 && (
+        <div className="pointer-events-none absolute inset-0" style={{ background: overlay.color, opacity: overlay.opacity }} />
+      )}
       {!it.neutral && (
         <div className="absolute inset-x-0 bottom-0 flex h-1.5">
           <div style={{ width: `${it.win * 100}%`, background: HUMAN }} />
