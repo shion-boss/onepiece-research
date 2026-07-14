@@ -67,15 +67,10 @@ function seedBattles(idx: number, cell: Cell, leaders: BoardLeader[]): Battle[] 
 }
 
 export function CellHistoryPanel({ cell, idx, leaders }: { cell: Cell | null; idx: number | null; leaders: BoardLeader[] }) {
+  if (idx == null) return null;
   return (
     <div className="w-full rounded-[var(--radius)] border p-3" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-      {idx == null ? (
-        <div className="py-10 text-center text-sm text-[color:var(--text-muted)]">
-          マスにホバーで<br />そのマスの戦いの履歴
-        </div>
-      ) : (
-        <CellDetail cell={cell!} idx={idx} leaders={leaders} />
-      )}
+      <CellDetail cell={cell!} idx={idx} leaders={leaders} />
     </div>
   );
 }
