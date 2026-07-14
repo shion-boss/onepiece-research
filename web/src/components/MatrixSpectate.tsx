@@ -124,29 +124,9 @@ export function MatrixSpectate({
           <SideSelector label="P1" accent="var(--danger)" decks={decks} category={catB} deck={deckB} onCategory={changeCatB} onDeck={setDeckB} disabled={busy} />
         </div>
 
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-[color:var(--text-muted)]">seed</span>
-            <div className="flex gap-1">
-              <input
-                type="number"
-                value={seed}
-                onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-                className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]"
-                disabled={busy}
-              />
-              <button
-                type="button"
-                onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
-                className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
-                disabled={busy}
-                title="ランダム seed"
-              >
-                ⟳
-              </button>
-            </div>
-          </label>
-          <div className="flex flex-col gap-2">
+        <div className="mt-3 flex flex-col gap-3">
+          {/* 観戦開始 + seed (= この seed で 1 試合を観戦) */}
+          <div className="flex flex-wrap items-end gap-2">
             <button
               type="button"
               onClick={handleStart}
@@ -155,16 +135,39 @@ export function MatrixSpectate({
             >
               {running ? "計算中..." : "観戦開始"}
             </button>
-            <button
-              type="button"
-              onClick={handleBatch}
-              disabled={busy || !deckA || !deckB}
-              className="w-44 rounded-[var(--radius)] border px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ borderColor: "var(--brand)", color: "var(--brand-strong)" }}
-            >
-              {batchRunning ? "10連戦 計算中..." : "10連戦（勝率）"}
-            </button>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-[color:var(--text-muted)]">seed（観戦開始で使用）</span>
+              <div className="flex gap-1">
+                <input
+                  type="number"
+                  value={seed}
+                  onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
+                  className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]"
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
+                  className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
+                  disabled={busy}
+                  title="ランダム seed"
+                >
+                  ⟳
+                </button>
+              </div>
+            </label>
           </div>
+
+          {/* 10連戦 (= 毎回ランダム seed で 10 試合。 各試合は seed をずらす) */}
+          <button
+            type="button"
+            onClick={handleBatch}
+            disabled={busy || !deckA || !deckB}
+            className="w-44 rounded-[var(--radius)] border px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ borderColor: "var(--brand)", color: "var(--brand-strong)" }}
+          >
+            {batchRunning ? "10連戦 計算中..." : "10連戦（勝率）"}
+          </button>
         </div>
 
         {error ? (
