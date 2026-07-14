@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { CardImage } from "@/components/CardImage";
 
 // AI vs AI の共通デッキ選択 UI (人間vsAI の StartPanel と同じ VS パネル調)。
@@ -109,6 +110,7 @@ function SideCard({
   onDeck: (s: string) => void;
   disabled: boolean;
 }) {
+  const router = useRouter();
   const filtered = decks.filter((d) => (d.kind ?? "meta") === category);
   const cats: { key: Category; label: string }[] = [
     { key: "meta", label: "環境デッキ" },
@@ -126,7 +128,14 @@ function SideCard({
 
       <div className="flex justify-center">
         {leader ? (
-          <CardImage cardId={leader} alt={name ?? leader} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+          <button
+            type="button"
+            onClick={() => deck && router.push(`/decks/${deck}`)}
+            title="デッキ情報を新しいタブで開く"
+            className="rounded-[var(--radius)] transition hover:ring-2 hover:ring-[color:var(--brand)] hover:brightness-110"
+          >
+            <CardImage cardId={leader} alt={name ?? leader} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+          </button>
         ) : (
           <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
             未選択

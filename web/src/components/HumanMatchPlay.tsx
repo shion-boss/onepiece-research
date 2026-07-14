@@ -2482,6 +2482,7 @@ function StartPanel({
   busy: boolean;
   error: string | null;
 }) {
+  const router = useRouter();
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
   // 人間側 = 自分のデッキ (kind:user)、 AI 側 = メタ(相手) デッキ (kind:meta)。
@@ -2523,7 +2524,14 @@ function StartPanel({
           </div>
           <div className="flex justify-center">
             {humanDeck?.leader ? (
-              <CardImage cardId={humanDeck.leader} alt={humanDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              <button
+                type="button"
+                onClick={() => router.push(`/decks/${humanDeck.slug}`)}
+                title="デッキ情報を新しいタブで開く"
+                className="rounded-[var(--radius)] transition hover:ring-2 hover:ring-[color:var(--brand)] hover:brightness-110"
+              >
+                <CardImage cardId={humanDeck.leader} alt={humanDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              </button>
             ) : (
               <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
                 未選択
@@ -2582,7 +2590,14 @@ function StartPanel({
           </div>
           <div className="flex justify-center">
             {aiDeck?.leader ? (
-              <CardImage cardId={aiDeck.leader} alt={aiDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              <button
+                type="button"
+                onClick={() => router.push(`/decks/${aiDeck.slug}`)}
+                title="デッキ情報を新しいタブで開く"
+                className="rounded-[var(--radius)] transition hover:ring-2 hover:ring-[color:var(--brand)] hover:brightness-110"
+              >
+                <CardImage cardId={aiDeck.leader} alt={aiDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              </button>
             ) : (
               <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
                 未選択
