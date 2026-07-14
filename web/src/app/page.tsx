@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { PageShell } from "@/components/ui/PageShell";
 
-// VSCode の "Welcome" タブ風ランディング。 公開プロダクトの 3 機能 + カード/Q&A に絞る
-// (研究/メタ分析/コンボ探索 は非表示、 PUBLIC_MODE でナビからも撤去済み)。
+// タブを何も開いていないときの「空状態 / ようこそ」画面 (= VSCode の Welcome 相当)。
+// ルート "/" はタブ化されない (WorkspaceShell) ので、 全タブを閉じるとここに戻る。
+// 公開プロダクトの機能 (対戦 / デッキ / カード / Q&A) への入口に絞る。
 const START: { href: string; label: string; desc: string; primary?: boolean }[] = [
   { href: "/play", label: "対戦する", desc: "自分のデッキで AI と対戦する", primary: true },
   { href: "/decks/new", label: "デッキを作る", desc: "推しキャラでデッキを構築（非公開で保存）" },
@@ -13,11 +13,11 @@ const START: { href: string; label: string; desc: string; primary?: boolean }[] 
 
 export default function Home() {
   return (
-    <PageShell>
-      <div className="mx-auto max-w-3xl">
+    <div className="flex min-h-full w-full items-center justify-center px-6 py-12">
+      <div className="w-full max-w-2xl">
         <div className="flex items-center gap-3">
           <span
-            className="flex h-11 w-11 items-center justify-center rounded text-base font-bold text-white"
+            className="flex h-12 w-12 items-center justify-center rounded text-lg font-bold text-white"
             style={{ background: "var(--brand)" }}
             aria-hidden
           >
@@ -70,10 +70,10 @@ export default function Home() {
           ))}
         </div>
 
-        <p className="mt-6 font-mono text-[11px] text-[color:var(--text-muted)]">
-          公式準拠 100% · 全 4,675 カード登録済み
+        <p className="mt-6 text-center font-mono text-[11px] text-[color:var(--text-muted)]">
+          左のメニューから機能を選ぶと、開いた画面がタブになります
         </p>
       </div>
-    </PageShell>
+    </div>
   );
 }

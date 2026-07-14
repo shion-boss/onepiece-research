@@ -85,7 +85,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   }, [path]);
 
   // 現在のルートをタブとして開く (= 遷移した先が自動でタブになる)。
+  // ルート "/" は「タブ無し = ようこそ/空状態」画面なのでタブ化しない。
   useEffect(() => {
+    if (path === "/") return;
     openTab({ id: path, title: tabTitleFor(path) });
   }, [path, openTab]);
 
@@ -190,6 +192,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
         {/* editor: tabs + content */}
         <main className="flex min-w-0 flex-1 flex-col" style={{ background: "var(--editor-bg)" }}>
+          {tabs.length > 0 && (
           <div
             className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b"
             style={{ background: "var(--sidebar-bg)", borderColor: "var(--border-1)" }}
@@ -224,6 +227,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
               );
             })}
           </div>
+          )}
           <div className="min-h-0 flex-1 overflow-auto log-scroll">{children}</div>
         </main>
       </div>
