@@ -80,7 +80,7 @@ export function BattleHistory({ leaders }: { leaders: LeaderRef[] }) {
         <span className="text-sm text-[color:var(--text-muted)]">人間勝率 {Math.round(selInfo.winRate * 100)}% ・ {selInfo.games.toLocaleString()} 戦</span>
       </div>
       <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-        <TerritoryTreemap items={items} height={480} />
+        <TerritoryTreemap items={items} />
       </div>
       <p className="text-center text-[11px] text-[color:var(--text-muted)]">
         マスの大きさ = その月の対戦数 / 色 = 人間 vs AI の勝率（※現在はサンプルデータ）
