@@ -2599,11 +2599,6 @@ function StartPanel({
               自分のデッキを作成する
             </a>
           )}
-          {humanDeck && (
-            <div className="text-xs text-zinc-500">
-              選択中: <span className="font-mono">{humanDeck.slug}</span>
-            </div>
-          )}
         </div>
 
         {/* VS divider */}
@@ -2658,11 +2653,6 @@ function StartPanel({
               ))}
             </select>
           </label>
-          {aiDeck && (
-            <div className="text-xs text-zinc-500">
-              選択中: <span className="font-mono">{aiDeck.slug}</span>
-            </div>
-          )}
         </div>
       </div>
 
