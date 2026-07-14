@@ -122,9 +122,8 @@ function LeaderThumb({ id, name, label, ring }: { id: string; name: string; labe
   return (
     <div className="min-w-0 flex-1" title={`${label}: ${name}`}>
       <CardImage cardId={id} alt={name} className="w-full rounded object-cover" style={{ aspectRatio: "5 / 7", boxShadow: `0 0 0 2px ${ring}` }} />
-      <div className="mt-0.5 flex items-center justify-center gap-1">
+      <div className="mt-0.5 flex justify-center">
         <span className="rounded px-1 text-[9px] font-bold text-white" style={{ background: ring }}>{label}</span>
-        <span className="min-w-0 truncate text-[10px] text-[color:var(--text-default)]">{name}</span>
       </div>
     </div>
   );
