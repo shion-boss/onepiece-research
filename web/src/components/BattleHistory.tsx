@@ -32,7 +32,6 @@ const PAGE = 12;
 export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const [count, setCount] = useState(PAGE);
   const [sel, setSel] = useState(monthAt(1).key);
-  const [hovered, setHovered] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
   // 今月(進行中)は歴史に含めない → i=1 (先月) から過去へ。
@@ -41,22 +40,17 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const cells = useMemo(() => seedCells(leaders, monthSalt(sel)), [leaders, sel]);
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
-  const onEnter = useCallback((i: number) => setHovered(i), []);
-  // クリックで固定 (再クリックで解除)。 固定中はホバーで切り替わらない → 観戦ボタンまで到達できる。
+  // 歴史はホバーで切り替えない (ちらつき防止)。 クリックのみで右パネルを切替 (再クリックで解除)。
+  const NOOP = useCallback(() => {}, []);
   const onClick = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
-  const onLeave = useCallback(() => {}, []);
-  const activeIdx = selected ?? hovered; // 固定中は selected 優先
-  const active = activeIdx != null ? cells[activeIdx] : null;
+  const active = selected != null ? cells[selected] : null;
 
   // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。 左は初期幅より狭くできない。
   const left = useResizable(128, 128, 300);
   const right = useResizable(288, 240, 560, true);
 
-  // 月切替で hover/固定 をクリア (盤が変わるため)。
-  useEffect(() => {
-    setHovered(null);
-    setSelected(null);
-  }, [sel]);
+  // 月切替で選択をクリア (盤が変わるため)。
+  useEffect(() => setSelected(null), [sel]);
 
   // 無限スクロール: sentinel が見えたら 12 ヶ月追加 (aside 内でスクロール)。
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -110,11 +104,11 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
               {selInfo.label} の最終陣地
             </h1>
             <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
-              その月末に凍結した陣取りの状態。占領 {occupied} / 空き {1024 - occupied}。マスにホバーで戦いの履歴、クリックで固定（再クリックで解除）
+              その月末に凍結した陣取りの状態。占領 {occupied} / 空き {1024 - occupied}。マスをクリックで戦いの履歴を表示（再クリックで解除）
             </p>
           </header>
           <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-            <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
+            <BoardGrid cells={cells} selected={selected} onEnter={NOOP} onClick={onClick} onLeave={NOOP} />
           </div>
         </div>
       </main>
@@ -122,7 +116,7 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
       {/* 右: ホバー中マスの戦い履歴 (左端ハンドルでリサイズ) */}
       <ResizeHandle onMouseDown={right.onMouseDown} />
       <div className="log-scroll shrink-0 overflow-y-auto border-l p-3" style={{ width: right.width, borderColor: "var(--border-1)" }}>
-        <CellHistoryPanel cell={active} idx={activeIdx} leaders={leaders} />
+        <CellHistoryPanel cell={active} idx={selected} leaders={leaders} />
       </div>
     </div>
   );
