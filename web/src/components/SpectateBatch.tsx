@@ -95,7 +95,7 @@ export function SpectateBatch({
               type="button"
               onClick={handleBatch}
               disabled={busy || !sel.deckA || !sel.deckB}
-              className="w-44 rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-8 py-4 text-lg font-semibold text-white transition hover:bg-[color:var(--brand-strong)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {batchRunning ? "10連戦 計算中..." : "10連戦を実行"}
             </button>
