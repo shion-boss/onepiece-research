@@ -15,6 +15,14 @@ const COLOR_HEX: Record<string, string> = {
 };
 const EMPTY = "#26262b";
 
+// 画像はカード上部の正方形にズーム (説明欄=下部を除外して大きく)。
+const CARD_W = 5;
+const CARD_H = 7;
+const CROP_FRAC = 0.5; // カード高さの上から何割を正方形に使うか (0.5 = 上半分)
+const CROP = CROP_FRAC * CARD_H; // 正方形の一辺 (card 単位)
+const ZOOM = CARD_W / CROP; // 画像全幅 = L*ZOOM セル (大きく見せるズーム)
+const HOFF = (CARD_W - CROP) / 2 / CROP; // 横方向センタリング量 (L 単位)
+
 // block: w×h ブロックの一部で、 このセルはブロック内 (r,c)。 面積>=4 の占領のみ画像を分割表示。
 type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { w: number; h: number; r: number; c: number } | null };
 
@@ -143,8 +151,8 @@ const Grid = memo(function Grid({
             // 縦は上詰め (imgR=r) / 横は中央 (imgC=c+(L-w)/2)。 このセルは (r,c) の画像片。
             (() => {
               const { w, h, r, c: cc } = c.block!;
-              const L = Math.max(w, h);
-              const imgC = cc + (L - w) / 2;
+              const L = Math.max(w, h); // 長い方に合わせる (縦長なら縦=L)
+              const imgCol = cc + (L - w) / 2; // 横は中央
               return (
                 <img
                   src={`/cards/${c.owner.id}.png`}
@@ -154,11 +162,11 @@ const Grid = memo(function Grid({
                   draggable={false}
                   style={{
                     position: "absolute",
-                    width: `${L * 100}%`,
+                    width: `${L * ZOOM * 100}%`, // 上半分正方形にズーム
                     height: "auto",
                     maxWidth: "none",
-                    left: `${-imgC * 100}%`,
-                    top: `${-r * 100}%`,
+                    left: `${-(imgCol + HOFF * L) * 100}%`,
+                    top: `${-r * 100}%`, // 縦は上詰め (説明欄=下部は写らない)
                   }}
                 />
               );
