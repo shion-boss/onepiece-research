@@ -388,7 +388,7 @@ def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str],
 
 
 @app.post("/api/matrix/sample/replay")
-def matrix_sample_replay(req: MatrixSampleRequest):
+def matrix_sample_replay(req: MatrixSampleRequest, user_id: str = Depends(current_user_id)):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
     /api/match/{job_id}/games/{i}/replay と同じ形式 (= SpectateBoard コンポーネントで再生可)。
 
@@ -396,22 +396,14 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     配備 AI = SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) で プレイする。
     SmartOpponentAI は torch 非依存 (= import で torch を読まない、 検証済) + 1 game ~3-4 秒 で
     Vercel function timeout (300s) に 余裕。 これで 観戦 = 人間vsAI = matrix の AI が 完全一致。"""
-    from engine.deck import CardRepository, DeckList
     from engine.effects import load_effect_overlay
     from engine.harness import run_matchup as _run
 
     if not req.deck_a or not req.deck_b:
         raise HTTPException(400, "deck_a と deck_b は必須")
-    path_a = DECKS_DIR / f"{req.deck_a}.json"
-    path_b = DECKS_DIR / f"{req.deck_b}.json"
-    if not path_a.exists():
-        raise HTTPException(404, f"deck not found: {req.deck_a}")
-    if not path_b.exists():
-        raise HTTPException(404, f"deck not found: {req.deck_b}")
-    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
-    da = DeckList.from_json(path_a, repo)
-    db = DeckList.from_json(path_b, repo)
+    da = _resolve_decklist(req.deck_a, user_id)  # メタ/ユーザーDB 横断
+    db = _resolve_decklist(req.deck_b, user_id)
 
     # 実践 AI (= 配備 SmartOpponentAI) を deck_a/deck_b の slug で構築 (= _practice_run_kwargs)。
     # 人間vsAI / matrix / deck対戦ランナー と 同一。
@@ -435,6 +427,58 @@ def matrix_sample_replay(req: MatrixSampleRequest):
         "winner": g.winner if g.winner is not None else -1,
         "turns": g.turns,
         "snapshots": g.snapshots,
+    }
+
+
+class MatrixBatchRequest(BaseModel):
+    deck_a: str
+    deck_b: str
+    seed: int = 42
+    n_games: int = 10
+
+
+@app.post("/api/matrix/sample/batch")
+def matrix_sample_batch(req: MatrixBatchRequest, user_id: str = Depends(current_user_id)):
+    """指定 2 デッキで n_games 連戦して勝率を返す (snapshot 無しで高速)。 各試合は seed+i で
+    決定的なので、 観戦は /api/matrix/sample/replay を同 seed で呼べば再現できる。"""
+    from engine.effects import load_effect_overlay
+    from engine.harness import run_matchup as _run
+
+    if not req.deck_a or not req.deck_b:
+        raise HTTPException(400, "deck_a と deck_b は必須")
+    n = max(1, min(20, req.n_games))
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    da = _resolve_decklist(req.deck_a, user_id)
+    db = _resolve_decklist(req.deck_b, user_id)
+    kw = _practice_run_kwargs(req.deck_a, req.deck_b)
+
+    games = []
+    p0 = p1 = draw = 0
+    for i in range(n):
+        s = req.seed + i
+        rep = _run(
+            da, db, n_games=1, seed=s, effects_overlay=overlay,
+            keep_logs=False, enforce_rules=False, record_snapshots=False, **kw,
+        )
+        g = rep.games[0]
+        w = g.winner if g.winner is not None else -1
+        if w == 0:
+            p0 += 1
+        elif w == 1:
+            p1 += 1
+        else:
+            draw += 1
+        games.append(
+            {"game_index": i, "seed": s, "winner": w, "turns": g.turns, "first_player": g.first_player}
+        )
+    return {
+        "deck_a_name": da.name,
+        "deck_b_name": db.name,
+        "n_games": n,
+        "p0_wins": p0,
+        "p1_wins": p1,
+        "draws": draw,
+        "games": games,
     }
 
 
@@ -920,6 +964,11 @@ def _resolve_deck_dict(slug: str, user_id: str) -> dict:
     if d is not None:
         return d
     return _load_deck_json(slug)  # 後方互換: 旧 decks/ に残る非メタ JSON
+
+
+def _resolve_decklist(slug: str, user_id: str):
+    """slug → DeckList (run_matchup 用)。 メタ/リポジトリ/ユーザーDB を横断解決。"""
+    return make_deck_from_dict(_resolve_deck_dict(slug, user_id), get_repo())
 
 
 def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":

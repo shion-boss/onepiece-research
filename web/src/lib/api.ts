@@ -28,6 +28,7 @@ import type {
   DeckStrategy,
   GameAnalysisResponse,
   ReplayResponse,
+  MatrixBatchResult,
   ResearchBestDeckResponse,
   ResearchCandidate,
   ResearchSessionConfig,
@@ -630,13 +631,33 @@ export async function runMatrixSampleReplay(
 ): Promise<ReplayResponse> {
   const res = await fetch(`${API}/api/matrix/sample/replay`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed }),
     cache: "no-store",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`runMatrixSampleReplay failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+/** 2 デッキで n 連戦して勝率 + 各試合の結果(seed)を返す (観戦は同 seed の replay で再現)。 */
+export async function runMatrixSampleBatch(
+  deckA: string,
+  deckB: string,
+  seed: number,
+  nGames: number,
+): Promise<MatrixBatchResult> {
+  const res = await fetch(`${API}/api/matrix/sample/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed, n_games: nGames }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`runMatrixSampleBatch failed: ${res.status} ${text}`);
   }
   return res.json();
 }
