@@ -13,6 +13,7 @@ import {
 import { useWorkspace, tabTitleFor, type ActivityView } from "@/lib/workspace";
 import { AuthControls } from "./AuthControls";
 import { StatusBar } from "./StatusBar";
+import { CardsSidebar } from "./CardsSidebar";
 import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder, renameDeck } from "@/lib/api";
 
 // ---- icons (VSCode codicon 風の細線 SVG) ----
@@ -239,23 +240,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 // ---- sidebar panel: activeView 毎に内容を切替 ----
 function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
   if (view === "cards") {
-    return (
-      <div className="py-2">
-        <PanelHeader>カード</PanelHeader>
-        <PanelLink href="/cards" active={path === "/cards"}>すべてのカードを開く</PanelLink>
-        <div className="px-4 pb-1 pt-3 text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">色で絞る</div>
-        {Object.keys(COLOR_HEX).map((c) => (
-          <Link
-            key={c}
-            href={`/cards?color=${encodeURIComponent(c)}`}
-            className="flex items-center gap-2 px-4 py-1.5 text-[13px] text-[color:var(--text-default)] hover:bg-[var(--list-hover)] hover:text-white"
-          >
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_HEX[c] }} />
-            {c}
-          </Link>
-        ))}
-      </div>
-    );
+    return <CardsSidebar />;
   }
   if (view === "play") {
     return (
