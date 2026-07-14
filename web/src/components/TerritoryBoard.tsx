@@ -15,8 +15,8 @@ const COLOR_HEX: Record<string, string> = {
 };
 const EMPTY = "#26262b";
 
-// block: n×n 正方形ブロックの一部で、 このセルはブロック内 (r,c)。 n>=2 の時だけ画像を分割表示。
-type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { n: number; r: number; c: number } | null };
+// block: w×h ブロックの一部で、 このセルはブロック内 (r,c)。 面積>=4 の占領のみ画像を分割表示。
+type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { w: number; h: number; r: number; c: number } | null };
 
 function hash(n: number): number {
   let h = (n ^ 0x9e3779b9) >>> 0;
@@ -25,41 +25,46 @@ function hash(n: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-// 盤を正方形ブロックで敷き詰める (1×1 / 2×2 / 3×3 / 4×4)。 占領ブロック(n>=2)はカード上部を
-// n×n に分割して 1 枚の画像として表示。 1×1 と空きは色のみ。
+// 盤を矩形ブロック (1..4 × 1..4) で敷き詰める。 占領で面積>=4 のブロックはカード上部の正方形を
+// 「長い方に合わせて」配置し w×h に分割して 1 枚の画像に (縦は上詰め / 横は中央)。 それ以外は色のみ。
 function seedCells(leaders: BoardLeader[]): Cell[] {
   const cells: (Cell | null)[] = new Array(N).fill(null);
   if (leaders.length === 0) return cells.map(() => ({ owner: null, ownerName: null, color: EMPTY, block: null }));
 
-  const free = (x: number, y: number, n: number): boolean => {
-    if (x + n > COLS || y + n > COLS) return false;
-    for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) if (cells[(y + dy) * COLS + (x + dx)] !== null) return false;
+  const free = (x: number, y: number, w: number, h: number): boolean => {
+    if (x + w > COLS || y + h > COLS) return false;
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (cells[(y + dy) * COLS + (x + dx)] !== null) return false;
     return true;
   };
-  const pickN = (h: number): number => {
+  const pickDim = (h: number): number => {
     const r = h % 100;
-    return r < 50 ? 1 : r < 78 ? 2 : r < 93 ? 3 : 4;
+    return r < 48 ? 1 : r < 76 ? 2 : r < 92 ? 3 : 4;
   };
 
   for (let y = 0; y < COLS; y++) {
     for (let x = 0; x < COLS; x++) {
       const idx = y * COLS + x;
       if (cells[idx] !== null) continue;
-      const h = hash(idx);
-      let n = pickN(h);
-      while (n > 1 && !free(x, y, n)) n--;
+      let w = pickDim(hash(idx));
+      let h = pickDim(hash(idx * 7 + 3));
+      // 収まるまで長い方から縮める。
+      while ((w > 1 || h > 1) && !free(x, y, w, h)) {
+        if (w >= h && w > 1) w--;
+        else if (h > 1) h--;
+        else w--;
+      }
       const owned = hash(idx * 2 + 7) % 100 < 55;
       const ld = owned ? leaders[hash(idx * 3 + 13) % leaders.length] : null;
       const ownerName = owned ? `プレイヤー${(hash(idx * 5 + 1) % 9000) + 1000}` : null;
       const color = ld ? COLOR_HEX[ld.color] ?? "#888" : EMPTY;
-      const useImg = !!ld && n >= 2;
-      for (let dy = 0; dy < n; dy++) {
-        for (let dx = 0; dx < n; dx++) {
+      const useImg = !!ld && w * h >= 4;
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
           cells[(y + dy) * COLS + (x + dx)] = {
             owner: ld,
             ownerName,
             color,
-            block: useImg ? { n, r: dy, c: dx } : null,
+            block: useImg ? { w, h, r: dy, c: dx } : null,
           };
         }
       }
@@ -134,22 +139,30 @@ const Grid = memo(function Grid({
           style={{ background: c.color, outline: selected === i ? "2px solid #fff" : undefined, outlineOffset: selected === i ? -1 : undefined, zIndex: selected === i ? 10 : undefined }}
         >
           {c.owner && c.block && (
-            // ブロック (n×n) でカード上部を分割し、 このセルは (r,c) の画像片を表示。
-            <img
-              src={`/cards/${c.owner.id}.png`}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              style={{
-                position: "absolute",
-                width: `${c.block.n * 100}%`,
-                height: "auto",
-                maxWidth: "none",
-                left: `${-c.block.c * 100}%`,
-                top: `${-c.block.r * 100}%`,
-              }}
-            />
+            // カード上部の正方形を「長い方 L=max(w,h) に合わせて」配置し、 w×h に分割。
+            // 縦は上詰め (imgR=r) / 横は中央 (imgC=c+(L-w)/2)。 このセルは (r,c) の画像片。
+            (() => {
+              const { w, h, r, c: cc } = c.block!;
+              const L = Math.max(w, h);
+              const imgC = cc + (L - w) / 2;
+              return (
+                <img
+                  src={`/cards/${c.owner.id}.png`}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={{
+                    position: "absolute",
+                    width: `${L * 100}%`,
+                    height: "auto",
+                    maxWidth: "none",
+                    left: `${-imgC * 100}%`,
+                    top: `${-r * 100}%`,
+                  }}
+                />
+              );
+            })()
           )}
         </button>
       ))}
