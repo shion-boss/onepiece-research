@@ -31,6 +31,7 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const [count, setCount] = useState(PAGE);
   const [sel, setSel] = useState(monthAt(1).key);
   const [hovered, setHovered] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
 
   const months = useMemo(() => Array.from({ length: Math.min(count, MAX_MONTHS) }, (_, i) => monthAt(i)), [count]);
   const selInfo = useMemo(() => months.find((m) => m.key === sel) ?? monthAt(1), [months, sel]);
@@ -38,12 +39,17 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
   const onEnter = useCallback((i: number) => setHovered(i), []);
-  const onLeave = useCallback(() => {}, []); // ホバー維持 (パネルを見やすく)
-  const NOOP = useCallback(() => {}, []);
-  const active = hovered != null ? cells[hovered] : null;
+  // クリックで固定 (再クリックで解除)。 固定中はホバーで切り替わらない → 観戦ボタンまで到達できる。
+  const onClick = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
+  const onLeave = useCallback(() => {}, []);
+  const activeIdx = selected ?? hovered; // 固定中は selected 優先
+  const active = activeIdx != null ? cells[activeIdx] : null;
 
-  // 月切替で hover をクリア (盤が変わるため)。
-  useEffect(() => setHovered(null), [sel]);
+  // 月切替で hover/固定 をクリア (盤が変わるため)。
+  useEffect(() => {
+    setHovered(null);
+    setSelected(null);
+  }, [sel]);
 
   // 無限スクロール: sentinel が見えたら 12 ヶ月追加 (aside 内でスクロール)。
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -96,18 +102,18 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
               {selInfo.label} の最終陣地{selInfo.current && "（進行中）"}
             </h1>
             <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
-              その月末に凍結した陣取りの状態。占領 {occupied} / 空き {1024 - occupied}。マスにホバーで戦いの履歴（※現在はサンプル）
+              その月末に凍結した陣取りの状態。占領 {occupied} / 空き {1024 - occupied}。マスにホバーで戦いの履歴、クリックで固定（再クリックで解除）
             </p>
           </header>
           <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-            <BoardGrid cells={cells} selected={null} onEnter={onEnter} onClick={NOOP} onLeave={onLeave} />
+            <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
           </div>
         </div>
       </main>
 
       {/* 右: ホバー中マスの戦い履歴 */}
       <div className="log-scroll hidden w-72 shrink-0 overflow-y-auto border-l p-3 lg:block" style={{ borderColor: "var(--border-1)" }}>
-        <CellHistoryPanel cell={active} idx={hovered} leaders={leaders} />
+        <CellHistoryPanel cell={active} idx={activeIdx} leaders={leaders} />
       </div>
     </div>
   );

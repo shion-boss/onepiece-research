@@ -87,10 +87,11 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
   const [selected, setSelected] = useState<number | null>(null);
 
   const onEnter = useCallback((i: number) => setHovered(i), []);
-  const onClick = useCallback((i: number) => setSelected(i), []);
+  // クリックで固定 (再クリックで解除)。 固定中はホバーで切り替わらない → 観戦ボタンまで到達できる。
+  const onClick = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
   const onLeave = useCallback(() => setHovered(null), []);
 
-  const activeIdx = hovered ?? selected;
+  const activeIdx = selected ?? hovered; // 固定中は selected を優先 (ホバー無視)
   const active = activeIdx != null ? cells[activeIdx] : null;
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
@@ -105,7 +106,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="text-[color:var(--text-muted)]">占領 <span className="font-bold text-[color:var(--text-strong)]">{occupied}</span> / 空き <span className="font-bold text-[color:var(--text-strong)]">{N - occupied}</span></span>
-        <span className="ml-auto text-xs text-[color:var(--text-muted)]">マスにホバーでリーダー表示 ・ クリックで挑戦対象を選択（※対戦連携は次段）</span>
+        <span className="ml-auto text-xs text-[color:var(--text-muted)]">ホバーで履歴表示 ・ クリックで固定（再クリックで解除）・ 固定中は観戦ボタンまで操作可</span>
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row">
