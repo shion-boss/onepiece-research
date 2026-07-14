@@ -32,8 +32,8 @@ export default async function GrowPage() {
   }
 
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <div className="h-full w-full">
       <TerritoryBoard leaders={leaders} />
-    </main>
+    </div>
   );
 }

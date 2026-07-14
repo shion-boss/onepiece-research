@@ -101,46 +101,50 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-      <header className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-6" style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}>
-        <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">推しリーダー陣取り</h1>
-        <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
-          1024 マスを推しリーダーで奪い合う。AI に勝てば 1 マス占領。占領マスに挑むと、その占領者のデッキを操る AI が防衛する。
-        </p>
-      </header>
+    <div className="flex h-full min-h-0 overflow-hidden">
+      {/* 中央: ヘッダー + 盤 (スクロール) */}
+      <main className="log-scroll min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
+          <header className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5" style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}>
+            <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">推しリーダー陣取り</h1>
+            <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
+              1024 マスを推しリーダーで奪い合う。AI に勝てば 1 マス占領。占領マスに挑むと、その占領者のデッキを操る AI が防衛する。
+            </p>
+          </header>
 
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="text-[color:var(--text-muted)]">占領 <span className="font-bold text-[color:var(--text-strong)]">{occupied}</span> / 空き <span className="font-bold text-[color:var(--text-strong)]">{N - occupied}</span></span>
-        <span className="ml-auto text-xs text-[color:var(--text-muted)]">クリックでマスの詳細を表示（再クリックで解除）・ 右パネルのトグルでホバー切替も可</span>
-      </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-[color:var(--text-muted)]">占領 <span className="font-bold text-[color:var(--text-strong)]">{occupied}</span> / 空き <span className="font-bold text-[color:var(--text-strong)]">{N - occupied}</span></span>
+            <span className="ml-auto text-xs text-[color:var(--text-muted)]">クリックでマスの詳細を表示（再クリックで解除）・ 右パネルのトグルでホバー切替も可</span>
+          </div>
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:gap-0">
-        <div className="min-w-0 flex-1 rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-          <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
+          <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
+            <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
+          </div>
         </div>
-        {/* 右パネル (左端ハンドルでドラッグリサイズ) */}
-        <ResizeHandle onMouseDown={right.onMouseDown} />
-        <div className="shrink-0 lg:pl-1" style={{ width: right.width }}>
-          <CellPanel
-            cell={active}
-            idx={activeIdx}
-            leaders={leaders}
-            hoverEnabled={hoverEnabled}
-            onToggleHover={() => setHoverEnabled((v) => !v)}
-            actionSlot={
-              selected != null ? (
-                <button
-                  type="button"
-                  disabled
-                  title="対戦連携は次段で実装"
-                  className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {cells[selected]?.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
-                </button>
-              ) : null
-            }
-          />
-        </div>
+      </main>
+
+      {/* 右: マスの情報 (固定サイドメニュー、 左端ハンドルでリサイズ) */}
+      <ResizeHandle onMouseDown={right.onMouseDown} />
+      <div className="log-scroll shrink-0 overflow-y-auto border-l" style={{ width: right.width, borderColor: "var(--border-1)" }}>
+        <CellPanel
+          cell={active}
+          idx={activeIdx}
+          leaders={leaders}
+          hoverEnabled={hoverEnabled}
+          onToggleHover={() => setHoverEnabled((v) => !v)}
+          actionSlot={
+            selected != null ? (
+              <button
+                type="button"
+                disabled
+                title="対戦連携は次段で実装"
+                className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {cells[selected]?.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
+              </button>
+            ) : null
+          }
+        />
       </div>
     </div>
   );
