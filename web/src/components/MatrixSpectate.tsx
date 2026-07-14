@@ -99,9 +99,9 @@ export function MatrixSpectate({
       setError("両方のデッキを選択してください");
       return;
     }
-    // 10連戦は毎回ランダムな基準 seed で (= 新しいサンプル)。 使った seed は欄に表示し再現可能に。
+    // 10連戦は毎回ランダムな基準 seed で (= 新しいサンプル)。 seed 欄 (観戦開始用) は変更しない
+    // = 内部で base を使い、 各試合の観戦は batch が返す seed で再現する。
     const base = Math.floor(Math.random() * 1_000_000);
-    setSeed(base);
     setBatchRunning(true);
     try {
       const b = await runMatrixSampleBatch(deckA, deckB, base, 10);
