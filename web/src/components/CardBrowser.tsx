@@ -17,6 +17,9 @@ type Sort =
   | "power_desc"
   | "name";
 
+// 規制フィルタ: "" = 不問 / "any" = 何らか規制 / それ以外は BanKind 一致
+type BanFilter = "" | "any" | "forbidden" | "restricted" | "pair";
+
 const SORT_LABELS: Record<Sort, string> = {
   default: "既定 (DB順)",
   cost_asc: "コスト昇順",
@@ -50,6 +53,7 @@ export function CardBrowser({
   const [attribute, setAttribute] = useState("");
   const [counterMin, setCounterMin] = useState("");
   const [triggerOnly, setTriggerOnly] = useState(false);
+  const [banFilter, setBanFilter] = useState<BanFilter>("");
   const [sort, setSort] = useState<Sort>("default");
   const [visible, setVisible] = useState(BATCH);
 
@@ -63,6 +67,11 @@ export function CardBrowser({
       if (attribute && !(c.attribute || "").includes(attribute)) return false;
       if (cmin != null && c.counter < cmin) return false;
       if (triggerOnly && !c.trigger) return false;
+      if (banFilter) {
+        const ban = banInfoFor(banStatus, c.card_id);
+        if (banFilter === "any" && !ban) return false;
+        if (banFilter !== "any" && ban?.kind !== banFilter) return false;
+      }
       return true;
     });
     const cmp: Record<Sort, ((a: Card, b: Card) => number) | null> = {
@@ -76,7 +85,7 @@ export function CardBrowser({
     const fn = cmp[sort];
     if (fn) out = [...out].sort(fn);
     return out;
-  }, [cards, powerMin, powerMax, attribute, counterMin, triggerOnly, sort]);
+  }, [cards, powerMin, powerMax, attribute, counterMin, triggerOnly, banFilter, banStatus, sort]);
 
   // 絞り込み結果が変わったら表示件数をリセット
   useEffect(() => {
@@ -171,6 +180,19 @@ export function CardBrowser({
         >
           トリガー有り
         </button>
+
+        <select
+          value={banFilter}
+          onChange={(e) => setBanFilter(e.target.value as BanFilter)}
+          className={selectClass}
+          aria-label="規制"
+        >
+          <option value="">規制不問</option>
+          <option value="any">規制カードのみ</option>
+          <option value="forbidden">禁止のみ</option>
+          <option value="restricted">制限のみ</option>
+          <option value="pair">ペア禁止のみ</option>
+        </select>
 
         <select
           value={sort}
