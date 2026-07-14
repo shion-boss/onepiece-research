@@ -24,7 +24,7 @@ function groupOf(code: string): string {
   return "P";
 }
 
-export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
+export function CardFilterBar({ sets = [], bare = false }: { sets?: SetInfo[]; bare?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -67,8 +67,8 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
       else p.delete(k);
     });
 
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
+  const controls = (
+    <>
       <div className="flex gap-1" role="group" aria-label="色フィルタ">
         {COLORS.map((c) => (
           <button
@@ -204,6 +204,13 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
       {isPending && (
         <span className="text-xs text-[color:var(--text-muted)]">更新中…</span>
       )}
+    </>
+  );
+
+  if (bare) return controls;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
+      {controls}
     </div>
   );
 }

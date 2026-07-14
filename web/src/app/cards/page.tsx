@@ -1,8 +1,8 @@
 import { fetchBanlist, fetchCards, fetchSets } from "@/lib/api";
 import type { Banlist, CardCategory, CardFilters, SetInfo } from "@/lib/types";
 import { buildBanStatus } from "@/lib/banlist";
-import { CardFilterBar } from "@/components/CardFilterBar";
 import { CardBrowser } from "@/components/CardBrowser";
+import { CardCountBadge } from "@/components/CardCountBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -71,14 +71,8 @@ export default async function CardsPage({
       <PageHeader
         title="カード"
         description="全 4,673 枚 の 検索 + フィルタ"
-        actions={
-          <div className="text-sm text-[color:var(--text-muted)]">
-            {error ? "—" : `${cards.length} 件`}
-          </div>
-        }
+        actions={error ? <div className="text-sm text-[color:var(--text-muted)]">—</div> : <CardCountBadge fallback={cards.length} />}
       />
-
-      <CardFilterBar sets={sets} />
 
       {error ? (
         <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-4 text-sm text-[color:var(--danger)]">
@@ -89,7 +83,7 @@ export default async function CardsPage({
           </div>
         </div>
       ) : (
-        <CardBrowser cards={cards} banStatus={banStatus} />
+        <CardBrowser cards={cards} banStatus={banStatus} sets={sets} />
       )}
     </PageShell>
   );

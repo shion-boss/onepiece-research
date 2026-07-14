@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Card } from "@/lib/types";
+import type { Card, SetInfo } from "@/lib/types";
 import { banInfoFor, type BanInfo } from "@/lib/banlist";
+import { useCardCount } from "@/lib/cardCount";
 import { CardTile } from "./CardTile";
 import { CardDetailModal } from "./CardDetailModal";
+import { CardFilterBar } from "./CardFilterBar";
 
 const BATCH = 48;
 const ATTRIBUTES = ["斬", "打", "射", "特", "知"] as const;
@@ -43,9 +45,11 @@ const numClass =
 export function CardBrowser({
   cards,
   banStatus = {},
+  sets = [],
 }: {
   cards: Card[];
   banStatus?: Record<string, BanInfo>;
+  sets?: SetInfo[];
 }) {
   const [selected, setSelected] = useState<Card | null>(null);
   const [powerMin, setPowerMin] = useState("");
@@ -93,6 +97,13 @@ export function CardBrowser({
     setVisible(BATCH);
   }, [filtered]);
 
+  // ヘッダの件数表示に「絞り込み後の件数」を publish (unmount で null に戻す)。
+  const setCount = useCardCount((s) => s.setCount);
+  useEffect(() => {
+    setCount(filtered.length);
+    return () => setCount(null);
+  }, [filtered.length, setCount]);
+
   // スクロール ページネーション: sentinel が見えたら BATCH 件追加
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -117,7 +128,9 @@ export function CardBrowser({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3 text-xs">
-        <span className="font-medium text-[color:var(--text-muted)]">絞り込み</span>
+        <CardFilterBar sets={sets} bare />
+
+        <span className="h-5 w-px shrink-0 bg-[color:var(--border-2)]" aria-hidden />
 
         <label className="flex items-center gap-1 text-[color:var(--text-muted)]">
           パワー
