@@ -52,7 +52,7 @@ export function CardBrowser({
   const [powerMax, setPowerMax] = useState("");
   const [attribute, setAttribute] = useState("");
   const [counterMin, setCounterMin] = useState("");
-  const [triggerOnly, setTriggerOnly] = useState(false);
+  const [trigger, setTrigger] = useState<"" | "yes" | "no">("");
   const [banFilter, setBanFilter] = useState<BanFilter>("");
   const [sort, setSort] = useState<Sort>("default");
   const [visible, setVisible] = useState(BATCH);
@@ -66,7 +66,8 @@ export function CardBrowser({
       if (pmax != null && c.power > pmax) return false;
       if (attribute && !(c.attribute || "").includes(attribute)) return false;
       if (cmin != null && c.counter < cmin) return false;
-      if (triggerOnly && !c.trigger) return false;
+      if (trigger === "yes" && !c.trigger) return false;
+      if (trigger === "no" && c.trigger) return false;
       if (banFilter) {
         const ban = banInfoFor(banStatus, c.card_id);
         if (banFilter === "any" && !ban) return false;
@@ -85,7 +86,7 @@ export function CardBrowser({
     const fn = cmp[sort];
     if (fn) out = [...out].sort(fn);
     return out;
-  }, [cards, powerMin, powerMax, attribute, counterMin, triggerOnly, banFilter, banStatus, sort]);
+  }, [cards, powerMin, powerMax, attribute, counterMin, trigger, banFilter, banStatus, sort]);
 
   // 絞り込み結果が変わったら表示件数をリセット
   useEffect(() => {
@@ -168,18 +169,16 @@ export function CardBrowser({
           <option value="2000">カウンター 2000+</option>
         </select>
 
-        <button
-          type="button"
-          onClick={() => setTriggerOnly((v) => !v)}
-          aria-pressed={triggerOnly}
-          className={`rounded-[var(--radius-sm)] px-2 py-1 font-medium ${
-            triggerOnly
-              ? "bg-[color:var(--brand)] text-white"
-              : "bg-[color:var(--surface-2)] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
-          }`}
+        <select
+          value={trigger}
+          onChange={(e) => setTrigger(e.target.value as "" | "yes" | "no")}
+          className={selectClass}
+          aria-label="トリガー"
         >
-          トリガー有り
-        </button>
+          <option value="">トリガー不問</option>
+          <option value="yes">トリガー有り</option>
+          <option value="no">トリガー無し</option>
+        </select>
 
         <select
           value={banFilter}
