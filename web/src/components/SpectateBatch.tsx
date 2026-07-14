@@ -142,7 +142,6 @@ export function SpectateBatch({
                       </button>
                     );
                   })}
-                  <span className="ml-1 text-[color:var(--text-muted)]">または</span>
                   <input
                     type="number"
                     min={1}
@@ -150,7 +149,7 @@ export function SpectateBatch({
                     value={nGames}
                     disabled={batchRunning}
                     onChange={(e) => setNGames(clampN(parseInt(e.target.value || "1", 10)))}
-                    className="w-20 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm font-mono text-[color:var(--text-strong)]"
+                    className="ml-1 w-20 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm font-mono text-[color:var(--text-strong)]"
                   />
                 </div>
               </div>
