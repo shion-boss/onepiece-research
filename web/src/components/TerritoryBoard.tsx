@@ -15,7 +15,8 @@ const COLOR_HEX: Record<string, string> = {
 };
 const EMPTY = "#26262b";
 
-type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string };
+// block: n×n 正方形ブロックの一部で、 このセルはブロック内 (r,c)。 n>=2 の時だけ画像を分割表示。
+type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { n: number; r: number; c: number } | null };
 
 function hash(n: number): number {
   let h = (n ^ 0x9e3779b9) >>> 0;
@@ -24,18 +25,47 @@ function hash(n: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
+// 盤を正方形ブロックで敷き詰める (1×1 / 2×2 / 3×3 / 4×4)。 占領ブロック(n>=2)はカード上部を
+// n×n に分割して 1 枚の画像として表示。 1×1 と空きは色のみ。
 function seedCells(leaders: BoardLeader[]): Cell[] {
-  if (leaders.length === 0) return Array.from({ length: N }, () => ({ owner: null, ownerName: null, color: EMPTY }));
-  return Array.from({ length: N }, (_, i) => {
-    const h = hash(i);
-    if (h % 100 >= 45) return { owner: null, ownerName: null, color: EMPTY }; // ~55% 空き
-    const ld = leaders[h % leaders.length];
-    return {
-      owner: ld,
-      ownerName: `プレイヤー${(h % 9000) + 1000}`,
-      color: COLOR_HEX[ld.color] ?? "#888",
-    };
-  });
+  const cells: (Cell | null)[] = new Array(N).fill(null);
+  if (leaders.length === 0) return cells.map(() => ({ owner: null, ownerName: null, color: EMPTY, block: null }));
+
+  const free = (x: number, y: number, n: number): boolean => {
+    if (x + n > COLS || y + n > COLS) return false;
+    for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) if (cells[(y + dy) * COLS + (x + dx)] !== null) return false;
+    return true;
+  };
+  const pickN = (h: number): number => {
+    const r = h % 100;
+    return r < 50 ? 1 : r < 78 ? 2 : r < 93 ? 3 : 4;
+  };
+
+  for (let y = 0; y < COLS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const idx = y * COLS + x;
+      if (cells[idx] !== null) continue;
+      const h = hash(idx);
+      let n = pickN(h);
+      while (n > 1 && !free(x, y, n)) n--;
+      const owned = hash(idx * 2 + 7) % 100 < 55;
+      const ld = owned ? leaders[hash(idx * 3 + 13) % leaders.length] : null;
+      const ownerName = owned ? `プレイヤー${(hash(idx * 5 + 1) % 9000) + 1000}` : null;
+      const color = ld ? COLOR_HEX[ld.color] ?? "#888" : EMPTY;
+      const useImg = !!ld && n >= 2;
+      for (let dy = 0; dy < n; dy++) {
+        for (let dx = 0; dx < n; dx++) {
+          cells[(y + dy) * COLS + (x + dx)] = {
+            owner: ld,
+            ownerName,
+            color,
+            block: useImg ? { n, r: dy, c: dx } : null,
+          };
+        }
+      }
+    }
+  }
+  return cells.map((c) => c ?? { owner: null, ownerName: null, color: EMPTY, block: null });
 }
 
 export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
@@ -100,18 +130,25 @@ const Grid = memo(function Grid({
           onMouseEnter={() => onEnter(i)}
           onClick={() => onClick(i)}
           title={c.owner ? `${c.owner.name}（${c.ownerName}）` : "空きマス"}
-          className="relative aspect-square overflow-hidden rounded-[1px] transition-transform hover:z-10 hover:scale-[1.6]"
-          style={{ background: c.color, boxShadow: c.owner ? `inset 0 0 0 1px ${c.color}` : undefined, outline: selected === i ? "2px solid #fff" : undefined, outlineOffset: selected === i ? -1 : undefined }}
+          className="relative aspect-square overflow-hidden rounded-[1px] transition-[filter] hover:brightness-125"
+          style={{ background: c.color, outline: selected === i ? "2px solid #fff" : undefined, outlineOffset: selected === i ? -1 : undefined, zIndex: selected === i ? 10 : undefined }}
         >
-          {c.owner && (
-            // カード上部を正方形に切り出して表示 (= キャラ部分)。
+          {c.owner && c.block && (
+            // ブロック (n×n) でカード上部を分割し、 このセルは (r,c) の画像片を表示。
             <img
               src={`/cards/${c.owner.id}.png`}
               alt=""
               loading="lazy"
               decoding="async"
               draggable={false}
-              className="absolute inset-0 h-full w-full object-cover object-top"
+              style={{
+                position: "absolute",
+                width: `${c.block.n * 100}%`,
+                height: "auto",
+                maxWidth: "none",
+                left: `${-c.block.c * 100}%`,
+                top: `${-c.block.r * 100}%`,
+              }}
             />
           )}
         </button>
