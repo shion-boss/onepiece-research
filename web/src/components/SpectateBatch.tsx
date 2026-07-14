@@ -8,6 +8,7 @@ import { SpectateVsPanel, useDeckSelect, type SpectateDeck } from "@/components/
 
 const DEFAULT_N_GAMES = 10;
 const MAX_N_GAMES = 100;
+const PRESET_N = [10, 20, 50, 100] as const;
 const clampN = (v: number) => (Number.isFinite(v) ? Math.max(1, Math.min(MAX_N_GAMES, Math.floor(v))) : DEFAULT_N_GAMES);
 
 // AI vs AI 連戦(勝率): N 戦 (前半 P0 先攻 / 後半 P1 先攻) を 1 試合ずつ実行し、
@@ -123,18 +124,36 @@ export function SpectateBatch({
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
               <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">対戦オプション</h2>
-              <label className="flex flex-col gap-1 text-xs sm:max-w-xs">
-                <span className="text-[color:var(--text-muted)]">連戦数（1〜{MAX_N_GAMES} · 先攻は半分ずつ入替）</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={MAX_N_GAMES}
-                  value={nGames}
-                  disabled={batchRunning}
-                  onChange={(e) => setNGames(clampN(parseInt(e.target.value || "1", 10)))}
-                  className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-mono text-[color:var(--text-strong)]"
-                />
-              </label>
+              <div className="flex flex-col gap-1.5 text-xs">
+                <span className="text-[color:var(--text-muted)]">連戦数（先攻は半分ずつ入替）</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {PRESET_N.map((n) => {
+                    const active = nGames === n;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setNGames(n)}
+                        disabled={batchRunning}
+                        className="rounded-[var(--radius)] border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+                        style={active ? { background: "var(--brand)", borderColor: "transparent", color: "#fff" } : { borderColor: "var(--border-2)", color: "var(--text-default)" }}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
+                  <span className="ml-1 text-[color:var(--text-muted)]">または</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={MAX_N_GAMES}
+                    value={nGames}
+                    disabled={batchRunning}
+                    onChange={(e) => setNGames(clampN(parseInt(e.target.value || "1", 10)))}
+                    className="w-20 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm font-mono text-[color:var(--text-strong)]"
+                  />
+                </div>
+              </div>
             </div>
             <button
               type="button"
