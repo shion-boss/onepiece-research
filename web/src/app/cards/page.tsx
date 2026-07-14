@@ -70,7 +70,7 @@ export default async function CardsPage({
     <PageShell>
       <PageHeader
         title="カード"
-        description="全 4,673 枚 の 検索 + フィルタ"
+        description="全カードを検索・絞り込み"
         actions={error ? <div className="text-sm text-[color:var(--text-muted)]">—</div> : <CardCountBadge fallback={cards.length} />}
       />
 

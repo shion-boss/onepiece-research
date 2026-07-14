@@ -19,8 +19,8 @@ type Sort =
   | "power_desc"
   | "name";
 
-// 規制フィルタ: "" = 不問 / "any" = 何らか規制 / それ以外は BanKind 一致
-type BanFilter = "" | "any" | "forbidden" | "restricted" | "pair";
+// 規制フィルタ: "" = 不問 / "any" = 何らか規制 / "none" = 規制なし / それ以外は BanKind 一致
+type BanFilter = "" | "any" | "none" | "forbidden" | "restricted" | "pair";
 
 const SORT_LABELS: Record<Sort, string> = {
   default: "既定 (DB順)",
@@ -75,7 +75,8 @@ export function CardBrowser({
       if (banFilter) {
         const ban = banInfoFor(banStatus, c.card_id);
         if (banFilter === "any" && !ban) return false;
-        if (banFilter !== "any" && ban?.kind !== banFilter) return false;
+        if (banFilter === "none" && ban) return false;
+        if (banFilter !== "any" && banFilter !== "none" && ban?.kind !== banFilter) return false;
       }
       return true;
     });
@@ -121,8 +122,6 @@ export function CardBrowser({
     return () => obs.disconnect();
   }, [filtered.length]);
 
-  const refined =
-    filtered.length !== cards.length ? `絞り込み後 ${filtered.length} 件 / ` : "";
   const shown = Math.min(visible, filtered.length);
 
   return (
@@ -201,6 +200,7 @@ export function CardBrowser({
         >
           <option value="">規制不問</option>
           <option value="any">規制カードのみ</option>
+          <option value="none">規制なし</option>
           <option value="forbidden">禁止のみ</option>
           <option value="restricted">制限のみ</option>
           <option value="pair">ペア禁止のみ</option>
@@ -218,11 +218,6 @@ export function CardBrowser({
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="text-xs text-[color:var(--text-muted)]">
-        {refined}
-        {filtered.length > 0 ? `${shown} 件 表示中` : ""}
       </div>
 
       {filtered.length === 0 ? (
