@@ -6,9 +6,11 @@ import type { ReplayResponse, MatrixBatchGame } from "@/lib/types";
 import { SpectateBoard } from "@/components/SpectateBoard";
 import { SpectateVsPanel, useDeckSelect, type SpectateDeck } from "@/components/SpectateVsPanel";
 
-const N_GAMES = 10;
+const DEFAULT_N_GAMES = 10;
+const MAX_N_GAMES = 100;
+const clampN = (v: number) => (Number.isFinite(v) ? Math.max(1, Math.min(MAX_N_GAMES, Math.floor(v))) : DEFAULT_N_GAMES);
 
-// AI vs AI 10連戦(勝率): 10 戦 (前半 P0 先攻 / 後半 P1 先攻) を 1 試合ずつ実行し、
+// AI vs AI 連戦(勝率): N 戦 (前半 P0 先攻 / 後半 P1 先攻) を 1 試合ずつ実行し、
 // 結果が出るたびに逐次表示。 各試合は同 seed の replay で観戦できる。
 export function SpectateBatch({
   decks,
@@ -20,12 +22,14 @@ export function SpectateBatch({
   initialDeckB?: string;
 }) {
   const sel = useDeckSelect(decks, initialDeckA, initialDeckB);
+  const [nGames, setNGames] = useState(DEFAULT_N_GAMES);
   const [running, setRunning] = useState(false); // 単発観戦の replay ロード中
-  const [batchRunning, setBatchRunning] = useState(false); // 10連戦 実行中
+  const [batchRunning, setBatchRunning] = useState(false); // 連戦 実行中
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
   const [games, setGames] = useState<MatrixBatchGame[]>([]);
   const [names, setNames] = useState<{ a: string; b: string } | null>(null);
+  const [total, setTotal] = useState(DEFAULT_N_GAMES); // 実行中バッチの目標戦数 (途中で入力を変えても固定)
   const runIdRef = useRef(0);
   const busy = running || batchRunning;
 
@@ -38,12 +42,15 @@ export function SpectateBatch({
       setError("両方のデッキを選択してください");
       return;
     }
+    const n = clampN(nGames);
+    setNGames(n);
+    setTotal(n);
     const runId = ++runIdRef.current; // 途中で再実行されたら古い loop を捨てる
     const base = Math.floor(Math.random() * 1_000_000);
-    const half = Math.floor(N_GAMES / 2);
+    const half = Math.floor(n / 2);
     setBatchRunning(true);
     try {
-      for (let i = 0; i < N_GAMES; i++) {
+      for (let i = 0; i < n; i++) {
         const swap = i >= half; // 前半 da 先攻 / 後半 db 先攻
         const r = await runMatrixSampleGame(sel.deckA, sel.deckB, base + i, swap);
         if (runId !== runIdRef.current) return; // stale
@@ -100,8 +107,8 @@ export function SpectateBatch({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       <SpectateVsPanel
-        title="AI vs AI 10連戦（勝率）"
-        subtitle="2 デッキで 10 戦（前半 P0 先攻 / 後半 P1 先攻）します。結果は 1 試合ずつ表示され、各試合を観戦できます。"
+        title="AI vs AI 連戦（勝率）"
+        subtitle="選んだ回数だけ対戦して勝率を出します（先攻は半分ずつ入替）。結果は 1 試合ずつ表示され、各試合を観戦できます。"
         decks={decks}
         catA={sel.catA}
         catB={sel.catB}
@@ -114,6 +121,21 @@ export function SpectateBatch({
         disabled={busy}
         footer={
           <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+              <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">対戦オプション</h2>
+              <label className="flex flex-col gap-1 text-xs sm:max-w-xs">
+                <span className="text-[color:var(--text-muted)]">連戦数（1〜{MAX_N_GAMES} · 先攻は半分ずつ入替）</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={MAX_N_GAMES}
+                  value={nGames}
+                  disabled={batchRunning}
+                  onChange={(e) => setNGames(clampN(parseInt(e.target.value || "1", 10)))}
+                  className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-mono text-[color:var(--text-strong)]"
+                />
+              </label>
+            </div>
             <button
               type="button"
               onClick={handleBatch}
@@ -121,7 +143,7 @@ export function SpectateBatch({
               className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
               style={{ background: "var(--brand)" }}
             >
-              {batchRunning ? `実行中... ${games.length}/${N_GAMES}` : "▶ 10連戦を実行"}
+              {batchRunning ? `実行中... ${games.length}/${total}` : `▶ ${clampN(nGames)}戦を実行`}
             </button>
             {error && <span className="text-sm text-[color:var(--danger)]">{error}</span>}
           </div>
@@ -130,7 +152,7 @@ export function SpectateBatch({
       {(games.length > 0 || batchRunning) && (
         <BatchResults
           games={games}
-          total={N_GAMES}
+          total={total}
           deckAName={names?.a ?? "P0"}
           deckBName={names?.b ?? "P1"}
           batchRunning={batchRunning}
