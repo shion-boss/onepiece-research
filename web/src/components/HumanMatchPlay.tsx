@@ -766,19 +766,23 @@ export function HumanMatchPlay({
     if (!m) return;
     const aiPlayer = snap.players?.[aiIdx];
     const trash = aiPlayer?.trash ?? [];
-    const cardId = trash[trash.length - 1] ?? "";
+    // このフレームで AI の trash に入った全カード = AI が切ったカウンター札 (複数可)。
+    // 取れなければ trash 末尾 1 枚で fallback。 合計 +N は先頭カードにのみ表示。
+    const added = frameDiff.trashAdded[aiIdx] ?? [];
+    const cards = added.length ? added : trash.length ? [trash[trash.length - 1]] : [];
     const value = Number(m[1]);
-    if (cardId) {
-      fireCounterPlay(cardId, value, "opp");
+    if (cards.length) {
+      cards.forEach((cid, i) => fireCounterPlay(cid, i === 0 ? value : 0, "opp"));
       // PlayedCardOverlay で 同じ card が 別演出 (= 上から下 スライド) で 二重 表示
       // される のを 防止。 ~3 秒 後 に 自動 clear (= CounterPlayOverlay 完了 後)。
-      setUsedCounterCardIdsOpp((prev) => [...prev, cardId]);
+      setUsedCounterCardIdsOpp((prev) => [...prev, ...cards]);
       setTimeout(() => {
         setUsedCounterCardIdsOpp((prev) => {
-          const idx = prev.indexOf(cardId);
-          if (idx < 0) return prev;
           const out = prev.slice();
-          out.splice(idx, 1);
+          for (const cid of cards) {
+            const idx = out.indexOf(cid);
+            if (idx >= 0) out.splice(idx, 1);
+          }
           return out;
         });
       }, 3000);
@@ -7496,7 +7500,7 @@ function RevealTopPlayConfirmModal({
 // トラッシュ閲覧 modal
 // ========================================================================== //
 
-function TrashViewer({
+export function TrashViewer({
   side,
   cards,
   onClose,

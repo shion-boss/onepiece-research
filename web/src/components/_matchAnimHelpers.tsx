@@ -1295,16 +1295,18 @@ export function CounterPlayOverlay(): React.JSX.Element | null {
                       : "ring-rose-300 drop-shadow-[0_0_30px_rgba(244,114,182,0.85)]")
                   }
                 />
-                <div
-                  className={
-                    "absolute -top-8 left-1/2 -translate-x-1/2 rounded-full px-6 py-2 text-4xl font-extrabold text-white shadow-2xl " +
-                    (isMe
-                      ? "bg-amber-500 drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]"
-                      : "bg-rose-500 drop-shadow-[0_0_18px_rgba(244,114,182,0.95)]")
-                  }
-                >
-                  +{it.value}
-                </div>
+                {it.value > 0 && (
+                  <div
+                    className={
+                      "absolute -top-8 left-1/2 -translate-x-1/2 rounded-full px-6 py-2 text-4xl font-extrabold text-white shadow-2xl " +
+                      (isMe
+                        ? "bg-amber-500 drop-shadow-[0_0_18px_rgba(251,191,36,0.95)]"
+                        : "bg-rose-500 drop-shadow-[0_0_18px_rgba(244,114,182,0.95)]")
+                    }
+                  >
+                    +{it.value}
+                  </div>
+                )}
               </div>
             </motion.div>
           );
