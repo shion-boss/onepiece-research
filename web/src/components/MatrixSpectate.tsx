@@ -146,23 +146,25 @@ export function MatrixSpectate({
               </button>
             </div>
           </label>
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={busy || !deckA || !deckB}
-            className="rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {running ? "計算中..." : "観戦開始"}
-          </button>
-          <button
-            type="button"
-            onClick={handleBatch}
-            disabled={busy || !deckA || !deckB}
-            className="rounded-[var(--radius)] border px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ borderColor: "var(--brand)", color: "var(--brand-strong)" }}
-          >
-            {batchRunning ? "10連戦 計算中..." : "10連戦（勝率）"}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={busy || !deckA || !deckB}
+              className="w-44 rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {running ? "計算中..." : "観戦開始"}
+            </button>
+            <button
+              type="button"
+              onClick={handleBatch}
+              disabled={busy || !deckA || !deckB}
+              className="w-44 rounded-[var(--radius)] border px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ borderColor: "var(--brand)", color: "var(--brand-strong)" }}
+            >
+              {batchRunning ? "10連戦 計算中..." : "10連戦（勝率）"}
+            </button>
+          </div>
         </div>
 
         {error ? (
