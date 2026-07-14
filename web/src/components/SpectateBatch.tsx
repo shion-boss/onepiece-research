@@ -90,14 +90,15 @@ export function SpectateBatch({
         onDeckB={sel.setDeckB}
         disabled={busy}
         footer={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3">
             <button
               type="button"
               onClick={handleBatch}
               disabled={busy || !sel.deckA || !sel.deckB}
-              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-8 py-4 text-lg font-semibold text-white transition hover:bg-[color:var(--brand-strong)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
+              style={{ background: "var(--brand)" }}
             >
-              {batchRunning ? "10連戦 計算中..." : "10連戦を実行"}
+              {batchRunning ? "実行中..." : "▶ 10連戦を実行"}
             </button>
             {batchRunning && (
               <span className="text-sm text-[color:var(--text-muted)]">

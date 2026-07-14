@@ -69,36 +69,35 @@ export function MatrixSpectate({
         onDeckB={sel.setDeckB}
         disabled={running}
         footer={
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-2 text-xs">
+              <span className="text-[color:var(--text-muted)]">seed（この試合を再現）</span>
+              <input
+                type="number"
+                value={seed}
+                onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
+                disabled={running}
+                className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]"
+              />
+              <button
+                type="button"
+                onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
+                disabled={running}
+                className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1.5 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
+                title="ランダム seed"
+              >
+                ⟳
+              </button>
+            </label>
             <button
               type="button"
               onClick={handleStart}
               disabled={running || !sel.deckA || !sel.deckB}
-              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-8 py-4 text-lg font-semibold text-white transition hover:bg-[color:var(--brand-strong)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
+              style={{ background: "var(--brand)" }}
             >
-              {running ? "計算中..." : "観戦開始"}
+              {running ? "開始中..." : "▶ 観戦 開始"}
             </button>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-[color:var(--text-muted)]">seed（この試合を再現）</span>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={seed}
-                  onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-                  disabled={running}
-                  className="w-28 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-1.5 text-sm text-[color:var(--text-strong)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
-                  disabled={running}
-                  className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
-                  title="ランダム seed"
-                >
-                  ⟳
-                </button>
-              </div>
-            </label>
             {running && (
               <span className="text-sm text-[color:var(--text-muted)]">シミュレート中...（通常 3〜5 秒）</span>
             )}
