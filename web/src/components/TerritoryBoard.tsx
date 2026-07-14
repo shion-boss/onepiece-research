@@ -134,7 +134,7 @@ const Grid = memo(function Grid({
   return (
     <div
       onMouseLeave={onLeave}
-      style={{ display: "grid", gridTemplateColumns: `repeat(${COLS}, 1fr)`, gap: 2 }}
+      style={{ display: "grid", gridTemplateColumns: `repeat(${COLS}, 1fr)`, gap: 1 }}
     >
       {cells.map((c, i) => (
         <button
