@@ -35,7 +35,8 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const months = useMemo(() => Array.from({ length: Math.min(count, MAX_MONTHS) }, (_, i) => monthAt(i)), [count]);
+  // 今月(進行中)は歴史に含めない → i=1 (先月) から過去へ。
+  const months = useMemo(() => Array.from({ length: Math.min(count, MAX_MONTHS) }, (_, i) => monthAt(i + 1)), [count]);
   const selInfo = useMemo(() => months.find((m) => m.key === sel) ?? monthAt(1), [months, sel]);
   const cells = useMemo(() => seedCells(leaders, monthSalt(sel)), [leaders, sel]);
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
@@ -93,7 +94,6 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
               }}
             >
               {m.label}
-              {m.current && <span className="rounded bg-[color:var(--brand)] px-1 text-[8px] text-white">進行中</span>}
             </button>
           );
         })}
@@ -107,7 +107,7 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
           <header className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5" style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}>
             <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
-              {selInfo.label} の最終陣地{selInfo.current && "（進行中）"}
+              {selInfo.label} の最終陣地
             </h1>
             <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
               その月末に凍結した陣取りの状態。占領 {occupied} / 空き {1024 - occupied}。マスにホバーで戦いの履歴、クリックで固定（再クリックで解除）
