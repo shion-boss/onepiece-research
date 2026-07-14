@@ -51,6 +51,7 @@ export function tabTitleFor(path: string): string {
     "/": "ようこそ",
     "/play": "人間 vs AI",
     "/watch": "AI vs AI 観戦",
+    "/winrate": "AI vs AI 10連戦",
     "/decks": "マイデッキ",
     "/decks/new": "新規デッキ",
     "/decks/generate": "デッキ生成",

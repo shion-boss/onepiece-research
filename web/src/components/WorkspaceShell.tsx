@@ -259,8 +259,9 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
         <PanelHeader>対戦</PanelHeader>
         <PanelLink href="/play" active={path === "/play"}>人間 vs AI</PanelLink>
         <PanelLink href="/watch" active={path === "/watch"}>AI vs AI（観戦）</PanelLink>
+        <PanelLink href="/winrate" active={path === "/winrate"}>AI vs AI（10連戦）</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          人間 vs AI = 自分のデッキでプレイ / AI vs AI = 2 デッキを選んで観戦。
+          人間 vs AI = 自分のデッキでプレイ / 観戦 = 2 デッキで 1 試合 / 10連戦 = 10 戦して勝率。
         </p>
       </div>
     );

@@ -1,10 +1,10 @@
 import { fetchDecks } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
-import { MatrixSpectate } from "@/components/MatrixSpectate";
+import { SpectateBatch } from "@/components/SpectateBatch";
 import { PageShell } from "@/components/ui/PageShell";
 
-// AI vs AI 観戦: 2 デッキを選んで 1 試合シミュレート → 盤面 replay を観戦。
-export default async function WatchPage({
+// AI vs AI 10連戦(勝率): 2 デッキで 10 戦して勝率 + 各試合を観戦。
+export default async function WinratePage({
   searchParams,
 }: {
   searchParams: Promise<{ deck?: string }>;
@@ -46,7 +46,7 @@ export default async function WatchPage({
 
   return (
     <main className="flex w-full flex-1 flex-col">
-      <MatrixSpectate decks={decks} initialDeckA={sp?.deck} />
+      <SpectateBatch decks={decks} initialDeckA={sp?.deck} />
     </main>
   );
 }

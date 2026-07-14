@@ -450,18 +450,29 @@ def matrix_sample_batch(req: MatrixBatchRequest, user_id: str = Depends(current_
     overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
     da = _resolve_decklist(req.deck_a, user_id)
     db = _resolve_decklist(req.deck_b, user_id)
-    kw = _practice_run_kwargs(req.deck_a, req.deck_b)
+    kw_ab = _practice_run_kwargs(req.deck_a, req.deck_b)
+    kw_ba = _practice_run_kwargs(req.deck_b, req.deck_a)
 
+    # 先攻/後攻を公平に: 前半は da 先攻 (P0)、 後半は db 先攻 (P1)。 デッキ順を入替えて
+    # run_matchup(n_games=1) の deck1 が常に先攻になる性質を使い、 winner は P0(da) 基準に戻す。
+    half = n // 2
     games = []
     p0 = p1 = draw = 0
     for i in range(n):
         s = req.seed + i
+        swap = i >= half
+        d1, d2, kw = (db, da, kw_ba) if swap else (da, db, kw_ab)
         rep = _run(
-            da, db, n_games=1, seed=s, effects_overlay=overlay,
+            d1, d2, n_games=1, seed=s, effects_overlay=overlay,
             keep_logs=False, enforce_rules=False, record_snapshots=False, **kw,
         )
-        g = rep.games[0]
-        w = g.winner if g.winner is not None else -1
+        w1 = rep.games[0].winner  # deck1 基準 (0=d1, 1=d2)
+        if w1 is None or w1 == -1:
+            w = -1
+        elif not swap:
+            w = w1  # d1=da → 0=P0(da), 1=P1(db)
+        else:
+            w = 1 - w1  # d1=db=P1 → 0(db)→P1, 1(da)→P0
         if w == 0:
             p0 += 1
         elif w == 1:
@@ -469,7 +480,8 @@ def matrix_sample_batch(req: MatrixBatchRequest, user_id: str = Depends(current_
         else:
             draw += 1
         games.append(
-            {"game_index": i, "seed": s, "winner": w, "turns": g.turns, "first_player": g.first_player}
+            {"game_index": i, "seed": s, "swap": swap,
+             "first_player": 1 if swap else 0, "winner": w, "turns": rep.games[0].turns}
         )
     return {
         "deck_a_name": da.name,

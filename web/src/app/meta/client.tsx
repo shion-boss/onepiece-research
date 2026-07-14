@@ -97,7 +97,6 @@ export function MetaPageClient({
           decks={decks}
           initialDeckA={initialA}
           initialDeckB={initialB}
-          initialSeed={initialSeed}
         />
       ) : (
         <NoMatrixBanner />

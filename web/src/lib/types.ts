@@ -353,9 +353,10 @@ export type MatrixBatchResult = {
   games: {
     game_index: number;
     seed: number;
-    winner: number;
+    winner: number; // P0(deck_a) 基準: 0=P0勝, 1=P1勝, -1=引分
     turns: number;
-    first_player: number;
+    first_player: number; // 0=P0先攻, 1=P1先攻
+    swap: boolean; // true なら deck 順を入替えて実行 (= P1 先攻)。 観戦再現に使う
   }[];
 };
 
