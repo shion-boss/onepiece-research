@@ -76,9 +76,6 @@ export function CardTile({
           alt={card.name}
           className="aspect-[5/7] w-full rounded object-cover"
         />
-        <div className="absolute right-1 top-1">
-          <BlockBadge blockIcon={card.block_icon} />
-        </div>
         {ban && (
           <div className="absolute left-1 top-1">
             <BanBadge ban={ban} />
@@ -100,6 +97,9 @@ export function CardTile({
             P{card.power}
           </span>
         )}
+        <span className="ml-auto">
+          <BlockBadge blockIcon={card.block_icon} />
+        </span>
       </div>
     </button>
   );
