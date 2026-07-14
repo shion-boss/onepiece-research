@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardGrid, seedCells, type BoardLeader } from "./TerritoryBoard";
 import { CellHistoryPanel } from "./CellHistoryPanel";
+import { useResizable } from "@/lib/useResizable";
+import { ResizeHandle } from "./ResizeHandle";
 
 // 月キー → seed salt (月ごとに盤が変わる)。
 function monthSalt(key: string): number {
@@ -45,6 +47,10 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const activeIdx = selected ?? hovered; // 固定中は selected 優先
   const active = activeIdx != null ? cells[activeIdx] : null;
 
+  // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。
+  const left = useResizable(128, 96, 260);
+  const right = useResizable(288, 200, 520, true);
+
   // 月切替で hover/固定 をクリア (盤が変わるため)。
   useEffect(() => {
     setHovered(null);
@@ -70,7 +76,7 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       {/* 左: 月メニュー (高さ制限 + 内部無限スクロール、 上=最新) */}
-      <aside ref={asideRef} className="log-scroll w-32 shrink-0 overflow-y-auto border-r py-2" style={{ borderColor: "var(--border-1)" }}>
+      <aside ref={asideRef} className="log-scroll shrink-0 overflow-y-auto py-2" style={{ width: left.width }}>
         <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">戦いの歴史</div>
         {months.map((m) => {
           const on = m.key === sel;
@@ -94,8 +100,10 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
         {count < MAX_MONTHS && <div ref={sentinelRef} className="h-6" aria-hidden />}
       </aside>
 
+      <ResizeHandle onMouseDown={left.onMouseDown} />
+
       {/* 中央: 選択月の最終陣地 */}
-      <main className="log-scroll min-w-0 flex-1 overflow-y-auto">
+      <main className="log-scroll min-w-0 flex-1 overflow-y-auto border-l" style={{ borderColor: "var(--border-1)" }}>
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
           <header className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5" style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}>
             <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
@@ -111,8 +119,9 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
         </div>
       </main>
 
-      {/* 右: ホバー中マスの戦い履歴 */}
-      <div className="log-scroll hidden w-72 shrink-0 overflow-y-auto border-l p-3 lg:block" style={{ borderColor: "var(--border-1)" }}>
+      {/* 右: ホバー中マスの戦い履歴 (左端ハンドルでリサイズ) */}
+      <ResizeHandle onMouseDown={right.onMouseDown} />
+      <div className="log-scroll shrink-0 overflow-y-auto border-l p-3" style={{ width: right.width, borderColor: "var(--border-1)" }}>
         <CellHistoryPanel cell={active} idx={activeIdx} leaders={leaders} />
       </div>
     </div>

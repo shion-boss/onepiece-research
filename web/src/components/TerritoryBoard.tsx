@@ -2,6 +2,8 @@
 
 import { memo, useCallback, useMemo, useState } from "react";
 import { CellHistoryPanel } from "./CellHistoryPanel";
+import { useResizable } from "@/lib/useResizable";
+import { ResizeHandle } from "./ResizeHandle";
 
 // 陣取り盤: 1024 マス (32×32)。 各マスは占領者(人間)の推しリーダーの色。 空きマスは中立。
 // ホバーでリーダーが分かる / クリックで対象マス選択 → そのマスに挑戦 (占領マス=占領者デッキの AI、
@@ -93,6 +95,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
 
   const activeIdx = selected ?? hovered; // 固定中は selected を優先 (ホバー無視)
   const active = activeIdx != null ? cells[activeIdx] : null;
+  const right = useResizable(288, 200, 560, true); // 右パネル幅ドラッグ
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
   return (
@@ -109,11 +112,13 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
         <span className="ml-auto text-xs text-[color:var(--text-muted)]">ホバーで履歴表示 ・ クリックで固定（再クリックで解除）・ 固定中は観戦ボタンまで操作可</span>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-2 lg:flex-row lg:gap-0">
         <div className="min-w-0 flex-1 rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
           <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={onLeave} />
         </div>
-        <div className="flex w-full shrink-0 flex-col gap-3 lg:w-72">
+        {/* 右パネル (左端ハンドルでドラッグリサイズ) */}
+        <ResizeHandle onMouseDown={right.onMouseDown} />
+        <div className="flex shrink-0 flex-col gap-3 lg:pl-1" style={{ width: right.width }}>
           {selected != null && (
             <button
               type="button"

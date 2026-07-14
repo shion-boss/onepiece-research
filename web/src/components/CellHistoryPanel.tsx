@@ -53,7 +53,7 @@ export function CellHistoryPanel({
   leaders: BoardLeader[];
 }) {
   return (
-    <div className="w-full shrink-0 self-start rounded-[var(--radius)] border p-3 lg:w-72" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
+    <div className="w-full rounded-[var(--radius)] border p-3" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
       {idx == null ? (
         <div className="py-10 text-center text-sm text-[color:var(--text-muted)]">マスにホバーで<br />そのマスの戦いの履歴</div>
       ) : (
