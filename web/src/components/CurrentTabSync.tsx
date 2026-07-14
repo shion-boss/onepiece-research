@@ -18,9 +18,11 @@ export function CurrentTabSync() {
   const filterQuery =
     path === "/cards" ? normalizeFilterQuery(new URLSearchParams(search.toString())) : "";
   const tabId = filterQuery ? `/cards?${filterQuery}` : path;
-  const title = tabId.startsWith("/cards?")
-    ? savedFilters.find((f) => f.query === tabId.slice("/cards?".length))?.name ?? "カード（絞り込み）"
-    : tabTitleFor(tabId);
+  // 絞り込みタブは「カード[絞り込み名]」で表記 (= カードタブの派生と分かる)。
+  const filterName = tabId.startsWith("/cards?")
+    ? savedFilters.find((f) => f.query === tabId.slice("/cards?".length))?.name ?? "絞り込み"
+    : null;
+  const title = filterName ? `カード[${filterName}]` : tabTitleFor(tabId);
 
   useEffect(() => {
     setActiveTabId(tabId);
