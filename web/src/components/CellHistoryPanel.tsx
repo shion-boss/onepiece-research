@@ -80,6 +80,19 @@ export function CellHistoryPanel({ cell, idx, leaders }: { cell: Cell | null; id
   );
 }
 
+// 対戦ログ内のリーダー画像 (パネル幅に応じて大きく = 各辺 flex-1)。
+function LeaderThumb({ id, name, label, ring }: { id: string; name: string; label: string; ring: string }) {
+  return (
+    <div className="min-w-0 flex-1" title={`${label}: ${name}`}>
+      <CardImage cardId={id} alt={name} className="w-full rounded object-cover" style={{ aspectRatio: "5 / 7", boxShadow: `0 0 0 2px ${ring}` }} />
+      <div className="mt-0.5 flex items-center justify-center gap-1">
+        <span className="rounded px-1 text-[9px] font-bold text-white" style={{ background: ring }}>{label}</span>
+        <span className="min-w-0 truncate text-[10px] text-[color:var(--text-default)]">{name}</span>
+      </div>
+    </div>
+  );
+}
+
 function CellDetail({ cell, idx, leaders }: { cell: Cell; idx: number; leaders: BoardLeader[] }) {
   const battles = seedBattles(idx, cell, leaders);
   return (
@@ -109,37 +122,29 @@ function CellDetail({ cell, idx, leaders }: { cell: Cell; idx: number; leaders: 
             まだ戦いはありません
           </div>
         ) : (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-2">
             {battles.map((b) => (
-              <li key={b.id} className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}>
-                <div className="flex items-center gap-2">
-                  {/* 挑戦者(人間) */}
-                  <div className="flex flex-col items-center gap-0.5" title={`挑戦: ${b.attackerName}`}>
-                    <CardImage cardId={b.attackerId} alt={b.attackerName} className="h-16 w-auto rounded object-cover ring-2 ring-[color:var(--accent)]" />
-                    <span className="max-w-[60px] truncate text-[9px] text-[color:var(--accent)]">挑戦</span>
+              <li key={b.id} className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}>
+                {/* 挑戦者(人間) vs 防衛側 を大きく */}
+                <div className="flex items-stretch gap-2">
+                  <LeaderThumb id={b.attackerId} name={b.attackerName} label="挑戦" ring="var(--accent)" />
+                  <div className="flex flex-col items-center justify-center gap-1">
+                    <span className="text-sm font-black text-[color:var(--text-muted)]">VS</span>
+                    <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: b.conquered ? "var(--accent)" : "var(--danger)" }}>
+                      {b.conquered ? "奪取" : "防衛"}
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-[color:var(--text-muted)]">VS</span>
-                  {/* 防衛側 */}
-                  <div className="flex flex-col items-center gap-0.5" title={`防衛: ${b.defenderName}`}>
-                    <CardImage cardId={b.defenderId} alt={b.defenderName} className="h-16 w-auto rounded object-cover ring-2 ring-[color:var(--danger)]" />
-                    <span className="max-w-[60px] truncate text-[9px] text-[color:var(--danger)]">防衛</span>
-                  </div>
-                  <span
-                    className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-white"
-                    style={{ background: b.conquered ? "var(--accent)" : "var(--danger)" }}
-                  >
-                    {b.conquered ? "奪取" : "防衛成功"}
-                  </span>
+                  <LeaderThumb id={b.defenderId} name={b.defenderName} label="防衛" ring="var(--danger)" />
                 </div>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[color:var(--text-muted)]">
+                <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[color:var(--text-muted)]">
                   <span className="min-w-0 flex-1 truncate">{b.challenger}</span>
-                  <span>{b.turns}T</span>
+                  <span>{b.turns}ターン</span>
                   <span>{b.daysAgo}日前</span>
                   <button
                     type="button"
                     disabled
                     title="対戦連携の実装後に、この試合を再生できます"
-                    className="rounded border px-1.5 py-0.5 text-[10px] opacity-50"
+                    className="rounded border px-2 py-0.5 text-[11px] opacity-50"
                     style={{ borderColor: "var(--border-2)" }}
                   >
                     観戦
