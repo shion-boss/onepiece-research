@@ -40,9 +40,25 @@ const IconFaq = svg(
     <path d="M12 16.6h.01" strokeLinecap="round" />
   </>,
 );
+// 育てる (陣取り/成長)
+const IconGrow = svg(
+  <>
+    <rect x="3" y="13" width="5" height="8" rx="1" />
+    <rect x="10" y="8" width="5" height="13" rx="1" />
+    <rect x="17" y="3" width="4" height="18" rx="1" />
+  </>,
+);
+// 戦いの歴史 (巻物/時計)
+const IconHistory = svg(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" strokeLinecap="round" />
+  </>,
+);
 
-// 主要ツール (上部) と Q&A (下部) を分ける = VSCode のアクティビティバー流。
+// 主要ツール (上部) と Q&A / 履歴 (下部) を分ける = VSCode のアクティビティバー流。
 const ACTIVITY_MAIN: { view: ActivityView; label: string; icon: ReactNode }[] = [
+  { view: "grow", label: "みんなで育てる", icon: IconGrow },
   { view: "explorer", label: "デッキ", icon: IconDeck },
   { view: "play", label: "対戦", icon: IconPlay },
   { view: "cards", label: "カード", icon: IconCards },
@@ -51,6 +67,11 @@ const FAQ_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
   view: "faq",
   label: "ルール Q&A",
   icon: IconFaq,
+};
+const HISTORY_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
+  view: "history",
+  label: "戦いの歴史",
+  icon: IconHistory,
 };
 
 type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[]; folder?: string };
@@ -155,6 +176,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         >
           {ACTIVITY_MAIN.map(renderAct)}
           {renderAct(FAQ_ACT)}
+          {renderAct(HISTORY_ACT)}
         </div>
 
         {/* sidebar panel */}
@@ -238,6 +260,28 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
 // ---- sidebar panel: activeView 毎に内容を切替 ----
 function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
+  if (view === "grow") {
+    return (
+      <div className="py-2">
+        <PanelHeader>みんなで育てる</PanelHeader>
+        <PanelLink href="/grow" active={path === "/grow"}>陣取りダッシュボード</PanelLink>
+        <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
+          みんなの対戦で AI が育つ。各リーダーで人間と AI のどちらが勝ち越しているかを見る。
+        </p>
+      </div>
+    );
+  }
+  if (view === "history") {
+    return (
+      <div className="py-2">
+        <PanelHeader>戦いの歴史</PanelHeader>
+        <PanelLink href="/history" active={path === "/history"}>月ごとの戦績を見る</PanelLink>
+        <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
+          毎月末に陣取りの状態を記録。人類 vs AI の歩みを振り返る。
+        </p>
+      </div>
+    );
+  }
   if (view === "cards") {
     return <CardsSidebar />;
   }

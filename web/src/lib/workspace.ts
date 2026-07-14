@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 export type Tab = { id: string; title: string };
-export type ActivityView = "explorer" | "cards" | "play" | "faq";
+export type ActivityView = "grow" | "explorer" | "cards" | "play" | "faq" | "history";
 
 interface WorkspaceState {
   tabs: Tab[];
@@ -53,6 +53,8 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
 export function tabTitleFor(path: string): string {
   const map: Record<string, string> = {
     "/": "ようこそ",
+    "/grow": "みんなで育てる",
+    "/history": "戦いの歴史",
     "/play": "人間 vs AI",
     "/watch": "AI vs AI 観戦",
     "/winrate": "AI vs AI 勝率",
