@@ -99,9 +99,12 @@ export function MatrixSpectate({
       setError("両方のデッキを選択してください");
       return;
     }
+    // 10連戦は毎回ランダムな基準 seed で (= 新しいサンプル)。 使った seed は欄に表示し再現可能に。
+    const base = Math.floor(Math.random() * 1_000_000);
+    setSeed(base);
     setBatchRunning(true);
     try {
-      const b = await runMatrixSampleBatch(deckA, deckB, seed, 10);
+      const b = await runMatrixSampleBatch(deckA, deckB, base, 10);
       setBatch(b);
     } catch (e) {
       setError(String(e));
