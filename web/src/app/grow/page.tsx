@@ -1,21 +1,20 @@
 import { fetchCards } from "@/lib/api";
-import type { LeaderRef } from "@/lib/battleSeed";
-import { BattleDashboard } from "@/components/BattleDashboard";
+import { TerritoryBoard, type BoardLeader } from "@/components/TerritoryBoard";
 import { PageShell } from "@/components/ui/PageShell";
 
-// みんなで育てる OPTCG AI ダッシュボード。 リーダー一覧は card DB から動的導出
-// (= 新弾で新リーダーが増えると自動で盤面に追加)。 パラレルは base card_id に統合。
+// 推しリーダー陣取り (表: 陣取りゲーム / 裏: みんなで育てる AI)。
+// リーダーは card DB から動的導出 (新弾で自動追加)。 パラレルは base card_id に統合。
 export default async function GrowPage() {
-  let leaders: LeaderRef[] = [];
+  const leaders: BoardLeader[] = [];
   let error: string | null = null;
   try {
     const cards = await fetchCards({ category: "LEADER", limit: 10000 });
     const seen = new Set<string>();
     for (const c of cards) {
-      const base = c.card_id.split("_")[0]; // パラレル (_p1 等) を除去
+      const base = c.card_id.split("_")[0];
       if (seen.has(base)) continue;
       seen.add(base);
-      leaders.push({ id: base, name: c.name });
+      leaders.push({ id: base, name: c.name, color: c.color?.[0] ?? "黒" });
     }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
@@ -34,7 +33,7 @@ export default async function GrowPage() {
 
   return (
     <main className="flex w-full flex-1 flex-col">
-      <BattleDashboard leaders={leaders} />
+      <TerritoryBoard leaders={leaders} />
     </main>
   );
 }

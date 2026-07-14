@@ -58,7 +58,7 @@ const IconHistory = svg(
 
 // 主要ツール (上部) と Q&A / 履歴 (下部) を分ける = VSCode のアクティビティバー流。
 const ACTIVITY_MAIN: { view: ActivityView; label: string; icon: ReactNode }[] = [
-  { view: "grow", label: "みんなで育てる", icon: IconGrow },
+  { view: "grow", label: "陣取り", icon: IconGrow },
   { view: "explorer", label: "デッキ", icon: IconDeck },
   { view: "play", label: "対戦", icon: IconPlay },
   { view: "cards", label: "カード", icon: IconCards },
@@ -263,10 +263,10 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
   if (view === "grow") {
     return (
       <div className="py-2">
-        <PanelHeader>みんなで育てる</PanelHeader>
-        <PanelLink href="/grow" active={path === "/grow"}>陣取りダッシュボード</PanelLink>
+        <PanelHeader>推しリーダー陣取り</PanelHeader>
+        <PanelLink href="/grow" active={path === "/grow"}>陣取り盤を開く</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          みんなの対戦で AI が育つ。各リーダーで人間と AI のどちらが勝ち越しているかを見る。
+          1024 マスを推しリーダーで奪い合う。AI に勝てば 1 マス占領。
         </p>
       </div>
     );
