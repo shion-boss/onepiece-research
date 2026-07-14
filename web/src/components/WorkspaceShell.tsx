@@ -41,8 +41,8 @@ const IconFaq = svg(
 // 主要ツール (上部) と Q&A (下部) を分ける = VSCode のアクティビティバー流。
 const ACTIVITY_MAIN: { view: ActivityView; label: string; icon: ReactNode }[] = [
   { view: "explorer", label: "デッキ", icon: IconDeck },
-  { view: "cards", label: "カード", icon: IconCards },
   { view: "play", label: "対戦", icon: IconPlay },
+  { view: "cards", label: "カード", icon: IconCards },
 ];
 const FAQ_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
   view: "faq",
