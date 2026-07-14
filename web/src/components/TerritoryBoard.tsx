@@ -95,7 +95,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
 
   const activeIdx = selected ?? hovered; // 固定中は selected を優先 (ホバー無視)
   const active = activeIdx != null ? cells[activeIdx] : null;
-  const right = useResizable(288, 200, 560, true); // 右パネル幅ドラッグ
+  const right = useResizable(288, 240, 560, true); // 右パネル幅ドラッグ
   const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
 
   return (

@@ -87,10 +87,10 @@ function CellDetail({ cell, idx, leaders }: { cell: Cell; idx: number; leaders: 
       <div className="flex items-center gap-2">
         {cell.owner ? (
           <>
-            <CardImage cardId={cell.owner.id} alt={cell.owner.name} className="h-12 w-auto rounded border border-[color:var(--border-1)] object-cover" />
+            <CardImage cardId={cell.owner.id} alt={cell.owner.name} className="h-24 w-auto rounded border border-[color:var(--border-1)] object-cover" />
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">マス #{idx + 1} の占領者</div>
-              <div className="truncate text-sm font-semibold text-[color:var(--text-strong)]">{cell.owner.name}</div>
+              <div className="truncate text-base font-semibold text-[color:var(--text-strong)]">{cell.owner.name}</div>
               <div className="truncate text-xs text-[color:var(--text-muted)]">{cell.ownerName}</div>
             </div>
           </>
@@ -112,21 +112,23 @@ function CellDetail({ cell, idx, leaders }: { cell: Cell; idx: number; leaders: 
           <ul className="flex flex-col gap-1.5">
             {battles.map((b) => (
               <li key={b.id} className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {/* 挑戦者(人間) */}
-                  <div className="flex items-center gap-1" title={`挑戦: ${b.attackerName}`}>
-                    <CardImage cardId={b.attackerId} alt={b.attackerName} className="h-9 w-auto rounded object-cover ring-1 ring-[color:var(--accent)]" />
+                  <div className="flex flex-col items-center gap-0.5" title={`挑戦: ${b.attackerName}`}>
+                    <CardImage cardId={b.attackerId} alt={b.attackerName} className="h-16 w-auto rounded object-cover ring-2 ring-[color:var(--accent)]" />
+                    <span className="max-w-[60px] truncate text-[9px] text-[color:var(--accent)]">挑戦</span>
                   </div>
-                  <span className="text-[10px] font-bold text-[color:var(--text-muted)]">VS</span>
+                  <span className="text-xs font-bold text-[color:var(--text-muted)]">VS</span>
                   {/* 防衛側 */}
-                  <div className="flex items-center gap-1" title={`防衛: ${b.defenderName}`}>
-                    <CardImage cardId={b.defenderId} alt={b.defenderName} className="h-9 w-auto rounded object-cover ring-1 ring-[color:var(--danger)]" />
+                  <div className="flex flex-col items-center gap-0.5" title={`防衛: ${b.defenderName}`}>
+                    <CardImage cardId={b.defenderId} alt={b.defenderName} className="h-16 w-auto rounded object-cover ring-2 ring-[color:var(--danger)]" />
+                    <span className="max-w-[60px] truncate text-[9px] text-[color:var(--danger)]">防衛</span>
                   </div>
                   <span
-                    className="ml-auto shrink-0 rounded px-1 py-0.5 text-[10px] font-bold text-white"
+                    className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-white"
                     style={{ background: b.conquered ? "var(--accent)" : "var(--danger)" }}
                   >
-                    {b.conquered ? "奪取" : "防衛"}
+                    {b.conquered ? "奪取" : "防衛成功"}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[color:var(--text-muted)]">

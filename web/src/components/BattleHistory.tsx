@@ -48,9 +48,9 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
   const activeIdx = selected ?? hovered; // 固定中は selected 優先
   const active = activeIdx != null ? cells[activeIdx] : null;
 
-  // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。
-  const left = useResizable(128, 96, 260);
-  const right = useResizable(288, 200, 520, true);
+  // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。 左は初期幅より狭くできない。
+  const left = useResizable(128, 128, 300);
+  const right = useResizable(288, 240, 560, true);
 
   // 月切替で hover/固定 をクリア (盤が変わるため)。
   useEffect(() => {
