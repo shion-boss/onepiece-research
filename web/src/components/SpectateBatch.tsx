@@ -126,7 +126,7 @@ function BatchResults({
   const p0pct = Math.round((batch.p0_wins / total) * 100);
   const p1pct = Math.round((batch.p1_wins / total) * 100);
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 pb-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 pb-8">
       <div className="rounded-[var(--radius)] border p-4" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
         <div className="flex items-center justify-between text-sm">
           <span className="font-semibold" style={{ color: "var(--accent)" }}>
