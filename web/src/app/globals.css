@@ -3,6 +3,14 @@
 /* Tailwind v4: class ベースのダークに切替 (.dark on <html>)。 VSCode 風は常時ダーク固定。 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* クリック可能要素は pointer カーソルに (Tailwind v4 preflight は button に付けない)。
+   disabled は除外。 */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for] {
+  cursor: pointer;
+}
+
 /* ========================================================================== */
 /* Design tokens: VSCode 風 IDE デザインシステム (常時ダーク)                     */
 /* ========================================================================== */

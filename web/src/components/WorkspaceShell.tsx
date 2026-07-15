@@ -139,8 +139,11 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         type="button"
         title={a.label}
         onClick={() => onActivity(a.view)}
-        className="flex h-11 w-full items-center justify-center border-l-2 transition-colors"
-        style={{ color: on ? "#fff" : "var(--text-muted)", borderLeftColor: on ? "#fff" : "transparent" }}
+        className={
+          "flex h-11 w-full items-center justify-center border-l-2 transition-colors " +
+          (on ? "text-white" : "text-[color:var(--text-muted)] hover:text-white")
+        }
+        style={{ borderLeftColor: on ? "#fff" : "transparent" }}
       >
         {a.icon}
       </button>
