@@ -131,8 +131,9 @@ _PUBLIC_BLOCKED_PREFIXES = (
     "/api/audit",            # 内部監査ダッシュボード
     "/api/combos",           # コンボ探索 (moderate、 nav から撤去)
     "/api/meta",             # メタ分析 matrix (研究成果、 nav から撤去)
-    "/api/decks/generate",   # デッキ自動生成 (重い)
-    "/api/decks/build",      # コアカード自動構築 (重い)
+    "/api/decks/generate",   # デッキ自動生成 (重い、 勝率ランクあり)
+    # /api/decks/build (コアカード固定型) は軽い決定的ヒューリスティック fill = デッキ
+    # ビルダーの補助として公開許可 (= sim なし・高速。 generate とは別物)。
 )
 _PUBLIC_BLOCKED_SUFFIXES = (
     "/improvements",         # デッキ改善提案 (重い sim)
