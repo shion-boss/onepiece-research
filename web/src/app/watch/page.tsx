@@ -14,7 +14,8 @@ export default async function WatchPage({
   let error: string | null = null;
   try {
     const raw = await fetchDecks(await serverAuthHeaders());
-    decks = raw.map((d) => ({
+    // 下書き (未完成) は対戦の選択肢から除外。
+    decks = raw.filter((d) => !d.draft).map((d) => ({
       slug: d.slug,
       name: d.name ?? d.slug,
       kind: d.kind,

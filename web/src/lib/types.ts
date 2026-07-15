@@ -107,6 +107,7 @@ export type DeckSummary = {
   kind?: "meta" | "user"; // 環境デッキ(正準) か ユーザー作成か
   folder?: string; // ユーザーデッキの所属フォルダ ("" = ルート)
   private?: boolean; // 非公開 (= 陣取りで使用不可)。 生成時に決定・以後不変
+  draft?: boolean; // 下書き (= 未完成。 対戦選択肢に出さない)
 };
 
 export type DeckDetail = DeckSpec & {

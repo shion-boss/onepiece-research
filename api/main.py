@@ -1095,6 +1095,7 @@ class DeckSummary(BaseModel):
     kind: str = "user"            # "meta" (環境・正準) | "user" (ユーザー作成)
     folder: str = ""              # ユーザーデッキの所属フォルダ ("" = ルート)
     private: bool = False         # 非公開 (= 陣取りで使用不可)。 生成時に決定・以後不変
+    draft: bool = False           # 下書き (= 未完成。 対戦選択肢に出さない)。 可変
 
 
 def _list_deck_files() -> list[Path]:
@@ -1161,6 +1162,7 @@ def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
         folder=d.get("folder") or "",
         # メタ(環境)デッキは常に公開。 user deck は is_private/private で判定。
         private=kind == "user" and bool(d.get("private") or d.get("is_private")),
+        draft=kind == "user" and bool(d.get("draft") or d.get("is_draft")),
     )
 
 
@@ -1243,6 +1245,7 @@ class CreateDeckRequest(BaseModel):
     overwrite: bool = False
     regulation: str = "standard"
     private: bool = False  # 非公開 (= 陣取りで使用不可)。 生成時にのみ有効・以後不変
+    draft: bool = False    # 下書き保存 (= 50枚等の validate をスキップ、 未完成でも保存可)
 
 
 class CreateDeckResponse(BaseModel):
@@ -1310,7 +1313,7 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
     repo = get_repo()
     if not req.leader:
         raise HTTPException(400, "leader is required")
-    if not req.main:
+    if not req.main and not req.draft:
         raise HTTPException(400, "main is empty")
 
     deck_dict = {
@@ -1326,9 +1329,11 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
     except Exception as e:
         raise HTTPException(400, f"deck build failed: {e}")
 
-    errors = deck.validate()
-    if errors:
-        raise HTTPException(422, {"errors": errors})
+    # 下書きは未完成でも保存する (= 50枚/4枚制限/銀リストの validate をスキップ)。
+    if not req.draft:
+        errors = deck.validate()
+        if errors:
+            raise HTTPException(422, {"errors": errors})
 
     slug = req.slug or _slugify(req.name)
     if not slug:
@@ -1347,7 +1352,7 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
         user_store.save_deck(
             user_id, slug, name=deck_dict["name"], leader=req.leader,
             main=deck_dict["main"], regulation=req.regulation, overwrite=req.overwrite,
-            private=req.private,
+            private=req.private, draft=req.draft,
         )
     except ValueError:
         raise HTTPException(409, f"slug already exists: {slug}")

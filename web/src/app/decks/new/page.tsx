@@ -45,7 +45,6 @@ function NewDeckPageContent() {
     decrement,
     removeCard,
     reset,
-    saveToLocalStorage,
     countByBaseId,
   } = useDeckBuilderStore();
 
@@ -184,6 +183,44 @@ function NewDeckPageContent() {
     }
   };
 
+  // サーバ保存。 draft=true は下書き (未完成でも可、 マイデッキに (下書き) 表示・対戦選択肢外)。
+  // draft=false は完成保存 (50枚 validate、 保存後デッキ詳細へ)。 同名は同 slug で上書き
+  // (下書き→完成の finalize もこれで成立、 backend が下書きは overwrite 可)。
+  const saveToServer = async (draft: boolean) => {
+    if (!leader) {
+      showFlash("先にリーダーを選んでください", 3000);
+      return;
+    }
+    if (!draft && !valid) {
+      showFlash(`完成保存は 合計 ${total}/50 枚にしてください (下書きなら未完成でも保存できます)`, 4000);
+      return;
+    }
+    setSaving(true);
+    try {
+      const deckName = name && name.trim() ? name.trim() : `${leader.name} 自作`;
+      const res = await saveDeckToServer({
+        name: deckName,
+        leader: leader.card_id,
+        main: entries.map((e) => ({ card_id: e.card.card_id, count: e.count })),
+        regulation,
+        private: isPrivate,
+        draft,
+        overwrite: draft ? true : undefined,
+      });
+      if (draft) {
+        showFlash(`下書きをマイデッキに保存しました (slug: ${res.slug})`, 3000);
+      } else {
+        showFlash(`サーバ保存しました (slug: ${res.slug}) → デッキ詳細へ移動`, 3000);
+        setTimeout(() => router.push(`/decks/${res.slug}`), 600);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      showFlash(`${draft ? "下書き保存" : "サーバ保存"}失敗: ${msg}`, 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <main className="flex h-full w-full flex-col gap-4 overflow-hidden px-6 py-6">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
@@ -248,13 +285,10 @@ function NewDeckPageContent() {
           </span>
           <button
             type="button"
-            onClick={() => {
-              saveToLocalStorage();
-              showFlash("localStorage に保存しました");
-            }}
-            disabled={!leader}
+            onClick={() => saveToServer(true)}
+            disabled={!leader || saving}
             className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-default)] transition hover:bg-[var(--list-hover)] disabled:opacity-50"
-            title="ブラウザの localStorage に下書き保存"
+            title="未完成でもマイデッキに下書き保存 (対戦の選択肢には出ません)"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -287,44 +321,7 @@ function NewDeckPageContent() {
           </button>
           <button
             type="button"
-            onClick={async () => {
-              if (!leader || !valid) {
-                showFlash(
-                  !leader
-                    ? "リーダーを選んでください"
-                    : `合計 ${total}/50 枚にしてから保存`,
-                  3000,
-                );
-                return;
-              }
-              setSaving(true);
-              try {
-                const deckName =
-                  name && name.trim()
-                    ? name.trim()
-                    : `${leader.name} 自作`;
-                const res = await saveDeckToServer({
-                  name: deckName,
-                  leader: leader.card_id,
-                  main: entries.map((e) => ({
-                    card_id: e.card.card_id,
-                    count: e.count,
-                  })),
-                  regulation,
-                  private: isPrivate,
-                });
-                showFlash(
-                  `サーバ保存しました (slug: ${res.slug}) → デッキ詳細へ移動`,
-                  3000,
-                );
-                setTimeout(() => router.push(`/decks/${res.slug}`), 600);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                showFlash(`サーバ保存失敗: ${msg}`, 5000);
-              } finally {
-                setSaving(false);
-              }
-            }}
+            onClick={() => saveToServer(false)}
             disabled={!leader || !valid || saving}
             className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
             title="API 経由で decks/<slug>.json に保存"
