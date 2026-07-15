@@ -2440,116 +2440,124 @@ function ContributionPanel({
   const selPct = selected?.progress_pct ?? 0;
   const selWr = selected && selGames ? Math.round(selected.human_winrate * 100) : null;
 
+  const barW = (v: number) => `${Math.min(100, Math.max(0, v))}%`;
+  const stat = [
+    { v: stats.total_games.toLocaleString(), l: "みんなの対戦数", c: "var(--brand)" },
+    { v: `${stats.matchups_ready}/${stats.matchups_tracked}`, l: `学習到達 (各${thr}戦)`, c: "var(--accent)" },
+    { v: `${Math.round(stats.human_winrate * 100)}%`, l: "人間の勝率", c: "var(--text-strong)" },
+  ];
+
   return (
-    <section className="rounded-2xl border border-cyan-300 bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-6 shadow-sm dark:border-cyan-800 dark:from-cyan-950/30 dark:via-zinc-900 dark:to-emerald-950/30">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+    <section
+      className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5"
+      style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold tracking-tight text-[color:var(--text-strong)]">
           みんなで育てる OPTCG AI
         </h2>
-        <span className="rounded-full bg-cyan-600 px-2.5 py-0.5 text-xs font-bold text-white">
+        <span
+          className="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+          style={{ background: "var(--brand)" }}
+        >
           分散研究
         </span>
       </div>
-      <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-        あなたの 1 戦は、 AI が「人間の打ち方」 を学ぶデータになります。
-        対戦する人が増えるほど、 この AI は人間に強くなります。
+      <p className="mt-1.5 text-sm leading-relaxed text-[color:var(--text-muted)]">
+        あなたの 1 戦は、 AI が「人間の打ち方」を学ぶデータになります。
+        対戦する人が増えるほど AI は人間に強くなります。
       </p>
 
-      {/* いま選択中の対戦 = あなたの貢献先 (デッキ変更に追従) */}
-      <div className="mt-3 rounded-xl border-2 border-cyan-400 bg-white/70 p-3 dark:border-cyan-600 dark:bg-zinc-900/70">
+      {/* 全体サマリ */}
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {stat.map((s, i) => (
+          <div
+            key={i}
+            className="rounded-[var(--radius)] border p-3"
+            style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
+          >
+            <div className="text-xl font-bold tabular-nums" style={{ color: s.c }}>
+              {s.v}
+            </div>
+            <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 選択中の対戦 = あなたの貢献先 (デッキ変更に追従) */}
+      <div
+        className="mt-3 rounded-[var(--radius)] border p-3"
+        style={{ borderColor: "var(--brand)", background: "var(--surface-2)" }}
+      >
         <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="font-semibold text-zinc-800 dark:text-zinc-100">
-            選択中の対戦: {nameOf(deckA)}{" "}
-            <span className="text-zinc-400">(あなた) vs</span> {nameOf(deckB)}{" "}
-            <span className="text-zinc-400">(AI)</span>
+          <span className="min-w-0 truncate font-medium text-[color:var(--text-strong)]">
+            {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(あなた) vs</span>{" "}
+            {nameOf(deckB)} <span className="text-[color:var(--text-muted)]">(AI)</span>
           </span>
-          <span className="shrink-0 tabular-nums text-zinc-500">
-            今バッチ {selNew}/{thr}
-            {selGames > selNew && (
-              <span className="ml-1 text-zinc-400">（累計 {selGames}）</span>
-            )}
+          <span className="shrink-0 tabular-nums text-xs text-[color:var(--text-muted)]">
+            {selNew}/{thr}
+            {selGames > selNew && <span className="ml-1 opacity-70">（累計 {selGames}）</span>}
           </span>
         </div>
-        <div className="relative mt-2 h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <div
+          className="relative mt-2 h-2 overflow-hidden rounded-full"
+          style={{ background: "var(--border-2)" }}
+        >
           <div
-            className={
-              "absolute inset-y-0 left-0 rounded-full " +
-              (selNew >= thr ? "bg-emerald-500" : "bg-cyan-500")
-            }
-            style={{ width: `${Math.min(100, selPct)}%` }}
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ width: barW(selPct), background: selNew >= thr ? "var(--accent)" : "var(--brand)" }}
           />
         </div>
-        <div className="mt-1.5 text-xs text-cyan-800 dark:text-cyan-200">
+        <div className="mt-1.5 text-xs text-[color:var(--text-muted)]">
           {selGames === 0
             ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
             : selNew >= thr
-              ? `次バッチ分に到達（${thr}戦）。 このデータは次の学習に回せます。さらに対戦すると精度が上がります。`
-              : `あと ${thr - selNew} 戦で この組み合わせが次の学習バッチに到達します。`}
-          {selWr !== null && (
-            <span className="ml-1 text-zinc-500">
-              ／ この組合せの人間勝率 {selWr}%
-            </span>
-          )}
+              ? `次バッチ分に到達（${thr}戦）。 さらに対戦すると精度が上がります。`
+              : `あと ${thr - selNew} 戦で次の学習バッチに到達します。`}
+          {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="text-2xl font-extrabold text-cyan-700 dark:text-cyan-300">
-            {stats.total_games.toLocaleString()}
-          </div>
-          <div className="text-xs text-zinc-500">みんなの対戦数 (= 学習データ)</div>
-        </div>
-        <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">
-            {stats.matchups_ready}
-            <span className="text-base text-zinc-400">/{stats.matchups_tracked}</span>
-          </div>
-          <div className="text-xs text-zinc-500">
-            学習到達マッチアップ (各 {thr} 戦)
-          </div>
-        </div>
-        <div className="col-span-2 rounded-lg border border-zinc-200 bg-white p-3 sm:col-span-1 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="text-2xl font-extrabold text-rose-600 dark:text-rose-300">
-            {Math.round(stats.human_winrate * 100)}%
-          </div>
-          <div className="text-xs text-zinc-500">人間の勝率 (= AI の伸びしろ)</div>
-        </div>
-      </div>
-
+      {/* 次の貢献先 (最も学習ラインに近い未到達マッチアップ) */}
       {nextUp && (
-        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-          あと <b>{thr - nextUp.new_games}</b> 戦で「{nameOf(nextUp.human_deck)} vs{" "}
-          {nameOf(nextUp.ai_deck)}」 が次の学習バッチに到達。 この組み合わせで対戦すると
-          貢献度が大きいです。
+        <div
+          className="mt-3 rounded-[var(--radius)] border border-l-2 p-3 text-sm text-[color:var(--text-default)]"
+          style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--accent)", background: "var(--surface-2)" }}
+        >
+          あと <b className="text-[color:var(--text-strong)]">{thr - nextUp.new_games}</b> 戦で「
+          {nameOf(nextUp.human_deck)} vs {nameOf(nextUp.ai_deck)}」が次の学習バッチに到達。
+          この組み合わせで対戦すると貢献度が大きいです。
         </div>
       )}
 
+      {/* 上位マッチアップの進捗 */}
       {stats.by_matchup.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          {stats.by_matchup.slice(0, 5).map((m, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs">
-              <span className="w-1/2 truncate text-zinc-600 dark:text-zinc-300">
-                {nameOf(m.human_deck)} <span className="text-zinc-400">vs</span>{" "}
-                {nameOf(m.ai_deck)}
-              </span>
-              <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <div className="mt-4">
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
+            マッチアップ別 進捗
+          </div>
+          <div className="space-y-1.5">
+            {stats.by_matchup.slice(0, 5).map((m, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className="w-1/2 truncate text-[color:var(--text-default)]">
+                  {nameOf(m.human_deck)} <span className="text-[color:var(--text-muted)]">vs</span>{" "}
+                  {nameOf(m.ai_deck)}
+                </span>
                 <div
-                  className={
-                    "absolute inset-y-0 left-0 rounded-full " +
-                    (m.new_games >= thr ? "bg-emerald-500" : "bg-cyan-500")
-                  }
-                  style={{ width: `${Math.min(100, m.progress_pct)}%` }}
-                />
+                  className="relative h-1.5 flex-1 overflow-hidden rounded-full"
+                  style={{ background: "var(--border-2)" }}
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ width: barW(m.progress_pct), background: m.new_games >= thr ? "var(--accent)" : "var(--brand)" }}
+                  />
+                </div>
+                <span className="w-14 shrink-0 text-right tabular-nums text-[color:var(--text-muted)]">
+                  {m.new_games}/{thr}
+                </span>
               </div>
-              <span className="w-16 shrink-0 text-right tabular-nums text-zinc-500">
-                {m.new_games}/{thr}
-                {m.games > m.new_games && (
-                  <span className="ml-0.5 text-zinc-400">·{m.games}</span>
-                )}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </section>
