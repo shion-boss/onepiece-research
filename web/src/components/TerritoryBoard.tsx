@@ -30,7 +30,8 @@ const ZOOM = CARD_W / CROP; // 画像全幅 = L*ZOOM セル (大きく見せる�
 const HOFF = (CARD_W - CROP) / 2 / CROP; // 横方向センタリング量 (L 単位)
 
 // block: w×h ブロックの一部で、 このセルはブロック内 (r,c)。 面積>=4 の占領のみ画像を分割表示。
-export type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { w: number; h: number; r: number; c: number } | null };
+// imageId: 表示するカード絵の full card_id (= ブロックで最後に戦闘した人の variant)。 未指定なら owner.id。
+export type Cell = { owner: BoardLeader | null; ownerName: string | null; color: string; block: { w: number; h: number; r: number; c: number } | null; imageId?: string | null };
 
 function hash(n: number): number {
   let h = (n ^ 0x9e3779b9) >>> 0;
@@ -88,25 +89,76 @@ export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
 }
 
 // 実 territory データ (占領済みマスのみ) → 1024 マスの Cell[] を組む。
-// 占領マス = 占領者のリーダー色。 空きマス = 中立。 カード絵は右パネルで表示。
+// - 隣接する同じリーダーのマスは占領者(プレイヤー)が別人でも 1 枚のカード絵に繋げる (矩形ブロック化)。
+// - ブロックの絵は「最後に戦闘した人が使った柄」= ブロック内で updated_at が最新の variant_id。
 function buildCellsFromBoard(
   board: TerritoryBoardData | undefined,
   leaderById: Map<string, BoardLeader>,
 ): Cell[] {
   const cells: Cell[] = Array.from({ length: N }, () => ({
-    owner: null, ownerName: null, color: EMPTY, block: null,
+    owner: null, ownerName: null, color: EMPTY, block: null, imageId: null,
   }));
   if (!board) return cells;
+
+  // 占領マス cell_id → { leaderId(集計キー=base), variantId(表示柄), user, updatedAt }。
+  type Owned = { leaderId: string; variantId: string; user: string | null; updatedAt: string };
+  const owned = new Map<number, Owned>();
   for (const c of board.cells) {
     if (c.cell_id < 0 || c.cell_id >= N || !c.leader_id) continue;
-    const ld = leaderById.get(c.leader_id) ?? { id: c.leader_id, name: c.leader_id, color: "黒" };
-    cells[c.cell_id] = {
-      owner: ld,
-      ownerName: c.user,
-      color: COLOR_HEX[ld.color] ?? "#888",
-      // 占領マスはリーダーのカード絵 (上部正方形) を 1×1 で表示 → 盤が推しの絵で埋まる。
-      block: { w: 1, h: 1, r: 0, c: 0 },
-    };
+    owned.set(c.cell_id, {
+      leaderId: c.leader_id,
+      variantId: c.variant_id ?? c.leader_id,
+      user: c.user,
+      updatedAt: c.updated_at ?? "",
+    });
+  }
+
+  // まず各占領マスに owner(=リーダー)・色・占領者名を入れる (block/imageId はブロック確定後に上書き)。
+  for (const [cellId, o] of owned) {
+    const ld = leaderById.get(o.leaderId) ?? { id: o.leaderId, name: o.leaderId, color: "黒" };
+    cells[cellId] = { owner: ld, ownerName: o.user, color: COLOR_HEX[ld.color] ?? "#888", block: null, imageId: o.variantId };
+  }
+
+  // 同一リーダーの隣接マスを貪欲に矩形ブロックへ (占領者違いは無視 = leader が同じなら繋ぐ)。
+  const leaderAt = (idx: number): string | null => owned.get(idx)?.leaderId ?? null;
+  const blocked = new Uint8Array(N);
+  for (let y = 0; y < COLS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const idx = y * COLS + x;
+      const ld = leaderAt(idx);
+      if (!ld || blocked[idx]) continue;
+      // 幅: 右へ同一リーダー & 未ブロックの間だけ伸ばす。
+      let w = 1;
+      while (x + w < COLS && leaderAt(idx + w) === ld && !blocked[idx + w]) w++;
+      // 高さ: 下の行の w マスが全て同一リーダー & 未ブロックなら伸ばす。
+      let h = 1;
+      let extend = true;
+      while (extend && y + h < COLS) {
+        for (let dx = 0; dx < w; dx++) {
+          const b = (y + h) * COLS + (x + dx);
+          if (leaderAt(b) !== ld || blocked[b]) { extend = false; break; }
+        }
+        if (extend) h++;
+      }
+      // ブロック内で updated_at 最新 = 最後に戦闘した人の variant を採用。
+      let bestVariant = owned.get(idx)!.variantId;
+      let bestAt = owned.get(idx)!.updatedAt;
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          const o = owned.get((y + dy) * COLS + (x + dx))!;
+          if (o.updatedAt > bestAt) { bestAt = o.updatedAt; bestVariant = o.variantId; }
+        }
+      }
+      // ブロック全マスに block 座標 + 共通の imageId を割当 (owner/ownerName は各マス固有のまま)。
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          const b = (y + dy) * COLS + (x + dx);
+          blocked[b] = 1;
+          cells[b].block = { w, h, r: dy, c: dx };
+          cells[b].imageId = bestVariant;
+        }
+      }
+    }
   }
   return cells;
 }
@@ -247,7 +299,7 @@ export const BoardGrid = memo(function BoardGrid({
                 // CardImage = ローカル /cards/<id>.png → 404 なら公式 CDN proxy に fallback
                 // (本番はローカル画像未デプロイなので proxy 経由で表示される)。
                 <CardImage
-                  cardId={c.owner.id}
+                  cardId={c.imageId ?? c.owner.id}
                   alt=""
                   loading="lazy"
                   style={{
