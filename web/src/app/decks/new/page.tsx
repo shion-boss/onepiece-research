@@ -173,8 +173,8 @@ function NewDeckPageContent() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-6 lg:h-full lg:overflow-hidden">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
           <Link
             href="/decks"
@@ -325,14 +325,14 @@ function NewDeckPageContent() {
       </header>
 
       {flash && (
-        <div className="rounded-[var(--radius)] border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/10 px-3 py-2 text-sm text-[color:var(--accent)]">
+        <div className="shrink-0 rounded-[var(--radius)] border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/10 px-3 py-2 text-sm text-[color:var(--accent)]">
           {flash}
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-        {/* 左: リーダー + デッキ */}
-        <aside className="space-y-4">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[360px_1fr]">
+        {/* 左: リーダー + デッキ (lg で独立スクロール) */}
+        <aside className="space-y-4 log-scroll lg:min-h-0 lg:overflow-y-auto lg:pr-1">
           <section className="space-y-2 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
             <h2 className="text-sm font-medium text-[color:var(--text-strong)]">リーダー</h2>
             <LeaderPicker current={leader} onPick={setLeader} />
@@ -394,10 +394,11 @@ function NewDeckPageContent() {
           )}
         </aside>
 
-        {/* 右: カード検索 */}
-        <section className="space-y-2 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
-          <h2 className="text-sm font-medium text-[color:var(--text-strong)]">カード検索</h2>
+        {/* 右: カード検索 (lg で独立スクロール) */}
+        <section className="flex flex-col gap-2 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3 lg:min-h-0">
+          <h2 className="shrink-0 text-sm font-medium text-[color:var(--text-strong)]">カード検索</h2>
           <CardSearchPane
+            fillHeight
             leaderColors={leader?.color ?? []}
             onAdd={(c) => {
               const err = addCard(c);

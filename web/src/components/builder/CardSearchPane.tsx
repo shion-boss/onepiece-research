@@ -16,12 +16,16 @@ export function CardSearchPane({
   countOf,
   onMarkCore,
   coreCardIds,
+  fillHeight = false,
 }: {
   leaderColors: string[];
   onAdd: (card: Card) => void;
   countOf: (cardId: string) => number;
   onMarkCore?: (card: Card) => void;
   coreCardIds?: Set<string>;
+  // true = 親の高さいっぱいに広がり、 カードグリッドが内部スクロール (= /decks/new の
+  // 分割パネル用)。 false (既定) = グリッドを max-h-[60vh] で内部スクロール (= 従来)。
+  fillHeight?: boolean;
 }) {
   const regulation = useDeckBuilderStore((s) => s.regulation);
   const [cards, setCards] = useState<Card[]>([]);
@@ -85,7 +89,7 @@ export function CardSearchPane({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={fillHeight ? "flex flex-col gap-3 lg:min-h-0 lg:flex-1" : "space-y-3"}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1">
           {leaderColors.length > 1 ? (
@@ -192,7 +196,11 @@ export function CardSearchPane({
         </p>
       )}
 
-      <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-auto sm:grid-cols-4 md:grid-cols-5">
+      <div
+        className={`grid grid-cols-3 gap-2 overflow-auto log-scroll sm:grid-cols-4 md:grid-cols-5 ${
+          fillHeight ? "max-h-[70vh] lg:max-h-none lg:min-h-0 lg:flex-1" : "max-h-[60vh]"
+        }`}
+      >
         {cards.map((c) => {
           const used = countOf(c.card_id);
           const disabled = used >= 4;
