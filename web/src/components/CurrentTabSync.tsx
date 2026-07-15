@@ -22,7 +22,9 @@ export function CurrentTabSync() {
   const filterName = tabId.startsWith("/cards?")
     ? savedFilters.find((f) => f.query === tabId.slice("/cards?".length))?.name ?? "絞り込み"
     : null;
-  const title = filterName ? `カード[${filterName}]` : tabTitleFor(tabId);
+  // ページが登録したタブ名 (= デッキ詳細のデッキ名等) があればそれを優先。
+  const override = useWorkspace((s) => s.tabTitleOverrides[tabId]);
+  const title = override ?? (filterName ? `カード[${filterName}]` : tabTitleFor(tabId));
 
   useEffect(() => {
     setActiveTabId(tabId);

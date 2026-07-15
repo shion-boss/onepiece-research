@@ -25,6 +25,9 @@ interface WorkspaceState {
   // マイデッキ一覧の再取得を促すノンス (= デッキ保存直後に左メニューを即更新するため)。
   decksNonce: number;
   refreshDecks: () => void;
+  // タブ名の上書き (tabId → 表示名)。 デッキ詳細タブに slug でなくデッキ名を出す等。
+  tabTitleOverrides: Record<string, string>;
+  setTabTitle: (id: string, title: string) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
@@ -36,6 +39,12 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   collapsedFolders: [],
   decksNonce: 0,
   refreshDecks: () => set((s) => ({ decksNonce: s.decksNonce + 1 })),
+  tabTitleOverrides: {},
+  setTabTitle: (id, title) =>
+    set((s) => ({
+      tabTitleOverrides: { ...s.tabTitleOverrides, [id]: title },
+      tabs: s.tabs.map((t) => (t.id === id ? { ...t, title } : t)),
+    })),
   openTab: (t) =>
     set((s) =>
       s.tabs.some((x) => x.id === t.id)

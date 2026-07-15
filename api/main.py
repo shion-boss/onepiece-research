@@ -1335,9 +1335,9 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
         if errors:
             raise HTTPException(422, {"errors": errors})
 
-    slug = req.slug or _slugify(req.name)
-    if not slug:
-        slug = f"user_{int(datetime.now(timezone.utc).timestamp())}"
+    # user デッキの slug は不透明 ID = デッキ名を URL に出さない (日本語 URL 回避) + 衝突回避。
+    # 再保存/finalize は req.slug (= フロントの savedSlug) を渡すので同一デッキを上書きできる。
+    slug = req.slug or f"user_{uuid.uuid4().hex[:12]}"
 
     # メタ(環境)デッキの slug は上書き不可 (= overwrite=True でも保護)。
     if _is_meta_deck(slug):

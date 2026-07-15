@@ -17,6 +17,7 @@ import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
 import { DeckMainGrid } from "@/components/DeckMainGrid";
 import { DeckActions } from "@/components/DeckActions";
+import { SetTabTitle } from "@/components/SetTabTitle";
 
 export default async function DeckDetailPage({
   params,
@@ -83,6 +84,8 @@ export default async function DeckDetailPage({
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
+      {/* タブ名を slug でなくデッキ名にする (= 文字化け回避)。 */}
+      <SetTabTitle title={detail.name ?? slug} />
       {/* ヘッダー: リーダー画像 + デッキ情報 */}
       <header className="flex gap-5">
         <div className="shrink-0">
