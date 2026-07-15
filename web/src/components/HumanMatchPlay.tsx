@@ -2593,17 +2593,19 @@ function StartPanel({
     (decks.find((d) => d.slug === slug)?.kind as "meta" | "user") ?? "meta";
   const [catA, setCatA] = useState<"meta" | "user">(catOf(deckA));
   const [catB, setCatB] = useState<"meta" | "user">(catOf(deckB));
-  const optionsA = inCat(catA).length ? inCat(catA) : decks;
-  const optionsB = inCat(catB).length ? inCat(catB) : decks;
+  // 選択カテゴリのデッキのみ (= AI vs AI に合わせる。 空でも全デッキに fallback しない
+  // → マイデッキが無い時に環境デッキが選択肢に出る不具合を防ぐ)。
+  const optionsA = inCat(catA);
+  const optionsB = inCat(catB);
   const changeCatA = (c: "meta" | "user") => {
     setCatA(c);
-    const first = inCat(c)[0]?.slug;
-    if (first) setDeckA(first);
+    // 空カテゴリなら "" にする (= Start 無効 + select 表示と state を一致させ、
+    // マイデッキが無い時に環境デッキで暗黙開始してしまうのを防ぐ)。
+    setDeckA(inCat(c)[0]?.slug ?? "");
   };
   const changeCatB = (c: "meta" | "user") => {
     setCatB(c);
-    const first = inCat(c)[0]?.slug;
-    if (first) setDeckB(first);
+    setDeckB(inCat(c)[0]?.slug ?? "");
   };
   // カテゴリ切替ボタン (= AI vs AI の SideCard と同スタイル)。
   const CatToggle = ({ cat, onChange }: { cat: "meta" | "user"; onChange: (c: "meta" | "user") => void }) => (
@@ -2679,13 +2681,17 @@ function StartPanel({
               value={deckA}
               onChange={(e) => setDeckA(e.target.value)}
               className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
-              disabled={busy}
+              disabled={busy || optionsA.length === 0}
             >
-              {optionsA.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
+              {optionsA.length === 0 ? (
+                <option value="">（このカテゴリにデッキがありません）</option>
+              ) : (
+                optionsA.map((d) => (
+                  <option key={d.slug} value={d.slug}>
+                    {d.name}
+                  </option>
+                ))
+              )}
             </select>
           </label>
           {catA === "user" && myDecks.length === 0 && (
@@ -2741,13 +2747,17 @@ function StartPanel({
               value={deckB}
               onChange={(e) => setDeckB(e.target.value)}
               className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
-              disabled={busy}
+              disabled={busy || optionsB.length === 0}
             >
-              {optionsB.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
+              {optionsB.length === 0 ? (
+                <option value="">（このカテゴリにデッキがありません）</option>
+              ) : (
+                optionsB.map((d) => (
+                  <option key={d.slug} value={d.slug}>
+                    {d.name}
+                  </option>
+                ))
+              )}
             </select>
           </label>
         </div>
