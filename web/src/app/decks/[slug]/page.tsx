@@ -16,6 +16,7 @@ import { DeckCombosPanel } from "@/components/DeckCombosPanel";
 import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
 import { DeckMainGrid } from "@/components/DeckMainGrid";
+import { DeckActions } from "@/components/DeckActions";
 
 export default async function DeckDetailPage({
   params,
@@ -126,6 +127,10 @@ export default async function DeckDetailPage({
             >
               コピーして編集
             </Link>
+            {/* 名前変更 / 削除 は自作デッキのみ (メタは backend 保護)。 */}
+            {summary?.kind === "user" && (
+              <DeckActions slug={slug} name={detail.name ?? slug} />
+            )}
           </div>
         </div>
       </header>

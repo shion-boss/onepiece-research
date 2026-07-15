@@ -347,6 +347,19 @@ export function renameDeck(slug: string, name: string): Promise<void> {
   return postJson(`/api/decks/${encodeURIComponent(slug)}/name`, { name });
 }
 
+/** 自作デッキを削除 (メタ環境デッキは 403 で保護)。 */
+export async function deleteDeck(slug: string): Promise<void> {
+  const res = await fetch(`${API}/api/decks/${encodeURIComponent(slug)}`, {
+    method: "DELETE",
+    headers: { ...(await authHeaders()) },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`deleteDeck failed: ${res.status} ${detail}`);
+  }
+}
+
 export async function validateDeckOnServer(
   req: CreateDeckRequest,
 ): Promise<ValidateDeckResponse> {
