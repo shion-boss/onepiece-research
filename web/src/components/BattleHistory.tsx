@@ -1,104 +1,144 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BoardGrid, seedCells, type BoardLeader } from "./TerritoryBoard";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { BoardGrid, buildCellsFromBoard, type BoardLeader } from "./TerritoryBoard";
 import { CellPanel } from "./CellHistoryPanel";
 import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
+import {
+  fetchTerritorySnapshots,
+  fetchTerritorySnapshot,
+  type TerritorySnapshotSummary,
+  type TerritorySnapshot,
+} from "@/lib/api";
 
-// 月キー → seed salt (月ごとに盤が変わる)。
-function monthSalt(key: string): number {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h >>> 0;
+// 戦いの歴史 = 月次スナップショット (完了月の最終陣地 + 集計) の実データ表示。
+// 過去 (機能導入前) の月は履歴が無いので空スタート → 月が完了するたびに積み上がる
+// (backend: territory.maybe_freeze_snapshots の lazy freeze)。ランダム seed は使わない。
+function monthLabel(key: string): string {
+  const [y, m] = key.split("-");
+  return `${y} / ${m}`;
 }
-
-// i=0 が最新 (進行中)。 そこから 1 ヶ月ずつ過去へ。 (プロト: 現在=2026/07 固定)
-const BASE_IDX = 2026 * 12 + 6;
-const MAX_MONTHS = 120;
-function monthAt(i: number): { key: string; label: string; current: boolean } {
-  const idx = BASE_IDX - i;
-  const year = Math.floor(idx / 12);
-  const month = (idx % 12) + 1;
-  const mm = String(month).padStart(2, "0");
-  return { key: `${year}-${mm}`, label: `${year} / ${mm}`, current: i === 0 };
-}
-
-const PAGE = 12;
 
 export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
-  const [count, setCount] = useState(PAGE);
-  const [sel, setSel] = useState(monthAt(1).key);
+  const [snapshots, setSnapshots] = useState<TerritorySnapshotSummary[] | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [detail, setDetail] = useState<TerritorySnapshot | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [hoverEnabled, setHoverEnabled] = useState(false); // 既定=ホバー切替なし
 
-  // 今月(進行中)は歴史に含めない → i=1 (先月) から過去へ。
-  const months = useMemo(() => Array.from({ length: Math.min(count, MAX_MONTHS) }, (_, i) => monthAt(i + 1)), [count]);
-  const selInfo = useMemo(() => months.find((m) => m.key === sel) ?? monthAt(1), [months, sel]);
-  const cells = useMemo(() => seedCells(leaders, monthSalt(sel)), [leaders, sel]);
-  const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
+  const leaderById = useMemo(() => {
+    const m = new Map<string, BoardLeader>();
+    for (const l of leaders) m.set(l.id, l);
+    return m;
+  }, [leaders]);
 
-  // クリックで固定 (再クリックで解除)。 固定中はホバー無視。 ホバー切替は toggle ON かつ未固定時のみ。
+  // 月次スナップショット一覧を取得 (初回のみ、 実データ・完了月のみ)。
+  useEffect(() => {
+    let alive = true;
+    fetchTerritorySnapshots()
+      .then((s) => {
+        if (!alive) return;
+        setSnapshots(s);
+        if (s.length) setSel(s[0].month_key); // 最新の完了月を初期選択
+      })
+      .catch(() => alive && setSnapshots([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 選択月の凍結盤を取得。 月切替で選択/ホバーをクリア。
+  useEffect(() => {
+    if (!sel) {
+      setDetail(null);
+      return;
+    }
+    let alive = true;
+    setDetail(null);
+    setSelected(null);
+    setHovered(null);
+    fetchTerritorySnapshot(sel)
+      .then((d) => alive && setDetail(d))
+      .catch(() => alive && setDetail(null));
+    return () => {
+      alive = false;
+    };
+  }, [sel]);
+
+  const cells = useMemo(
+    () => (detail ? buildCellsFromBoard(detail.board, leaderById) : []),
+    [detail, leaderById],
+  );
+
   const onClick = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
   const onEnter = useCallback((i: number) => setHovered(i), []);
   const NOOP = useCallback(() => {}, []);
   const activeIdx = selected != null ? selected : hoverEnabled ? hovered : null;
-  const active = activeIdx != null ? cells[activeIdx] : null;
+  const active = activeIdx != null && cells.length > 0 ? cells[activeIdx] : null;
 
-  // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。 左は初期幅より狭くできない。
-  const left = useResizable(128, 128, 300);
+  // 列幅ドラッグリサイズ (左=月メニュー / 右=履歴パネル)。
+  const left = useResizable(160, 140, 300);
   const right = useResizable(288, 240, 560, true);
 
-  // 月切替で選択/ホバーをクリア (盤が変わるため)。
-  useEffect(() => {
-    setSelected(null);
-    setHovered(null);
-  }, [sel]);
-
-  // 無限スクロール: sentinel が見えたら 12 ヶ月追加 (aside 内でスクロール)。
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const asideRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) setCount((c) => Math.min(c + PAGE, MAX_MONTHS));
-      },
-      { root: asideRef.current, rootMargin: "120px" },
+  // 読み込み中
+  if (snapshots === null) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-[color:var(--text-muted)]">
+        読み込み中...
+      </div>
     );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [count]);
+  }
+
+  // 空状態: まだ完了した月が無い (= 今後の対戦で積み上がる)。 偽データは出さない。
+  if (snapshots.length === 0) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center p-6">
+        <div
+          className="max-w-md rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-6 text-center"
+          style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
+        >
+          <h1 className="text-lg font-semibold tracking-tight text-[color:var(--text-strong)]">
+            まだ対戦履歴がありません
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">
+            対戦が積み重なると、月ごとの陣取りの記録がここに保存されます。
+            月末に凍結したその月の「人類 vs AI」の戦況を、あとから振り返れます。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const selInfo = snapshots.find((s) => s.month_key === sel) ?? snapshots[0];
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      {/* 左: 月メニュー (高さ制限 + 内部無限スクロール、 上=最新) */}
-      <aside ref={asideRef} className="log-scroll shrink-0 overflow-y-auto py-2" style={{ width: left.width }}>
-        <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">戦いの歴史</div>
-        {months.map((m) => {
-          const on = m.key === sel;
+      {/* 左: 月メニュー (実スナップショット、 新しい月順) */}
+      <aside className="log-scroll shrink-0 overflow-y-auto py-2" style={{ width: left.width }}>
+        <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
+          戦いの歴史
+        </div>
+        {snapshots.map((s) => {
+          const on = s.month_key === sel;
           return (
             <button
-              key={m.key}
+              key={s.month_key}
               type="button"
-              onClick={() => setSel(m.key)}
-              className="flex w-full items-center gap-1.5 border-l-2 px-3 py-2 text-left text-[13px] transition-colors"
+              onClick={() => setSel(s.month_key)}
+              className="flex w-full items-center justify-between gap-1.5 border-l-2 px-3 py-2 text-left text-[13px] transition-colors"
               style={{
                 borderLeftColor: on ? "var(--brand)" : "transparent",
                 background: on ? "var(--list-hover)" : "transparent",
                 color: on ? "var(--text-strong)" : "var(--text-default)",
               }}
             >
-              {m.label}
+              <span>{monthLabel(s.month_key)}</span>
+              <span className="text-[10px] text-[color:var(--text-muted)]">{s.n_battles}戦</span>
             </button>
           );
         })}
-        {count < MAX_MONTHS && <div ref={sentinelRef} className="h-6" aria-hidden />}
       </aside>
 
       <ResizeHandle onMouseDown={left.onMouseDown} />
@@ -106,24 +146,45 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
       {/* 中央: 選択月の最終陣地 */}
       <main className="log-scroll min-w-0 flex-1 overflow-y-auto border-l" style={{ borderColor: "var(--border-1)" }}>
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-          <header className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5" style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}>
+          <header
+            className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5"
+            style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
+          >
             <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
-              {selInfo.label} の最終陣地
+              {monthLabel(selInfo.month_key)} の最終陣地
             </h1>
             <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
-              その月末に凍結した陣取りの状態。占領 {occupied} / 空き {1024 - occupied}。マスをクリックで戦いの履歴を表示（再クリックで解除）
+              その月末に凍結した陣取りの状態。占領 {selInfo.occupied} / 空き {1024 - selInfo.occupied}。
+              対戦 {selInfo.n_battles} 戦（人間 {selInfo.human_wins} 勝 / AI {selInfo.ai_wins} 勝）。
+              マスをクリックで戦いの履歴を表示（再クリックで解除）
             </p>
           </header>
-          <div className="rounded-[var(--radius)] border p-2" style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}>
-            <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={NOOP} />
+          <div
+            className="rounded-[var(--radius)] border p-2"
+            style={{ borderColor: "var(--border-1)", background: "var(--surface-1)" }}
+          >
+            {detail ? (
+              <BoardGrid cells={cells} selected={selected} onEnter={onEnter} onClick={onClick} onLeave={NOOP} />
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-[color:var(--text-muted)]">
+                盤を読み込み中...
+              </div>
+            )}
           </div>
         </div>
       </main>
 
-      {/* 右: 選択マスの詳細 (固定ヘッダー + トグル、 左端ハンドルでリサイズ) */}
+      {/* 右: 選択マスの詳細 (固定ヘッダー + トグル、 実データ battles) */}
       <ResizeHandle onMouseDown={right.onMouseDown} />
       <div className="log-scroll shrink-0 overflow-y-auto border-l" style={{ width: right.width, borderColor: "var(--border-1)" }}>
-        <CellPanel cell={active} idx={activeIdx} leaders={leaders} hoverEnabled={hoverEnabled} onToggleHover={() => setHoverEnabled((v) => !v)} />
+        <CellPanel
+          cell={active}
+          idx={activeIdx}
+          leaders={leaders}
+          hoverEnabled={hoverEnabled}
+          onToggleHover={() => setHoverEnabled((v) => !v)}
+          realBattles
+        />
       </div>
     </div>
   );

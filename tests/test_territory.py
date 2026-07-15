@@ -140,3 +140,52 @@ def test_concurrent_capture_exactly_one_wins(t):
     assert len(wins) == 1
     assert t.get_cell(42)["version"] == 1
     assert t.get_board()["board_version"] == 1
+
+
+def test_snapshots_empty_initializes_active_month(t, monkeypatch):
+    """完了月が無ければ空。 初回 list で active_month が現在月に初期化される (凍結なし)。"""
+    monkeypatch.setattr(t, "_current_month", lambda: "2026-07")
+    assert t.list_snapshots() == []
+    conn = t._connect()
+    row = t._fetchone(conn, "SELECT active_month FROM territory_meta WHERE id = 1")
+    conn.close()
+    assert row["active_month"] == "2026-07"
+
+
+def test_snapshot_freeze_on_month_rollover(t, monkeypatch):
+    """月替わりで直前月の最終盤 + 対戦集計が凍結され、 再凍結は冪等。"""
+    # 6 月として占領 + 対戦を積む (ts も 6 月に)。
+    monkeypatch.setattr(t, "_current_month", lambda: "2026-06")
+    monkeypatch.setattr(t, "_now_iso", lambda: "2026-06-15T00:00:00Z")
+    t.maybe_freeze_snapshots()  # active_month = 2026-06 に初期化
+    t.resolve_capture(10, 0, leader_id="OP01-001", variant_id="OP01-001_p1", user="alice")
+    t.resolve_capture(11, 0, leader_id="OP01-001", user="bob")
+    for won in (True, True, False):  # 人間 2 勝 / AI 1 勝
+        t.record_battle(
+            cell_id=10, attacker_user="h", attacker_leader_id="A", attacker_variant_id="A",
+            defender_user="d", defender_leader_id="B", defender_variant_id="B",
+            attacker_won=won, captured=won, non_stakes=False, turns=8,
+        )
+
+    # 7 月に入る → 6 月を凍結。
+    monkeypatch.setattr(t, "_current_month", lambda: "2026-07")
+    t.maybe_freeze_snapshots()
+
+    snaps = t.list_snapshots()
+    assert len(snaps) == 1
+    s = snaps[0]
+    assert s["month_key"] == "2026-06"
+    assert s["occupied"] == 2
+    assert s["n_battles"] == 3
+    assert s["human_wins"] == 2
+    assert s["ai_wins"] == 1
+
+    detail = t.get_snapshot("2026-06")
+    assert detail is not None
+    assert len(detail["board"]["cells"]) == 2
+    assert {c["cell_id"] for c in detail["board"]["cells"]} == {10, 11}
+
+    # 冪等: 再凍結しても増えない。 未存在月は None。
+    t.maybe_freeze_snapshots()
+    assert len(t.list_snapshots()) == 1
+    assert t.get_snapshot("2099-01") is None
