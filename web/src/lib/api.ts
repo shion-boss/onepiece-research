@@ -131,7 +131,11 @@ export async function fetchDecks(
     cache: "no-store",
     headers: { ...(await authHeaders()), ...extra },
   });
-  if (!res.ok) throw new Error(`fetchDecks failed: ${res.status}`);
+  if (!res.ok) {
+    // 診断: API が返した理由 (401 の detail 等) をエラーに含めて画面に出す。
+    const body = await res.text().catch(() => "");
+    throw new Error(`fetchDecks failed: ${res.status} — ${body}`);
+  }
   return res.json();
 }
 
