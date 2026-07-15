@@ -40,8 +40,9 @@ function hash(n: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-// 盤を矩形ブロック (1..4 × 1..4) で敷き詰める。 占領で面積>=4 のブロックはカード上部の正方形を
-// 「長い方に合わせて」配置し w×h に分割して 1 枚の画像に (縦は上詰め / 横は中央)。 それ以外は色のみ。
+// 盤を矩形ブロック (1..4 × 1..4) で敷き詰める。 占領ブロックはカード上部の正方形を
+// 「長い方に合わせて」配置し w×h に分割して 1 枚の画像に (縦は上詰め / 横は中央)。
+// 1×1 も含め占領マスは全てカード絵 (= /territory の実データ表示と揃える)。 空きは色のみ。
 export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
   const cells: (Cell | null)[] = new Array(N).fill(null);
   if (leaders.length === 0) return cells.map(() => ({ owner: null, ownerName: null, color: EMPTY, block: null }));
@@ -72,7 +73,7 @@ export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
       const ld = owned ? leaders[hash(idx * 3 + 13 + salt) % leaders.length] : null;
       const ownerName = owned ? `プレイヤー${(hash(idx * 5 + 1 + salt) % 9000) + 1000}` : null;
       const color = ld ? COLOR_HEX[ld.color] ?? "#888" : EMPTY;
-      const useImg = !!ld && w * h >= 4;
+      const useImg = !!ld; // 占領マスは面積によらず全てカード絵 (/territory と統一)
       for (let dy = 0; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
           cells[(y + dy) * COLS + (x + dx)] = {
