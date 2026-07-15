@@ -54,24 +54,26 @@ def _bearer_token(request: Request) -> Optional[str]:
 
 
 def _verify_provider(request: Request, provider: str) -> str:
-    """本番認証アダプタ。 検証成功で user_id (= JWT `sub`) を返す。 失敗は理由入りの 401。
+    """本番認証アダプタ。 検証成功で user_id (= JWT `sub`) を返す。 失敗は 401。
 
-    ⚠ 診断のため一時的に 401 の detail に理由を出している (原因特定後に generic へ戻す)。
+    401 の detail は generic ("unauthorized") にして詳細は漏らさない。 失敗理由は
+    サーバー側ログ (print) にだけ出す (= 診断用)。
     """
     if provider != "clerk":
-        raise HTTPException(401, "auth: unknown provider")
+        raise HTTPException(401, "unauthorized")
     token = _bearer_token(request)
     if not token:
         print("[auth] clerk: request had no Bearer token")
-        raise HTTPException(401, "auth: no bearer token (サーバー側でセッション未確立の可能性)")
+        raise HTTPException(401, "unauthorized")
     try:
         claims = _decode_clerk_jwt(token)
     except Exception as e:
         print(f"[auth] clerk: JWT verify failed: {type(e).__name__}: {e}")
-        raise HTTPException(401, f"auth: verify failed: {type(e).__name__}: {e}")
+        raise HTTPException(401, "unauthorized")
     sub = claims.get("sub")
     if not sub:
-        raise HTTPException(401, "auth: token has no 'sub'")
+        print("[auth] clerk: token verified but no 'sub' claim")
+        raise HTTPException(401, "unauthorized")
     return sub
 
 
