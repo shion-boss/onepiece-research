@@ -40,9 +40,9 @@ function hash(n: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-// 盤を矩形ブロック (1..4 × 1..4) で敷き詰める。 占領ブロックはカード上部の正方形を
+// 盤を矩形ブロック (1..4 × 1..4) で敷き詰める。 面積>=4 のブロックはカード上部の正方形を
 // 「長い方に合わせて」配置し w×h に分割して 1 枚の画像に (縦は上詰め / 横は中央)。
-// 1×1 も含め占領マスは全てカード絵 (= /territory の実データ表示と揃える)。 空きは色のみ。
+// 面積<=3 (1×1/2×1 等) と空きは色チップのみ (= /territory と統一)。
 export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
   const cells: (Cell | null)[] = new Array(N).fill(null);
   if (leaders.length === 0) return cells.map(() => ({ owner: null, ownerName: null, color: EMPTY, block: null }));
@@ -73,7 +73,7 @@ export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
       const ld = owned ? leaders[hash(idx * 3 + 13 + salt) % leaders.length] : null;
       const ownerName = owned ? `プレイヤー${(hash(idx * 5 + 1 + salt) % 9000) + 1000}` : null;
       const color = ld ? COLOR_HEX[ld.color] ?? "#888" : EMPTY;
-      const useImg = !!ld; // 占領マスは面積によらず全てカード絵 (/territory と統一)
+      const useImg = !!ld && w * h >= 4; // 面積>=4 のブロックだけカード絵 (/territory と統一)
       for (let dy = 0; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
           cells[(y + dy) * COLS + (x + dx)] = {
@@ -91,6 +91,7 @@ export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
 
 // 実 territory データ (占領済みマスのみ) → 1024 マスの Cell[] を組む。
 // - 隣接する同じリーダーのマスは占領者(プレイヤー)が別人でも 1 枚のカード絵に繋げる (矩形ブロック化)。
+// - 面積>=4 のブロックだけカード絵、 面積<=3 (単独占領等) は色チップのみ (/history と統一)。
 // - ブロックの絵は「最後に戦闘した人が使った柄」= ブロック内で updated_at が最新の variant_id。
 function buildCellsFromBoard(
   board: TerritoryBoardData | undefined,
@@ -150,13 +151,15 @@ function buildCellsFromBoard(
           if (o.updatedAt > bestAt) { bestAt = o.updatedAt; bestVariant = o.variantId; }
         }
       }
-      // ブロック全マスに block 座標 + 共通の imageId を割当 (owner/ownerName は各マス固有のまま)。
+      // 面積>=4 のブロックだけカード絵に分割表示。 面積<=3 (単独占領/2×1 等) は色チップのみ
+      // (= /history(seedCells) と統一)。 owner/ownerName/color は各マス固有のまま残す。
+      const useImg = w * h >= 4;
       for (let dy = 0; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
           const b = (y + dy) * COLS + (x + dx);
           blocked[b] = 1;
-          cells[b].block = { w, h, r: dy, c: dx };
-          cells[b].imageId = bestVariant;
+          cells[b].block = useImg ? { w, h, r: dy, c: dx } : null;
+          cells[b].imageId = useImg ? bestVariant : null;
         }
       }
     }
