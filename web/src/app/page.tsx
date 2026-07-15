@@ -5,7 +5,7 @@ import Link from "next/link";
 // 公開プロダクトの機能 (対戦 / デッキ / カード / Q&A) への入口に絞る。
 const START: { href: string; label: string; desc: string; primary?: boolean }[] = [
   { href: "/play", label: "対戦する", desc: "自分のデッキで AI と対戦する", primary: true },
-  { href: "/decks/new", label: "デッキを作る", desc: "推しキャラでデッキを構築（非公開で保存）" },
+  { href: "/decks/new", label: "デッキを作る", desc: "推しキャラでデッキを構築して保存" },
   { href: "/decks", label: "マイデッキ", desc: "保存したデッキの一覧・分析" },
   { href: "/cards", label: "カードを見る", desc: "全カードの検索・フィルタ" },
   { href: "/faq", label: "ルール Q&A", desc: "公式ルール・カードの裁定を検索" },
