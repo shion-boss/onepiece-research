@@ -50,6 +50,8 @@ function NewDeckPageContent() {
   const [coreInput, setCoreInput] = useState("");
   const [autoBuilding, setAutoBuilding] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 非公開 (= 陣取りで使用不可)。 生成時にのみ決定・以後不変なので保存時に一度だけ送る。
+  const [isPrivate, setIsPrivate] = useState(false);
   const hydratedSlugRef = useRef<string | null>(null);
 
   // ?from=<slug> でデッキ初期化 (1度だけ)
@@ -241,6 +243,22 @@ function NewDeckPageContent() {
           >
             💾 下書き
           </button>
+          <label
+            className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--border-2)] px-2.5 py-1.5 text-sm text-[color:var(--text-default)] transition hover:bg-[var(--list-hover)]"
+            title="非公開デッキは陣取りの防衛に使われません（相手に露出しない）。作成後は変更できません。"
+          >
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={(e) => setIsPrivate(e.target.checked)}
+              className="accent-[color:var(--brand)]"
+            />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            非公開
+          </label>
           <button
             type="button"
             onClick={async () => {
@@ -267,6 +285,7 @@ function NewDeckPageContent() {
                     count: e.count,
                   })),
                   regulation,
+                  private: isPrivate,
                 });
                 showFlash(
                   `サーバ保存しました (slug: ${res.slug}) → デッキ詳細へ移動`,

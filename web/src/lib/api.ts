@@ -289,6 +289,7 @@ export interface CreateDeckRequest {
   slug?: string;
   overwrite?: boolean;
   regulation?: string;
+  private?: boolean; // 非公開 (= 陣取りで使用不可)。 生成時にのみ有効・以後不変
 }
 
 export interface CreateDeckResponse {

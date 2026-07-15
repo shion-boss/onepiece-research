@@ -84,6 +84,11 @@ def init_schema() -> None:
             # 出さない (= Postgres の transaction abort を避ける)。
             if not _column_exists(cur, "user_decks", "folder"):
                 cur.execute("ALTER TABLE user_decks ADD COLUMN folder TEXT DEFAULT ''")
+            # migration: is_private (0=公開=陣取り可 / 1=非公開=陣取り不可)。 既定 0 なので
+            # 既存デッキは公開扱いで grandfather (= 現状の陣取り使用可を維持)。 生成時に決定、
+            # 以後不変 (save_deck の UPDATE は is_private を触らない)。
+            if not _column_exists(cur, "user_decks", "is_private"):
+                cur.execute("ALTER TABLE user_decks ADD COLUMN is_private INTEGER DEFAULT 0")
     finally:
         conn.close()
     _SCHEMA_READY = True
@@ -120,6 +125,8 @@ def ensure_user(user_id: str, email: Optional[str] = None) -> None:
 def _row_to_deck(r) -> dict:
     d = dict(r)
     d["main"] = json.loads(d["main"]) if isinstance(d.get("main"), str) else d.get("main")
+    # is_private (0/1) → private (bool)。 非公開デッキは陣取りで使用不可。
+    d["private"] = bool(d.get("is_private") or 0)
     return d
 
 
@@ -154,9 +161,13 @@ def list_decks(owner_id: str) -> list[dict]:
 
 def save_deck(
     owner_id: str, slug: str, *, name: str, leader: str, main: list,
-    regulation: Optional[str] = None, overwrite: bool = False,
+    regulation: Optional[str] = None, overwrite: bool = False, private: bool = False,
 ) -> None:
-    """owner のデッキを保存。 既存 slug は overwrite=False で衝突 (= ValueError)。"""
+    """owner のデッキを保存。 既存 slug は overwrite=False で衝突 (= ValueError)。
+
+    private (= 非公開 = 陣取りで使用不可) は **生成時 (INSERT) にのみ決定**。 overwrite の
+    UPDATE では is_private を触らない = 以後変更不可 ([[project_leader_as_progression_unit]])。
+    """
     ensure_user(owner_id)
     main_json = json.dumps(main, ensure_ascii=False)
     now = _now()
@@ -174,9 +185,9 @@ def save_deck(
             if existing is None:
                 cur.execute(
                     f"INSERT INTO user_decks (owner_id, slug, name, leader, main, regulation, "
-                    f"visibility, created_at, updated_at) VALUES "
-                    f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'private', {_PH}, {_PH})",
-                    (owner_id, slug, name, leader, main_json, regulation, now, now),
+                    f"visibility, is_private, created_at, updated_at) VALUES "
+                    f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'private', {_PH}, {_PH}, {_PH})",
+                    (owner_id, slug, name, leader, main_json, regulation, 1 if private else 0, now, now),
                 )
             else:
                 cur.execute(
