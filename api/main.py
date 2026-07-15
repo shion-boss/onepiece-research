@@ -3262,6 +3262,14 @@ except Exception as e:
     print(f"[spectate] schema init skipped: {e}")
 
 
+# 陣取り (territory) 占領状態の schema init (= 同じ SQLite/Neon 切替パターン)。
+try:
+    from api import territory as _territory_mod
+    _territory_mod.init_schema()
+except Exception as e:
+    print(f"[territory] schema init skipped: {e}")
+
+
 def _row_to_comment(row, agreed_by: list[str]) -> dict:
     # sqlite3.Row + psycopg dict_row 両方とも mapping access OK
     return {
@@ -3594,9 +3602,11 @@ _HUMAN_SESSIONS: dict[str, "object"] = {}
 
 class HumanMatchStart(BaseModel):
     deck_a_slug: str  # 人間 使用 deck
-    deck_b_slug: str  # AI 使用 deck
+    deck_b_slug: str  # AI 使用 deck (陣取り占領マス挑戦なら server が defender で上書き)
     seed: Optional[int] = 42
     human_first: Optional[bool] = None  # None=random
+    # 陣取り挑戦: マス index。 占領マスなら占領者の保存デッキを AI 防衛側にする。
+    cell_id: Optional[int] = None
 
 
 class HumanSessionSpec(BaseModel):
@@ -3672,6 +3682,17 @@ class HumanSaveResultIn(BaseModel):
     """save_result body (= 2026-05-31 追加、 Vercel serverless で cache miss 時 reconstruction)。"""
     session_spec: Optional[HumanSessionSpec] = None
     prior_actions: Optional[list[HumanActionLog]] = None
+    # 陣取り (territory) 挑戦のコンテキスト (= 2026-07-15)。 陣取り経由の対戦だけ埋まる。
+    # 人間が勝ったら resolve_capture(cell_id, expected_version, ...) で占領を試みる。
+    # expected_version = 挑戦開始時に snapshot した対象マスの version (= race 検知に使う)。
+    cell_id: Optional[int] = None
+    expected_version: Optional[int] = None
+    human_leader_id: Optional[str] = None   # base card_id (137 単位、 マスの集計キー)
+    human_variant_id: Optional[str] = None  # 表示用 full card_id (パラレル suffix 込み)
+    # 戦い履歴用の防衛側情報 (= start 応答の challenge を client が echo)。
+    defender_leader_id: Optional[str] = None
+    defender_variant_id: Optional[str] = None
+    defender_user: Optional[str] = None
 
 
 class HumanLogCommentIn(BaseModel):
@@ -3872,10 +3893,37 @@ def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_
     # 環境デッキ / マイデッキ を選べる、 かつ reconstruct は spec 自己完結)。
     deck_a_inline = _resolve_deck_dict(req.deck_a_slug, user_id)
     deck_b_inline = _resolve_deck_dict(req.deck_b_slug, user_id)
+
+    # 陣取り挑戦: 占領マスなら占領者の保存デッキを AI 防衛側 (deck_b) に上書き。
+    # expected_version = 挑戦開始時のマス version (= 勝利時 CAS の照合キー = race 検知)。
+    challenge: Optional[dict] = None
+    if req.cell_id is not None:
+        from api import territory
+        cell = territory.get_cell(req.cell_id)
+        expected_version = int(cell["version"])
+        defender_slug = req.deck_b_slug
+        if cell["leader_id"]:  # 占領マス → 占領者の実デッキを AI が操縦
+            recipe = territory.defender_deck(req.cell_id)
+            if recipe:
+                deck_b_inline = recipe
+                defender_slug = cell.get("deck_slug") or f"cell{req.cell_id}-defender"
+        challenge = {
+            "cell_id": int(req.cell_id),
+            "expected_version": expected_version,
+            "owned": bool(cell["leader_id"]),
+            "defender_leader_id": cell["leader_id"],
+            "defender_variant_id": cell["variant_id"],
+            "defender_user": cell["user"],
+        }
+        # deck_b_slug は log 用ラベル。 占領マスは占領者デッキラベルに差し替え。
+        req_deck_b_slug = defender_slug
+    else:
+        req_deck_b_slug = req.deck_b_slug
+
     spec = HumanSessionSpec(
         seed=req.seed or 42,
         deck_a_slug=req.deck_a_slug,
-        deck_b_slug=req.deck_b_slug,
+        deck_b_slug=req_deck_b_slug,
         human_first=bool(human_first),
         deck_a_inline=deck_a_inline,
         deck_b_inline=deck_b_inline,
@@ -3891,6 +3939,8 @@ def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_
     payload["session_id"] = sid
     payload["session_spec"] = spec.model_dump()
     payload["actions"] = []
+    if challenge is not None:
+        payload["challenge"] = challenge
     return payload
 
 
@@ -4160,10 +4210,65 @@ def human_match_save_replay(sid: str):
 
 # saved_blob_url cache (= 同一 session で 重複 upload 防止)
 _SAVED_BLOB_URLS: dict[str, str] = {}
+# capture 結果 cache (= sid 毎に占領解決は 1 回だけ。 blob 再送/retry で二重占領しない)
+_CAPTURE_RESULTS: dict[str, dict] = {}
+# 戦い記録済み sid (= retry で二重記録しない)
+_BATTLE_RECORDED: set[str] = set()
+
+
+def _resolve_territory_capture(
+    sid: str, session, payload: dict, winner: Optional[int],
+    req: Optional[HumanSaveResultIn], user_id: str,
+) -> dict:
+    """陣取り経由の対戦なら勝利を占領に反映 (CAS)。 返り値 = payload に埋める territory メタ。
+
+    - 陣取り以外 (cell_id 無し) → {"cell_id": None}。
+    - 人間勝ち & game_over & CAS 成立 → 占領。 version がズレていた (対戦中に他人が先に奪取)
+      → captured=False → non_stakes=True (履歴 UI から除外 / 学習コーパスには使う)。
+    - sid 毎に 1 回だけ実行 (retry は cache 再利用)。
+    """
+    if req is None or req.cell_id is None:
+        return {"cell_id": None, "capture": None, "non_stakes": False}
+
+    capture = _CAPTURE_RESULTS.get(sid)
+    if capture is None and session.state.game_over and winner == 1 and req.human_leader_id:
+        try:
+            from api import territory
+            # 占領成立時は挑戦者 (= 新占領者) の実デッキを保存 → 以後この人のデッキを
+            # AI が防衛で操縦する ([[project_leader_as_progression_unit]] の per-deck 学習)。
+            deck_recipe = None
+            spec = req.session_spec
+            if spec is not None:
+                deck_recipe = spec.deck_a_inline
+                if deck_recipe is None and spec.deck_a_slug:
+                    try:
+                        deck_recipe = _resolve_deck_dict(spec.deck_a_slug, user_id)
+                    except Exception:
+                        deck_recipe = None
+            capture = territory.resolve_capture(
+                int(req.cell_id),
+                int(req.expected_version or 0),
+                leader_id=req.human_leader_id,
+                variant_id=req.human_variant_id,
+                user=user_id,
+                deck_slug=(payload.get("metadata") or {}).get("deck_human_slug"),
+                deck_recipe=deck_recipe,
+            )
+            _CAPTURE_RESULTS[sid] = capture
+        except Exception as e:
+            print(f"[territory] capture failed (sid={sid}): {e}")
+            capture = None
+
+    non_stakes = bool(capture is not None and not capture.get("captured", False))
+    return {"cell_id": int(req.cell_id), "capture": capture, "non_stakes": non_stakes}
 
 
 @app.post("/api/human_match/{sid}/save_result")
-def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
+def human_match_save_result(
+    sid: str,
+    req: Optional[HumanSaveResultIn] = None,
+    user_id: str = Depends(current_user_id),
+):
     """試合終了後 (= game_over=true or 人間 manual end) に full データ を Vercel Blob に upload。
 
     AI vs Human の 全 試合 を Blob に 蓄積 → ohtsuki さん依頼時に sync して解析。
@@ -4205,6 +4310,37 @@ def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
         winner_tag = "abandoned"
     else:
         winner_tag = "humanW" if winner == 1 else "aiW" if winner == 0 else "draw"
+
+    # 陣取り経由の対戦なら勝利を占領に反映 (CAS)。 payload に territory メタを埋める
+    # (= 全ログを無条件保存 → 学習は全ログ、 non_stakes フラグで履歴 UI から除外)。
+    territory_meta = _resolve_territory_capture(sid, session, payload, winner, req, user_id)
+    payload["territory"] = territory_meta
+
+    # 陣取り挑戦が決着 (game_over) したら戦いを記録 (= per-cell 履歴の実データ)。
+    if (
+        req is not None and req.cell_id is not None
+        and session.state.game_over and sid not in _BATTLE_RECORDED
+    ):
+        try:
+            from api import territory
+            cap = territory_meta.get("capture") or {}
+            territory.record_battle(
+                cell_id=int(req.cell_id),
+                attacker_user=user_id,
+                attacker_leader_id=req.human_leader_id,
+                attacker_variant_id=req.human_variant_id,
+                defender_user=req.defender_user,
+                defender_leader_id=req.defender_leader_id,
+                defender_variant_id=req.defender_variant_id,
+                attacker_won=(winner == 1),
+                captured=bool(cap.get("captured", False)),
+                non_stakes=bool(territory_meta.get("non_stakes", False)),
+                turns=(payload.get("result") or {}).get("turns"),
+            )
+            _BATTLE_RECORDED.add(sid)
+        except Exception as e:
+            print(f"[territory] record_battle failed (sid={sid}): {e}")
+
     pathname = f"human_play/{ts}_{deck_human}_vs_{deck_ai}_{winner_tag}_{sid[:8]}.json"
 
     from api.blob_storage import put_json, is_configured
@@ -4214,7 +4350,7 @@ def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
             # public blob だが random suffix で URL guessable 防止
             url = put_json(pathname, payload, add_random_suffix=True)
             _SAVED_BLOB_URLS[sid] = url
-            return {"url": url, "cached": False, "destination": "blob"}
+            return {"url": url, "cached": False, "destination": "blob", "territory": territory_meta}
         except Exception as e:
             raise HTTPException(500, f"blob upload failed: {e}")
 
@@ -4230,4 +4366,40 @@ def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
         encoding="utf-8",
     )
     _SAVED_BLOB_URLS[sid] = str(local_path)
-    return {"url": str(local_path), "cached": False, "destination": "local_file"}
+    return {"url": str(local_path), "cached": False, "destination": "local_file", "territory": territory_meta}
+
+
+# --------------------------------------------------------------------------- #
+# 陣取り (territory) 占領状態 API (= 公開 read)。 占領は human_match/save_result 経由の CAS。
+# 盤全体はゆっくりポーリング / 挑戦中マスは version だけ短間隔ポーリング (race 検知) する。
+# --------------------------------------------------------------------------- #
+@app.get("/api/territory")
+def territory_board():
+    """占領済みマス一覧 + board_version (= 盤ポーリング用)。 空きマスは省略。"""
+    from api import territory
+    return territory.get_board()
+
+
+@app.get("/api/territory/version")
+def territory_board_version():
+    """board_version だけ返す (= 盤に変化があったかを安く判定)。"""
+    from api import territory
+    return {"board_version": territory.board_version()}
+
+
+@app.get("/api/territory/{cell_id}")
+def territory_cell(cell_id: int):
+    """1 マスの現状 (占領者 + version)。 挑戦中マスの race 検知ポーリング用。"""
+    from api import territory
+    if not (0 <= cell_id < territory.N_CELLS):
+        raise HTTPException(400, "cell_id out of range")
+    return territory.get_cell(cell_id)
+
+
+@app.get("/api/territory/{cell_id}/battles")
+def territory_cell_battles(cell_id: int):
+    """マスの戦い履歴 (新しい順)。 non_stakes (占領できなかった継続試合) は既定で除外。"""
+    from api import territory
+    if not (0 <= cell_id < territory.N_CELLS):
+        raise HTTPException(400, "cell_id out of range")
+    return {"battles": territory.list_battles(cell_id)}

@@ -23,6 +23,7 @@ import {
   type HumanSessionSpec,
 } from "@/lib/api";
 import type { CharSnapshot, PlayerSnapshot, StateSnapshot } from "@/lib/types";
+import { useTerritoryCell } from "@/lib/useTerritory";
 import {
   useFrameDiff,
   LifeFlashOverlay,
@@ -97,9 +98,12 @@ type DropTarget =
 export function HumanMatchPlay({
   decks,
   initialDeckA,
+  challengeCellId,
 }: {
   decks: DeckOption[];
   initialDeckA?: string;
+  // 陣取り (/grow) からの挑戦なら対象マス index。 勝利時にそのマスの占領を試みる。
+  challengeCellId?: number;
 }) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
   const firstUserDeck =
@@ -116,6 +120,24 @@ export function HumanMatchPlay({
     "random",
   );
   const [state, setState] = useState<HumanMatchState | null>(null);
+  // 陣取り挑戦の情報 (= start 応答の challenge)。 保存時に占領を試みる際に使う。
+  const [challenge, setChallenge] = useState<HumanMatchState["challenge"] | null>(null);
+  // 保存後の占領結果 (= 占領成功 / レース負けで奪取ならず)。 完了バナー表示用。
+  const [captureResult, setCaptureResult] =
+    useState<{ captured: boolean; non_stakes: boolean } | null>(null);
+  // 対戦中に他人が先に奪取した (race) → モーダル表示。 「続ける」で dismiss。
+  const [raceModal, setRaceModal] = useState(false);
+  const [raceDismissed, setRaceDismissed] = useState(false);
+  // 挑戦中マスの version を短間隔で監視し、 対戦中に他人が先に奪取した race を検知。
+  const { cell: liveChallengeCell } = useTerritoryCell(challenge?.cell_id ?? null, {
+    active: challenge != null && !state?.game_over && !raceDismissed,
+  });
+  useEffect(() => {
+    if (!challenge || raceDismissed || raceModal || state?.game_over) return;
+    if (liveChallengeCell && liveChallengeCell.version > challenge.expected_version) {
+      setRaceModal(true); // 開始時 version から進んだ = 別の挑戦者が先に奪取した
+    }
+  }, [liveChallengeCell, challenge, raceDismissed, raceModal, state?.game_over]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // 「対戦開始」 押下 から CardPreloader 完了まで の preload phase
@@ -316,7 +338,10 @@ export function HumanMatchPlay({
       const next = await startHumanMatch(deckA, deckB, {
         seed,
         human_first: hf,
+        cell_id: challengeCellId,
       });
+      // 陣取り挑戦なら server が返した対象マス情報 (開始時 version + 防衛側) を保持。
+      setChallenge(next.challenge ?? null);
       // 相手先行 等 で 初期 frame が 複数 ある場合 は 順次 再生
       const frames = next.frames ?? [];
       if (frames.length > 1) {
@@ -687,11 +712,31 @@ export function HumanMatchPlay({
     if (!state?.game_over) return;
     if (savedResultRef.current === sessionId) return;
     savedResultRef.current = sessionId;
-    saveHumanMatchResult(sessionId, buildResume())
+    // 陣取り挑戦なら占領コンテキストを付ける (= 勝利時に server が CAS で占領を試みる)。
+    const humanLeader = decks.find((d) => d.slug === deckA)?.leader ?? null;
+    const challengeCtx =
+      challengeCellId != null && challenge != null
+        ? {
+            cell_id: challenge.cell_id,
+            expected_version: challenge.expected_version,
+            human_leader_id: humanLeader,
+            human_variant_id: humanLeader,
+            defender_leader_id: challenge.defender_leader_id,
+            defender_variant_id: challenge.defender_variant_id,
+            defender_user: challenge.defender_user,
+          }
+        : undefined;
+    saveHumanMatchResult(sessionId, buildResume(), challengeCtx)
       .then((res) => {
         console.log(
           `[human_play] result saved (${res.destination ?? "blob"}): ${res.url}`,
         );
+        if (res.territory?.cell_id != null && res.territory.capture) {
+          setCaptureResult({
+            captured: res.territory.capture.captured,
+            non_stakes: res.territory.non_stakes,
+          });
+        }
       })
       .catch((err) => {
         console.warn("[human_play] save_result failed:", err);
@@ -1903,6 +1948,42 @@ export function HumanMatchPlay({
         tickId={frameDiff.eventTickId}
       />
 
+      {/* 対戦中に他人が先にこのマスを奪取した (race) → 継続 / 新占領者へ挑戦 を選択 */}
+      {raceModal && challenge && !state.game_over && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="max-w-md rounded-xl border border-amber-400 bg-zinc-900 p-6 text-center shadow-2xl">
+            <div className="text-lg font-bold text-amber-200">
+              別の挑戦者が先にこのマスを奪取しました
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              対戦中に、別のプレイヤーがマス #{challenge.cell_id + 1} を先に占領しました。
+              <br />
+              この対戦を<strong className="text-amber-200">続けても、このマスは奪取できません</strong>
+              （対戦の記録は残り、AI の学習には使われます）。
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRaceModal(false);
+                  setRaceDismissed(true);
+                }}
+                className="flex-1 rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:bg-zinc-800"
+              >
+                この対戦を続ける
+              </button>
+              <button
+                type="button"
+                onClick={() => window.location.assign(`/play?cell=${challenge.cell_id}`)}
+                className="flex-1 rounded-lg bg-[color:var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
+              >
+                新しい占領者へ挑戦
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
       {state.game_over && (
         <div className="pointer-events-none absolute inset-0 z-[55] flex items-center justify-center">
@@ -1941,6 +2022,22 @@ export function HumanMatchPlay({
             <div className="mt-2 text-sm font-semibold text-cyan-200">
               この 1 戦も AI の学習データになりました — ご協力ありがとうございます
             </div>
+            {captureResult && (
+              <div
+                className={
+                  "mx-auto mt-4 max-w-md rounded-lg border px-4 py-2 text-sm font-bold " +
+                  (captureResult.captured
+                    ? "border-emerald-300 bg-emerald-800/70 text-emerald-100"
+                    : "border-amber-300 bg-amber-800/70 text-amber-100")
+                }
+              >
+                {captureResult.captured
+                  ? `マス #${(challenge?.cell_id ?? 0) + 1} を占領しました`
+                  : captureResult.non_stakes
+                    ? "対戦中に別の挑戦者が先にこのマスを奪取したため、占領はできませんでした（この対戦も学習には使われます）"
+                    : "このマスは占領できませんでした"}
+              </div>
+            )}
           </motion.div>
         </div>
       )}

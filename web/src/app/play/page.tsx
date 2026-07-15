@@ -6,9 +6,12 @@ import { PageShell } from "@/components/ui/PageShell";
 export default async function PlayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ deck?: string }>;
+  searchParams: Promise<{ deck?: string; cell?: string }>;
 }) {
   const sp = await searchParams;
+  // 陣取り (/grow) からの挑戦: ?cell=<index>。 数値でなければ無視。
+  const challengeCellId =
+    sp?.cell != null && /^\d+$/.test(sp.cell) ? Number(sp.cell) : undefined;
   let decks: { slug: string; name: string; kind?: string; leader?: string }[] = [];
   let error: string | null = null;
   try {
@@ -43,7 +46,7 @@ export default async function PlayPage({
   // HumanMatchPlay は full-screen 対戦 UI なので PageShell では wrap しない
   return (
     <main className="flex w-full flex-1 flex-col">
-      <HumanMatchPlay decks={decks} initialDeckA={sp?.deck} />
+      <HumanMatchPlay decks={decks} initialDeckA={sp?.deck} challengeCellId={challengeCellId} />
     </main>
   );
 }

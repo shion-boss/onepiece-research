@@ -114,6 +114,25 @@ body {
   background-color: rgba(150, 150, 150, 0.5);
 }
 
+/* タブバー: 横スクロールバーを極細に (36px の高さを食い潰さない = タブが潰れない) */
+.tabs-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 150, 150, 0.25) transparent;
+}
+.tabs-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.tabs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tabs-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.25);
+  border-radius: 2px;
+}
+.tabs-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(150, 150, 150, 0.45);
+}
+
 /* 盤面評価オーバーレイ用 (黒透過パネルに馴染む控えめ白) */
 .board-eval-scroll {
   scrollbar-width: thin;

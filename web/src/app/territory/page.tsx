@@ -1,4 +1,4 @@
-import { fetchCards } from "@/lib/api";
+import { fetchCards, fetchTerritoryBoard, type TerritoryBoard as TerritoryBoardData } from "@/lib/api";
 import { TerritoryBoard, type BoardLeader } from "@/components/TerritoryBoard";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -20,6 +20,15 @@ export default async function GrowPage() {
     error = e instanceof Error ? e.message : String(e);
   }
 
+  // 占領状態は SSR で 1 度取得 (= 初回描画から実データ)。 以降はクライアントがポーリングで更新。
+  // 取得失敗しても盤は出す (クライアント SWR が retry)。
+  let initialBoard: TerritoryBoardData | undefined;
+  try {
+    initialBoard = await fetchTerritoryBoard();
+  } catch {
+    initialBoard = undefined;
+  }
+
   if (error) {
     return (
       <PageShell>
@@ -33,7 +42,7 @@ export default async function GrowPage() {
 
   return (
     <div className="h-full w-full">
-      <TerritoryBoard leaders={leaders} />
+      <TerritoryBoard leaders={leaders} initialBoard={initialBoard} />
     </div>
   );
 }

@@ -94,6 +94,34 @@ export async function fetchHealth(): Promise<{ ok: boolean; cards: number }> {
   return res.json();
 }
 
+// --- 陣取り (territory) 占領状態 (公開 read。 ポーリングで常時最新) --- //
+export type TerritoryCell = {
+  cell_id: number;
+  leader_id: string | null;   // base card_id (137 単位、 集計キー)
+  variant_id: string | null;  // 表示用 full card_id (パラレル suffix 込み)
+  user: string | null;        // 占領者
+  deck_slug: string | null;   // 占領者の使用デッキ (防衛 AI が操縦)
+  version: number;
+};
+
+export type TerritoryBoard = {
+  board_version: number;
+  n_cells: number;
+  cells: TerritoryCell[]; // 占領済みマスのみ (空きは省略)
+};
+
+export async function fetchTerritoryBoard(): Promise<TerritoryBoard> {
+  const res = await fetch(`${API}/api/territory`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritoryBoard failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchTerritoryCell(cellId: number): Promise<TerritoryCell> {
+  const res = await fetch(`${API}/api/territory/${cellId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritoryCell failed: ${res.status}`);
+  return res.json();
+}
+
 // サーバコンポーネントは authHeaders() が効かない (document 無し) ので、 cookie から読んだ
 // X-Dev-User を extra で渡す。 クライアントからは authHeaders() が自動で付く。
 export async function fetchDecks(
@@ -762,6 +790,15 @@ export type HumanMatchState = {
   // start で受け取り、 各 apply* で 毎回 送信。 localStorage に 保存して リロード復元 も可。
   session_spec?: HumanSessionSpec;
   actions?: HumanActionLog[];
+  // 陣取り挑戦なら start 応答に付く (= 対象マス + 開始時 version + 防衛側情報)。
+  challenge?: {
+    cell_id: number;
+    expected_version: number;
+    owned: boolean;
+    defender_leader_id: string | null;
+    defender_variant_id: string | null;
+    defender_user: string | null;
+  };
 };
 
 type ResumeFields = {
@@ -772,7 +809,7 @@ type ResumeFields = {
 export async function startHumanMatch(
   deckASlug: string,
   deckBSlug: string,
-  opts: { seed?: number; human_first?: boolean | null } = {},
+  opts: { seed?: number; human_first?: boolean | null; cell_id?: number } = {},
 ): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match`, {
     method: "POST",
@@ -784,6 +821,8 @@ export async function startHumanMatch(
       deck_b_slug: deckBSlug,
       seed: opts.seed ?? 42,
       human_first: opts.human_first ?? null,
+      // 陣取り挑戦なら対象マス。 占領マスは server が防衛デッキを差し替える。
+      ...(opts.cell_id != null ? { cell_id: opts.cell_id } : {}),
     }),
     cache: "no-store",
   });
@@ -931,10 +970,55 @@ export async function endHumanMatch(sid: string): Promise<void> {
   });
 }
 
+// 陣取り挑戦のコンテキスト (= 勝利時に占領を試みる + 戦い履歴を記録)。 陣取り経由の対戦だけ渡す。
+export type ChallengeContext = {
+  cell_id: number;
+  expected_version: number;
+  human_leader_id?: string | null;
+  human_variant_id?: string | null;
+  defender_leader_id?: string | null;
+  defender_variant_id?: string | null;
+  defender_user?: string | null;
+};
+
+export type TerritoryBattle = {
+  id: number;
+  cell_id: number;
+  ts: string;
+  attacker_user: string | null;
+  attacker_leader_id: string | null;
+  attacker_variant_id: string | null;
+  defender_user: string | null;
+  defender_leader_id: string | null;
+  defender_variant_id: string | null;
+  attacker_won: boolean;
+  captured: boolean;
+  non_stakes: boolean;
+  turns: number | null;
+};
+
+export async function fetchTerritoryBattles(cellId: number): Promise<TerritoryBattle[]> {
+  const res = await fetch(`${API}/api/territory/${cellId}/battles`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritoryBattles failed: ${res.status}`);
+  return (await res.json()).battles ?? [];
+}
+
+export type SaveResultResponse = {
+  url: string;
+  cached: boolean;
+  destination?: string;
+  territory?: {
+    cell_id: number | null;
+    capture: { captured: boolean; version?: number; board_version?: number } | null;
+    non_stakes: boolean;
+  };
+};
+
 export async function saveHumanMatchResult(
   sid: string,
   resume?: { session_spec?: HumanSessionSpec; prior_actions?: HumanActionLog[] },
-): Promise<{ url: string; cached: boolean; destination?: string }> {
+  challenge?: ChallengeContext,
+): Promise<SaveResultResponse> {
   // 2026-05-31 fix: Vercel serverless で cache miss 時 404 silent fail し て
   // log メモ が 消 え る bug 修 復。 buildResume() で session_spec + prior_actions
   // を 送 信 し て endpoint 側 で reconstruct 可 能 化。
@@ -942,7 +1026,7 @@ export async function saveHumanMatchResult(
     method: "POST",
     cache: "no-store",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(resume ?? {}),
+    body: JSON.stringify({ ...(resume ?? {}), ...(challenge ?? {}) }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

@@ -14,6 +14,8 @@ interface WorkspaceState {
   collapsedFolders: string[];
   openTab: (t: Tab) => void;
   closeTab: (id: string) => void;
+  closeAllTabs: () => void;
+  reorderTab: (dragId: string, dropId: string) => void;
   setActiveTabId: (id: string) => void;
   setView: (v: ActivityView) => void;
   toggleSidebar: () => void;
@@ -36,6 +38,19 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
         : { tabs: [...s.tabs, t] },
     ),
   closeTab: (id) => set((s) => ({ tabs: s.tabs.filter((x) => x.id !== id) })),
+  closeAllTabs: () => set({ tabs: [] }),
+  // ドラッグ&ドロップ並び替え: dragId を dropId の位置へ移動。
+  reorderTab: (dragId, dropId) =>
+    set((s) => {
+      if (dragId === dropId) return {};
+      const from = s.tabs.findIndex((t) => t.id === dragId);
+      const to = s.tabs.findIndex((t) => t.id === dropId);
+      if (from < 0 || to < 0) return {};
+      const next = s.tabs.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return { tabs: next };
+    }),
   setActiveTabId: (id) => set({ activeTabId: id }),
   setView: (v) => set({ activeView: v, sidebarOpen: true }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -53,7 +68,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
 export function tabTitleFor(path: string): string {
   const map: Record<string, string> = {
     "/": "ようこそ",
-    "/grow": "陣取り",
+    "/territory": "陣取り",
     "/history": "戦いの歴史",
     "/play": "人間 vs AI",
     "/watch": "AI vs AI 観戦",

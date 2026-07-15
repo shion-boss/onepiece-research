@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { CardImage } from "./CardImage";
 import type { Cell, BoardLeader } from "./TerritoryBoard";
+import { useTerritoryBattles } from "@/lib/useTerritory";
+import type { TerritoryBattle } from "@/lib/api";
 
 // マスで行われた戦いの履歴 (現状は seed)。 各戦い = 挑戦者(人間)リーダー vs 防衛側リーダー。
 export type Battle = {
@@ -75,6 +77,7 @@ export function CellPanel({
   hoverEnabled,
   onToggleHover,
   actionSlot,
+  realBattles = false,
 }: {
   cell: Cell | null;
   idx: number | null;
@@ -82,6 +85,8 @@ export function CellPanel({
   hoverEnabled: boolean;
   onToggleHover: () => void;
   actionSlot?: ReactNode;
+  // true (= /grow) なら戦い履歴を API から取得。 false (= /history seed) なら seed。
+  realBattles?: boolean;
 }) {
   return (
     <div className="w-full">
@@ -104,7 +109,7 @@ export function CellPanel({
       <div className="p-3">
         {actionSlot}
         {idx != null ? (
-          <CellDetail cell={cell!} idx={idx} leaders={leaders} />
+          <CellDetail cell={cell!} idx={idx} leaders={leaders} realBattles={realBattles} />
         ) : (
           <p className="px-1 py-8 text-center text-sm leading-relaxed text-[color:var(--text-muted)]">
             マスをクリックすると、
@@ -129,8 +134,40 @@ function LeaderThumb({ id, name, label, ring }: { id: string; name: string; labe
   );
 }
 
-function CellDetail({ cell, idx, leaders }: { cell: Cell; idx: number; leaders: BoardLeader[] }) {
-  const battles = seedBattles(idx, cell, leaders);
+// 実 battle レコード → 表示用 Battle 形式へ変換 (= 既存レンダラを再利用)。
+function realToBattle(rb: TerritoryBattle, leaders: BoardLeader[]): Battle {
+  const nameOf = (id: string | null) =>
+    id ? leaders.find((l) => l.id === id)?.name ?? id : "不明";
+  const days = Math.max(0, Math.floor((Date.now() - new Date(rb.ts).getTime()) / 86_400_000));
+  return {
+    id: rb.id,
+    daysAgo: days,
+    challenger: rb.attacker_user ?? "プレイヤー",
+    attackerId: rb.attacker_variant_id ?? rb.attacker_leader_id ?? "",
+    attackerName: nameOf(rb.attacker_leader_id),
+    defenderId: rb.defender_variant_id ?? rb.defender_leader_id ?? "",
+    defenderName: nameOf(rb.defender_leader_id),
+    conquered: rb.captured,
+    turns: rb.turns ?? 0,
+  };
+}
+
+function CellDetail({
+  cell,
+  idx,
+  leaders,
+  realBattles = false,
+}: {
+  cell: Cell;
+  idx: number;
+  leaders: BoardLeader[];
+  realBattles?: boolean;
+}) {
+  // realBattles: /grow は API から取得。 hook は常に呼び (key=null で無効化)。
+  const realData = useTerritoryBattles(realBattles ? idx : null);
+  const battles = realBattles
+    ? (realData ?? []).map((rb) => realToBattle(rb, leaders))
+    : seedBattles(idx, cell, leaders);
   return (
     <div className="flex flex-col gap-3">
       {cell.owner ? (

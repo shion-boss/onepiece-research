@@ -1,9 +1,12 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CellPanel } from "./CellHistoryPanel";
 import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
+import { useTerritoryBoard } from "@/lib/useTerritory";
+import type { TerritoryBoard as TerritoryBoardData } from "@/lib/api";
 
 // 陣取り盤: 1024 マス (32×32)。 各マスは占領者(人間)の推しリーダーの色。 空きマスは中立。
 // ホバーでリーダーが分かる / クリックで対象マス選択 → そのマスに挑戦 (占領マス=占領者デッキの AI、
@@ -83,8 +86,45 @@ export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
   return cells.map((c) => c ?? { owner: null, ownerName: null, color: EMPTY, block: null });
 }
 
-export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
-  const cells = useMemo(() => seedCells(leaders), [leaders]);
+// 実 territory データ (占領済みマスのみ) → 1024 マスの Cell[] を組む。
+// 占領マス = 占領者のリーダー色。 空きマス = 中立。 カード絵は右パネルで表示。
+function buildCellsFromBoard(
+  board: TerritoryBoardData | undefined,
+  leaderById: Map<string, BoardLeader>,
+): Cell[] {
+  const cells: Cell[] = Array.from({ length: N }, () => ({
+    owner: null, ownerName: null, color: EMPTY, block: null,
+  }));
+  if (!board) return cells;
+  for (const c of board.cells) {
+    if (c.cell_id < 0 || c.cell_id >= N || !c.leader_id) continue;
+    const ld = leaderById.get(c.leader_id) ?? { id: c.leader_id, name: c.leader_id, color: "黒" };
+    cells[c.cell_id] = {
+      owner: ld,
+      ownerName: c.user,
+      color: COLOR_HEX[ld.color] ?? "#888",
+      block: null,
+    };
+  }
+  return cells;
+}
+
+export function TerritoryBoard({
+  leaders,
+  initialBoard,
+}: {
+  leaders: BoardLeader[];
+  initialBoard?: TerritoryBoardData;
+}) {
+  const router = useRouter();
+  // 盤全体をポーリング (= 再読み込み不要で常時最新)。 初期値は SSR で取得済み。
+  const { board } = useTerritoryBoard(initialBoard);
+  const leaderById = useMemo(() => {
+    const m = new Map<string, BoardLeader>();
+    for (const l of leaders) m.set(l.id, l);
+    return m;
+  }, [leaders]);
+  const cells = useMemo(() => buildCellsFromBoard(board, leaderById), [board, leaderById]);
   const [hovered, setHovered] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
@@ -98,7 +138,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
   const activeIdx = selected != null ? selected : hoverEnabled ? hovered : null;
   const active = activeIdx != null ? cells[activeIdx] : null;
   const right = useResizable(288, 240, 560, true); // 右パネル幅ドラッグ
-  const occupied = useMemo(() => cells.filter((c) => c.owner).length, [cells]);
+  const occupied = board?.cells.length ?? 0;
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -106,7 +146,7 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
       <main className="log-scroll min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
           <header className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-5" style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}>
-            <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">推しリーダー陣取り</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">推しリーダー陣取りボード</h1>
             <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
               1024 マスを推しリーダーで奪い合う。AI に勝てば 1 マス占領。占領マスに挑むと、その占領者のデッキを操る AI が防衛する。
             </p>
@@ -132,16 +172,32 @@ export function TerritoryBoard({ leaders }: { leaders: BoardLeader[] }) {
           leaders={leaders}
           hoverEnabled={hoverEnabled}
           onToggleHover={() => setHoverEnabled((v) => !v)}
+          realBattles
           actionSlot={
-            selected != null ? (
-              <button
-                type="button"
-                disabled
-                title="対戦連携は次段で実装"
-                className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {cells[selected]?.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
-              </button>
+            // マス表示中 (ホバー / 選択) は常にボタン領域を確保。
+            //   選択時       = 実ボタン (ブランド色)
+            //   非選択(ホバー) = 同じサイズ・同じ文字量の黒系プレースホルダー div (文字は透明)
+            // → ホバー表示→クリック(選択) で下の詳細がボタン分だけ上下に動かない (ちらつき防止)。
+            // 未表示 (プレースホルダー本文) 時は出さない = 余分な空きを作らない。
+            active != null ? (
+              selected != null ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/play?cell=${selected}`)}
+                  title={active.owner ? "占領者のデッキを操る AI と防衛戦" : "ランダム AI と対戦"}
+                  className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
+                >
+                  {active.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
+                </button>
+              ) : (
+                <div
+                  aria-hidden
+                  className="mb-3 w-full select-none rounded-[var(--radius)] px-3 py-2.5 text-sm font-semibold text-transparent"
+                  style={{ background: "#1a1a1d" }}
+                >
+                  {active.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
+                </div>
+              )
             ) : null
           }
         />

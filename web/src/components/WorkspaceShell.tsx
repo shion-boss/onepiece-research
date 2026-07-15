@@ -40,12 +40,12 @@ const IconFaq = svg(
     <path d="M12 16.6h.01" strokeLinecap="round" />
   </>,
 );
-// 育てる (陣取り/成長)
+// ゲーム ハブ (陣取り含む複数ゲームを束ねる)。 ゲームパッド アイコン。
 const IconGrow = svg(
   <>
-    <rect x="3" y="13" width="5" height="8" rx="1" />
-    <rect x="10" y="8" width="5" height="13" rx="1" />
-    <rect x="17" y="3" width="4" height="18" rx="1" />
+    <path d="M17.3 5H6.7a4 4 0 0 0-4 3.6C2.6 9.4 2 14.5 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.4-1.4a2 2 0 0 1 1.4-.6h4.4a2 2 0 0 1 1.4.6L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.5-.6-6.6-.7-7.4A4 4 0 0 0 17.3 5Z" />
+    <path d="M6.5 11h3M8 9.5v3" strokeLinecap="round" />
+    <path d="M15 12h.01M18 10h.01" strokeLinecap="round" />
   </>,
 );
 // 戦いの歴史 (巻物/時計)
@@ -58,7 +58,7 @@ const IconHistory = svg(
 
 // 主要ツール (上部) と Q&A / 履歴 (下部) を分ける = VSCode のアクティビティバー流。
 const ACTIVITY_MAIN: { view: ActivityView; label: string; icon: ReactNode }[] = [
-  { view: "grow", label: "陣取り", icon: IconGrow },
+  { view: "grow", label: "ゲーム", icon: IconGrow },
   { view: "explorer", label: "デッキ", icon: IconDeck },
   { view: "play", label: "対戦", icon: IconPlay },
   { view: "cards", label: "カード", icon: IconCards },
@@ -87,6 +87,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     tabs,
     activeTabId,
     closeTab,
+    closeAllTabs,
+    reorderTab,
     activeView,
     setView,
     sidebarOpen,
@@ -95,6 +97,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     setSidebarWidth,
   } = useWorkspace();
   const [matchActive, setMatchActive] = useState(false);
+  // タブ D&D 並び替え用: ドラッグ中 / ドロップ先ハイライトの id。
+  const [dragTabId, setDragTabId] = useState<string | null>(null);
+  const [overTabId, setOverTabId] = useState<string | null>(null);
 
   useEffect(() => {
     function onChange(e: Event) {
@@ -216,30 +221,67 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         <main className="flex min-w-0 flex-1 flex-col" style={{ background: "var(--editor-bg)" }}>
           {tabs.length > 0 && (
           <div
-            className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b"
-            style={{ background: "var(--sidebar-bg)", borderColor: "var(--border-1)" }}
+            className="flex shrink-0 items-stretch border-b"
+            style={{ borderColor: "var(--border-1)", background: "var(--sidebar-bg)" }}
           >
+          {/* 横スクロールバーをタブの上に出す: 外側を上下反転→バーが上へ / 内側を再反転→中身は正立 */}
+          <div
+            className="tabs-scroll h-10 min-w-0 flex-1 overflow-x-scroll overflow-y-hidden"
+            style={{ transform: "scaleY(-1)" }}
+          >
+          <div className="flex h-full w-max items-stretch" style={{ transform: "scaleY(-1)" }}>
             {tabs.map((t) => {
               const on = t.id === activeTabId;
+              const isOver = overTabId === t.id && dragTabId != null && dragTabId !== t.id;
               return (
                 <div
                   key={t.id}
-                  className="group flex shrink-0 items-center gap-2 border-r pl-3 pr-2 text-[12px]"
+                  draggable
+                  onDragStart={(e) => {
+                    setDragTabId(t.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", t.id);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (overTabId !== t.id) setOverTabId(t.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragTabId(null);
+                    setOverTabId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const src = dragTabId ?? e.dataTransfer.getData("text/plain");
+                    if (src && src !== t.id) reorderTab(src, t.id);
+                    setDragTabId(null);
+                    setOverTabId(null);
+                  }}
+                  title={t.title}
+                  className="group relative flex max-w-[200px] shrink-0 cursor-grab items-center gap-2 border-r pl-3 pr-2 text-[12px] active:cursor-grabbing"
                   style={{
                     borderColor: "var(--border-1)",
                     background: on ? "var(--editor-bg)" : "transparent",
                     color: on ? "var(--text-strong)" : "var(--text-muted)",
                     boxShadow: on ? "inset 0 1px 0 var(--brand)" : undefined,
+                    opacity: dragTabId === t.id ? 0.4 : 1,
                   }}
                 >
-                  <Link href={t.id} className="py-2">
+                  {isOver && (
+                    <span
+                      className="pointer-events-none absolute inset-y-0 left-0 w-0.5"
+                      style={{ background: "var(--brand)" }}
+                    />
+                  )}
+                  <Link href={t.id} draggable={false} className="min-w-0 truncate py-2">
                     {t.title}
                   </Link>
                   <button
                     type="button"
                     aria-label="タブを閉じる"
                     onClick={() => onCloseTab(t.id)}
-                    className="flex h-4 w-4 items-center justify-center rounded text-[color:var(--text-muted)] opacity-0 hover:bg-[var(--surface-3)] hover:text-white group-hover:opacity-100"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[color:var(--text-muted)] opacity-0 hover:bg-[var(--surface-3)] hover:text-white group-hover:opacity-100"
                   >
                     <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" strokeWidth="2" fill="none">
                       <path d="M6 6l12 12M18 6L6 18" />
@@ -248,6 +290,26 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
                 </div>
               );
             })}
+          </div>
+          </div>
+          {/* 右端: すべてのタブを一括で閉じる (スクロールに追従せず常に右端に固定) */}
+          <button
+            type="button"
+            onClick={() => {
+              closeAllTabs();
+              router.push("/");
+            }}
+            title="すべてのタブを閉じる"
+            aria-label="すべてのタブを閉じる"
+            className="flex h-10 w-9 shrink-0 items-center justify-center border-l text-[color:var(--text-muted)] transition-colors hover:bg-[var(--surface-3)] hover:text-white"
+            style={{ borderColor: "var(--border-1)" }}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <rect x="4" y="7" width="10" height="10" rx="1.5" />
+              <path d="M14 8V6.5A1.5 1.5 0 0 1 15.5 5H19a1.5 1.5 0 0 1 1.5 1.5V15A1.5 1.5 0 0 1 19 16.5h-1" />
+              <path d="M6.5 9.5l5 5M11.5 9.5l-5 5" strokeLinecap="round" />
+            </svg>
+          </button>
           </div>
           )}
           <div className="min-h-0 flex-1 overflow-auto log-scroll">{children}</div>
@@ -263,10 +325,10 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
   if (view === "grow") {
     return (
       <div className="py-2">
-        <PanelHeader>推しリーダー陣取り</PanelHeader>
-        <PanelLink href="/grow" active={path === "/grow"}>陣取り盤を開く</PanelLink>
+        <PanelHeader>ゲーム</PanelHeader>
+        <PanelLink href="/territory" active={path === "/territory"}>推しリーダー陣取りボード</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          1024 マスを推しリーダーで奪い合う。AI に勝てば 1 マス占領。
+          推しリーダーで遊ぶゲーム。ほかのゲームも順次追加予定。
         </p>
       </div>
     );
