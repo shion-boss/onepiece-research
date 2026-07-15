@@ -11,6 +11,7 @@ import { CostCurveMini } from "@/components/builder/CostCurveMini";
 import { CardImage } from "@/components/CardImage";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { useResizable } from "@/lib/useResizable";
+import { useWorkspace } from "@/lib/workspace";
 import type { Card } from "@/lib/types";
 import {
   buildDeckWithCore,
@@ -207,6 +208,8 @@ function NewDeckPageContent() {
         draft,
         overwrite: draft ? true : undefined,
       });
+      // 左メニュー (マイデッキ) を即更新 = 保存した瞬間に一覧へ反映。
+      useWorkspace.getState().refreshDecks();
       if (draft) {
         showFlash(`下書きをマイデッキに保存しました (slug: ${res.slug})`, 3000);
       } else {
