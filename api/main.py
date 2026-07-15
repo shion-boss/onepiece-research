@@ -618,30 +618,56 @@ class FaqHit(BaseModel):
 
 
 _faq_cache: Optional[list[dict]] = None
+_faq_generated_at: Optional[str] = None  # FAQ データの最終更新日時 (= 最後に scrape した日)
 
 
 def _load_faq_corpus() -> list[dict]:
-    """db/faq/*.json を全部メモリにロードして flat list を返す。"""
-    global _faq_cache
+    """FAQ corpus を返す。 ローカルは db/faq/*.json、 本番 (db/faq は Bandai 著作物 gitignore で
+    未デプロイ) は Vercel Blob の faq/corpus を読む (= 画像プロキシと同思想)。"""
+    global _faq_cache, _faq_generated_at
     if _faq_cache is not None:
         return _faq_cache
     out: list[dict] = []
-    if not FAQ_DIR.exists():
+
+    # 1) ローカル db/faq/*.json (= 開発時)
+    local_files = sorted(FAQ_DIR.glob("*.json")) if FAQ_DIR.exists() else []
+    if local_files:
+        for path in local_files:
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            category = data.get("category") or data.get("series") or path.stem
+            for item in data.get("items", []):
+                out.append({
+                    "source": path.name,
+                    "category": category,
+                    "q": item.get("q", ""),
+                    "a": item.get("a", ""),
+                })
+        try:
+            from datetime import datetime, timezone
+            mt = max(p.stat().st_mtime for p in local_files)
+            _faq_generated_at = datetime.fromtimestamp(mt, tz=timezone.utc).isoformat()
+        except (ValueError, OSError):
+            pass
         _faq_cache = out
         return out
-    for path in sorted(FAQ_DIR.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            continue
-        category = data.get("category") or data.get("series") or path.stem
-        for item in data.get("items", []):
-            out.append({
-                "source": path.name,
-                "category": category,
-                "q": item.get("q", ""),
-                "a": item.get("a", ""),
-            })
+
+    # 2) Vercel Blob (= 本番)。 scripts/upload_faq_to_blob.py が faq/corpus を上げる。
+    try:
+        from api.blob_storage import list_jsons, get_json, is_configured
+        if is_configured():
+            blobs = [b for b in list_jsons(prefix="faq/")
+                     if (b.get("pathname") or "").startswith("faq/corpus")]
+            if blobs:
+                newest = max(blobs, key=lambda b: b.get("uploadedAt") or "")
+                corpus = get_json(newest["url"])
+                out = corpus.get("items", []) or []
+                _faq_generated_at = corpus.get("generated_at")
+    except Exception as e:
+        print(f"[faq] blob corpus load failed: {e}")
+
     _faq_cache = out
     return out
 
@@ -715,21 +741,91 @@ def faq_by_card(card_id: str, limit: int = Query(30, ge=1, le=200)):
 
 @app.get("/api/faq/sources")
 def faq_sources():
-    """利用可能な FAQ ソースの一覧 (件数付き)。"""
-    out: list[dict] = []
-    if not FAQ_DIR.exists():
-        return out
-    for path in sorted(FAQ_DIR.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            continue
-        out.append({
-            "source": path.name,
-            "category": data.get("category") or data.get("series") or path.stem,
-            "count": len(data.get("items", [])),
-        })
-    return out
+    """利用可能な FAQ ソースの一覧 (件数付き)。 corpus (ローカル or 本番 Blob) から集計。"""
+    from collections import OrderedDict
+    corpus = _load_faq_corpus()
+    agg: "OrderedDict[str, dict]" = OrderedDict()
+    for item in corpus:
+        src = item["source"]
+        if src not in agg:
+            agg[src] = {"source": src, "category": item["category"], "count": 0}
+        agg[src]["count"] += 1
+    return list(agg.values())
+
+
+@app.get("/api/faq/meta")
+def faq_meta():
+    """FAQ データのメタ情報 (= 最終更新日時 / 総件数 / ソース数)。 /faq の日時表示用。"""
+    corpus = _load_faq_corpus()
+    return {
+        "count": len(corpus),
+        "sources": len({i["source"] for i in corpus}),
+        "generated_at": _faq_generated_at,
+    }
+
+
+@app.get("/api/faq/refresh")
+def faq_refresh(request: Request):
+    """公式 FAQ/cardqa を再スクレイプ → corpus 再構築 → Blob 更新 → cache クリア。
+
+    Vercel Cron (vercel.json crons) から週次 GET で呼ぶ想定。 更新があれば自動で反映。
+    認証: `CRON_SECRET` env があれば `Authorization: Bearer <CRON_SECRET>` 必須
+    (= Vercel Cron が自動付与)。 未設定なら誰でも叩ける (= 内部/手動用)。
+    """
+    secret = os.environ.get("CRON_SECRET")
+    if secret and request.headers.get("authorization", "") != f"Bearer {secret}":
+        raise HTTPException(401, "unauthorized")
+
+    from api.blob_storage import put_json, is_configured
+    if not is_configured():
+        raise HTTPException(503, "blob not configured")
+
+    import sys as _sys
+    import requests as _rq
+    from datetime import datetime, timezone
+
+    _scripts_dir = str(ROOT / "scripts")
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    try:
+        from scrape_official_faq import scrape_faq, scrape_cardqa  # type: ignore
+    except Exception as e:
+        raise HTTPException(500, f"scraper import failed: {e}")
+
+    sess = _rq.Session()
+    sess.headers.update({"User-Agent": "Mozilla/5.0 (compatible; OPTCG-Research/1.0)"})
+    try:
+        faq = scrape_faq(sess)
+        cardqa = scrape_cardqa(sess)
+    except Exception as e:
+        raise HTTPException(502, f"scrape failed: {e}")
+
+    items: list[dict] = []
+    for slug, d in faq.items():
+        cat = d.get("category") or slug
+        for it in d.get("items", []):
+            items.append({"source": f"{slug}.json", "category": cat,
+                          "q": it.get("q", ""), "a": it.get("a", "")})
+    for slug, d in cardqa.items():
+        cat = d.get("series") or slug
+        for it in d.get("items", []):
+            items.append({"source": f"cardqa_{slug}.json", "category": cat,
+                          "q": it.get("q", ""), "a": it.get("a", "")})
+
+    if not items:
+        raise HTTPException(502, "scrape returned no items (公式サイト仕様変更の可能性)")
+
+    corpus = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(items),
+        "items": items,
+    }
+    put_json("faq/corpus.json", corpus, add_random_suffix=True)
+
+    global _faq_cache, _faq_generated_at
+    _faq_cache = None       # 次アクセスで Blob から再ロード
+    _faq_generated_at = None
+    return {"refreshed": True, "count": len(items), "generated_at": corpus["generated_at"]}
 
 
 @app.get("/api/cards", response_model=list[CardOut])
