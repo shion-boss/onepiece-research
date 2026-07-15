@@ -18,6 +18,9 @@ dependencies = [
     "anthropic>=0.40",
     # 本番 Postgres (= Neon) 接続用。 ローカルは DATABASE_URL 未設定で SQLite fallback。
     "psycopg[binary]>=3.1",
+    # 本番認証 (Clerk) の JWT (RS256) 検証用。 ⚠ Vercel は requirements.txt でなく
+    # pyproject.toml から入れるので、 ここに無いと本番で ModuleNotFoundError('jwt') → 全認証 401。
+    "pyjwt[crypto]>=2.9.0",
 ]
 
 [project.optional-dependencies]
