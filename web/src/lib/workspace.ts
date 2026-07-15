@@ -22,6 +22,9 @@ interface WorkspaceState {
   setSidebarOpen: (b: boolean) => void;
   setSidebarWidth: (w: number) => void;
   toggleFolder: (f: string) => void;
+  // マイデッキ一覧の再取得を促すノンス (= デッキ保存直後に左メニューを即更新するため)。
+  decksNonce: number;
+  refreshDecks: () => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
@@ -31,6 +34,8 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   sidebarOpen: true,
   sidebarWidth: 224,
   collapsedFolders: [],
+  decksNonce: 0,
+  refreshDecks: () => set((s) => ({ decksNonce: s.decksNonce + 1 })),
   openTab: (t) =>
     set((s) =>
       s.tabs.some((x) => x.id === t.id)

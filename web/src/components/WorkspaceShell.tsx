@@ -388,16 +388,17 @@ function ExplorerPanel({ path }: { path: string }) {
   const [decks, setDecks] = useState<DeckRow[] | null>(null);
   const [extraFolders, setExtraFolders] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const { collapsedFolders, toggleFolder } = useWorkspace();
+  const { collapsedFolders, toggleFolder, decksNonce } = useWorkspace();
 
   const reload = useCallback(() => {
     fetchDecks()
       .then((d) => setDecks(d as DeckRow[]))
       .catch(() => setDecks([]));
   }, []);
+  // 初回 + デッキ保存 (refreshDecks でノンス増加) のたびに再取得 = 左メニュー即更新。
   useEffect(() => {
     reload();
-  }, [reload]);
+  }, [reload, decksNonce]);
 
   const mine = decks?.filter((d) => d.kind === "user") ?? [];
   const meta = decks?.filter((d) => d.kind === "meta") ?? [];
