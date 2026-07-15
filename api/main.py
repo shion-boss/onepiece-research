@@ -1093,6 +1093,7 @@ class DeckSummary(BaseModel):
     regulation: Optional[str] = None
     kind: str = "user"            # "meta" (環境・正準) | "user" (ユーザー作成)
     folder: str = ""              # ユーザーデッキの所属フォルダ ("" = ルート)
+    private: bool = False         # 非公開 (= 陣取りで使用不可)。 生成時に決定・以後不変
 
 
 def _list_deck_files() -> list[Path]:
@@ -1157,6 +1158,8 @@ def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
         main_count=sum(int(e.get("count", 1)) for e in d.get("main", [])),
         unique=len(d.get("main", [])), regulation=d.get("regulation"), kind=kind,
         folder=d.get("folder") or "",
+        # メタ(環境)デッキは常に公開。 user deck は is_private/private で判定。
+        private=kind == "user" and bool(d.get("private") or d.get("is_private")),
     )
 
 
@@ -1238,6 +1241,7 @@ class CreateDeckRequest(BaseModel):
     slug: Optional[str] = None
     overwrite: bool = False
     regulation: str = "standard"
+    private: bool = False  # 非公開 (= 陣取りで使用不可)。 生成時にのみ有効・以後不変
 
 
 class CreateDeckResponse(BaseModel):
@@ -1342,6 +1346,7 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
         user_store.save_deck(
             user_id, slug, name=deck_dict["name"], leader=req.leader,
             main=deck_dict["main"], regulation=req.regulation, overwrite=req.overwrite,
+            private=req.private,
         )
     except ValueError:
         raise HTTPException(409, f"slug already exists: {slug}")
@@ -3997,6 +4002,10 @@ def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_
     challenge: Optional[dict] = None
     if req.cell_id is not None:
         from api import territory
+        # 非公開デッキは陣取りで使用不可 (= 占領時に recipe 保存され露出するため)。
+        # UI でも除外するが、 curl 直叩き対策に API でも二重ガードする。
+        if deck_a_inline.get("private") or deck_a_inline.get("is_private"):
+            raise HTTPException(403, "非公開デッキは陣取りで使用できません")
         cell = territory.get_cell(req.cell_id)
         expected_version = int(cell["version"])
         defender_slug = req.deck_b_slug

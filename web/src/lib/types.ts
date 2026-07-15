@@ -106,6 +106,7 @@ export type DeckSummary = {
   regulation?: Regulation;
   kind?: "meta" | "user"; // 環境デッキ(正準) か ユーザー作成か
   folder?: string; // ユーザーデッキの所属フォルダ ("" = ルート)
+  private?: boolean; // 非公開 (= 陣取りで使用不可)。 生成時に決定・以後不変
 };
 
 export type DeckDetail = DeckSpec & {

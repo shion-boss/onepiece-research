@@ -54,7 +54,7 @@ import {
  * 人間 vs AI 対戦 component (= OPTCGSim 風 + 重ね 手札 + D&D 対応)。
  */
 
-type DeckOption = { slug: string; name: string; kind?: string; leader?: string };
+type DeckOption = { slug: string; name: string; kind?: string; leader?: string; private?: boolean };
 
 type Selection =
   | null
@@ -106,13 +106,19 @@ export function HumanMatchPlay({
   challengeCellId?: number;
 }) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
+  // 陣取り挑戦 (challengeCellId) では 非公開デッキ は人間側に使えない (勝つと占領で露出) → 除外。
+  const canBeHuman = (d: DeckOption) => challengeCellId == null || !d.private;
   const firstUserDeck =
-    decks.find((d) => d.kind === "user")?.slug ?? decks[0]?.slug ?? "";
+    decks.find((d) => d.kind === "user" && canBeHuman(d))?.slug ??
+    decks.find(canBeHuman)?.slug ?? "";
   const firstMetaDeck =
     decks.find((d) => d.kind === "meta")?.slug ?? decks[0]?.slug ?? "";
   // /play?deck=slug で指定されたデッキがあれば人間側の既定に (= デッキ詳細から「対戦」)。
+  // ただし陣取り挑戦で非公開デッキ指定は無視 (= 使えないため既定にしない)。
   const defaultDeckA =
-    initialDeckA && decks.some((d) => d.slug === initialDeckA) ? initialDeckA : firstUserDeck;
+    initialDeckA && decks.some((d) => d.slug === initialDeckA && canBeHuman(d))
+      ? initialDeckA
+      : firstUserDeck;
   const [deckA, setDeckA] = useState<string>(defaultDeckA);
   const [deckB, setDeckB] = useState<string>(firstMetaDeck);
   const [seed, setSeed] = useState<number>(42);
@@ -990,6 +996,7 @@ export function HumanMatchPlay({
         onStart={handleStart}
         busy={busy}
         error={error}
+        challengeCellId={challengeCellId}
       />
     );
   }
@@ -2577,6 +2584,7 @@ function StartPanel({
   onStart,
   busy,
   error,
+  challengeCellId,
 }: {
   decks: DeckOption[];
   deckA: string;
@@ -2590,25 +2598,30 @@ function StartPanel({
   onStart: () => void;
   busy: boolean;
   error: string | null;
+  challengeCellId?: number;
 }) {
   const router = useRouter();
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
   // 両サイド 環境デッキ / マイデッキ を選べる (= AI vs AI と同じカテゴリ切替)。
   const inCat = (cat: "meta" | "user") => decks.filter((d) => (d.kind ?? "meta") === cat);
+  // 陣取り挑戦では 非公開デッキ を人間側 (deckA) の候補から除外 (= 勝つと占領で露出するため)。
+  const territoryChallenge = challengeCellId != null;
+  const inCatA = (cat: "meta" | "user") =>
+    territoryChallenge ? inCat(cat).filter((d) => !d.private) : inCat(cat);
   const catOf = (slug: string): "meta" | "user" =>
     (decks.find((d) => d.slug === slug)?.kind as "meta" | "user") ?? "meta";
   const [catA, setCatA] = useState<"meta" | "user">(catOf(deckA));
   const [catB, setCatB] = useState<"meta" | "user">(catOf(deckB));
   // 選択カテゴリのデッキのみ (= AI vs AI に合わせる。 空でも全デッキに fallback しない
   // → マイデッキが無い時に環境デッキが選択肢に出る不具合を防ぐ)。
-  const optionsA = inCat(catA);
+  const optionsA = inCatA(catA);
   const optionsB = inCat(catB);
   const changeCatA = (c: "meta" | "user") => {
     setCatA(c);
     // 空カテゴリなら "" にする (= Start 無効 + select 表示と state を一致させ、
-    // マイデッキが無い時に環境デッキで暗黙開始してしまうのを防ぐ)。
-    setDeckA(inCat(c)[0]?.slug ?? "");
+    // マイデッキが無い時に環境デッキで暗黙開始してしまうのを防ぐ)。 陣取りは非公開を除外。
+    setDeckA(inCatA(c)[0]?.slug ?? "");
   };
   const changeCatB = (c: "meta" | "user") => {
     setCatB(c);
@@ -2701,6 +2714,11 @@ function StartPanel({
               )}
             </select>
           </label>
+          {territoryChallenge && (
+            <p className="text-[11px] leading-snug text-[color:var(--text-muted)]">
+              陣取りでは非公開デッキは使えません（占領すると相手に露出するため）。
+            </p>
+          )}
         </div>
 
         {/* VS divider */}

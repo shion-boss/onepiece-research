@@ -74,7 +74,7 @@ const HISTORY_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
   icon: IconHistory,
 };
 
-type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[]; folder?: string };
+type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[]; folder?: string; private?: boolean };
 
 const COLOR_HEX: Record<string, string> = {
   赤: "#f14c4c", 緑: "#4ec9b0", 青: "#3794ff", 紫: "#c586c0", 黒: "#6a6a72", 黄: "#cca700",
@@ -573,6 +573,17 @@ function MyDeckRow({
         style={{ background: (color && COLOR_HEX[color]) || "#4a4a52" }}
       />
       <span className="flex-1 truncate">{deck.name}</span>
+      {deck.private && (
+        <svg
+          width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" className="shrink-0 text-[color:var(--text-muted)]"
+          aria-label="非公開"
+        >
+          <title>非公開（陣取りで使用不可）</title>
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      )}
       <button
         type="button"
         title="名前を変更"
