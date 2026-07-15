@@ -8,6 +8,10 @@ import { LeaderPicker } from "@/components/builder/LeaderPicker";
 import { CardSearchPane } from "@/components/builder/CardSearchPane";
 import { BuilderSidebar } from "@/components/builder/BuilderSidebar";
 import { CostCurveMini } from "@/components/builder/CostCurveMini";
+import { CardImage } from "@/components/CardImage";
+import { ResizeHandle } from "@/components/ResizeHandle";
+import { useResizable } from "@/lib/useResizable";
+import type { Card } from "@/lib/types";
 import {
   buildDeckWithCore,
   fetchCard,
@@ -52,6 +56,11 @@ function NewDeckPageContent() {
   const [saving, setSaving] = useState(false);
   // 非公開 (= 陣取りで使用不可)。 生成時にのみ決定・以後不変なので保存時に一度だけ送る。
   const [isPrivate, setIsPrivate] = useState(false);
+  // 右の拡大プレビュー対象 (= カードグリッドをホバー中のカード)。
+  const [hoveredCard, setHoveredCard] = useState<Card | null>(null);
+  // 列幅ドラッグリサイズ (左=デッキ列 / 右=拡大プレビュー列、 中央=カード検索は flex-1)。
+  const left = useResizable(340, 260, 620);
+  const preview = useResizable(260, 200, 460, true);
   const hydratedSlugRef = useRef<string | null>(null);
 
   // ?from=<slug> でデッキ初期化 (1度だけ)
@@ -173,7 +182,7 @@ function NewDeckPageContent() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-6 lg:h-full lg:overflow-hidden">
+    <main className="flex h-full w-full flex-col gap-4 overflow-hidden px-6 py-6">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
           <Link
@@ -330,9 +339,12 @@ function NewDeckPageContent() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[360px_1fr]">
-        {/* 左: リーダー + デッキ (lg で独立スクロール) */}
-        <aside className="space-y-4 log-scroll lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      <div className="flex min-h-0 flex-1 overflow-x-auto">
+        {/* 左: デッキ列 (ドラッグでリサイズ + 独立スクロール) */}
+        <aside
+          style={{ width: left.width }}
+          className="min-h-0 shrink-0 space-y-4 overflow-y-auto log-scroll pr-1"
+        >
           <section className="space-y-2 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
             <h2 className="text-sm font-medium text-[color:var(--text-strong)]">リーダー</h2>
             <LeaderPicker current={leader} onPick={setLeader} />
@@ -394,11 +406,14 @@ function NewDeckPageContent() {
           )}
         </aside>
 
-        {/* 右: カード検索 (lg で独立スクロール) */}
-        <section className="flex flex-col gap-2 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3 lg:min-h-0">
+        <ResizeHandle onMouseDown={left.onMouseDown} />
+
+        {/* 中: カード検索 (flex-1、 カードをホバーで右に拡大) */}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
           <h2 className="shrink-0 text-sm font-medium text-[color:var(--text-strong)]">カード検索</h2>
           <CardSearchPane
             fillHeight
+            onHover={setHoveredCard}
             leaderColors={leader?.color ?? []}
             onAdd={(c) => {
               const err = addCard(c);
@@ -409,7 +424,73 @@ function NewDeckPageContent() {
             coreCardIds={coreCardIds}
           />
         </section>
+
+        <ResizeHandle onMouseDown={preview.onMouseDown} />
+
+        {/* 右: 拡大プレビュー (ドラッグでリサイズ、 カードホバーで表示) */}
+        <div
+          style={{ width: preview.width }}
+          className="min-h-0 shrink-0 overflow-y-auto log-scroll rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3"
+        >
+          <CardPreviewPane card={hoveredCard} />
+        </div>
       </div>
     </main>
+  );
+}
+
+// 右の拡大プレビュー: ホバー中のカードを大きく + 主要情報を表示。 未ホバーは案内文。
+function CardPreviewPane({ card }: { card: Card | null }) {
+  if (!card) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-2 text-center text-xs text-[color:var(--text-muted)]">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+        <span>
+          カードにカーソルを合わせると
+          <br />
+          ここに拡大表示されます
+        </span>
+      </div>
+    );
+  }
+  const chip =
+    "rounded-[var(--radius-sm)] bg-[color:var(--surface-2)] px-1.5 py-0.5 text-[color:var(--text-default)]";
+  return (
+    <div className="flex flex-col gap-3">
+      <CardImage
+        cardId={card.card_id}
+        alt={card.name}
+        className="w-full rounded-[var(--radius)] border border-[color:var(--border-1)]"
+      />
+      <div className="space-y-1.5">
+        <div className="text-sm font-semibold leading-tight text-[color:var(--text-strong)]">{card.name}</div>
+        <div className="font-mono text-[11px] text-[color:var(--text-muted)]">{card.card_id}</div>
+        <div className="flex flex-wrap gap-1.5 text-[11px]">
+          <span className={chip}>{card.category}</span>
+          <span className={chip}>コスト {card.cost}</span>
+          {card.category !== "EVENT" && <span className={chip}>パワー {card.power}</span>}
+          {card.counter > 0 && <span className={chip}>カウンター {card.counter}</span>}
+          {card.color.map((col) => (
+            <span key={col} className={chip}>{col}</span>
+          ))}
+        </div>
+        {card.features.length > 0 && (
+          <div className="text-[11px] text-[color:var(--text-muted)]">特徴: {card.features.join(" / ")}</div>
+        )}
+      </div>
+      {card.text && (
+        <div className="whitespace-pre-wrap rounded-[var(--radius)] bg-[color:var(--surface-2)] p-2 text-xs leading-relaxed text-[color:var(--text-default)]">
+          {card.text}
+        </div>
+      )}
+      {card.trigger && (
+        <div className="whitespace-pre-wrap rounded-[var(--radius)] border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/10 p-2 text-xs leading-relaxed text-[color:var(--accent)]">
+          <span className="font-semibold">トリガー:</span> {card.trigger}
+        </div>
+      )}
+    </div>
   );
 }
