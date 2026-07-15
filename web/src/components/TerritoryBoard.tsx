@@ -301,7 +301,8 @@ export const BoardGrid = memo(function BoardGrid({
                 <CardImage
                   cardId={c.imageId ?? c.owner.id}
                   alt=""
-                  loading="lazy"
+                  loading="eager"
+                  remoteFirst
                   style={{
                     position: "absolute",
                     width: `${L * ZOOM * 100}%`, // 上半分正方形にズーム
