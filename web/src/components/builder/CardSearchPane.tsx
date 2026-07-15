@@ -17,6 +17,7 @@ export function CardSearchPane({
   onMarkCore,
   coreCardIds,
   fillHeight = false,
+  onHover,
 }: {
   leaderColors: string[];
   onAdd: (card: Card) => void;
@@ -26,6 +27,8 @@ export function CardSearchPane({
   // true = 親の高さいっぱいに広がり、 カードグリッドが内部スクロール (= /decks/new の
   // 分割パネル用)。 false (既定) = グリッドを max-h-[60vh] で内部スクロール (= 従来)。
   fillHeight?: boolean;
+  // カードをホバー/フォーカスした時に呼ぶ (= 右の拡大プレビュー用)。 グリッドを離れると null。
+  onHover?: (card: Card | null) => void;
 }) {
   const regulation = useDeckBuilderStore((s) => s.regulation);
   const [cards, setCards] = useState<Card[]>([]);
@@ -89,7 +92,7 @@ export function CardSearchPane({
   }
 
   return (
-    <div className={fillHeight ? "flex flex-col gap-3 lg:min-h-0 lg:flex-1" : "space-y-3"}>
+    <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3" : "space-y-3"}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1">
           {leaderColors.length > 1 ? (
@@ -197,8 +200,9 @@ export function CardSearchPane({
       )}
 
       <div
+        onMouseLeave={() => onHover?.(null)}
         className={`grid grid-cols-3 gap-2 overflow-auto log-scroll sm:grid-cols-4 md:grid-cols-5 ${
-          fillHeight ? "max-h-[70vh] lg:max-h-none lg:min-h-0 lg:flex-1" : "max-h-[60vh]"
+          fillHeight ? "min-h-0 flex-1" : "max-h-[60vh]"
         }`}
       >
         {cards.map((c) => {
@@ -209,6 +213,8 @@ export function CardSearchPane({
             <button
               key={c.card_id}
               type="button"
+              onMouseEnter={() => onHover?.(c)}
+              onFocus={() => onHover?.(c)}
               onClick={(e) => {
                 if ((e.ctrlKey || e.metaKey) && onMarkCore) {
                   e.preventDefault();
@@ -244,8 +250,10 @@ export function CardSearchPane({
                 </span>
               )}
               {isCore && (
-                <span className="absolute left-1 top-1 text-sm leading-none">
-                  ⭐
+                <span className="absolute left-1 top-1 text-[color:var(--warning)]" title="コアカード">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-label="コアカード">
+                    <path d="M12 2l2.9 6.3 6.9.7-5.1 4.7 1.4 6.8L12 17.8 5.9 21.2l1.4-6.8L2.2 9.7l6.9-.7z" />
+                  </svg>
                 </span>
               )}
             </button>
@@ -273,15 +281,16 @@ export function CardSearchPane({
           {onMarkCore && (
             <button
               type="button"
-              className="w-full px-3 py-1.5 text-left text-sm text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
+              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
               onClick={() => {
                 onMarkCore(contextMenu.card);
                 setContextMenu(null);
               }}
             >
-              {coreCardIds?.has(contextMenu.card.card_id)
-                ? "★ コアを解除"
-                : "⭐ コアに指定"}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-[color:var(--warning)]" aria-hidden>
+                <path d="M12 2l2.9 6.3 6.9.7-5.1 4.7 1.4 6.8L12 17.8 5.9 21.2l1.4-6.8L2.2 9.7l6.9-.7z" />
+              </svg>
+              {coreCardIds?.has(contextMenu.card.card_id) ? "コアを解除" : "コアに指定"}
             </button>
           )}
         </div>
