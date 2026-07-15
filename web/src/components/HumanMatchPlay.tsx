@@ -2655,10 +2655,19 @@ function StartPanel({
         style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
       >
         <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
-          人間 vs AI
+          {territoryChallenge ? (
+            <>
+              陣取りボードの対戦{" "}
+              <span className="text-[color:var(--brand)]">マス #{challengeCellId}</span>
+            </>
+          ) : (
+            "人間 vs AI"
+          )}
         </h1>
         <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
-          自分のデッキと相手 (AI) を選んで対戦開始。 ドラッグ&ドロップで deploy / attack / DON 付与。
+          {territoryChallenge
+            ? "自分のデッキを選んで、このマスの防衛 AI と対戦。勝てばこのマスを占領します。"
+            : "自分のデッキと相手 (AI) を選んで対戦開始。 ドラッグ&ドロップで deploy / attack / DON 付与。"}
         </p>
       </header>
 
@@ -2738,11 +2747,21 @@ function StartPanel({
               AI
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              AI が操作
+              {territoryChallenge ? "このマスを防衛" : "AI が操作"}
             </span>
           </div>
           <div className="flex justify-center">
-            {aiDeck?.leader ? (
+            {territoryChallenge ? (
+              <div
+                className="flex h-36 w-[93px] flex-col items-center justify-center gap-2 rounded-[var(--radius)] border border-dashed text-center text-xs text-[color:var(--text-muted)]"
+                style={{ borderColor: "var(--border-2)" }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                  <path d="M12 2l7 3v6c0 4.5-3 8-7 11-4-3-7-6.5-7-11V5z" />
+                </svg>
+                防衛 AI
+              </div>
+            ) : aiDeck?.leader ? (
               <button
                 type="button"
                 onClick={() => router.push(`/decks/${aiDeck.slug}`)}
@@ -2757,32 +2776,41 @@ function StartPanel({
               </div>
             )}
           </div>
-          <CatToggle cat={catB} onChange={changeCatB} />
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-zinc-500">デッキ選択</span>
-            <select
-              value={deckB}
-              onChange={(e) => setDeckB(e.target.value)}
-              className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
-              disabled={busy || optionsB.length === 0}
-            >
-              {optionsB.length === 0 ? (
-                <option value="">（このカテゴリにデッキがありません）</option>
-              ) : (
-                optionsB.map((d) => (
-                  <option key={d.slug} value={d.slug}>
-                    {d.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
+          {territoryChallenge ? (
+            <p className="text-[11px] leading-snug text-[color:var(--text-muted)]">
+              占領マスは占領者のデッキを AI が操縦して防衛します（空きマスは標準 AI）。相手は選べません。
+            </p>
+          ) : (
+            <>
+              <CatToggle cat={catB} onChange={changeCatB} />
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="text-zinc-500">デッキ選択</span>
+                <select
+                  value={deckB}
+                  onChange={(e) => setDeckB(e.target.value)}
+                  className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
+                  disabled={busy || optionsB.length === 0}
+                >
+                  {optionsB.length === 0 ? (
+                    <option value="">（このカテゴリにデッキがありません）</option>
+                  ) : (
+                    optionsB.map((d) => (
+                      <option key={d.slug} value={d.slug}>
+                        {d.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            </>
+          )}
         </div>
       </div>
 
       {/* 対戦オプション + Start ボタンを gap-3 でまとめ、 AI vs AI と間隔を揃える */}
       <div className="flex flex-col gap-3">
-        {/* Match options */}
+        {/* Match options (陣取り挑戦では非表示) */}
+        {!territoryChallenge && (
         <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
         <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">
           対戦オプション
@@ -2830,6 +2858,7 @@ function StartPanel({
           </label>
         </div>
       </div>
+        )}
 
       {/* Start button: 大型 + 中央 */}
       <button
@@ -2839,7 +2868,7 @@ function StartPanel({
         className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
         style={{ background: "var(--brand)" }}
       >
-        {busy ? "開始中..." : "▶ 対戦 開始"}
+        {busy ? "開始中..." : territoryChallenge ? "▶ この対戦を開始" : "▶ 対戦 開始"}
       </button>
 
         {error && (
@@ -2849,9 +2878,10 @@ function StartPanel({
         )}
       </div>
 
-      {/* コミュニティ貢献パネル: 対戦が AI 作りを前進させていることを可視化。
-          対戦開始ボタンの下に配置 (= 全体集計 + 選択中マッチアップの貢献度)。 */}
-      <ContributionPanel decks={decks} deckA={deckA} deckB={deckB} />
+      {/* コミュニティ貢献パネル (陣取り挑戦では非表示)。 */}
+      {!territoryChallenge && (
+        <ContributionPanel decks={decks} deckA={deckA} deckB={deckB} />
+      )}
     </div>
   );
 }
