@@ -102,6 +102,7 @@ export type TerritoryCell = {
   user: string | null;        // 占領者
   deck_slug: string | null;   // 占領者の使用デッキ (防衛 AI が操縦)
   version: number;
+  updated_at?: string;        // 最終占領日時 (= ブロックの最新 variant 選択用)
 };
 
 export type TerritoryBoard = {

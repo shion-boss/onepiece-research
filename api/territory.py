@@ -188,6 +188,8 @@ def _cell_to_dict(row) -> dict:
         "user": row["owner_user"],
         "deck_slug": row["owner_deck_slug"],
         "version": int(row["version"]),
+        # ブロックの表示 variant を「最後に占領/戦闘した人の柄」にするための recency キー。
+        "updated_at": row["updated_at"],
     }
 
 
