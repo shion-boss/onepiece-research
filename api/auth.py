@@ -36,10 +36,8 @@ def current_user_id(
     """現在のユーザー id。 user-scoped endpoint に Depends で注入する。"""
     provider = os.environ.get("AUTH_PROVIDER", "").lower()
     if provider:
-        uid = _verify_provider(request, provider)
-        if not uid:
-            raise HTTPException(401, "unauthorized")
-        return uid
+        # _verify_provider が失敗理由入りの 401 を raise する (= 診断用に detail に出す)。
+        return _verify_provider(request, provider)
     # dev / local (= 認証 provider 未設定): ヘッダ or env or 既定ユーザー。
     return x_dev_user or os.environ.get("DEV_USER") or DEV_DEFAULT_USER
 
@@ -55,25 +53,26 @@ def _bearer_token(request: Request) -> Optional[str]:
     return None
 
 
-def _verify_provider(request: Request, provider: str) -> Optional[str]:
-    """本番認証アダプタ。 検証成功で user_id (= JWT `sub`) を返す。 失敗は None → 401。"""
+def _verify_provider(request: Request, provider: str) -> str:
+    """本番認証アダプタ。 検証成功で user_id (= JWT `sub`) を返す。 失敗は理由入りの 401。
+
+    ⚠ 診断のため一時的に 401 の detail に理由を出している (原因特定後に generic へ戻す)。
+    """
     if provider != "clerk":
-        return None
+        raise HTTPException(401, "auth: unknown provider")
     token = _bearer_token(request)
     if not token:
         print("[auth] clerk: request had no Bearer token")
-        return None
+        raise HTTPException(401, "auth: no bearer token (サーバー側でセッション未確立の可能性)")
     try:
         claims = _decode_clerk_jwt(token)
     except Exception as e:
-        # 署名不正 / 期限切れ / 設定不足 等はすべて「未認証」に畳む (詳細は漏らさない)。
-        # ⚠ 診断ログ: 失敗理由を stderr に出す (値そのものは出さない)。
         print(f"[auth] clerk: JWT verify failed: {type(e).__name__}: {e}")
-        return None
+        raise HTTPException(401, f"auth: verify failed: {type(e).__name__}: {e}")
     sub = claims.get("sub")
     if not sub:
-        print("[auth] clerk: token verified but no 'sub' claim")
-    return sub or None
+        raise HTTPException(401, "auth: token has no 'sub'")
+    return sub
 
 
 def _decode_clerk_jwt(token: str) -> dict:
