@@ -93,6 +93,10 @@ def init_schema() -> None:
             # is_private と違い可変 (下書き→完成で 0 に、 保存ボタンで切替)。
             if not _column_exists(cur, "user_decks", "is_draft"):
                 cur.execute("ALTER TABLE user_decks ADD COLUMN is_draft INTEGER DEFAULT 0")
+            # migration: is_deleted (soft delete)。 公開デッキ削除は完全削除でなく非表示に
+            # する (= 陣取り防衛に使われうるので row を残す)。 非公開は hard delete。
+            if not _column_exists(cur, "user_decks", "is_deleted"):
+                cur.execute("ALTER TABLE user_decks ADD COLUMN is_deleted INTEGER DEFAULT 0")
     finally:
         conn.close()
     _SCHEMA_READY = True
@@ -142,7 +146,7 @@ def get_deck(owner_id: str, slug: str) -> Optional[dict]:
     try:
         cur = conn.cursor()
         cur.execute(
-            f"SELECT * FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH}",
+            f"SELECT * FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH} AND is_deleted = 0",
             (owner_id, slug),
         )
         r = cur.fetchone()
@@ -157,7 +161,8 @@ def list_decks(owner_id: str) -> list[dict]:
     try:
         cur = conn.cursor()
         cur.execute(
-            f"SELECT * FROM user_decks WHERE owner_id = {_PH} ORDER BY updated_at DESC",
+            f"SELECT * FROM user_decks WHERE owner_id = {_PH} AND is_deleted = 0 "
+            f"ORDER BY updated_at DESC",
             (owner_id,),
         )
         return [_row_to_deck(r) for r in cur.fetchall()]
@@ -212,7 +217,7 @@ def save_deck(
 
 
 def delete_deck(owner_id: str, slug: str) -> bool:
-    """owner のデッキを削除。 削除できたら True (= 存在し owner 一致)。"""
+    """owner のデッキを完全削除 (hard delete)。 削除できたら True。 非公開デッキ用。"""
     init_schema()
     conn = _conn()
     try:
@@ -221,6 +226,26 @@ def delete_deck(owner_id: str, slug: str) -> bool:
             cur.execute(
                 f"DELETE FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH}",
                 (owner_id, slug),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def soft_delete_deck(owner_id: str, slug: str) -> bool:
+    """owner のデッキを非表示化 (soft delete = is_deleted=1)。 row は残す。 成功で True。
+
+    公開デッキ用 (= 陣取り防衛に使われうるので完全削除しない、 マイデッキから除外だけ)。
+    """
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE user_decks SET is_deleted = 1, updated_at = {_PH} "
+                f"WHERE owner_id = {_PH} AND slug = {_PH} AND is_deleted = 0",
+                (_now(), owner_id, slug),
             )
             return cur.rowcount > 0
     finally:

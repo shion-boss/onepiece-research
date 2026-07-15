@@ -13,7 +13,6 @@ import {
   YAxis,
 } from "recharts";
 import type { DeckAnalysis } from "@/lib/types";
-import { MatchupHistoryChart } from "./MatchupHistoryChart";
 
 const COLOR_HEX: Record<string, string> = {
   赤: "#dc2626",
@@ -117,10 +116,6 @@ export function DeckAnalyzeCharts({ data }: { data: DeckAnalysis }) {
           </ul>
         </Panel>
       )}
-
-      <Panel title="対戦相手別の勝率推移" className="sm:col-span-2">
-        <MatchupHistoryChart deckSlug={data.slug} />
-      </Panel>
     </div>
   );
 }

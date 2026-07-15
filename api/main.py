@@ -1405,12 +1405,18 @@ def update_deck(slug: str, req: CreateDeckRequest, user_id: str = Depends(curren
 
 @app.delete("/api/decks/{slug}", status_code=204)
 def delete_deck(slug: str, user_id: str = Depends(current_user_id)):
-    """自分のデッキを削除 (= per-user DB)。 メタ(環境)デッキは全て保護 (登録制)。"""
+    """自分のデッキを削除。 非公開 = 完全削除 / 公開 = 非表示化 (= 陣取り防衛に使われうる
+    ので row を残しマイデッキから除外だけ)。 メタ(環境)デッキは保護 (登録制)。"""
     if _is_meta_deck(slug):
         raise HTTPException(403, "meta(環境) decks are protected")
-    if user_store.delete_deck(user_id, slug):
+    deck = user_store.get_deck(user_id, slug)
+    if deck is not None:
+        if deck.get("private") or deck.get("is_private"):
+            user_store.delete_deck(user_id, slug)       # 非公開 = 完全削除
+        else:
+            user_store.soft_delete_deck(user_id, slug)  # 公開 = 非表示化 (row 保持)
         return None
-    # 後方互換: 旧 decks/ に残る非メタ JSON。
+    # 後方互換: 旧 decks/ に残る非メタ JSON (= 完全削除)。
     out_path = DECKS_DIR / f"{slug}.json"
     if out_path.exists():
         out_path.unlink()

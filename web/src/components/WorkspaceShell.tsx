@@ -16,7 +16,7 @@ import { AuthControls } from "./AuthControls";
 import { StatusBar } from "./StatusBar";
 import { CardsSidebar } from "./CardsSidebar";
 import { CurrentTabSync } from "./CurrentTabSync";
-import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder, renameDeck } from "@/lib/api";
+import { fetchDecks, moveDeckToFolder, renameFolder, deleteFolder } from "@/lib/api";
 
 // ---- icons (VSCode codicon 風の細線 SVG) ----
 const svg = (p: ReactNode) => (
@@ -506,7 +506,7 @@ function ExplorerPanel({ path }: { path: string }) {
                   {open && (
                     <div className="border-l" style={{ marginLeft: "10px", borderColor: "var(--border-2)" }}>
                       {items.map((d) => (
-                        <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} onChanged={reload} />
+                        <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} />
                       ))}
                     </div>
                   )}
@@ -514,7 +514,7 @@ function ExplorerPanel({ path }: { path: string }) {
               );
             })}
             {rootDecks.map((d) => (
-              <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} onChanged={reload} />
+              <MyDeckRow key={d.slug} deck={d} active={path === `/decks/${d.slug}`} />
             ))}
             <Link
               href="/decks/new"
@@ -544,11 +544,9 @@ function ExplorerPanel({ path }: { path: string }) {
 function MyDeckRow({
   deck,
   active,
-  onChanged,
 }: {
   deck: DeckRow;
   active: boolean;
-  onChanged?: () => void;
 }) {
   const router = useRouter();
   const color = deck.leader_color?.[0];
@@ -593,25 +591,6 @@ function MyDeckRow({
           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
       )}
-      <button
-        type="button"
-        title="名前を変更"
-        onClick={async (e) => {
-          e.stopPropagation();
-          const name = window.prompt("デッキ名を変更", deck.name);
-          if (name && name.trim() && name.trim() !== deck.name) {
-            try {
-              await renameDeck(deck.slug, name.trim());
-            } catch {
-              window.alert("名前を変更できませんでした。自分で作成したデッキのみ変更できます。");
-            }
-            onChanged?.();
-          }
-        }}
-        className="hidden shrink-0 text-[10px] text-[color:var(--text-muted)] hover:text-white group-hover:block"
-      >
-        名変
-      </button>
     </div>
   );
 }
