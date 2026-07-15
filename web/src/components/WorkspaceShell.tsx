@@ -182,6 +182,10 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           {ACTIVITY_MAIN.map(renderAct)}
           {renderAct(FAQ_ACT)}
           {renderAct(HISTORY_ACT)}
+          {/* アカウント: アクティビティバー最下部 (VSCode 風) */}
+          <div className="mt-auto mb-2 flex w-full justify-center pt-2">
+            <AuthControls />
+          </div>
         </div>
 
         {/* sidebar panel */}
@@ -203,9 +207,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             </div>
             <div className="min-h-0 flex-1 overflow-auto log-scroll">
               <SidebarPanel view={activeView} path={path} />
-            </div>
-            <div className="border-t px-3 py-2.5" style={{ borderColor: "var(--border-1)" }}>
-              <AuthControls />
             </div>
           </aside>
           {/* リサイザー: ドラッグでサイドバー幅を変更 */}

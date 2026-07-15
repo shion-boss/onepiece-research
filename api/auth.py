@@ -61,13 +61,18 @@ def _verify_provider(request: Request, provider: str) -> Optional[str]:
         return None
     token = _bearer_token(request)
     if not token:
+        print("[auth] clerk: request had no Bearer token")
         return None
     try:
         claims = _decode_clerk_jwt(token)
-    except Exception:
+    except Exception as e:
         # 署名不正 / 期限切れ / 設定不足 等はすべて「未認証」に畳む (詳細は漏らさない)。
+        # ⚠ 診断ログ: 失敗理由を stderr に出す (値そのものは出さない)。
+        print(f"[auth] clerk: JWT verify failed: {type(e).__name__}: {e}")
         return None
     sub = claims.get("sub")
+    if not sub:
+        print("[auth] clerk: token verified but no 'sub' claim")
     return sub or None
 
 
