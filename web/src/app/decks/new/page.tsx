@@ -282,7 +282,8 @@ function NewDeckPageContent() {
               {/* 非公開=閉じた鍵 / 公開=開いた鍵 */}
               <path d={isPrivate ? "M7 11V7a5 5 0 0 1 10 0v4" : "M7 11V7a5 5 0 0 1 9.9-1"} />
             </svg>
-            {isPrivate ? "非公開" : "公開"}
+            {/* 公開(2字)/非公開(3字) で幅が変わらないよう固定幅 + 中央寄せ */}
+            <span className="min-w-[3em] text-center">{isPrivate ? "非公開" : "公開"}</span>
           </button>
           <button
             type="button"
