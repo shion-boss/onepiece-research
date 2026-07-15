@@ -56,6 +56,9 @@ function NewDeckPageContent() {
   const [saving, setSaving] = useState(false);
   // 非公開 (= 陣取りで使用不可)。 生成時にのみ決定・以後不変なので保存時に一度だけ送る。
   const [isPrivate, setIsPrivate] = useState(false);
+  // 編集中デッキの slug。 下書きを開いた時 / 保存後に設定し、 再保存で同 slug を上書き
+  // (= 下書きを二重に作らない)。 null なら name から新 slug を生成 (新規 / コピー)。
+  const [savedSlug, setSavedSlug] = useState<string | null>(null);
   // 右の拡大プレビュー対象 (= カードグリッドをホバー中のカード)。
   const [hoveredCard, setHoveredCard] = useState<Card | null>(null);
   // 列幅ドラッグリサイズ (左=デッキ列 / 右=拡大プレビュー列、 中央=カード検索は flex-1)。
@@ -89,6 +92,8 @@ function NewDeckPageContent() {
         reset();
         setLeader(leaderCard);
         setName(detail.name ?? `${fromSlug} のコピー`);
+        // 下書きを開いた時は同 slug で上書き編集 (通常デッキ=「コピーして編集」は新 slug)。
+        if (detail.draft) setSavedSlug(fromSlug);
         for (const e of detail.main) {
           const card = cardMap.get(e.card_id);
           if (!card) continue;
@@ -206,8 +211,11 @@ function NewDeckPageContent() {
         regulation,
         private: isPrivate,
         draft,
+        // 編集中デッキがあれば同 slug に上書き (= 下書きを二重に作らない)。
+        slug: savedSlug ?? undefined,
         overwrite: draft ? true : undefined,
       });
+      setSavedSlug(res.slug); // 以後の再保存は同 slug を上書き
       // 左メニュー (マイデッキ) を即更新 = 保存した瞬間に一覧へ反映。
       useWorkspace.getState().refreshDecks();
       if (draft) {

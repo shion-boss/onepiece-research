@@ -113,6 +113,7 @@ export type DeckSummary = {
 export type DeckDetail = DeckSpec & {
   slug?: string;
   regulation?: Regulation;
+  draft?: boolean; // 下書きか (= 編集時に同 slug で上書きするか判定)
 };
 
 export type MatchRequest = {

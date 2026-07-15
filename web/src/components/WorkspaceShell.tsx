@@ -559,7 +559,12 @@ function MyDeckRow({
         e.dataTransfer.setData("text/deck", deck.slug);
         e.dataTransfer.effectAllowed = "move";
       }}
-      onClick={() => router.push(`/decks/${deck.slug}`)}
+      onClick={() =>
+        router.push(
+          // 下書きは詳細でなく作成タブ (続きを編集) を開く。 通常デッキは詳細へ。
+          deck.draft ? `/decks/new?from=${encodeURIComponent(deck.slug)}` : `/decks/${deck.slug}`,
+        )
+      }
       role="button"
       title={deck.name}
       className="group flex cursor-pointer items-center gap-2 py-1.5 pl-3 pr-2 text-[13px] hover:bg-[var(--list-hover)]"
