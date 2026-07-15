@@ -2587,7 +2587,6 @@ function StartPanel({
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
   // 両サイド 環境デッキ / マイデッキ を選べる (= AI vs AI と同じカテゴリ切替)。
-  const myDecks = decks.filter((d) => d.kind === "user");
   const inCat = (cat: "meta" | "user") => decks.filter((d) => (d.kind ?? "meta") === cat);
   const catOf = (slug: string): "meta" | "user" =>
     (decks.find((d) => d.slug === slug)?.kind as "meta" | "user") ?? "meta";
@@ -2694,14 +2693,6 @@ function StartPanel({
               )}
             </select>
           </label>
-          {catA === "user" && myDecks.length === 0 && (
-            <a
-              href="/decks/new"
-              className="text-xs font-medium text-[color:var(--brand)] underline underline-offset-2"
-            >
-              自分のデッキを作成する
-            </a>
-          )}
         </div>
 
         {/* VS divider */}
@@ -2763,8 +2754,10 @@ function StartPanel({
         </div>
       </div>
 
-      {/* Match options */}
-      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+      {/* 対戦オプション + Start ボタンを gap-3 でまとめ、 AI vs AI と間隔を揃える */}
+      <div className="flex flex-col gap-3">
+        {/* Match options */}
+        <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
         <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">
           対戦オプション
         </h2>
@@ -2823,11 +2816,12 @@ function StartPanel({
         {busy ? "開始中..." : "▶ 対戦 開始"}
       </button>
 
-      {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+            {error}
+          </div>
+        )}
+      </div>
 
       {/* コミュニティ貢献パネル: 対戦が AI 作りを前進させていることを可視化。
           対戦開始ボタンの下に配置 (= 全体集計 + 選択中マッチアップの貢献度)。 */}
