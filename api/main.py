@@ -4485,6 +4485,25 @@ def territory_board_version():
     return {"board_version": territory.board_version()}
 
 
+# ⚠ snapshot ルートは /api/territory/{cell_id} より前に宣言する (= {cell_id} が
+# "snapshots" を int パースして 422 になるのを防ぐ。 FastAPI は宣言順マッチ)。
+@app.get("/api/territory/snapshots")
+def territory_snapshots():
+    """月次スナップショット一覧 (= 戦いの歴史、 新しい月順の軽量サマリ)。 完了月のみ。"""
+    from api import territory
+    return {"snapshots": territory.list_snapshots()}
+
+
+@app.get("/api/territory/snapshots/{month_key}")
+def territory_snapshot(month_key: str):
+    """1 月分の凍結スナップショット (最終陣地の盤 cells + 集計)。 無ければ 404。"""
+    from api import territory
+    snap = territory.get_snapshot(month_key)
+    if snap is None:
+        raise HTTPException(404, "snapshot not found")
+    return snap
+
+
 @app.get("/api/territory/{cell_id}")
 def territory_cell(cell_id: int):
     """1 マスの現状 (占領者 + version)。 挑戦中マスの race 検知ポーリング用。"""

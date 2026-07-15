@@ -123,6 +123,33 @@ export async function fetchTerritoryCell(cellId: number): Promise<TerritoryCell>
   return res.json();
 }
 
+// --- 戦いの歴史: 月次スナップショット (完了月の最終陣地 + 集計。 実データ、 空スタート) --- //
+export type TerritorySnapshotSummary = {
+  month_key: string;   // "YYYY-MM"
+  occupied: number;    // その月末の占領マス数
+  n_battles: number;   // その月の対戦数 (non_stakes 除く)
+  human_wins: number;  // 挑戦者(人間)の勝ち数
+  ai_wins: number;     // 防衛(AI)の勝ち数
+  frozen_at: string;   // 凍結日時
+};
+
+export type TerritorySnapshot = TerritorySnapshotSummary & {
+  board: TerritoryBoard; // その月末に凍結した盤 (buildCellsFromBoard で描画)
+};
+
+export async function fetchTerritorySnapshots(): Promise<TerritorySnapshotSummary[]> {
+  const res = await fetch(`${API}/api/territory/snapshots`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritorySnapshots failed: ${res.status}`);
+  const data = await res.json();
+  return (data.snapshots ?? []) as TerritorySnapshotSummary[];
+}
+
+export async function fetchTerritorySnapshot(monthKey: string): Promise<TerritorySnapshot> {
+  const res = await fetch(`${API}/api/territory/snapshots/${encodeURIComponent(monthKey)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritorySnapshot failed: ${res.status}`);
+  return res.json();
+}
+
 // サーバコンポーネントは authHeaders() が効かない (document 無し) ので、 cookie から読んだ
 // X-Dev-User を extra で渡す。 クライアントからは authHeaders() が自動で付く。
 export async function fetchDecks(

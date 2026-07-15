@@ -140,6 +140,23 @@ def init_schema() -> None:
             """,
         )
         _run(conn, "CREATE INDEX IF NOT EXISTS idx_battles_cell ON battles(cell_id)")
+        # 月次スナップショット (= 戦いの歴史)。 完了した月の盤 (最終陣地) + 集計を凍結保存。
+        # 実データを積み上げる器 = 月替わりに lazy freeze (maybe_freeze_snapshots)。
+        _run(
+            conn,
+            """
+            CREATE TABLE IF NOT EXISTS territory_snapshots (
+                month_key TEXT PRIMARY KEY,
+                cells_json TEXT NOT NULL,
+                occupied INTEGER NOT NULL,
+                n_battles INTEGER NOT NULL,
+                human_wins INTEGER NOT NULL,
+                ai_wins INTEGER NOT NULL,
+                frozen_at TEXT NOT NULL
+            )
+            """,
+        )
+        _migrate_add_active_month(conn)
         # board_version 行を 1 度だけ初期化 (id=1)。
         row = _fetchone(conn, "SELECT board_version FROM territory_meta WHERE id = 1")
         if row is None:
@@ -158,6 +175,16 @@ def _migrate_add_deck_recipe(conn) -> None:
     cols = [r["name"] for r in _fetchall(conn, "PRAGMA table_info(territory)")]
     if "owner_deck_recipe" not in cols:
         _run(conn, "ALTER TABLE territory ADD COLUMN owner_deck_recipe TEXT")
+
+
+def _migrate_add_active_month(conn) -> None:
+    """territory_meta に active_month 列を追加 (= 現盤が属する月。 月替わり検知で凍結する)。"""
+    if _USE_POSTGRES:
+        _run(conn, "ALTER TABLE territory_meta ADD COLUMN IF NOT EXISTS active_month TEXT")
+        return
+    cols = [r["name"] for r in _fetchall(conn, "PRAGMA table_info(territory_meta)")]
+    if "active_month" not in cols:
+        _run(conn, "ALTER TABLE territory_meta ADD COLUMN active_month TEXT")
 
 
 def _begin_write(conn) -> None:
@@ -291,6 +318,8 @@ def resolve_capture(
     """
     if not (0 <= int(cell_id) < N_CELLS):
         raise ValueError(f"cell_id out of range: {cell_id}")
+    # 占領で盤が変わる前に、 月替わりなら直前月の最終盤を凍結する (独立 conn なので先に呼ぶ)。
+    maybe_freeze_snapshots()
     conn = _connect()
     try:
         _begin_write(conn)
@@ -481,5 +510,140 @@ def list_battles(cell_id: int, *, exclude_non_stakes: bool = True, limit: int = 
             }
             for r in rows
         ]
+    finally:
+        conn.close()
+
+
+# ── 月次スナップショット (= 戦いの歴史。 実データを積み上げる) ──────────────────
+# 現盤 (territory) は「今」の状態しか持たない。 完了した月の最終陣地を後から振り返れる
+# ように、 月替わりの瞬間に現盤 + その月の対戦集計を凍結保存する (lazy freeze)。
+# ⚠ 過去 (機能導入前) の月は履歴が無いので遡って作らない = 空スタート、 今後積み上がる。
+
+
+def _current_month() -> str:
+    """現在の月キー (UTC, "YYYY-MM")。"""
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def _board_cells(conn) -> list[dict]:
+    rows = _fetchall(
+        conn,
+        "SELECT cell_id, owner_leader_id, owner_variant_id, owner_user, "
+        "owner_deck_slug, version, updated_at FROM territory ORDER BY cell_id",
+    )
+    return [_cell_to_dict(r) for r in rows]
+
+
+def _month_battle_stats(conn, month_key: str) -> tuple[int, int, int]:
+    """month_key ("YYYY-MM") の対戦集計 (n_battles, human_wins, ai_wins)。 non_stakes 除外。
+
+    挑戦者 (attacker) = 人間 / 防衛 (defender) = AI が操縦。 attacker_won=1 → 人間勝ち。
+    ts は ISO ("YYYY-MM-...") なので前方一致で月抽出。
+    """
+    like = f"{month_key}%"
+    total = _fetchone(
+        conn, f"SELECT COUNT(*) AS c FROM battles WHERE non_stakes = 0 AND ts LIKE {_PH}", (like,)
+    )
+    hwin = _fetchone(
+        conn,
+        f"SELECT COUNT(*) AS c FROM battles WHERE non_stakes = 0 AND attacker_won = 1 AND ts LIKE {_PH}",
+        (like,),
+    )
+    n = int(total["c"]) if total else 0
+    h = int(hwin["c"]) if hwin else 0
+    return n, h, n - h
+
+
+def maybe_freeze_snapshots() -> None:
+    """月替わりを検知し、 直前の active_month の盤 (最終陣地) + 集計を凍結保存する。
+
+    lazy freeze: 履歴閲覧時 / capture 時に呼ぶ。 冪等 (ON CONFLICT DO NOTHING + 条件付き
+    active_month 更新) で並行呼び出しにも安全。 active_month 未設定なら現在月で初期化のみ。
+    """
+    now_month = _current_month()
+    conn = _connect()
+    try:
+        _begin_write(conn)
+        row = _fetchone(conn, "SELECT active_month FROM territory_meta WHERE id = 1")
+        active = row["active_month"] if row else None
+        if active is None:
+            # 初回: 現在月を baseline に (凍結はしない)。
+            _run(conn, f"UPDATE territory_meta SET active_month = {_PH} WHERE id = 1", (now_month,))
+        elif active != now_month:
+            # 月が進んだ → active (直前月) の最終盤を凍結。
+            cells = _board_cells(conn)
+            n_battles, human_wins, ai_wins = _month_battle_stats(conn, active)
+            _run(
+                conn,
+                f"INSERT INTO territory_snapshots (month_key, cells_json, occupied, "
+                f"n_battles, human_wins, ai_wins, frozen_at) VALUES "
+                f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}) "
+                f"ON CONFLICT (month_key) DO NOTHING",
+                (active, json.dumps(cells), len(cells), n_battles, human_wins, ai_wins, _now_iso()),
+            )
+            _run(
+                conn,
+                f"UPDATE territory_meta SET active_month = {_PH} WHERE id = 1 AND active_month = {_PH}",
+                (now_month, active),
+            )
+        if _USE_POSTGRES:
+            conn.commit()
+        else:
+            conn.execute("COMMIT")
+    finally:
+        conn.close()
+
+
+def list_snapshots() -> list[dict]:
+    """凍結済み月次スナップショットの一覧 (新しい月順、 盤 cells は含めない軽量サマリ)。"""
+    maybe_freeze_snapshots()
+    conn = _connect()
+    try:
+        rows = _fetchall(
+            conn,
+            "SELECT month_key, occupied, n_battles, human_wins, ai_wins, frozen_at "
+            "FROM territory_snapshots ORDER BY month_key DESC",
+        )
+        return [
+            {
+                "month_key": r["month_key"],
+                "occupied": int(r["occupied"]),
+                "n_battles": int(r["n_battles"]),
+                "human_wins": int(r["human_wins"]),
+                "ai_wins": int(r["ai_wins"]),
+                "frozen_at": r["frozen_at"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def get_snapshot(month_key: str) -> Optional[dict]:
+    """1 月分の凍結スナップショット (盤 cells 込み)。 無ければ None。"""
+    conn = _connect()
+    try:
+        row = _fetchone(
+            conn,
+            "SELECT month_key, cells_json, occupied, n_battles, human_wins, ai_wins, frozen_at "
+            f"FROM territory_snapshots WHERE month_key = {_PH}",
+            (month_key,),
+        )
+        if row is None:
+            return None
+        try:
+            cells = json.loads(row["cells_json"])
+        except Exception:
+            cells = []
+        return {
+            "month_key": row["month_key"],
+            "occupied": int(row["occupied"]),
+            "n_battles": int(row["n_battles"]),
+            "human_wins": int(row["human_wins"]),
+            "ai_wins": int(row["ai_wins"]),
+            "frozen_at": row["frozen_at"],
+            # board は get_board と同形 (buildCellsFromBoard で描画)。 version は凍結なので 0。
+            "board": {"board_version": 0, "n_cells": N_CELLS, "cells": cells},
+        }
     finally:
         conn.close()

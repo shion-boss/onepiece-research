@@ -93,7 +93,8 @@ export function seedCells(leaders: BoardLeader[], salt = 0): Cell[] {
 // - 隣接する同じリーダーのマスは占領者(プレイヤー)が別人でも 1 枚のカード絵に繋げる (矩形ブロック化)。
 // - 面積>=4 のブロックだけカード絵、 面積<=3 (単独占領等) は色チップのみ (/history と統一)。
 // - ブロックの絵は「最後に戦闘した人が使った柄」= ブロック内で updated_at が最新の variant_id。
-function buildCellsFromBoard(
+// /history の月次スナップショット (凍結盤) も同じ関数で描画する (export)。
+export function buildCellsFromBoard(
   board: TerritoryBoardData | undefined,
   leaderById: Map<string, BoardLeader>,
 ): Cell[] {
