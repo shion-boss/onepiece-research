@@ -910,7 +910,9 @@ def card_image_proxy(card_id: str):
     from fastapi.responses import Response as _Resp
     import httpx as _httpx
     # card_id サニタイズ (= path traversal 対策)。 OPxx-NNN / STxx-NNN / EB / PRB / P-NNN 系のみ通す
-    if not re.match(r"^[A-Z]+\d+-\d+(?:_p\d+)?$|^P-\d+(?:_p\d+)?$", card_id):
+    # variant suffix は _p数字 (パラレル) だけでなく _r数字 (レア別柄) 等もある。
+    # _[a-z]+数字 を許可 (path traversal 対策で英小文字+数字のみ)。
+    if not re.match(r"^[A-Z]+\d+-\d+(?:_[a-z]+\d+)?$|^P-\d+(?:_[a-z]+\d+)?$", card_id):
         raise HTTPException(400, "invalid card_id")
     url = f"https://www.onepiece-cardgame.com/images/cardlist/card/{card_id}.png"
     try:
