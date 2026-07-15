@@ -2,11 +2,24 @@ import type { Banlist } from "./types";
 
 export type BanKind = "forbidden" | "restricted" | "pair";
 
+export type BanPartner = { name: string; card_id: string };
+
 export type BanInfo = {
   kind: BanKind;
-  // pair の場合の 相方カード名 (= 複数ペアに属する場合は連結)
-  partners?: string[];
+  // pair の場合の 相方カード (= 複数ペアに属する場合は連結)。 card_id が明記されていれば
+  // 番号縛り、 空なら名前縛り。
+  partners?: BanPartner[];
 };
+
+/** ペア相方の表示: card_id があれば「名前 (番号)」、 名前縛りなら「名前」。 */
+export function formatBanPartner(p: BanPartner): string {
+  return p.card_id ? `${p.name} (${p.card_id})` : p.name;
+}
+
+/** ペア相方の一覧を「・」区切りで整形。 */
+export function formatBanPartners(partners: BanPartner[] | undefined): string {
+  return (partners ?? []).map(formatBanPartner).join("・");
+}
 
 /**
  * パラレル / 別アート (= OP06-047_r1, OP06-047_p1 等) を base card_id に正規化する。
@@ -53,13 +66,14 @@ function addPair(
   card: { card_id: string; name: string },
   partner: { card_id: string; name: string },
 ) {
+  const ref: BanPartner = { name: partner.name, card_id: partner.card_id ?? "" };
   const existing = out[card.card_id];
   if (existing && existing.kind !== "pair") return; // forbidden/restricted 優先
   if (existing && existing.kind === "pair") {
-    if (!existing.partners?.includes(partner.name)) {
-      existing.partners = [...(existing.partners ?? []), partner.name];
+    if (!existing.partners?.some((p) => p.card_id === ref.card_id && p.name === ref.name)) {
+      existing.partners = [...(existing.partners ?? []), ref];
     }
     return;
   }
-  out[card.card_id] = { kind: "pair", partners: [partner.name] };
+  out[card.card_id] = { kind: "pair", partners: [ref] };
 }

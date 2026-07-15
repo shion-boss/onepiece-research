@@ -85,17 +85,17 @@ export default function FaqPage() {
         description={`公式 Q&A 横断検索 (${totalQa.toLocaleString()} 件 / ${sources.length} ソース)。 複数キーワードは スペース区切り で AND 検索。`}
       />
 
-      <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
         <input
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder='例: "トリガー 発動" / "ダブルアタック ライフ" / "OP07-115"'
-          className="w-full rounded border border-zinc-300 bg-transparent px-3 py-1.5 text-sm dark:border-zinc-700"
+          className="w-full rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-3 py-1.5 text-sm text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
           aria-label="検索クエリ"
         />
         {pending && (
-          <span className="mt-1 inline-block text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="mt-1 inline-block text-xs text-[color:var(--text-muted)]">
             検索中…
           </span>
         )}
@@ -103,7 +103,7 @@ export default function FaqPage() {
 
       {/* カテゴリタブ */}
       <nav
-        className="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-800"
+        className="flex flex-wrap gap-1 border-b border-[color:var(--border-1)]"
         role="tablist"
       >
         {TABS.map((tab) => {
@@ -116,14 +116,14 @@ export default function FaqPage() {
               role="tab"
               aria-selected={active}
               onClick={() => setActiveTab(tab.key)}
-              className={`rounded-t border-b-2 px-3 py-1.5 text-sm transition ${
+              className={`rounded-t-[var(--radius-sm)] border-b-2 px-3 py-1.5 text-sm transition ${
                 active
-                  ? "border-zinc-900 font-medium text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
-                  : "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  ? "border-[color:var(--brand)] font-medium text-[color:var(--text-strong)]"
+                  : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-strong)]"
               }`}
             >
               {tab.label}{" "}
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-[color:var(--text-muted)]">
                 ({count})
               </span>
             </button>
@@ -132,14 +132,14 @@ export default function FaqPage() {
       </nav>
 
       {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-3 text-sm text-[color:var(--danger)]">
           <div className="font-medium">エラー</div>
           <div className="mt-1 font-mono">{error}</div>
         </div>
       )}
 
       {filteredHits.length === 0 && !pending && q && (
-        <div className="rounded border border-zinc-200 p-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] p-6 text-center text-sm text-[color:var(--text-muted)]">
           該当する Q&A がありません
         </div>
       )}
@@ -148,22 +148,22 @@ export default function FaqPage() {
         {filteredHits.map((h, i) => (
           <li
             key={`${h.source}-${i}`}
-            className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+            className="rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3"
           >
             <div className="mb-1 flex flex-wrap items-baseline gap-2">
-              <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+              <span className="rounded-[var(--radius-sm)] bg-[color:var(--surface-2)] px-1.5 py-0.5 text-[10px] font-mono text-[color:var(--text-default)]">
                 {h.source}
               </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-[color:var(--text-muted)]">
                 {h.category}
               </span>
             </div>
-            <Highlighted tokens={tokens} className="font-medium">
+            <Highlighted tokens={tokens} className="font-medium text-[color:var(--text-strong)]">
               Q. {h.q}
             </Highlighted>
             <Highlighted
               tokens={tokens}
-              className="mt-1 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300"
+              className="mt-1 whitespace-pre-wrap text-sm text-[color:var(--text-default)]"
             >
               A. {h.a}
             </Highlighted>
@@ -207,7 +207,7 @@ function Highlighted({
     parts.push(
       <mark
         key={id++}
-        className="bg-yellow-200 px-0.5 dark:bg-yellow-700/60 dark:text-yellow-100"
+        className="bg-[color:var(--warning)]/30 px-0.5 text-[color:var(--text-strong)]"
       >
         {earliest.token}
       </mark>,

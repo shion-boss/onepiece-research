@@ -105,6 +105,7 @@ export type DeckSummary = {
   unique: number;
   regulation?: Regulation;
   kind?: "meta" | "user"; // 環境デッキ(正準) か ユーザー作成か
+  folder?: string; // ユーザーデッキの所属フォルダ ("" = ルート)
 };
 
 export type DeckDetail = DeckSpec & {
@@ -340,6 +341,38 @@ export type ReplayResponse = {
   turns: number;
   snapshots: StateSnapshot[];
 };
+
+// AI vs AI 連戦 (勝率 + 各試合 seed)。 観戦は seed で replay を再現。
+export type MatrixBatchResult = {
+  deck_a_name: string;
+  deck_b_name: string;
+  n_games: number;
+  p0_wins: number;
+  p1_wins: number;
+  draws: number;
+  games: {
+    game_index: number;
+    seed: number;
+    winner: number; // P0(deck_a) 基準: 0=P0勝, 1=P1勝, -1=引分
+    turns: number;
+    first_player: number; // 0=P0先攻, 1=P1先攻
+    swap: boolean; // true なら deck 順を入替えて実行 (= P1 先攻)。 観戦再現に使う
+  }[];
+};
+
+// 1 試合だけ実行した結果 (10連戦を 1 試合ずつ逐次表示する用)。
+export type MatrixGameResult = {
+  deck_a_name: string;
+  deck_b_name: string;
+  seed: number;
+  swap: boolean;
+  first_player: number;
+  winner: number; // P0(deck_a) 基準: 0=P0勝, 1=P1勝, -1=引分
+  turns: number;
+};
+
+// 逐次表示用の 1 試合行 (MatrixBatchResult.games[number] と同形)。
+export type MatrixBatchGame = MatrixBatchResult["games"][number];
 
 // === 試合後分析 ===
 export type EvalPoint = {

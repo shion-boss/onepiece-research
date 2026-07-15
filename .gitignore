@@ -104,6 +104,12 @@ db/user_data.sqlite-shm
 db/spectate_comments.json
 db/spectate_comments.json.tmp
 
+# 陣取り (territory) 占領状態 (= ローカル開発用 SQLite)。 本番は Vercel/Neon Postgres。
+db/territory.sqlite
+db/territory.sqlite-journal
+db/territory.sqlite-wal
+db/territory.sqlite-shm
+
 # overlay 候補 (生成物、必要に応じて再生成)
 db/card_effects.suggestions.json
 

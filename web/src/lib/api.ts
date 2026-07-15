@@ -28,6 +28,8 @@ import type {
   DeckStrategy,
   GameAnalysisResponse,
   ReplayResponse,
+  MatrixBatchResult,
+  MatrixGameResult,
   ResearchBestDeckResponse,
   ResearchCandidate,
   ResearchSessionConfig,
@@ -46,7 +48,8 @@ export async function fetchCards(filters: CardFilters = {}): Promise<Card[]> {
   for (const [k, v] of Object.entries(filters)) {
     if (v != null && v !== "") params.set(k, String(v));
   }
-  const res = await fetch(`${API}/api/cards?${params}`, { cache: "no-store" });
+  // カード DB は不変・公開データ → force-cache で再取得しない。
+  const res = await fetch(`${API}/api/cards?${params}`, { cache: "force-cache" });
   if (!res.ok) throw new Error(`fetchCards failed: ${res.status}`);
   return res.json();
 }
@@ -64,8 +67,9 @@ export async function fetchBanlist(): Promise<Banlist> {
 }
 
 export async function fetchCard(cardId: string): Promise<Card> {
+  // カード単体は不変 → force-cache (デッキ詳細で 1 枚ずつ引く分を毎回再取得しない)。
   const res = await fetch(`${API}/api/cards/${encodeURIComponent(cardId)}`, {
-    cache: "no-store",
+    cache: "force-cache",
   });
   if (!res.ok) throw new Error(`fetchCard failed: ${res.status}`);
   return res.json();
@@ -90,6 +94,34 @@ export async function fetchHealth(): Promise<{ ok: boolean; cards: number }> {
   return res.json();
 }
 
+// --- 陣取り (territory) 占領状態 (公開 read。 ポーリングで常時最新) --- //
+export type TerritoryCell = {
+  cell_id: number;
+  leader_id: string | null;   // base card_id (137 単位、 集計キー)
+  variant_id: string | null;  // 表示用 full card_id (パラレル suffix 込み)
+  user: string | null;        // 占領者
+  deck_slug: string | null;   // 占領者の使用デッキ (防衛 AI が操縦)
+  version: number;
+};
+
+export type TerritoryBoard = {
+  board_version: number;
+  n_cells: number;
+  cells: TerritoryCell[]; // 占領済みマスのみ (空きは省略)
+};
+
+export async function fetchTerritoryBoard(): Promise<TerritoryBoard> {
+  const res = await fetch(`${API}/api/territory`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritoryBoard failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchTerritoryCell(cellId: number): Promise<TerritoryCell> {
+  const res = await fetch(`${API}/api/territory/${cellId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritoryCell failed: ${res.status}`);
+  return res.json();
+}
+
 // サーバコンポーネントは authHeaders() が効かない (document 無し) ので、 cookie から読んだ
 // X-Dev-User を extra で渡す。 クライアントからは authHeaders() が自動で付く。
 export async function fetchDecks(
@@ -97,7 +129,7 @@ export async function fetchDecks(
 ): Promise<DeckSummary[]> {
   const res = await fetch(`${API}/api/decks`, {
     cache: "no-store",
-    headers: { ...authHeaders(), ...extra },
+    headers: { ...(await authHeaders()), ...extra },
   });
   if (!res.ok) throw new Error(`fetchDecks failed: ${res.status}`);
   return res.json();
@@ -109,7 +141,7 @@ export async function fetchDeck(
 ): Promise<DeckDetail> {
   const res = await fetch(`${API}/api/decks/${encodeURIComponent(slug)}`, {
     cache: "no-store",
-    headers: { ...authHeaders(), ...extra },
+    headers: { ...(await authHeaders()), ...extra },
   });
   if (!res.ok) throw new Error(`fetchDeck failed: ${res.status}`);
   return res.json();
@@ -121,7 +153,7 @@ export async function fetchDeckAnalysis(
 ): Promise<DeckAnalysis> {
   const res = await fetch(
     `${API}/api/decks/${encodeURIComponent(slug)}/analyze`,
-    { cache: "no-store", headers: { ...authHeaders(), ...extra } },
+    { cache: "no-store", headers: { ...(await authHeaders()), ...extra } },
   );
   if (!res.ok) throw new Error(`fetchDeckAnalysis failed: ${res.status}`);
   return res.json();
@@ -194,7 +226,7 @@ export async function fetchDeckStrategy(
 ): Promise<DeckStrategy> {
   const res = await fetch(
     `${API}/api/decks/${encodeURIComponent(slug)}/strategy`,
-    { cache: "no-store", headers: { ...authHeaders(), ...extra } },
+    { cache: "no-store", headers: { ...(await authHeaders()), ...extra } },
   );
   if (!res.ok) {
     const detail = await res.text();
@@ -243,7 +275,7 @@ export async function saveDeckToServer(
 ): Promise<CreateDeckResponse> {
   const res = await fetch(`${API}/api/decks`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...authHeaders() },
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(req),
     cache: "no-store",
   });
@@ -252,6 +284,33 @@ export async function saveDeckToServer(
     throw new Error(`saveDeckToServer failed: ${res.status} ${detail}`);
   }
   return res.json();
+}
+
+async function postJson(path: string, body: unknown): Promise<void> {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`${path} failed: ${res.status} ${await res.text().catch(() => "")}`);
+}
+
+/** デッキをフォルダへ移動 ("" = ルート)。 */
+export function moveDeckToFolder(slug: string, folder: string): Promise<void> {
+  return postJson(`/api/decks/${encodeURIComponent(slug)}/folder`, { folder });
+}
+/** フォルダ名を変更 (中の全デッキを付け替え)。 */
+export function renameFolder(oldName: string, newName: string): Promise<void> {
+  return postJson(`/api/folders/rename`, { old: oldName, new: newName });
+}
+/** フォルダを解体 (中のデッキをルートへ)。 */
+export function deleteFolder(folder: string): Promise<void> {
+  return postJson(`/api/folders/delete`, { folder });
+}
+/** デッキの表示名を変更 (slug は不変)。 */
+export function renameDeck(slug: string, name: string): Promise<void> {
+  return postJson(`/api/decks/${encodeURIComponent(slug)}/name`, { name });
 }
 
 export async function validateDeckOnServer(
@@ -509,7 +568,7 @@ export async function generateDeck(
 ): Promise<GenerateDeckResponse> {
   const res = await fetch(`${API}/api/decks/generate`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...authHeaders() },
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(req),
     cache: "no-store",
   });
@@ -598,16 +657,57 @@ export async function runMatrixSampleReplay(
   deckA: string,
   deckB: string,
   seed = 42,
+  firstPlayer = 0,
 ): Promise<ReplayResponse> {
   const res = await fetch(`${API}/api/matrix/sample/replay`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed }),
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed, first_player: firstPlayer }),
     cache: "no-store",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`runMatrixSampleReplay failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+/** 2 デッキで n 連戦して勝率 + 各試合の結果(seed)を返す (観戦は同 seed の replay で再現)。 */
+export async function runMatrixSampleBatch(
+  deckA: string,
+  deckB: string,
+  seed: number,
+  nGames: number,
+): Promise<MatrixBatchResult> {
+  const res = await fetch(`${API}/api/matrix/sample/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed, n_games: nGames }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`runMatrixSampleBatch failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+/** 2 デッキで 1 試合だけ実行 (seed/swap は client 指定)。 10連戦を 1 試合ずつ逐次表示する用。 */
+export async function runMatrixSampleGame(
+  deckA: string,
+  deckB: string,
+  seed: number,
+  swap: boolean,
+): Promise<MatrixGameResult> {
+  const res = await fetch(`${API}/api/matrix/sample/game`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ deck_a: deckA, deck_b: deckB, seed, swap }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`runMatrixSampleGame failed: ${res.status} ${text}`);
   }
   return res.json();
 }
@@ -690,6 +790,15 @@ export type HumanMatchState = {
   // start で受け取り、 各 apply* で 毎回 送信。 localStorage に 保存して リロード復元 も可。
   session_spec?: HumanSessionSpec;
   actions?: HumanActionLog[];
+  // 陣取り挑戦なら start 応答に付く (= 対象マス + 開始時 version + 防衛側情報)。
+  challenge?: {
+    cell_id: number;
+    expected_version: number;
+    owned: boolean;
+    defender_leader_id: string | null;
+    defender_variant_id: string | null;
+    defender_user: string | null;
+  };
 };
 
 type ResumeFields = {
@@ -700,16 +809,20 @@ type ResumeFields = {
 export async function startHumanMatch(
   deckASlug: string,
   deckBSlug: string,
-  opts: { seed?: number; human_first?: boolean | null } = {},
+  opts: { seed?: number; human_first?: boolean | null; cell_id?: number } = {},
 ): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // authHeaders: 自分の非公開デッキ (deck_a) を per-user DB から resolve するのに必要。
+    // dev = X-Dev-User / 本番 Clerk = Bearer。
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
       deck_a_slug: deckASlug,
       deck_b_slug: deckBSlug,
       seed: opts.seed ?? 42,
       human_first: opts.human_first ?? null,
+      // 陣取り挑戦なら対象マス。 占領マスは server が防衛デッキを差し替える。
+      ...(opts.cell_id != null ? { cell_id: opts.cell_id } : {}),
     }),
     cache: "no-store",
   });
@@ -857,10 +970,55 @@ export async function endHumanMatch(sid: string): Promise<void> {
   });
 }
 
+// 陣取り挑戦のコンテキスト (= 勝利時に占領を試みる + 戦い履歴を記録)。 陣取り経由の対戦だけ渡す。
+export type ChallengeContext = {
+  cell_id: number;
+  expected_version: number;
+  human_leader_id?: string | null;
+  human_variant_id?: string | null;
+  defender_leader_id?: string | null;
+  defender_variant_id?: string | null;
+  defender_user?: string | null;
+};
+
+export type TerritoryBattle = {
+  id: number;
+  cell_id: number;
+  ts: string;
+  attacker_user: string | null;
+  attacker_leader_id: string | null;
+  attacker_variant_id: string | null;
+  defender_user: string | null;
+  defender_leader_id: string | null;
+  defender_variant_id: string | null;
+  attacker_won: boolean;
+  captured: boolean;
+  non_stakes: boolean;
+  turns: number | null;
+};
+
+export async function fetchTerritoryBattles(cellId: number): Promise<TerritoryBattle[]> {
+  const res = await fetch(`${API}/api/territory/${cellId}/battles`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchTerritoryBattles failed: ${res.status}`);
+  return (await res.json()).battles ?? [];
+}
+
+export type SaveResultResponse = {
+  url: string;
+  cached: boolean;
+  destination?: string;
+  territory?: {
+    cell_id: number | null;
+    capture: { captured: boolean; version?: number; board_version?: number } | null;
+    non_stakes: boolean;
+  };
+};
+
 export async function saveHumanMatchResult(
   sid: string,
   resume?: { session_spec?: HumanSessionSpec; prior_actions?: HumanActionLog[] },
-): Promise<{ url: string; cached: boolean; destination?: string }> {
+  challenge?: ChallengeContext,
+): Promise<SaveResultResponse> {
   // 2026-05-31 fix: Vercel serverless で cache miss 時 404 silent fail し て
   // log メモ が 消 え る bug 修 復。 buildResume() で session_spec + prior_actions
   // を 送 信 し て endpoint 側 で reconstruct 可 能 化。
@@ -868,7 +1026,7 @@ export async function saveHumanMatchResult(
     method: "POST",
     cache: "no-store",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(resume ?? {}),
+    body: JSON.stringify({ ...(resume ?? {}), ...(challenge ?? {}) }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

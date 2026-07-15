@@ -117,6 +117,50 @@ async def rate_limit_middleware(request: Request, call_next):
         bucket.append(now)
     return await call_next(request)
 
+
+# --------------------------------------------------------------------------- #
+# 公開モード (= 一般公開デプロイ) のガード。 研究/管理/重い計算 endpoint を 403 で塞ぐ。
+# UI からナビ非表示にするだけでは直叩き (curl) できてしまうので、 ここが本当の防御線
+# (= API enforce)。 ローカル (PUBLIC_MODE 未設定) は全機能そのまま = 研究環境を温存。
+# 開けておくもの: read (cards/faq)、 対戦 (human_match)、 デッキ CRUD/検証/分析。
+# --------------------------------------------------------------------------- #
+_PUBLIC_BLOCKED_PREFIXES = (
+    "/api/research",         # self-play 研究セッション制御 (起動/停止) — 開発者専用
+    "/api/match",            # AI vs AI シミュレーション (重い)。 /api/human_match は対象外 (対戦は許可)
+    "/api/explore",          # 対策デッキ探索 (重い)
+    "/api/audit",            # 内部監査ダッシュボード
+    "/api/combos",           # コンボ探索 (moderate、 nav から撤去)
+    "/api/meta",             # メタ分析 matrix (研究成果、 nav から撤去)
+    "/api/decks/generate",   # デッキ自動生成 (重い)
+    "/api/decks/build",      # コアカード自動構築 (重い)
+)
+_PUBLIC_BLOCKED_SUFFIXES = (
+    "/improvements",         # デッキ改善提案 (重い sim)
+    "/apply-improvement",
+    "/improvements/mcts",
+    "/mcts-game",
+    "/generate-article",     # 記事生成 (LLM 課金)
+    "/battle-report",
+)
+
+
+def _is_public_blocked(path: str) -> bool:
+    if any(path.startswith(p) for p in _PUBLIC_BLOCKED_PREFIXES):
+        return True
+    return any(path.endswith(s) for s in _PUBLIC_BLOCKED_SUFFIXES)
+
+
+@app.middleware("http")
+async def public_mode_guard(request: Request, call_next):
+    if os.environ.get("PUBLIC_MODE") and request.method != "OPTIONS":
+        if _is_public_blocked(request.url.path):
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                {"detail": "この機能は公開モードでは無効です"}, status_code=403
+            )
+    return await call_next(request)
+
+
 # 起動時にカードリポジトリを1回だけロード
 _repo: Optional[CardRepository] = None
 
@@ -302,6 +346,7 @@ class MatrixSampleRequest(BaseModel):
     deck_a: str
     deck_b: str
     seed: int = 42
+    first_player: int = 0  # 0=deck_a(P0)先攻, 1=deck_b(P1)先攻
 
 
 def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str],
@@ -344,7 +389,7 @@ def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str],
 
 
 @app.post("/api/matrix/sample/replay")
-def matrix_sample_replay(req: MatrixSampleRequest):
+def matrix_sample_replay(req: MatrixSampleRequest, user_id: str = Depends(current_user_id)):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
     /api/match/{job_id}/games/{i}/replay と同じ形式 (= SpectateBoard コンポーネントで再生可)。
 
@@ -352,34 +397,29 @@ def matrix_sample_replay(req: MatrixSampleRequest):
     配備 AI = SmartOpponentAI (= deck別 ExploitBeam/greedy 自動切替) で プレイする。
     SmartOpponentAI は torch 非依存 (= import で torch を読まない、 検証済) + 1 game ~3-4 秒 で
     Vercel function timeout (300s) に 余裕。 これで 観戦 = 人間vsAI = matrix の AI が 完全一致。"""
-    from engine.deck import CardRepository, DeckList
     from engine.effects import load_effect_overlay
     from engine.harness import run_matchup as _run
 
     if not req.deck_a or not req.deck_b:
         raise HTTPException(400, "deck_a と deck_b は必須")
-    path_a = DECKS_DIR / f"{req.deck_a}.json"
-    path_b = DECKS_DIR / f"{req.deck_b}.json"
-    if not path_a.exists():
-        raise HTTPException(404, f"deck not found: {req.deck_a}")
-    if not path_b.exists():
-        raise HTTPException(404, f"deck not found: {req.deck_b}")
-    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
-    da = DeckList.from_json(path_a, repo)
-    db = DeckList.from_json(path_b, repo)
+    da = _resolve_decklist(req.deck_a, user_id)  # メタ/ユーザーDB 横断
+    db = _resolve_decklist(req.deck_b, user_id)
 
     # 実践 AI (= 配備 SmartOpponentAI) を deck_a/deck_b の slug で構築 (= _practice_run_kwargs)。
     # 人間vsAI / matrix / deck対戦ランナー と 同一。
+    # first_player: run_matchup は first_player = game_index % 2 で決める。 deck_b(P1) 先攻 は
+    # game_index=1 を only_game_index で 1 試合だけ回す (deck 順は変えないので P0=deck_a のまま)。
+    fp = 1 if req.first_player == 1 else 0
     rep = _run(
         da, db,
-        n_games=1, seed=req.seed,
+        n_games=fp + 1, seed=req.seed, only_game_index=fp,
         effects_overlay=overlay,
         keep_logs=True, enforce_rules=False,
         record_snapshots=True,
         **_practice_run_kwargs(req.deck_a, req.deck_b),
     )
-    g = rep.games[0]
+    g = rep.games[fp]
     # ReplayResponse は file 末尾で定義されているため文字列名で response_model 指定。
     # 実体は dict で返してもエンドポイント契約に従う (Pydantic ↔ FastAPI が validate)。
     return {
@@ -391,6 +431,128 @@ def matrix_sample_replay(req: MatrixSampleRequest):
         "winner": g.winner if g.winner is not None else -1,
         "turns": g.turns,
         "snapshots": g.snapshots,
+    }
+
+
+class MatrixBatchRequest(BaseModel):
+    deck_a: str
+    deck_b: str
+    seed: int = 42
+    n_games: int = 10
+
+
+@app.post("/api/matrix/sample/batch")
+def matrix_sample_batch(req: MatrixBatchRequest, user_id: str = Depends(current_user_id)):
+    """指定 2 デッキで n_games 連戦して勝率を返す (snapshot 無しで高速)。 各試合は seed+i で
+    決定的なので、 観戦は /api/matrix/sample/replay を同 seed で呼べば再現できる。"""
+    from engine.effects import load_effect_overlay
+    from engine.harness import run_matchup as _run
+
+    if not req.deck_a or not req.deck_b:
+        raise HTTPException(400, "deck_a と deck_b は必須")
+    n = max(1, min(20, req.n_games))
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    da = _resolve_decklist(req.deck_a, user_id)
+    db = _resolve_decklist(req.deck_b, user_id)
+    kw_ab = _practice_run_kwargs(req.deck_a, req.deck_b)
+    kw_ba = _practice_run_kwargs(req.deck_b, req.deck_a)
+
+    # 先攻/後攻を公平に: 前半は da 先攻 (P0)、 後半は db 先攻 (P1)。 デッキ順を入替えて
+    # run_matchup(n_games=1) の deck1 が常に先攻になる性質を使い、 winner は P0(da) 基準に戻す。
+    half = n // 2
+    games = []
+    p0 = p1 = draw = 0
+    for i in range(n):
+        s = req.seed + i
+        swap = i >= half
+        d1, d2, kw = (db, da, kw_ba) if swap else (da, db, kw_ab)
+        rep = _run(
+            d1, d2, n_games=1, seed=s, effects_overlay=overlay,
+            keep_logs=False, enforce_rules=False, record_snapshots=False, **kw,
+        )
+        w1 = rep.games[0].winner  # deck1 基準 (0=d1, 1=d2)
+        if w1 is None or w1 == -1:
+            w = -1
+        elif not swap:
+            w = w1  # d1=da → 0=P0(da), 1=P1(db)
+        else:
+            w = 1 - w1  # d1=db=P1 → 0(db)→P1, 1(da)→P0
+        if w == 0:
+            p0 += 1
+        elif w == 1:
+            p1 += 1
+        else:
+            draw += 1
+        games.append(
+            {"game_index": i, "seed": s, "swap": swap,
+             "first_player": 1 if swap else 0, "winner": w, "turns": rep.games[0].turns}
+        )
+    return {
+        "deck_a_name": da.name,
+        "deck_b_name": db.name,
+        "n_games": n,
+        "p0_wins": p0,
+        "p1_wins": p1,
+        "draws": draw,
+        "games": games,
+    }
+
+
+_BATCH_OVERLAY_CACHE = None
+
+
+def _get_batch_overlay():
+    """batch / single-game 用に overlay を 1 回だけ load してキャッシュ (= per-game 逐次実行で 52ms×N を避ける)。"""
+    global _BATCH_OVERLAY_CACHE
+    if _BATCH_OVERLAY_CACHE is None:
+        _BATCH_OVERLAY_CACHE = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    return _BATCH_OVERLAY_CACHE
+
+
+class MatrixGameRequest(BaseModel):
+    deck_a: str
+    deck_b: str
+    seed: int = 42
+    swap: bool = False  # true なら deck 順を入替えて実行 (= P1(deck_b) 先攻)
+
+
+@app.post("/api/matrix/sample/game")
+def matrix_sample_game(req: MatrixGameRequest, user_id: str = Depends(current_user_id)):
+    """指定 2 デッキで 1 試合だけ実行 (snapshot 無しで高速)。 client が seed/swap を決めて
+    N 回呼ぶことで、 結果を 1 試合ずつ逐次表示できる。 winner は常に P0(deck_a) 基準。
+    観戦は swap 試合のみ deck 順を入替えて /replay を同 seed で呼べば正確に再現できる。"""
+    from engine.harness import run_matchup as _run
+
+    if not req.deck_a or not req.deck_b:
+        raise HTTPException(400, "deck_a と deck_b は必須")
+    overlay = _get_batch_overlay()
+    da = _resolve_decklist(req.deck_a, user_id)
+    db = _resolve_decklist(req.deck_b, user_id)
+    swap = bool(req.swap)
+    # swap 時は deck 順を入替えて run。 run_matchup(n_games=1) の deck1 が常に先攻。
+    if swap:
+        d1, d2, kw = db, da, _practice_run_kwargs(req.deck_b, req.deck_a)
+    else:
+        d1, d2, kw = da, db, _practice_run_kwargs(req.deck_a, req.deck_b)
+    rep = _run(
+        d1, d2, n_games=1, seed=req.seed, effects_overlay=overlay,
+        keep_logs=False, enforce_rules=False, record_snapshots=False, **kw,
+    )
+    w1 = rep.games[0].winner  # deck1 基準 (0=d1, 1=d2)
+    if w1 is None or w1 == -1:
+        w = -1
+    elif not swap:
+        w = w1  # d1=da → 0=P0(da), 1=P1(db)
+    else:
+        w = 1 - w1  # d1=db=P1 → 0(db)→P1, 1(da)→P0
+    return {
+        "deck_a_name": da.name,
+        "deck_b_name": db.name,
+        "seed": req.seed,
+        "swap": swap,
+        "first_player": 1 if swap else 0,
+        "winner": w,
+        "turns": rep.games[0].turns,
     }
 
 
@@ -580,7 +742,7 @@ def list_cards(
     cost_ge: Optional[int] = Query(None),
     name_contains: Optional[str] = Query(None),
     block_icon_ge: Optional[int] = Query(None, description="ブロックアイコン下限 (Standard=2)"),
-    limit: int = Query(200, ge=1, le=2000),
+    limit: int = Query(200, ge=1, le=10000),
 ):
     repo = get_repo()
     cards = []
@@ -832,6 +994,7 @@ class DeckSummary(BaseModel):
     unique: int
     regulation: Optional[str] = None
     kind: str = "user"            # "meta" (環境・正準) | "user" (ユーザー作成)
+    folder: str = ""              # ユーザーデッキの所属フォルダ ("" = ルート)
 
 
 def _list_deck_files() -> list[Path]:
@@ -877,6 +1040,11 @@ def _resolve_deck_dict(slug: str, user_id: str) -> dict:
     return _load_deck_json(slug)  # 後方互換: 旧 decks/ に残る非メタ JSON
 
 
+def _resolve_decklist(slug: str, user_id: str):
+    """slug → DeckList (run_matchup 用)。 メタ/リポジトリ/ユーザーDB を横断解決。"""
+    return make_deck_from_dict(_resolve_deck_dict(slug, user_id), get_repo())
+
+
 def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
     leader_id = d.get("leader", "")
     leader_name, leader_color = "", []
@@ -890,6 +1058,7 @@ def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
         leader_name=leader_name, leader_color=leader_color,
         main_count=sum(int(e.get("count", 1)) for e in d.get("main", [])),
         unique=len(d.get("main", [])), regulation=d.get("regulation"), kind=kind,
+        folder=d.get("folder") or "",
     )
 
 
@@ -898,14 +1067,19 @@ def list_decks(user_id: str = Depends(current_user_id)):
     """メタ(環境)デッキ (= 全員共通) + ログインユーザー自身のデッキ (= per-user DB)。"""
     repo = get_repo()
     out: list[DeckSummary] = []
-    # メタ(環境)デッキ = リポジトリ JSON (decks/*.json)。 ユーザーデッキは DB なので混ざらない。
+    # メタ(環境)デッキ = リポジトリ JSON (decks/*.json) の **meta 登録分のみ**。
+    # meta 未登録の decks/*.json (= cardrush 取込等の残置ファイル) は「誰のものでもない」ので
+    # 一覧に出さない (= 以前は kind:"user" で全ユーザーに露出し、 per-user DB に無いため
+    # フォルダ移動/リネームが 404 になっていた。 マイデッキ = per-user DB のみ が正)。
     for path in _list_deck_files():
         try:
             d = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue
         slug = d.get("slug") or path.stem
-        out.append(_deck_summary(repo, d, slug, "meta" if _is_meta_deck(slug) else "user"))
+        if not _is_meta_deck(slug):
+            continue
+        out.append(_deck_summary(repo, d, slug, "meta"))
     # 自分のデッキ (= per-user DB)
     for d in user_store.list_decks(user_id):
         out.append(_deck_summary(repo, d, d["slug"], "user"))
@@ -1133,6 +1307,63 @@ def delete_deck(slug: str, user_id: str = Depends(current_user_id)):
         out_path.unlink()
         return None
     raise HTTPException(404, f"deck not found: {slug}")
+
+
+# --------------------------------------------------------------------------- #
+# フォルダ管理 (= マイデッキを VSCode explorer 風に整理)。 全て auth + owner-scoped。
+# --------------------------------------------------------------------------- #
+class MoveFolderRequest(BaseModel):
+    folder: str = ""
+
+
+class RenameFolderRequest(BaseModel):
+    old: str
+    new: str
+
+
+class FolderRequest(BaseModel):
+    folder: str
+
+
+@app.post("/api/decks/{slug}/folder")
+def move_deck_folder(slug: str, req: MoveFolderRequest, user_id: str = Depends(current_user_id)):
+    """自分のデッキを指定フォルダへ移動 ("" = ルート)。 メタは不可。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(403, "meta(環境) decks cannot be foldered")
+    if not user_store.set_deck_folder(user_id, slug, req.folder.strip()):
+        raise HTTPException(404, f"deck not found: {slug}")
+    return {"ok": True, "folder": req.folder.strip()}
+
+
+class RenameDeckRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/decks/{slug}/name")
+def rename_deck(slug: str, req: RenameDeckRequest, user_id: str = Depends(current_user_id)):
+    """自分のデッキの表示名を変更 (slug は不変)。 メタは read-only、 他人のは 404。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(403, "meta(環境) decks are read-only")
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not user_store.set_deck_name(user_id, slug, name):
+        raise HTTPException(404, f"deck not found: {slug}")
+    return {"ok": True, "name": name}
+
+
+@app.post("/api/folders/rename")
+def rename_folder_ep(req: RenameFolderRequest, user_id: str = Depends(current_user_id)):
+    """フォルダ名を変更 (= 中の全デッキの folder を付け替え)。"""
+    moved = user_store.rename_folder(user_id, req.old.strip(), req.new.strip())
+    return {"moved": moved}
+
+
+@app.post("/api/folders/delete")
+def delete_folder_ep(req: FolderRequest, user_id: str = Depends(current_user_id)):
+    """フォルダを解体 (= 中のデッキをルートへ。 デッキは消さない)。"""
+    moved = user_store.remove_folder(user_id, req.folder.strip())
+    return {"moved": moved}
 
 
 @app.post("/api/decks/validate", response_model=ValidateDeckResponse)
@@ -3031,6 +3262,14 @@ except Exception as e:
     print(f"[spectate] schema init skipped: {e}")
 
 
+# 陣取り (territory) 占領状態の schema init (= 同じ SQLite/Neon 切替パターン)。
+try:
+    from api import territory as _territory_mod
+    _territory_mod.init_schema()
+except Exception as e:
+    print(f"[territory] schema init skipped: {e}")
+
+
 def _row_to_comment(row, agreed_by: list[str]) -> dict:
     # sqlite3.Row + psycopg dict_row 両方とも mapping access OK
     return {
@@ -3363,9 +3602,11 @@ _HUMAN_SESSIONS: dict[str, "object"] = {}
 
 class HumanMatchStart(BaseModel):
     deck_a_slug: str  # 人間 使用 deck
-    deck_b_slug: str  # AI 使用 deck
+    deck_b_slug: str  # AI 使用 deck (陣取り占領マス挑戦なら server が defender で上書き)
     seed: Optional[int] = 42
     human_first: Optional[bool] = None  # None=random
+    # 陣取り挑戦: マス index。 占領マスなら占領者の保存デッキを AI 防衛側にする。
+    cell_id: Optional[int] = None
 
 
 class HumanSessionSpec(BaseModel):
@@ -3380,6 +3621,11 @@ class HumanSessionSpec(BaseModel):
     deck_a_slug: str
     deck_b_slug: str
     human_first: bool  # 開始時に確定済み の bool
+    # 人間の非公開デッキ (per-user DB) を対戦に使うための inline recipe。 開始時に auth 付きで
+    # resolve して埋め込む → 以降の reconstruct は spec だけで自己完結 (DB/auth 不要、 client が
+    # echo する)。 メタデッキは slug で解決できるので通常 None ({leader, main, ...})。
+    deck_a_inline: Optional[dict] = None
+    deck_b_inline: Optional[dict] = None
 
 
 class HumanActionLog(BaseModel):
@@ -3436,6 +3682,17 @@ class HumanSaveResultIn(BaseModel):
     """save_result body (= 2026-05-31 追加、 Vercel serverless で cache miss 時 reconstruction)。"""
     session_spec: Optional[HumanSessionSpec] = None
     prior_actions: Optional[list[HumanActionLog]] = None
+    # 陣取り (territory) 挑戦のコンテキスト (= 2026-07-15)。 陣取り経由の対戦だけ埋まる。
+    # 人間が勝ったら resolve_capture(cell_id, expected_version, ...) で占領を試みる。
+    # expected_version = 挑戦開始時に snapshot した対象マスの version (= race 検知に使う)。
+    cell_id: Optional[int] = None
+    expected_version: Optional[int] = None
+    human_leader_id: Optional[str] = None   # base card_id (137 単位、 マスの集計キー)
+    human_variant_id: Optional[str] = None  # 表示用 full card_id (パラレル suffix 込み)
+    # 戦い履歴用の防衛側情報 (= start 応答の challenge を client が echo)。
+    defender_leader_id: Optional[str] = None
+    defender_variant_id: Optional[str] = None
+    defender_user: Optional[str] = None
 
 
 class HumanLogCommentIn(BaseModel):
@@ -3514,8 +3771,16 @@ def _build_human_session(spec: HumanSessionSpec):
     ensure_spec_loaded(spec.deck_a_slug)
     ensure_spec_loaded(spec.deck_b_slug)
 
-    deck_a = _load_deck_by_slug(spec.deck_a_slug)
-    deck_b = _load_deck_by_slug(spec.deck_b_slug)
+    # 人間デッキ (deck_a) は spec に inline 埋め込みされた per-user recipe を優先
+    # (= 非公開デッキ対戦。 auth/DB 無しで reconstruct 可)。 無ければ従来通り slug 解決。
+    if spec.deck_a_inline:
+        deck_a = make_deck_from_dict(spec.deck_a_inline, get_repo())
+    else:
+        deck_a = _load_deck_by_slug(spec.deck_a_slug)
+    if spec.deck_b_inline:
+        deck_b = make_deck_from_dict(spec.deck_b_inline, get_repo())
+    else:
+        deck_b = _load_deck_by_slug(spec.deck_b_slug)
     overlay_path = ROOT / "db" / "card_effects.json"
     overlay = load_effect_overlay(overlay_path)
 
@@ -3609,8 +3874,13 @@ def _action_log_to_payload(log: list["HumanActionLog"]) -> list[dict]:
 
 
 @app.post("/api/human_match")
-def human_match_start(req: HumanMatchStart):
-    """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。"""
+def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_id)):
+    """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。
+
+    deck_a (= 人間 使用) は自分の非公開デッキ (per-user DB) を含みうるので、 auth 付きで
+    resolve して spec に inline 埋め込みする (= 以降の action call は spec 自己完結で
+    reconstruct、 DB/auth 不要)。 メタデッキ (= AI 相手 deck_b) は slug で解決できる。
+    """
     # human_first None なら ここで 確定 (= rng 経由ではなく Python random で 単発決定)。
     # 以降 spec.human_first は 確定 bool として 渡る → reconstruct で 同じ first_player。
     import random as _r
@@ -3618,11 +3888,45 @@ def human_match_start(req: HumanMatchStart):
     human_first = req.human_first
     if human_first is None:
         human_first = _r.Random(req.seed or 42).random() < 0.5
+    # 両デッキを resolve (メタ=リポジトリ / user=per-user DB)。 存在しなければ 404。
+    # 人間側 (deck_a) だけでなく AI 側 (deck_b) も inline 埋め込みする (= 両サイド
+    # 環境デッキ / マイデッキ を選べる、 かつ reconstruct は spec 自己完結)。
+    deck_a_inline = _resolve_deck_dict(req.deck_a_slug, user_id)
+    deck_b_inline = _resolve_deck_dict(req.deck_b_slug, user_id)
+
+    # 陣取り挑戦: 占領マスなら占領者の保存デッキを AI 防衛側 (deck_b) に上書き。
+    # expected_version = 挑戦開始時のマス version (= 勝利時 CAS の照合キー = race 検知)。
+    challenge: Optional[dict] = None
+    if req.cell_id is not None:
+        from api import territory
+        cell = territory.get_cell(req.cell_id)
+        expected_version = int(cell["version"])
+        defender_slug = req.deck_b_slug
+        if cell["leader_id"]:  # 占領マス → 占領者の実デッキを AI が操縦
+            recipe = territory.defender_deck(req.cell_id)
+            if recipe:
+                deck_b_inline = recipe
+                defender_slug = cell.get("deck_slug") or f"cell{req.cell_id}-defender"
+        challenge = {
+            "cell_id": int(req.cell_id),
+            "expected_version": expected_version,
+            "owned": bool(cell["leader_id"]),
+            "defender_leader_id": cell["leader_id"],
+            "defender_variant_id": cell["variant_id"],
+            "defender_user": cell["user"],
+        }
+        # deck_b_slug は log 用ラベル。 占領マスは占領者デッキラベルに差し替え。
+        req_deck_b_slug = defender_slug
+    else:
+        req_deck_b_slug = req.deck_b_slug
+
     spec = HumanSessionSpec(
         seed=req.seed or 42,
         deck_a_slug=req.deck_a_slug,
-        deck_b_slug=req.deck_b_slug,
+        deck_b_slug=req_deck_b_slug,
         human_first=bool(human_first),
+        deck_a_inline=deck_a_inline,
+        deck_b_inline=deck_b_inline,
     )
 
     session = _build_human_session(spec)
@@ -3635,6 +3939,8 @@ def human_match_start(req: HumanMatchStart):
     payload["session_id"] = sid
     payload["session_spec"] = spec.model_dump()
     payload["actions"] = []
+    if challenge is not None:
+        payload["challenge"] = challenge
     return payload
 
 
@@ -3904,10 +4210,65 @@ def human_match_save_replay(sid: str):
 
 # saved_blob_url cache (= 同一 session で 重複 upload 防止)
 _SAVED_BLOB_URLS: dict[str, str] = {}
+# capture 結果 cache (= sid 毎に占領解決は 1 回だけ。 blob 再送/retry で二重占領しない)
+_CAPTURE_RESULTS: dict[str, dict] = {}
+# 戦い記録済み sid (= retry で二重記録しない)
+_BATTLE_RECORDED: set[str] = set()
+
+
+def _resolve_territory_capture(
+    sid: str, session, payload: dict, winner: Optional[int],
+    req: Optional[HumanSaveResultIn], user_id: str,
+) -> dict:
+    """陣取り経由の対戦なら勝利を占領に反映 (CAS)。 返り値 = payload に埋める territory メタ。
+
+    - 陣取り以外 (cell_id 無し) → {"cell_id": None}。
+    - 人間勝ち & game_over & CAS 成立 → 占領。 version がズレていた (対戦中に他人が先に奪取)
+      → captured=False → non_stakes=True (履歴 UI から除外 / 学習コーパスには使う)。
+    - sid 毎に 1 回だけ実行 (retry は cache 再利用)。
+    """
+    if req is None or req.cell_id is None:
+        return {"cell_id": None, "capture": None, "non_stakes": False}
+
+    capture = _CAPTURE_RESULTS.get(sid)
+    if capture is None and session.state.game_over and winner == 1 and req.human_leader_id:
+        try:
+            from api import territory
+            # 占領成立時は挑戦者 (= 新占領者) の実デッキを保存 → 以後この人のデッキを
+            # AI が防衛で操縦する ([[project_leader_as_progression_unit]] の per-deck 学習)。
+            deck_recipe = None
+            spec = req.session_spec
+            if spec is not None:
+                deck_recipe = spec.deck_a_inline
+                if deck_recipe is None and spec.deck_a_slug:
+                    try:
+                        deck_recipe = _resolve_deck_dict(spec.deck_a_slug, user_id)
+                    except Exception:
+                        deck_recipe = None
+            capture = territory.resolve_capture(
+                int(req.cell_id),
+                int(req.expected_version or 0),
+                leader_id=req.human_leader_id,
+                variant_id=req.human_variant_id,
+                user=user_id,
+                deck_slug=(payload.get("metadata") or {}).get("deck_human_slug"),
+                deck_recipe=deck_recipe,
+            )
+            _CAPTURE_RESULTS[sid] = capture
+        except Exception as e:
+            print(f"[territory] capture failed (sid={sid}): {e}")
+            capture = None
+
+    non_stakes = bool(capture is not None and not capture.get("captured", False))
+    return {"cell_id": int(req.cell_id), "capture": capture, "non_stakes": non_stakes}
 
 
 @app.post("/api/human_match/{sid}/save_result")
-def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
+def human_match_save_result(
+    sid: str,
+    req: Optional[HumanSaveResultIn] = None,
+    user_id: str = Depends(current_user_id),
+):
     """試合終了後 (= game_over=true or 人間 manual end) に full データ を Vercel Blob に upload。
 
     AI vs Human の 全 試合 を Blob に 蓄積 → ohtsuki さん依頼時に sync して解析。
@@ -3949,6 +4310,37 @@ def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
         winner_tag = "abandoned"
     else:
         winner_tag = "humanW" if winner == 1 else "aiW" if winner == 0 else "draw"
+
+    # 陣取り経由の対戦なら勝利を占領に反映 (CAS)。 payload に territory メタを埋める
+    # (= 全ログを無条件保存 → 学習は全ログ、 non_stakes フラグで履歴 UI から除外)。
+    territory_meta = _resolve_territory_capture(sid, session, payload, winner, req, user_id)
+    payload["territory"] = territory_meta
+
+    # 陣取り挑戦が決着 (game_over) したら戦いを記録 (= per-cell 履歴の実データ)。
+    if (
+        req is not None and req.cell_id is not None
+        and session.state.game_over and sid not in _BATTLE_RECORDED
+    ):
+        try:
+            from api import territory
+            cap = territory_meta.get("capture") or {}
+            territory.record_battle(
+                cell_id=int(req.cell_id),
+                attacker_user=user_id,
+                attacker_leader_id=req.human_leader_id,
+                attacker_variant_id=req.human_variant_id,
+                defender_user=req.defender_user,
+                defender_leader_id=req.defender_leader_id,
+                defender_variant_id=req.defender_variant_id,
+                attacker_won=(winner == 1),
+                captured=bool(cap.get("captured", False)),
+                non_stakes=bool(territory_meta.get("non_stakes", False)),
+                turns=(payload.get("result") or {}).get("turns"),
+            )
+            _BATTLE_RECORDED.add(sid)
+        except Exception as e:
+            print(f"[territory] record_battle failed (sid={sid}): {e}")
+
     pathname = f"human_play/{ts}_{deck_human}_vs_{deck_ai}_{winner_tag}_{sid[:8]}.json"
 
     from api.blob_storage import put_json, is_configured
@@ -3958,7 +4350,7 @@ def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
             # public blob だが random suffix で URL guessable 防止
             url = put_json(pathname, payload, add_random_suffix=True)
             _SAVED_BLOB_URLS[sid] = url
-            return {"url": url, "cached": False, "destination": "blob"}
+            return {"url": url, "cached": False, "destination": "blob", "territory": territory_meta}
         except Exception as e:
             raise HTTPException(500, f"blob upload failed: {e}")
 
@@ -3974,4 +4366,40 @@ def human_match_save_result(sid: str, req: Optional[HumanSaveResultIn] = None):
         encoding="utf-8",
     )
     _SAVED_BLOB_URLS[sid] = str(local_path)
-    return {"url": str(local_path), "cached": False, "destination": "local_file"}
+    return {"url": str(local_path), "cached": False, "destination": "local_file", "territory": territory_meta}
+
+
+# --------------------------------------------------------------------------- #
+# 陣取り (territory) 占領状態 API (= 公開 read)。 占領は human_match/save_result 経由の CAS。
+# 盤全体はゆっくりポーリング / 挑戦中マスは version だけ短間隔ポーリング (race 検知) する。
+# --------------------------------------------------------------------------- #
+@app.get("/api/territory")
+def territory_board():
+    """占領済みマス一覧 + board_version (= 盤ポーリング用)。 空きマスは省略。"""
+    from api import territory
+    return territory.get_board()
+
+
+@app.get("/api/territory/version")
+def territory_board_version():
+    """board_version だけ返す (= 盤に変化があったかを安く判定)。"""
+    from api import territory
+    return {"board_version": territory.board_version()}
+
+
+@app.get("/api/territory/{cell_id}")
+def territory_cell(cell_id: int):
+    """1 マスの現状 (占領者 + version)。 挑戦中マスの race 検知ポーリング用。"""
+    from api import territory
+    if not (0 <= cell_id < territory.N_CELLS):
+        raise HTTPException(400, "cell_id out of range")
+    return territory.get_cell(cell_id)
+
+
+@app.get("/api/territory/{cell_id}/battles")
+def territory_cell_battles(cell_id: int):
+    """マスの戦い履歴 (新しい順)。 non_stakes (占領できなかった継続試合) は既定で除外。"""
+    from api import territory
+    if not (0 <= cell_id < territory.N_CELLS):
+        raise HTTPException(400, "cell_id out of range")
+    return {"battles": territory.list_battles(cell_id)}

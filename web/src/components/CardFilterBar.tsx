@@ -24,7 +24,7 @@ function groupOf(code: string): string {
   return "P";
 }
 
-export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
+export function CardFilterBar({ sets = [], bare = false }: { sets?: SetInfo[]; bare?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -67,8 +67,8 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
       else p.delete(k);
     });
 
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+  const controls = (
+    <>
       <div className="flex gap-1" role="group" aria-label="色フィルタ">
         {COLORS.map((c) => (
           <button
@@ -76,10 +76,10 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
             type="button"
             onClick={() => setParam("color", color === c ? "" : c)}
             aria-pressed={color === c}
-            className={`rounded px-2 py-1 text-xs ${
+            className={`rounded-[var(--radius-sm)] px-2 py-1 text-xs ${
               color === c
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                ? "bg-[color:var(--brand)] text-white"
+                : "bg-[color:var(--surface-2)] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
             }`}
           >
             {c}
@@ -90,7 +90,7 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
       <select
         value={category}
         onChange={(e) => setParam("category", e.target.value)}
-        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
         aria-label="カテゴリ"
       >
         <option value="">全カテゴリ</option>
@@ -104,7 +104,7 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
       <select
         value={set}
         onChange={(e) => setParam("set", e.target.value)}
-        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
         aria-label="弾"
       >
         <option value="">全ての弾</option>
@@ -119,7 +119,7 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
         ))}
       </select>
 
-      <label className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+      <label className="flex items-center gap-1 text-xs text-[color:var(--text-muted)]">
         コスト
         <input
           type="number"
@@ -128,7 +128,7 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
           value={cost_ge}
           onChange={(e) => setParam("cost_ge", e.target.value)}
           placeholder="最小"
-          className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-16 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
         />
         〜
         <input
@@ -138,7 +138,7 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
           value={cost_le}
           onChange={(e) => setParam("cost_le", e.target.value)}
           placeholder="最大"
-          className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-16 rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
         />
       </label>
 
@@ -147,7 +147,7 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
         value={name_contains}
         onChange={(e) => setParam("name_contains", e.target.value)}
         placeholder="カード名"
-        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
         aria-label="カード名"
       />
 
@@ -156,19 +156,19 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
         value={feature}
         onChange={(e) => setParam("feature", e.target.value)}
         placeholder="特徴 (例: 麦わらの一味)"
-        className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand)]"
         aria-label="特徴"
       />
 
-      <div className="flex rounded border border-zinc-300 text-xs dark:border-zinc-700 overflow-hidden" role="group" aria-label="レギュレーション">
+      <div className="flex rounded-[var(--radius-sm)] border border-[color:var(--border-2)] text-xs overflow-hidden" role="group" aria-label="レギュレーション">
         <button
           type="button"
           onClick={() => setParam("regulation", "")}
           aria-pressed={regulation === ""}
           className={`px-2 py-1 font-medium transition ${
             regulation === ""
-              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-              : "bg-transparent text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              ? "bg-[color:var(--brand)] text-white"
+              : "bg-transparent text-[color:var(--text-muted)] hover:bg-[var(--list-hover)]"
           }`}
         >
           全件
@@ -179,8 +179,8 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
           aria-pressed={regulation === "standard"}
           className={`px-2 py-1 font-medium transition ${
             regulation === "standard"
-              ? "bg-blue-600 text-white"
-              : "bg-transparent text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              ? "bg-[color:var(--brand)] text-white"
+              : "bg-transparent text-[color:var(--text-muted)] hover:bg-[var(--list-hover)]"
           }`}
         >
           STD
@@ -195,15 +195,22 @@ export function CardFilterBar({ sets = [] }: { sets?: SetInfo[] }) {
               p.delete(k);
             }
           })}
-          className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] px-2 py-1 text-xs text-[color:var(--text-muted)] hover:bg-[var(--list-hover)]"
         >
           クリア
         </button>
       )}
 
       {isPending && (
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">更新中…</span>
+        <span className="text-xs text-[color:var(--text-muted)]">更新中…</span>
       )}
+    </>
+  );
+
+  if (bare) return controls;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
+      {controls}
     </div>
   );
 }

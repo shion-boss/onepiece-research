@@ -125,11 +125,11 @@ export function DeckImprovementSection({
   }
 
   if (loading) {
-    return <div className="text-sm text-zinc-500">改善提案を計算中…</div>;
+    return <div className="text-sm text-[color:var(--text-muted)]">改善提案を計算中…</div>;
   }
   if (error) {
     return (
-      <div className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
+      <div className="rounded-[var(--radius)] bg-[color:var(--danger)]/10 p-2 text-sm text-[color:var(--danger)]">
         改善提案の取得失敗: {error}
       </div>
     );
@@ -145,7 +145,7 @@ export function DeckImprovementSection({
   if (data.n_matches === 0 && !mctsData) {
     return (
       <div className="space-y-3">
-        <div className="rounded bg-zinc-50 p-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+        <div className="rounded-[var(--radius)] bg-[color:var(--surface-2)] p-3 text-sm text-[color:var(--text-muted)]">
           対戦履歴がまだありません。 上の「対戦」 セクションから N 試合走らせると改善提案が表示されます。
         </div>
         {/* MCTS 補強だけは履歴無くても利用可能 */}
@@ -164,7 +164,7 @@ export function DeckImprovementSection({
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-zinc-500">
+      <div className="text-xs text-[color:var(--text-muted)]">
         過去 {data.n_matches} 試合 / デッキ勝率 {(data.deck_winrate_baseline * 100).toFixed(1)}% を基準に、
         弱いカードの差替え + 枚数調整を提案 (= 上位 {data.proposals.length} 件)
       </div>
@@ -181,13 +181,13 @@ export function DeckImprovementSection({
       />
 
       {applyError && (
-        <div className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
+        <div className="rounded-[var(--radius)] bg-[color:var(--danger)]/10 p-2 text-sm text-[color:var(--danger)]">
           適用失敗: {applyError}
         </div>
       )}
 
       {combinedProposals.length === 0 ? (
-        <div className="rounded bg-zinc-50 p-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+        <div className="rounded-[var(--radius)] bg-[color:var(--surface-2)] p-3 text-sm text-[color:var(--text-muted)]">
           改善提案無し (= 全カードがデッキ平均並み or データ不足)
         </div>
       ) : (
@@ -197,7 +197,7 @@ export function DeckImprovementSection({
             return (
               <li
                 key={p.proposal_id}
-                className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                className="rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
@@ -214,7 +214,7 @@ export function DeckImprovementSection({
                         impact {p.impact_estimate}
                       </span>
                       {p.source === "mcts" && (
-                        <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                        <span className="rounded-[var(--radius-sm)] bg-[color:var(--brand-soft)] px-2 py-0.5 text-xs font-medium text-[color:var(--brand-strong)]">
                           🧠 MCTS 根拠
                         </span>
                       )}
@@ -222,7 +222,7 @@ export function DeckImprovementSection({
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                       {p.changes.map((c, i) => (
                         <div key={i} className="flex items-center gap-1.5">
-                          <div className="h-12 w-9 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+                          <div className="h-12 w-9 overflow-hidden rounded-[var(--radius-sm)] bg-[color:var(--surface-2)]">
                             <CardImage
                               cardId={c.card_id}
                               alt={c.name}
@@ -230,10 +230,10 @@ export function DeckImprovementSection({
                             />
                           </div>
                           <div>
-                            <div className="text-xs">{c.name}</div>
+                            <div className="text-xs text-[color:var(--text-default)]">{c.name}</div>
                             <div
                               className={`text-xs font-bold ${
-                                c.delta > 0 ? "text-green-600" : "text-red-600"
+                                c.delta > 0 ? "text-[color:var(--accent)]" : "text-[color:var(--danger)]"
                               }`}
                             >
                               {c.delta > 0 ? "+" : ""}
@@ -243,7 +243,7 @@ export function DeckImprovementSection({
                         </div>
                       ))}
                     </div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                    <div className="text-xs text-[color:var(--text-muted)]">
                       {p.reason}
                     </div>
                   </div>
@@ -251,10 +251,10 @@ export function DeckImprovementSection({
                     type="button"
                     onClick={() => handleApply(p)}
                     disabled={applying != null || applied}
-                    className={`shrink-0 rounded px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
+                    className={`shrink-0 rounded-[var(--radius)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
                       applied
-                        ? "bg-green-600"
-                        : "bg-blue-600 hover:bg-blue-500"
+                        ? "bg-[color:var(--accent)] text-[color:var(--background)]"
+                        : "bg-[color:var(--brand)] hover:bg-[color:var(--brand-strong)]"
                     }`}
                   >
                     {applied
@@ -296,11 +296,11 @@ function McctsAnalyzePanel({
     ? opponents.find((o) => o.slug === mctsOpponent)?.name ?? mctsOpponent
     : null;
   return (
-    <div className="rounded-lg border border-purple-200 bg-purple-50/30 p-3 dark:border-purple-900 dark:bg-purple-950/20">
+    <div className="rounded-[var(--radius-lg)] border border-[color:var(--brand-soft-border)] bg-[color:var(--brand-soft)]/20 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <div className="text-sm font-medium">🧠 MCTS で補強分析</div>
-          <div className="mt-0.5 text-xs text-zinc-500">
+          <div className="text-sm font-medium text-[color:var(--text-strong)]">🧠 MCTS で補強分析</div>
+          <div className="mt-0.5 text-xs text-[color:var(--text-muted)]">
             1 試合 MCTS を走らせ、 「Greedy が使うが MCTS は使わないカード」 を提案
             (= 本当に弱い可能性)
           </div>
@@ -308,14 +308,14 @@ function McctsAnalyzePanel({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {opponentLocked ? (
-          <span className="text-xs text-zinc-500">
-            相手: <span className="font-medium">{lockedOppName}</span> (= Step 1 と同じ)
+          <span className="text-xs text-[color:var(--text-muted)]">
+            相手: <span className="font-medium text-[color:var(--text-default)]">{lockedOppName}</span> (= Step 1 と同じ)
           </span>
         ) : (
           <select
             value={mctsOpponent}
             onChange={(e) => setMctsOpponent(e.target.value)}
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-xs text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
           >
             {opponents.map((o) => (
               <option key={o.slug} value={o.slug}>
@@ -328,18 +328,18 @@ function McctsAnalyzePanel({
           type="button"
           onClick={onRun}
           disabled={running || !mctsOpponent}
-          className="rounded bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+          className="rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1 text-xs font-medium text-white hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
         >
           {running ? "MCTS 解析中… (30〜90秒)" : "🧠 MCTS で補強分析"}
         </button>
         {mctsData && (
-          <span className="text-[10px] text-zinc-500">
+          <span className="text-[10px] text-[color:var(--text-muted)]">
             {mctsData.n_mcts_turns} action 解析、 {mctsData.proposals.length} 提案追加
           </span>
         )}
       </div>
       {error && (
-        <div className="mt-2 rounded bg-red-50 p-1.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+        <div className="mt-2 rounded-[var(--radius)] bg-[color:var(--danger)]/10 p-1.5 text-xs text-[color:var(--danger)]">
           {error}
         </div>
       )}
@@ -363,18 +363,18 @@ function proposalTypeLabel(type: string): string {
 function proposalTypeClass(type: string): string {
   switch (type) {
     case "swap":
-      return "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300";
+      return "bg-[color:var(--brand-soft)] text-[color:var(--brand-strong)]";
     case "count_decrease":
-      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
+      return "bg-[color:var(--warning)]/15 text-[color:var(--warning)]";
     case "count_increase":
-      return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
+      return "bg-[color:var(--accent)]/15 text-[color:var(--accent)]";
     default:
-      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+      return "bg-[color:var(--surface-3)] text-[color:var(--text-default)]";
   }
 }
 
 function impactClass(impact: number): string {
-  if (impact >= 80) return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
-  if (impact >= 50) return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
-  return "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
+  if (impact >= 80) return "bg-[color:var(--danger)]/15 text-[color:var(--danger)]";
+  if (impact >= 50) return "bg-[color:var(--warning)]/15 text-[color:var(--warning)]";
+  return "bg-[color:var(--surface-3)] text-[color:var(--text-muted)]";
 }

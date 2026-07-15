@@ -4,68 +4,37 @@ import { useState } from "react";
 import { runMatrixSampleReplay } from "@/lib/api";
 import type { ReplayResponse } from "@/lib/types";
 import { SpectateBoard } from "@/components/SpectateBoard";
-import { CardPreloader } from "@/components/CardPreloader";
+import { SpectateVsPanel, useDeckSelect, type SpectateDeck } from "@/components/SpectateVsPanel";
 
-/**
- * matrix 観戦パネル (= /meta?tab=spectate 内)
- *
- * デッキ A / B / seed を選んで「▶ 観戦開始」 を押すと、 API が 1 試合
- * シミュレートして 盤面 snapshot 付き replay を返す。 SpectateBoard
- * コンポーネントで盤面再生 (= マット表示、 カード、 ホバープレビュー、 盤面データ等)。
- *
- * AI は 実践 (= 人間vsAI / matrix) と 同じ 配備 SmartOpponentAI で 統一 (= 2026-06-06)。
- * 走行中の matrix プロセスとは別計算、 CPU を一時共有。
- */
-
-type DeckOption = { slug: string; name: string };
-
+// AI vs AI 観戦 (単発): 2 デッキを選んで 1 試合をその seed で観戦。
 export function MatrixSpectate({
   decks,
   initialDeckA,
   initialDeckB,
-  initialSeed,
 }: {
-  decks: DeckOption[];
+  decks: SpectateDeck[];
   initialDeckA?: string;
   initialDeckB?: string;
-  initialSeed?: number;
 }) {
-  const has = (slug: string | undefined) =>
-    !!slug && decks.some((d) => d.slug === slug);
-  const [deckA, setDeckA] = useState<string>(
-    has(initialDeckA) ? (initialDeckA as string) : decks[0]?.slug ?? "",
-  );
-  const [deckB, setDeckB] = useState<string>(
-    has(initialDeckB)
-      ? (initialDeckB as string)
-      : decks[1]?.slug ?? decks[0]?.slug ?? "",
-  );
-  const [seed, setSeed] = useState<number>(initialSeed ?? 42);
+  const sel = useDeckSelect(decks, initialDeckA, initialDeckB);
+  const [seed, setSeed] = useState(42);
+  const [firstPlayer, setFirstPlayer] = useState<"p0" | "p1" | "random">("p0");
   const [running, setRunning] = useState(false);
-  const [preloading, setPreloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
-  const [elapsed, setElapsed] = useState<number | null>(null);
 
-  function handleStart() {
+  async function handleStart() {
     setError(null);
     setReplay(null);
-    setElapsed(null);
-    if (!deckA || !deckB) {
+    if (!sel.deckA || !sel.deckB) {
       setError("両方のデッキを選択してください");
       return;
     }
-    setPreloading(true);
-  }
-
-  async function runReplayAfterPreload() {
-    setPreloading(false);
+    // 先攻: p0=deck_a 先攻 / p1=deck_b 先攻 / random は毎回どちらか。
+    const fp = firstPlayer === "p1" ? 1 : firstPlayer === "p0" ? 0 : Math.round(Math.random());
     setRunning(true);
-    const t0 = performance.now();
     try {
-      const r = await runMatrixSampleReplay(deckA, deckB, seed);
-      setReplay(r);
-      setElapsed((performance.now() - t0) / 1000);
+      setReplay(await runMatrixSampleReplay(sel.deckA, sel.deckB, seed, fp));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -73,143 +42,92 @@ export function MatrixSpectate({
     }
   }
 
-  function handleRandomSeed() {
-    setSeed(Math.floor(Math.random() * 1_000_000));
+  if (replay) {
+    return (
+      <SpectateBoard
+        snapshots={replay.snapshots}
+        deckBottomName={replay.deck_a_name}
+        deckTopName={replay.deck_b_name}
+        winner={replay.winner}
+        replayKey={`spectate:${replay.job_id}:${replay.game_index}`}
+        onClose={() => setReplay(null)}
+        autoPlay
+      />
+    );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {/* セレクタ + ボタンは shrink-0 (= 上部固定) */}
-      <div className="shrink-0 rounded border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_140px_auto] sm:items-end">
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
-            <span className="text-zinc-500">P0 デッキ</span>
-            <select
-              value={deckA}
-              onChange={(e) => setDeckA(e.target.value)}
-              className="w-full rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-              disabled={running}
-            >
-              {decks.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
-            <span className="text-zinc-500">P1 デッキ</span>
-            <select
-              value={deckB}
-              onChange={(e) => setDeckB(e.target.value)}
-              className="w-full rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-              disabled={running}
-            >
-              {decks.map((d) => (
-                <option key={d.slug} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
-            <span className="text-zinc-500">seed</span>
-            <div className="flex gap-1">
-              <input
-                type="number"
-                value={seed}
-                onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
-                className="w-full min-w-0 rounded border border-zinc-300 bg-white p-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-                disabled={running}
-              />
-              <button
-                type="button"
-                onClick={handleRandomSeed}
-                className="shrink-0 rounded border border-zinc-300 bg-white px-2 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                disabled={running}
-                title="ランダム seed"
-              >
-                ⟳
-              </button>
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+      <SpectateVsPanel
+        title="AI vs AI 観戦"
+        subtitle="2 つのデッキを選ぶと、AI 同士が 1 試合プレイした盤面を観戦できます。"
+        decks={decks}
+        catA={sel.catA}
+        catB={sel.catB}
+        deckA={sel.deckA}
+        deckB={sel.deckB}
+        onCatA={sel.changeCatA}
+        onCatB={sel.changeCatB}
+        onDeckA={sel.setDeckA}
+        onDeckB={sel.setDeckB}
+        disabled={running}
+        footer={
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+              <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">対戦オプション</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="text-[color:var(--text-muted)]">先攻 / 後攻</span>
+                  <select
+                    value={firstPlayer}
+                    onChange={(e) => setFirstPlayer(e.target.value as "p0" | "p1" | "random")}
+                    disabled={running}
+                    className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm text-[color:var(--text-strong)]"
+                  >
+                    <option value="p0">P0 が先攻</option>
+                    <option value="p1">P1 が先攻</option>
+                    <option value="random">ランダム</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="text-[color:var(--text-muted)]">seed（同じ値で再現可能）</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={seed}
+                      onChange={(e) => setSeed(parseInt(e.target.value || "0", 10))}
+                      disabled={running}
+                      className="flex-1 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-mono text-[color:var(--text-strong)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
+                      disabled={running}
+                      className="shrink-0 rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-3 text-xs text-[color:var(--text-default)] hover:bg-[color:var(--surface-3)]"
+                      title="ランダム seed"
+                    >
+                      ⟳
+                    </button>
+                  </div>
+                </label>
+              </div>
             </div>
-          </label>
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={running || preloading || !deckA || !deckB}
-            className="shrink-0 rounded bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {preloading ? "読込中..." : running ? "計算中..." : "▶ 観戦開始"}
-          </button>
-        </div>
-
-        {error ? (
-          <div className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-            {error}
-          </div>
-        ) : null}
-
-        {replay ? (
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-zinc-50 px-3 py-1.5 text-xs dark:bg-zinc-950">
-            <span
-              className={
-                replay.winner === 0
-                  ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                  : replay.winner === 1
-                    ? "font-semibold text-red-600 dark:text-red-400"
-                    : "font-semibold text-zinc-500"
-              }
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={running || !sel.deckA || !sel.deckB}
+              className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
+              style={{ background: "var(--brand)" }}
             >
-              {replay.winner === 0
-                ? `P0 (${replay.deck_a_name}) 勝利`
-                : replay.winner === 1
-                  ? `P1 (${replay.deck_b_name}) 勝利`
-                  : "引き分け / timeout"}
-            </span>
-            <span className="text-zinc-500">·</span>
-            <span>
-              {replay.turns} ターン / {replay.snapshots.length} snap
-            </span>
-            {elapsed !== null ? (
-              <span className="ml-auto text-zinc-500">
-                計算 {elapsed.toFixed(1)}s (seed={seed})
-              </span>
-            ) : null}
+              {running ? "開始中..." : "▶ 観戦 開始"}
+            </button>
+            {running && (
+              <span className="text-sm text-[color:var(--text-muted)]">シミュレート中...（通常 3〜5 秒）</span>
+            )}
+            {error && <span className="text-sm text-[color:var(--danger)]">{error}</span>}
           </div>
-        ) : null}
-      </div>
-
-      {/* preload / 計算中スピナー / MatchReplay は flex-1 で残り高さを取る */}
-      {preloading ? (
-        <div className="flex flex-1 items-center justify-center overflow-auto rounded bg-zinc-50 dark:bg-zinc-950">
-          <CardPreloader
-            deckSlugA={deckA}
-            deckSlugB={deckB}
-            deckNameA={decks.find((d) => d.slug === deckA)?.name}
-            deckNameB={decks.find((d) => d.slug === deckB)?.name}
-            onComplete={runReplayAfterPreload}
-            title="観戦準備中... カード を 読み込んでいます"
-          />
-        </div>
-      ) : running ? (
-        <div className="flex flex-1 items-center justify-center rounded bg-zinc-50 p-6 text-sm text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500 align-middle" />{" "}
-          <span className="ml-2">シミュレート中... (配備 AI、 人間vsAI と同じ。 通常 3-5 秒)</span>
-        </div>
-      ) : replay ? (
-        <SpectateBoard
-          snapshots={replay.snapshots}
-          deckBottomName={replay.deck_a_name}
-          deckTopName={replay.deck_b_name}
-          winner={replay.winner}
-          replayKey={`spectate:${replay.job_id}:${replay.game_index}`}
-          onClose={() => setReplay(null)}
-        />
-      ) : (
-        <div className="flex flex-1 items-center justify-center rounded border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700">
-          デッキ / seed を選んで 「▶ 観戦開始」 を押すと盤面再生が始まります。
-        </div>
-      )}
+        }
+      />
     </div>
   );
 }

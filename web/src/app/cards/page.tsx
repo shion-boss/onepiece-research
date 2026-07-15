@@ -1,8 +1,8 @@
 import { fetchBanlist, fetchCards, fetchSets } from "@/lib/api";
 import type { Banlist, CardCategory, CardFilters, SetInfo } from "@/lib/types";
 import { buildBanStatus } from "@/lib/banlist";
-import { CardFilterBar } from "@/components/CardFilterBar";
 import { CardBrowser } from "@/components/CardBrowser";
+import { CardCountBadge } from "@/components/CardCountBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -45,7 +45,8 @@ export default async function CardsPage({
     set: get("set"),
     // "standard" = block_icon >= 2、未指定 = 全件
     block_icon_ge: regulationRaw === "standard" ? 2 : undefined,
-    limit: 2000,
+    // 全カード (現状 4,673 枚) を取得。 表示は無限スクロールなので上限は不要。
+    limit: 10000,
   };
 
   let cards: Awaited<ReturnType<typeof fetchCards>> = [];
@@ -69,26 +70,20 @@ export default async function CardsPage({
     <PageShell>
       <PageHeader
         title="カード"
-        description="全 4,673 枚 の 検索 + フィルタ"
-        actions={
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            {error ? "—" : `${cards.length} 件${cards.length >= 2000 ? " (上限 2000)" : ""}`}
-          </div>
-        }
+        description="全カードを検索・絞り込み"
+        actions={error ? <div className="text-sm text-[color:var(--text-muted)]">—</div> : <CardCountBadge fallback={cards.length} />}
       />
 
-      <CardFilterBar sets={sets} />
-
       {error ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded-[var(--radius)] border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 p-4 text-sm text-[color:var(--danger)]">
           <div className="font-medium">API への 接続に 失敗しました</div>
           <div className="mt-1 font-mono text-xs">{error}</div>
-          <div className="mt-2 text-red-800 dark:text-red-300">
-            <code className="rounded bg-red-100 px-1 dark:bg-red-900">uvicorn api.main:app --reload --port 8000</code> を 起動してください。
+          <div className="mt-2 text-[color:var(--text-default)]">
+            <code className="rounded-[var(--radius-sm)] bg-[color:var(--surface-2)] px-1">uvicorn api.main:app --reload --port 8000</code> を 起動してください。
           </div>
         </div>
       ) : (
-        <CardBrowser cards={cards} banStatus={banStatus} />
+        <CardBrowser cards={cards} banStatus={banStatus} sets={sets} />
       )}
     </PageShell>
   );

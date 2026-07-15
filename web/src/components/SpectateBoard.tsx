@@ -14,6 +14,7 @@ import {
   StatBadge,
   OpponentInfoPanel,
   LogSidebar,
+  TrashViewer,
   type HoverInfo,
 } from "./HumanMatchPlay";
 import { CardImage } from "./CardImage";
@@ -191,6 +192,7 @@ export function SpectateBoard({
   winner,
   onClose,
   replayKey,
+  autoPlay,
 }: {
   snapshots: StateSnapshot[];
   deckTopName?: string;
@@ -201,11 +203,14 @@ export function SpectateBoard({
   onClose?: () => void;
   /** コメントを紐づける replay 識別子 (= LogSidebar の sessionId)。 非null でコメント有効。 */
   replayKey?: string;
+  /** マウント時に自動再生を開始する (= AI vs AI 観戦で開始後すぐ再生)。 */
+  autoPlay?: boolean;
 }) {
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [hovered, setHovered] = useState<HoverInfo>(null);
+  const [trashViewer, setTrashViewer] = useState<"me" | "opp" | null>(null);
   const [showData, setShowData] = useState(false); // 初期値は非表示 (= ボタンで表示)
   const [panelPos, setPanelPos] = useState({ x: 360, y: 92 });
   const [dragging, setDragging] = useState(false);
@@ -230,6 +235,11 @@ export function SpectateBoard({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [playing, clampedIdx, total, speed]);
+
+  // マウント時に自動再生 (= 観戦開始後、 初期盤面で止まらず頭から再生する)。
+  useEffect(() => {
+    if (autoPlay && total > 1) setPlaying(true);
+  }, [autoPlay, total]);
 
   // 盤面データパネルのドラッグ移動 (= window mousemove/up を dragging 中のみ購読)。
   useEffect(() => {
@@ -272,10 +282,14 @@ export function SpectateBoard({
       if (!pm) continue;
       // attacker = P{pm}、 defender (= counter を切った側) = 1 - attacker
       const defender = (1 - Number(pm[1])) as 0 | 1;
+      // このフレームで defender の trash に入った全カード = 使ったカウンター札 (複数可)。
+      // 取れなければ trash 末尾 1 枚で fallback。 合計 +N は先頭カードにのみ表示。
+      const added = frameDiff.trashAdded[defender] ?? [];
       const trash = s.players?.[defender]?.trash ?? [];
-      const cardId = trash[trash.length - 1] ?? "";
-      if (!cardId) break;
-      fireCounterPlay(cardId, Number(m[1]), defender === 0 ? "me" : "opp");
+      const cards = added.length ? added : trash.length ? [trash[trash.length - 1]] : [];
+      if (!cards.length) break;
+      const side = defender === 0 ? "me" : "opp";
+      cards.forEach((cid, i) => fireCounterPlay(cid, i === 0 ? Number(m[1]) : 0, side));
       break;
     }
   }, [frameDiff.eventTickId, clampedIdx, snapshots]);
@@ -374,10 +388,17 @@ export function SpectateBoard({
   // perspective: players[1] = 上 (相手枠)、 players[0] = 下 (自分枠)。 観戦なので両方 reveal。
   const top = snap.players[1];
   const bottom = snap.players[0];
-  const log = snapshots
+  // 各ログ行に「どの snapshot(frame) の行か」を付与 (= クリックでその盤面へ移動)。
+  const logEntries = snapshots
     .slice(0, clampedIdx + 1)
-    .flatMap((s) => ((s.log as unknown as string) || "").split("\n"))
-    .filter((l) => l && l.trim().length > 0);
+    .flatMap((s, si) =>
+      ((s.log as unknown as string) || "")
+        .split("\n")
+        .filter((l) => l && l.trim().length > 0)
+        .map((text) => ({ text, frame: si })),
+    );
+  const log = logEntries.map((e) => e.text);
+  const lineFrames = logEntries.map((e) => e.frame);
   const atEnd = clampedIdx >= total - 1;
   const onHover = (h: HoverInfo) => setHovered(h);
   const fieldPower = (p: typeof top) =>
@@ -452,7 +473,16 @@ export function SpectateBoard({
       {/* 左 (= 人間vsAI と同じ min-w-280 flex-1): 相手info + log(コメント可) + 自分stat + 自手札 */}
       <div className="flex min-w-[280px] flex-1 min-h-0 flex-col gap-2">
         <OpponentInfoPanel opp={top} reveal onHover={onHover} />
-        <LogSidebar log={log} aiIdx={1} sessionId={replayKey ?? null} />
+        <LogSidebar
+          log={log}
+          aiIdx={1}
+          sessionId={replayKey ?? null}
+          lineFrames={lineFrames}
+          onJump={(f) => {
+            // 再生状態は維持 (= 再生中ならその盤面から続けて再生)。
+            setIdx(f);
+          }}
+        />
         <div className="shrink-0 rounded border border-emerald-400/50 bg-emerald-950/40 p-2">
           <StatBadge
             player={bottom}
@@ -495,7 +525,7 @@ export function SpectateBoard({
           drag={null}
           onDropTarget={NOOP}
           onHover={onHover}
-          onTrashClick={NOOP}
+          onTrashClick={() => setTrashViewer("opp")}
         />
         <div className="h-px shrink-0 bg-amber-100/30" />
         <PlayerMat
@@ -512,7 +542,7 @@ export function SpectateBoard({
           drag={null}
           onDropTarget={NOOP}
           onHover={onHover}
-          onTrashClick={NOOP}
+          onTrashClick={() => setTrashViewer("me")}
         />
 
         {/* === アニメーション overlay (= 人間vsAI と同じ部品、 snap/frameDiff 駆動) === */}
@@ -900,6 +930,16 @@ export function SpectateBoard({
             </table>
           </div>
         </div>
+      )}
+
+      {/* トラッシュ閲覧 modal (= 人間vsAI と同じ TrashViewer。 trash クリックで開く) */}
+      {trashViewer && (
+        <TrashViewer
+          side={trashViewer}
+          cards={trashViewer === "me" ? bottom.trash : top.trash}
+          onClose={() => setTrashViewer(null)}
+          onHover={onHover}
+        />
       )}
     </div>
   );

@@ -1,19 +1,19 @@
 {
-  "sample_size": 10,
-  "defense_activity": 0.4312,
-  "counter_value_avg": 1333.3,
-  "aggression": 0.956,
-  "mulligan_keep_rate": 0.2,
-  "avg_turns": 10.9,
-  "human_winrate_vs_ai": 0.8,
-  "face_hits_per_turn": 0.3945,
+  "sample_size": 22,
+  "defense_activity": 0.3333,
+  "counter_value_avg": 1338.0,
+  "aggression": 0.9062,
+  "mulligan_keep_rate": 0.2727,
+  "avg_turns": 10.23,
+  "human_winrate_vs_ai": 0.8182,
+  "face_hits_per_turn": 0.3644,
   "_raw_totals": {
-    "def_counters": 45,
-    "def_blocks": 2,
-    "attacks_face": 87,
-    "attacks_chara": 4,
-    "face_hits": 43,
-    "turns": 109
+    "def_counters": 71,
+    "def_blocks": 4,
+    "attacks_face": 174,
+    "attacks_chara": 18,
+    "face_hits": 82,
+    "turns": 225
   },
   "_note": "sample_size が小さい間は HumanModelAI は greedy に近い (= データ量でスケール)。 公開サーバの試合が増えるほど精度向上。"
 }

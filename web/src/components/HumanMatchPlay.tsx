@@ -23,6 +23,7 @@ import {
   type HumanSessionSpec,
 } from "@/lib/api";
 import type { CharSnapshot, PlayerSnapshot, StateSnapshot } from "@/lib/types";
+import { useTerritoryCell } from "@/lib/useTerritory";
 import {
   useFrameDiff,
   LifeFlashOverlay,
@@ -53,7 +54,7 @@ import {
  * 人間 vs AI 対戦 component (= OPTCGSim 風 + 重ね 手札 + D&D 対応)。
  */
 
-type DeckOption = { slug: string; name: string };
+type DeckOption = { slug: string; name: string; kind?: string; leader?: string };
 
 type Selection =
   | null
@@ -94,14 +95,49 @@ type DropTarget =
   | { kind: "opp_chara"; iid: number }
   | { kind: "self_counter"; handIdx: number };
 
-export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
-  const [deckA, setDeckA] = useState<string>(decks[0]?.slug ?? "");
-  const [deckB, setDeckB] = useState<string>(decks[0]?.slug ?? "");
+export function HumanMatchPlay({
+  decks,
+  initialDeckA,
+  challengeCellId,
+}: {
+  decks: DeckOption[];
+  initialDeckA?: string;
+  // 陣取り (/grow) からの挑戦なら対象マス index。 勝利時にそのマスの占領を試みる。
+  challengeCellId?: number;
+}) {
+  // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
+  const firstUserDeck =
+    decks.find((d) => d.kind === "user")?.slug ?? decks[0]?.slug ?? "";
+  const firstMetaDeck =
+    decks.find((d) => d.kind === "meta")?.slug ?? decks[0]?.slug ?? "";
+  // /play?deck=slug で指定されたデッキがあれば人間側の既定に (= デッキ詳細から「対戦」)。
+  const defaultDeckA =
+    initialDeckA && decks.some((d) => d.slug === initialDeckA) ? initialDeckA : firstUserDeck;
+  const [deckA, setDeckA] = useState<string>(defaultDeckA);
+  const [deckB, setDeckB] = useState<string>(firstMetaDeck);
   const [seed, setSeed] = useState<number>(42);
   const [humanFirst, setHumanFirst] = useState<"random" | "first" | "second">(
     "random",
   );
   const [state, setState] = useState<HumanMatchState | null>(null);
+  // 陣取り挑戦の情報 (= start 応答の challenge)。 保存時に占領を試みる際に使う。
+  const [challenge, setChallenge] = useState<HumanMatchState["challenge"] | null>(null);
+  // 保存後の占領結果 (= 占領成功 / レース負けで奪取ならず)。 完了バナー表示用。
+  const [captureResult, setCaptureResult] =
+    useState<{ captured: boolean; non_stakes: boolean } | null>(null);
+  // 対戦中に他人が先に奪取した (race) → モーダル表示。 「続ける」で dismiss。
+  const [raceModal, setRaceModal] = useState(false);
+  const [raceDismissed, setRaceDismissed] = useState(false);
+  // 挑戦中マスの version を短間隔で監視し、 対戦中に他人が先に奪取した race を検知。
+  const { cell: liveChallengeCell } = useTerritoryCell(challenge?.cell_id ?? null, {
+    active: challenge != null && !state?.game_over && !raceDismissed,
+  });
+  useEffect(() => {
+    if (!challenge || raceDismissed || raceModal || state?.game_over) return;
+    if (liveChallengeCell && liveChallengeCell.version > challenge.expected_version) {
+      setRaceModal(true); // 開始時 version から進んだ = 別の挑戦者が先に奪取した
+    }
+  }, [liveChallengeCell, challenge, raceDismissed, raceModal, state?.game_over]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // 「対戦開始」 押下 から CardPreloader 完了まで の preload phase
@@ -302,7 +338,10 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
       const next = await startHumanMatch(deckA, deckB, {
         seed,
         human_first: hf,
+        cell_id: challengeCellId,
       });
+      // 陣取り挑戦なら server が返した対象マス情報 (開始時 version + 防衛側) を保持。
+      setChallenge(next.challenge ?? null);
       // 相手先行 等 で 初期 frame が 複数 ある場合 は 順次 再生
       const frames = next.frames ?? [];
       if (frames.length > 1) {
@@ -673,11 +712,31 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     if (!state?.game_over) return;
     if (savedResultRef.current === sessionId) return;
     savedResultRef.current = sessionId;
-    saveHumanMatchResult(sessionId, buildResume())
+    // 陣取り挑戦なら占領コンテキストを付ける (= 勝利時に server が CAS で占領を試みる)。
+    const humanLeader = decks.find((d) => d.slug === deckA)?.leader ?? null;
+    const challengeCtx =
+      challengeCellId != null && challenge != null
+        ? {
+            cell_id: challenge.cell_id,
+            expected_version: challenge.expected_version,
+            human_leader_id: humanLeader,
+            human_variant_id: humanLeader,
+            defender_leader_id: challenge.defender_leader_id,
+            defender_variant_id: challenge.defender_variant_id,
+            defender_user: challenge.defender_user,
+          }
+        : undefined;
+    saveHumanMatchResult(sessionId, buildResume(), challengeCtx)
       .then((res) => {
         console.log(
           `[human_play] result saved (${res.destination ?? "blob"}): ${res.url}`,
         );
+        if (res.territory?.cell_id != null && res.territory.capture) {
+          setCaptureResult({
+            captured: res.territory.capture.captured,
+            non_stakes: res.territory.non_stakes,
+          });
+        }
       })
       .catch((err) => {
         console.warn("[human_play] save_result failed:", err);
@@ -752,19 +811,23 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
     if (!m) return;
     const aiPlayer = snap.players?.[aiIdx];
     const trash = aiPlayer?.trash ?? [];
-    const cardId = trash[trash.length - 1] ?? "";
+    // このフレームで AI の trash に入った全カード = AI が切ったカウンター札 (複数可)。
+    // 取れなければ trash 末尾 1 枚で fallback。 合計 +N は先頭カードにのみ表示。
+    const added = frameDiff.trashAdded[aiIdx] ?? [];
+    const cards = added.length ? added : trash.length ? [trash[trash.length - 1]] : [];
     const value = Number(m[1]);
-    if (cardId) {
-      fireCounterPlay(cardId, value, "opp");
+    if (cards.length) {
+      cards.forEach((cid, i) => fireCounterPlay(cid, i === 0 ? value : 0, "opp"));
       // PlayedCardOverlay で 同じ card が 別演出 (= 上から下 スライド) で 二重 表示
       // される のを 防止。 ~3 秒 後 に 自動 clear (= CounterPlayOverlay 完了 後)。
-      setUsedCounterCardIdsOpp((prev) => [...prev, cardId]);
+      setUsedCounterCardIdsOpp((prev) => [...prev, ...cards]);
       setTimeout(() => {
         setUsedCounterCardIdsOpp((prev) => {
-          const idx = prev.indexOf(cardId);
-          if (idx < 0) return prev;
           const out = prev.slice();
-          out.splice(idx, 1);
+          for (const cid of cards) {
+            const idx = out.indexOf(cid);
+            if (idx >= 0) out.splice(idx, 1);
+          }
           return out;
         });
       }, 3000);
@@ -1885,6 +1948,42 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
         tickId={frameDiff.eventTickId}
       />
 
+      {/* 対戦中に他人が先にこのマスを奪取した (race) → 継続 / 新占領者へ挑戦 を選択 */}
+      {raceModal && challenge && !state.game_over && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="max-w-md rounded-xl border border-amber-400 bg-zinc-900 p-6 text-center shadow-2xl">
+            <div className="text-lg font-bold text-amber-200">
+              別の挑戦者が先にこのマスを奪取しました
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              対戦中に、別のプレイヤーがマス #{challenge.cell_id + 1} を先に占領しました。
+              <br />
+              この対戦を<strong className="text-amber-200">続けても、このマスは奪取できません</strong>
+              （対戦の記録は残り、AI の学習には使われます）。
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRaceModal(false);
+                  setRaceDismissed(true);
+                }}
+                className="flex-1 rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:bg-zinc-800"
+              >
+                この対戦を続ける
+              </button>
+              <button
+                type="button"
+                onClick={() => window.location.assign(`/play?cell=${challenge.cell_id}`)}
+                className="flex-1 rounded-lg bg-[color:var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
+              >
+                新しい占領者へ挑戦
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
       {state.game_over && (
         <div className="pointer-events-none absolute inset-0 z-[55] flex items-center justify-center">
@@ -1923,6 +2022,22 @@ export function HumanMatchPlay({ decks }: { decks: DeckOption[] }) {
             <div className="mt-2 text-sm font-semibold text-cyan-200">
               この 1 戦も AI の学習データになりました — ご協力ありがとうございます
             </div>
+            {captureResult && (
+              <div
+                className={
+                  "mx-auto mt-4 max-w-md rounded-lg border px-4 py-2 text-sm font-bold " +
+                  (captureResult.captured
+                    ? "border-emerald-300 bg-emerald-800/70 text-emerald-100"
+                    : "border-amber-300 bg-amber-800/70 text-amber-100")
+                }
+              >
+                {captureResult.captured
+                  ? `マス #${(challenge?.cell_id ?? 0) + 1} を占領しました`
+                  : captureResult.non_stakes
+                    ? "対戦中に別の挑戦者が先にこのマスを奪取したため、占領はできませんでした（この対戦も学習には使われます）"
+                    : "このマスは占領できませんでした"}
+              </div>
+            )}
           </motion.div>
         </div>
       )}
@@ -2468,18 +2583,60 @@ function StartPanel({
   busy: boolean;
   error: string | null;
 }) {
+  const router = useRouter();
   const humanDeck = decks.find((d) => d.slug === deckA);
   const aiDeck = decks.find((d) => d.slug === deckB);
+  // 両サイド 環境デッキ / マイデッキ を選べる (= AI vs AI と同じカテゴリ切替)。
+  const myDecks = decks.filter((d) => d.kind === "user");
+  const inCat = (cat: "meta" | "user") => decks.filter((d) => (d.kind ?? "meta") === cat);
+  const catOf = (slug: string): "meta" | "user" =>
+    (decks.find((d) => d.slug === slug)?.kind as "meta" | "user") ?? "meta";
+  const [catA, setCatA] = useState<"meta" | "user">(catOf(deckA));
+  const [catB, setCatB] = useState<"meta" | "user">(catOf(deckB));
+  const optionsA = inCat(catA).length ? inCat(catA) : decks;
+  const optionsB = inCat(catB).length ? inCat(catB) : decks;
+  const changeCatA = (c: "meta" | "user") => {
+    setCatA(c);
+    const first = inCat(c)[0]?.slug;
+    if (first) setDeckA(first);
+  };
+  const changeCatB = (c: "meta" | "user") => {
+    setCatB(c);
+    const first = inCat(c)[0]?.slug;
+    if (first) setDeckB(first);
+  };
+  // カテゴリ切替ボタン (= AI vs AI の SideCard と同スタイル)。
+  const CatToggle = ({ cat, onChange }: { cat: "meta" | "user"; onChange: (c: "meta" | "user") => void }) => (
+    <div className="flex gap-1">
+      {([["meta", "環境デッキ"], ["user", "マイデッキ"]] as const).map(([key, label]) => {
+        const active = cat === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            disabled={busy}
+            className="flex-1 rounded-[var(--radius)] border px-2 py-1 text-xs font-medium transition-colors"
+            style={active ? { background: "var(--brand)", borderColor: "transparent", color: "#fff" } : { borderColor: "var(--border-2)", color: "var(--text-default)" }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       {/* Hero header */}
-      <header className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-8 shadow-sm dark:border-zinc-800 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-rose-950/30">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          人間 vs AI 対戦
+      <header
+        className="rounded-[var(--radius)] border border-l-2 bg-[color:var(--surface-1)] p-6"
+        style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
+      >
+        <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-strong)]">
+          人間 vs AI
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          AI と ドラッグ&ドロップ で 実戦練習。 手札 → 自フィールド で
-          deploy、 自キャラ → 相手 で attack、 DON → 自リーダー/キャラ で attach。
+        <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
+          自分のデッキと相手 (AI) を選んで対戦開始。 ドラッグ&ドロップで deploy / attack / DON 付与。
         </p>
       </header>
 
@@ -2487,34 +2644,57 @@ function StartPanel({
       {/* VS panel: 2 deck cards + center VS */}
       <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
         {/* 人間 side */}
-        <div className="flex flex-col gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-5 shadow-sm dark:border-emerald-700 dark:bg-emerald-950/40">
+        <div
+          className="flex flex-col gap-3 rounded-[var(--radius)] border border-t-2 bg-[color:var(--surface-1)] p-4"
+          style={{ borderColor: "var(--border-1)", borderTopColor: "var(--accent)" }}
+        >
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-emerald-500 px-3 py-0.5 text-xs font-bold text-white">
+            <span className="rounded px-2 py-0.5 text-xs font-bold text-black" style={{ background: "var(--accent)" }}>
               人間
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               あなたが操作
             </span>
           </div>
+          <div className="flex justify-center">
+            {humanDeck?.leader ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/decks/${humanDeck.slug}`)}
+                title="デッキ情報を新しいタブで開く"
+                className="rounded-[var(--radius)] transition hover:ring-2 hover:ring-[color:var(--brand)] hover:brightness-110"
+              >
+                <CardImage cardId={humanDeck.leader} alt={humanDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              </button>
+            ) : (
+              <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
+                未選択
+              </div>
+            )}
+          </div>
+          <CatToggle cat={catA} onChange={changeCatA} />
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-zinc-500">デッキ選択</span>
             <select
               value={deckA}
               onChange={(e) => setDeckA(e.target.value)}
-              className="rounded-md border border-emerald-300 bg-white p-2 text-sm font-semibold text-zinc-900 dark:border-emerald-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
               disabled={busy}
             >
-              {decks.map((d) => (
+              {optionsA.map((d) => (
                 <option key={d.slug} value={d.slug}>
                   {d.name}
                 </option>
               ))}
             </select>
           </label>
-          {humanDeck && (
-            <div className="text-xs text-zinc-500">
-              選択中: <span className="font-mono">{humanDeck.slug}</span>
-            </div>
+          {catA === "user" && myDecks.length === 0 && (
+            <a
+              href="/decks/new"
+              className="text-xs font-medium text-[color:var(--brand)] underline underline-offset-2"
+            >
+              自分のデッキを作成する
+            </a>
           )}
         </div>
 
@@ -2526,41 +2706,56 @@ function StartPanel({
         </div>
 
         {/* AI side */}
-        <div className="flex flex-col gap-3 rounded-xl border-2 border-rose-300 bg-rose-50/60 p-5 shadow-sm dark:border-rose-700 dark:bg-rose-950/40">
+        <div
+          className="flex flex-col gap-3 rounded-[var(--radius)] border border-t-2 bg-[color:var(--surface-1)] p-4"
+          style={{ borderColor: "var(--border-1)", borderTopColor: "var(--danger)" }}
+        >
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-rose-500 px-3 py-0.5 text-xs font-bold text-white">
+            <span className="rounded px-2 py-0.5 text-xs font-bold text-white" style={{ background: "var(--danger)" }}>
               AI
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               AI が操作
             </span>
           </div>
+          <div className="flex justify-center">
+            {aiDeck?.leader ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/decks/${aiDeck.slug}`)}
+                title="デッキ情報を新しいタブで開く"
+                className="rounded-[var(--radius)] transition hover:ring-2 hover:ring-[color:var(--brand)] hover:brightness-110"
+              >
+                <CardImage cardId={aiDeck.leader} alt={aiDeck.name} className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              </button>
+            ) : (
+              <div className="flex h-36 w-[93px] items-center justify-center rounded-[var(--radius)] border border-dashed text-xs text-[color:var(--text-muted)]" style={{ borderColor: "var(--border-2)" }}>
+                未選択
+              </div>
+            )}
+          </div>
+          <CatToggle cat={catB} onChange={changeCatB} />
           <label className="flex flex-col gap-1 text-xs">
             <span className="text-zinc-500">デッキ選択</span>
             <select
               value={deckB}
               onChange={(e) => setDeckB(e.target.value)}
-              className="rounded-md border border-rose-300 bg-white p-2 text-sm font-semibold text-zinc-900 dark:border-rose-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="rounded-[var(--radius)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] p-2 text-sm font-medium text-[color:var(--text-strong)]"
               disabled={busy}
             >
-              {decks.map((d) => (
+              {optionsB.map((d) => (
                 <option key={d.slug} value={d.slug}>
                   {d.name}
                 </option>
               ))}
             </select>
           </label>
-          {aiDeck && (
-            <div className="text-xs text-zinc-500">
-              選択中: <span className="font-mono">{aiDeck.slug}</span>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Match options */}
-      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">
+      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+        <h2 className="text-sm font-semibold text-[color:var(--text-strong)]">
           対戦オプション
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2612,7 +2807,8 @@ function StartPanel({
         type="button"
         onClick={onStart}
         disabled={busy || !deckA || !deckB}
-        className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-5 text-xl font-bold text-white shadow-lg transition hover:from-emerald-400 hover:to-emerald-500 hover:shadow-xl active:scale-[0.98] disabled:from-zinc-400 disabled:to-zinc-500 disabled:opacity-50"
+        className="rounded-[var(--radius)] px-8 py-4 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
+        style={{ background: "var(--brand)" }}
       >
         {busy ? "開始中..." : "▶ 対戦 開始"}
       </button>
@@ -3805,10 +4001,16 @@ export function LogSidebar({
   log,
   aiIdx,
   sessionId,
+  lineFrames,
+  onJump,
 }: {
   log: string[];
   aiIdx: number;
   sessionId: string | null;
+  /** 各ログ行に対応する snapshot index (= クリックでその盤面へ移動、 観戦replay用)。 */
+  lineFrames?: number[];
+  /** ログ行クリックで呼ぶ (frame index を渡す)。 */
+  onJump?: (frame: number) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // log が 増える 度 に 最下部 (= 最新行) へ 自動 スクロール
@@ -3871,11 +4073,32 @@ export function LogSidebar({
                 </div>,
               );
             }
+            const isLast = i === log.length - 1;
+            const canJump = !!onJump && !!lineFrames;
+            // 背景 = 手番側の色 (最新行は濃く)。 sub は最新時のみ着色。
+            const bg = isHuman
+              ? isLast
+                ? "bg-emerald-500/30 "
+                : isSub
+                  ? ""
+                  : "bg-emerald-500/10 "
+              : isAI
+                ? isLast
+                  ? "bg-rose-500/30 "
+                  : isSub
+                    ? ""
+                    : "bg-rose-500/10 "
+                : "";
             rows.push(
               <div
                 key={i}
+                onClick={canJump ? () => onJump!(lineFrames![i]) : undefined}
                 className={
-                  "cursor-context-menu border-b border-zinc-700/40 py-0.5 transition-colors hover:bg-zinc-700/30 " +
+                  "border-b border-zinc-700/40 transition-colors hover:brightness-125 " +
+                  (canJump ? "cursor-pointer " : "cursor-context-menu ") +
+                  // 最新の一番下は大きく強調
+                  (isLast ? "rounded py-1.5 text-sm font-semibold " : "py-0.5 ") +
+                  bg +
                   (isSub ? "pl-4 text-zinc-400 " : "") +
                   (!isSub && isAI ? "text-rose-100 " : "") +
                   (!isSub && isHuman ? "text-emerald-100 " : "") +
@@ -3885,7 +4108,9 @@ export function LogSidebar({
                 title={
                   hasComment
                     ? `${shown} (コメント済)`
-                    : `${shown} — 右クリックで メモ`
+                    : canJump
+                      ? `${shown} — クリックでこの盤面へ / 右クリックで メモ`
+                      : `${shown} — 右クリックで メモ`
                 }
                 onContextMenu={(e) => {
                   if (!sessionId) return;
@@ -7397,7 +7622,7 @@ function RevealTopPlayConfirmModal({
 // トラッシュ閲覧 modal
 // ========================================================================== //
 
-function TrashViewer({
+export function TrashViewer({
   side,
   cards,
   onClose,

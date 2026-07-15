@@ -3,16 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuthControls } from "./AuthControls";
 
-const NAV = [
-  { href: "/cards", label: "カード" },
-  { href: "/combos", label: "コンボ探索" },
-  { href: "/decks", label: "デッキ" },
-  { href: "/play", label: "対戦" },
-  { href: "/research", label: "研究" },
-  { href: "/meta", label: "メタ分析" },
-  { href: "/faq", label: "Q&A" },
+// pub=true は公開デプロイ (NEXT_PUBLIC_PUBLIC_MODE=1) でも出すもの。 研究系 (コンボ探索/研究/
+// メタ分析) は公開モードでは隠す (= API 側も PUBLIC_MODE で 403、 二重で締める)。 ローカルは全表示。
+const ALL_NAV = [
+  { href: "/cards", label: "カード", pub: true },
+  { href: "/combos", label: "コンボ探索", pub: false },
+  { href: "/decks", label: "デッキ", pub: true },
+  { href: "/play", label: "対戦", pub: true },
+  { href: "/research", label: "研究", pub: false },
+  { href: "/meta", label: "メタ分析", pub: false },
+  { href: "/faq", label: "Q&A", pub: true },
 ] as const;
+
+const PUBLIC_MODE = process.env.NEXT_PUBLIC_PUBLIC_MODE === "1";
+const NAV = PUBLIC_MODE ? ALL_NAV.filter((n) => n.pub) : ALL_NAV;
 
 export function Sidebar() {
   const path = usePathname();
@@ -33,59 +39,52 @@ export function Sidebar() {
   }, [path]);
   if (path?.startsWith("/play") && matchActive) return null;
   return (
-    <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+    <aside
+      className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r"
+      style={{ background: "var(--sidebar-bg)", borderColor: "var(--border-1)" }}
+    >
       <Link
         href="/"
-        className="flex items-center gap-3 border-b border-zinc-200 px-4 py-4 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        className="flex items-center gap-2.5 border-b px-3 py-3 transition-colors hover:bg-[var(--list-hover)]"
+        style={{ borderColor: "var(--border-1)" }}
       >
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold tracking-tight text-white"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--brand-strong) 0%, var(--brand) 60%, var(--accent) 100%)",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
-          }}
+        <span
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[11px] font-bold text-white"
+          style={{ background: "var(--brand)" }}
           aria-hidden
         >
           OP
-        </div>
-        <div className="leading-tight">
-          <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-            ワンピース
-          </div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            カード研究所
-          </div>
-        </div>
+        </span>
+        <span className="text-[13px] font-semibold tracking-tight text-[var(--text-strong)]">
+          OPTCG
+        </span>
       </Link>
-      <nav
-        className="flex flex-col gap-0.5 p-2 pt-3"
-        aria-label="メインナビゲーション"
-      >
+      <div className="px-3 pb-1 pt-3 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        メニュー
+      </div>
+      <nav className="flex flex-col" aria-label="メインナビゲーション">
         {NAV.map(({ href, label }) => {
           const active = path === href || path.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
-              className={`rounded-md px-3 py-2 text-sm transition-colors ${
+              className={`px-4 py-1.5 text-[13px] transition-colors ${
                 active
-                  ? "bg-zinc-200 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100"
+                  ? "border-l-2 border-[var(--brand)] bg-[var(--brand-soft)] pl-[calc(1rem-2px)] text-white"
+                  : "text-[var(--text-default)] hover:bg-[var(--list-hover)] hover:text-white"
               }`}
-              style={
-                active
-                  ? { borderLeft: "2px solid var(--brand)", paddingLeft: "calc(0.75rem - 2px)" }
-                  : undefined
-              }
             >
               {label}
             </Link>
           );
         })}
       </nav>
-      <div className="mt-auto border-t border-zinc-200 px-4 py-3 text-[10px] text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-        Research Platform
+      <div
+        className="mt-auto flex flex-col gap-2 border-t px-3 py-2.5"
+        style={{ borderColor: "var(--border-1)" }}
+      >
+        <AuthControls />
       </div>
     </aside>
   );
