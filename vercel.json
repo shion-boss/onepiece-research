@@ -5,10 +5,13 @@
       "runtime": "@vercel/python@6.41.0",
       "maxDuration": 300,
       "memory": 2048,
-      "includeFiles": "{engine,db,decks,api}/**"
+      "includeFiles": "{engine,db,decks,api,scripts}/**"
     }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/faq/refresh", "schedule": "0 3 * * 1" }
   ]
 }

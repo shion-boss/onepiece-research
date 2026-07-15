@@ -722,6 +722,14 @@ export async function fetchFaqSources(): Promise<FaqSource[]> {
   return res.json();
 }
 
+export type FaqMeta = { count: number; sources: number; generated_at: string | null };
+
+export async function fetchFaqMeta(): Promise<FaqMeta> {
+  const res = await fetch(`${API}/api/faq/meta`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetchFaqMeta failed: ${res.status}`);
+  return res.json();
+}
+
 // ---- Phase A: 人間 vs AI 対戦 セッション API ---- //
 
 export type HumanLegalAction = {

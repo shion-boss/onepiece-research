@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { fetchFaqSources, searchFaq } from "@/lib/api";
+import { fetchFaqSources, fetchFaqMeta, searchFaq, type FaqMeta } from "@/lib/api";
 import type { FaqHit, FaqSource } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageShell } from "@/components/ui/PageShell";
@@ -17,6 +17,7 @@ const TABS: { key: string; label: string; prefix: string | null }[] = [
 
 export default function FaqPage() {
   const [sources, setSources] = useState<FaqSource[]>([]);
+  const [meta, setMeta] = useState<FaqMeta | null>(null);
   const [q, setQ] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [hitsAll, setHitsAll] = useState<FaqHit[]>([]);
@@ -27,6 +28,7 @@ export default function FaqPage() {
     fetchFaqSources()
       .then(setSources)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    fetchFaqMeta().then(setMeta).catch(() => {});
   }, []);
 
   const tokens = useMemo(
@@ -84,6 +86,18 @@ export default function FaqPage() {
         title="Q&A"
         description={`公式 Q&A 横断検索 (${totalQa.toLocaleString()} 件 / ${sources.length} ソース)。 複数キーワードは スペース区切り で AND 検索。`}
       />
+
+      {meta?.generated_at && (
+        <p className="-mt-2 mb-3 text-xs text-[color:var(--text-muted)]">
+          データ最終更新:{" "}
+          {new Date(meta.generated_at).toLocaleDateString("ja-JP", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          })}
+          （{meta.count.toLocaleString()} 件）
+        </p>
+      )}
 
       <div className="rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3">
         <input
