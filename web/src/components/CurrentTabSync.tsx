@@ -30,7 +30,10 @@ export function CurrentTabSync() {
     setActiveTabId(tabId);
     // ルート "/" は「タブ無し = ようこそ/空状態」なのでタブ化しない。
     if (path === "/") return;
-    openTab({ id: tabId, title });
+    // effect 実行時点の最新 override を読む (= ページの SetTabTitle が先に set 済みなら
+    // その名前でタブを開く = slug で開いてしまう race を防ぐ)。
+    const latest = useWorkspace.getState().tabTitleOverrides[tabId];
+    openTab({ id: tabId, title: latest ?? title });
   }, [tabId, title, path, openTab, setActiveTabId]);
 
   return null;

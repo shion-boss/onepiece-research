@@ -47,9 +47,10 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
     })),
   openTab: (t) =>
     set((s) =>
-      s.tabs.some((x) => x.id === t.id)
-        ? { tabs: s.tabs.map((x) => (x.id === t.id ? { ...x, title: t.title } : x)) }
-        : { tabs: [...s.tabs, t] },
+      // 既存タブのタイトルは上書きしない (= ページ側 setTabTitle が付けたデッキ名等を
+      // CurrentTabSync の再 openTab で slug に戻してしまう race を防ぐ)。 タイトル変更は
+      // setTabTitle が唯一の手段。 override が優先されるので新規作成時も正しい名前で開く。
+      s.tabs.some((x) => x.id === t.id) ? {} : { tabs: [...s.tabs, t] },
     ),
   closeTab: (id) => set((s) => ({ tabs: s.tabs.filter((x) => x.id !== id) })),
   closeAllTabs: () => set({ tabs: [] }),
@@ -98,9 +99,17 @@ export function tabTitleFor(path: string): string {
   };
   if (map[path]) return map[path];
   const seg = path.split("/").filter(Boolean);
+  const dec = (s: string) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  };
   if (seg[0] === "decks" && seg[1]) {
-    if (seg[2] === "analyze") return `${seg[1]} · 分析`;
-    return seg[1];
+    // slug は override (デッキ名) が優先。 fallback は URL デコードして文字化けを避ける。
+    if (seg[2] === "analyze") return `${dec(seg[1])} · 分析`;
+    return dec(seg[1]);
   }
-  return seg[seg.length - 1] ?? path;
+  return dec(seg[seg.length - 1] ?? path);
 }
