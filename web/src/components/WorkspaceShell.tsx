@@ -483,7 +483,7 @@ function ExplorerPanel({ path }: { path: string }) {
 
       {/* マイデッキ = ルートフォルダ (ここにドロップでルートへ) */}
       <div className={dragOver === "" ? "bg-[var(--brand-soft)]" : ""} {...dropProps("")}>
-        <FolderHeader label="マイデッキ（非公開）" open={mineOpen} depth={0} onToggle={() => toggleFolder("__mine__")} />
+        <FolderHeader label="マイデッキ" open={mineOpen} depth={0} onToggle={() => toggleFolder("__mine__")} />
         {mineOpen && (
           <div className="border-l" style={{ marginLeft: "10px", borderColor: "var(--border-1)" }}>
             {decks === null && <Muted>読み込み中…</Muted>}
