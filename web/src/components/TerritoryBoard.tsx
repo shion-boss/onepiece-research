@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CardImage } from "./CardImage";
 import { CellPanel } from "./CellHistoryPanel";
 import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
@@ -103,7 +104,8 @@ function buildCellsFromBoard(
       owner: ld,
       ownerName: c.user,
       color: COLOR_HEX[ld.color] ?? "#888",
-      block: null,
+      // 占領マスはリーダーのカード絵 (上部正方形) を 1×1 で表示 → 盤が推しの絵で埋まる。
+      block: { w: 1, h: 1, r: 0, c: 0 },
     };
   }
   return cells;
@@ -242,12 +244,12 @@ export const BoardGrid = memo(function BoardGrid({
               const L = Math.max(w, h); // 長い方に合わせる (縦長なら縦=L)
               const imgCol = cc + (L - w) / 2; // 横は中央
               return (
-                <img
-                  src={`/cards/${c.owner.id}.png`}
+                // CardImage = ローカル /cards/<id>.png → 404 なら公式 CDN proxy に fallback
+                // (本番はローカル画像未デプロイなので proxy 経由で表示される)。
+                <CardImage
+                  cardId={c.owner.id}
                   alt=""
                   loading="lazy"
-                  decoding="async"
-                  draggable={false}
                   style={{
                     position: "absolute",
                     width: `${L * ZOOM * 100}%`, // 上半分正方形にズーム
