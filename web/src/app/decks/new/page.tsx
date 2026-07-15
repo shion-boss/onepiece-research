@@ -178,12 +178,15 @@ function NewDeckPageContent() {
         <div>
           <Link
             href="/decks"
-            className="text-sm text-[color:var(--text-muted)] hover:underline"
+            className="inline-flex items-center gap-1 text-sm text-[color:var(--text-muted)] hover:underline"
           >
-            ← /decks
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            マイデッキ
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-strong)]">
-            /decks/new
+            デッキを作る
             {hydrating && (
               <span className="ml-2 text-xs text-[color:var(--text-muted)]">ロード中…</span>
             )}
@@ -238,10 +241,14 @@ function NewDeckPageContent() {
               showFlash("localStorage に保存しました");
             }}
             disabled={!leader}
-            className="rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-default)] transition hover:bg-[var(--list-hover)] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--border-2)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-default)] transition hover:bg-[var(--list-hover)] disabled:opacity-50"
             title="ブラウザの localStorage に下書き保存"
           >
-            💾 下書き
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <path d="M17 21v-8H7v8M7 3v5h7" />
+            </svg>
+            下書き
           </button>
           <label
             className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--border-2)] px-2.5 py-1.5 text-sm text-[color:var(--text-default)] transition hover:bg-[var(--list-hover)]"
@@ -350,9 +357,19 @@ function NewDeckPageContent() {
                   type="button"
                   onClick={onAutoBuild}
                   disabled={autoBuilding}
-                  className="w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[color:var(--brand-strong)] disabled:opacity-50"
                 >
-                  {autoBuilding ? "構築中…" : "🤖 自動構築"}
+                  {autoBuilding ? (
+                    "構築中…"
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M12 2l1.9 6.4L20 10l-6.1 1.6L12 18l-1.9-6.4L4 10l6.1-1.6z" />
+                        <path d="M18.5 13l.9 2.9L22 16.5l-2.6.6L18.5 20l-.9-2.9L15 16.5l2.6-.6z" />
+                      </svg>
+                      自動構築
+                    </>
+                  )}
                 </button>
               </section>
 
