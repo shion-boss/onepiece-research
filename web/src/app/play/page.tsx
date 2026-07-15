@@ -16,8 +16,11 @@ export default async function PlayPage({
   let error: string | null = null;
   try {
     // serverAuthHeaders で自分 (ログインユーザー) の非公開デッキも取得 (= 対戦の人間側候補)。
+    // 下書き (未完成) は対戦の選択肢から除外する。
     const raw = await fetchDecks(await serverAuthHeaders());
-    decks = raw.map((d) => ({ slug: d.slug, name: d.name ?? d.slug, kind: d.kind, leader: d.leader, private: d.private }));
+    decks = raw
+      .filter((d) => !d.draft)
+      .map((d) => ({ slug: d.slug, name: d.name ?? d.slug, kind: d.kind, leader: d.leader, private: d.private }));
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }

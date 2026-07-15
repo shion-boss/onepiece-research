@@ -11,7 +11,10 @@ export function DeckSummaryTile({ deck }: { deck: DeckSummary }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-medium text-[color:var(--text-strong)]">{deck.name}</span>
+            <span className="text-lg font-medium text-[color:var(--text-strong)]">
+              {deck.draft && <span className="text-[color:var(--text-muted)]">(下書き) </span>}
+              {deck.name}
+            </span>
             {deck.regulation && (
               <span
                 className="rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-bold"

@@ -89,6 +89,10 @@ def init_schema() -> None:
             # 以後不変 (save_deck の UPDATE は is_private を触らない)。
             if not _column_exists(cur, "user_decks", "is_private"):
                 cur.execute("ALTER TABLE user_decks ADD COLUMN is_private INTEGER DEFAULT 0")
+            # migration: is_draft (0=通常 / 1=下書き=未完成でも保存可・対戦選択肢に出さない)。
+            # is_private と違い可変 (下書き→完成で 0 に、 保存ボタンで切替)。
+            if not _column_exists(cur, "user_decks", "is_draft"):
+                cur.execute("ALTER TABLE user_decks ADD COLUMN is_draft INTEGER DEFAULT 0")
     finally:
         conn.close()
     _SCHEMA_READY = True
@@ -127,6 +131,8 @@ def _row_to_deck(r) -> dict:
     d["main"] = json.loads(d["main"]) if isinstance(d.get("main"), str) else d.get("main")
     # is_private (0/1) → private (bool)。 非公開デッキは陣取りで使用不可。
     d["private"] = bool(d.get("is_private") or 0)
+    # is_draft (0/1) → draft (bool)。 下書きは対戦選択肢に出さない。
+    d["draft"] = bool(d.get("is_draft") or 0)
     return d
 
 
@@ -162,11 +168,14 @@ def list_decks(owner_id: str) -> list[dict]:
 def save_deck(
     owner_id: str, slug: str, *, name: str, leader: str, main: list,
     regulation: Optional[str] = None, overwrite: bool = False, private: bool = False,
+    draft: bool = False,
 ) -> None:
     """owner のデッキを保存。 既存 slug は overwrite=False で衝突 (= ValueError)。
 
     private (= 非公開 = 陣取りで使用不可) は **生成時 (INSERT) にのみ決定**。 overwrite の
     UPDATE では is_private を触らない = 以後変更不可 ([[project_leader_as_progression_unit]])。
+    draft (= 下書き) は可変 (INSERT/UPDATE 両方で反映) = 下書き→完成で 0 に切替できる。
+    既存が下書きなら overwrite=False でも上書き可 (= 完成保存で下書きを finalize する導線)。
     """
     ensure_user(owner_id)
     main_json = json.dumps(main, ensure_ascii=False)
@@ -176,24 +185,27 @@ def save_deck(
         with conn:
             cur = conn.cursor()
             cur.execute(
-                f"SELECT created_at FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH}",
+                f"SELECT is_draft FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH}",
                 (owner_id, slug),
             )
             existing = cur.fetchone()
-            if existing is not None and not overwrite:
+            existing_is_draft = bool(existing["is_draft"]) if existing is not None else False
+            if existing is not None and not overwrite and not existing_is_draft:
                 raise ValueError(f"slug already exists: {slug}")
             if existing is None:
                 cur.execute(
                     f"INSERT INTO user_decks (owner_id, slug, name, leader, main, regulation, "
-                    f"visibility, is_private, created_at, updated_at) VALUES "
-                    f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'private', {_PH}, {_PH}, {_PH})",
-                    (owner_id, slug, name, leader, main_json, regulation, 1 if private else 0, now, now),
+                    f"visibility, is_private, is_draft, created_at, updated_at) VALUES "
+                    f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'private', {_PH}, {_PH}, {_PH}, {_PH})",
+                    (owner_id, slug, name, leader, main_json, regulation,
+                     1 if private else 0, 1 if draft else 0, now, now),
                 )
             else:
                 cur.execute(
                     f"UPDATE user_decks SET name = {_PH}, leader = {_PH}, main = {_PH}, "
-                    f"regulation = {_PH}, updated_at = {_PH} WHERE owner_id = {_PH} AND slug = {_PH}",
-                    (name, leader, main_json, regulation, now, owner_id, slug),
+                    f"regulation = {_PH}, is_draft = {_PH}, updated_at = {_PH} "
+                    f"WHERE owner_id = {_PH} AND slug = {_PH}",
+                    (name, leader, main_json, regulation, 1 if draft else 0, now, owner_id, slug),
                 )
     finally:
         conn.close()

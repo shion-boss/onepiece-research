@@ -290,6 +290,7 @@ export interface CreateDeckRequest {
   overwrite?: boolean;
   regulation?: string;
   private?: boolean; // 非公開 (= 陣取りで使用不可)。 生成時にのみ有効・以後不変
+  draft?: boolean; // 下書き保存 (= 未完成でも保存、 対戦選択肢に出さない)
 }
 
 export interface CreateDeckResponse {

@@ -74,7 +74,7 @@ const HISTORY_ACT: { view: ActivityView; label: string; icon: ReactNode } = {
   icon: IconHistory,
 };
 
-type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[]; folder?: string; private?: boolean };
+type DeckRow = { slug: string; name: string; kind?: string; leader_color?: string[]; folder?: string; private?: boolean; draft?: boolean };
 
 const COLOR_HEX: Record<string, string> = {
   赤: "#f14c4c", 緑: "#4ec9b0", 青: "#3794ff", 紫: "#c586c0", 黒: "#6a6a72", 黄: "#cca700",
@@ -572,7 +572,10 @@ function MyDeckRow({
         className="h-2.5 w-2.5 shrink-0 rounded-sm"
         style={{ background: (color && COLOR_HEX[color]) || "#4a4a52" }}
       />
-      <span className="flex-1 truncate">{deck.name}</span>
+      <span className="flex-1 truncate">
+        {deck.draft && <span className="text-[color:var(--text-muted)]">(下書き) </span>}
+        {deck.name}
+      </span>
       {deck.private && (
         <svg
           width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
