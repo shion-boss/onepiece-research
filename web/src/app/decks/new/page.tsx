@@ -262,22 +262,28 @@ function NewDeckPageContent() {
             </svg>
             下書き
           </button>
-          <label
-            className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--border-2)] px-2.5 py-1.5 text-sm text-[color:var(--text-default)] transition hover:bg-[var(--list-hover)]"
-            title="非公開デッキは陣取りの防衛に使われません（相手に露出しない）。作成後は変更できません。"
+          <button
+            type="button"
+            onClick={() => setIsPrivate((v) => !v)}
+            aria-pressed={isPrivate}
+            title={
+              isPrivate
+                ? "非公開: 陣取りの防衛に使われません（相手に露出しない）。作成後は変更できません。クリックで公開に切替。"
+                : "公開: 陣取りで使えます（占領すると相手が対戦）。クリックで非公開に切替。作成後は変更できません。"
+            }
+            className={`inline-flex items-center gap-1.5 rounded-[var(--radius)] border px-2.5 py-1.5 text-sm font-medium transition ${
+              isPrivate
+                ? "border-transparent bg-orange-500 text-white hover:bg-orange-600"
+                : "border-[color:var(--border-2)] text-[color:var(--text-default)] hover:bg-[var(--list-hover)]"
+            }`}
           >
-            <input
-              type="checkbox"
-              checked={isPrivate}
-              onChange={(e) => setIsPrivate(e.target.checked)}
-              className="accent-[color:var(--brand)]"
-            />
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <rect x="3" y="11" width="18" height="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              {/* 非公開=閉じた鍵 / 公開=開いた鍵 */}
+              <path d={isPrivate ? "M7 11V7a5 5 0 0 1 10 0v4" : "M7 11V7a5 5 0 0 1 9.9-1"} />
             </svg>
-            非公開
-          </label>
+            {isPrivate ? "非公開" : "公開"}
+          </button>
           <button
             type="button"
             onClick={async () => {
