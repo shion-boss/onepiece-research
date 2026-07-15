@@ -158,8 +158,11 @@ function NewDeckPageContent() {
           // 失敗はスキップ
         }
       }
-      // 全カード削除して再構築
+      // 全カード削除して再構築。 レギュレーション(STD/EX)は維持する
+      // (reset() が standard に戻すため、 現在値を退避して復元)。
+      const keepRegulation = regulation;
       reset();
+      setRegulation(keepRegulation);
       setLeader(leader);
       setName(result.name);
       for (const e of result.main) {
