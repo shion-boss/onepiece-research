@@ -2573,6 +2573,55 @@ def deck_report(slug: str, user_id: str = Depends(current_user_id)):
     return rep
 
 
+@app.get("/api/decks/{slug}/human-history")
+def deck_human_history(slug: str, limit: int = 15, user_id: str = Depends(current_user_id)):
+    """デッキの人間 vs AI 直近対戦履歴 (= このデッキ視点の win/loss)。
+
+    meta デッキは全ユーザー横断で貯まる (= 誰が使っても / AI が使っても このデッキの履歴)。
+    user デッキは所有者のみ (= 他人の非公開デッキの履歴は見せない)。
+    """
+    from api import user_store
+    limit = max(1, min(50, int(limit)))
+    if not _is_meta_deck(slug):
+        # user デッキ: 所有者本人以外には空を返す (= 非公開性を保つ)。
+        if user_store.get_deck(user_id, slug) is None:
+            return []
+    rows = user_store.get_human_matches(slug, limit)
+    repo = get_repo()
+
+    def _leader_name(cid):
+        if not cid:
+            return None
+        try:
+            return repo.get(cid).name
+        except Exception:
+            return cid
+
+    out = []
+    for r in rows:
+        is_human_side = (r["deck_human_slug"] == slug)  # このデッキを人間が操作したか
+        opp_leader = r["ai_leader"] if is_human_side else r["human_leader"]
+        wfh = r.get("winner_for_human")
+        if wfh is None or wfh == -1:
+            result = "draw"
+        elif is_human_side:
+            result = "win" if wfh == 1 else "loss"
+        else:  # デッキは AI 側 (= 相手が このメタデッキで AI 操縦)
+            result = "win" if wfh == 0 else "loss"
+        out.append({
+            "id": r["id"],
+            "created_at": r["created_at"],
+            "result": result,                       # このデッキ視点
+            "side": "human" if is_human_side else "ai",  # このデッキを人間/AI どちらが操作したか
+            "opponent_leader": _leader_name(opp_leader),
+            "turns": r.get("turns"),
+            "went_first": bool(r["human_first"]) if is_human_side else (not bool(r["human_first"])),
+            "source": r.get("source") or "practice",
+            "non_stakes": bool(r.get("non_stakes")),
+        })
+    return out
+
+
 @app.post("/api/decks/{slug}/analyze-request")
 def deck_analyze_request(slug: str, user_id: str = Depends(current_user_id)):
     """デッキ分析を手動で要求 (= 再分析 / 既存デッキの初回分析)。 pending にして enqueue。
@@ -4619,6 +4668,30 @@ def human_match_save_result(
             _BATTLE_RECORDED.add(sid)
         except Exception as e:
             print(f"[territory] record_battle failed (sid={sid}): {e}")
+
+    # 完了試合を per-deck 履歴に1行記録 (= デッキ詳細の直近対戦履歴 + AI 操縦/改善の索引)。
+    # 中断 (game_over=False) は結果が無いので記録しない。 idempotent (sid キー)。
+    if session.state.game_over:
+        try:
+            from api import user_store
+            _hl = getattr(getattr(session.state.players[session.human_idx].leader, "card", None), "card_id", None)
+            _al = getattr(getattr(session.state.players[session.ai_idx].leader, "card", None), "card_id", None)
+            user_store.record_human_match(
+                sid=sid,
+                deck_human_slug=payload["metadata"]["deck_human_slug"],
+                deck_ai_slug=payload["metadata"]["deck_ai_slug"],
+                human_leader=_hl, ai_leader=_al,
+                winner_for_human=payload["result"]["winner_for_human"],
+                turns=payload["result"]["turns"],
+                human_first=bool(payload["metadata"]["human_first"]),
+                human_life_left=payload["result"]["p_human_life_left"],
+                ai_life_left=payload["result"]["p_ai_life_left"],
+                source=("territory" if (req is not None and req.cell_id is not None) else "practice"),
+                non_stakes=bool(territory_meta.get("non_stakes", False)),
+                user_id=user_id,
+            )
+        except Exception as e:
+            print(f"[human_history] record failed (sid={sid}): {e}")
 
     pathname = f"human_play/{ts}_{deck_human}_vs_{deck_ai}_{winner_tag}_{sid[:8]}.json"
 

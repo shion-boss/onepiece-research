@@ -300,6 +300,29 @@ def init_schema() -> None:
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_deck_jobs_status ON deck_jobs(status, priority)",
+        # 人間 vs AI の完了試合の軽量インデックス (= デッキ詳細の「直近の対戦履歴」+ AI 学習用)。
+        # full ログは Blob (human_play/) に別途保存。 ここは per-deck 履歴 UI の高速索引。
+        # meta デッキは deck_human_slug/deck_ai_slug 両方に載るので 全ユーザー横断で貯まる。
+        """
+        CREATE TABLE IF NOT EXISTS human_matches (
+            id TEXT PRIMARY KEY,
+            deck_human_slug TEXT NOT NULL,
+            deck_ai_slug TEXT,
+            human_leader TEXT,
+            ai_leader TEXT,
+            winner_for_human INTEGER,
+            turns INTEGER,
+            human_first INTEGER,
+            human_life_left INTEGER,
+            ai_life_left INTEGER,
+            source TEXT,
+            non_stakes INTEGER DEFAULT 0,
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_human_matches_human ON human_matches(deck_human_slug, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_human_matches_ai ON human_matches(deck_ai_slug, created_at)",
     ]
     conn = _conn()
     try:
@@ -789,5 +812,59 @@ def get_deck_report(owner_id: str, slug: str) -> Optional[dict]:
             "stale": stale,
             "report": report,
         }
+    finally:
+        conn.close()
+
+
+def record_human_match(
+    *, sid: str, deck_human_slug: str, deck_ai_slug: Optional[str],
+    human_leader: Optional[str], ai_leader: Optional[str],
+    winner_for_human: Optional[int], turns: Optional[int], human_first: bool,
+    human_life_left: Optional[int], ai_life_left: Optional[int],
+    source: str, non_stakes: bool, user_id: Optional[str],
+) -> None:
+    """人間 vs AI の完了試合を履歴に1行記録 (= sid をキーに idempotent、 重複保存は無視)。
+
+    デッキ詳細の「直近の対戦履歴」と AI 学習/改善の軽量索引。 full ログは Blob に別途。
+    meta デッキは deck_human/deck_ai 両側に載るので 全ユーザー横断で貯まる。
+    """
+    if not sid or not deck_human_slug:
+        return
+    init_schema()
+    cols = ("id", "deck_human_slug", "deck_ai_slug", "human_leader", "ai_leader",
+            "winner_for_human", "turns", "human_first", "human_life_left",
+            "ai_life_left", "source", "non_stakes", "user_id", "created_at")
+    vals = (sid, deck_human_slug, deck_ai_slug, human_leader, ai_leader,
+            winner_for_human, turns, 1 if human_first else 0, human_life_left,
+            ai_life_left, source, 1 if non_stakes else 0, user_id, _now())
+    collist = ", ".join(cols)
+    ph = ", ".join([_PH] * len(cols))
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            if _USE_POSTGRES:
+                cur.execute(
+                    f"INSERT INTO human_matches ({collist}) VALUES ({ph}) "
+                    f"ON CONFLICT (id) DO NOTHING", vals)
+            else:
+                cur.execute(
+                    f"INSERT OR IGNORE INTO human_matches ({collist}) VALUES ({ph})", vals)
+    finally:
+        conn.close()
+
+
+def get_human_matches(slug: str, limit: int = 15) -> list[dict]:
+    """deck (= 人間側 or AI側) が絡む完了試合を新しい順に。 meta は全ユーザー横断で貯まる。"""
+    init_schema()
+    conn = _conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT * FROM human_matches WHERE deck_human_slug = {_PH} OR deck_ai_slug = {_PH} "
+            f"ORDER BY created_at DESC LIMIT {_PH}",
+            (slug, slug, int(limit)),
+        )
+        return [dict(r) for r in cur.fetchall()]
     finally:
         conn.close()

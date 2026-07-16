@@ -1213,6 +1213,30 @@ export async function fetchMatchHistory(
   return res.json();
 }
 
+export type HumanMatchEntry = {
+  id: string;
+  created_at: string;
+  result: "win" | "loss" | "draw"; // このデッキ視点
+  side: "human" | "ai"; // このデッキを人間/AI どちらが操作したか
+  opponent_leader: string | null;
+  turns: number | null;
+  went_first: boolean;
+  source: "practice" | "territory";
+  non_stakes: boolean;
+};
+
+export async function fetchDeckHumanHistory(
+  slug: string,
+  limit = 15,
+): Promise<HumanMatchEntry[]> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/human-history?limit=${limit}`,
+    { cache: "no-store", headers: { ...(await authHeaders()) } },
+  );
+  if (!res.ok) throw new Error(`fetchDeckHumanHistory failed: ${res.status}`);
+  return res.json();
+}
+
 export async function searchFaq(
   q: string,
   sourcePrefix?: string,
