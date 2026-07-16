@@ -15,7 +15,8 @@ export function LoginRequired({
   const isGuest = useIsGuest();
   if (!isGuest) return <>{children}</>;
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] px-6 py-12 text-center">
+    <div className="flex min-h-[60vh] flex-1 items-center justify-center px-4 py-10">
+    <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] px-6 py-12 text-center">
       <span
         className="flex h-14 w-14 items-center justify-center rounded-full"
         style={{ background: "var(--surface-3)", color: "var(--warning)" }}
@@ -32,6 +33,7 @@ export function LoginRequired({
       <LoginButton className="inline-flex items-center gap-1.5 rounded-[var(--radius)] bg-[color:var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110">
         ログイン / 新規登録
       </LoginButton>
+    </div>
     </div>
   );
 }
