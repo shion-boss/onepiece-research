@@ -155,14 +155,18 @@ export default async function DeckDetailPage({
       {/* 色配分・コストカーブ 等のチャート */}
       {analysis && <DeckAnalyzeCharts data={analysis} />}
 
-      {/* 戦略分析・AI分析レポート・コンボ */}
+      {/* デッキ分析 (= 統合): 戦略概要(即時) + AI対戦で判明した傾向(実測) + コンボ */}
       {analysis ? (
-        <div className="space-y-4">
-          {strategy && <DeckStrategyPanel strategy={strategy} />}
-          {/* 自作デッキは裏で回した AI 分析レポート (= 相性/役割/キーカード) を表示。 */}
-          {summary?.kind === "user" && <DeckReportPanel slug={slug} />}
-          <DeckCombosPanel combos={analysis.combos} />
-        </div>
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium text-[color:var(--text-strong)]">デッキ分析</h2>
+          <div className="space-y-4">
+            {/* 骨格 = カード構成から即時 (対戦不要)。 */}
+            {strategy && <DeckStrategyPanel strategy={strategy} />}
+            {/* 実測 = AI 対戦で判明した傾向 (自作デッキのみ、 裏で計算)。 */}
+            {summary?.kind === "user" && <DeckReportPanel slug={slug} />}
+            <DeckCombosPanel combos={analysis.combos} />
+          </div>
+        </section>
       ) : (
         <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4 text-sm text-[color:var(--text-muted)]">
           分析を読み込めませんでした。

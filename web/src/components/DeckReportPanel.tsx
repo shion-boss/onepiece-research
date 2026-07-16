@@ -166,7 +166,7 @@ function ReportBody({
 
       {/* ⭐ 戦略分析 (= 探索で発掘した「戦い方の型・機能条件」) を最上部に。 */}
       {report.insights && report.insights.length > 0 && (
-        <Section title="戦略分析（AIが多数の試合を探索して発掘）">
+        <Section title="戦い方の型・勝ち筋（AI対戦で発掘）">
           <div className="space-y-2">
             {report.insights.map((ins, i) => (
               <InsightCard key={i} insight={ins} />
@@ -318,21 +318,7 @@ function ReportBody({
         </Section>
       )}
 
-      {report.key_cards.length > 0 && (
-        <Section title="キーカード（勝ち筋）">
-          <div className="flex flex-wrap gap-1.5">
-            {report.key_cards.map((k) => (
-              <span
-                key={k.card_id}
-                className="rounded-[var(--radius)] border border-[color:var(--border-1)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
-              >
-                {k.name}
-                <span className="ml-1 text-[10px] text-[color:var(--text-muted)]">{k.label}</span>
-              </span>
-            ))}
-          </div>
-        </Section>
-      )}
+      {/* キーカードは「戦略概要」に役割別で出るので、 ここでは重複表示しない (統合)。 */}
 
       {played.length > 0 && (
         <Section title="メタ相性（AI対戦で計測）">
@@ -486,7 +472,7 @@ function profileStat(label: string, value: number | undefined, unit: string) {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <section className="space-y-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
-      <h3 className="text-sm font-semibold text-[color:var(--text-strong)]">AI分析レポート</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--text-strong)]">AI対戦で判明した傾向</h3>
       {children}
     </section>
   );
