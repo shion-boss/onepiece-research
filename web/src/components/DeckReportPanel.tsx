@@ -167,6 +167,46 @@ function ReportBody({
         </Section>
       )}
 
+      {/* ⭐ 惜しい負けの攻略: 同じ引きを強い探索AIで指し直して勝てたか。 */}
+      {report.challenges && report.challenges.length > 0 && (
+        <Section title="負けた試合の攻略（同じ引きで勝てたか）">
+          <p className="text-[11px] text-[color:var(--text-muted)]">
+            惜しくも負けた試合を、 同じ引き（山札）のまま強い探索AIが指し直し。「こう指せば勝てた」筋。
+          </p>
+          <div className="space-y-1.5">
+            {report.challenges.map((c, i) => (
+              <div
+                key={i}
+                className="rounded-[var(--radius)] border border-l-[3px] bg-[color:var(--surface-2)] px-3 py-2"
+                style={{ borderColor: "var(--border-1)", borderLeftColor: c.winnable ? "#16a34a" : "var(--border-2)" }}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-[color:var(--text-strong)]">vs {c.opp_leader}</span>
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                    style={
+                      c.winnable
+                        ? { background: "#16a34a22", color: "#16a34a" }
+                        : { background: "var(--surface-3)", color: "var(--text-muted)" }
+                    }
+                  >
+                    {c.winnable ? "こう指せば勝てた" : "同じ引きでは覆せず"}
+                  </span>
+                  <span className="text-[10px] text-[color:var(--text-muted)]">
+                    あと一歩（相手ライフ残 {c.loss_margin}）で負けた試合
+                  </span>
+                </div>
+                <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">
+                  {c.winnable
+                    ? c.how_to_win
+                    : "指し手を変えても覆せなかった＝引き/相性の差が大きい試合。"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* ⭐ 相手タイプ別の立ち回り (#8)。 */}
       {report.matchup_plans && report.matchup_plans.length > 0 && (
         <Section title="相手タイプ別の立ち回り">

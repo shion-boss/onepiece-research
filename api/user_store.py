@@ -190,6 +190,20 @@ def sanitize_report(report) -> dict:
         for x in gd_in[:4] if isinstance(x, dict)
     ]
 
+    # 惜しい負けの攻略チャレンジ (= 同じ引きを強い探索AIで指し直して勝てたか)。
+    ch_in = report.get("challenges") if isinstance(report.get("challenges"), list) else []
+    challenges = [
+        {
+            "opponent": _cs(x.get("opponent"), 60),
+            "opp_leader": _cs(x.get("opp_leader"), 60),
+            "opp_archetype": _cs(x.get("opp_archetype"), 20),
+            "loss_margin": _ci(x.get("loss_margin"), 0, 20),
+            "winnable": bool(x.get("winnable")),
+            "how_to_win": _cs(x.get("how_to_win"), 300),
+        }
+        for x in ch_in[:8] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -224,6 +238,7 @@ def sanitize_report(report) -> dict:
         "win_combos": win_combos,
         "mulligan": mulligan,
         "guides": guides,
+        "challenges": challenges,
         "partial": bool(report.get("partial")),
     }
 

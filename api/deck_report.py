@@ -512,7 +512,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      insights: Optional[list] = None, profile: Optional[dict] = None,
                      top_cards: Optional[list] = None, matchup_plans: Optional[list] = None,
                      win_combos: Optional[list] = None, mulligan: Optional[list] = None,
-                     guides: Optional[list] = None) -> dict:
+                     guides: Optional[list] = None, challenges: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     # ミラーは対称で ~50% なので メタ相性の平均/ベスト/ワースト からは除く (= 表には出す)。
     played = [x for x in matchups if x.get("n") and x.get("slug") != "__mirror__"]
@@ -543,8 +543,85 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "win_combos": win_combos or [],        # ⭐ 勝ちに繋がるコンボ (#5)
         "mulligan": mulligan or [],            # ⭐ 初手キープすべき札 (#1)
         "guides": guides or [],                # ⭐ 序盤の動き方(#3) + 防御の考え方(#7) prescriptive
+        "challenges": challenges or [],        # ⭐ 惜しい負けを同じ引きで攻略「どう指せば勝てたか」
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
+
+
+def _describe_winning_line(gs, gr, repo) -> str:
+    """勝てた試合 (= 同じ引きを強い探索AIが操縦して勝った) の「勝ち筋」を短文化する。
+    move 単位の diff は取らず、 勝った試合の型 (速攻/除去/手数) + 決着ターン + 早い着地札で要約。"""
+    t = gr.turns
+    fh = getattr(gs, "first_hit_given_turn", None)
+    atk = getattr(gs, "attacks_life_hit", 0) or 0
+    ko = sum(gs.ko_targets.values()) if getattr(gs, "ko_targets", None) else 0
+    if fh is not None and fh <= 4 and atk >= 2:
+        core = f"{fh}ターン目から攻め始め、 相手ライフへ {atk} 回通して押し切る"
+    elif ko >= 2:
+        core = f"相手キャラを {ko} 体除去して盤面を捌き、 受けてから返す"
+    elif atk >= 2:
+        core = f"相手ライフへ {atk} 回攻撃を通して削り切る"
+    else:
+        core = "盤面を作って詰め切る"
+    # 早い着地が効いた札 (= 3 ターン目までに出せたキーっぽいカード) を 1-2 枚添える。
+    early = []
+    fpt = getattr(gs, "first_play_turn_by_card", {}) or {}
+    for name, turn in sorted(fpt.items(), key=lambda kv: (kv[1] if kv[1] is not None else 99)):
+        if turn is not None and turn <= 3 and name:
+            early.append(f"{name}(T{turn})")
+        if len(early) >= 2:
+            break
+    tail = f" 早めの{'・'.join(early)}が布石。" if early else ""
+    return f"同じ引きでも、 {core}（{t}ターンで決着）。{tail}"
+
+
+def _challenge_losses(user_dl, lost_games: list, n_games: int, repo, k: int = 5) -> list:
+    """惜しい負け (= 相手ライフ残り少で負けた試合) を、 同じ seed のまま 強い探索 AI
+    (ExploitBeam) が 自デッキを操縦して 勝てるか 試す (= 反実仮想「どう指せば勝てたか」)。
+
+    - lost_games: {"opp","seed","gi","opp_life"} のリスト (= 負け試合の再現情報)。
+    - opp_life 昇順 (= 詰め切れずに負けた惜しい試合) から上位 k 件を攻略対象に。
+    - 相手 (deck2) は元の baseline AI のまま (= 引き=seed 固定、 自分の指し手だけ強化)。
+    """
+    if not lost_games:
+        return []
+    from engine.harness import run_matchup
+    from engine.exploit_beam_ai import ExploitBeamAI
+    from engine.log_analyzer import parse_game_log
+
+    def strong_factory(rng, deck_analysis=None):
+        return ExploitBeamAI(rng=rng, deck_analysis=deck_analysis)
+
+    picks = sorted(lost_games, key=lambda x: x["opp_life"])[:k]
+    out: list = []
+    for lg in picks:
+        opp = lg["opp"]
+        try:
+            rep2 = run_matchup(
+                user_dl, opp["decklist"], n_games=n_games, seed=lg["seed"],
+                only_game_index=lg["gi"], ai_factory_1=strong_factory,
+                time_limit_turns=40, time_limit_mode="both_lose", keep_logs=True,
+            )
+            gr = rep2.games[lg["gi"]]
+        except Exception:
+            continue
+        won = (gr.winner == 0)  # deck1 (= 自分) 勝ち
+        entry = {
+            "opponent": opp["name"],
+            "opp_leader": opp.get("leader_name") or opp["name"],
+            "opp_archetype": opp.get("archetype", ""),
+            "loss_margin": int(lg["opp_life"]),  # 負けた時の相手ライフ残り (= 小さいほど惜しい)
+            "winnable": bool(won),
+        }
+        if won:
+            try:
+                hero_idx = gr.first_player
+                gs = parse_game_log(gr.log, hero_idx, gr.turns, hero_idx)
+                entry["how_to_win"] = _describe_winning_line(gs, gr, repo)
+            except Exception:
+                entry["how_to_win"] = "同じ引きでも、 指し手を変えれば勝てた。"
+        out.append(entry)
+    return out
 
 
 def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
@@ -586,6 +663,7 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
 
     matchups: list[dict] = []
     stats_accum: list = []  # 全試合の GameStats (= 戦略探索の素材、 matchup 計算を再利用)
+    lost_games: list = []   # 負けた試合の再現情報 (= 後で ExploitBeam で「どう指せば勝てたか」攻略)
     for i, m in enumerate(metas):
         if m["slug"] in done_map:
             matchups.append(done_map[m["slug"]])  # 再開: 計算済みは skip
@@ -608,7 +686,7 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
             #   (first_player=0 → p0=deck1、 first_player=1 → p1=deck1)。
             # GameResult.winner は deck 正規化 (0=deck1 勝ち) なので、 parse 用に player-index
             #   winner へ変換する。
-            for gr in rep.games:
+            for gi, gr in enumerate(rep.games):
                 try:
                     hero_idx = gr.first_player
                     if gr.winner == -1:
@@ -617,6 +695,11 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                         winner_pidx = hero_idx
                     else:                           # deck2 勝ち
                         winner_pidx = 1 - hero_idx
+                    # 負け試合 (= deck2 勝ち) を再現情報付きで記録 (ミラーは除く)。
+                    # opp_life = 負けた時の相手ライフ残り (= 小さいほど「詰め切れず惜しい」)。
+                    if gr.winner == 1 and m["slug"] != "__mirror__":
+                        opp_life = gr.p1_life_left if hero_idx == 0 else gr.p0_life_left
+                        lost_games.append({"opp": m, "seed": seed + i, "gi": gi, "opp_life": opp_life})
                     gs = parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx)
                     gs.went_first = (gr.first_player == 0)  # hero(deck1) が先攻だったか
                     gs.opp_archetype = m.get("archetype")   # 相手別プランのグループキー
@@ -651,6 +734,12 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
     plans = _matchup_plans(stats_accum)
     combos = _validate_combos(stats_accum, combo_cands)
     mull = _mulligan_guide(stats_accum, main, repo)
+    # 惜しい負けの攻略 (= 同じ引きを強い探索AIで指し直して勝てるか)。 最後に数件だけ実行。
+    try:
+        challenges = _challenge_losses(user_dl, lost_games, n_games, repo, k=5)
+    except Exception:
+        challenges = []
     return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
                             partial=False, insights=insights, profile=profile, top_cards=top,
-                            matchup_plans=plans, win_combos=combos, mulligan=mull, guides=guides)
+                            matchup_plans=plans, win_combos=combos, mulligan=mull, guides=guides,
+                            challenges=challenges)
