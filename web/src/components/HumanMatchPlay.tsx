@@ -709,7 +709,8 @@ export function HumanMatchPlay({
       }
     }
     setState(null);
-    router.push("/");
+    // 人間 vs AI の対戦終了は同じ /play タブ (対戦開始画面) に戻す (ohtsuki 要望)。
+    router.push("/play");
   }
 
   useEffect(() => {
@@ -2122,7 +2123,7 @@ export function HumanMatchPlay({
                 onClick={handleEnd}
                 className="mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
               >
-                対戦を終了してホームへ
+                人間 vs AI に戻る
               </button>
             )}
           </motion.div>
