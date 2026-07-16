@@ -2609,13 +2609,13 @@ function ContributionPanel() {
           label="通算"
           hw={stats.human_wins ?? 0}
           aw={stats.ai_wins ?? 0}
-          heightClass="h-4"
+          heightClass="h-6"
         />
         <WinRateBar
           label="今月"
           hw={stats.this_month_human_wins ?? 0}
           aw={stats.this_month_ai_wins ?? 0}
-          heightClass="h-2.5"
+          heightClass="h-2"
         />
       </div>
 
