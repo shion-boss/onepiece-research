@@ -142,6 +142,20 @@ def sanitize_report(report) -> dict:
         for x in ins_in[:8] if isinstance(x, dict)
     ]
 
+    # 回り方プロファイル (= 記述統計、 数値のみ)。
+    prof_in = report.get("profile") if isinstance(report.get("profile"), dict) else {}
+    _PROFILE_KEYS = ("avg_turns", "first_attack_turn", "attacks_per_game", "attacks_landed",
+                     "ko_dealt", "ko_lost", "opp_attacks", "blocker_uses", "counter_uses")
+    profile = {k: _cf(prof_in.get(k), 0.0, 100.0) for k in _PROFILE_KEYS if prof_in.get(k) is not None}
+
+    # よく出るカード (使用率つき)。
+    tc_in = report.get("top_cards") if isinstance(report.get("top_cards"), list) else []
+    top_cards = [
+        {"card_id": _cs(x.get("card_id"), 30), "name": _cs(x.get("name"), 80),
+         "play_rate": _cf(x.get("play_rate"), 0.0, 1.0)}
+        for x in tc_in[:8] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -170,6 +184,8 @@ def sanitize_report(report) -> dict:
         "n_opponents": _ci(report.get("n_opponents"), 0, 64),
         "matchup_summary": summary,
         "insights": insights,
+        "profile": profile,
+        "top_cards": top_cards,
         "partial": bool(report.get("partial")),
     }
 

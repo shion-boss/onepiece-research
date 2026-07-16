@@ -148,6 +148,61 @@ def _load_meta_decklists(repo) -> list:
     return out
 
 
+def _deck_profile(stats: list) -> dict:
+    """勝敗に依らず「このデッキが実際どう回るか」を記述するプロファイル (= 常に出せる情報)。
+
+    偏ったデッキ (勝率が極端で相関が出ない) でも、 平均何ターンで決着し・いつ攻め始め・
+    どれだけ除去し… という挙動サマリは必ず出せる。"""
+    if len(stats) < 6:
+        return {}
+
+    def m(fn):
+        vals = [fn(g) for g in stats]
+        vals = [v for v in vals if v is not None]
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    return {
+        "avg_turns": m(lambda g: g.turns),                          # 平均決着ターン
+        "first_attack_turn": m(lambda g: g.first_hit_given_turn),   # 攻め始めるターン
+        "attacks_per_game": m(lambda g: g.attacks_total),           # 1試合の攻撃回数
+        "attacks_landed": m(lambda g: g.attacks_life_hit),          # 相手ライフに通した数
+        "ko_dealt": m(lambda g: sum(g.ko_targets.values())),        # 除去した相手キャラ数
+        "ko_lost": m(lambda g: sum(g.ko_lost.values())),            # 失った自キャラ数
+        "opp_attacks": m(lambda g: g.opp_attacks_total),            # 受けた攻撃回数
+        "blocker_uses": m(lambda g: g.blocker_uses),                # ブロッカー使用回数
+        "counter_uses": m(lambda g: g.defense_counter_uses),        # カウンター使用回数
+    }
+
+
+def _top_cards(stats: list, main_entries: list, repo, top_n: int = 6) -> list[dict]:
+    """よく盤面に出る (= 主戦力) カードを使用率つきで返す (= 記述的、 常に出せる)。"""
+    from collections import Counter
+
+    n = len(stats)
+    if n < 6:
+        return []
+    games_with = Counter()
+    for g in stats:
+        for name in g.cards_played:
+            games_with[name] += 1
+    # 名前 → main の代表 card_id (画像/表示用)。
+    name_to_id: dict[str, str] = {}
+    for e in main_entries:
+        try:
+            c = repo.get(str(e.get("card_id")))
+        except KeyError:
+            continue
+        name_to_id.setdefault(c.name, c.card_id)
+    out = []
+    for name, gcount in games_with.most_common():
+        rate = gcount / n
+        if name in name_to_id and rate >= 0.3:  # 3割以上の試合で出る主戦力のみ
+            out.append({"card_id": name_to_id[name], "name": name, "play_rate": round(rate, 2)})
+        if len(out) >= top_n:
+            break
+    return out
+
+
 def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
     """試合ログ (GameStats) の集合から「戦い方の型・機能条件」を発掘する (= Phase A/B 探索)。
 
@@ -192,7 +247,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
     slow = [g for g in stats if g.first_hit_given_turn is None or g.first_hit_given_turn > 4]
     if len(early) >= MIN_BUCKET and len(slow) >= MIN_BUCKET:
         we, wsl = wr(early), wr(slow)
-        if abs(we - wsl) >= 0.15:
+        if abs(we - wsl) >= 0.12:
             if we > wsl:
                 add("playstyle", "先に攻めて削り切る（速攻寄り）",
                     f"4ターン目までに相手ライフを削り始めた試合の勝率 {we * 100:.0f}%、 遅れた試合は {wsl * 100:.0f}%。 早く詰めるほど勝つ。", we - wsl)
@@ -205,7 +260,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
     med = vals[len(vals) // 2]
     hi = [g for g in stats if g.attacks_life_hit > med]
     lo = [g for g in stats if g.attacks_life_hit <= med]
-    if len(hi) >= MIN_BUCKET and len(lo) >= MIN_BUCKET and wr(hi) - wr(lo) >= 0.15:
+    if len(hi) >= MIN_BUCKET and len(lo) >= MIN_BUCKET and wr(hi) - wr(lo) >= 0.12:
         add("tempo", "攻撃を通す手数が勝敗を分ける",
             f"相手ライフへの攻撃が多かった試合の勝率 {wr(hi) * 100:.0f}%、 少ない試合は {wr(lo) * 100:.0f}%。 手数が足りないと押し切れない。",
             wr(hi) - wr(lo))
@@ -213,7 +268,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
     # ④ 除去 (= 相手キャラを KO できたか)。
     ko = [g for g in stats if sum(g.ko_targets.values()) >= 1]
     noko = [g for g in stats if sum(g.ko_targets.values()) == 0]
-    if len(ko) >= MIN_BUCKET and len(noko) >= MIN_BUCKET and wr(ko) - wr(noko) >= 0.15:
+    if len(ko) >= MIN_BUCKET and len(noko) >= MIN_BUCKET and wr(ko) - wr(noko) >= 0.12:
         add("removal", "相手キャラをKOできると勝つ（除去が鍵）",
             f"相手キャラを除去できた試合の勝率 {wr(ko) * 100:.0f}%、 できない試合は {wr(noko) * 100:.0f}%。 盤面を捌けるかが重要。",
             wr(ko) - wr(noko))
@@ -236,7 +291,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
                 gap = wr(by_k) - wr(late)
                 if best is None or gap > best[0]:
                     best = (gap, K, wr(by_k), wr(late))
-        if best and best[0] >= 0.15:
+        if best and best[0] >= 0.12:
             gap, K, wb, wl = best
             add("key_play", f"{name} は {K} ターン目までに着地させたい",
                 f"{K}ターン目までに {name} を出せた試合の勝率 {wb * 100:.0f}%、 遅れた/出せなかった試合は {wl * 100:.0f}%。 着地が遅れると機能しにくい。",
@@ -244,19 +299,20 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
             continue
         wg = [g for g in stats if g.cards_played.get(name, 0) > 0]
         wo = [g for g in stats if g.cards_played.get(name, 0) == 0]
-        if len(wg) >= MIN_BUCKET and len(wo) >= MIN_BUCKET and wr(wg) - wr(wo) >= 0.15:
+        if len(wg) >= MIN_BUCKET and len(wo) >= MIN_BUCKET and wr(wg) - wr(wo) >= 0.12:
             add("key_card", f"{name} の着地が生命線",
                 f"{name} を出せた試合の勝率 {wr(wg) * 100:.0f}%、 出せない試合は {wr(wo) * 100:.0f}%。 盤面に出せるかが機能条件。",
                 wr(wg) - wr(wo))
 
     # 効果量の大きい順 (= 強い相関を優先) に上位を採用。
     out.sort(key=lambda x: -x["strength"])
-    return out[:5]
+    return out[:7]
 
 
 def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      n_opponents: int, rhash: str, *, partial: bool,
-                     insights: Optional[list] = None) -> dict:
+                     insights: Optional[list] = None, profile: Optional[dict] = None,
+                     top_cards: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     played = [x for x in matchups if x.get("n")]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
@@ -280,6 +336,8 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "n_opponents": n_opponents,
         "matchup_summary": summary,
         "insights": insights or [],    # ⭐ 戦い方の型・機能条件 (= 探索で発掘した洞察)
+        "profile": profile or {},      # 回り方サマリ (= 勝敗に依らず常に出る記述統計)
+        "top_cards": top_cards or [],  # よく盤面に出る主戦力カード (使用率つき)
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
 
@@ -354,10 +412,15 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                 time.sleep(pause_between)
         if on_progress:
             insights = _mine_strategy(stats_accum, comp["key_cards"])
+            profile = _deck_profile(stats_accum)
+            top = _top_cards(stats_accum, main, repo)
             on_progress(i + 1, n_opponents, m["name"],
                         _assemble_report(comp, curve, matchups, n_games, n_opponents,
-                                         recipe_hash, partial=(i + 1 < n_opponents), insights=insights))
+                                         recipe_hash, partial=(i + 1 < n_opponents),
+                                         insights=insights, profile=profile, top_cards=top))
 
     insights = _mine_strategy(stats_accum, comp["key_cards"])
+    profile = _deck_profile(stats_accum)
+    top = _top_cards(stats_accum, main, repo)
     return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
-                            partial=False, insights=insights)
+                            partial=False, insights=insights, profile=profile, top_cards=top)

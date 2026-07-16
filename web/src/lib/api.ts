@@ -214,6 +214,18 @@ export type DeckReportBody = {
   n_opponents?: number;
   matchup_summary: { avg: number; best: DeckReportMatchup[]; worst: DeckReportMatchup[] };
   insights?: { kind: string; title: string; detail: string; strength?: number }[];
+  profile?: Partial<{
+    avg_turns: number;
+    first_attack_turn: number;
+    attacks_per_game: number;
+    attacks_landed: number;
+    ko_dealt: number;
+    ko_lost: number;
+    opp_attacks: number;
+    blocker_uses: number;
+    counter_uses: number;
+  }>;
+  top_cards?: { card_id: string; name: string; play_rate: number }[];
   partial?: boolean;
 };
 export type DeckReport = {

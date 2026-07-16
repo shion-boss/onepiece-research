@@ -175,6 +175,36 @@ function ReportBody({
         </Section>
       )}
 
+      {/* 回り方サマリ (= 勝敗に依らず常に出る記述統計)。 */}
+      {report.profile && Object.keys(report.profile).length > 0 && (
+        <Section title="このデッキの回り方（平均）">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {profileStat("平均決着", report.profile.avg_turns, "T")}
+            {profileStat("攻め始め", report.profile.first_attack_turn, "T目")}
+            {profileStat("攻撃(通し)", report.profile.attacks_landed, "回")}
+            {profileStat("相手キャラ除去", report.profile.ko_dealt, "体")}
+            {profileStat("自キャラ喪失", report.profile.ko_lost, "体")}
+            {profileStat("被攻撃", report.profile.opp_attacks, "回")}
+          </div>
+        </Section>
+      )}
+
+      {report.top_cards && report.top_cards.length > 0 && (
+        <Section title="よく盤面に出るカード（出現率）">
+          <div className="flex flex-wrap gap-1.5">
+            {report.top_cards.map((c) => (
+              <span
+                key={c.card_id}
+                className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
+              >
+                {c.name}
+                <span className="ml-1 text-[10px] text-[color:var(--text-muted)]">{Math.round(c.play_rate * 100)}%</span>
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {report.roles.length > 0 && (
         <Section title="役割の内訳">
           <div className="flex flex-wrap gap-1.5">
@@ -330,6 +360,19 @@ function IconKey() {
       <circle cx="8" cy="15" r="4" />
       <path d="M11 12l8-8M17 6l2 2M14 9l2 2" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function profileStat(label: string, value: number | undefined, unit: string) {
+  if (value == null) return null;
+  return (
+    <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-2 py-1">
+      <div className="text-[10px] text-[color:var(--text-muted)]">{label}</div>
+      <div className="text-sm font-semibold text-[color:var(--text-strong)]">
+        {value}
+        <span className="ml-0.5 text-[10px] font-normal text-[color:var(--text-muted)]">{unit}</span>
+      </div>
+    </div>
   );
 }
 
