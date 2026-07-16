@@ -122,8 +122,8 @@ def sanitize_report(report) -> dict:
         if not isinstance(m, dict):
             continue
         slug = _cs(m.get("slug"), 64)
-        # 既知メタのみ (= 空の場合は whitelist が無い環境なので許容)。 重複除外。
-        if (known and slug not in known) or slug in seen_slugs:
+        # 既知メタ + ミラー (__mirror__) のみ許可 (= 空 whitelist 環境は全許容)。 重複除外。
+        if (known and slug not in known and slug != "__mirror__") or slug in seen_slugs:
             continue
         seen_slugs.add(slug)
         matchups.append({

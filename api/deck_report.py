@@ -514,7 +514,8 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      win_combos: Optional[list] = None, mulligan: Optional[list] = None,
                      guides: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
-    played = [x for x in matchups if x.get("n")]
+    # ミラーは対称で ~50% なので メタ相性の平均/ベスト/ワースト からは除く (= 表には出す)。
+    played = [x for x in matchups if x.get("n") and x.get("slug") != "__mirror__"]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
     ranked = sorted(played, key=lambda x: -x["win_rate"])
     summary = {
@@ -572,7 +573,14 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
     guides = _structural_guides(comp, curve, main, repo)  # 構造ベース (#3/#7)、 1 回だけ
 
     user_dl = make_deck_from_dict(deck_dict, repo)
-    metas = _load_meta_decklists(repo)
+    # ミラー (= 自分 vs 自分) も疑似相手として調査対象に。 先攻/後攻の有利や自デッキの
+    # 自然な回り方が分かり、 行動データ (戦略洞察/コンボ/マリガン) も増える。
+    mirror_opp = {
+        "slug": "__mirror__", "name": "ミラー（自分自身）", "leader": deck_dict.get("leader", ""),
+        "leader_name": "", "archetype": comp["archetype"],
+        "decklist": make_deck_from_dict(deck_dict, repo),
+    }
+    metas = list(_load_meta_decklists(repo)) + [mirror_opp]
     n_opponents = len(metas)
     done_map = {m["slug"]: m for m in (done_matchups or []) if m.get("n")}
 
