@@ -323,6 +323,17 @@ def init_schema() -> None:
         """,
         "CREATE INDEX IF NOT EXISTS idx_human_matches_human ON human_matches(deck_human_slug, created_at)",
         "CREATE INDEX IF NOT EXISTS idx_human_matches_ai ON human_matches(deck_ai_slug, created_at)",
+        # 日次使用量カウンタ (= AI vs AI の1日あたり回数キャップ等)。 day=UTC YYYY-MM-DD。
+        # 自然に日次リセット (= 新しい day 行になる)。 [[project_guest_access_policy]]。
+        """
+        CREATE TABLE IF NOT EXISTS daily_usage (
+            user_id TEXT NOT NULL,
+            day TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, day, kind)
+        )
+        """,
     ]
     conn = _conn()
     try:
@@ -851,6 +862,56 @@ def record_human_match(
             else:
                 cur.execute(
                     f"INSERT OR IGNORE INTO human_matches ({collist}) VALUES ({ph})", vals)
+    finally:
+        conn.close()
+
+
+def add_daily_usage(user_id: str, kind: str, amount: int, limit: int) -> tuple[bool, int]:
+    """今日(UTC)の (user_id, kind) 使用量に amount 足す。 limit 以内なら加算して (True, 新値)、
+    超過なら加算せず (False, 現値)。 day 行が変わるので日次で自然にリセット。"""
+    init_schema()
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT count FROM daily_usage WHERE user_id={_PH} AND day={_PH} AND kind={_PH}",
+                (user_id, day, kind),
+            )
+            row = cur.fetchone()
+            cur_count = int(dict(row)["count"]) if row else 0
+            if cur_count + amount > limit:
+                return False, cur_count
+            new = cur_count + amount
+            if row is not None:
+                cur.execute(
+                    f"UPDATE daily_usage SET count={_PH} WHERE user_id={_PH} AND day={_PH} AND kind={_PH}",
+                    (new, user_id, day, kind),
+                )
+            else:
+                cur.execute(
+                    f"INSERT INTO daily_usage (user_id, day, kind, count) VALUES ({_PH},{_PH},{_PH},{_PH})",
+                    (user_id, day, kind, new),
+                )
+            return True, new
+    finally:
+        conn.close()
+
+
+def get_daily_usage(user_id: str, kind: str) -> int:
+    """今日(UTC)の (user_id, kind) 使用量。 無ければ 0。"""
+    init_schema()
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn = _conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT count FROM daily_usage WHERE user_id={_PH} AND day={_PH} AND kind={_PH}",
+            (user_id, day, kind),
+        )
+        row = cur.fetchone()
+        return int(dict(row)["count"]) if row else 0
     finally:
         conn.close()
 

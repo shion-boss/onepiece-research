@@ -88,7 +88,7 @@ app.add_middleware(
 # 単一プロセス前提 (= Fly.io 設定で uvicorn 1 worker 想定)。 本格運用するなら redis 等。
 from collections import deque
 from fastapi import Request
-from api.auth import current_user_id
+from api.auth import current_user_id, optional_user_id
 from api import user_store
 
 _RATE_LIMIT_PATHS = {"/api/spectate/comments"}  # method=POST のみに適用
@@ -145,7 +145,12 @@ _PUBLIC_BLOCKED_SUFFIXES = (
 )
 
 
-def _is_public_blocked(path: str) -> bool:
+def _is_public_blocked(path: str, method: str = "GET") -> bool:
+    # POST /api/match (= AI vs AI 実行) は ログインユーザーに開放 (endpoint 側で auth + 日次cap)。
+    # それ以外の /api/match/* (履歴・リプレイ等 研究系) は従来どおり blocked。
+    # [[project_guest_access_policy]]。
+    if path == "/api/match" and method == "POST":
+        return False
     if any(path.startswith(p) for p in _PUBLIC_BLOCKED_PREFIXES):
         return True
     return any(path.endswith(s) for s in _PUBLIC_BLOCKED_SUFFIXES)
@@ -154,7 +159,7 @@ def _is_public_blocked(path: str) -> bool:
 @app.middleware("http")
 async def public_mode_guard(request: Request, call_next):
     if os.environ.get("PUBLIC_MODE") and request.method != "OPTIONS":
-        if _is_public_blocked(request.url.path):
+        if _is_public_blocked(request.url.path, request.method):
             from fastapi.responses import JSONResponse
             return JSONResponse(
                 {"detail": "この機能は公開モードでは無効です"}, status_code=403
@@ -1218,8 +1223,9 @@ def _deck_summary(repo, d: dict, slug: str, kind: str) -> "DeckSummary":
 
 
 @app.get("/api/decks", response_model=list[DeckSummary])
-def list_decks(user_id: str = Depends(current_user_id)):
-    """メタ(環境)デッキ (= 全員共通) + ログインユーザー自身のデッキ (= per-user DB)。"""
+def list_decks(user_id: Optional[str] = Depends(optional_user_id)):
+    """メタ(環境)デッキ (= 全員共通) + ログインユーザー自身のデッキ (= per-user DB)。
+    ゲスト (未ログイン) は meta デッキのみ (= 自作デッキはログイン必須)。"""
     repo = get_repo()
     out: list[DeckSummary] = []
     # メタ(環境)デッキ = リポジトリ JSON (decks/*.json) の **meta 登録分のみ**。
@@ -1235,26 +1241,28 @@ def list_decks(user_id: str = Depends(current_user_id)):
         if not _is_meta_deck(slug):
             continue
         out.append(_deck_summary(repo, d, slug, "meta"))
-    # 自分のデッキ (= per-user DB)
-    for d in user_store.list_decks(user_id):
-        out.append(_deck_summary(repo, d, d["slug"], "user"))
+    # 自分のデッキ (= per-user DB)。 ゲストは無し。
+    if user_id is not None:
+        for d in user_store.list_decks(user_id):
+            out.append(_deck_summary(repo, d, d["slug"], "user"))
     return out
 
 
 @app.get("/api/decks/{slug}")
-def get_deck(slug: str, user_id: str = Depends(current_user_id)):
-    """メタはリポジトリ JSON、 それ以外は自分の per-user DB デッキを返す。"""
+def get_deck(slug: str, user_id: Optional[str] = Depends(optional_user_id)):
+    """メタはリポジトリ JSON (ゲストも閲覧可)、 それ以外は自分の per-user DB デッキ。"""
     if _is_meta_deck(slug):
         return _load_deck_json(slug)
-    d = user_store.get_deck(user_id, slug)
-    if d is not None:
-        return d
-    # 後方互換: 旧 decks/ に残る非メタ JSON (移行前)。
+    if user_id is not None:
+        d = user_store.get_deck(user_id, slug)
+        if d is not None:
+            return d
+    # 後方互換: 旧 decks/ に残る非メタ JSON (移行前)。 存在しなければ 404。
     return _load_deck_json(slug)
 
 
 @app.get("/api/decks/{slug}/strategy")
-def get_deck_strategy(slug: str, user_id: str = Depends(current_user_id)):
+def get_deck_strategy(slug: str, user_id: Optional[str] = Depends(optional_user_id)):
     """静的デッキ分析 (戦略 / マリガン / 理想ムーブ / 弱点 / キーカード / AI ヒント)。
 
     メタは `decks/<slug>.analysis.json` cache を返す (高速)。 ユーザーデッキ (per-user DB) は
@@ -2857,8 +2865,24 @@ def _summary_from_report(job_id: str, report) -> MatchSummary:
     )
 
 
+_AI_MATCH_PER_REQUEST_MAX = 5   # 公開時: 1リクエストで回せる最大試合数 (= 300s timeout 保護)
+
+
 @app.post("/api/match", response_model=MatchSummary)
-def run_match(req: MatchRequest):
+def run_match(req: MatchRequest, user_id: str = Depends(current_user_id)):
+    # AI vs AI = **ログイン必須** (ゲストは current_user_id が 401)。 公開モードでは
+    # 1人1日の試合数キャップでコスト暴走を防ぐ ([[project_guest_access_policy]])。
+    # ローカル (PUBLIC_MODE 未設定) は cap 無し = 研究/local を温存。
+    if os.environ.get("PUBLIC_MODE"):
+        req.n_games = max(1, min(req.n_games, _AI_MATCH_PER_REQUEST_MAX))
+        limit = int(os.environ.get("AI_MATCH_DAILY_LIMIT", "10"))
+        ok, used = user_store.add_daily_usage(user_id, "ai_match", req.n_games, limit)
+        if not ok:
+            raise HTTPException(
+                429,
+                f"本日の AI vs AI 実行上限（{limit}試合/日）に達しました（現在 {used}）。 "
+                f"明日また利用できます。",
+            )
     repo = get_repo()
 
     deck_a_dict = _resolve_deck(req.deck_a, req.deck_a_id, "a")
@@ -4150,13 +4174,21 @@ def _build_defender_deck_dict(leader_id: str) -> Optional[dict]:
 
 
 @app.post("/api/human_match")
-def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_id)):
+def human_match_start(req: HumanMatchStart, user_id: Optional[str] = Depends(optional_user_id)):
     """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。
 
     deck_a (= 人間 使用) は自分の非公開デッキ (per-user DB) を含みうるので、 auth 付きで
     resolve して spec に inline 埋め込みする (= 以降の action call は spec 自己完結で
     reconstruct、 DB/auth 不要)。 メタデッキ (= AI 相手 deck_b) は slug で解決できる。
+
+    ゲスト (未ログイン = user_id None) は **meta デッキのみ**で対戦でき、 陣取りへの挑戦は不可
+    ([[project_guest_access_policy]])。 自作デッキ/陣取りはログイン必須。
     """
+    if user_id is None:  # ゲスト: meta 限定 + 陣取り挑戦不可
+        if req.cell_id is not None:
+            raise HTTPException(403, "陣取りへの挑戦にはログインが必要です")
+        if not _is_meta_deck(req.deck_a_slug) or not _is_meta_deck(req.deck_b_slug):
+            raise HTTPException(403, "ログインすると自作デッキで対戦できます（未ログインは環境デッキのみ）")
     # human_first None なら ここで 確定 (= rng 経由ではなく Python random で 単発決定)。
     # 以降 spec.human_first は 確定 bool として 渡る → reconstruct で 同じ first_player。
     import random as _r
@@ -4616,7 +4648,7 @@ def _resolve_territory_capture(
 def human_match_save_result(
     sid: str,
     req: Optional[HumanSaveResultIn] = None,
-    user_id: str = Depends(current_user_id),
+    user_id: Optional[str] = Depends(optional_user_id),
 ):
     """試合終了後 (= game_over=true or 人間 manual end) に full データ を Vercel Blob に upload。
 
@@ -4662,12 +4694,16 @@ def human_match_save_result(
 
     # 陣取り経由の対戦なら勝利を占領に反映 (CAS)。 payload に territory メタを埋める
     # (= 全ログを無条件保存 → 学習は全ログ、 non_stakes フラグで履歴 UI から除外)。
-    territory_meta = _resolve_territory_capture(sid, session, payload, winner, req, user_id)
+    # ゲスト (user_id None) は陣取り不可なので territory は no-op。
+    if user_id is not None:
+        territory_meta = _resolve_territory_capture(sid, session, payload, winner, req, user_id)
+    else:
+        territory_meta = {"cell_id": None, "capture": None, "non_stakes": False}
     payload["territory"] = territory_meta
 
     # 陣取り挑戦が決着 (game_over) したら戦いを記録 (= per-cell 履歴の実データ)。
     if (
-        req is not None and req.cell_id is not None
+        user_id is not None and req is not None and req.cell_id is not None
         and session.state.game_over and sid not in _BATTLE_RECORDED
     ):
         try:
@@ -4709,7 +4745,7 @@ def human_match_save_result(
                 ai_life_left=payload["result"]["p_ai_life_left"],
                 source=("territory" if (req is not None and req.cell_id is not None) else "practice"),
                 non_stakes=bool(territory_meta.get("non_stakes", False)),
-                user_id=user_id,
+                user_id=user_id or "anonymous",  # ゲスト対戦は anonymous として残す
             )
         except Exception as e:
             print(f"[human_history] record failed (sid={sid}): {e}")

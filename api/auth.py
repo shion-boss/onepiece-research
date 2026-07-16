@@ -42,6 +42,30 @@ def current_user_id(
     return x_dev_user or os.environ.get("DEV_USER") or DEV_DEFAULT_USER
 
 
+def optional_user_id(
+    request: Request,
+    x_dev_user: Optional[str] = Header(default=None, alias="X-Dev-User"),
+) -> Optional[str]:
+    """ログイン済みなら user_id、 未ログイン(ゲスト)なら None を返す (= 401 は投げない)。
+
+    ゲストにも一部開放する endpoint 用 (= 人vsAI対戦[meta限定]・meta デッキ閲覧 等)。
+    - 本番 (AUTH_PROVIDER=clerk): Bearer トークンがあり検証成功 → user_id、 無い/無効 → None(ゲスト)。
+    - dev (provider 未設定): `X-Dev-Guest` ヘッダがあれば None(ゲスト擬似、 ローカル検証用)、
+      さもなくば dev user (X-Dev-User → DEV_USER → "local")。
+    """
+    provider = os.environ.get("AUTH_PROVIDER", "").lower()
+    if provider:
+        if not _bearer_token(request):
+            return None
+        try:
+            return _verify_provider(request, provider)
+        except HTTPException:
+            return None  # 無効/期限切れトークンはゲスト扱い (= optional なので拒否しない)
+    if request.headers.get("X-Dev-Guest"):
+        return None
+    return x_dev_user or os.environ.get("DEV_USER") or DEV_DEFAULT_USER
+
+
 def _bearer_token(request: Request) -> Optional[str]:
     """`Authorization: Bearer <token>` から token を抜く。 無ければ None。"""
     auth = request.headers.get("authorization")
