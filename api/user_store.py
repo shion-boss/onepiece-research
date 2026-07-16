@@ -822,6 +822,7 @@ def record_human_match(
     winner_for_human: Optional[int], turns: Optional[int], human_first: bool,
     human_life_left: Optional[int], ai_life_left: Optional[int],
     source: str, non_stakes: bool, user_id: Optional[str],
+    created_at: Optional[str] = None,
 ) -> None:
     """人間 vs AI の完了試合を履歴に1行記録 (= sid をキーに idempotent、 重複保存は無視)。
 
@@ -836,7 +837,7 @@ def record_human_match(
             "ai_life_left", "source", "non_stakes", "user_id", "created_at")
     vals = (sid, deck_human_slug, deck_ai_slug, human_leader, ai_leader,
             winner_for_human, turns, 1 if human_first else 0, human_life_left,
-            ai_life_left, source, 1 if non_stakes else 0, user_id, _now())
+            ai_life_left, source, 1 if non_stakes else 0, user_id, created_at or _now())
     collist = ", ".join(cols)
     ph = ", ".join([_PH] * len(cols))
     conn = _conn()
