@@ -4121,12 +4121,12 @@ def _save_human_play_trained(data: dict) -> None:
     )
 
 
-def _mark_human_play_learned(matchup_key: str, games: int) -> dict:
-    """matchup を「学習済み」にする (= Claude が学習に使った後に呼ぶ):
-    今の累計件数を消費 (upto=games) + batches+1 (= 次の分母が +10)。 → ゲージが未充填に戻る。"""
+def _mark_human_play_learned(matchup_key: str) -> dict:
+    """matchup を「学習済み」にする (= Claude が学習に使った後に呼ぶ): batches+1 で
+    **分母だけ +10**。 分子(累計件数)は消費しない → 例 11/10 → 11/20 (未充填に戻る)。"""
     trained = _load_human_play_trained()
-    _upto, batches = _trained_entry(trained.get(matchup_key))
-    trained[matchup_key] = {"upto": int(games), "batches": batches + 1}
+    upto, batches = _trained_entry(trained.get(matchup_key))
+    trained[matchup_key] = {"upto": upto, "batches": batches + 1}
     _save_human_play_trained(trained)
     return trained[matchup_key]
 
@@ -4201,7 +4201,7 @@ def _aggregate_human_play_stats() -> dict:
         g = v["games"]
         upto, batches = _trained_entry(trained.get(f"{human}__vs__{ai}"))
         thr = _matchup_threshold(batches)      # 学習回数ごとに分母が +10 ずつ増える
-        new_games = max(0, g - upto)           # 前回学習以降の新規件数 (= ゲージの分子)
+        new_games = g                          # ゲージの分子 = 累計件数 (学習しても消費しない = 分母だけ +10)
         if new_games >= thr:
             ready += 1
         by_matchup.append({

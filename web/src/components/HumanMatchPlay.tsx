@@ -2518,7 +2518,7 @@ function ContributionPanel({
           {selGames === 0
             ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
             : selNew >= selThr
-              ? `次バッチ分に到達（${selThr}戦）。 学習に使われると分母が +10 され、 また貯め直しになります。`
+              ? `次バッチ分に到達（${selThr}戦）。 学習に使われると分母が +10 され、 また埋めていきます。`
               : `あと ${selThr - selNew} 戦で次の学習バッチに到達します。`}
           {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
         </div>
