@@ -93,6 +93,7 @@ export function tabTitleFor(path: string): string {
     "/decks/generate": "デッキ生成",
     "/cards": "カード",
     "/faq": "Q&A",
+    "/faq/sources": "Q&A 参照先",
     "/combos": "コンボ探索",
     "/meta": "メタ分析",
     "/research": "研究",

@@ -369,6 +369,7 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
       <div className="py-2">
         <PanelHeader>ルール Q&amp;A</PanelHeader>
         <PanelLink href="/faq" active={path === "/faq"}>Q&amp;A を開く</PanelLink>
+        <PanelLink href="/faq/sources" active={path === "/faq/sources"}>Q&amp;A 参照先</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
           公式ルール・カードの裁定を検索できます。
         </p>

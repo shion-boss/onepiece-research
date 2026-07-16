@@ -773,6 +773,21 @@ export async function fetchFaqMeta(): Promise<FaqMeta> {
   return res.json();
 }
 
+// Q&A スクレイプ対象のリンク一覧 (= Q&A 参照先タブ)。
+export type FaqSourceLink = {
+  source: string;
+  label: string;
+  source_url: string | null;
+  count: number;
+  fetched_at?: string | null;
+};
+
+export async function fetchFaqSourceLinks(headers?: HeadersInit): Promise<FaqSourceLink[]> {
+  const res = await fetch(`${API}/api/faq/source-links`, { cache: "no-store", headers });
+  if (!res.ok) throw new Error(`fetchFaqSourceLinks failed: ${res.status}`);
+  return res.json();
+}
+
 // ---- Phase A: 人間 vs AI 対戦 セッション API ---- //
 
 export type HumanLegalAction = {

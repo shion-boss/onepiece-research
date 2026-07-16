@@ -22,8 +22,13 @@ FAQ_DIR = ROOT / "db" / "faq"
 
 
 def build_corpus() -> dict:
-    """db/faq/*.json → {generated_at, count, items:[{source, category, q, a}]}。"""
+    """db/faq/*.json → {generated_at, count, items:[...], sources:[...]}。
+
+    sources = Q&A 参照先タブ用のメタ (source, label, source_url, count, fetched_at)。
+    API 側 _faq_source_links() が本番でこれを読む。
+    """
     items: list[dict] = []
+    sources: list[dict] = []
     latest_mtime = 0.0
     for path in sorted(FAQ_DIR.glob("*.json")):
         try:
@@ -32,19 +37,32 @@ def build_corpus() -> dict:
             continue
         latest_mtime = max(latest_mtime, path.stat().st_mtime)
         category = data.get("category") or data.get("series") or path.stem
-        for item in data.get("items", []):
+        file_items = data.get("items", [])
+        for item in file_items:
             items.append({
                 "source": path.name,
                 "category": category,
                 "q": item.get("q", ""),
                 "a": item.get("a", ""),
             })
+        sources.append({
+            "source": path.name,
+            "label": category,
+            "source_url": data.get("source_url"),
+            "count": len(file_items),
+            "fetched_at": data.get("fetched_at"),
+        })
     generated_at = (
         datetime.fromtimestamp(latest_mtime, tz=timezone.utc).isoformat()
         if latest_mtime
         else datetime.now(timezone.utc).isoformat()
     )
-    return {"generated_at": generated_at, "count": len(items), "items": items}
+    return {
+        "generated_at": generated_at,
+        "count": len(items),
+        "items": items,
+        "sources": sources,
+    }
 
 
 def main() -> None:
@@ -60,7 +78,8 @@ def main() -> None:
     # add_random_suffix=True: 上書きヘッダ不要で確実に PUT。 API は faq/corpus を prefix
     # list して最新 (uploadedAt) を読む。
     url = put_json("faq/corpus.json", corpus, add_random_suffix=True)
-    print(f"uploaded: {corpus['count']} items / generated_at={corpus['generated_at']}")
+    print(f"uploaded: {corpus['count']} items / {len(corpus['sources'])} sources / "
+          f"generated_at={corpus['generated_at']}")
     print(f"blob url: {url}")
 
 

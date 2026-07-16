@@ -673,6 +673,45 @@ def _load_faq_corpus() -> list[dict]:
     return out
 
 
+def _faq_source_links() -> list[dict]:
+    """FAQ (Q&A) スクレイプ対象の一覧 (source, label, source_url, count, fetched_at)。
+    ローカルは db/faq/*.json のメタから、 本番は Blob corpus の sources から。"""
+    local_files = sorted(FAQ_DIR.glob("*.json")) if FAQ_DIR.exists() else []
+    if local_files:
+        out: list[dict] = []
+        for path in local_files:
+            try:
+                d = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            out.append({
+                "source": path.name,
+                "label": d.get("category") or d.get("series") or path.stem,
+                "source_url": d.get("source_url"),
+                "count": len(d.get("items", [])),
+                "fetched_at": d.get("fetched_at"),
+            })
+        return out
+    # 本番: Blob corpus の sources リスト (refresh / upload_faq_to_blob が付ける)
+    try:
+        from api.blob_storage import list_jsons, get_json, is_configured
+        if is_configured():
+            blobs = [b for b in list_jsons(prefix="faq/")
+                     if (b.get("pathname") or "").startswith("faq/corpus")]
+            if blobs:
+                newest = max(blobs, key=lambda b: b.get("uploadedAt") or "")
+                return get_json(newest["url"]).get("sources", []) or []
+    except Exception as e:
+        print(f"[faq] source-links blob load failed: {e}")
+    return []
+
+
+@app.get("/api/faq/source-links")
+def faq_source_links():
+    """FAQ (Q&A) スクレイプ対象のリンク一覧 (= Q&A 参照先タブ用)。"""
+    return _faq_source_links()
+
+
 @app.get("/api/faq/search", response_model=list[FaqHit])
 def faq_search(
     q: str = Query("", description="検索クエリ (空白区切り AND マッチ)"),
@@ -816,10 +855,22 @@ def faq_refresh(request: Request):
     if not items:
         raise HTTPException(502, "scrape returned no items (公式サイト仕様変更の可能性)")
 
+    # スクレイプ対象リンク一覧 (= Q&A 参照先タブ用。 本番 Blob からも URL を出せるよう corpus に含める)。
+    sources = [
+        {"source": f"{slug}.json", "label": d.get("category") or slug,
+         "source_url": d.get("source_url"), "count": len(d.get("items", []))}
+        for slug, d in faq.items()
+    ] + [
+        {"source": f"cardqa_{slug}.json", "label": d.get("series") or slug,
+         "source_url": d.get("source_url"), "count": len(d.get("items", []))}
+        for slug, d in cardqa.items()
+    ]
+
     corpus = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(items),
         "items": items,
+        "sources": sources,
     }
     put_json("faq/corpus.json", corpus, add_random_suffix=True)
 
