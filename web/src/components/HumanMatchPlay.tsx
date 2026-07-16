@@ -99,11 +99,17 @@ export function HumanMatchPlay({
   decks,
   initialDeckA,
   challengeCellId,
+  defenderLeaderId,
+  defenderVariantId,
 }: {
   decks: DeckOption[];
   initialDeckA?: string;
   // 陣取り (/grow) からの挑戦なら対象マス index。 勝利時にそのマスの占領を試みる。
   challengeCellId?: number;
+  // 防衛戦 (= 占領マス挑戦) なら防衛側 (占領者) のリーダー。 相手デッキが確定しているので
+  // 開始画面で AI 側にそのリーダーカードを表示する。 空きマス (ランダム AI) では未指定。
+  defenderLeaderId?: string | null;
+  defenderVariantId?: string | null;
 }) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
   // 陣取り挑戦 (challengeCellId) では 非公開デッキ は人間側に使えない (勝つと占領で露出) → 除外。
@@ -997,6 +1003,8 @@ export function HumanMatchPlay({
         busy={busy}
         error={error}
         challengeCellId={challengeCellId}
+        defenderLeaderId={defenderLeaderId}
+        defenderVariantId={defenderVariantId}
       />
     );
   }
@@ -2572,6 +2580,8 @@ function StartPanel({
   busy,
   error,
   challengeCellId,
+  defenderLeaderId,
+  defenderVariantId,
 }: {
   decks: DeckOption[];
   deckA: string;
@@ -2586,6 +2596,8 @@ function StartPanel({
   busy: boolean;
   error: string | null;
   challengeCellId?: number;
+  defenderLeaderId?: string | null;
+  defenderVariantId?: string | null;
 }) {
   const router = useRouter();
   const humanDeck = decks.find((d) => d.slug === deckA);
@@ -2594,6 +2606,10 @@ function StartPanel({
   const inCat = (cat: "meta" | "user") => decks.filter((d) => (d.kind ?? "meta") === cat);
   // 陣取り挑戦では 非公開デッキ を人間側 (deckA) の候補から除外 (= 勝つと占領で露出するため)。
   const territoryChallenge = challengeCellId != null;
+  // 防衛戦 = 占領マスへの挑戦 → 相手 (防衛 AI) のリーダーが確定しているのでカード表示。
+  // 空きマス (ランダム AI) では defender 未指定なのでプレースホルダーのまま。
+  const defenderCard = defenderVariantId ?? defenderLeaderId ?? null;
+  const isDefenseBattle = territoryChallenge && !!defenderCard;
   const inCatA = (cat: "meta" | "user") =>
     territoryChallenge ? inCat(cat).filter((d) => !d.private) : inCat(cat);
   const catOf = (slug: string): "meta" | "user" =>
@@ -2734,11 +2750,16 @@ function StartPanel({
               AI
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              {territoryChallenge ? "このマスを防衛" : "AI が操作"}
+              {isDefenseBattle ? "このマスを防衛" : territoryChallenge ? "ランダム AI" : "AI が操作"}
             </span>
           </div>
           <div className="flex justify-center">
-            {territoryChallenge ? (
+            {isDefenseBattle ? (
+              // 防衛戦: 占領者 (= 相手) のリーダーカードを表示 (variant 優先 = 盤の表示と一致)。
+              <div className="relative" title="このマスの防衛リーダー">
+                <CardImage cardId={defenderCard as string} alt="防衛リーダー" className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              </div>
+            ) : territoryChallenge ? (
               <div
                 className="flex h-36 w-[93px] flex-col items-center justify-center gap-2 rounded-[var(--radius)] border border-dashed text-center text-xs text-[color:var(--text-muted)]"
                 style={{ borderColor: "var(--border-2)" }}
@@ -2746,7 +2767,7 @@ function StartPanel({
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                   <path d="M12 2l7 3v6c0 4.5-3 8-7 11-4-3-7-6.5-7-11V5z" />
                 </svg>
-                防衛 AI
+                ランダム AI
               </div>
             ) : aiDeck?.leader ? (
               <button
@@ -2765,7 +2786,9 @@ function StartPanel({
           </div>
           {territoryChallenge ? (
             <p className="text-[11px] leading-snug text-[color:var(--text-muted)]">
-              占領マスは占領者のデッキを AI が操縦して防衛します（空きマスは標準 AI）。相手は選べません。
+              {isDefenseBattle
+                ? "このマスの占領者のデッキを AI が操縦して防衛します。相手は選べません。"
+                : "空きマスなので標準 AI と対戦します。相手は選べません。"}
             </p>
           ) : (
             <>

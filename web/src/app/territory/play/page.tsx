@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { fetchDecks } from "@/lib/api";
+import { fetchDecks, fetchTerritoryCell } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
 import { HumanMatchPlay } from "@/components/HumanMatchPlay";
 import { PageShell } from "@/components/ui/PageShell";
@@ -27,6 +27,18 @@ export default async function TerritoryPlayPage({
       .map((d) => ({ slug: d.slug, name: d.name ?? d.slug, kind: d.kind, leader: d.leader, private: d.private }));
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
+  }
+
+  // 防衛戦なら防衛側 (占領者) のリーダーを取得 → 開始画面で AI 側にカード表示。
+  // 空きマス (ランダム AI) は leader_id が null。 失敗しても対戦は始められるので握り潰す。
+  let defenderLeaderId: string | null = null;
+  let defenderVariantId: string | null = null;
+  try {
+    const cell = await fetchTerritoryCell(challengeCellId);
+    defenderLeaderId = cell.leader_id;
+    defenderVariantId = cell.variant_id;
+  } catch {
+    /* 取得失敗時は placeholder のまま (= 対戦は問題なく開始できる) */
   }
 
   if (error) {
@@ -58,6 +70,8 @@ export default async function TerritoryPlayPage({
         key={challengeCellId}
         decks={decks}
         challengeCellId={challengeCellId}
+        defenderLeaderId={defenderLeaderId}
+        defenderVariantId={defenderVariantId}
       />
     </main>
   );
