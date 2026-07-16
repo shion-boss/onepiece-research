@@ -13,6 +13,8 @@ import {
 } from "react";
 import { useWorkspace, type ActivityView } from "@/lib/workspace";
 import { AuthControls } from "./AuthControls";
+import { useIsGuest } from "@/lib/useIsGuest";
+import { LoginButton, LockIcon } from "./LoginButton";
 import { StatusBar } from "./StatusBar";
 import { CardsSidebar } from "./CardsSidebar";
 import { CurrentTabSync } from "./CurrentTabSync";
@@ -334,7 +336,21 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 }
 
 // ---- sidebar panel: activeView 毎に内容を切替 ----
+function LockedPanelLink({ children }: { children: ReactNode }) {
+  // ゲスト向け: ログイン必須機能を隠さず「ロック + ログイン誘導」で見せる。
+  return (
+    <LoginButton
+      title="ログインすると使用できます"
+      className="flex w-full items-center gap-1.5 px-4 py-1.5 text-left text-[13px] text-[color:var(--text-muted)] hover:bg-[var(--list-hover)] hover:text-[color:var(--warning)]"
+    >
+      <LockIcon />
+      {children}
+    </LoginButton>
+  );
+}
+
 function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
+  const isGuest = useIsGuest();
   if (view === "grow") {
     return (
       <div className="py-2">
@@ -365,10 +381,21 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
       <div className="py-2">
         <PanelHeader>対戦</PanelHeader>
         <PanelLink href="/play" active={path === "/play"}>人間 vs AI</PanelLink>
-        <PanelLink href="/watch" active={path === "/watch"}>AI vs AI（観戦）</PanelLink>
-        <PanelLink href="/winrate" active={path === "/winrate"}>AI vs AI（勝率）</PanelLink>
+        {/* AI vs AI はログインユーザーのみ。 ゲストは存在を見せつつロック + 誘導。 */}
+        {isGuest ? (
+          <>
+            <LockedPanelLink>AI vs AI（観戦）</LockedPanelLink>
+            <LockedPanelLink>AI vs AI（勝率）</LockedPanelLink>
+          </>
+        ) : (
+          <>
+            <PanelLink href="/watch" active={path === "/watch"}>AI vs AI（観戦）</PanelLink>
+            <PanelLink href="/winrate" active={path === "/winrate"}>AI vs AI（勝率）</PanelLink>
+          </>
+        )}
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
           人間 vs AI = 自分のデッキでプレイ / 観戦 = 2 デッキで 1 試合 / 勝率 = 連戦して勝率。
+          {isGuest && " AI vs AI はログインで使用できます。"}
         </p>
       </div>
     );

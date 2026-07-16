@@ -7,6 +7,8 @@ import { CellPanel } from "./CellHistoryPanel";
 import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
 import { useTerritoryBoard } from "@/lib/useTerritory";
+import { useIsGuest } from "@/lib/useIsGuest";
+import { LoginButton, LockIcon } from "./LoginButton";
 import type { TerritoryBoard as TerritoryBoardData } from "@/lib/api";
 
 // 陣取り盤: 1024 マス (32×32)。 各マスは占領者(人間)の推しリーダーの色。 空きマスは中立。
@@ -176,6 +178,7 @@ export function TerritoryBoard({
   initialBoard?: TerritoryBoardData;
 }) {
   const router = useRouter();
+  const isGuest = useIsGuest();
   // 盤全体をポーリング (= 再読み込み不要で常時最新)。 初期値は SSR で取得済み。
   const { board } = useTerritoryBoard(initialBoard);
   const leaderById = useMemo(() => {
@@ -240,14 +243,24 @@ export function TerritoryBoard({
             // 未表示 (プレースホルダー本文) 時は出さない = 余分な空きを作らない。
             active != null ? (
               selected != null ? (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/territory/play?cell=${selected}`)}
-                  title={active.owner ? "占領者のデッキを操る AI と防衛戦" : "ランダム AI と対戦"}
-                  className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
-                >
-                  {active.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
-                </button>
+                isGuest ? (
+                  // ゲスト: 陣取り挑戦はログイン必須 → ロック表示 + ログイン誘導。
+                  <LoginButton
+                    title="陣取りへの挑戦にはログインが必要です"
+                    className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--warning)]/50 bg-[color:var(--surface-2)] px-3 py-2.5 text-sm font-semibold text-[color:var(--warning)] transition-colors hover:bg-[var(--list-hover)]"
+                  >
+                    <LockIcon /> ログインして挑戦
+                  </LoginButton>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/territory/play?cell=${selected}`)}
+                    title={active.owner ? "占領者のデッキを操る AI と防衛戦" : "ランダム AI と対戦"}
+                    className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
+                  >
+                    {active.owner ? "このマスに挑戦（防衛戦）" : "このマスに挑戦（ランダムAI）"}
+                  </button>
+                )
               ) : (
                 <div
                   aria-hidden

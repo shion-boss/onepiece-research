@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSavedFilters, normalizeFilterQuery } from "@/lib/savedFilters";
+import { useIsGuest } from "@/lib/useIsGuest";
+import { LoginButton, LockIcon } from "./LoginButton";
 
 // カード view の左メニュー: すべて開く + 保存済み絞り込みの一覧 + 現在の絞り込みを保存。
 export function CardsSidebar() {
   const pathname = usePathname();
   const params = useSearchParams();
   const router = useRouter();
+  const isGuest = useIsGuest();
   const { filters, add, remove, rename } = useSavedFilters();
 
   const onCards = pathname === "/cards";
@@ -43,20 +46,32 @@ export function CardsSidebar() {
         <span className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">
           保存した絞り込み
         </span>
-        <button
-          type="button"
-          onClick={save}
-          disabled={!hasCurrentFilter}
-          title={hasCurrentFilter ? "現在の絞り込みを保存" : "カード検索で条件を設定すると保存できます"}
-          className="rounded px-1.5 text-lg leading-none text-[color:var(--text-muted)] hover:bg-[var(--list-hover)] hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
-        >
-          +
-        </button>
+        {isGuest ? (
+          // ゲスト: 絞り込み保存はユーザー情報が要る → ログイン必須。 ロック表示 + 誘導。
+          <LoginButton
+            title="ログインすると絞り込み条件を保存できます"
+            className="flex items-center rounded px-1.5 text-[color:var(--text-muted)] hover:bg-[var(--list-hover)] hover:text-[color:var(--warning)]"
+          >
+            <LockIcon />
+          </LoginButton>
+        ) : (
+          <button
+            type="button"
+            onClick={save}
+            disabled={!hasCurrentFilter}
+            title={hasCurrentFilter ? "現在の絞り込みを保存" : "カード検索で条件を設定すると保存できます"}
+            className="rounded px-1.5 text-lg leading-none text-[color:var(--text-muted)] hover:bg-[var(--list-hover)] hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            +
+          </button>
+        )}
       </div>
 
       {filters.length === 0 ? (
         <p className="px-4 py-1 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          カード検索で絞り込んで「+」を押すと、その条件を名前付きで保存できます。
+          {isGuest
+            ? "ログインすると、絞り込み条件を名前付きで保存できます。"
+            : "カード検索で絞り込んで「+」を押すと、その条件を名前付きで保存できます。"}
         </p>
       ) : (
         filters.map((f) => {
