@@ -2,6 +2,7 @@ import { fetchDecks } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
 import { SpectateBatch } from "@/components/SpectateBatch";
 import { PageShell } from "@/components/ui/PageShell";
+import { LoginRequired } from "@/components/LoginRequired";
 
 // AI vs AI 10連戦(勝率): 2 デッキで 10 戦して勝率 + 各試合を観戦。
 export default async function WinratePage({
@@ -46,7 +47,10 @@ export default async function WinratePage({
 
   return (
     <main className="flex w-full flex-1 flex-col">
-      <SpectateBatch decks={decks} initialDeckA={sp?.deck} />
+      {/* AI vs AI はログイン必須。 ゲストはページ全体をログインゲートに (直 URL 防止)。 */}
+      <LoginRequired feature="AI vs AI（勝率）">
+        <SpectateBatch decks={decks} initialDeckA={sp?.deck} />
+      </LoginRequired>
     </main>
   );
 }

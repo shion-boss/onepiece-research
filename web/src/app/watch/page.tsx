@@ -2,6 +2,7 @@ import { fetchDecks } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
 import { MatrixSpectate } from "@/components/MatrixSpectate";
 import { PageShell } from "@/components/ui/PageShell";
+import { LoginRequired } from "@/components/LoginRequired";
 
 // AI vs AI 観戦: 2 デッキを選んで 1 試合シミュレート → 盤面 replay を観戦。
 export default async function WatchPage({
@@ -47,7 +48,10 @@ export default async function WatchPage({
 
   return (
     <main className="flex w-full flex-1 flex-col">
-      <MatrixSpectate decks={decks} initialDeckA={sp?.deck} />
+      {/* AI vs AI はログイン必須。 ゲストはページ全体をログインゲートに (直 URL 防止)。 */}
+      <LoginRequired feature="AI vs AI（観戦）">
+        <MatrixSpectate decks={decks} initialDeckA={sp?.deck} />
+      </LoginRequired>
     </main>
   );
 }

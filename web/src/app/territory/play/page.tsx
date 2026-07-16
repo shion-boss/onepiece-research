@@ -3,6 +3,7 @@ import { fetchDecks, fetchTerritoryCell } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
 import { HumanMatchPlay } from "@/components/HumanMatchPlay";
 import { PageShell } from "@/components/ui/PageShell";
+import { LoginRequired } from "@/components/LoginRequired";
 
 // 陣取りボードのマス挑戦専用の対戦画面。 /play (通常の人間 vs AI) とは別ルート = 別タブにする
 // (= 挑戦と通常対戦が同じ /play タブに同居して、 挑戦を開始しても前の対戦画面が残る不具合を防ぐ)。
@@ -66,13 +67,16 @@ export default async function TerritoryPlayPage({
   // key に cell を渡し、 別マスに挑戦し直すたびに fresh mount (= 前の対戦状態を持ち越さない)。
   return (
     <main className="flex w-full flex-1 flex-col">
-      <HumanMatchPlay
-        key={challengeCellId}
-        decks={decks}
-        challengeCellId={challengeCellId}
-        defenderLeaderId={defenderLeaderId}
-        defenderVariantId={defenderVariantId}
-      />
+      {/* 陣取り挑戦はログイン必須。 ゲストは直 URL でもログインゲートに。 */}
+      <LoginRequired feature="陣取りへの挑戦">
+        <HumanMatchPlay
+          key={challengeCellId}
+          decks={decks}
+          challengeCellId={challengeCellId}
+          defenderLeaderId={defenderLeaderId}
+          defenderVariantId={defenderVariantId}
+        />
+      </LoginRequired>
     </main>
   );
 }
