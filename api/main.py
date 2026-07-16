@@ -4039,6 +4039,31 @@ def _action_log_to_payload(log: list["HumanActionLog"]) -> list[dict]:
     ]
 
 
+def _build_defender_deck_dict(leader_id: str) -> Optional[dict]:
+    """占領マスに保存 recipe が無い (= seed / 旧データ) 場合の防衛デッキ fallback。
+
+    占領者のリーダーから 50 枚デッキを自動構築して recipe dict を返す。 これで防衛 AI は
+    必ず「盤に表示されているリーダー」で戦う (= 無関係な既定デッキに化けない)。 leader が
+    LEADER でない / 構築失敗なら None (= 呼び出し側で従来 fallback)。"""
+    from collections import Counter
+    from engine.deckbuilder import auto_build_deck
+
+    repo = get_repo()
+    try:
+        leader = repo.get(leader_id)
+        name = f"{leader.name} (防衛)"
+        dl = auto_build_deck(leader_id, repo, name=name)
+    except Exception as e:  # noqa: BLE001 (どの失敗でも従来 fallback に委ねる)
+        print(f"[territory] auto_build defender failed for {leader_id}: {e}")
+        return None
+    counts = Counter(c.card_id for c in dl.main)
+    return {
+        "name": name,
+        "leader": dl.leader.card_id,
+        "main": [{"card_id": cid, "count": n} for cid, n in counts.items()],
+    }
+
+
 @app.post("/api/human_match")
 def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_id)):
     """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。
@@ -4074,9 +4099,23 @@ def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_
         defender_slug = req.deck_b_slug
         if cell["leader_id"]:  # 占領マス → 占領者の実デッキを AI が操縦
             recipe = territory.defender_deck(req.cell_id)
+            if not recipe:
+                # 保存 recipe 無し (= seed / 旧データ) → 占領者のリーダーから自動構築し、
+                # 「盤に出ているリーダー」で防衛させる (= 無関係な既定デッキに化けさせない)。
+                recipe = _build_defender_deck_dict(cell["leader_id"])
             if recipe:
                 deck_b_inline = recipe
                 defender_slug = cell.get("deck_slug") or f"cell{req.cell_id}-defender"
+        else:
+            # 空きマス = ランダム AI (= 挑戦ボタン/開始画面の表記に合わせる)。 UI で相手を
+            # 選べない (deck_b_slug は frontend の既定でブレる) ので、 メタデッキから 1 つ
+            # 無作為に選ぶ。 seed×cell で決定的 = 同じマス+seed なら再現可 (= 常駐する相手)。
+            import random as _rnd
+            meta_slugs = sorted(_meta_deck_slugs_set())
+            if meta_slugs:
+                pick = _rnd.Random((req.seed or 42) ^ (int(req.cell_id) + 1)).choice(meta_slugs)
+                deck_b_inline = _resolve_deck_dict(pick, user_id)
+                defender_slug = pick
         challenge = {
             "cell_id": int(req.cell_id),
             "expected_version": expected_version,
