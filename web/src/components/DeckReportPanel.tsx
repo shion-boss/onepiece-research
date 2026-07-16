@@ -171,7 +171,8 @@ function ReportBody({
       {report.challenges && report.challenges.length > 0 && (
         <Section title="負けた試合の攻略（同じ引きで勝てたか）">
           <p className="text-[11px] text-[color:var(--text-muted)]">
-            惜しくも負けた試合を、 同じ引き（山札）のまま強い探索AIが指し直し。「こう指せば勝てた」筋。
+            現最強AIでも落とした惜しい負けを、 同じ引き（山札）のまま探索を変えて指し直し。
+            勝てた場合は「分岐点＝こう指せば勝てた手」を出す。
           </p>
           <div className="space-y-1.5">
             {report.challenges.map((c, i) => (
@@ -343,8 +344,8 @@ function ReportBody({
 
       {!running && (
         <p className="text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          ※ 現状の AI 同士を対戦させ、 その挙動から発掘した傾向です（理論上の最適ではなく、
-          このデッキの回り方・機能条件の手がかり）。 メタ16デッキ＋ミラーで探索。
+          ※ 現最強AI（実際の対戦相手 ExploitBeam）同士を対戦させ、 その挙動から発掘した傾向です
+          （理論上の最適ではなく、 このデッキの回り方・機能条件の手がかり）。 メタ16デッキ＋ミラーで探索。
         </p>
       )}
     </div>

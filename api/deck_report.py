@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -525,7 +526,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
     }
     return {
         "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "ai_version": "GoalDirected_baseline",
+        "ai_version": "ExploitBeam_deployed",
         "n_games_per_matchup": n_games,
         "recipe_hash": rhash,          # この report がどのレシピの計算か (= 再開時の照合)
         "roles": comp["roles"],
@@ -548,40 +549,86 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
     }
 
 
-def _describe_winning_line(gs, gr, repo) -> str:
-    """勝てた試合 (= 同じ引きを強い探索AIが操縦して勝った) の「勝ち筋」を短文化する。
-    move 単位の diff は取らず、 勝った試合の型 (速攻/除去/手数) + 決着ターン + 早い着地札で要約。"""
+def deployed_ai_factory(rng, deck_analysis=None):
+    """配備 = 現最強AI (= 人間が実際に戦う ExploitBeam) と同一 factory。
+    分析の base も challenge の相手も これで揃える (= GoalDirected baseline は使わない)。"""
+    from engine.exploit_beam_ai import ExploitBeamAI
+    return ExploitBeamAI(rng=rng, deck_analysis=deck_analysis)
+
+
+def _win_line_summary(gs, gr) -> str:
+    """勝ち筋の型 (速攻/除去/手数) + 決着ターンを短く要約 (= 分岐点の後の流れ)。"""
     t = gr.turns
     fh = getattr(gs, "first_hit_given_turn", None)
     atk = getattr(gs, "attacks_life_hit", 0) or 0
     ko = sum(gs.ko_targets.values()) if getattr(gs, "ko_targets", None) else 0
     if fh is not None and fh <= 4 and atk >= 2:
-        core = f"{fh}ターン目から攻め始め、 相手ライフへ {atk} 回通して押し切る"
+        core = f"{fh}ターン目から攻めて相手ライフへ {atk} 回通す"
     elif ko >= 2:
-        core = f"相手キャラを {ko} 体除去して盤面を捌き、 受けてから返す"
+        core = f"相手キャラを {ko} 体除去して盤面を捌く"
     elif atk >= 2:
-        core = f"相手ライフへ {atk} 回攻撃を通して削り切る"
+        core = f"相手ライフへ {atk} 回攻撃を通す"
     else:
-        core = "盤面を作って詰め切る"
-    # 早い着地が効いた札 (= 3 ターン目までに出せたキーっぽいカード) を 1-2 枚添える。
-    early = []
-    fpt = getattr(gs, "first_play_turn_by_card", {}) or {}
-    for name, turn in sorted(fpt.items(), key=lambda kv: (kv[1] if kv[1] is not None else 99)):
-        if turn is not None and turn <= 3 and name:
-            early.append(f"{name}(T{turn})")
-        if len(early) >= 2:
+        core = "盤面を作って詰める"
+    return f"以降は {core}流れで {t}ターンに決着。"
+
+
+_HERO_DECISION_RE = re.compile(r"T(\d+) (P[01]):\s*(play: |event: |起動メイン: |atk: )(.*)")
+
+
+def _hero_decisions(log, hero_seat: int) -> list:
+    """log から hero (= P{seat}) の意思決定 (play/event/起動/攻撃) を (turn, kind, 要約) で抽出。"""
+    seat = f"P{hero_seat}"
+    out: list = []
+    for line in log or []:
+        m = _HERO_DECISION_RE.match(line)
+        if not m or m.group(2) != seat:
+            continue
+        turn, verb, rest = int(m.group(1)), m.group(3), m.group(4)
+        if verb == "play: ":
+            out.append((turn, "play", f"{rest.split(' (cost')[0].strip()}をプレイ"))
+        elif verb == "event: ":
+            out.append((turn, "event", f"{rest.split(' (cost')[0].strip()}を使用"))
+        elif verb == "起動メイン: ":
+            out.append((turn, "act", f"{rest.strip()}の効果を起動"))
+        elif verb == "atk: ":
+            atkr = rest.split("(P=")[0].strip()
+            tgt = rest.split("-> ")[-1].split("(P=")[0].strip() if "-> " in rest else "?"
+            out.append((turn, "atk", f"{atkr}で{tgt}を攻撃"))
+    return out
+
+
+def _pivotal_move(loss_log, win_log, hero_seat: int, win_gs, win_gr) -> str:
+    """負け筋と勝ち筋 (= 同じ引き) の hero 意思決定を先頭から比べ、 最初に食い違ったターン
+    (= 分岐点) を「どう指せば勝てたか」として言語化する (= 集約でなく具体的な一手)。"""
+    ld = _hero_decisions(loss_log, hero_seat)
+    wd = _hero_decisions(win_log, hero_seat)
+    tail = _win_line_summary(win_gs, win_gr)
+    piv = None
+    for i in range(min(len(ld), len(wd))):
+        if ld[i][1:] != wd[i][1:]:      # kind+要約 が最初に違う点 = 分岐
+            piv = (ld[i], wd[i])
             break
-    tail = f" 早めの{'・'.join(early)}が布石。" if early else ""
-    return f"同じ引きでも、 {core}（{t}ターンで決着）。{tail}"
+    if piv is None and len(wd) > len(ld):
+        piv = (None, wd[len(ld)])       # 負け筋には無い一手を勝ち筋が指した
+    if piv is None:
+        return f"同じ引きでも、 指し回しを変えれば勝てる。 {tail}"
+    loss_d, win_d = piv
+    wt = win_d[0]
+    if loss_d is None:
+        return f"分岐は{wt}ターン目。 手を止めず「{win_d[2]}」と動くと勝てる。 {tail}"
+    return f"分岐は{wt}ターン目。 「{loss_d[2]}」ではなく「{win_d[2]}」と指すと勝てる。 {tail}"
 
 
 def _challenge_losses(user_dl, lost_games: list, n_games: int, repo, k: int = 5) -> list:
-    """惜しい負け (= 相手ライフ残り少で負けた試合) を、 同じ seed のまま 強い探索 AI
-    (ExploitBeam) が 自デッキを操縦して 勝てるか 試す (= 反実仮想「どう指せば勝てたか」)。
+    """惜しい負け (= 現最強AI が詰め切れず負けた試合) を、 同じ引き (seed) のまま 探索を
+    変えた強AI 群で指し直し、 勝てる筋があるかを探る (= 反実仮想「どう指せば勝てたか」)。
 
-    - lost_games: {"opp","seed","gi","opp_life"} のリスト (= 負け試合の再現情報)。
-    - opp_life 昇順 (= 詰め切れずに負けた惜しい試合) から上位 k 件を攻略対象に。
-    - 相手 (deck2) は元の baseline AI のまま (= 引き=seed 固定、 自分の指し手だけ強化)。
+    - base (= 分析本体) も 相手も 現最強 ExploitBeam。 負け = 強AI でも落とした本物の負け。
+    - challenge = 同じ引きを、 探索を変えた ExploitBeam 4 通り (広く読む / 深く読む / 別筋を
+      サンプル) で指し直す。 どれかが勝てば「その引きに勝ち筋あり」。 = ユーザーの「同じ seed で
+      5 戦」。 相手は base のまま (= 引き固定、 自分の指し手だけ変える)。
+    - how_to_win = 負け筋と勝ち筋の意思決定を diff し、 分岐点の具体的な一手を出す。
     """
     if not lost_games:
         return []
@@ -589,37 +636,51 @@ def _challenge_losses(user_dl, lost_games: list, n_games: int, repo, k: int = 5)
     from engine.exploit_beam_ai import ExploitBeamAI
     from engine.log_analyzer import parse_game_log
 
-    def strong_factory(rng, deck_analysis=None):
-        return ExploitBeamAI(rng=rng, deck_analysis=deck_analysis)
+    def _mk(**kw):
+        return lambda rng, deck_analysis=None: ExploitBeamAI(rng=rng, deck_analysis=deck_analysis, **kw)
+
+    base_factory = _mk()  # 配備既定 (= 負けを喫した本体)
+    # 同じ引きで別の勝ち筋を探す探索バリエーション (= 広く/深く/別筋)。
+    variants = [
+        _mk(beam_width=28),                              # 広く読む
+        _mk(postopp_turns=2),                            # 深く読む (相手2ターン先)
+        _mk(postopp_turns=2, postopp_self_value=True),   # 自分の未来ターンも value 誘導
+        _mk(beam_width=24, plan_temperature=0.8),        # 別の筋をサンプル
+    ]
 
     picks = sorted(lost_games, key=lambda x: x["opp_life"])[:k]
     out: list = []
     for lg in picks:
         opp = lg["opp"]
-        try:
-            rep2 = run_matchup(
-                user_dl, opp["decklist"], n_games=n_games, seed=lg["seed"],
-                only_game_index=lg["gi"], ai_factory_1=strong_factory,
-                time_limit_turns=40, time_limit_mode="both_lose", keep_logs=True,
-            )
-            gr = rep2.games[lg["gi"]]
-        except Exception:
-            continue
-        won = (gr.winner == 0)  # deck1 (= 自分) 勝ち
+        hero_seat = lg.get("first_player", 0)
+        loss_log = lg.get("loss_log") or []
+        won_gr = None
+        for vf in variants:
+            try:
+                r2 = run_matchup(
+                    user_dl, opp["decklist"], n_games=n_games, seed=lg["seed"],
+                    only_game_index=lg["gi"], ai_factory_1=vf, ai_factory_2=base_factory,
+                    time_limit_turns=40, time_limit_mode="both_lose", keep_logs=True,
+                )
+                g2 = r2.games[lg["gi"]]
+            except Exception:
+                continue
+            if g2.winner == 0:   # deck1 (= 自分) 勝ち
+                won_gr = g2
+                break
         entry = {
             "opponent": opp["name"],
             "opp_leader": opp.get("leader_name") or opp["name"],
             "opp_archetype": opp.get("archetype", ""),
             "loss_margin": int(lg["opp_life"]),  # 負けた時の相手ライフ残り (= 小さいほど惜しい)
-            "winnable": bool(won),
+            "winnable": won_gr is not None,
         }
-        if won:
+        if won_gr is not None:
             try:
-                hero_idx = gr.first_player
-                gs = parse_game_log(gr.log, hero_idx, gr.turns, hero_idx)
-                entry["how_to_win"] = _describe_winning_line(gs, gr, repo)
+                win_gs = parse_game_log(won_gr.log, hero_seat, won_gr.turns, hero_seat)
+                entry["how_to_win"] = _pivotal_move(loss_log, won_gr.log, hero_seat, win_gs, won_gr)
             except Exception:
-                entry["how_to_win"] = "同じ引きでも、 指し手を変えれば勝てた。"
+                entry["how_to_win"] = "同じ引きでも、 指し回しを変えれば勝てる。"
         out.append(entry)
     return out
 
@@ -669,8 +730,11 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
             matchups.append(done_map[m["slug"]])  # 再開: 計算済みは skip
         else:
             # keep_logs=True で試合ログを取り、 戦い方の傾向を発掘する (= 追加試合なし)。
+            # 両サイド 現最強 ExploitBeam (= 人間が実際に戦う配備AIと同一)。 GoalDirected baseline
+            # では「弱い操縦」の傾向になり、 負け=操縦ミスと本物の負けが区別できないため。
             rep = run_matchup(
                 user_dl, m["decklist"], n_games=n_games, seed=seed + i,
+                ai_factory_1=deployed_ai_factory, ai_factory_2=deployed_ai_factory,
                 time_limit_turns=40, time_limit_mode="both_lose", keep_logs=True,
             )
             matchups.append({
@@ -699,7 +763,10 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                     # opp_life = 負けた時の相手ライフ残り (= 小さいほど「詰め切れず惜しい」)。
                     if gr.winner == 1 and m["slug"] != "__mirror__":
                         opp_life = gr.p1_life_left if hero_idx == 0 else gr.p0_life_left
-                        lost_games.append({"opp": m, "seed": seed + i, "gi": gi, "opp_life": opp_life})
+                        # loss_log = 現最強AIがこの引きでどう負けたか (= 分岐点 diff の対照)。
+                        lost_games.append({"opp": m, "seed": seed + i, "gi": gi,
+                                           "opp_life": opp_life, "first_player": gr.first_player,
+                                           "loss_log": list(gr.log or [])})
                     gs = parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx)
                     gs.went_first = (gr.first_player == 0)  # hero(deck1) が先攻だったか
                     gs.opp_archetype = m.get("archetype")   # 相手別プランのグループキー
