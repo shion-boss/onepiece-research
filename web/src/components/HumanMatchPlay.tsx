@@ -2514,6 +2514,7 @@ type HumanPlayMatchup = {
 };
 type HumanPlayStats = {
   total_games: number;
+  this_month_games: number;
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
@@ -2524,15 +2525,7 @@ type HumanPlayStats = {
   by_matchup: HumanPlayMatchup[];
 };
 
-function ContributionPanel({
-  decks,
-  deckA,
-  deckB,
-}: {
-  decks: DeckOption[];
-  deckA: string;
-  deckB: string;
-}) {
+function ContributionPanel() {
   const [stats, setStats] = useState<HumanPlayStats | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -2548,28 +2541,12 @@ function ContributionPanel({
   }, []);
   if (failed || !stats) return null;
 
-  const nameOf = (slug: string) =>
-    decks.find((d) => d.slug === slug)?.name ?? slug;
-  // マイデッキ (= "user_" 接頭辞) は私的で共有/学習できない → コミュニティ貢献ゲージの対象外。
-  // (対象にすると分母が永遠に +10 されず、 ゲージが無限に増えてしまう。)
-  const isUserDeck = deckA.startsWith("user_");
-  const thr = stats.batch_size ?? stats.training_threshold; // 未対戦マッチアップの初期分母
-  // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
-  const selected = stats.by_matchup.find(
-    (m) => m.human_deck === deckA && m.ai_deck === deckB,
-  );
-  const selGames = selected?.games ?? 0; // 累計
-  const selNew = selected?.new_games ?? 0; // 今バッチ
-  const selThr = selected?.threshold ?? thr; // このマッチアップの現分母 (学習で +10 される)
-  const selPct = selected?.progress_pct ?? 0;
-  const selWr = selected && selGames ? Math.round(selected.human_winrate * 100) : null;
-
-  const barW = (v: number) => `${Math.min(100, Math.max(0, v))}%`;
-  const stat = [
-    { v: stats.total_games.toLocaleString(), l: "みんなの対戦数", c: "var(--brand)" },
-    { v: `${stats.matchups_ready}/${stats.matchups_tracked}`, l: "学習ライン到達", c: "var(--accent)" },
-    { v: `${Math.round(stats.human_winrate * 100)}%`, l: "人間の勝率", c: "var(--text-strong)" },
-  ];
+  const total = stats.total_games ?? 0;
+  const hw = stats.human_wins ?? 0;
+  const aw = stats.ai_wins ?? 0;
+  const decided = hw + aw;
+  const humanPct = decided ? Math.round((hw / decided) * 100) : 0;
+  const thisMonth = stats.this_month_games ?? 0;
 
   return (
     <section
@@ -2592,103 +2569,44 @@ function ContributionPanel({
         対戦する人が増えるほど AI は人間に強くなります。
       </p>
 
-      {/* 全体サマリ */}
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {stat.map((s, i) => (
+      {/* 人間 vs AI 勝敗ゲージ (= みんなの通算)。 */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between text-xs font-medium">
+          <span style={{ color: "var(--accent)" }}>人間 {hw.toLocaleString()}勝（{humanPct}%）</span>
+          <span style={{ color: "var(--danger)" }}>AI {aw.toLocaleString()}勝</span>
+        </div>
+        <div
+          className="relative mt-1.5 h-2.5 overflow-hidden rounded-full"
+          style={{ background: "var(--danger)" }}
+        >
           <div
-            key={i}
-            className="rounded-[var(--radius)] border p-3"
-            style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
-          >
-            <div className="text-xl font-bold tabular-nums" style={{ color: s.c }}>
-              {s.v}
-            </div>
-            <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">{s.l}</div>
-          </div>
-        ))}
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ width: `${humanPct}%`, background: "var(--accent)" }}
+          />
+        </div>
       </div>
 
-      {/* 選択中の対戦 = あなたの貢献先 (デッキ変更に追従)。 マイデッキは共有学習の対象外
-          なので、 無限ゲージでなく「自分のデッキに活きる」旨を出す。 */}
-      {isUserDeck ? (
+      {/* 総対戦数の累積 + 今月の対戦数。 */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <div
-          className="mt-3 rounded-[var(--radius)] border p-3"
+          className="rounded-[var(--radius)] border p-3"
           style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
         >
-          <div className="text-sm font-medium text-[color:var(--text-strong)]">
-            {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(マイデッキ)</span>
+          <div className="text-xl font-bold tabular-nums" style={{ color: "var(--brand)" }}>
+            {total.toLocaleString()}
           </div>
-          <div className="mt-1.5 text-xs leading-relaxed text-[color:var(--text-muted)]">
-            マイデッキでの対戦は、 このデッキの<strong className="font-medium text-[color:var(--text-default)]">戦績・分析</strong>に活きます
-            （デッキ詳細の「直近の対戦履歴」に記録）。
-            コミュニティAIの学習対象は<strong className="font-medium text-[color:var(--text-default)]">環境デッキ同士</strong>の対戦です。
-          </div>
+          <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">総対戦数（累計）</div>
         </div>
-      ) : (
         <div
-          className="mt-3 rounded-[var(--radius)] border p-3"
-          style={{ borderColor: "var(--brand)", background: "var(--surface-2)" }}
+          className="rounded-[var(--radius)] border p-3"
+          style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
         >
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="min-w-0 truncate font-medium text-[color:var(--text-strong)]">
-              {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(あなた) vs</span>{" "}
-              {nameOf(deckB)} <span className="text-[color:var(--text-muted)]">(AI)</span>
-            </span>
-            <span className="shrink-0 tabular-nums text-xs text-[color:var(--text-muted)]">
-              {selNew}/{selThr}
-              {selGames > selNew && <span className="ml-1 opacity-70">（累計 {selGames}）</span>}
-            </span>
+          <div className="text-xl font-bold tabular-nums" style={{ color: "var(--text-strong)" }}>
+            {thisMonth.toLocaleString()}
           </div>
-          <div
-            className="relative mt-2 h-2 overflow-hidden rounded-full"
-            style={{ background: "var(--border-2)" }}
-          >
-            <div
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{ width: barW(selPct), background: selNew >= selThr ? "var(--accent)" : "var(--brand)" }}
-            />
-          </div>
-          <div className="mt-1.5 text-xs text-[color:var(--text-muted)]">
-            {selGames === 0
-              ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
-              : selNew >= selThr
-                ? `次バッチ分に到達（${selThr}戦）。 学習に使われると分母が +10 され、 また埋めていきます。`
-                : `あと ${selThr - selNew} 戦で次の学習バッチに到達します。`}
-            {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
-          </div>
+          <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">今月の対戦数</div>
         </div>
-      )}
-
-      {/* 上位マッチアップの進捗 */}
-      {stats.by_matchup.length > 0 && (
-        <div className="mt-4">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
-            マッチアップ別 進捗
-          </div>
-          <div className="space-y-1.5">
-            {stats.by_matchup.slice(0, 5).map((m, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="w-1/2 truncate text-[color:var(--text-default)]">
-                  {nameOf(m.human_deck)} <span className="text-[color:var(--text-muted)]">vs</span>{" "}
-                  {nameOf(m.ai_deck)}
-                </span>
-                <div
-                  className="relative h-1.5 flex-1 overflow-hidden rounded-full"
-                  style={{ background: "var(--border-2)" }}
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: barW(m.progress_pct), background: m.new_games >= m.threshold ? "var(--accent)" : "var(--brand)" }}
-                  />
-                </div>
-                <span className="w-14 shrink-0 text-right tabular-nums text-[color:var(--text-muted)]">
-                  {m.new_games}/{m.threshold}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -3016,9 +2934,7 @@ function StartPanel({
       </div>
 
       {/* コミュニティ貢献パネル (陣取り挑戦では非表示)。 */}
-      {!territoryChallenge && (
-        <ContributionPanel decks={decks} deckA={deckA} deckB={deckB} />
-      )}
+      {!territoryChallenge && <ContributionPanel />}
     </div>
   );
 }

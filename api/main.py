@@ -4349,8 +4349,11 @@ def _aggregate_human_play_stats() -> dict:
         if log_dir.exists():
             names = [p.name for p in log_dir.glob("*.json")]
 
+    from datetime import datetime, timezone
+    cur_month = datetime.now(timezone.utc).strftime("%Y%m")
+
     mm: dict = defaultdict(lambda: {"games": 0, "human_wins": 0, "ai_wins": 0})
-    total = hw = aw = abandoned = 0
+    total = hw = aw = abandoned = this_month = 0
     for n in names:
         parsed = _parse_play_log_name(n)
         if not parsed:
@@ -4359,20 +4362,25 @@ def _aggregate_human_play_stats() -> dict:
         if tag == "abandoned":
             abandoned += 1
             continue
-        # コミュニティ学習の対象は環境(メタ)デッキ同士の対戦。 私的な user デッキ (= "user_"
-        # 接頭辞) の matchup は共有/汎化できず「学習」されないので、 ゲージが永遠に埋まり続ける
-        # (= 分母が +10 されない)。 集計から除外し、 マイデッキ対戦は per-deck 履歴/分析に回す。
+        # 活動集計 (= 総対戦数 / 今月 / 勝敗) は 全対戦を数える (= マイデッキ含む「みんなの対戦」)。
+        total += 1
+        if tag == "humanW":
+            hw += 1
+        elif tag == "aiW":
+            aw += 1
+        ts = n.rsplit("/", 1)[-1].split("_", 1)[0]  # "20260716T140448Z"
+        if ts[:6] == cur_month:
+            this_month += 1
+        # by_matchup (= 学習進捗) は 環境(メタ)デッキ同士のみ。 私的な user デッキ (= "user_"
+        # 接頭辞) の matchup は共有/汎化できず「学習」されない (= ゲージが永遠に埋まらない) ので除外。
         if human.startswith("user_") or ai.startswith("user_"):
             continue
         v = mm[(human, ai)]
         v["games"] += 1
-        total += 1
         if tag == "humanW":
             v["human_wins"] += 1
-            hw += 1
         elif tag == "aiW":
             v["ai_wins"] += 1
-            aw += 1
 
     trained = _load_human_play_trained()
     by_matchup = []
@@ -4395,6 +4403,7 @@ def _aggregate_human_play_stats() -> dict:
         })
     return {
         "total_games": total,
+        "this_month_games": this_month,
         "human_wins": hw,
         "ai_wins": aw,
         "abandoned": abandoned,
