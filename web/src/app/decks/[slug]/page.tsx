@@ -9,7 +9,7 @@ import {
 } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
 import type { Card, DeckAnalysis, DeckDetail, DeckStrategy, DeckSummary } from "@/lib/types";
-import { CardImage } from "@/components/CardImage";
+import { LeaderCard } from "@/components/LeaderCard";
 import { ColorChip } from "@/components/ColorChip";
 import { DeckStrategyPanel } from "@/components/DeckStrategyPanel";
 import { DeckCombosPanel } from "@/components/DeckCombosPanel";
@@ -65,9 +65,10 @@ export default async function DeckDetailPage({
   }
 
   const uniqueIds = Array.from(new Set(detail.main.map((e) => e.card_id)));
-  const cardDetails = await Promise.all(
-    uniqueIds.map((id) => fetchCard(id).catch(() => null as Card | null)),
-  );
+  const [cardDetails, leaderCard] = await Promise.all([
+    Promise.all(uniqueIds.map((id) => fetchCard(id).catch(() => null as Card | null))),
+    fetchCard(detail.leader).catch(() => null as Card | null),
+  ]);
   const cardById = new Map<string, Card>();
   for (const c of cardDetails) {
     if (c) cardById.set(c.card_id, c);
@@ -89,8 +90,9 @@ export default async function DeckDetailPage({
       {/* ヘッダー: リーダー画像 + デッキ情報 */}
       <header className="flex gap-5">
         <div className="shrink-0">
-          <CardImage
+          <LeaderCard
             cardId={detail.leader}
+            card={leaderCard}
             alt={summary?.leader_name ?? detail.leader}
             className="h-32 w-[91px] rounded-[var(--radius)] object-cover"
           />
