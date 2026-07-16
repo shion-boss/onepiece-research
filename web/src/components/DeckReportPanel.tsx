@@ -1,0 +1,206 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchDeckReport, requestDeckAnalysis, type DeckReport } from "@/lib/api";
+
+// ユーザーデッキの裏分析レポート (= AI vs AI 相性 + 役割内訳 + キーカード)。
+// 保存時に enqueue されワーカーが計算 → ここは読むだけ + pending 中は poll して自動更新。
+export function DeckReportPanel({ slug }: { slug: string }) {
+  const [data, setData] = useState<DeckReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetchDeckReport(slug);
+      setData(r);
+      // 分析中は 5 秒ごとに poll (= ワーカー完了で自動的に done へ)。
+      if (r.status === "pending" || r.status === "running") {
+        timer.current = setTimeout(load, 5000);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    load();
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [load]);
+
+  const onRequest = async () => {
+    setRequesting(true);
+    setError(null);
+    try {
+      await requestDeckAnalysis(slug);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  if (!data) {
+    return (
+      <Shell>
+        <div className="text-sm text-[color:var(--text-muted)]">
+          {error ? `分析の読み込みに失敗: ${error}` : "読み込み中…"}
+        </div>
+      </Shell>
+    );
+  }
+
+  const { status, stale, report } = data;
+
+  // 未分析 / 分析中 / 失敗 の状態表示。
+  if (status !== "done" || !report) {
+    return (
+      <Shell>
+        {status === "pending" || status === "running" ? (
+          <div className="flex items-center gap-3 text-sm text-[color:var(--text-default)]">
+            <Spinner />
+            <div>
+              分析中… 裏で AI 対戦を回してメタ16デッキとの相性を計測しています（数分かかります）。
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-3">
+            <div className="text-sm text-[color:var(--text-muted)]">
+              このデッキはまだ分析されていません。
+            </div>
+            <button
+              type="button"
+              onClick={onRequest}
+              disabled={requesting}
+              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              {requesting ? "受付中…" : "分析する"}
+            </button>
+          </div>
+        )}
+        {error && <div className="mt-2 text-xs text-[color:var(--danger)]">{error}</div>}
+      </Shell>
+    );
+  }
+
+  const avgPct = Math.round(report.matchup_summary.avg * 100);
+  return (
+    <Shell>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="rounded px-2 py-0.5 text-xs font-bold text-white" style={{ background: "var(--brand)" }}>
+            {report.archetype}
+          </span>
+          <span className="text-sm text-[color:var(--text-default)]">
+            メタ16デッキ相手の平均勝率{" "}
+            <span className="font-semibold text-[color:var(--text-strong)]">{avgPct}%</span>
+          </span>
+        </div>
+        {stale && (
+          <button
+            type="button"
+            onClick={onRequest}
+            disabled={requesting}
+            className="rounded-[var(--radius)] border border-[color:var(--border-2)] px-2.5 py-1 text-xs text-[color:var(--text-default)] hover:border-[color:var(--brand)] disabled:opacity-50"
+          >
+            {requesting ? "受付中…" : "デッキ変更後 · 再分析"}
+          </button>
+        )}
+      </div>
+
+      {/* 役割内訳 */}
+      <Section title="役割の内訳">
+        <div className="flex flex-wrap gap-1.5">
+          {report.roles.map((r) => (
+            <span
+              key={r.role}
+              className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
+            >
+              {r.label} <span className="font-semibold text-[color:var(--text-strong)]">{r.count}</span>
+            </span>
+          ))}
+        </div>
+      </Section>
+
+      {/* キーカード / 勝ち筋 */}
+      {report.key_cards.length > 0 && (
+        <Section title="キーカード（勝ち筋）">
+          <div className="flex flex-wrap gap-1.5">
+            {report.key_cards.map((k) => (
+              <span
+                key={k.card_id}
+                title={`${k.label}`}
+                className="rounded-[var(--radius)] border border-[color:var(--border-1)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
+              >
+                {k.name}
+                <span className="ml-1 text-[10px] text-[color:var(--text-muted)]">{k.label}</span>
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* 相性表 */}
+      <Section title="メタ相性（AI対戦で計測）">
+        <ul className="space-y-1">
+          {[...report.matchups]
+            .sort((a, b) => b.win_rate - a.win_rate)
+            .map((m) => {
+              const pct = Math.round(m.win_rate * 100);
+              const tone =
+                pct >= 60 ? "var(--brand)" : pct <= 40 ? "var(--danger)" : "var(--border-2)";
+              return (
+                <li key={m.slug} className="flex items-center gap-2 text-xs">
+                  <span className="w-28 shrink-0 truncate text-[color:var(--text-default)]">
+                    {m.leader_name || m.name}
+                  </span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[color:var(--surface-2)]">
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: tone }} />
+                  </div>
+                  <span className="w-9 shrink-0 text-right font-mono text-[color:var(--text-strong)]">
+                    {pct}%
+                  </span>
+                </li>
+              );
+            })}
+        </ul>
+      </Section>
+
+      <p className="text-[11px] leading-relaxed text-[color:var(--text-muted)]">
+        ※ 両者を同じ基準 AI が操縦した時の相対勝率です（理論上の有利不利ではなく、
+        現状の AI がこのデッキを操縦した場合の目安）。1マッチアップ {report.n_games_per_matchup} 戦。
+      </p>
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
+      <h3 className="text-sm font-semibold text-[color:var(--text-strong)]">AI分析レポート</h3>
+      {children}
+    </section>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs font-medium text-[color:var(--text-muted)]">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 shrink-0 animate-spin text-[color:var(--brand)]" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+    </svg>
+  );
+}

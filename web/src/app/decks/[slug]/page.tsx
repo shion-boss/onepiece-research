@@ -17,6 +17,7 @@ import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
 import { DeckMainGrid } from "@/components/DeckMainGrid";
 import { DeckActions } from "@/components/DeckActions";
+import { DeckReportPanel } from "@/components/DeckReportPanel";
 import { SetTabTitle } from "@/components/SetTabTitle";
 
 export default async function DeckDetailPage({
@@ -144,6 +145,8 @@ export default async function DeckDetailPage({
       {analysis ? (
         <div className="space-y-4">
           {strategy && <DeckStrategyPanel strategy={strategy} />}
+          {/* 自作デッキは裏で回した AI 分析レポート (= 相性/役割/キーカード) を表示。 */}
+          {summary?.kind === "user" && <DeckReportPanel slug={slug} />}
           <DeckCombosPanel combos={analysis.combos} />
           <DeckAnalyzeCharts data={analysis} />
         </div>

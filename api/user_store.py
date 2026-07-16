@@ -11,9 +11,11 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -31,6 +33,20 @@ _SCHEMA_READY = False
 
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def recipe_hash(leader: str, main: list) -> str:
+    """レシピ指紋 (= leader + main の card_id/count 集合)。 名前/フォルダ変更では不変、
+    採用カードが変わった時だけ変わる → 分析の再計算判定に使う。"""
+    canon = json.dumps(
+        {
+            "leader": leader or "",
+            "main": sorted((str(e.get("card_id")), int(e.get("count", 1))) for e in (main or [])),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return hashlib.sha1(canon.encode("utf-8")).hexdigest()[:16]
 
 
 def _conn():
@@ -73,6 +89,23 @@ def init_schema() -> None:
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_user_decks_owner ON user_decks(owner_id)",
+        # 裏で回す分析ジョブのキュー (= 保存時に enqueue、 別プロセスのワーカーが処理)。
+        # kind='analyze' (= AI vs AI 相性 + 役割等)。 将来 'train' (= per-deck GBM) を足せる。
+        """
+        CREATE TABLE IF NOT EXISTS deck_jobs (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            slug TEXT NOT NULL,
+            recipe_hash TEXT NOT NULL,
+            status TEXT NOT NULL,
+            priority INTEGER DEFAULT 0,
+            error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_deck_jobs_status ON deck_jobs(status, priority)",
     ]
     conn = _conn()
     try:
@@ -97,6 +130,17 @@ def init_schema() -> None:
             # する (= 陣取り防衛に使われうるので row を残す)。 非公開は hard delete。
             if not _column_exists(cur, "user_decks", "is_deleted"):
                 cur.execute("ALTER TABLE user_decks ADD COLUMN is_deleted INTEGER DEFAULT 0")
+            # migration: 裏で回す分析 (= AI vs AI 相性・役割等) の永続用。
+            # recipe_hash=今のレシピ指紋 / analyzed_hash=分析済みレシピ / analysis_json=結果 /
+            # analysis_status=none|pending|running|done。 recipe_hash != analyzed_hash なら stale。
+            for col, coltype in [
+                ("recipe_hash", "TEXT"),
+                ("analysis_json", "TEXT"),
+                ("analyzed_hash", "TEXT"),
+                ("analysis_status", "TEXT DEFAULT 'none'"),
+            ]:
+                if not _column_exists(cur, "user_decks", col):
+                    cur.execute(f"ALTER TABLE user_decks ADD COLUMN {col} {coltype}")
     finally:
         conn.close()
     _SCHEMA_READY = True
@@ -137,6 +181,11 @@ def _row_to_deck(r) -> dict:
     d["private"] = bool(d.get("is_private") or 0)
     # is_draft (0/1) → draft (bool)。 下書きは対戦選択肢に出さない。
     d["draft"] = bool(d.get("is_draft") or 0)
+    # 分析ステータス (= none|pending|running|done)。 recipe_hash != analyzed_hash なら stale。
+    d["analysis_status"] = d.get("analysis_status") or "none"
+    d["analysis_stale"] = bool(d.get("recipe_hash") and d.get("recipe_hash") != d.get("analyzed_hash"))
+    # 結果本体 (analysis_json) は重いので deck dict には含めない (= report は get_deck_report)。
+    d.pop("analysis_json", None)
     return d
 
 
@@ -185,35 +234,57 @@ def save_deck(
     ensure_user(owner_id)
     main_json = json.dumps(main, ensure_ascii=False)
     now = _now()
+    rhash = recipe_hash(leader, main)
+    should_analyze = False
     conn = _conn()
     try:
         with conn:
             cur = conn.cursor()
             cur.execute(
-                f"SELECT is_draft FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH}",
+                f"SELECT is_draft, analyzed_hash FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH}",
                 (owner_id, slug),
             )
             existing = cur.fetchone()
             existing_is_draft = bool(existing["is_draft"]) if existing is not None else False
             if existing is not None and not overwrite and not existing_is_draft:
                 raise ValueError(f"slug already exists: {slug}")
+            # 完成保存 (= 非下書き) かつ「まだこのレシピを分析していない」なら分析対象。
+            # 下書き保存では回さない (= 構築途中で溶かさない)。
+            analyzed_hash = existing["analyzed_hash"] if existing is not None else None
+            should_analyze = (not draft) and (rhash != analyzed_hash)
+            new_status = "pending" if should_analyze else None
             if existing is None:
                 cur.execute(
                     f"INSERT INTO user_decks (owner_id, slug, name, leader, main, regulation, "
-                    f"visibility, is_private, is_draft, created_at, updated_at) VALUES "
-                    f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'private', {_PH}, {_PH}, {_PH}, {_PH})",
+                    f"visibility, is_private, is_draft, recipe_hash, analysis_status, "
+                    f"created_at, updated_at) VALUES "
+                    f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'private', {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH})",
                     (owner_id, slug, name, leader, main_json, regulation,
-                     1 if private else 0, 1 if draft else 0, now, now),
+                     1 if private else 0, 1 if draft else 0, rhash,
+                     new_status or "none", now, now),
+                )
+            elif should_analyze:
+                cur.execute(
+                    f"UPDATE user_decks SET name = {_PH}, leader = {_PH}, main = {_PH}, "
+                    f"regulation = {_PH}, is_draft = {_PH}, recipe_hash = {_PH}, "
+                    f"analysis_status = 'pending', updated_at = {_PH} "
+                    f"WHERE owner_id = {_PH} AND slug = {_PH}",
+                    (name, leader, main_json, regulation, 1 if draft else 0, rhash, now,
+                     owner_id, slug),
                 )
             else:
                 cur.execute(
                     f"UPDATE user_decks SET name = {_PH}, leader = {_PH}, main = {_PH}, "
-                    f"regulation = {_PH}, is_draft = {_PH}, updated_at = {_PH} "
+                    f"regulation = {_PH}, is_draft = {_PH}, recipe_hash = {_PH}, updated_at = {_PH} "
                     f"WHERE owner_id = {_PH} AND slug = {_PH}",
-                    (name, leader, main_json, regulation, 1 if draft else 0, now, owner_id, slug),
+                    (name, leader, main_json, regulation, 1 if draft else 0, rhash, now,
+                     owner_id, slug),
                 )
     finally:
         conn.close()
+    # 分析ジョブは commit 後に enqueue (= ワーカーが確実に見えるレコードを積む)。
+    if should_analyze:
+        enqueue_deck_job(owner_id, slug, rhash, kind="analyze")
 
 
 def delete_deck(owner_id: str, slug: str) -> bool:
@@ -311,3 +382,164 @@ def rename_folder(owner_id: str, old: str, new: str) -> int:
 def remove_folder(owner_id: str, folder: str) -> int:
     """フォルダを解体 (= 中のデッキをルートへ)。 デッキ自体は消さない。"""
     return rename_folder(owner_id, folder, "")
+
+
+# --------------------------------------------------------------------------- #
+# 分析ジョブ (= 保存時に enqueue → 別プロセスのワーカーが AI vs AI 等で分析 → 書き戻す)。
+# Vercel サーバーレスは長時間計算不可なので inline 実行しない。 ワーカーは user_store を
+# 直接 import して回す (scripts/deck_analysis_worker.py)。
+# --------------------------------------------------------------------------- #
+def enqueue_deck_job(owner_id: str, slug: str, rhash: str, *,
+                     kind: str = "analyze", priority: int = 0) -> None:
+    """分析ジョブを積む。 同 deck の古い pending は superseded 化 (= 最新レシピだけ処理)。
+    同レシピの pending/running が既にあれば重複しない。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE deck_jobs SET status = 'superseded', updated_at = {_PH} "
+                f"WHERE owner_id = {_PH} AND slug = {_PH} AND kind = {_PH} "
+                f"AND status = 'pending' AND recipe_hash != {_PH}",
+                (_now(), owner_id, slug, kind, rhash),
+            )
+            cur.execute(
+                f"SELECT 1 FROM deck_jobs WHERE owner_id = {_PH} AND slug = {_PH} "
+                f"AND kind = {_PH} AND recipe_hash = {_PH} AND status IN ('pending', 'running')",
+                (owner_id, slug, kind, rhash),
+            )
+            if cur.fetchone() is not None:
+                return
+            jid = uuid.uuid4().hex[:16]
+            cur.execute(
+                f"INSERT INTO deck_jobs (id, kind, owner_id, slug, recipe_hash, status, "
+                f"priority, created_at, updated_at) VALUES "
+                f"({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, 'pending', {_PH}, {_PH}, {_PH})",
+                (jid, kind, owner_id, slug, rhash, priority, _now(), _now()),
+            )
+    finally:
+        conn.close()
+
+
+def claim_next_job(kind: str = "analyze") -> Optional[dict]:
+    """ワーカー用: pending の先頭 (priority 降順→古い順) を running にして返す。 無ければ None。
+    ⚠ 単一ワーカー前提の素朴 claim (= 複数ワーカーなら SELECT FOR UPDATE 等が要る)。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT * FROM deck_jobs WHERE kind = {_PH} AND status = 'pending' "
+                f"ORDER BY priority DESC, created_at ASC LIMIT 1",
+                (kind,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            job = dict(r)
+            cur.execute(
+                f"UPDATE deck_jobs SET status = 'running', updated_at = {_PH} WHERE id = {_PH}",
+                (_now(), job["id"]),
+            )
+            return job
+    finally:
+        conn.close()
+
+
+def complete_deck_job(job_id: str, owner_id: str, slug: str, rhash: str, report: dict) -> None:
+    """ワーカー用: 分析結果を書き戻し job を done に。 レシピが分析中に変わっていたら
+    (= recipe_hash != rhash) デッキ側は更新しない (= 別の新ジョブが処理する)。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE deck_jobs SET status = 'done', updated_at = {_PH} WHERE id = {_PH}",
+                (_now(), job_id),
+            )
+            cur.execute(
+                f"UPDATE user_decks SET analysis_json = {_PH}, analyzed_hash = {_PH}, "
+                f"analysis_status = 'done' "
+                f"WHERE owner_id = {_PH} AND slug = {_PH} AND recipe_hash = {_PH}",
+                (json.dumps(report, ensure_ascii=False), rhash, owner_id, slug, rhash),
+            )
+    finally:
+        conn.close()
+
+
+def fail_deck_job(job_id: str, error: str) -> None:
+    """ワーカー用: job を failed に (= error 記録)。 デッキの analysis_status は none に戻す。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT owner_id, slug FROM deck_jobs WHERE id = {_PH}", (job_id,)
+            )
+            r = cur.fetchone()
+            cur.execute(
+                f"UPDATE deck_jobs SET status = 'failed', error = {_PH}, updated_at = {_PH} "
+                f"WHERE id = {_PH}",
+                (str(error)[:2000], _now(), job_id),
+            )
+            if r is not None:
+                cur.execute(
+                    f"UPDATE user_decks SET analysis_status = 'none' "
+                    f"WHERE owner_id = {_PH} AND slug = {_PH} AND analysis_status IN ('pending', 'running')",
+                    (r["owner_id"], r["slug"]),
+                )
+    finally:
+        conn.close()
+
+
+def request_analysis(owner_id: str, slug: str) -> bool:
+    """手動で分析を要求 (= 再分析 / 既存デッキの初回分析)。 pending にして enqueue。
+    デッキが無い / 下書きなら False。"""
+    d = get_deck(owner_id, slug)
+    if d is None or d.get("draft"):
+        return False
+    rhash = recipe_hash(d.get("leader", ""), d.get("main", []))
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE user_decks SET recipe_hash = {_PH}, analysis_status = 'pending' "
+                f"WHERE owner_id = {_PH} AND slug = {_PH}",
+                (rhash, owner_id, slug),
+            )
+    finally:
+        conn.close()
+    enqueue_deck_job(owner_id, slug, rhash, kind="analyze")
+    return True
+
+
+def get_deck_report(owner_id: str, slug: str) -> Optional[dict]:
+    """デッキの分析レポート (= 裏で計算した AI vs AI 相性・役割等) と status を返す。
+    デッキが無ければ None。 report は未計算なら None。"""
+    init_schema()
+    conn = _conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT analysis_json, analysis_status, analyzed_hash, recipe_hash "
+            f"FROM user_decks WHERE owner_id = {_PH} AND slug = {_PH} AND is_deleted = 0",
+            (owner_id, slug),
+        )
+        r = cur.fetchone()
+        if r is None:
+            return None
+        d = dict(r)
+        report = json.loads(d["analysis_json"]) if d.get("analysis_json") else None
+        stale = bool(d.get("recipe_hash") and d.get("recipe_hash") != d.get("analyzed_hash"))
+        return {
+            "status": d.get("analysis_status") or "none",
+            "stale": stale,
+            "report": report,
+        }
+    finally:
+        conn.close()

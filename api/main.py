@@ -2549,6 +2549,34 @@ def _load_overlay_keys_with_kind() -> dict[str, set[str]]:
     return out
 
 
+@app.get("/api/decks/{slug}/report")
+def deck_report(slug: str, user_id: str = Depends(current_user_id)):
+    """裏で計算したデッキ分析レポート (= AI vs AI 相性 + 役割内訳 + キーカード)。
+
+    保存時に enqueue されワーカーが計算 → DB 永続。 ここは読むだけ。 メタデッキは対象外
+    (= .analysis.json を DeckStrategyPanel で別途表示済み)。
+    """
+    if _is_meta_deck(slug):
+        return {"status": "none", "stale": False, "report": None, "kind": "meta"}
+    rep = user_store.get_deck_report(user_id, slug)
+    if rep is None:
+        raise HTTPException(404, "deck not found")
+    rep["kind"] = "user"
+    return rep
+
+
+@app.post("/api/decks/{slug}/analyze-request")
+def deck_analyze_request(slug: str, user_id: str = Depends(current_user_id)):
+    """デッキ分析を手動で要求 (= 再分析 / 既存デッキの初回分析)。 pending にして enqueue。
+    メタデッキ / 下書き / 存在しないデッキは 400/404。 実計算はワーカーが行う。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(400, "メタデッキは分析対象外です")
+    ok = user_store.request_analysis(user_id, slug)
+    if not ok:
+        raise HTTPException(400, "デッキが見つからない、 または下書きです")
+    return {"status": "pending"}
+
+
 @app.get("/api/decks/{slug}/analyze", response_model=DeckAnalysis)
 def analyze_deck(slug: str, user_id: str = Depends(current_user_id)):
     d = _resolve_deck_dict(slug, user_id)
