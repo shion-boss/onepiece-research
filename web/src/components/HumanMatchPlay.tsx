@@ -977,12 +977,20 @@ export function HumanMatchPlay({
     if (preloading) {
       const humanDeck = decks.find((d) => d.slug === deckA);
       const aiDeck = decks.find((d) => d.slug === deckB);
+      // 陣取り挑戦では AI 側の実デッキは server 決定 (= フロントの deckB は既定でブレる)。
+      // 防衛戦は防衛リーダーを、 空きマスはランダムのプレースホルダを preloader B に出す
+      // (= 開始画面と一致させ、 紫ドフラ等の無関係リーダーを出さない)。
+      const defenderCard = defenderVariantId ?? defenderLeaderId ?? null;
+      const isTerritory = challengeCellId != null;
       return (
         <CardPreloader
           deckSlugA={deckA}
           deckSlugB={deckB}
           deckNameA={humanDeck?.name}
           deckNameB={aiDeck?.name}
+          leaderBOverride={isTerritory && defenderCard ? defenderCard : undefined}
+          nameBOverride={isTerritory && defenderCard ? "防衛リーダー" : undefined}
+          randomB={isTerritory && !defenderCard}
           onComplete={beginMatch}
           title="対戦準備中... カード を 読み込んでいます"
         />
