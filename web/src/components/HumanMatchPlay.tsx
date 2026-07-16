@@ -2434,10 +2434,6 @@ function ContributionPanel({
   const nameOf = (slug: string) =>
     decks.find((d) => d.slug === slug)?.name ?? slug;
   const thr = stats.batch_size ?? stats.training_threshold;
-  // 今バッチ (前回学習以降) が学習ラインに最も近い (未到達) マッチアップ = 次の貢献先
-  const nextUp = [...stats.by_matchup]
-    .filter((m) => m.new_games < thr)
-    .sort((a, b) => b.new_games - a.new_games)[0];
   // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
   const selected = stats.by_matchup.find(
     (m) => m.human_deck === deckA && m.ai_deck === deckB,
@@ -2524,18 +2520,6 @@ function ContributionPanel({
           {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
         </div>
       </div>
-
-      {/* 次の貢献先 (最も学習ラインに近い未到達マッチアップ) */}
-      {nextUp && (
-        <div
-          className="mt-3 rounded-[var(--radius)] border border-l-2 p-3 text-sm text-[color:var(--text-default)]"
-          style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--accent)", background: "var(--surface-2)" }}
-        >
-          あと <b className="text-[color:var(--text-strong)]">{thr - nextUp.new_games}</b> 戦で「
-          {nameOf(nextUp.human_deck)} vs {nameOf(nextUp.ai_deck)}」が次の学習バッチに到達。
-          この組み合わせで対戦すると貢献度が大きいです。
-        </div>
-      )}
 
       {/* 上位マッチアップの進捗 */}
       {stats.by_matchup.length > 0 && (
