@@ -2544,15 +2544,17 @@ function WinRateBar({
   return (
     <div>
       <div className="flex items-center justify-between text-xs font-medium">
-        <span style={{ color: "var(--accent)" }}>
+        <span style={{ color: decided ? "var(--accent)" : "var(--text-muted)" }}>
           <span className="mr-1 text-[color:var(--text-muted)]">{label}</span>
-          人間 {hw.toLocaleString()}勝（{humanPct}%）
+          人間 {hw.toLocaleString()}勝{decided ? `（${humanPct}%）` : ""}
         </span>
-        <span style={{ color: "var(--danger)" }}>AI {aw.toLocaleString()}勝</span>
+        <span style={{ color: decided ? "var(--danger)" : "var(--text-muted)" }}>
+          AI {aw.toLocaleString()}勝
+        </span>
       </div>
       <div
         className={`relative mt-1.5 overflow-hidden rounded-full ${heightClass}`}
-        style={{ background: "var(--danger)" }}
+        style={{ background: decided ? "var(--danger)" : "var(--border-2)" }}
       >
         <div
           className="absolute inset-y-0 left-0 rounded-full"
