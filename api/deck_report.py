@@ -278,6 +278,49 @@ def _validate_combos(stats: list, candidates: list) -> list[dict]:
     return out[:4]
 
 
+def _structural_guides(comp: dict, curve: dict, main_entries: list, repo) -> list[dict]:
+    """序盤の動き方 (#3) と 防御の考え方 (#7) を、 デッキ構造 (archetype/curve/ブロッカー数/
+    カウンター総量) から prescriptive に出す。 相関は交絡が強い (劣勢だと守る 等) ので、
+    構造ベースで「このタイプのデッキはこう動く/守る」を常に出す方が honest で実用的。"""
+    n_blockers = next((r["count"] for r in comp.get("roles", []) if r["role"] == "blocker"), 0)
+    counter_total = 0
+    for e in main_entries:
+        try:
+            counter_total += int(getattr(repo.get(str(e.get("card_id"))), "counter", 0) or 0) * int(e.get("count", 1))
+        except KeyError:
+            continue
+    arch = comp.get("archetype", "ミッドレンジ")
+    low = curve.get("low", 0)
+
+    # #3 序盤の動き方 (= archetype + 低コスト枚数)。
+    if arch == "アグロ":
+        seq = (f"序盤から低コスト札（1-2コスト {low}枚）で毎ターン展開し、 盤面を作って一気に攻め切る。 "
+               f"手が止まると失速するので、 常に動き続ける。")
+    elif arch == "コントロール":
+        seq = ("序盤は無理に展開せず、 除去・受け札を構えて相手の攻めをいなす。 リソースを溜めて中盤以降に "
+               "主導権を握り、 大型やフィニッシャーで詰める。")
+    else:
+        seq = (f"序盤は低コスト札（{low}枚）で堅実に展開しつつ、 中盤の主戦力に繋ぐ。 攻めと受けの "
+               "バランスを見て、 有利なら押し、 不利なら受けに回る。")
+
+    # #7 防御の考え方 (= archetype 主体。 カウンター総量は全デッキ高く判別に使えないので、
+    #    ブロッカー枚数を色付けに、 守り/攻めの方針は archetype で決める)。
+    if arch == "コントロール":
+        dfn = (f"守りが軸。 ブロッカー {n_blockers}枚とカウンター（総量 {counter_total}）で相手の攻めを捌き、 "
+               f"リソース差で勝つ。 序盤はカウンターを温存し、 削られる場面で使って延命する。")
+    elif arch == "アグロ":
+        dfn = (f"攻めが軸で守りは最小限。 ブロッカー {n_blockers}枚は詰めを遅らせる保険程度で、 基本は先手を"
+               f"取って押し切る。 カウンターは無理受けせず、 リーサル回避の一手に絞る。")
+    else:
+        dfn = (f"攻守バランス型。 ブロッカー {n_blockers}枚で受けつつ、 有利なら攻めに転じる。 カウンター"
+               f"（総量 {counter_total}）は要所で使い、 序盤から浪費しない。")
+
+    return [
+        {"kind": "sequencing", "title": "序盤の動き方", "detail": seq},
+        {"kind": "defense", "title": "防御の考え方", "detail": dfn},
+    ]
+
+
 def _mulligan_guide(stats: list, main_entries: list, repo) -> list[dict]:
     """初手 (マリガン後の開始手札) にあると勝率が上がるカード = キープすべき札 (#1)。
 
@@ -468,7 +511,8 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      n_opponents: int, rhash: str, *, partial: bool,
                      insights: Optional[list] = None, profile: Optional[dict] = None,
                      top_cards: Optional[list] = None, matchup_plans: Optional[list] = None,
-                     win_combos: Optional[list] = None, mulligan: Optional[list] = None) -> dict:
+                     win_combos: Optional[list] = None, mulligan: Optional[list] = None,
+                     guides: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     played = [x for x in matchups if x.get("n")]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
@@ -497,6 +541,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "matchup_plans": matchup_plans or [],  # ⭐ 相手タイプ別の立ち回り (#8)
         "win_combos": win_combos or [],        # ⭐ 勝ちに繋がるコンボ (#5)
         "mulligan": mulligan or [],            # ⭐ 初手キープすべき札 (#1)
+        "guides": guides or [],                # ⭐ 序盤の動き方(#3) + 防御の考え方(#7) prescriptive
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
 
@@ -524,6 +569,7 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
     comp = _role_breakdown(main, roles)
     curve = _curve_buckets(main, repo)
     combo_cands = _combo_candidates(deck_dict, repo)  # 静的なので 1 回だけ
+    guides = _structural_guides(comp, curve, main, repo)  # 構造ベース (#3/#7)、 1 回だけ
 
     user_dl = make_deck_from_dict(deck_dict, repo)
     metas = _load_meta_decklists(repo)
@@ -588,7 +634,8 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                         _assemble_report(comp, curve, matchups, n_games, n_opponents,
                                          recipe_hash, partial=(i + 1 < n_opponents),
                                          insights=insights, profile=profile, top_cards=top,
-                                         matchup_plans=plans, win_combos=combos, mulligan=mull))
+                                         matchup_plans=plans, win_combos=combos, mulligan=mull,
+                                         guides=guides))
 
     insights = _mine_strategy(stats_accum, comp["key_cards"])
     profile = _deck_profile(stats_accum)
@@ -598,4 +645,4 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
     mull = _mulligan_guide(stats_accum, main, repo)
     return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
                             partial=False, insights=insights, profile=profile, top_cards=top,
-                            matchup_plans=plans, win_combos=combos, mulligan=mull)
+                            matchup_plans=plans, win_combos=combos, mulligan=mull, guides=guides)

@@ -202,6 +202,30 @@ function ReportBody({
         </Section>
       )}
 
+      {/* ⭐ 立ち回りの指針: 序盤の動き方(#3) + 防御の考え方(#7)。 */}
+      {report.guides && report.guides.length > 0 && (
+        <Section title="立ち回りの指針">
+          <div className="space-y-1.5">
+            {report.guides.map((g) => {
+              const meta = INSIGHT_META[g.kind] ?? { color: "var(--brand)", label: "", icon: null };
+              return (
+                <div
+                  key={g.kind}
+                  className="rounded-[var(--radius)] border border-l-[3px] bg-[color:var(--surface-2)] px-3 py-2"
+                  style={{ borderColor: "var(--border-1)", borderLeftColor: meta.color }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span style={{ color: meta.color }}>{meta.icon}</span>
+                    <span className="text-sm font-semibold text-[color:var(--text-strong)]">{g.title}</span>
+                  </div>
+                  <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{g.detail}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
       {/* ⭐ マリガン: 初手にキープすべき札 (#1)。 */}
       {report.mulligan && report.mulligan.length > 0 && (
         <Section title="マリガン：初手にキープしたい札">
@@ -349,6 +373,8 @@ const INSIGHT_META: Record<string, { color: string; label: string; icon: React.R
   playstyle: { color: "#2563eb", label: "戦い方", icon: <IconCompass /> },
   tempo: { color: "#16a34a", label: "テンポ", icon: <IconBolt /> },
   removal: { color: "#dc2626", label: "除去", icon: <IconTarget /> },
+  sequencing: { color: "#0891b2", label: "序盤展開", icon: <IconBolt /> },
+  defense: { color: "#7c3aed", label: "防御", icon: <IconShield /> },
   key_play: { color: "#d97706", label: "着地タイミング", icon: <IconClock /> },
   key_card: { color: "#9333ea", label: "機能条件", icon: <IconKey /> },
 };
@@ -433,6 +459,13 @@ function IconKey() {
     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
       <circle cx="8" cy="15" r="4" />
       <path d="M11 12l8-8M17 6l2 2M14 9l2 2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconShield() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 3l7 3v5c0 4.2-2.8 7.5-7 9-4.2-1.5-7-4.8-7-9V6z" strokeLinejoin="round" />
     </svg>
   );
 }

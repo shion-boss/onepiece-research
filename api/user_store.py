@@ -183,6 +183,13 @@ def sanitize_report(report) -> dict:
         for x in mu_in[:8] if isinstance(x, dict)
     ]
 
+    # 序盤の動き方(#3) + 防御の考え方(#7) prescriptive guides。
+    gd_in = report.get("guides") if isinstance(report.get("guides"), list) else []
+    guides = [
+        {"kind": _cs(x.get("kind"), 20), "title": _cs(x.get("title"), 60), "detail": _cs(x.get("detail"), 300)}
+        for x in gd_in[:4] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -216,6 +223,7 @@ def sanitize_report(report) -> dict:
         "matchup_plans": matchup_plans,
         "win_combos": win_combos,
         "mulligan": mulligan,
+        "guides": guides,
         "partial": bool(report.get("partial")),
     }
 
