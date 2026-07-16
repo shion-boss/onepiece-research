@@ -164,6 +164,16 @@ def sanitize_report(report) -> dict:
         for x in mp_in[:6] if isinstance(x, dict)
     ]
 
+    # 勝ちに繋がるコンボ (#5)。
+    wc_in = report.get("win_combos") if isinstance(report.get("win_combos"), list) else []
+    win_combos = [
+        {"cards": [_cs(c, 80) for c in (x.get("cards") or [])[:5] if isinstance(c, str)],
+         "label": _cs(x.get("label"), 60), "win_rate": _cf(x.get("win_rate"), 0.0, 1.0),
+         "base_win_rate": _cf(x.get("base_win_rate"), 0.0, 1.0), "n": _ci(x.get("n"), 0, 100000),
+         "strength": _cf(x.get("strength"), 0.0, 1.0)}
+        for x in wc_in[:6] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -195,6 +205,7 @@ def sanitize_report(report) -> dict:
         "profile": profile,
         "top_cards": top_cards,
         "matchup_plans": matchup_plans,
+        "win_combos": win_combos,
         "partial": bool(report.get("partial")),
     }
 

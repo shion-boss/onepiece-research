@@ -206,6 +206,78 @@ def _top_cards(stats: list, main_entries: list, repo, top_n: int = 6) -> list[di
     return out
 
 
+def _combo_candidates(deck_dict: dict, repo) -> list[dict]:
+    """combo_finder が挙げるこのデッキの synergy 候補 (= 2枚以上の組み合わせ) を返す。
+    静的なので 1 回だけ計算し、 勝率検証は _validate_combos で行う。"""
+    from engine.combo_finder import deck_combo_summary
+
+    deck_cards = []
+    for e in deck_dict.get("main", []):
+        try:
+            deck_cards.append(repo.get(str(e.get("card_id"))))
+        except KeyError:
+            continue
+    leader = None
+    try:
+        leader = repo.get(deck_dict.get("leader", ""))
+    except KeyError:
+        pass
+    cands: list[dict] = []
+    seen: set = set()
+    try:
+        for ce in deck_combo_summary(deck_cards, leader, top_n=20):
+            names: list[str] = []
+            for cid in ce.card_ids:
+                try:
+                    nm = repo.get(cid).name
+                    if nm not in names:
+                        names.append(nm)
+                except KeyError:
+                    continue
+            if len(names) < 2:  # 2枚以上の組み合わせのみ (= コンボ)
+                continue
+            key = tuple(sorted(names))
+            if key in seen:
+                continue
+            seen.add(key)
+            cands.append({"names": names, "label": getattr(ce, "label", "") or "コンボ"})
+    except Exception:
+        pass
+    return cands
+
+
+def _validate_combos(stats: list, candidates: list) -> list[dict]:
+    """combo 候補を実戦の勝率で検証。 「全部揃った試合」vs「一部だけ/引けなかった試合」の
+    勝率差 (= 交絡制御) が大きいものを「勝ちに繋がるコンボ」として返す。"""
+    if len(stats) < 12 or not candidates:
+        return []
+
+    def wr(gs):
+        return sum(1 for g in gs if g.won) / len(gs) if gs else 0.0
+
+    out = []
+    for c in candidates:
+        names = c["names"]
+        both = [g for g in stats if all(g.cards_played.get(n, 0) > 0 for n in names)]
+        some = [g for g in stats
+                if any(g.cards_played.get(n, 0) > 0 for n in names)
+                and not all(g.cards_played.get(n, 0) > 0 for n in names)]
+        rest = [g for g in stats if not any(g.cards_played.get(n, 0) > 0 for n in names)]
+        if len(both) < 6:
+            continue
+        # 対照群 = 「一部だけ出た試合」優先 (= ただ札を出した事による交絡を除く)、 無ければ「引けなかった試合」。
+        base = some if len(some) >= 6 else (rest if len(rest) >= 6 else None)
+        if base is None:
+            continue
+        gap = wr(both) - wr(base)
+        if gap >= 0.12:
+            out.append({"cards": names, "label": c["label"], "win_rate": round(wr(both), 3),
+                        "base_win_rate": round(wr(base), 3), "n": len(both),
+                        "strength": round(gap, 3)})
+    out.sort(key=lambda x: -x["strength"])
+    return out[:4]
+
+
 def _matchup_plans(stats: list) -> list[dict]:
     """相手のアーキタイプ別に「どう戦えば勝つか」を集計する (= #8 相手別プラン)。
 
@@ -359,7 +431,8 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
 def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      n_opponents: int, rhash: str, *, partial: bool,
                      insights: Optional[list] = None, profile: Optional[dict] = None,
-                     top_cards: Optional[list] = None, matchup_plans: Optional[list] = None) -> dict:
+                     top_cards: Optional[list] = None, matchup_plans: Optional[list] = None,
+                     win_combos: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     played = [x for x in matchups if x.get("n")]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
@@ -386,6 +459,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "profile": profile or {},      # 回り方サマリ (= 勝敗に依らず常に出る記述統計)
         "top_cards": top_cards or [],  # よく盤面に出る主戦力カード (使用率つき)
         "matchup_plans": matchup_plans or [],  # ⭐ 相手タイプ別の立ち回り (#8)
+        "win_combos": win_combos or [],        # ⭐ 勝ちに繋がるコンボ (#5)
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
 
@@ -412,6 +486,7 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
 
     comp = _role_breakdown(main, roles)
     curve = _curve_buckets(main, repo)
+    combo_cands = _combo_candidates(deck_dict, repo)  # 静的なので 1 回だけ
 
     user_dl = make_deck_from_dict(deck_dict, repo)
     metas = _load_meta_decklists(repo)
@@ -464,16 +539,18 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
             profile = _deck_profile(stats_accum)
             top = _top_cards(stats_accum, main, repo)
             plans = _matchup_plans(stats_accum)
+            combos = _validate_combos(stats_accum, combo_cands)
             on_progress(i + 1, n_opponents, m["name"],
                         _assemble_report(comp, curve, matchups, n_games, n_opponents,
                                          recipe_hash, partial=(i + 1 < n_opponents),
                                          insights=insights, profile=profile, top_cards=top,
-                                         matchup_plans=plans))
+                                         matchup_plans=plans, win_combos=combos))
 
     insights = _mine_strategy(stats_accum, comp["key_cards"])
     profile = _deck_profile(stats_accum)
     top = _top_cards(stats_accum, main, repo)
     plans = _matchup_plans(stats_accum)
+    combos = _validate_combos(stats_accum, combo_cands)
     return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
                             partial=False, insights=insights, profile=profile, top_cards=top,
-                            matchup_plans=plans)
+                            matchup_plans=plans, win_combos=combos)

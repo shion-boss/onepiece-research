@@ -202,6 +202,29 @@ function ReportBody({
         </Section>
       )}
 
+      {/* ⭐ 勝ちに繋がるコンボ (#5)。 */}
+      {report.win_combos && report.win_combos.length > 0 && (
+        <Section title="勝ちに繋がるコンボ（実戦で検証）">
+          <div className="space-y-1.5">
+            {report.win_combos.map((c, i) => (
+              <div
+                key={i}
+                className="rounded-[var(--radius)] border border-l-[3px] bg-[color:var(--surface-2)] px-3 py-2"
+                style={{ borderColor: "var(--border-1)", borderLeftColor: "#9333ea" }}
+              >
+                <div className="text-sm font-semibold text-[color:var(--text-strong)]">
+                  {c.cards.join(" ＋ ")}
+                </div>
+                <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">
+                  揃った試合の勝率 <span className="font-semibold">{Math.round(c.win_rate * 100)}%</span>
+                  （片方だけ/未達 {Math.round(c.base_win_rate * 100)}%）。 この組み合わせが決め手になる。
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* 回り方サマリ (= 勝敗に依らず常に出る記述統計)。 */}
       {report.profile && Object.keys(report.profile).length > 0 && (
         <Section title="このデッキの回り方（平均）">
