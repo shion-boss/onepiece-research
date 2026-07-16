@@ -30,6 +30,8 @@ class GameStats:
     first_hit_given_turn: Optional[int] = None   # 我々が相手ライフを最初に削ったターン
     first_hit_taken_turn: Optional[int] = None   # 相手が我々ライフを最初に削ったターン
     cards_played: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    # カード名 → 初めて出したターン (= キーカードの着地タイミング分析用)。
+    first_play_turn_by_card: dict[str, int] = field(default_factory=dict)
     events_played: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     # 自分の攻撃
     attacks_total: int = 0
@@ -80,6 +82,8 @@ def parse_game_log(log: list[str], winner: int, turns: int, our_idx: int = 0) ->
             if pm and is_our_turn:
                 name = pm.group(1).strip()
                 stats.cards_played[name] += 1
+                if name not in stats.first_play_turn_by_card:
+                    stats.first_play_turn_by_card[name] = turn_n
                 if stats.first_play_turn is None:
                     stats.first_play_turn = turn_n
 

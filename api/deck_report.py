@@ -188,16 +188,45 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
                     "detail": f"勝った試合は相手ライフに平均 {w_atk:.1f} 回攻撃を通し、 負けは {l_atk:.1f} 回。 "
                               f"攻撃の手数が足りないと押し切れない。"})
 
-    # ③ キーカードの機能条件 (= これを出せた/出せないで勝率が変わるか)。
-    for kc in key_cards[:5]:
+    # ③ キーカードの機能条件。 まず「Nターンまでに出せたか」の閾値 (= このターンまでに
+    #    これを着地させないと機能しない、 = Phase B のタイミング因果) を探す。 明確な閾値が
+    #    無ければ「出せた/出せない」の二値にフォールバック。
+    def _wr(games):
+        return sum(1 for g in games if g.won) / len(games) if games else 0.0
+
+    seen_names: set = set()
+    for kc in key_cards[:6]:
         name = kc.get("name")
-        if not name:
+        if not name or name in seen_names:  # 同名の別バリアントは 1 回だけ
             continue
+        seen_names.add(name)
+        turns = [g.first_play_turn_by_card.get(name) for g in stats]  # None = 未着地
+        if sum(1 for t in turns if t is not None) < 4:
+            continue
+
+        # ③-a タイミング閾値: 各 K で「Kターンまでに着地」vs「遅れ/未着地」の勝率差の最大を採る。
+        best = None  # (gap, K, wr_by, wr_late, n_by, n_late)
+        for K in (3, 4, 5, 6):
+            by_k = [g for g, t in zip(stats, turns) if t is not None and t <= K]
+            late = [g for g, t in zip(stats, turns) if t is None or t > K]
+            if len(by_k) >= 4 and len(late) >= 4:
+                gap = _wr(by_k) - _wr(late)
+                if best is None or gap > best[0]:
+                    best = (gap, K, _wr(by_k), _wr(late), len(by_k), len(late))
+        if best and best[0] >= 0.15:
+            _, K, wr_by, wr_late, _, _ = best
+            out.append({"kind": "key_play",
+                        "title": f"{name} は {K} ターン目までに着地させたい",
+                        "detail": f"{K} ターン目までに {name} を出せた試合の勝率 {wr_by * 100:.0f}%、 "
+                                  f"遅れた/出せなかった試合は {wr_late * 100:.0f}%。 "
+                                  f"着地が遅れると機能しにくい。"})
+            continue
+
+        # ③-b フォールバック: 出せた/出せないの二値。
         with_g = [g for g in stats if g.cards_played.get(name, 0) > 0]
         without_g = [g for g in stats if g.cards_played.get(name, 0) == 0]
         if len(with_g) >= 4 and len(without_g) >= 4:
-            wr_w = sum(1 for g in with_g if g.won) / len(with_g)
-            wr_o = sum(1 for g in without_g if g.won) / len(without_g)
+            wr_w, wr_o = _wr(with_g), _wr(without_g)
             if wr_w - wr_o >= 0.15:
                 out.append({"kind": "key_card", "title": f"{name} の着地が生命線",
                             "detail": f"{name} を出せた試合の勝率 {wr_w * 100:.0f}%、 出せなかった試合は "
