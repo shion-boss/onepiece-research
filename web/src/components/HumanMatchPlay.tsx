@@ -137,6 +137,13 @@ export function HumanMatchPlay({
   // 保存後の占領結果 (= 占領成功 / レース負けで奪取ならず)。 完了バナー表示用。
   const [captureResult, setCaptureResult] =
     useState<{ captured: boolean; non_stakes: boolean } | null>(null);
+  // engine の game_over 以外の決着理由。 forfeit=中断投了(負け扱い) / timeout=30分経過(引き分け)。
+  // どちらも占領は成立しない (= 防衛側維持)。 結果オーバーレイの表示に使う。
+  const [endReason, setEndReason] = useState<null | "forfeit" | "timeout">(null);
+  // 陣取り挑戦で「対戦終了」押下時の投了確認モーダル。
+  const [confirmForfeit, setConfirmForfeit] = useState(false);
+  // 対戦開始時刻 (= 30分タイムアウト判定用、 state が初めて入った時に記録)。
+  const matchStartAtRef = useRef<number | null>(null);
   // 対戦中に他人が先に奪取した (race) → モーダル表示。 「続ける」で dismiss。
   const [raceModal, setRaceModal] = useState(false);
   const [raceDismissed, setRaceDismissed] = useState(false);
@@ -715,6 +722,42 @@ export function HumanMatchPlay({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // 中断ログを 1 回だけ保存 (= forfeit / timeout 共通、 game_over 前の途中保存)。
+  async function saveIncompleteOnce() {
+    if (!sessionId || savedResultRef.current === sessionId) return;
+    savedResultRef.current = sessionId;
+    try {
+      await saveHumanMatchResult(sessionId, buildResume());
+    } catch (err) {
+      console.warn("[human_play] save on incomplete end failed:", err);
+      savedResultRef.current = null;
+    }
+  }
+
+  // 投了 (= 陣取りの「対戦終了」確認後)。 負け扱いで結果オーバーレイを出す (占領なし)。
+  async function handleForfeit() {
+    setConfirmForfeit(false);
+    await saveIncompleteOnce();
+    setEndReason("forfeit");
+  }
+
+  // 30分経過 → 無条件引き分け (= 有利な人間が手を止めて占領する荒らし対策)。 占領なし。
+  const TIMEOUT_MS = 30 * 60 * 1000;
+  useEffect(() => {
+    if (!state || state.game_over || endReason != null) return;
+    if (matchStartAtRef.current == null) matchStartAtRef.current = Date.now();
+    const id = setInterval(() => {
+      const started = matchStartAtRef.current;
+      if (started != null && Date.now() - started >= TIMEOUT_MS) {
+        clearInterval(id);
+        void saveIncompleteOnce();
+        setEndReason("timeout");
+      }
+    }, 15000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, endReason]);
 
   // ゲーム終了 検知時 に AI 改善 用 の full データ を Blob (= or local file) に 1 回 保存。
   // 重複 POST 防止 で savedResultRef で gate。 失敗時 は console.warn だけ (= UI 邪魔 しない)。
@@ -1507,14 +1550,15 @@ export function HumanMatchPlay({
           "radial-gradient(ellipse at center, #6b4423 0%, #3d2817 100%)",
       }}
     >
-      {/* 右上 対戦終了 ボタン (= 対戦中のみ表示、 押下で home へ)。 game-over 時は勝敗
-          オーバーレイ内の「戻る」ボタンに集約するので非表示。 */}
-      {!state.game_over && (
+      {/* 右上 対戦終了 ボタン (= 対戦中のみ表示)。 game-over / 決着表示中は勝敗オーバーレイ内の
+          「戻る」ボタンに集約するので非表示。 陣取り挑戦は投了 = 負け扱いなので確認モーダルを挟む。 */}
+      {!state.game_over && endReason == null && (
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          handleEnd();
+          if (challengeCellId != null) setConfirmForfeit(true);
+          else handleEnd();
         }}
         className="absolute top-2 right-2 z-40 rounded-lg border border-rose-400 bg-rose-700/90 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur hover:bg-rose-600"
       >
@@ -2011,52 +2055,62 @@ export function HumanMatchPlay({
       )}
 
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 (= 背景を黒系でカバーして盤を隠す) */}
-      {state.game_over && (
+      {(state.game_over || endReason != null) && (() => {
+        // 決着種別: forfeit=投了(負け) / timeout=時間切れ(引き分け) / それ以外は engine の勝者。
+        const kind: "win" | "lose" | "draw" =
+          endReason === "forfeit"
+            ? "lose"
+            : endReason === "timeout"
+              ? "draw"
+              : state.winner === state.human_idx
+                ? "win"
+                : state.winner === state.ai_idx
+                  ? "lose"
+                  : "draw";
+        const title = kind === "win" ? "YOU WIN" : kind === "lose" ? "YOU LOSE" : "DRAW";
+        const subtitle =
+          endReason === "forfeit"
+            ? "投了しました"
+            : endReason === "timeout"
+              ? "時間切れ — 引き分け（30分経過）"
+              : `T${state.turn} で 試合 終了`;
+        const cardTone =
+          kind === "win"
+            ? "border-emerald-300 bg-emerald-900/80"
+            : kind === "lose"
+              ? "border-rose-300 bg-rose-900/80"
+              : "border-amber-300 bg-amber-900/80";
+        const textTone =
+          kind === "win" ? "text-emerald-200" : kind === "lose" ? "text-rose-200" : "text-amber-200";
+        return (
         <div className="absolute inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.3, y: -50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className={
-              "rounded-2xl border-4 px-16 py-10 text-center shadow-2xl backdrop-blur " +
-              (state.winner === state.human_idx
-                ? "border-emerald-300 bg-emerald-900/80"
-                : state.winner === state.ai_idx
-                  ? "border-rose-300 bg-rose-900/80"
-                  : "border-amber-300 bg-amber-900/80")
-            }
+            className={"rounded-2xl border-4 px-16 py-10 text-center shadow-2xl backdrop-blur " + cardTone}
           >
             <div
               className={
-                "text-7xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " +
-                (state.winner === state.human_idx
-                  ? "text-emerald-200"
-                  : state.winner === state.ai_idx
-                    ? "text-rose-200"
-                    : "text-amber-200")
+                "text-7xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " + textTone
               }
             >
-              {state.winner === state.human_idx
-                ? "YOU WIN"
-                : state.winner === state.ai_idx
-                  ? "YOU LOSE"
-                  : "DRAW"}
+              {title}
             </div>
-            <div className="mt-3 text-base text-zinc-200">
-              T{state.turn} で 試合 終了
-            </div>
-            {state.winner === state.human_idx && (
+            <div className="mt-3 text-base text-zinc-200">{subtitle}</div>
+            {kind === "win" && (
               <div className="mt-2 text-lg font-bold text-emerald-100">
                 おめでとうございます！
               </div>
             )}
-            {/* 学習データの謝辞は通常の人間 vs AI のみ (= 陣取り挑戦では出さない)。 */}
-            {challengeCellId == null && (
+            {/* 学習データの謝辞は通常の人間 vs AI が正常終了した時のみ。 */}
+            {challengeCellId == null && endReason == null && (
               <div className="mt-2 text-sm font-semibold text-cyan-200">
                 この 1 戦も AI の学習データになりました — ご協力ありがとうございます
               </div>
             )}
-            {captureResult && (
+            {/* 通常決着 (game_over) の占領結果。 */}
+            {captureResult && endReason == null && (
               <div
                 className={
                   "mx-auto mt-4 max-w-md rounded-lg border px-4 py-2 text-sm font-bold " +
@@ -2072,8 +2126,13 @@ export function HumanMatchPlay({
                     : "このマスは占領できませんでした"}
               </div>
             )}
-            {/* game-over の退出ボタン (= 上部の「対戦終了」は非表示にしたのでここに集約)。
-                陣取り挑戦は盤へ、 通常対戦はホームへ。 */}
+            {/* 投了 / 時間切れ の陣取り: どちらも占領なし (防衛側維持)。 */}
+            {challengeCellId != null && endReason != null && (
+              <div className="mx-auto mt-4 max-w-md rounded-lg border border-amber-300 bg-amber-800/70 px-4 py-2 text-sm font-bold text-amber-100">
+                このマスは占領できませんでした（防衛側が維持）
+              </div>
+            )}
+            {/* 退出ボタン (= 上部の「対戦終了」は非表示にしたのでここに集約)。 */}
             {challengeCellId != null ? (
               <button
                 type="button"
@@ -2092,6 +2151,36 @@ export function HumanMatchPlay({
               </button>
             )}
           </motion.div>
+        </div>
+        );
+      })()}
+
+      {/* 投了確認 (= 陣取りの「対戦終了」)。 負け扱い + 占領できない旨を明示。 */}
+      {confirmForfeit && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-600 bg-zinc-900 p-6 text-center shadow-2xl">
+            <div className="text-lg font-bold text-white">投了しますか？</div>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              対戦を終了すると<span className="font-bold text-rose-300">負け扱い</span>になり、
+              このマスは占領できません。
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmForfeit(false)}
+                className="flex-1 rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition hover:bg-zinc-700"
+              >
+                対戦を続ける
+              </button>
+              <button
+                type="button"
+                onClick={handleForfeit}
+                className="flex-1 rounded-lg border border-rose-500 bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600"
+              >
+                投了する
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
