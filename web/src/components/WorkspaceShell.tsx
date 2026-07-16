@@ -115,8 +115,12 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     if (!isPlayRoute) setMatchActive(false);
   }, [isPlayRoute]);
 
-  // 対戦中 (full-screen board) はシェルの chrome を隠す。
-  if (isPlayRoute && matchActive) return <>{children}</>;
+  // 対戦中 (full-screen board) はシェルの chrome (activity bar / sidebar / tab bar /
+  // status bar) を隠す。 ⚠ 早期 return で <>{children}</> に差し替えてはいけない: {children}
+  // の祖先チェーンが変わり HumanMatchPlay が unmount→remount され、 [sessionId] cleanup の
+  // endHumanMatch が開始直後のセッションを即削除して「対戦が始まらない」バグになる。
+  // tree 構造は保ったまま chrome を条件レンダリングで隠す (= {children} の位置は不変)。
+  const fullscreenMatch = isPlayRoute && matchActive;
 
   const onCloseTab = (id: string) => {
     const idx = tabs.findIndex((t) => t.id === id);
@@ -179,7 +183,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         <CurrentTabSync />
       </Suspense>
       <div className="flex min-h-0 flex-1">
-        {/* activity bar */}
+        {/* activity bar (対戦中は非表示。 ⚠ tree から外さず条件レンダリングの false スロットに
+            することで <main>/{children} の位置を保つ = remount 回避) */}
+        {!fullscreenMatch && (
         <div
           className="flex w-12 shrink-0 flex-col items-center border-r pt-2"
           style={{ background: "var(--activity-bar)", borderColor: "var(--border-1)" }}
@@ -192,9 +198,10 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             <AuthControls />
           </div>
         </div>
+        )}
 
-        {/* sidebar panel */}
-        {sidebarOpen && (
+        {/* sidebar panel (対戦中は非表示) */}
+        {!fullscreenMatch && sidebarOpen && (
           <>
           <aside
             className="flex shrink-0 flex-col border-r"
@@ -225,7 +232,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
         {/* editor: tabs + content */}
         <main className="flex min-w-0 flex-1 flex-col" style={{ background: "var(--editor-bg)" }}>
-          {tabs.length > 0 && (
+          {!fullscreenMatch && tabs.length > 0 && (
           <div
             className="flex shrink-0 items-stretch border-b"
             style={{ borderColor: "var(--border-1)", background: "var(--sidebar-bg)" }}
@@ -321,7 +328,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           <div className="min-h-0 flex-1 overflow-auto log-scroll">{children}</div>
         </main>
       </div>
-      <StatusBar />
+      {!fullscreenMatch && <StatusBar />}
     </div>
   );
 }
