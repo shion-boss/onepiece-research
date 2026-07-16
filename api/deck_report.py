@@ -148,8 +148,67 @@ def _load_meta_decklists(repo) -> list:
     return out
 
 
+def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
+    """試合ログ (GameStats) の集合から「戦い方の型・機能条件」を発掘する (= Phase A 探索)。
+
+    ⚠ これは AI が操縦した試合の傾向 (= 相関、 記述的)。 因果の精密化 (このターンに
+    これしないと機能しない) は Phase B の分岐 rollout で行う。
+    """
+    from statistics import mean
+
+    out: list[dict] = []
+    if len(stats) < 8:
+        return out
+
+    def avg(xs, attr):
+        vals = [getattr(g, attr) for g in xs if getattr(g, attr, None) is not None]
+        return mean(vals) if vals else None
+
+    won = [g for g in stats if g.won]
+    lost = [g for g in stats if not g.won]
+    if len(won) < 3 or len(lost) < 3:
+        return out
+
+    # ① 速攻 vs コントロール (= 相手ライフを削り始めたターンの勝敗差)。
+    w_hit, l_hit = avg(won, "first_hit_given_turn"), avg(lost, "first_hit_given_turn")
+    if w_hit is not None and l_hit is not None:
+        if w_hit <= l_hit - 0.7:
+            out.append({"kind": "playstyle", "title": "先に攻めて削り切る（速攻寄り）",
+                        "detail": f"勝った試合は平均 {w_hit:.1f} ターン目に相手ライフを削り始め、 "
+                                  f"負けた試合は {l_hit:.1f} ターン目。 相手より先に詰めにいくほど勝っている。"})
+        elif w_hit >= l_hit + 0.7:
+            out.append({"kind": "playstyle", "title": "急がず受けて長期戦（コントロール寄り）",
+                        "detail": f"勝った試合はライフを削り始めるのが平均 {w_hit:.1f} ターン目と遅い。 "
+                                  f"焦って攻めた試合ほど負けており、 盤面を整えてから攻めるべき。"})
+
+    # ② 攻撃を通した手数の勝敗差。
+    w_atk, l_atk = avg(won, "attacks_life_hit"), avg(lost, "attacks_life_hit")
+    if w_atk is not None and l_atk is not None and w_atk >= l_atk + 1.0:
+        out.append({"kind": "tempo", "title": "攻撃を通す手数が勝敗を分ける",
+                    "detail": f"勝った試合は相手ライフに平均 {w_atk:.1f} 回攻撃を通し、 負けは {l_atk:.1f} 回。 "
+                              f"攻撃の手数が足りないと押し切れない。"})
+
+    # ③ キーカードの機能条件 (= これを出せた/出せないで勝率が変わるか)。
+    for kc in key_cards[:5]:
+        name = kc.get("name")
+        if not name:
+            continue
+        with_g = [g for g in stats if g.cards_played.get(name, 0) > 0]
+        without_g = [g for g in stats if g.cards_played.get(name, 0) == 0]
+        if len(with_g) >= 4 and len(without_g) >= 4:
+            wr_w = sum(1 for g in with_g if g.won) / len(with_g)
+            wr_o = sum(1 for g in without_g if g.won) / len(without_g)
+            if wr_w - wr_o >= 0.15:
+                out.append({"kind": "key_card", "title": f"{name} の着地が生命線",
+                            "detail": f"{name} を出せた試合の勝率 {wr_w * 100:.0f}%、 出せなかった試合は "
+                                      f"{wr_o * 100:.0f}%。 これを盤面に出せるかがこのデッキの機能条件。"})
+
+    return out[:6]
+
+
 def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
-                     n_opponents: int, rhash: str, *, partial: bool) -> dict:
+                     n_opponents: int, rhash: str, *, partial: bool,
+                     insights: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     played = [x for x in matchups if x.get("n")]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
@@ -172,6 +231,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "matchups": matchups,
         "n_opponents": n_opponents,
         "matchup_summary": summary,
+        "insights": insights or [],    # ⭐ 戦い方の型・機能条件 (= 探索で発掘した洞察)
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
 
@@ -190,6 +250,7 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
 
     from engine.deck import CardRepository, make_deck_from_dict
     from engine.harness import run_matchup
+    from engine.log_analyzer import parse_game_log
 
     repo = CardRepository.from_json(str(ROOT / "db" / "cards.json"))
     roles = _load_roles()
@@ -204,13 +265,15 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
     done_map = {m["slug"]: m for m in (done_matchups or []) if m.get("n")}
 
     matchups: list[dict] = []
+    stats_accum: list = []  # 全試合の GameStats (= 戦略探索の素材、 matchup 計算を再利用)
     for i, m in enumerate(metas):
         if m["slug"] in done_map:
             matchups.append(done_map[m["slug"]])  # 再開: 計算済みは skip
         else:
+            # keep_logs=True で試合ログを取り、 戦い方の傾向を発掘する (= 追加試合なし)。
             rep = run_matchup(
                 user_dl, m["decklist"], n_games=n_games, seed=seed + i,
-                time_limit_turns=40, time_limit_mode="both_lose",
+                time_limit_turns=40, time_limit_mode="both_lose", keep_logs=True,
             )
             matchups.append({
                 "slug": m["slug"],
@@ -220,11 +283,31 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                 "win_rate": round(rep.deck1_winrate, 3),
                 "n": rep.deck1_wins + rep.deck2_wins + rep.draws,
             })
+            # hero (= user デッキ = deck1) の各試合の挙動を抽出。
+            # GameResult.first_player = deck1 が先攻(0)/後攻(1) → hero の player index に一致
+            #   (first_player=0 → p0=deck1、 first_player=1 → p1=deck1)。
+            # GameResult.winner は deck 正規化 (0=deck1 勝ち) なので、 parse 用に player-index
+            #   winner へ変換する。
+            for gr in rep.games:
+                try:
+                    hero_idx = gr.first_player
+                    if gr.winner == -1:
+                        winner_pidx = -1
+                    elif gr.winner == 0:            # deck1 (hero) 勝ち
+                        winner_pidx = hero_idx
+                    else:                           # deck2 勝ち
+                        winner_pidx = 1 - hero_idx
+                    stats_accum.append(parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx))
+                except Exception:
+                    continue
             if pause_between:
                 time.sleep(pause_between)
         if on_progress:
+            insights = _mine_strategy(stats_accum, comp["key_cards"])
             on_progress(i + 1, n_opponents, m["name"],
                         _assemble_report(comp, curve, matchups, n_games, n_opponents,
-                                         recipe_hash, partial=(i + 1 < n_opponents)))
+                                         recipe_hash, partial=(i + 1 < n_opponents), insights=insights))
 
-    return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash, partial=False)
+    insights = _mine_strategy(stats_accum, comp["key_cards"])
+    return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
+                            partial=False, insights=insights)

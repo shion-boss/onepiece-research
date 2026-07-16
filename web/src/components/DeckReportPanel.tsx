@@ -164,6 +164,24 @@ function ReportBody({
         </div>
       )}
 
+      {/* ⭐ 戦略分析 (= 探索で発掘した「戦い方の型・機能条件」) を最上部に。 */}
+      {report.insights && report.insights.length > 0 && (
+        <Section title="戦略分析（AIが多数の試合を探索して発掘）">
+          <div className="space-y-1.5">
+            {report.insights.map((ins, i) => (
+              <div
+                key={i}
+                className="rounded-[var(--radius)] border-l-2 border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-3 py-2"
+                style={{ borderLeftColor: "var(--brand)" }}
+              >
+                <div className="text-sm font-semibold text-[color:var(--text-strong)]">{ins.title}</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{ins.detail}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {report.roles.length > 0 && (
         <Section title="役割の内訳">
           <div className="flex flex-wrap gap-1.5">

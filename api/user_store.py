@@ -135,6 +135,13 @@ def sanitize_report(report) -> dict:
             "n": _ci(m.get("n"), 0, 100000),
         })
 
+    ins_in = report.get("insights") if isinstance(report.get("insights"), list) else []
+    insights = [
+        {"kind": _cs(x.get("kind"), 20), "title": _cs(x.get("title"), 120),
+         "detail": _cs(x.get("detail"), 500)}
+        for x in ins_in[:8] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -162,6 +169,7 @@ def sanitize_report(report) -> dict:
         "matchups": matchups,
         "n_opponents": _ci(report.get("n_opponents"), 0, 64),
         "matchup_summary": summary,
+        "insights": insights,
         "partial": bool(report.get("partial")),
     }
 
@@ -668,8 +676,11 @@ def request_analysis(owner_id: str, slug: str) -> bool:
     try:
         with conn:
             cur = conn.cursor()
+            # 手動再分析は full 再計算にする (= 途中経過を消す)。 resume で matchup を skip すると
+            # 試合ログが取れず戦略 insights が出ないため、 明示リトライは常にゼロから回す。
             cur.execute(
-                f"UPDATE user_decks SET recipe_hash = {_PH}, analysis_status = 'pending' "
+                f"UPDATE user_decks SET recipe_hash = {_PH}, analysis_status = 'pending', "
+                f"analysis_json = NULL, analyzed_hash = NULL "
                 f"WHERE owner_id = {_PH} AND slug = {_PH}",
                 (rhash, owner_id, slug),
             )

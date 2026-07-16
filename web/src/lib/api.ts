@@ -213,6 +213,7 @@ export type DeckReportBody = {
   matchups: DeckReportMatchup[];
   n_opponents?: number;
   matchup_summary: { avg: number; best: DeckReportMatchup[]; worst: DeckReportMatchup[] };
+  insights?: { kind: string; title: string; detail: string }[];
   partial?: boolean;
 };
 export type DeckReport = {
