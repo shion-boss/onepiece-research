@@ -174,6 +174,15 @@ def sanitize_report(report) -> dict:
         for x in wc_in[:6] if isinstance(x, dict)
     ]
 
+    # 初手キープすべき札 (#1)。
+    mu_in = report.get("mulligan") if isinstance(report.get("mulligan"), list) else []
+    mulligan = [
+        {"name": _cs(x.get("name"), 80), "win_rate_with": _cf(x.get("win_rate_with"), 0.0, 1.0),
+         "win_rate_without": _cf(x.get("win_rate_without"), 0.0, 1.0), "n": _ci(x.get("n"), 0, 100000),
+         "strength": _cf(x.get("strength"), 0.0, 1.0)}
+        for x in mu_in[:8] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -206,6 +215,7 @@ def sanitize_report(report) -> dict:
         "top_cards": top_cards,
         "matchup_plans": matchup_plans,
         "win_combos": win_combos,
+        "mulligan": mulligan,
         "partial": bool(report.get("partial")),
     }
 

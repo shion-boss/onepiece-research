@@ -278,6 +278,42 @@ def _validate_combos(stats: list, candidates: list) -> list[dict]:
     return out[:4]
 
 
+def _mulligan_guide(stats: list, main_entries: list, repo) -> list[dict]:
+    """初手 (マリガン後の開始手札) にあると勝率が上がるカード = キープすべき札 (#1)。
+
+    開始手札は「引いた札」= ほぼ外生 (プレイの選択が入らない) ので、 「出したか」より交絡が
+    少なくマリガン指針として素直。 初手にあると勝率が高い札を上位に。"""
+    if len(stats) < 16:
+        return []
+
+    def wr(gs):
+        return sum(1 for g in gs if g.won) / len(gs) if gs else 0.0
+
+    names: list[str] = []
+    seen: set = set()
+    for e in main_entries:
+        try:
+            nm = repo.get(str(e.get("card_id"))).name
+        except KeyError:
+            continue
+        if nm not in seen:
+            seen.add(nm)
+            names.append(nm)
+
+    out = []
+    for nm in names:
+        with_g = [g for g in stats if nm in getattr(g, "opening_hand", set())]
+        without_g = [g for g in stats if nm not in getattr(g, "opening_hand", set())]
+        if len(with_g) >= 6 and len(without_g) >= 6:
+            gap = wr(with_g) - wr(without_g)
+            if gap >= 0.08:
+                out.append({"name": nm, "win_rate_with": round(wr(with_g), 3),
+                            "win_rate_without": round(wr(without_g), 3), "n": len(with_g),
+                            "strength": round(gap, 3)})
+    out.sort(key=lambda x: -x["strength"])
+    return out[:5]
+
+
 def _matchup_plans(stats: list) -> list[dict]:
     """相手のアーキタイプ別に「どう戦えば勝つか」を集計する (= #8 相手別プラン)。
 
@@ -432,7 +468,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      n_opponents: int, rhash: str, *, partial: bool,
                      insights: Optional[list] = None, profile: Optional[dict] = None,
                      top_cards: Optional[list] = None, matchup_plans: Optional[list] = None,
-                     win_combos: Optional[list] = None) -> dict:
+                     win_combos: Optional[list] = None, mulligan: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     played = [x for x in matchups if x.get("n")]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
@@ -460,6 +496,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "top_cards": top_cards or [],  # よく盤面に出る主戦力カード (使用率つき)
         "matchup_plans": matchup_plans or [],  # ⭐ 相手タイプ別の立ち回り (#8)
         "win_combos": win_combos or [],        # ⭐ 勝ちに繋がるコンボ (#5)
+        "mulligan": mulligan or [],            # ⭐ 初手キープすべき札 (#1)
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
 
@@ -529,6 +566,12 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                     gs = parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx)
                     gs.went_first = (gr.first_player == 0)  # hero(deck1) が先攻だったか
                     gs.opp_archetype = m.get("archetype")   # 相手別プランのグループキー
+                    # 開始手札 (= hero の card_id → name の set)。 マリガン分析用。
+                    try:
+                        oh = gr.opening_hands[hero_idx] if gr.opening_hands else []
+                        gs.opening_hand = {repo.get(cid).name for cid in oh if cid}
+                    except Exception:
+                        gs.opening_hand = set()
                     stats_accum.append(gs)
                 except Exception:
                     continue
@@ -540,17 +583,19 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
             top = _top_cards(stats_accum, main, repo)
             plans = _matchup_plans(stats_accum)
             combos = _validate_combos(stats_accum, combo_cands)
+            mull = _mulligan_guide(stats_accum, main, repo)
             on_progress(i + 1, n_opponents, m["name"],
                         _assemble_report(comp, curve, matchups, n_games, n_opponents,
                                          recipe_hash, partial=(i + 1 < n_opponents),
                                          insights=insights, profile=profile, top_cards=top,
-                                         matchup_plans=plans, win_combos=combos))
+                                         matchup_plans=plans, win_combos=combos, mulligan=mull))
 
     insights = _mine_strategy(stats_accum, comp["key_cards"])
     profile = _deck_profile(stats_accum)
     top = _top_cards(stats_accum, main, repo)
     plans = _matchup_plans(stats_accum)
     combos = _validate_combos(stats_accum, combo_cands)
+    mull = _mulligan_guide(stats_accum, main, repo)
     return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
                             partial=False, insights=insights, profile=profile, top_cards=top,
-                            matchup_plans=plans, win_combos=combos)
+                            matchup_plans=plans, win_combos=combos, mulligan=mull)

@@ -228,6 +228,7 @@ export type DeckReportBody = {
   top_cards?: { card_id: string; name: string; play_rate: number }[];
   matchup_plans?: { archetype: string; win_rate: number; n: number; detail: string }[];
   win_combos?: { cards: string[]; label: string; win_rate: number; base_win_rate: number; n: number; strength: number }[];
+  mulligan?: { name: string; win_rate_with: number; win_rate_without: number; n: number; strength: number }[];
   partial?: boolean;
 };
 export type DeckReport = {

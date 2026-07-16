@@ -202,6 +202,30 @@ function ReportBody({
         </Section>
       )}
 
+      {/* ⭐ マリガン: 初手にキープすべき札 (#1)。 */}
+      {report.mulligan && report.mulligan.length > 0 && (
+        <Section title="マリガン：初手にキープしたい札">
+          <div className="flex flex-wrap gap-1.5">
+            {report.mulligan.map((m) => (
+              <span
+                key={m.name}
+                title={`初手にあると勝率 ${Math.round(m.win_rate_with * 100)}%、 無いと ${Math.round(m.win_rate_without * 100)}%`}
+                className="rounded-[var(--radius)] border border-l-[3px] bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
+                style={{ borderColor: "var(--border-1)", borderLeftColor: "#16a34a" }}
+              >
+                {m.name}
+                <span className="ml-1 text-[10px] font-semibold text-[color:var(--brand)]">
+                  +{Math.round(m.strength * 100)}pt
+                </span>
+              </span>
+            ))}
+          </div>
+          <div className="text-[11px] text-[color:var(--text-muted)]">
+            初手にあると勝率が上がる札（＝マリガンで狙って残す）。 +pt は初手にある/ない試合の勝率差。
+          </div>
+        </Section>
+      )}
+
       {/* ⭐ 勝ちに繋がるコンボ (#5)。 */}
       {report.win_combos && report.win_combos.length > 0 && (
         <Section title="勝ちに繋がるコンボ（実戦で検証）">

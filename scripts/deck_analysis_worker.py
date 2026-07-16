@@ -71,7 +71,7 @@ def process_one(n_games: int, pause_between: float = 0.0) -> bool:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="pending 1 件だけ処理して終了")
-    ap.add_argument("--n-games", type=int, default=8, help="マッチアップ毎の対戦数")
+    ap.add_argument("--n-games", type=int, default=12, help="マッチアップ毎の対戦数")
     ap.add_argument("--interval", type=float, default=5.0, help="poll 間隔 (秒)")
     ap.add_argument("--pause-between", type=float, default=0.0,
                     help="マッチアップ間の休止秒 (= CPU に優しくする)")
