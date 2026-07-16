@@ -4091,12 +4091,44 @@ _HUMAN_PLAY_TRAINED_PATH = ROOT / "db" / "human_play_trained.json"
 
 
 def _load_human_play_trained() -> dict:
-    """matchup key 'human__vs__ai' → 前回学習で消費済みの累計件数。 無ければ空 dict。"""
+    """matchup key 'human__vs__ai' → 学習状態。 値は int(旧: 消費済み件数) or
+    dict {upto: 消費済み件数, batches: 学習した回数}。 無ければ空 dict。"""
     try:
         import json as _json
         return _json.loads(_HUMAN_PLAY_TRAINED_PATH.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _trained_entry(raw) -> tuple[int, int]:
+    """trained の値 (int=旧形式 or dict) を (upto, batches) に正規化。"""
+    if isinstance(raw, dict):
+        return int(raw.get("upto", 0)), int(raw.get("batches", 0))
+    return int(raw or 0), 0
+
+
+def _matchup_threshold(batches: int) -> int:
+    """ゲージの分母 (バッチサイズ)。 学習 1 回ごとに +10 (ohtsuki: 分母に10足す)。
+    未学習(batches=0)は base=THRESHOLD、 以降 batches×10 ずつ増える。"""
+    return _HUMAN_PLAY_THRESHOLD + 10 * max(0, int(batches))
+
+
+def _save_human_play_trained(data: dict) -> None:
+    import json as _json
+    _HUMAN_PLAY_TRAINED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _HUMAN_PLAY_TRAINED_PATH.write_text(
+        _json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _mark_human_play_learned(matchup_key: str, games: int) -> dict:
+    """matchup を「学習済み」にする (= Claude が学習に使った後に呼ぶ):
+    今の累計件数を消費 (upto=games) + batches+1 (= 次の分母が +10)。 → ゲージが未充填に戻る。"""
+    trained = _load_human_play_trained()
+    _upto, batches = _trained_entry(trained.get(matchup_key))
+    trained[matchup_key] = {"upto": int(games), "batches": batches + 1}
+    _save_human_play_trained(trained)
+    return trained[matchup_key]
 
 
 def _parse_play_log_name(name: str):
@@ -4167,17 +4199,19 @@ def _aggregate_human_play_stats() -> dict:
     ready = 0
     for (human, ai), v in sorted(mm.items(), key=lambda kv: -kv[1]["games"]):
         g = v["games"]
-        trained_upto = int(trained.get(f"{human}__vs__{ai}", 0))
-        new_games = max(0, g - trained_upto)  # 前回学習以降の新規件数 (= 次のバッチへの進捗)
-        if new_games >= _HUMAN_PLAY_THRESHOLD:
+        upto, batches = _trained_entry(trained.get(f"{human}__vs__{ai}"))
+        thr = _matchup_threshold(batches)      # 学習回数ごとに分母が +10 ずつ増える
+        new_games = max(0, g - upto)           # 前回学習以降の新規件数 (= ゲージの分子)
+        if new_games >= thr:
             ready += 1
         by_matchup.append({
             "human_deck": human, "ai_deck": ai, "games": g,
-            "new_games": new_games, "trained_upto": trained_upto,
+            "new_games": new_games, "trained_upto": upto, "batches_learned": batches,
+            "threshold": thr,                  # このマッチアップの現在の分母
             "human_wins": v["human_wins"], "ai_wins": v["ai_wins"],
             "human_winrate": round(v["human_wins"] / g, 3) if g else 0.0,
-            # 100% 超も表示 (= 11 件目以降も記録・学習に回す)。 分母 = 1 バッチ(THRESHOLD)。
-            "progress_pct": round(new_games / _HUMAN_PLAY_THRESHOLD * 100),
+            # 100% 超も表示 (= 学習に回すまで貯まる)。 分母 = そのマッチアップの現バッチサイズ。
+            "progress_pct": round(new_games / thr * 100),
         })
     return {
         "total_games": total,

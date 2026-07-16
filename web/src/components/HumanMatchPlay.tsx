@@ -2388,12 +2388,14 @@ type HumanPlayMatchup = {
   human_deck: string;
   ai_deck: string;
   games: number; // 累計
-  new_games: number; // 前回学習以降 (= 今バッチの進捗)
+  new_games: number; // 前回学習以降 (= 今バッチの進捗 = ゲージ分子)
   trained_upto: number;
+  batches_learned: number; // このマッチアップを学習した回数 (= 分母が +10 された回数)
+  threshold: number; // 現在の分母 (= base + 10×batches_learned)
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
-  progress_pct: number; // new_games / batch_size (100% 超あり)
+  progress_pct: number; // new_games / threshold (100% 超あり)
 };
 type HumanPlayStats = {
   total_games: number;
@@ -2433,20 +2435,21 @@ function ContributionPanel({
 
   const nameOf = (slug: string) =>
     decks.find((d) => d.slug === slug)?.name ?? slug;
-  const thr = stats.batch_size ?? stats.training_threshold;
+  const thr = stats.batch_size ?? stats.training_threshold; // 未対戦マッチアップの初期分母
   // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
   const selected = stats.by_matchup.find(
     (m) => m.human_deck === deckA && m.ai_deck === deckB,
   );
   const selGames = selected?.games ?? 0; // 累計
   const selNew = selected?.new_games ?? 0; // 今バッチ
+  const selThr = selected?.threshold ?? thr; // このマッチアップの現分母 (学習で +10 される)
   const selPct = selected?.progress_pct ?? 0;
   const selWr = selected && selGames ? Math.round(selected.human_winrate * 100) : null;
 
   const barW = (v: number) => `${Math.min(100, Math.max(0, v))}%`;
   const stat = [
     { v: stats.total_games.toLocaleString(), l: "みんなの対戦数", c: "var(--brand)" },
-    { v: `${stats.matchups_ready}/${stats.matchups_tracked}`, l: `学習到達 (各${thr}戦)`, c: "var(--accent)" },
+    { v: `${stats.matchups_ready}/${stats.matchups_tracked}`, l: "学習ライン到達", c: "var(--accent)" },
     { v: `${Math.round(stats.human_winrate * 100)}%`, l: "人間の勝率", c: "var(--text-strong)" },
   ];
 
@@ -2498,7 +2501,7 @@ function ContributionPanel({
             {nameOf(deckB)} <span className="text-[color:var(--text-muted)]">(AI)</span>
           </span>
           <span className="shrink-0 tabular-nums text-xs text-[color:var(--text-muted)]">
-            {selNew}/{thr}
+            {selNew}/{selThr}
             {selGames > selNew && <span className="ml-1 opacity-70">（累計 {selGames}）</span>}
           </span>
         </div>
@@ -2508,15 +2511,15 @@ function ContributionPanel({
         >
           <div
             className="absolute inset-y-0 left-0 rounded-full"
-            style={{ width: barW(selPct), background: selNew >= thr ? "var(--accent)" : "var(--brand)" }}
+            style={{ width: barW(selPct), background: selNew >= selThr ? "var(--accent)" : "var(--brand)" }}
           />
         </div>
         <div className="mt-1.5 text-xs text-[color:var(--text-muted)]">
           {selGames === 0
             ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
-            : selNew >= thr
-              ? `次バッチ分に到達（${thr}戦）。 さらに対戦すると精度が上がります。`
-              : `あと ${thr - selNew} 戦で次の学習バッチに到達します。`}
+            : selNew >= selThr
+              ? `次バッチ分に到達（${selThr}戦）。 学習に使われると分母が +10 され、 また貯め直しになります。`
+              : `あと ${selThr - selNew} 戦で次の学習バッチに到達します。`}
           {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
         </div>
       </div>
@@ -2540,11 +2543,11 @@ function ContributionPanel({
                 >
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: barW(m.progress_pct), background: m.new_games >= thr ? "var(--accent)" : "var(--brand)" }}
+                    style={{ width: barW(m.progress_pct), background: m.new_games >= m.threshold ? "var(--accent)" : "var(--brand)" }}
                   />
                 </div>
                 <span className="w-14 shrink-0 text-right tabular-nums text-[color:var(--text-muted)]">
-                  {m.new_games}/{thr}
+                  {m.new_games}/{m.threshold}
                 </span>
               </div>
             ))}
