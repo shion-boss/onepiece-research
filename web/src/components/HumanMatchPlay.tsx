@@ -137,13 +137,11 @@ export function HumanMatchPlay({
   // 保存後の占領結果 (= 占領成功 / レース負けで奪取ならず)。 完了バナー表示用。
   const [captureResult, setCaptureResult] =
     useState<{ captured: boolean; non_stakes: boolean } | null>(null);
-  // engine の game_over 以外の決着理由。 forfeit=中断投了(負け扱い) / timeout=30分経過(引き分け)。
-  // どちらも占領は成立しない (= 防衛側維持)。 結果オーバーレイの表示に使う。
-  const [endReason, setEndReason] = useState<null | "forfeit" | "timeout">(null);
+  // engine の game_over 以外の決着理由。 forfeit=中断投了(負け扱い、 占領なし)。
+  // 結果オーバーレイの表示に使う。
+  const [endReason, setEndReason] = useState<null | "forfeit">(null);
   // 陣取り挑戦で「対戦終了」押下時の投了確認モーダル。
   const [confirmForfeit, setConfirmForfeit] = useState(false);
-  // 対戦開始時刻 (= 30分タイムアウト判定用、 state が初めて入った時に記録)。
-  const matchStartAtRef = useRef<number | null>(null);
   // 対戦中に他人が先に奪取した (race) → モーダル表示。 「続ける」で dismiss。
   const [raceModal, setRaceModal] = useState(false);
   const [raceDismissed, setRaceDismissed] = useState(false);
@@ -723,7 +721,7 @@ export function HumanMatchPlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  // 中断ログを 1 回だけ保存 (= forfeit / timeout 共通、 game_over 前の途中保存)。
+  // 中断(投了)ログを 1 回だけ保存 (= game_over 前の途中保存)。
   async function saveIncompleteOnce() {
     if (!sessionId || savedResultRef.current === sessionId) return;
     savedResultRef.current = sessionId;
@@ -741,23 +739,6 @@ export function HumanMatchPlay({
     await saveIncompleteOnce();
     setEndReason("forfeit");
   }
-
-  // 30分経過 → 無条件引き分け (= 有利な人間が手を止めて占領する荒らし対策)。 占領なし。
-  const TIMEOUT_MS = 30 * 60 * 1000;
-  useEffect(() => {
-    if (!state || state.game_over || endReason != null) return;
-    if (matchStartAtRef.current == null) matchStartAtRef.current = Date.now();
-    const id = setInterval(() => {
-      const started = matchStartAtRef.current;
-      if (started != null && Date.now() - started >= TIMEOUT_MS) {
-        clearInterval(id);
-        void saveIncompleteOnce();
-        setEndReason("timeout");
-      }
-    }, 15000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, endReason]);
 
   // ゲーム終了 検知時 に AI 改善 用 の full データ を Blob (= or local file) に 1 回 保存。
   // 重複 POST 防止 で savedResultRef で gate。 失敗時 は console.warn だけ (= UI 邪魔 しない)。
@@ -2056,24 +2037,18 @@ export function HumanMatchPlay({
 
       {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 (= 背景を黒系でカバーして盤を隠す) */}
       {(state.game_over || endReason != null) && (() => {
-        // 決着種別: forfeit=投了(負け) / timeout=時間切れ(引き分け) / それ以外は engine の勝者。
+        // 決着種別: forfeit=投了(負け扱い) / それ以外は engine の勝者。
         const kind: "win" | "lose" | "draw" =
           endReason === "forfeit"
             ? "lose"
-            : endReason === "timeout"
-              ? "draw"
-              : state.winner === state.human_idx
-                ? "win"
-                : state.winner === state.ai_idx
-                  ? "lose"
-                  : "draw";
+            : state.winner === state.human_idx
+              ? "win"
+              : state.winner === state.ai_idx
+                ? "lose"
+                : "draw";
         const title = kind === "win" ? "YOU WIN" : kind === "lose" ? "YOU LOSE" : "DRAW";
         const subtitle =
-          endReason === "forfeit"
-            ? "投了しました"
-            : endReason === "timeout"
-              ? "時間切れ — 引き分け（30分経過）"
-              : `T${state.turn} で 試合 終了`;
+          endReason === "forfeit" ? "投了しました" : `T${state.turn} で 試合 終了`;
         const cardTone =
           kind === "win"
             ? "border-emerald-300 bg-emerald-900/80"
@@ -2126,7 +2101,7 @@ export function HumanMatchPlay({
                     : "このマスは占領できませんでした"}
               </div>
             )}
-            {/* 投了 / 時間切れ の陣取り: どちらも占領なし (防衛側維持)。 */}
+            {/* 投了した陣取り: 占領なし (防衛側維持)。 */}
             {challengeCellId != null && endReason != null && (
               <div className="mx-auto mt-4 max-w-md rounded-lg border border-amber-300 bg-amber-800/70 px-4 py-2 text-sm font-bold text-amber-100">
                 このマスは占領できませんでした（防衛側が維持）
