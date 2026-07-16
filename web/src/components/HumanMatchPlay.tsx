@@ -1981,7 +1981,7 @@ export function HumanMatchPlay({
               </button>
               <button
                 type="button"
-                onClick={() => window.location.assign(`/play?cell=${challenge.cell_id}`)}
+                onClick={() => window.location.assign(`/territory/play?cell=${challenge.cell_id}`)}
                 className="flex-1 rounded-lg bg-[color:var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
               >
                 新しい占領者へ挑戦
@@ -2645,7 +2645,7 @@ function StartPanel({
           {territoryChallenge ? (
             <>
               陣取りボードの対戦{" "}
-              <span className="text-[color:var(--brand)]">マス #{challengeCellId}</span>
+              <span className="text-[color:var(--brand)]">マス #{(challengeCellId ?? 0) + 1}</span>
             </>
           ) : (
             "人間 vs AI"

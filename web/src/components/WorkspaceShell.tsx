@@ -109,12 +109,14 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     return () =>
       window.removeEventListener("match-state-change", onChange as EventListener);
   }, []);
+  // 通常対戦 (/play) と陣取り挑戦 (/territory/play) の両方が full-screen 対戦ルート。
+  const isPlayRoute = path === "/play" || path === "/territory/play";
   useEffect(() => {
-    if (!path.startsWith("/play")) setMatchActive(false);
-  }, [path]);
+    if (!isPlayRoute) setMatchActive(false);
+  }, [isPlayRoute]);
 
   // 対戦中 (full-screen board) はシェルの chrome を隠す。
-  if (path.startsWith("/play") && matchActive) return <>{children}</>;
+  if (isPlayRoute && matchActive) return <>{children}</>;
 
   const onCloseTab = (id: string) => {
     const idx = tabs.findIndex((t) => t.id === id);

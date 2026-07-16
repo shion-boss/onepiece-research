@@ -84,6 +84,7 @@ export function tabTitleFor(path: string): string {
   const map: Record<string, string> = {
     "/": "ようこそ",
     "/territory": "陣取り",
+    "/territory/play": "陣取りの対戦",
     "/history": "戦いの歴史",
     "/play": "人間 vs AI",
     "/watch": "AI vs AI 観戦",
