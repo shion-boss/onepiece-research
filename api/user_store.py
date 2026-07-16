@@ -16,7 +16,7 @@ import json
 import os
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +47,123 @@ def recipe_hash(leader: str, main: list) -> str:
         sort_keys=True,
     )
     return hashlib.sha1(canon.encode("utf-8")).hexdigest()[:16]
+
+
+# --------------------------------------------------------------------------- #
+# 分析レポートの検証・サニタイズ (= 保存前の choke point)。
+# ⚠ ブラウザ (ユーザー CPU) で計算した結果は **信頼できない** (= クライアントが捏造/巨大化
+# 可能)。 永続化する全経路 (worker 直・将来のブラウザ upload) は必ずここを通す。
+# --------------------------------------------------------------------------- #
+_META_SLUGS_FILE = _ROOT / "db" / "meta_decks.json"
+_ANALYSIS_META_SLUGS: Optional[frozenset] = None
+_MAX_REPORT_BYTES = 256 * 1024  # 256KB 上限 (= 正常な report は数KB)
+
+
+def _known_meta_slugs() -> frozenset:
+    global _ANALYSIS_META_SLUGS
+    if _ANALYSIS_META_SLUGS is None:
+        try:
+            d = json.loads(_META_SLUGS_FILE.read_text(encoding="utf-8"))
+            _ANALYSIS_META_SLUGS = frozenset(d.get("meta_deck_slugs", []))
+        except Exception:
+            _ANALYSIS_META_SLUGS = frozenset()
+    return _ANALYSIS_META_SLUGS
+
+
+def _ci(v, lo: int, hi: int, default: int = 0) -> int:
+    try:
+        return max(lo, min(hi, int(v)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _cf(v, lo: float, hi: float, default: float = 0.0) -> float:
+    try:
+        return round(max(lo, min(hi, float(v))), 4)
+    except (TypeError, ValueError):
+        return default
+
+
+def _cs(v, maxlen: int) -> str:
+    return str(v)[:maxlen] if v is not None else ""
+
+
+def sanitize_report(report) -> dict:
+    """信頼できない report dict を検証・クランプして安全な dict にする。
+
+    形が壊れていたら ValueError。 個々の値は範囲/長さ/件数を強制。 matchup_summary は
+    捏造を許さないよう matchups から再計算する。 相手 slug は既知メタのみ許可。"""
+    if not isinstance(report, dict):
+        raise ValueError("report must be an object")
+    # 巨大 payload 拒否 (= DoS / storage 爆発防止)。
+    if len(json.dumps(report, ensure_ascii=False)) > _MAX_REPORT_BYTES:
+        raise ValueError("report too large")
+
+    roles_in = report.get("roles") if isinstance(report.get("roles"), list) else []
+    roles = [
+        {"role": _cs(r.get("role"), 40), "label": _cs(r.get("label"), 40),
+         "count": _ci(r.get("count"), 0, 500)}
+        for r in roles_in[:20] if isinstance(r, dict)
+    ]
+
+    keys_in = report.get("key_cards") if isinstance(report.get("key_cards"), list) else []
+    key_cards = [
+        {"card_id": _cs(k.get("card_id"), 30), "name": _cs(k.get("name"), 80),
+         "role": _cs(k.get("role"), 40), "label": _cs(k.get("label"), 40),
+         "threat_level": _ci(k.get("threat_level"), 0, 10), "count": _ci(k.get("count"), 0, 4)}
+        for k in keys_in[:20] if isinstance(k, dict)
+    ]
+
+    known = _known_meta_slugs()
+    mus_in = report.get("matchups") if isinstance(report.get("matchups"), list) else []
+    matchups = []
+    seen_slugs = set()
+    for m in mus_in[:64]:
+        if not isinstance(m, dict):
+            continue
+        slug = _cs(m.get("slug"), 64)
+        # 既知メタのみ (= 空の場合は whitelist が無い環境なので許容)。 重複除外。
+        if (known and slug not in known) or slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        matchups.append({
+            "slug": slug,
+            "name": _cs(m.get("name"), 80),
+            "leader": _cs(m.get("leader"), 30),
+            "leader_name": _cs(m.get("leader_name"), 80),
+            "win_rate": _cf(m.get("win_rate"), 0.0, 1.0),
+            "n": _ci(m.get("n"), 0, 100000),
+        })
+
+    def _buckets(d, keys):
+        d = d if isinstance(d, dict) else {}
+        return {k: _ci(d.get(k), 0, 500) for k in keys}
+
+    # summary は client を信じず matchups から再計算。
+    played = [x for x in matchups if x["n"]]
+    avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
+    ranked = sorted(played, key=lambda x: -x["win_rate"])
+    summary = {
+        "avg": avg,
+        "best": ranked[:3],
+        "worst": list(reversed(ranked[-3:])) if len(ranked) >= 3 else [],
+    }
+
+    return {
+        "computed_at": _cs(report.get("computed_at"), 40),
+        "ai_version": _cs(report.get("ai_version"), 40),
+        "n_games_per_matchup": _ci(report.get("n_games_per_matchup"), 1, 1000, 1),
+        "recipe_hash": _cs(report.get("recipe_hash"), 64),
+        "roles": roles,
+        "key_cards": key_cards,
+        "archetype": _cs(report.get("archetype"), 20),
+        "speed_dist": _buckets(report.get("speed_dist"), ("early", "mid", "late")),
+        "curve_buckets": _buckets(report.get("curve_buckets"), ("low", "mid", "high")),
+        "matchups": matchups,
+        "n_opponents": _ci(report.get("n_opponents"), 0, 64),
+        "matchup_summary": summary,
+        "partial": bool(report.get("partial")),
+    }
 
 
 def _conn():
@@ -422,18 +539,24 @@ def enqueue_deck_job(owner_id: str, slug: str, rhash: str, *,
         conn.close()
 
 
-def claim_next_job(kind: str = "analyze") -> Optional[dict]:
-    """ワーカー用: pending の先頭 (priority 降順→古い順) を running にして返す。 無ければ None。
-    ⚠ 単一ワーカー前提の素朴 claim (= 複数ワーカーなら SELECT FOR UPDATE 等が要る)。"""
+def claim_next_job(kind: str = "analyze", stale_running_seconds: int = 300) -> Optional[dict]:
+    """ワーカー用: pending、 または「running のまま stale (= ワーカーがスリープ/クラッシュ)」を
+    再取得して running にして返す。 無ければ None。 stale 再取得により中断ジョブを再開できる。
+    ⚠ 単一ワーカー前提 (= 複数なら SELECT FOR UPDATE SKIP LOCKED が要る)。"""
     init_schema()
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_running_seconds)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     conn = _conn()
     try:
         with conn:
             cur = conn.cursor()
             cur.execute(
-                f"SELECT * FROM deck_jobs WHERE kind = {_PH} AND status = 'pending' "
-                f"ORDER BY priority DESC, created_at ASC LIMIT 1",
-                (kind,),
+                f"SELECT * FROM deck_jobs WHERE kind = {_PH} AND "
+                f"(status = 'pending' OR (status = 'running' AND updated_at < {_PH})) "
+                f"ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, "
+                f"priority DESC, created_at ASC LIMIT 1",
+                (kind, cutoff),
             )
             r = cur.fetchone()
             if r is None:
@@ -448,10 +571,46 @@ def claim_next_job(kind: str = "analyze") -> Optional[dict]:
         conn.close()
 
 
-def complete_deck_job(job_id: str, owner_id: str, slug: str, rhash: str, report: dict) -> None:
-    """ワーカー用: 分析結果を書き戻し job を done に。 レシピが分析中に変わっていたら
-    (= recipe_hash != rhash) デッキ側は更新しない (= 別の新ジョブが処理する)。"""
+def touch_job(job_id: str) -> None:
+    """ワーカー用: job の updated_at を更新 (= heartbeat)。 stale 判定で生きているジョブが
+    横取りされないように、 進捗があるたびに呼ぶ。"""
     init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE deck_jobs SET updated_at = {_PH} WHERE id = {_PH}", (_now(), job_id)
+            )
+    finally:
+        conn.close()
+
+
+def save_deck_partial(owner_id: str, slug: str, rhash: str, partial_report: dict) -> None:
+    """ワーカー/ブラウザ用: 途中経過 (= 1マッチずつ) を保存。 status='running'。
+    ⚠ report は信頼できない可能性があるので sanitize してから保存 (= 保存の choke point)。
+    レシピが変わっていたら (recipe_hash != rhash) 書かない。"""
+    init_schema()
+    clean = sanitize_report(partial_report)
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE user_decks SET analysis_json = {_PH}, analysis_status = 'running' "
+                f"WHERE owner_id = {_PH} AND slug = {_PH} AND recipe_hash = {_PH}",
+                (json.dumps(clean, ensure_ascii=False), owner_id, slug, rhash),
+            )
+    finally:
+        conn.close()
+
+
+def complete_deck_job(job_id: str, owner_id: str, slug: str, rhash: str, report: dict) -> None:
+    """ワーカー/ブラウザ用: 分析結果を書き戻し job を done に。 レシピが分析中に変わっていたら
+    (= recipe_hash != rhash) デッキ側は更新しない (= 別の新ジョブが処理する)。
+    ⚠ report は保存前に必ず sanitize (= 信頼できない client 計算結果でも安全に永続)。"""
+    init_schema()
+    clean = sanitize_report(report)
     conn = _conn()
     try:
         with conn:
@@ -464,14 +623,15 @@ def complete_deck_job(job_id: str, owner_id: str, slug: str, rhash: str, report:
                 f"UPDATE user_decks SET analysis_json = {_PH}, analyzed_hash = {_PH}, "
                 f"analysis_status = 'done' "
                 f"WHERE owner_id = {_PH} AND slug = {_PH} AND recipe_hash = {_PH}",
-                (json.dumps(report, ensure_ascii=False), rhash, owner_id, slug, rhash),
+                (json.dumps(clean, ensure_ascii=False), rhash, owner_id, slug, rhash),
             )
     finally:
         conn.close()
 
 
 def fail_deck_job(job_id: str, error: str) -> None:
-    """ワーカー用: job を failed に (= error 記録)。 デッキの analysis_status は none に戻す。"""
+    """ワーカー用: job を failed に (= error 記録)。 デッキの analysis_status も 'failed' にして
+    詳細画面から再分析できるようにする。 途中経過 (analysis_json) は残す (= 再分析で再開)。"""
     init_schema()
     conn = _conn()
     try:
@@ -488,7 +648,7 @@ def fail_deck_job(job_id: str, error: str) -> None:
             )
             if r is not None:
                 cur.execute(
-                    f"UPDATE user_decks SET analysis_status = 'none' "
+                    f"UPDATE user_decks SET analysis_status = 'failed' "
                     f"WHERE owner_id = {_PH} AND slug = {_PH} AND analysis_status IN ('pending', 'running')",
                     (r["owner_id"], r["slug"]),
                 )
@@ -497,8 +657,9 @@ def fail_deck_job(job_id: str, error: str) -> None:
 
 
 def request_analysis(owner_id: str, slug: str) -> bool:
-    """手動で分析を要求 (= 再分析 / 既存デッキの初回分析)。 pending にして enqueue。
-    デッキが無い / 下書きなら False。"""
+    """手動で分析を要求 (= 再分析 / 失敗リトライ / 既存デッキの初回分析)。 pending にして
+    強制的に新ジョブを積む (= 既存の pending/running/failed を superseded にしてから enqueue、
+    途中経過 analysis_json は残すので再開できる)。 デッキが無い / 下書きなら False。"""
     d = get_deck(owner_id, slug)
     if d is None or d.get("draft"):
         return False
@@ -511,6 +672,13 @@ def request_analysis(owner_id: str, slug: str) -> bool:
                 f"UPDATE user_decks SET recipe_hash = {_PH}, analysis_status = 'pending' "
                 f"WHERE owner_id = {_PH} AND slug = {_PH}",
                 (rhash, owner_id, slug),
+            )
+            # 既存ジョブを片付けてから fresh 発行 (= リトライで確実に走る)。
+            cur.execute(
+                f"UPDATE deck_jobs SET status = 'superseded', updated_at = {_PH} "
+                f"WHERE owner_id = {_PH} AND slug = {_PH} AND kind = 'analyze' "
+                f"AND status IN ('pending', 'running')",
+                (_now(), owner_id, slug),
             )
     finally:
         conn.close()

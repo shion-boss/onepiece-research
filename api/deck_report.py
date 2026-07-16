@@ -148,12 +148,46 @@ def _load_meta_decklists(repo) -> list:
     return out
 
 
-def compute_deck_report(deck_dict: dict, *, n_games: int = 12, seed: int = 0,
-                        progress=None) -> dict:
-    """デッキ dict → 分析レポート dict。 役割は即算出、 相性は AI vs AI で計測。
+def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
+                     n_opponents: int, rhash: str, *, partial: bool) -> dict:
+    """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
+    played = [x for x in matchups if x.get("n")]
+    avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
+    ranked = sorted(played, key=lambda x: -x["win_rate"])
+    summary = {
+        "avg": avg,
+        "best": ranked[:3],
+        "worst": list(reversed(ranked[-3:])) if len(ranked) >= 3 else [],
+    }
+    return {
+        "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ai_version": "GoalDirected_baseline",
+        "n_games_per_matchup": n_games,
+        "recipe_hash": rhash,          # この report がどのレシピの計算か (= 再開時の照合)
+        "roles": comp["roles"],
+        "key_cards": comp["key_cards"],
+        "archetype": comp["archetype"],
+        "speed_dist": comp["speed_dist"],
+        "curve_buckets": curve,
+        "matchups": matchups,
+        "n_opponents": n_opponents,
+        "matchup_summary": summary,
+        "partial": partial,            # True = まだ全マッチアップ揃っていない
+    }
 
-    progress(done, total, label) が渡されれば各マッチアップ後に呼ぶ (= 進捗表示用)。
+
+def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
+                        recipe_hash: str = "", done_matchups=None,
+                        on_progress=None, pause_between: float = 0.0) -> dict:
+    """デッキ dict → 分析レポート dict。 役割は即算出、 相性は AI vs AI で 1 マッチずつ計測。
+
+    - done_matchups: 既に計算済みの matchup list (= 途中再開時に渡すと skip する)。
+    - on_progress(done, total, label, partial_report): 各マッチアップ後に呼ぶ。 途中経過の
+      report を渡すので、 これを保存すれば「1マッチずつ永続 = スリープ/中断に強い」。
+    - pause_between: マッチアップ間の休止秒 (= CPU に優しくする / ブラウザで yield する用)。
     """
+    import time
+
     from engine.deck import CardRepository, make_deck_from_dict
     from engine.harness import run_matchup
 
@@ -166,44 +200,31 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 12, seed: int = 0,
 
     user_dl = make_deck_from_dict(deck_dict, repo)
     metas = _load_meta_decklists(repo)
+    n_opponents = len(metas)
+    done_map = {m["slug"]: m for m in (done_matchups or []) if m.get("n")}
 
     matchups: list[dict] = []
-    total = len(metas)
     for i, m in enumerate(metas):
-        # 自分自身がメタ (= 同 leader) でもミラーとして計測する。
-        rep = run_matchup(
-            user_dl, m["decklist"], n_games=n_games, seed=seed + i,
-            time_limit_turns=40, time_limit_mode="both_lose",
-        )
-        matchups.append({
-            "slug": m["slug"],
-            "name": m["name"],
-            "leader": m["leader"],
-            "leader_name": m["leader_name"],
-            "win_rate": round(rep.deck1_winrate, 3),
-            "n": rep.deck1_wins + rep.deck2_wins + rep.draws,
-        })
-        if progress:
-            progress(i + 1, total, m["name"])
+        if m["slug"] in done_map:
+            matchups.append(done_map[m["slug"]])  # 再開: 計算済みは skip
+        else:
+            rep = run_matchup(
+                user_dl, m["decklist"], n_games=n_games, seed=seed + i,
+                time_limit_turns=40, time_limit_mode="both_lose",
+            )
+            matchups.append({
+                "slug": m["slug"],
+                "name": m["name"],
+                "leader": m["leader"],
+                "leader_name": m["leader_name"],
+                "win_rate": round(rep.deck1_winrate, 3),
+                "n": rep.deck1_wins + rep.deck2_wins + rep.draws,
+            })
+            if pause_between:
+                time.sleep(pause_between)
+        if on_progress:
+            on_progress(i + 1, n_opponents, m["name"],
+                        _assemble_report(comp, curve, matchups, n_games, n_opponents,
+                                         recipe_hash, partial=(i + 1 < n_opponents)))
 
-    played = [x for x in matchups if x["n"]]
-    avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
-    ranked = sorted(played, key=lambda x: -x["win_rate"])
-    summary = {
-        "avg": avg,
-        "best": ranked[:3],
-        "worst": list(reversed(ranked[-3:])) if len(ranked) >= 3 else [],
-    }
-
-    return {
-        "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "ai_version": "GoalDirected_baseline",
-        "n_games_per_matchup": n_games,
-        "roles": comp["roles"],
-        "key_cards": comp["key_cards"],
-        "archetype": comp["archetype"],
-        "speed_dist": comp["speed_dist"],
-        "curve_buckets": curve,
-        "matchups": matchups,
-        "matchup_summary": summary,
-    }
+    return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash, partial=False)

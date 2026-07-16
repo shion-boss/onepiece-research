@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchDeckReport, requestDeckAnalysis, type DeckReport } from "@/lib/api";
+import { fetchDeckReport, requestDeckAnalysis, type DeckReport, type DeckReportBody } from "@/lib/api";
 
 // ユーザーデッキの裏分析レポート (= AI vs AI 相性 + 役割内訳 + キーカード)。
-// 保存時に enqueue されワーカーが計算 → ここは読むだけ + pending 中は poll して自動更新。
+// 保存時に enqueue されワーカーが 1マッチずつ計算 → ここは読むだけ + 実行中は poll して
+// 途中経過(相性が1つずつ埋まる)を表示。 失敗時は「再分析」で再開できる。
 export function DeckReportPanel({ slug }: { slug: string }) {
   const [data, setData] = useState<DeckReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -15,9 +16,8 @@ export function DeckReportPanel({ slug }: { slug: string }) {
     try {
       const r = await fetchDeckReport(slug);
       setData(r);
-      // 分析中は 5 秒ごとに poll (= ワーカー完了で自動的に done へ)。
       if (r.status === "pending" || r.status === "running") {
-        timer.current = setTimeout(load, 5000);
+        timer.current = setTimeout(load, 5000); // 実行中は 5 秒ごとに更新
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -55,85 +55,136 @@ export function DeckReportPanel({ slug }: { slug: string }) {
   }
 
   const { status, stale, report } = data;
+  const running = status === "pending" || status === "running";
+  const done = report?.matchups?.length ?? 0;
+  const total = report?.n_opponents ?? 16;
 
-  // 未分析 / 分析中 / 失敗 の状態表示。
-  if (status !== "done" || !report) {
-    return (
-      <Shell>
-        {status === "pending" || status === "running" ? (
-          <div className="flex items-center gap-3 text-sm text-[color:var(--text-default)]">
-            <Spinner />
-            <div>
-              分析中… 裏で AI 対戦を回してメタ16デッキとの相性を計測しています（数分かかります）。
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-start gap-3">
-            <div className="text-sm text-[color:var(--text-muted)]">
-              このデッキはまだ分析されていません。
-            </div>
-            <button
-              type="button"
-              onClick={onRequest}
-              disabled={requesting}
-              className="rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
-            >
-              {requesting ? "受付中…" : "分析する"}
-            </button>
-          </div>
-        )}
-        {error && <div className="mt-2 text-xs text-[color:var(--danger)]">{error}</div>}
-      </Shell>
-    );
-  }
+  const AnalyzeButton = ({ label }: { label: string }) => (
+    <button
+      type="button"
+      onClick={onRequest}
+      disabled={requesting}
+      className="rounded-[var(--radius)] bg-[color:var(--brand)] px-4 py-1.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+    >
+      {requesting ? "受付中…" : label}
+    </button>
+  );
 
-  const avgPct = Math.round(report.matchup_summary.avg * 100);
   return (
     <Shell>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="rounded px-2 py-0.5 text-xs font-bold text-white" style={{ background: "var(--brand)" }}>
-            {report.archetype}
-          </span>
-          <span className="text-sm text-[color:var(--text-default)]">
-            メタ16デッキ相手の平均勝率{" "}
-            <span className="font-semibold text-[color:var(--text-strong)]">{avgPct}%</span>
-          </span>
+      {/* 状態ヘッダー */}
+      {status === "none" && (
+        <div className="flex flex-col items-start gap-3">
+          <div className="text-sm text-[color:var(--text-muted)]">
+            このデッキはまだ分析されていません。
+          </div>
+          <AnalyzeButton label="分析する" />
         </div>
-        {stale && (
-          <button
-            type="button"
-            onClick={onRequest}
-            disabled={requesting}
-            className="rounded-[var(--radius)] border border-[color:var(--border-2)] px-2.5 py-1 text-xs text-[color:var(--text-default)] hover:border-[color:var(--brand)] disabled:opacity-50"
-          >
-            {requesting ? "受付中…" : "デッキ変更後 · 再分析"}
-          </button>
-        )}
-      </div>
+      )}
 
-      {/* 役割内訳 */}
-      <Section title="役割の内訳">
-        <div className="flex flex-wrap gap-1.5">
-          {report.roles.map((r) => (
-            <span
-              key={r.role}
-              className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
-            >
-              {r.label} <span className="font-semibold text-[color:var(--text-strong)]">{r.count}</span>
+      {status === "failed" && (
+        <div className="flex flex-col items-start gap-3">
+          <div className="text-sm text-[color:var(--danger)]">
+            分析に失敗しました{done > 0 ? `（${done}/${total} まで計測済み）` : ""}。
+            もう一度お試しください（途中から再開します）。
+          </div>
+          <AnalyzeButton label="再分析" />
+        </div>
+      )}
+
+      {running && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-[color:var(--text-default)]">
+            <Spinner />
+            <span>
+              {status === "pending" && done === 0
+                ? "分析待ち… 順番が来たら AI 対戦で相性を計測します。"
+                : `相性を計測中… ${done}/${total} デッキ`}
             </span>
-          ))}
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-2)]">
+            <div
+              className="h-full rounded-full bg-[color:var(--brand)] transition-all"
+              style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }}
+            />
+          </div>
         </div>
-      </Section>
+      )}
 
-      {/* キーカード / 勝ち筋 */}
+      {/* レポート本体 (= 実行中は途中経過、 完了なら全体) */}
+      {report && (report.roles.length > 0 || done > 0) && (
+        <ReportBody report={report} running={running} stale={stale && !running} onReanalyze={onRequest} requesting={requesting} />
+      )}
+
+      {error && <div className="text-xs text-[color:var(--danger)]">{error}</div>}
+    </Shell>
+  );
+}
+
+function ReportBody({
+  report,
+  running,
+  stale,
+  onReanalyze,
+  requesting,
+}: {
+  report: DeckReportBody;
+  running: boolean;
+  stale: boolean;
+  onReanalyze: () => void;
+  requesting: boolean;
+}) {
+  const played = report.matchups.filter((m) => m.n > 0);
+  const avgPct = Math.round(report.matchup_summary.avg * 100);
+  return (
+    <div className="space-y-3">
+      {!running && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded px-2 py-0.5 text-xs font-bold text-white" style={{ background: "var(--brand)" }}>
+              {report.archetype}
+            </span>
+            {played.length > 0 && (
+              <span className="text-sm text-[color:var(--text-default)]">
+                メタ{played.length}デッキ相手の平均勝率{" "}
+                <span className="font-semibold text-[color:var(--text-strong)]">{avgPct}%</span>
+              </span>
+            )}
+          </div>
+          {stale && (
+            <button
+              type="button"
+              onClick={onReanalyze}
+              disabled={requesting}
+              className="rounded-[var(--radius)] border border-[color:var(--border-2)] px-2.5 py-1 text-xs text-[color:var(--text-default)] hover:border-[color:var(--brand)] disabled:opacity-50"
+            >
+              {requesting ? "受付中…" : "デッキ変更後 · 再分析"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {report.roles.length > 0 && (
+        <Section title="役割の内訳">
+          <div className="flex flex-wrap gap-1.5">
+            {report.roles.map((r) => (
+              <span
+                key={r.role}
+                className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
+              >
+                {r.label} <span className="font-semibold text-[color:var(--text-strong)]">{r.count}</span>
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {report.key_cards.length > 0 && (
         <Section title="キーカード（勝ち筋）">
           <div className="flex flex-wrap gap-1.5">
             {report.key_cards.map((k) => (
               <span
                 key={k.card_id}
-                title={`${k.label}`}
                 className="rounded-[var(--radius)] border border-[color:var(--border-1)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
               >
                 {k.name}
@@ -144,37 +195,37 @@ export function DeckReportPanel({ slug }: { slug: string }) {
         </Section>
       )}
 
-      {/* 相性表 */}
-      <Section title="メタ相性（AI対戦で計測）">
-        <ul className="space-y-1">
-          {[...report.matchups]
-            .sort((a, b) => b.win_rate - a.win_rate)
-            .map((m) => {
-              const pct = Math.round(m.win_rate * 100);
-              const tone =
-                pct >= 60 ? "var(--brand)" : pct <= 40 ? "var(--danger)" : "var(--border-2)";
-              return (
-                <li key={m.slug} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 shrink-0 truncate text-[color:var(--text-default)]">
-                    {m.leader_name || m.name}
-                  </span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[color:var(--surface-2)]">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: tone }} />
-                  </div>
-                  <span className="w-9 shrink-0 text-right font-mono text-[color:var(--text-strong)]">
-                    {pct}%
-                  </span>
-                </li>
-              );
-            })}
-        </ul>
-      </Section>
+      {played.length > 0 && (
+        <Section title="メタ相性（AI対戦で計測）">
+          <ul className="space-y-1">
+            {[...played]
+              .sort((a, b) => b.win_rate - a.win_rate)
+              .map((m) => {
+                const pct = Math.round(m.win_rate * 100);
+                const tone = pct >= 60 ? "var(--brand)" : pct <= 40 ? "var(--danger)" : "var(--border-2)";
+                return (
+                  <li key={m.slug} className="flex items-center gap-2 text-xs">
+                    <span className="w-28 shrink-0 truncate text-[color:var(--text-default)]">
+                      {m.leader_name || m.name}
+                    </span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-[color:var(--surface-2)]">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: tone }} />
+                    </div>
+                    <span className="w-9 shrink-0 text-right font-mono text-[color:var(--text-strong)]">{pct}%</span>
+                  </li>
+                );
+              })}
+          </ul>
+        </Section>
+      )}
 
-      <p className="text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-        ※ 両者を同じ基準 AI が操縦した時の相対勝率です（理論上の有利不利ではなく、
-        現状の AI がこのデッキを操縦した場合の目安）。1マッチアップ {report.n_games_per_matchup} 戦。
-      </p>
-    </Shell>
+      {!running && (
+        <p className="text-[11px] leading-relaxed text-[color:var(--text-muted)]">
+          ※ 両者を同じ基準 AI が操縦した時の相対勝率です（理論上の有利不利ではなく、
+          現状の AI がこのデッキを操縦した場合の目安）。1マッチアップ {report.n_games_per_matchup} 戦。
+        </p>
+      )}
+    </div>
   );
 }
 

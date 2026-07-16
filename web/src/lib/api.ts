@@ -204,16 +204,19 @@ export type DeckReportBody = {
   computed_at: string;
   ai_version: string;
   n_games_per_matchup: number;
+  recipe_hash?: string;
   roles: { role: string; label: string; count: number }[];
   key_cards: { card_id: string; name: string; role: string; label: string; threat_level: number; count: number }[];
   archetype: string;
   speed_dist: { early: number; mid: number; late: number };
   curve_buckets: { low: number; mid: number; high: number };
   matchups: DeckReportMatchup[];
+  n_opponents?: number;
   matchup_summary: { avg: number; best: DeckReportMatchup[]; worst: DeckReportMatchup[] };
+  partial?: boolean;
 };
 export type DeckReport = {
-  status: "none" | "pending" | "running" | "done";
+  status: "none" | "pending" | "running" | "done" | "failed";
   stale: boolean;
   report: DeckReportBody | null;
   kind: "user" | "meta";
