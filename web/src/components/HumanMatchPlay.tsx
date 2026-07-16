@@ -2515,6 +2515,8 @@ type HumanPlayMatchup = {
 type HumanPlayStats = {
   total_games: number;
   this_month_games: number;
+  this_month_human_wins: number;
+  this_month_ai_wins: number;
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
@@ -2524,6 +2526,42 @@ type HumanPlayStats = {
   matchups_ready: number;
   by_matchup: HumanPlayMatchup[];
 };
+
+// 人間 vs AI 勝敗ゲージ (= 通算/今月 で共用)。 humanPct 分だけ緑、 残りは赤 (= AI 勝ち)。
+function WinRateBar({
+  label,
+  hw,
+  aw,
+  heightClass,
+}: {
+  label: string;
+  hw: number;
+  aw: number;
+  heightClass: string;
+}) {
+  const decided = hw + aw;
+  const humanPct = decided ? Math.round((hw / decided) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs font-medium">
+        <span style={{ color: "var(--accent)" }}>
+          <span className="mr-1 text-[color:var(--text-muted)]">{label}</span>
+          人間 {hw.toLocaleString()}勝（{humanPct}%）
+        </span>
+        <span style={{ color: "var(--danger)" }}>AI {aw.toLocaleString()}勝</span>
+      </div>
+      <div
+        className={`relative mt-1.5 overflow-hidden rounded-full ${heightClass}`}
+        style={{ background: "var(--danger)" }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${humanPct}%`, background: "var(--accent)" }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function ContributionPanel() {
   const [stats, setStats] = useState<HumanPlayStats | null>(null);
@@ -2542,10 +2580,6 @@ function ContributionPanel() {
   if (failed || !stats) return null;
 
   const total = stats.total_games ?? 0;
-  const hw = stats.human_wins ?? 0;
-  const aw = stats.ai_wins ?? 0;
-  const decided = hw + aw;
-  const humanPct = decided ? Math.round((hw / decided) * 100) : 0;
   const thisMonth = stats.this_month_games ?? 0;
 
   return (
@@ -2569,21 +2603,20 @@ function ContributionPanel() {
         対戦する人が増えるほど AI は人間に強くなります。
       </p>
 
-      {/* 人間 vs AI 勝敗ゲージ (= みんなの通算)。 */}
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-xs font-medium">
-          <span style={{ color: "var(--accent)" }}>人間 {hw.toLocaleString()}勝（{humanPct}%）</span>
-          <span style={{ color: "var(--danger)" }}>AI {aw.toLocaleString()}勝</span>
-        </div>
-        <div
-          className="relative mt-1.5 h-2.5 overflow-hidden rounded-full"
-          style={{ background: "var(--danger)" }}
-        >
-          <div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{ width: `${humanPct}%`, background: "var(--accent)" }}
-          />
-        </div>
+      {/* 人間 vs AI 勝敗ゲージ: 通算 (背高め) + 今月。 */}
+      <div className="mt-4 space-y-3">
+        <WinRateBar
+          label="通算"
+          hw={stats.human_wins ?? 0}
+          aw={stats.ai_wins ?? 0}
+          heightClass="h-4"
+        />
+        <WinRateBar
+          label="今月"
+          hw={stats.this_month_human_wins ?? 0}
+          aw={stats.this_month_ai_wins ?? 0}
+          heightClass="h-2.5"
+        />
       </div>
 
       {/* 総対戦数の累積 + 今月の対戦数。 */}

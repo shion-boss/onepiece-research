@@ -4354,6 +4354,7 @@ def _aggregate_human_play_stats() -> dict:
 
     mm: dict = defaultdict(lambda: {"games": 0, "human_wins": 0, "ai_wins": 0})
     total = hw = aw = abandoned = this_month = 0
+    this_month_hw = this_month_aw = 0
     for n in names:
         parsed = _parse_play_log_name(n)
         if not parsed:
@@ -4371,6 +4372,10 @@ def _aggregate_human_play_stats() -> dict:
         ts = n.rsplit("/", 1)[-1].split("_", 1)[0]  # "20260716T140448Z"
         if ts[:6] == cur_month:
             this_month += 1
+            if tag == "humanW":
+                this_month_hw += 1
+            elif tag == "aiW":
+                this_month_aw += 1
         # by_matchup (= 学習進捗) は 環境(メタ)デッキ同士のみ。 私的な user デッキ (= "user_"
         # 接頭辞) の matchup は共有/汎化できず「学習」されない (= ゲージが永遠に埋まらない) ので除外。
         if human.startswith("user_") or ai.startswith("user_"):
@@ -4404,6 +4409,8 @@ def _aggregate_human_play_stats() -> dict:
     return {
         "total_games": total,
         "this_month_games": this_month,
+        "this_month_human_wins": this_month_hw,
+        "this_month_ai_wins": this_month_aw,
         "human_wins": hw,
         "ai_wins": aw,
         "abandoned": abandoned,
