@@ -2550,6 +2550,9 @@ function ContributionPanel({
 
   const nameOf = (slug: string) =>
     decks.find((d) => d.slug === slug)?.name ?? slug;
+  // マイデッキ (= "user_" 接頭辞) は私的で共有/学習できない → コミュニティ貢献ゲージの対象外。
+  // (対象にすると分母が永遠に +10 されず、 ゲージが無限に増えてしまう。)
+  const isUserDeck = deckA.startsWith("user_");
   const thr = stats.batch_size ?? stats.training_threshold; // 未対戦マッチアップの初期分母
   // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
   const selected = stats.by_matchup.find(
@@ -2605,39 +2608,56 @@ function ContributionPanel({
         ))}
       </div>
 
-      {/* 選択中の対戦 = あなたの貢献先 (デッキ変更に追従) */}
-      <div
-        className="mt-3 rounded-[var(--radius)] border p-3"
-        style={{ borderColor: "var(--brand)", background: "var(--surface-2)" }}
-      >
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="min-w-0 truncate font-medium text-[color:var(--text-strong)]">
-            {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(あなた) vs</span>{" "}
-            {nameOf(deckB)} <span className="text-[color:var(--text-muted)]">(AI)</span>
-          </span>
-          <span className="shrink-0 tabular-nums text-xs text-[color:var(--text-muted)]">
-            {selNew}/{selThr}
-            {selGames > selNew && <span className="ml-1 opacity-70">（累計 {selGames}）</span>}
-          </span>
-        </div>
+      {/* 選択中の対戦 = あなたの貢献先 (デッキ変更に追従)。 マイデッキは共有学習の対象外
+          なので、 無限ゲージでなく「自分のデッキに活きる」旨を出す。 */}
+      {isUserDeck ? (
         <div
-          className="relative mt-2 h-2 overflow-hidden rounded-full"
-          style={{ background: "var(--border-2)" }}
+          className="mt-3 rounded-[var(--radius)] border p-3"
+          style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
         >
+          <div className="text-sm font-medium text-[color:var(--text-strong)]">
+            {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(マイデッキ)</span>
+          </div>
+          <div className="mt-1.5 text-xs leading-relaxed text-[color:var(--text-muted)]">
+            マイデッキでの対戦は、 このデッキの<strong className="font-medium text-[color:var(--text-default)]">戦績・分析</strong>に活きます
+            （デッキ詳細の「直近の対戦履歴」に記録）。
+            コミュニティAIの学習対象は<strong className="font-medium text-[color:var(--text-default)]">環境デッキ同士</strong>の対戦です。
+          </div>
+        </div>
+      ) : (
+        <div
+          className="mt-3 rounded-[var(--radius)] border p-3"
+          style={{ borderColor: "var(--brand)", background: "var(--surface-2)" }}
+        >
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="min-w-0 truncate font-medium text-[color:var(--text-strong)]">
+              {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(あなた) vs</span>{" "}
+              {nameOf(deckB)} <span className="text-[color:var(--text-muted)]">(AI)</span>
+            </span>
+            <span className="shrink-0 tabular-nums text-xs text-[color:var(--text-muted)]">
+              {selNew}/{selThr}
+              {selGames > selNew && <span className="ml-1 opacity-70">（累計 {selGames}）</span>}
+            </span>
+          </div>
           <div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{ width: barW(selPct), background: selNew >= selThr ? "var(--accent)" : "var(--brand)" }}
-          />
+            className="relative mt-2 h-2 overflow-hidden rounded-full"
+            style={{ background: "var(--border-2)" }}
+          >
+            <div
+              className="absolute inset-y-0 left-0 rounded-full"
+              style={{ width: barW(selPct), background: selNew >= selThr ? "var(--accent)" : "var(--brand)" }}
+            />
+          </div>
+          <div className="mt-1.5 text-xs text-[color:var(--text-muted)]">
+            {selGames === 0
+              ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
+              : selNew >= selThr
+                ? `次バッチ分に到達（${selThr}戦）。 学習に使われると分母が +10 され、 また埋めていきます。`
+                : `あと ${selThr - selNew} 戦で次の学習バッチに到達します。`}
+            {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
+          </div>
         </div>
-        <div className="mt-1.5 text-xs text-[color:var(--text-muted)]">
-          {selGames === 0
-            ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
-            : selNew >= selThr
-              ? `次バッチ分に到達（${selThr}戦）。 学習に使われると分母が +10 され、 また埋めていきます。`
-              : `あと ${selThr - selNew} 戦で次の学習バッチに到達します。`}
-          {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
-        </div>
-      </div>
+      )}
 
       {/* 上位マッチアップの進捗 */}
       {stats.by_matchup.length > 0 && (

@@ -4359,6 +4359,11 @@ def _aggregate_human_play_stats() -> dict:
         if tag == "abandoned":
             abandoned += 1
             continue
+        # コミュニティ学習の対象は環境(メタ)デッキ同士の対戦。 私的な user デッキ (= "user_"
+        # 接頭辞) の matchup は共有/汎化できず「学習」されないので、 ゲージが永遠に埋まり続ける
+        # (= 分母が +10 されない)。 集計から除外し、 マイデッキ対戦は per-deck 履歴/分析に回す。
+        if human.startswith("user_") or ai.startswith("user_"):
+            continue
         v = mm[(human, ai)]
         v["games"] += 1
         total += 1
