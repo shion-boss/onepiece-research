@@ -1507,7 +1507,9 @@ export function HumanMatchPlay({
           "radial-gradient(ellipse at center, #6b4423 0%, #3d2817 100%)",
       }}
     >
-      {/* 右上 対戦終了 ボタン (= 常時表示、 押下で home へ) */}
+      {/* 右上 対戦終了 ボタン (= 対戦中のみ表示、 押下で home へ)。 game-over 時は勝敗
+          オーバーレイ内の「戻る」ボタンに集約するので非表示。 */}
+      {!state.game_over && (
       <button
         type="button"
         onClick={(e) => {
@@ -1518,6 +1520,7 @@ export function HumanMatchPlay({
       >
         対戦終了
       </button>
+      )}
 
       {/* 右上 再生速度 コントロール (= AI ターン演出を 1x/2x/4x で早送り)。
           対戦終了ボタンの下に配置 (= 左上だと相手の数値パネルに被るため)。 */}
@@ -2007,9 +2010,9 @@ export function HumanMatchPlay({
         </div>
       )}
 
-      {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
+      {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 (= 背景を黒系でカバーして盤を隠す) */}
       {state.game_over && (
-        <div className="pointer-events-none absolute inset-0 z-[55] flex items-center justify-center">
+        <div className="absolute inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.3, y: -50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2042,6 +2045,11 @@ export function HumanMatchPlay({
             <div className="mt-3 text-base text-zinc-200">
               T{state.turn} で 試合 終了
             </div>
+            {state.winner === state.human_idx && (
+              <div className="mt-2 text-lg font-bold text-emerald-100">
+                おめでとうございます！
+              </div>
+            )}
             {/* 学習データの謝辞は通常の人間 vs AI のみ (= 陣取り挑戦では出さない)。 */}
             {challengeCellId == null && (
               <div className="mt-2 text-sm font-semibold text-cyan-200">
@@ -2064,15 +2072,23 @@ export function HumanMatchPlay({
                     : "このマスは占領できませんでした"}
               </div>
             )}
-            {/* 陣取り挑戦は結果を見たら盤へ戻れるボタンを出す (overlay は pointer-events-none
-                なのでボタンだけ pointer-events-auto で復活)。 */}
-            {challengeCellId != null && (
+            {/* game-over の退出ボタン (= 上部の「対戦終了」は非表示にしたのでここに集約)。
+                陣取り挑戦は盤へ、 通常対戦はホームへ。 */}
+            {challengeCellId != null ? (
               <button
                 type="button"
                 onClick={() => router.push("/territory")}
-                className="pointer-events-auto mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
+                className="mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
               >
                 陣取りボードへ戻る
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleEnd}
+                className="mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
+              >
+                対戦を終了してホームへ
               </button>
             )}
           </motion.div>
