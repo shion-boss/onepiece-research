@@ -138,7 +138,7 @@ def sanitize_report(report) -> dict:
     ins_in = report.get("insights") if isinstance(report.get("insights"), list) else []
     insights = [
         {"kind": _cs(x.get("kind"), 20), "title": _cs(x.get("title"), 120),
-         "detail": _cs(x.get("detail"), 500)}
+         "detail": _cs(x.get("detail"), 500), "strength": _cf(x.get("strength"), 0.0, 1.0)}
         for x in ins_in[:8] if isinstance(x, dict)
     ]
 

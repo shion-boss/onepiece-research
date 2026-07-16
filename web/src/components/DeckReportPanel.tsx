@@ -167,16 +167,9 @@ function ReportBody({
       {/* ⭐ 戦略分析 (= 探索で発掘した「戦い方の型・機能条件」) を最上部に。 */}
       {report.insights && report.insights.length > 0 && (
         <Section title="戦略分析（AIが多数の試合を探索して発掘）">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {report.insights.map((ins, i) => (
-              <div
-                key={i}
-                className="rounded-[var(--radius)] border-l-2 border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-3 py-2"
-                style={{ borderLeftColor: "var(--brand)" }}
-              >
-                <div className="text-sm font-semibold text-[color:var(--text-strong)]">{ins.title}</div>
-                <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{ins.detail}</div>
-              </div>
+              <InsightCard key={i} insight={ins} />
             ))}
           </div>
         </Section>
@@ -244,6 +237,99 @@ function ReportBody({
         </p>
       )}
     </div>
+  );
+}
+
+// 洞察の種別ごとの見た目 (色 + アイコン + ラベル)。
+const INSIGHT_META: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
+  playstyle: { color: "#2563eb", label: "戦い方", icon: <IconCompass /> },
+  tempo: { color: "#16a34a", label: "テンポ", icon: <IconBolt /> },
+  removal: { color: "#dc2626", label: "除去", icon: <IconTarget /> },
+  key_play: { color: "#d97706", label: "着地タイミング", icon: <IconClock /> },
+  key_card: { color: "#9333ea", label: "機能条件", icon: <IconKey /> },
+};
+
+function InsightCard({ insight }: { insight: { kind: string; title: string; detail: string; strength?: number } }) {
+  const meta = INSIGHT_META[insight.kind] ?? { color: "var(--brand)", label: "傾向", icon: <IconKey /> };
+  const strength = Math.max(0, Math.min(1, insight.strength ?? 0));
+  return (
+    <div
+      className="rounded-[var(--radius)] border border-l-[3px] bg-[color:var(--surface-2)] p-3"
+      style={{ borderColor: "var(--border-1)", borderLeftColor: meta.color }}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded"
+          style={{ background: `${meta.color}22`, color: meta.color }}
+        >
+          {meta.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+              style={{ background: `${meta.color}22`, color: meta.color }}
+            >
+              {meta.label}
+            </span>
+            {insight.strength != null && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] text-[color:var(--text-muted)]"
+                title={`勝率差 ${Math.round(strength * 100)}pt`}
+              >
+                <span className="h-1 w-10 overflow-hidden rounded-full bg-[color:var(--surface-3)]">
+                  <span className="block h-full rounded-full" style={{ width: `${strength * 100}%`, background: meta.color }} />
+                </span>
+                相関 {strength >= 0.35 ? "強" : strength >= 0.2 ? "中" : "弱"}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-[color:var(--text-strong)]">{insight.title}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{insight.detail}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IconCompass() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M16 8l-2.5 5.5L8 16l2.5-5.5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconBolt() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+      <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+    </svg>
+  );
+}
+function IconTarget() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+function IconClock() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconKey() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l8-8M17 6l2 2M14 9l2 2" strokeLinecap="round" />
+    </svg>
   );
 }
 

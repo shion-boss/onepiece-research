@@ -149,90 +149,109 @@ def _load_meta_decklists(repo) -> list:
 
 
 def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
-    """試合ログ (GameStats) の集合から「戦い方の型・機能条件」を発掘する (= Phase A 探索)。
+    """試合ログ (GameStats) の集合から「戦い方の型・機能条件」を発掘する (= Phase A/B 探索)。
 
-    ⚠ これは AI が操縦した試合の傾向 (= 相関、 記述的)。 因果の精密化 (このターンに
-    これしないと機能しない) は Phase B の分岐 rollout で行う。
+    全洞察を「ある挙動をした試合 vs しなかった試合の勝率差 (= 効果量)」に統一し、 効果量で
+    ランキングして強い相関を上位に出す。 ⚠ AI が操縦した試合の傾向 (相関/タイミング閾値)
+    であり、 完全な因果ではない (= 純因果は分岐 rollout が要る)。 先攻/後攻は外生変数なので
+    交絡が少ない。
     """
-    from statistics import mean
-
     out: list[dict] = []
-    if len(stats) < 8:
+    if len(stats) < 12:  # 標本が少なすぎる時は出さない (= ノイズ抑制)
         return out
-
-    def avg(xs, attr):
-        vals = [getattr(g, attr) for g in xs if getattr(g, attr, None) is not None]
-        return mean(vals) if vals else None
-
     won = [g for g in stats if g.won]
     lost = [g for g in stats if not g.won]
-    if len(won) < 3 or len(lost) < 3:
+    if len(won) < 4 or len(lost) < 4:  # 勝ち/負け双方が要る (= 相関を出すため)
         return out
 
-    # ① 速攻 vs コントロール (= 相手ライフを削り始めたターンの勝敗差)。
-    w_hit, l_hit = avg(won, "first_hit_given_turn"), avg(lost, "first_hit_given_turn")
-    if w_hit is not None and l_hit is not None:
-        if w_hit <= l_hit - 0.7:
-            out.append({"kind": "playstyle", "title": "先に攻めて削り切る（速攻寄り）",
-                        "detail": f"勝った試合は平均 {w_hit:.1f} ターン目に相手ライフを削り始め、 "
-                                  f"負けた試合は {l_hit:.1f} ターン目。 相手より先に詰めにいくほど勝っている。"})
-        elif w_hit >= l_hit + 0.7:
-            out.append({"kind": "playstyle", "title": "急がず受けて長期戦（コントロール寄り）",
-                        "detail": f"勝った試合はライフを削り始めるのが平均 {w_hit:.1f} ターン目と遅い。 "
-                                  f"焦って攻めた試合ほど負けており、 盤面を整えてから攻めるべき。"})
+    N = len(stats)
+    MIN_BUCKET = 5  # 各群の最小標本
 
-    # ② 攻撃を通した手数の勝敗差。
-    w_atk, l_atk = avg(won, "attacks_life_hit"), avg(lost, "attacks_life_hit")
-    if w_atk is not None and l_atk is not None and w_atk >= l_atk + 1.0:
-        out.append({"kind": "tempo", "title": "攻撃を通す手数が勝敗を分ける",
-                    "detail": f"勝った試合は相手ライフに平均 {w_atk:.1f} 回攻撃を通し、 負けは {l_atk:.1f} 回。 "
-                              f"攻撃の手数が足りないと押し切れない。"})
+    def wr(gs):
+        return sum(1 for g in gs if g.won) / len(gs) if gs else 0.0
 
-    # ③ キーカードの機能条件。 まず「Nターンまでに出せたか」の閾値 (= このターンまでに
-    #    これを着地させないと機能しない、 = Phase B のタイミング因果) を探す。 明確な閾値が
-    #    無ければ「出せた/出せない」の二値にフォールバック。
-    def _wr(games):
-        return sum(1 for g in games if g.won) / len(games) if games else 0.0
+    def add(kind, title, detail, gap):
+        out.append({"kind": kind, "title": title, "detail": detail + f"（{N}試合）",
+                    "strength": round(min(1.0, abs(gap)), 3)})
 
+    # ① 先攻/後攻 (= 外生変数、 交絡が少なく最も信頼できる)。
+    fg = [g for g in stats if getattr(g, "went_first", False)]
+    sg = [g for g in stats if not getattr(g, "went_first", False)]
+    if len(fg) >= MIN_BUCKET and len(sg) >= MIN_BUCKET:
+        wf, ws = wr(fg), wr(sg)
+        if abs(wf - ws) >= 0.12:
+            if wf > ws:
+                add("tempo", "先攻を取れた方が有利",
+                    f"先攻時の勝率 {wf * 100:.0f}%、 後攻時 {ws * 100:.0f}%。 先攻できた試合で押し切りやすい。", wf - ws)
+            else:
+                add("tempo", "後攻から捲る展開が得意",
+                    f"後攻時の勝率 {ws * 100:.0f}%、 先攻時 {wf * 100:.0f}%。 受けてから返す試合で勝っている。", ws - wf)
+
+    # ② 速攻 vs コントロール (= 相手ライフを削り始めたターンで割る)。
+    early = [g for g in stats if g.first_hit_given_turn is not None and g.first_hit_given_turn <= 4]
+    slow = [g for g in stats if g.first_hit_given_turn is None or g.first_hit_given_turn > 4]
+    if len(early) >= MIN_BUCKET and len(slow) >= MIN_BUCKET:
+        we, wsl = wr(early), wr(slow)
+        if abs(we - wsl) >= 0.15:
+            if we > wsl:
+                add("playstyle", "先に攻めて削り切る（速攻寄り）",
+                    f"4ターン目までに相手ライフを削り始めた試合の勝率 {we * 100:.0f}%、 遅れた試合は {wsl * 100:.0f}%。 早く詰めるほど勝つ。", we - wsl)
+            else:
+                add("playstyle", "急がず受けて長期戦（コントロール寄り）",
+                    f"序盤に攻めた試合は勝率 {we * 100:.0f}% と低く、 遅く攻めた試合が {wsl * 100:.0f}%。 盤面を整えてから攻めるべき。", wsl - we)
+
+    # ③ 攻撃の手数 (= 相手ライフに通した攻撃数を中央値で割る)。
+    vals = sorted(g.attacks_life_hit for g in stats)
+    med = vals[len(vals) // 2]
+    hi = [g for g in stats if g.attacks_life_hit > med]
+    lo = [g for g in stats if g.attacks_life_hit <= med]
+    if len(hi) >= MIN_BUCKET and len(lo) >= MIN_BUCKET and wr(hi) - wr(lo) >= 0.15:
+        add("tempo", "攻撃を通す手数が勝敗を分ける",
+            f"相手ライフへの攻撃が多かった試合の勝率 {wr(hi) * 100:.0f}%、 少ない試合は {wr(lo) * 100:.0f}%。 手数が足りないと押し切れない。",
+            wr(hi) - wr(lo))
+
+    # ④ 除去 (= 相手キャラを KO できたか)。
+    ko = [g for g in stats if sum(g.ko_targets.values()) >= 1]
+    noko = [g for g in stats if sum(g.ko_targets.values()) == 0]
+    if len(ko) >= MIN_BUCKET and len(noko) >= MIN_BUCKET and wr(ko) - wr(noko) >= 0.15:
+        add("removal", "相手キャラをKOできると勝つ（除去が鍵）",
+            f"相手キャラを除去できた試合の勝率 {wr(ko) * 100:.0f}%、 できない試合は {wr(noko) * 100:.0f}%。 盤面を捌けるかが重要。",
+            wr(ko) - wr(noko))
+
+    # ⑤ キーカードのタイミング/機能条件 (= Nターンまでに着地→機能、 or 出せた/出せない)。
     seen_names: set = set()
     for kc in key_cards[:6]:
         name = kc.get("name")
         if not name or name in seen_names:  # 同名の別バリアントは 1 回だけ
             continue
         seen_names.add(name)
-        turns = [g.first_play_turn_by_card.get(name) for g in stats]  # None = 未着地
-        if sum(1 for t in turns if t is not None) < 4:
+        turns = [g.first_play_turn_by_card.get(name) for g in stats]
+        if sum(1 for t in turns if t is not None) < MIN_BUCKET:
             continue
-
-        # ③-a タイミング閾値: 各 K で「Kターンまでに着地」vs「遅れ/未着地」の勝率差の最大を採る。
-        best = None  # (gap, K, wr_by, wr_late, n_by, n_late)
+        best = None  # (gap, K, wr_by, wr_late)
         for K in (3, 4, 5, 6):
             by_k = [g for g, t in zip(stats, turns) if t is not None and t <= K]
             late = [g for g, t in zip(stats, turns) if t is None or t > K]
-            if len(by_k) >= 4 and len(late) >= 4:
-                gap = _wr(by_k) - _wr(late)
+            if len(by_k) >= MIN_BUCKET and len(late) >= MIN_BUCKET:
+                gap = wr(by_k) - wr(late)
                 if best is None or gap > best[0]:
-                    best = (gap, K, _wr(by_k), _wr(late), len(by_k), len(late))
+                    best = (gap, K, wr(by_k), wr(late))
         if best and best[0] >= 0.15:
-            _, K, wr_by, wr_late, _, _ = best
-            out.append({"kind": "key_play",
-                        "title": f"{name} は {K} ターン目までに着地させたい",
-                        "detail": f"{K} ターン目までに {name} を出せた試合の勝率 {wr_by * 100:.0f}%、 "
-                                  f"遅れた/出せなかった試合は {wr_late * 100:.0f}%。 "
-                                  f"着地が遅れると機能しにくい。"})
+            gap, K, wb, wl = best
+            add("key_play", f"{name} は {K} ターン目までに着地させたい",
+                f"{K}ターン目までに {name} を出せた試合の勝率 {wb * 100:.0f}%、 遅れた/出せなかった試合は {wl * 100:.0f}%。 着地が遅れると機能しにくい。",
+                gap)
             continue
+        wg = [g for g in stats if g.cards_played.get(name, 0) > 0]
+        wo = [g for g in stats if g.cards_played.get(name, 0) == 0]
+        if len(wg) >= MIN_BUCKET and len(wo) >= MIN_BUCKET and wr(wg) - wr(wo) >= 0.15:
+            add("key_card", f"{name} の着地が生命線",
+                f"{name} を出せた試合の勝率 {wr(wg) * 100:.0f}%、 出せない試合は {wr(wo) * 100:.0f}%。 盤面に出せるかが機能条件。",
+                wr(wg) - wr(wo))
 
-        # ③-b フォールバック: 出せた/出せないの二値。
-        with_g = [g for g in stats if g.cards_played.get(name, 0) > 0]
-        without_g = [g for g in stats if g.cards_played.get(name, 0) == 0]
-        if len(with_g) >= 4 and len(without_g) >= 4:
-            wr_w, wr_o = _wr(with_g), _wr(without_g)
-            if wr_w - wr_o >= 0.15:
-                out.append({"kind": "key_card", "title": f"{name} の着地が生命線",
-                            "detail": f"{name} を出せた試合の勝率 {wr_w * 100:.0f}%、 出せなかった試合は "
-                                      f"{wr_o * 100:.0f}%。 これを盤面に出せるかがこのデッキの機能条件。"})
-
-    return out[:6]
+    # 効果量の大きい順 (= 強い相関を優先) に上位を採用。
+    out.sort(key=lambda x: -x["strength"])
+    return out[:5]
 
 
 def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
@@ -326,7 +345,9 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                         winner_pidx = hero_idx
                     else:                           # deck2 勝ち
                         winner_pidx = 1 - hero_idx
-                    stats_accum.append(parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx))
+                    gs = parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx)
+                    gs.went_first = (gr.first_player == 0)  # hero(deck1) が先攻だったか
+                    stats_accum.append(gs)
                 except Exception:
                     continue
             if pause_between:
