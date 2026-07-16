@@ -2870,8 +2870,7 @@ _AI_MATCH_PER_REQUEST_MAX = 5   # 公開時: 1リクエストで回せる最大�
 
 @app.post("/api/match", response_model=MatchSummary)
 def run_match(req: MatchRequest, user_id: Optional[str] = Depends(optional_user_id)):
-    # AI vs AI = **ログイン必須**。 ゲスト (未ログイン = None) は 401 で拒否
-    # (= 本番は Clerk 未ログイン、 dev は X-Dev-Guest でも拒否 → dev でも一貫)。
+    # AI vs AI = **ログイン必須**。 ゲスト (= optional_user_id が None = Clerk 未ログイン) は 401。
     if user_id is None:
         raise HTTPException(401, "AI vs AI にはログインが必要です")
     # 公開モードでは 1人1日の試合数キャップでコスト暴走を防ぐ ([[project_guest_access_policy]])。

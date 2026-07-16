@@ -50,8 +50,7 @@ def optional_user_id(
 
     ゲストにも一部開放する endpoint 用 (= 人vsAI対戦[meta限定]・meta デッキ閲覧 等)。
     - 本番 (AUTH_PROVIDER=clerk): Bearer トークンがあり検証成功 → user_id、 無い/無効 → None(ゲスト)。
-    - dev (provider 未設定): `X-Dev-Guest` ヘッダがあれば None(ゲスト擬似、 ローカル検証用)、
-      さもなくば dev user (X-Dev-User → DEV_USER → "local")。
+    - dev (provider 未設定): dev user (X-Dev-User → DEV_USER → "local")。 認証なし = ゲスト概念なし。
     """
     provider = os.environ.get("AUTH_PROVIDER", "").lower()
     if provider:
@@ -61,8 +60,6 @@ def optional_user_id(
             return _verify_provider(request, provider)
         except HTTPException:
             return None  # 無効/期限切れトークンはゲスト扱い (= optional なので拒否しない)
-    if request.headers.get("X-Dev-Guest"):
-        return None
     return x_dev_user or os.environ.get("DEV_USER") or DEV_DEFAULT_USER
 
 

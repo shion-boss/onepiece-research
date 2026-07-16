@@ -8,8 +8,6 @@
 
 export const DEV_USER_COOKIE = "onepiece_dev_user";
 export const DEV_DEFAULT_USER = "local";
-// dev 専用: ゲスト(未ログイン)を擬似するフラグ。 本番は Clerk の未ログインで判定するので不要。
-export const DEV_GUEST_COOKIE = "onepiece_dev_guest";
 
 /** Clerk 有効フラグ。 publishable key が build 時 env にあれば本番認証、 無ければ dev cookie。 */
 export const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -32,22 +30,6 @@ export function setDevUser(id: string): void {
   document.cookie = `${DEV_USER_COOKIE}=${v}; path=/; max-age=31536000; samesite=lax`;
 }
 
-/** dev: ゲスト(未ログイン)擬似モードか。 本番(Clerk)では常に false (Clerk 側で判定)。 */
-export function isDevGuest(): boolean {
-  if (CLERK_ENABLED) return false;
-  return readCookie(DEV_GUEST_COOKIE) === "1";
-}
-
-/** dev: ゲスト擬似モードを切り替える (cookie)。 呼び出し側でリロードして反映する。 */
-export function setDevGuest(on: boolean): void {
-  if (typeof document === "undefined") return;
-  if (on) {
-    document.cookie = `${DEV_GUEST_COOKIE}=1; path=/; max-age=31536000; samesite=lax`;
-  } else {
-    document.cookie = `${DEV_GUEST_COOKIE}=; path=/; max-age=0; samesite=lax`;
-  }
-}
-
 /**
  * API 呼び出しに付ける認証ヘッダ (クライアント)。 async = Clerk の getToken() が非同期な為。
  * - Clerk 有効: window.Clerk.session.getToken() の JWT を `Authorization: Bearer` で送る。
@@ -63,7 +45,5 @@ export async function authHeaders(): Promise<Record<string, string>> {
     const token = await w.Clerk?.session?.getToken?.();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
-  // dev: ゲスト擬似時は X-Dev-Guest を送る (= backend optional_user_id が None 扱い)。
-  if (isDevGuest()) return { "X-Dev-Guest": "1" };
   return { "X-Dev-User": getDevUser() };
 }
