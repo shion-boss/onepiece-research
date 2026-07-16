@@ -352,8 +352,12 @@ export function HumanMatchPlay({
     setBusy(true);
     try {
       const hf = humanFirst === "random" ? null : humanFirst === "first";
+      // 陣取り挑戦は seed を毎回ランダムに (= 同じマスへの再挑戦でも展開が変わる。
+      // seed 入力 UI は非表示なので固定 42 のままだと毎回同じ試合になってしまう)。
+      const effectiveSeed =
+        challengeCellId != null ? Math.floor(Math.random() * 1_000_000) : seed;
       const next = await startHumanMatch(deckA, deckB, {
-        seed,
+        seed: effectiveSeed,
         human_first: hf,
         cell_id: challengeCellId,
       });
