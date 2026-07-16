@@ -152,6 +152,8 @@ function NewDeckPageContent() {
         leader: leader.card_id,
         core_cards: cores,
         name: name || undefined,
+        // 選択中の STD/EX を反映 (= standard は block②+ のみで埋める)。
+        regulation,
       });
       // 結果を store に流し込む (既存 main をリセット)
       const cardMap = new Map<string, Awaited<ReturnType<typeof fetchCard>>>();

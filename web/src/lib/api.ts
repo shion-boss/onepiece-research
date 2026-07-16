@@ -636,6 +636,7 @@ export type GenerateDeckRequest = {
   meta_sample?: number;
   hill_climb_iters?: number;
   seed?: number;
+  regulation?: "standard" | "extra";
 };
 
 export type GeneratedDeckOut = {

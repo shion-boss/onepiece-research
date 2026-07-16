@@ -1565,6 +1565,7 @@ class CoreBuildRequest(BaseModel):
     core_counts: dict[str, int] = {}             # 個別の枚数指定 {card_id: count}
     name: Optional[str] = None
     seed: int = 0
+    regulation: str = "standard"                 # standard (block②+ のみ) | extra (全カード)
 
 
 class CoreBuildResponse(BaseModel):
@@ -1588,6 +1589,7 @@ class GenerateDeckRequest(BaseModel):
     meta_sample: int = 4                         # meta mode: 環境から sim する枚数
     hill_climb_iters: int = 0                    # >0 で最良候補を局所探索で磨く (opt-in)
     seed: int = 0
+    regulation: str = "standard"                 # standard (block②+ のみ) | extra (全カード)
 
 
 class GeneratedDeckOut(BaseModel):
@@ -1621,6 +1623,8 @@ def build_deck(req: CoreBuildRequest):
     from collections import Counter as _Counter
 
     repo = get_repo()
+    # standard は block②+ のみで埋める (= 保存時の standard validate を通す)。 extra は全カード。
+    block_min = 2 if req.regulation == "standard" else 0
     try:
         deck, warnings = build_with_core(
             leader_id=req.leader,
@@ -1629,10 +1633,13 @@ def build_deck(req: CoreBuildRequest):
             core_counts=req.core_counts,
             rng=_random.Random(req.seed),
             name=req.name,
+            block_min=block_min,
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(400, f"build failed: {e}")
 
+    # 選択レギュレーションを反映してから validate (= extra は block チェックを掛けない)。
+    deck.regulation = req.regulation
     issues = deck.validate()
     if issues:
         warnings.append(f"validate: {'; '.join(issues)}")
@@ -1700,13 +1707,14 @@ def generate_deck_endpoint(req: GenerateDeckRequest):
             except Exception:
                 continue
 
+    block_min = 2 if req.regulation == "standard" else 0
     try:
         cands = _gen(
             repo, req.leader, req.must_include,
             target_deck=target_deck, meta_decks=meta_decks,
             n_candidates=req.n_candidates, n_sim_eval=req.n_sim_eval,
             n_games=req.n_games, hill_climb_iters=req.hill_climb_iters,
-            overlay=overlay, rng=_random.Random(req.seed),
+            overlay=overlay, rng=_random.Random(req.seed), block_min=block_min,
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(400, f"generate failed: {e}")
