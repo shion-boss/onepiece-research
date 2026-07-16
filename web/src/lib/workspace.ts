@@ -84,6 +84,7 @@ export function tabTitleFor(path: string): string {
   const map: Record<string, string> = {
     "/": "ようこそ",
     "/territory": "陣取り",
+    "/territory/play": "陣取りの対戦",
     "/history": "戦いの歴史",
     "/play": "人間 vs AI",
     "/watch": "AI vs AI 観戦",
@@ -93,6 +94,7 @@ export function tabTitleFor(path: string): string {
     "/decks/generate": "デッキ生成",
     "/cards": "カード",
     "/faq": "Q&A",
+    "/faq/sources": "Q&A 参照先",
     "/combos": "コンボ探索",
     "/meta": "メタ分析",
     "/research": "研究",

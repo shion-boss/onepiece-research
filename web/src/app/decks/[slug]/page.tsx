@@ -9,7 +9,7 @@ import {
 } from "@/lib/api";
 import { serverAuthHeaders } from "@/lib/auth-server";
 import type { Card, DeckAnalysis, DeckDetail, DeckStrategy, DeckSummary } from "@/lib/types";
-import { CardImage } from "@/components/CardImage";
+import { LeaderCard } from "@/components/LeaderCard";
 import { ColorChip } from "@/components/ColorChip";
 import { DeckStrategyPanel } from "@/components/DeckStrategyPanel";
 import { DeckCombosPanel } from "@/components/DeckCombosPanel";
@@ -17,6 +17,7 @@ import { DeckAnalyzeCharts } from "@/components/DeckAnalyzeCharts";
 import { MatchHistorySection } from "@/components/MatchHistorySection";
 import { DeckMainGrid } from "@/components/DeckMainGrid";
 import { DeckActions } from "@/components/DeckActions";
+import { DeckReportPanel } from "@/components/DeckReportPanel";
 import { SetTabTitle } from "@/components/SetTabTitle";
 
 export default async function DeckDetailPage({
@@ -65,9 +66,10 @@ export default async function DeckDetailPage({
   }
 
   const uniqueIds = Array.from(new Set(detail.main.map((e) => e.card_id)));
-  const cardDetails = await Promise.all(
-    uniqueIds.map((id) => fetchCard(id).catch(() => null as Card | null)),
-  );
+  const [cardDetails, leaderCard] = await Promise.all([
+    Promise.all(uniqueIds.map((id) => fetchCard(id).catch(() => null as Card | null))),
+    fetchCard(detail.leader).catch(() => null as Card | null),
+  ]);
   const cardById = new Map<string, Card>();
   for (const c of cardDetails) {
     if (c) cardById.set(c.card_id, c);
@@ -89,8 +91,9 @@ export default async function DeckDetailPage({
       {/* ヘッダー: リーダー画像 + デッキ情報 */}
       <header className="flex gap-5">
         <div className="shrink-0">
-          <CardImage
+          <LeaderCard
             cardId={detail.leader}
+            card={leaderCard}
             alt={summary?.leader_name ?? detail.leader}
             className="h-32 w-[91px] rounded-[var(--radius)] object-cover"
           />
@@ -138,25 +141,7 @@ export default async function DeckDetailPage({
         </div>
       </header>
 
-      {/* 分析 (= このページの主役): 戦略・コンボ・チャート */}
-      {analysis ? (
-        <div className="space-y-4">
-          {strategy && <DeckStrategyPanel strategy={strategy} />}
-          <DeckCombosPanel combos={analysis.combos} />
-          <DeckAnalyzeCharts data={analysis} />
-        </div>
-      ) : (
-        <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4 text-sm text-[color:var(--text-muted)]">
-          分析を読み込めませんでした。
-        </div>
-      )}
-
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium text-[color:var(--text-strong)]">直近の対戦履歴</h2>
-        <MatchHistorySection deckSlug={slug} />
-      </section>
-
-      {/* メインデッキ カードグリッド */}
+      {/* メインデッキ カードグリッド (= リーダー直下) */}
       <section>
         <h2 className="mb-3 text-lg font-medium text-[color:var(--text-strong)]">
           メインデッキ ({totalCards} 枚 / unique {uniqueIds.length})
@@ -165,6 +150,33 @@ export default async function DeckDetailPage({
           entries={sortedEntries.map((e) => ({ card_id: e.card_id, count: e.count }))}
           cards={cardDetails.filter((c): c is Card => c !== null)}
         />
+      </section>
+
+      {/* 色配分・コストカーブ 等のチャート */}
+      {analysis && <DeckAnalyzeCharts data={analysis} />}
+
+      {/* デッキ分析 (= 統合): 戦略概要(即時) + AI対戦で判明した傾向(実測) + コンボ */}
+      {analysis ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium text-[color:var(--text-strong)]">デッキ分析</h2>
+          <div className="space-y-4">
+            {/* 骨格 = カード構成から即時 (対戦不要)。 */}
+            {strategy && <DeckStrategyPanel strategy={strategy} />}
+            {/* 実測 = AI 対戦で判明した傾向 (自作デッキのみ、 裏で計算)。 */}
+            {summary?.kind === "user" && <DeckReportPanel slug={slug} />}
+            <DeckCombosPanel combos={analysis.combos} />
+          </div>
+        </section>
+      ) : (
+        <div className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4 text-sm text-[color:var(--text-muted)]">
+          分析を読み込めませんでした。
+        </div>
+      )}
+
+      {/* 直近の対戦履歴 */}
+      <section className="space-y-2">
+        <h2 className="text-lg font-medium text-[color:var(--text-strong)]">直近の対戦履歴</h2>
+        <MatchHistorySection deckSlug={slug} />
       </section>
     </main>
   );

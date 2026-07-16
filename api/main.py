@@ -673,6 +673,45 @@ def _load_faq_corpus() -> list[dict]:
     return out
 
 
+def _faq_source_links() -> list[dict]:
+    """FAQ (Q&A) スクレイプ対象の一覧 (source, label, source_url, count, fetched_at)。
+    ローカルは db/faq/*.json のメタから、 本番は Blob corpus の sources から。"""
+    local_files = sorted(FAQ_DIR.glob("*.json")) if FAQ_DIR.exists() else []
+    if local_files:
+        out: list[dict] = []
+        for path in local_files:
+            try:
+                d = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            out.append({
+                "source": path.name,
+                "label": d.get("category") or d.get("series") or path.stem,
+                "source_url": d.get("source_url"),
+                "count": len(d.get("items", [])),
+                "fetched_at": d.get("fetched_at"),
+            })
+        return out
+    # 本番: Blob corpus の sources リスト (refresh / upload_faq_to_blob が付ける)
+    try:
+        from api.blob_storage import list_jsons, get_json, is_configured
+        if is_configured():
+            blobs = [b for b in list_jsons(prefix="faq/")
+                     if (b.get("pathname") or "").startswith("faq/corpus")]
+            if blobs:
+                newest = max(blobs, key=lambda b: b.get("uploadedAt") or "")
+                return get_json(newest["url"]).get("sources", []) or []
+    except Exception as e:
+        print(f"[faq] source-links blob load failed: {e}")
+    return []
+
+
+@app.get("/api/faq/source-links")
+def faq_source_links():
+    """FAQ (Q&A) スクレイプ対象のリンク一覧 (= Q&A 参照先タブ用)。"""
+    return _faq_source_links()
+
+
 @app.get("/api/faq/search", response_model=list[FaqHit])
 def faq_search(
     q: str = Query("", description="検索クエリ (空白区切り AND マッチ)"),
@@ -816,10 +855,22 @@ def faq_refresh(request: Request):
     if not items:
         raise HTTPException(502, "scrape returned no items (公式サイト仕様変更の可能性)")
 
+    # スクレイプ対象リンク一覧 (= Q&A 参照先タブ用。 本番 Blob からも URL を出せるよう corpus に含める)。
+    sources = [
+        {"source": f"{slug}.json", "label": d.get("category") or slug,
+         "source_url": d.get("source_url"), "count": len(d.get("items", []))}
+        for slug, d in faq.items()
+    ] + [
+        {"source": f"cardqa_{slug}.json", "label": d.get("series") or slug,
+         "source_url": d.get("source_url"), "count": len(d.get("items", []))}
+        for slug, d in cardqa.items()
+    ]
+
     corpus = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(items),
         "items": items,
+        "sources": sources,
     }
     put_json("faq/corpus.json", corpus, add_random_suffix=True)
 
@@ -1514,6 +1565,7 @@ class CoreBuildRequest(BaseModel):
     core_counts: dict[str, int] = {}             # 個別の枚数指定 {card_id: count}
     name: Optional[str] = None
     seed: int = 0
+    regulation: str = "standard"                 # standard (block②+ のみ) | extra (全カード)
 
 
 class CoreBuildResponse(BaseModel):
@@ -1537,6 +1589,7 @@ class GenerateDeckRequest(BaseModel):
     meta_sample: int = 4                         # meta mode: 環境から sim する枚数
     hill_climb_iters: int = 0                    # >0 で最良候補を局所探索で磨く (opt-in)
     seed: int = 0
+    regulation: str = "standard"                 # standard (block②+ のみ) | extra (全カード)
 
 
 class GeneratedDeckOut(BaseModel):
@@ -1570,6 +1623,8 @@ def build_deck(req: CoreBuildRequest):
     from collections import Counter as _Counter
 
     repo = get_repo()
+    # standard は block②+ のみで埋める (= 保存時の standard validate を通す)。 extra は全カード。
+    block_min = 2 if req.regulation == "standard" else 0
     try:
         deck, warnings = build_with_core(
             leader_id=req.leader,
@@ -1578,10 +1633,13 @@ def build_deck(req: CoreBuildRequest):
             core_counts=req.core_counts,
             rng=_random.Random(req.seed),
             name=req.name,
+            block_min=block_min,
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(400, f"build failed: {e}")
 
+    # 選択レギュレーションを反映してから validate (= extra は block チェックを掛けない)。
+    deck.regulation = req.regulation
     issues = deck.validate()
     if issues:
         warnings.append(f"validate: {'; '.join(issues)}")
@@ -1649,13 +1707,14 @@ def generate_deck_endpoint(req: GenerateDeckRequest):
             except Exception:
                 continue
 
+    block_min = 2 if req.regulation == "standard" else 0
     try:
         cands = _gen(
             repo, req.leader, req.must_include,
             target_deck=target_deck, meta_decks=meta_decks,
             n_candidates=req.n_candidates, n_sim_eval=req.n_sim_eval,
             n_games=req.n_games, hill_climb_iters=req.hill_climb_iters,
-            overlay=overlay, rng=_random.Random(req.seed),
+            overlay=overlay, rng=_random.Random(req.seed), block_min=block_min,
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(400, f"generate failed: {e}")
@@ -2496,6 +2555,83 @@ def _load_overlay_keys_with_kind() -> dict[str, set[str]]:
                 whens.add(w)
         out[cid] = whens
     return out
+
+
+@app.get("/api/decks/{slug}/report")
+def deck_report(slug: str, user_id: str = Depends(current_user_id)):
+    """裏で計算したデッキ分析レポート (= AI vs AI 相性 + 役割内訳 + キーカード)。
+
+    保存時に enqueue されワーカーが計算 → DB 永続。 ここは読むだけ。 メタデッキは対象外
+    (= .analysis.json を DeckStrategyPanel で別途表示済み)。
+    """
+    if _is_meta_deck(slug):
+        return {"status": "none", "stale": False, "report": None, "kind": "meta"}
+    rep = user_store.get_deck_report(user_id, slug)
+    if rep is None:
+        raise HTTPException(404, "deck not found")
+    rep["kind"] = "user"
+    return rep
+
+
+@app.get("/api/decks/{slug}/human-history")
+def deck_human_history(slug: str, limit: int = 15, user_id: str = Depends(current_user_id)):
+    """デッキの人間 vs AI 直近対戦履歴 (= このデッキ視点の win/loss)。
+
+    meta デッキは全ユーザー横断で貯まる (= 誰が使っても / AI が使っても このデッキの履歴)。
+    user デッキは所有者のみ (= 他人の非公開デッキの履歴は見せない)。
+    """
+    from api import user_store
+    limit = max(1, min(50, int(limit)))
+    if not _is_meta_deck(slug):
+        # user デッキ: 所有者本人以外には空を返す (= 非公開性を保つ)。
+        if user_store.get_deck(user_id, slug) is None:
+            return []
+    rows = user_store.get_human_matches(slug, limit)
+    repo = get_repo()
+
+    def _leader_name(cid):
+        if not cid:
+            return None
+        try:
+            return repo.get(cid).name
+        except Exception:
+            return cid
+
+    out = []
+    for r in rows:
+        is_human_side = (r["deck_human_slug"] == slug)  # このデッキを人間が操作したか
+        opp_leader = r["ai_leader"] if is_human_side else r["human_leader"]
+        wfh = r.get("winner_for_human")
+        if wfh is None or wfh == -1:
+            result = "draw"
+        elif is_human_side:
+            result = "win" if wfh == 1 else "loss"
+        else:  # デッキは AI 側 (= 相手が このメタデッキで AI 操縦)
+            result = "win" if wfh == 0 else "loss"
+        out.append({
+            "id": r["id"],
+            "created_at": r["created_at"],
+            "result": result,                       # このデッキ視点
+            "side": "human" if is_human_side else "ai",  # このデッキを人間/AI どちらが操作したか
+            "opponent_leader": _leader_name(opp_leader),
+            "turns": r.get("turns"),
+            "went_first": bool(r["human_first"]) if is_human_side else (not bool(r["human_first"])),
+            "source": r.get("source") or "practice",
+            "non_stakes": bool(r.get("non_stakes")),
+        })
+    return out
+
+
+@app.post("/api/decks/{slug}/analyze-request")
+def deck_analyze_request(slug: str, user_id: str = Depends(current_user_id)):
+    """デッキ分析を手動で要求 (= 再分析 / 既存デッキの初回分析)。 pending にして enqueue。
+    メタデッキ / 下書き / 存在しないデッキは 400/404。 実計算はワーカーが行う。"""
+    if _is_meta_deck(slug):
+        raise HTTPException(400, "メタデッキは分析対象外です")
+    ok = user_store.request_analysis(user_id, slug)
+    if not ok:
+        raise HTTPException(400, "デッキが見つからない、 または下書きです")
+    return {"status": "pending"}
 
 
 @app.get("/api/decks/{slug}/analyze", response_model=DeckAnalysis)
@@ -3988,6 +4124,31 @@ def _action_log_to_payload(log: list["HumanActionLog"]) -> list[dict]:
     ]
 
 
+def _build_defender_deck_dict(leader_id: str) -> Optional[dict]:
+    """占領マスに保存 recipe が無い (= seed / 旧データ) 場合の防衛デッキ fallback。
+
+    占領者のリーダーから 50 枚デッキを自動構築して recipe dict を返す。 これで防衛 AI は
+    必ず「盤に表示されているリーダー」で戦う (= 無関係な既定デッキに化けない)。 leader が
+    LEADER でない / 構築失敗なら None (= 呼び出し側で従来 fallback)。"""
+    from collections import Counter
+    from engine.deckbuilder import auto_build_deck
+
+    repo = get_repo()
+    try:
+        leader = repo.get(leader_id)
+        name = f"{leader.name} (防衛)"
+        dl = auto_build_deck(leader_id, repo, name=name)
+    except Exception as e:  # noqa: BLE001 (どの失敗でも従来 fallback に委ねる)
+        print(f"[territory] auto_build defender failed for {leader_id}: {e}")
+        return None
+    counts = Counter(c.card_id for c in dl.main)
+    return {
+        "name": name,
+        "leader": dl.leader.card_id,
+        "main": [{"card_id": cid, "count": n} for cid, n in counts.items()],
+    }
+
+
 @app.post("/api/human_match")
 def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_id)):
     """人間 vs AI セッション 開始。 session_id + session_spec を 返す + 初期 state。
@@ -4023,9 +4184,23 @@ def human_match_start(req: HumanMatchStart, user_id: str = Depends(current_user_
         defender_slug = req.deck_b_slug
         if cell["leader_id"]:  # 占領マス → 占領者の実デッキを AI が操縦
             recipe = territory.defender_deck(req.cell_id)
+            if not recipe:
+                # 保存 recipe 無し (= seed / 旧データ) → 占領者のリーダーから自動構築し、
+                # 「盤に出ているリーダー」で防衛させる (= 無関係な既定デッキに化けさせない)。
+                recipe = _build_defender_deck_dict(cell["leader_id"])
             if recipe:
                 deck_b_inline = recipe
                 defender_slug = cell.get("deck_slug") or f"cell{req.cell_id}-defender"
+        else:
+            # 空きマス = ランダム AI (= 挑戦ボタン/開始画面の表記に合わせる)。 UI で相手を
+            # 選べない (deck_b_slug は frontend の既定でブレる) ので、 メタデッキから 1 つ
+            # 無作為に選ぶ。 seed×cell で決定的 = 同じマス+seed なら再現可 (= 常駐する相手)。
+            import random as _rnd
+            meta_slugs = sorted(_meta_deck_slugs_set())
+            if meta_slugs:
+                pick = _rnd.Random((req.seed or 42) ^ (int(req.cell_id) + 1)).choice(meta_slugs)
+                deck_b_inline = _resolve_deck_dict(pick, user_id)
+                defender_slug = pick
         challenge = {
             "cell_id": int(req.cell_id),
             "expected_version": expected_version,
@@ -4091,12 +4266,44 @@ _HUMAN_PLAY_TRAINED_PATH = ROOT / "db" / "human_play_trained.json"
 
 
 def _load_human_play_trained() -> dict:
-    """matchup key 'human__vs__ai' → 前回学習で消費済みの累計件数。 無ければ空 dict。"""
+    """matchup key 'human__vs__ai' → 学習状態。 値は int(旧: 消費済み件数) or
+    dict {upto: 消費済み件数, batches: 学習した回数}。 無ければ空 dict。"""
     try:
         import json as _json
         return _json.loads(_HUMAN_PLAY_TRAINED_PATH.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _trained_entry(raw) -> tuple[int, int]:
+    """trained の値 (int=旧形式 or dict) を (upto, batches) に正規化。"""
+    if isinstance(raw, dict):
+        return int(raw.get("upto", 0)), int(raw.get("batches", 0))
+    return int(raw or 0), 0
+
+
+def _matchup_threshold(batches: int) -> int:
+    """ゲージの分母 (バッチサイズ)。 学習 1 回ごとに +10 (ohtsuki: 分母に10足す)。
+    未学習(batches=0)は base=THRESHOLD、 以降 batches×10 ずつ増える。"""
+    return _HUMAN_PLAY_THRESHOLD + 10 * max(0, int(batches))
+
+
+def _save_human_play_trained(data: dict) -> None:
+    import json as _json
+    _HUMAN_PLAY_TRAINED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _HUMAN_PLAY_TRAINED_PATH.write_text(
+        _json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _mark_human_play_learned(matchup_key: str) -> dict:
+    """matchup を「学習済み」にする (= Claude が学習に使った後に呼ぶ): batches+1 で
+    **分母だけ +10**。 分子(累計件数)は消費しない → 例 11/10 → 11/20 (未充填に戻る)。"""
+    trained = _load_human_play_trained()
+    upto, batches = _trained_entry(trained.get(matchup_key))
+    trained[matchup_key] = {"upto": upto, "batches": batches + 1}
+    _save_human_play_trained(trained)
+    return trained[matchup_key]
 
 
 def _parse_play_log_name(name: str):
@@ -4142,8 +4349,12 @@ def _aggregate_human_play_stats() -> dict:
         if log_dir.exists():
             names = [p.name for p in log_dir.glob("*.json")]
 
+    from datetime import datetime, timezone
+    cur_month = datetime.now(timezone.utc).strftime("%Y%m")
+
     mm: dict = defaultdict(lambda: {"games": 0, "human_wins": 0, "ai_wins": 0})
-    total = hw = aw = abandoned = 0
+    total = hw = aw = abandoned = this_month = 0
+    this_month_hw = this_month_aw = 0
     for n in names:
         parsed = _parse_play_log_name(n)
         if not parsed:
@@ -4152,35 +4363,54 @@ def _aggregate_human_play_stats() -> dict:
         if tag == "abandoned":
             abandoned += 1
             continue
-        v = mm[(human, ai)]
-        v["games"] += 1
+        # 活動集計 (= 総対戦数 / 今月 / 勝敗) は 全対戦を数える (= マイデッキ含む「みんなの対戦」)。
         total += 1
         if tag == "humanW":
-            v["human_wins"] += 1
             hw += 1
         elif tag == "aiW":
-            v["ai_wins"] += 1
             aw += 1
+        ts = n.rsplit("/", 1)[-1].split("_", 1)[0]  # "20260716T140448Z"
+        if ts[:6] == cur_month:
+            this_month += 1
+            if tag == "humanW":
+                this_month_hw += 1
+            elif tag == "aiW":
+                this_month_aw += 1
+        # by_matchup (= 学習進捗) は 環境(メタ)デッキ同士のみ。 私的な user デッキ (= "user_"
+        # 接頭辞) の matchup は共有/汎化できず「学習」されない (= ゲージが永遠に埋まらない) ので除外。
+        if human.startswith("user_") or ai.startswith("user_"):
+            continue
+        v = mm[(human, ai)]
+        v["games"] += 1
+        if tag == "humanW":
+            v["human_wins"] += 1
+        elif tag == "aiW":
+            v["ai_wins"] += 1
 
     trained = _load_human_play_trained()
     by_matchup = []
     ready = 0
     for (human, ai), v in sorted(mm.items(), key=lambda kv: -kv[1]["games"]):
         g = v["games"]
-        trained_upto = int(trained.get(f"{human}__vs__{ai}", 0))
-        new_games = max(0, g - trained_upto)  # 前回学習以降の新規件数 (= 次のバッチへの進捗)
-        if new_games >= _HUMAN_PLAY_THRESHOLD:
+        upto, batches = _trained_entry(trained.get(f"{human}__vs__{ai}"))
+        thr = _matchup_threshold(batches)      # 学習回数ごとに分母が +10 ずつ増える
+        new_games = g                          # ゲージの分子 = 累計件数 (学習しても消費しない = 分母だけ +10)
+        if new_games >= thr:
             ready += 1
         by_matchup.append({
             "human_deck": human, "ai_deck": ai, "games": g,
-            "new_games": new_games, "trained_upto": trained_upto,
+            "new_games": new_games, "trained_upto": upto, "batches_learned": batches,
+            "threshold": thr,                  # このマッチアップの現在の分母
             "human_wins": v["human_wins"], "ai_wins": v["ai_wins"],
             "human_winrate": round(v["human_wins"] / g, 3) if g else 0.0,
-            # 100% 超も表示 (= 11 件目以降も記録・学習に回す)。 分母 = 1 バッチ(THRESHOLD)。
-            "progress_pct": round(new_games / _HUMAN_PLAY_THRESHOLD * 100),
+            # 100% 超も表示 (= 学習に回すまで貯まる)。 分母 = そのマッチアップの現バッチサイズ。
+            "progress_pct": round(new_games / thr * 100),
         })
     return {
         "total_games": total,
+        "this_month_games": this_month,
+        "this_month_human_wins": this_month_hw,
+        "this_month_ai_wins": this_month_aw,
         "human_wins": hw,
         "ai_wins": aw,
         "abandoned": abandoned,
@@ -4459,6 +4689,30 @@ def human_match_save_result(
             _BATTLE_RECORDED.add(sid)
         except Exception as e:
             print(f"[territory] record_battle failed (sid={sid}): {e}")
+
+    # 完了試合を per-deck 履歴に1行記録 (= デッキ詳細の直近対戦履歴 + AI 操縦/改善の索引)。
+    # 中断 (game_over=False) は結果が無いので記録しない。 idempotent (sid キー)。
+    if session.state.game_over:
+        try:
+            from api import user_store
+            _hl = getattr(getattr(session.state.players[session.human_idx].leader, "card", None), "card_id", None)
+            _al = getattr(getattr(session.state.players[session.ai_idx].leader, "card", None), "card_id", None)
+            user_store.record_human_match(
+                sid=sid,
+                deck_human_slug=payload["metadata"]["deck_human_slug"],
+                deck_ai_slug=payload["metadata"]["deck_ai_slug"],
+                human_leader=_hl, ai_leader=_al,
+                winner_for_human=payload["result"]["winner_for_human"],
+                turns=payload["result"]["turns"],
+                human_first=bool(payload["metadata"]["human_first"]),
+                human_life_left=payload["result"]["p_human_life_left"],
+                ai_life_left=payload["result"]["p_ai_life_left"],
+                source=("territory" if (req is not None and req.cell_id is not None) else "practice"),
+                non_stakes=bool(territory_meta.get("non_stakes", False)),
+                user_id=user_id,
+            )
+        except Exception as e:
+            print(f"[human_history] record failed (sid={sid}): {e}")
 
     pathname = f"human_play/{ts}_{deck_human}_vs_{deck_ai}_{winner_tag}_{sid[:8]}.json"
 

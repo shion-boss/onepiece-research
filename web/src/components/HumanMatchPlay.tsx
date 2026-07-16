@@ -99,11 +99,17 @@ export function HumanMatchPlay({
   decks,
   initialDeckA,
   challengeCellId,
+  defenderLeaderId,
+  defenderVariantId,
 }: {
   decks: DeckOption[];
   initialDeckA?: string;
   // 陣取り (/grow) からの挑戦なら対象マス index。 勝利時にそのマスの占領を試みる。
   challengeCellId?: number;
+  // 防衛戦 (= 占領マス挑戦) なら防衛側 (占領者) のリーダー。 相手デッキが確定しているので
+  // 開始画面で AI 側にそのリーダーカードを表示する。 空きマス (ランダム AI) では未指定。
+  defenderLeaderId?: string | null;
+  defenderVariantId?: string | null;
 }) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
   // 陣取り挑戦 (challengeCellId) では 非公開デッキ は人間側に使えない (勝つと占領で露出) → 除外。
@@ -131,6 +137,11 @@ export function HumanMatchPlay({
   // 保存後の占領結果 (= 占領成功 / レース負けで奪取ならず)。 完了バナー表示用。
   const [captureResult, setCaptureResult] =
     useState<{ captured: boolean; non_stakes: boolean } | null>(null);
+  // engine の game_over 以外の決着理由。 forfeit=中断投了(負け扱い、 占領なし)。
+  // 結果オーバーレイの表示に使う。
+  const [endReason, setEndReason] = useState<null | "forfeit">(null);
+  // 陣取り挑戦で「対戦終了」押下時の投了確認モーダル。
+  const [confirmForfeit, setConfirmForfeit] = useState(false);
   // 対戦中に他人が先に奪取した (race) → モーダル表示。 「続ける」で dismiss。
   const [raceModal, setRaceModal] = useState(false);
   const [raceDismissed, setRaceDismissed] = useState(false);
@@ -341,8 +352,12 @@ export function HumanMatchPlay({
     setBusy(true);
     try {
       const hf = humanFirst === "random" ? null : humanFirst === "first";
+      // 陣取り挑戦は seed を毎回ランダムに (= 同じマスへの再挑戦でも展開が変わる。
+      // seed 入力 UI は非表示なので固定 42 のままだと毎回同じ試合になってしまう)。
+      const effectiveSeed =
+        challengeCellId != null ? Math.floor(Math.random() * 1_000_000) : seed;
       const next = await startHumanMatch(deckA, deckB, {
-        seed,
+        seed: effectiveSeed,
         human_first: hf,
         cell_id: challengeCellId,
       });
@@ -698,7 +713,8 @@ export function HumanMatchPlay({
       }
     }
     setState(null);
-    router.push("/");
+    // 人間 vs AI の対戦終了は同じ /play タブ (対戦開始画面) に戻す (ohtsuki 要望)。
+    router.push("/play");
   }
 
   useEffect(() => {
@@ -709,6 +725,25 @@ export function HumanMatchPlay({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // 中断(投了)ログを 1 回だけ保存 (= game_over 前の途中保存)。
+  async function saveIncompleteOnce() {
+    if (!sessionId || savedResultRef.current === sessionId) return;
+    savedResultRef.current = sessionId;
+    try {
+      await saveHumanMatchResult(sessionId, buildResume());
+    } catch (err) {
+      console.warn("[human_play] save on incomplete end failed:", err);
+      savedResultRef.current = null;
+    }
+  }
+
+  // 投了 (= 陣取りの「対戦終了」確認後)。 負け扱いで結果オーバーレイを出す (占領なし)。
+  async function handleForfeit() {
+    setConfirmForfeit(false);
+    await saveIncompleteOnce();
+    setEndReason("forfeit");
+  }
 
   // ゲーム終了 検知時 に AI 改善 用 の full データ を Blob (= or local file) に 1 回 保存。
   // 重複 POST 防止 で savedResultRef で gate。 失敗時 は console.warn だけ (= UI 邪魔 しない)。
@@ -971,12 +1006,20 @@ export function HumanMatchPlay({
     if (preloading) {
       const humanDeck = decks.find((d) => d.slug === deckA);
       const aiDeck = decks.find((d) => d.slug === deckB);
+      // 陣取り挑戦では AI 側の実デッキは server 決定 (= フロントの deckB は既定でブレる)。
+      // 防衛戦は防衛リーダーを、 空きマスはランダムのプレースホルダを preloader B に出す
+      // (= 開始画面と一致させ、 紫ドフラ等の無関係リーダーを出さない)。
+      const defenderCard = defenderVariantId ?? defenderLeaderId ?? null;
+      const isTerritory = challengeCellId != null;
       return (
         <CardPreloader
           deckSlugA={deckA}
           deckSlugB={deckB}
           deckNameA={humanDeck?.name}
           deckNameB={aiDeck?.name}
+          leaderBOverride={isTerritory && defenderCard ? defenderCard : undefined}
+          nameBOverride={isTerritory && defenderCard ? "防衛リーダー" : undefined}
+          randomB={isTerritory && !defenderCard}
           onComplete={beginMatch}
           title="対戦準備中... カード を 読み込んでいます"
         />
@@ -997,6 +1040,8 @@ export function HumanMatchPlay({
         busy={busy}
         error={error}
         challengeCellId={challengeCellId}
+        defenderLeaderId={defenderLeaderId}
+        defenderVariantId={defenderVariantId}
       />
     );
   }
@@ -1491,17 +1536,21 @@ export function HumanMatchPlay({
           "radial-gradient(ellipse at center, #6b4423 0%, #3d2817 100%)",
       }}
     >
-      {/* 右上 対戦終了 ボタン (= 常時表示、 押下で home へ) */}
+      {/* 右上 対戦終了 ボタン (= 対戦中のみ表示)。 game-over / 決着表示中は勝敗オーバーレイ内の
+          「戻る」ボタンに集約するので非表示。 陣取り挑戦は投了 = 負け扱いなので確認モーダルを挟む。 */}
+      {!state.game_over && endReason == null && (
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          handleEnd();
+          if (challengeCellId != null) setConfirmForfeit(true);
+          else handleEnd();
         }}
         className="absolute top-2 right-2 z-40 rounded-lg border border-rose-400 bg-rose-700/90 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur hover:bg-rose-600"
       >
         対戦終了
       </button>
+      )}
 
       {/* 右上 再生速度 コントロール (= AI ターン演出を 1x/2x/4x で早送り)。
           対戦終了ボタンの下に配置 (= 左上だと相手の数値パネルに被るため)。 */}
@@ -1981,7 +2030,7 @@ export function HumanMatchPlay({
               </button>
               <button
                 type="button"
-                onClick={() => window.location.assign(`/play?cell=${challenge.cell_id}`)}
+                onClick={() => window.location.assign(`/territory/play?cell=${challenge.cell_id}`)}
                 className="flex-1 rounded-lg bg-[color:var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
               >
                 新しい占領者へ挑戦
@@ -1991,45 +2040,57 @@ export function HumanMatchPlay({
         </div>
       )}
 
-      {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 */}
-      {state.game_over && (
-        <div className="pointer-events-none absolute inset-0 z-[55] flex items-center justify-center">
+      {/* ゲーム終了 大型 WIN/LOSE/DRAW 表示 (= 背景を黒系でカバーして盤を隠す) */}
+      {(state.game_over || endReason != null) && (() => {
+        // 決着種別: forfeit=投了(負け扱い) / それ以外は engine の勝者。
+        const kind: "win" | "lose" | "draw" =
+          endReason === "forfeit"
+            ? "lose"
+            : state.winner === state.human_idx
+              ? "win"
+              : state.winner === state.ai_idx
+                ? "lose"
+                : "draw";
+        const title = kind === "win" ? "YOU WIN" : kind === "lose" ? "YOU LOSE" : "DRAW";
+        const subtitle =
+          endReason === "forfeit" ? "投了しました" : `T${state.turn} で 試合 終了`;
+        const cardTone =
+          kind === "win"
+            ? "border-emerald-300 bg-emerald-900/80"
+            : kind === "lose"
+              ? "border-rose-300 bg-rose-900/80"
+              : "border-amber-300 bg-amber-900/80";
+        const textTone =
+          kind === "win" ? "text-emerald-200" : kind === "lose" ? "text-rose-200" : "text-amber-200";
+        return (
+        <div className="absolute inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.3, y: -50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className={
-              "rounded-2xl border-4 px-16 py-10 text-center shadow-2xl backdrop-blur " +
-              (state.winner === state.human_idx
-                ? "border-emerald-300 bg-emerald-900/80"
-                : state.winner === state.ai_idx
-                  ? "border-rose-300 bg-rose-900/80"
-                  : "border-amber-300 bg-amber-900/80")
-            }
+            className={"rounded-2xl border-4 px-16 py-10 text-center shadow-2xl backdrop-blur " + cardTone}
           >
             <div
               className={
-                "text-7xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " +
-                (state.winner === state.human_idx
-                  ? "text-emerald-200"
-                  : state.winner === state.ai_idx
-                    ? "text-rose-200"
-                    : "text-amber-200")
+                "text-7xl font-extrabold drop-shadow-[0_0_30px_rgba(255,255,255,0.6)] " + textTone
               }
             >
-              {state.winner === state.human_idx
-                ? "YOU WIN"
-                : state.winner === state.ai_idx
-                  ? "YOU LOSE"
-                  : "DRAW"}
+              {title}
             </div>
-            <div className="mt-3 text-base text-zinc-200">
-              T{state.turn} で 試合 終了
-            </div>
-            <div className="mt-2 text-sm font-semibold text-cyan-200">
-              この 1 戦も AI の学習データになりました — ご協力ありがとうございます
-            </div>
-            {captureResult && (
+            <div className="mt-3 text-base text-zinc-200">{subtitle}</div>
+            {kind === "win" && (
+              <div className="mt-2 text-lg font-bold text-emerald-100">
+                おめでとうございます！
+              </div>
+            )}
+            {/* 学習データの謝辞は通常の人間 vs AI が正常終了した時のみ。 */}
+            {challengeCellId == null && endReason == null && (
+              <div className="mt-2 text-sm font-semibold text-cyan-200">
+                この 1 戦も AI の学習データになりました — ご協力ありがとうございます
+              </div>
+            )}
+            {/* 通常決着 (game_over) の占領結果。 */}
+            {captureResult && endReason == null && (
               <div
                 className={
                   "mx-auto mt-4 max-w-md rounded-lg border px-4 py-2 text-sm font-bold " +
@@ -2041,11 +2102,65 @@ export function HumanMatchPlay({
                 {captureResult.captured
                   ? `マス #${(challenge?.cell_id ?? 0) + 1} を占領しました`
                   : captureResult.non_stakes
-                    ? "対戦中に別の挑戦者が先にこのマスを奪取したため、占領はできませんでした（この対戦も学習には使われます）"
+                    ? "対戦中に別の挑戦者が先にこのマスを奪取したため、占領はできませんでした"
                     : "このマスは占領できませんでした"}
               </div>
             )}
+            {/* 投了した陣取り: 占領なし (防衛側維持)。 */}
+            {challengeCellId != null && endReason != null && (
+              <div className="mx-auto mt-4 max-w-md rounded-lg border border-amber-300 bg-amber-800/70 px-4 py-2 text-sm font-bold text-amber-100">
+                このマスは占領できませんでした（防衛側が維持）
+              </div>
+            )}
+            {/* 退出ボタン (= 上部の「対戦終了」は非表示にしたのでここに集約)。 */}
+            {challengeCellId != null ? (
+              <button
+                type="button"
+                onClick={() => router.push("/territory")}
+                className="mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
+              >
+                陣取りボードへ戻る
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleEnd}
+                className="mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
+              >
+                人間 vs AI に戻る
+              </button>
+            )}
           </motion.div>
+        </div>
+        );
+      })()}
+
+      {/* 投了確認 (= 陣取りの「対戦終了」)。 負け扱い + 占領できない旨を明示。 */}
+      {confirmForfeit && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-600 bg-zinc-900 p-6 text-center shadow-2xl">
+            <div className="text-lg font-bold text-white">投了しますか？</div>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              対戦を終了すると<span className="font-bold text-rose-300">負け扱い</span>になり、
+              このマスは占領できません。
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmForfeit(false)}
+                className="flex-1 rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition hover:bg-zinc-700"
+              >
+                対戦を続ける
+              </button>
+              <button
+                type="button"
+                onClick={handleForfeit}
+                className="flex-1 rounded-lg border border-rose-500 bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600"
+              >
+                投了する
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2388,15 +2503,20 @@ type HumanPlayMatchup = {
   human_deck: string;
   ai_deck: string;
   games: number; // 累計
-  new_games: number; // 前回学習以降 (= 今バッチの進捗)
+  new_games: number; // 前回学習以降 (= 今バッチの進捗 = ゲージ分子)
   trained_upto: number;
+  batches_learned: number; // このマッチアップを学習した回数 (= 分母が +10 された回数)
+  threshold: number; // 現在の分母 (= base + 10×batches_learned)
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
-  progress_pct: number; // new_games / batch_size (100% 超あり)
+  progress_pct: number; // new_games / threshold (100% 超あり)
 };
 type HumanPlayStats = {
   total_games: number;
+  this_month_games: number;
+  this_month_human_wins: number;
+  this_month_ai_wins: number;
   human_wins: number;
   ai_wins: number;
   human_winrate: number;
@@ -2407,15 +2527,43 @@ type HumanPlayStats = {
   by_matchup: HumanPlayMatchup[];
 };
 
-function ContributionPanel({
-  decks,
-  deckA,
-  deckB,
+// 人間 vs AI 勝敗ゲージ (= 通算/今月 で共用)。 humanPct 分だけ緑、 残りは赤 (= AI 勝ち)。
+function WinRateBar({
+  label,
+  hw,
+  aw,
+  heightClass,
 }: {
-  decks: DeckOption[];
-  deckA: string;
-  deckB: string;
+  label: string;
+  hw: number;
+  aw: number;
+  heightClass: string;
 }) {
+  const decided = hw + aw;
+  const humanPct = decided ? Math.round((hw / decided) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs font-medium">
+        <span style={{ color: "var(--accent)" }}>
+          <span className="mr-1 text-[color:var(--text-muted)]">{label}</span>
+          人間 {hw.toLocaleString()}勝（{humanPct}%）
+        </span>
+        <span style={{ color: "var(--danger)" }}>AI {aw.toLocaleString()}勝</span>
+      </div>
+      <div
+        className={`relative mt-1.5 overflow-hidden rounded-full ${heightClass}`}
+        style={{ background: "var(--danger)" }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${humanPct}%`, background: "var(--accent)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContributionPanel() {
   const [stats, setStats] = useState<HumanPlayStats | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -2431,28 +2579,8 @@ function ContributionPanel({
   }, []);
   if (failed || !stats) return null;
 
-  const nameOf = (slug: string) =>
-    decks.find((d) => d.slug === slug)?.name ?? slug;
-  const thr = stats.batch_size ?? stats.training_threshold;
-  // 今バッチ (前回学習以降) が学習ラインに最も近い (未到達) マッチアップ = 次の貢献先
-  const nextUp = [...stats.by_matchup]
-    .filter((m) => m.new_games < thr)
-    .sort((a, b) => b.new_games - a.new_games)[0];
-  // いま選択中の対戦 (= deckA(あなた) vs deckB(AI)) の進捗。 デッキ変更に追従。
-  const selected = stats.by_matchup.find(
-    (m) => m.human_deck === deckA && m.ai_deck === deckB,
-  );
-  const selGames = selected?.games ?? 0; // 累計
-  const selNew = selected?.new_games ?? 0; // 今バッチ
-  const selPct = selected?.progress_pct ?? 0;
-  const selWr = selected && selGames ? Math.round(selected.human_winrate * 100) : null;
-
-  const barW = (v: number) => `${Math.min(100, Math.max(0, v))}%`;
-  const stat = [
-    { v: stats.total_games.toLocaleString(), l: "みんなの対戦数", c: "var(--brand)" },
-    { v: `${stats.matchups_ready}/${stats.matchups_tracked}`, l: `学習到達 (各${thr}戦)`, c: "var(--accent)" },
-    { v: `${Math.round(stats.human_winrate * 100)}%`, l: "人間の勝率", c: "var(--text-strong)" },
-  ];
+  const total = stats.total_games ?? 0;
+  const thisMonth = stats.this_month_games ?? 0;
 
   return (
     <section
@@ -2475,98 +2603,43 @@ function ContributionPanel({
         対戦する人が増えるほど AI は人間に強くなります。
       </p>
 
-      {/* 全体サマリ */}
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {stat.map((s, i) => (
-          <div
-            key={i}
-            className="rounded-[var(--radius)] border p-3"
-            style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
-          >
-            <div className="text-xl font-bold tabular-nums" style={{ color: s.c }}>
-              {s.v}
-            </div>
-            <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">{s.l}</div>
-          </div>
-        ))}
+      {/* 人間 vs AI 勝敗ゲージ: 通算 (背高め) + 今月。 */}
+      <div className="mt-4 space-y-3">
+        <WinRateBar
+          label="通算"
+          hw={stats.human_wins ?? 0}
+          aw={stats.ai_wins ?? 0}
+          heightClass="h-6"
+        />
+        <WinRateBar
+          label="今月"
+          hw={stats.this_month_human_wins ?? 0}
+          aw={stats.this_month_ai_wins ?? 0}
+          heightClass="h-2"
+        />
       </div>
 
-      {/* 選択中の対戦 = あなたの貢献先 (デッキ変更に追従) */}
-      <div
-        className="mt-3 rounded-[var(--radius)] border p-3"
-        style={{ borderColor: "var(--brand)", background: "var(--surface-2)" }}
-      >
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="min-w-0 truncate font-medium text-[color:var(--text-strong)]">
-            {nameOf(deckA)} <span className="text-[color:var(--text-muted)]">(あなた) vs</span>{" "}
-            {nameOf(deckB)} <span className="text-[color:var(--text-muted)]">(AI)</span>
-          </span>
-          <span className="shrink-0 tabular-nums text-xs text-[color:var(--text-muted)]">
-            {selNew}/{thr}
-            {selGames > selNew && <span className="ml-1 opacity-70">（累計 {selGames}）</span>}
-          </span>
+      {/* 総対戦数の累積 + 今月の対戦数。 */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div
+          className="rounded-[var(--radius)] border p-3"
+          style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
+        >
+          <div className="text-xl font-bold tabular-nums" style={{ color: "var(--brand)" }}>
+            {total.toLocaleString()}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">総対戦数（累計）</div>
         </div>
         <div
-          className="relative mt-2 h-2 overflow-hidden rounded-full"
-          style={{ background: "var(--border-2)" }}
+          className="rounded-[var(--radius)] border p-3"
+          style={{ borderColor: "var(--border-1)", background: "var(--surface-2)" }}
         >
-          <div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{ width: barW(selPct), background: selNew >= thr ? "var(--accent)" : "var(--brand)" }}
-          />
-        </div>
-        <div className="mt-1.5 text-xs text-[color:var(--text-muted)]">
-          {selGames === 0
-            ? "この組み合わせはまだ 0 戦 — あなたが最初の貢献者になれます。"
-            : selNew >= thr
-              ? `次バッチ分に到達（${thr}戦）。 さらに対戦すると精度が上がります。`
-              : `あと ${thr - selNew} 戦で次の学習バッチに到達します。`}
-          {selWr !== null && <span className="ml-1">／ この組合せの人間勝率 {selWr}%</span>}
+          <div className="text-xl font-bold tabular-nums" style={{ color: "var(--text-strong)" }}>
+            {thisMonth.toLocaleString()}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">今月の対戦数</div>
         </div>
       </div>
-
-      {/* 次の貢献先 (最も学習ラインに近い未到達マッチアップ) */}
-      {nextUp && (
-        <div
-          className="mt-3 rounded-[var(--radius)] border border-l-2 p-3 text-sm text-[color:var(--text-default)]"
-          style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--accent)", background: "var(--surface-2)" }}
-        >
-          あと <b className="text-[color:var(--text-strong)]">{thr - nextUp.new_games}</b> 戦で「
-          {nameOf(nextUp.human_deck)} vs {nameOf(nextUp.ai_deck)}」が次の学習バッチに到達。
-          この組み合わせで対戦すると貢献度が大きいです。
-        </div>
-      )}
-
-      {/* 上位マッチアップの進捗 */}
-      {stats.by_matchup.length > 0 && (
-        <div className="mt-4">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
-            マッチアップ別 進捗
-          </div>
-          <div className="space-y-1.5">
-            {stats.by_matchup.slice(0, 5).map((m, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="w-1/2 truncate text-[color:var(--text-default)]">
-                  {nameOf(m.human_deck)} <span className="text-[color:var(--text-muted)]">vs</span>{" "}
-                  {nameOf(m.ai_deck)}
-                </span>
-                <div
-                  className="relative h-1.5 flex-1 overflow-hidden rounded-full"
-                  style={{ background: "var(--border-2)" }}
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: barW(m.progress_pct), background: m.new_games >= thr ? "var(--accent)" : "var(--brand)" }}
-                  />
-                </div>
-                <span className="w-14 shrink-0 text-right tabular-nums text-[color:var(--text-muted)]">
-                  {m.new_games}/{thr}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -2585,6 +2658,8 @@ function StartPanel({
   busy,
   error,
   challengeCellId,
+  defenderLeaderId,
+  defenderVariantId,
 }: {
   decks: DeckOption[];
   deckA: string;
@@ -2599,6 +2674,8 @@ function StartPanel({
   busy: boolean;
   error: string | null;
   challengeCellId?: number;
+  defenderLeaderId?: string | null;
+  defenderVariantId?: string | null;
 }) {
   const router = useRouter();
   const humanDeck = decks.find((d) => d.slug === deckA);
@@ -2607,6 +2684,10 @@ function StartPanel({
   const inCat = (cat: "meta" | "user") => decks.filter((d) => (d.kind ?? "meta") === cat);
   // 陣取り挑戦では 非公開デッキ を人間側 (deckA) の候補から除外 (= 勝つと占領で露出するため)。
   const territoryChallenge = challengeCellId != null;
+  // 防衛戦 = 占領マスへの挑戦 → 相手 (防衛 AI) のリーダーが確定しているのでカード表示。
+  // 空きマス (ランダム AI) では defender 未指定なのでプレースホルダーのまま。
+  const defenderCard = defenderVariantId ?? defenderLeaderId ?? null;
+  const isDefenseBattle = territoryChallenge && !!defenderCard;
   const inCatA = (cat: "meta" | "user") =>
     territoryChallenge ? inCat(cat).filter((d) => !d.private) : inCat(cat);
   const catOf = (slug: string): "meta" | "user" =>
@@ -2658,7 +2739,7 @@ function StartPanel({
           {territoryChallenge ? (
             <>
               陣取りボードの対戦{" "}
-              <span className="text-[color:var(--brand)]">マス #{challengeCellId}</span>
+              <span className="text-[color:var(--brand)]">マス #{(challengeCellId ?? 0) + 1}</span>
             </>
           ) : (
             "人間 vs AI"
@@ -2747,11 +2828,16 @@ function StartPanel({
               AI
             </span>
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              {territoryChallenge ? "このマスを防衛" : "AI が操作"}
+              {isDefenseBattle ? "このマスを防衛" : territoryChallenge ? "ランダム AI" : "AI が操作"}
             </span>
           </div>
           <div className="flex justify-center">
-            {territoryChallenge ? (
+            {isDefenseBattle ? (
+              // 防衛戦: 占領者 (= 相手) のリーダーカードを表示 (variant 優先 = 盤の表示と一致)。
+              <div className="relative" title="このマスの防衛リーダー">
+                <CardImage cardId={defenderCard as string} alt="防衛リーダー" className="h-36 w-auto rounded-[var(--radius)] border border-[color:var(--border-1)] object-cover" />
+              </div>
+            ) : territoryChallenge ? (
               <div
                 className="flex h-36 w-[93px] flex-col items-center justify-center gap-2 rounded-[var(--radius)] border border-dashed text-center text-xs text-[color:var(--text-muted)]"
                 style={{ borderColor: "var(--border-2)" }}
@@ -2759,7 +2845,7 @@ function StartPanel({
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                   <path d="M12 2l7 3v6c0 4.5-3 8-7 11-4-3-7-6.5-7-11V5z" />
                 </svg>
-                防衛 AI
+                ランダム AI
               </div>
             ) : aiDeck?.leader ? (
               <button
@@ -2778,7 +2864,9 @@ function StartPanel({
           </div>
           {territoryChallenge ? (
             <p className="text-[11px] leading-snug text-[color:var(--text-muted)]">
-              占領マスは占領者のデッキを AI が操縦して防衛します（空きマスは標準 AI）。相手は選べません。
+              {isDefenseBattle
+                ? "このマスの占領者のデッキを AI が操縦して防衛します。相手は選べません。"
+                : "空きマスなので標準 AI と対戦します。相手は選べません。"}
             </p>
           ) : (
             <>
@@ -2879,9 +2967,7 @@ function StartPanel({
       </div>
 
       {/* コミュニティ貢献パネル (陣取り挑戦では非表示)。 */}
-      {!territoryChallenge && (
-        <ContributionPanel decks={decks} deckA={deckA} deckB={deckB} />
-      )}
+      {!territoryChallenge && <ContributionPanel />}
     </div>
   );
 }

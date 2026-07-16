@@ -191,6 +191,80 @@ export async function fetchDeckAnalysis(
   return res.json();
 }
 
+// 裏で計算するデッキ分析レポート (= AI vs AI 相性 + 役割内訳 + キーカード)。
+export type DeckReportMatchup = {
+  slug: string;
+  name: string;
+  leader: string;
+  leader_name: string;
+  win_rate: number;
+  n: number;
+};
+export type DeckReportBody = {
+  computed_at: string;
+  ai_version: string;
+  n_games_per_matchup: number;
+  recipe_hash?: string;
+  roles: { role: string; label: string; count: number }[];
+  key_cards: { card_id: string; name: string; role: string; label: string; threat_level: number; count: number }[];
+  archetype: string;
+  speed_dist: { early: number; mid: number; late: number };
+  curve_buckets: { low: number; mid: number; high: number };
+  matchups: DeckReportMatchup[];
+  n_opponents?: number;
+  matchup_summary: { avg: number; best: DeckReportMatchup[]; worst: DeckReportMatchup[] };
+  insights?: { kind: string; title: string; detail: string; strength?: number }[];
+  profile?: Partial<{
+    avg_turns: number;
+    first_attack_turn: number;
+    attacks_per_game: number;
+    attacks_landed: number;
+    ko_dealt: number;
+    ko_lost: number;
+    opp_attacks: number;
+    blocker_uses: number;
+    counter_uses: number;
+  }>;
+  top_cards?: { card_id: string; name: string; play_rate: number }[];
+  matchup_plans?: { archetype: string; win_rate: number; n: number; detail: string }[];
+  win_combos?: { cards: string[]; label: string; win_rate: number; base_win_rate: number; n: number; strength: number }[];
+  mulligan?: { name: string; win_rate_with: number; win_rate_without: number; n: number; strength: number }[];
+  guides?: { kind: string; title: string; detail: string }[];
+  challenges?: {
+    opponent: string;
+    opp_leader: string;
+    opp_archetype: string;
+    loss_margin: number;
+    winnable: boolean;
+    how_to_win?: string;
+  }[];
+  partial?: boolean;
+};
+export type DeckReport = {
+  status: "none" | "pending" | "running" | "done" | "failed";
+  stale: boolean;
+  report: DeckReportBody | null;
+  kind: "user" | "meta";
+};
+
+export async function fetchDeckReport(slug: string, headers?: HeadersInit): Promise<DeckReport> {
+  const res = await fetch(`${API}/api/decks/${encodeURIComponent(slug)}/report`, {
+    cache: "no-store",
+    headers: { ...(await authHeaders()), ...(headers as Record<string, string> | undefined) },
+  });
+  if (!res.ok) throw new Error(`fetchDeckReport failed: ${res.status}`);
+  return res.json();
+}
+
+export async function requestDeckAnalysis(slug: string): Promise<{ status: string }> {
+  const res = await fetch(`${API}/api/decks/${encodeURIComponent(slug)}/analyze-request`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
+  });
+  if (!res.ok) throw new Error(`requestDeckAnalysis failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 export async function runMatch(req: MatchRequest): Promise<MatchSummary> {
   const res = await fetch(`${API}/api/match`, {
     method: "POST",
@@ -590,6 +664,7 @@ export type GenerateDeckRequest = {
   meta_sample?: number;
   hill_climb_iters?: number;
   seed?: number;
+  regulation?: "standard" | "extra";
 };
 
 export type GeneratedDeckOut = {
@@ -770,6 +845,21 @@ export type FaqMeta = { count: number; sources: number; generated_at: string | n
 export async function fetchFaqMeta(): Promise<FaqMeta> {
   const res = await fetch(`${API}/api/faq/meta`, { cache: "no-store" });
   if (!res.ok) throw new Error(`fetchFaqMeta failed: ${res.status}`);
+  return res.json();
+}
+
+// Q&A スクレイプ対象のリンク一覧 (= Q&A 参照先タブ)。
+export type FaqSourceLink = {
+  source: string;
+  label: string;
+  source_url: string | null;
+  count: number;
+  fetched_at?: string | null;
+};
+
+export async function fetchFaqSourceLinks(headers?: HeadersInit): Promise<FaqSourceLink[]> {
+  const res = await fetch(`${API}/api/faq/source-links`, { cache: "no-store", headers });
+  if (!res.ok) throw new Error(`fetchFaqSourceLinks failed: ${res.status}`);
   return res.json();
 }
 
@@ -1120,6 +1210,30 @@ export async function fetchMatchHistory(
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`fetchMatchHistory failed: ${res.status}`);
+  return res.json();
+}
+
+export type HumanMatchEntry = {
+  id: string;
+  created_at: string;
+  result: "win" | "loss" | "draw"; // このデッキ視点
+  side: "human" | "ai"; // このデッキを人間/AI どちらが操作したか
+  opponent_leader: string | null;
+  turns: number | null;
+  went_first: boolean;
+  source: "practice" | "territory";
+  non_stakes: boolean;
+};
+
+export async function fetchDeckHumanHistory(
+  slug: string,
+  limit = 15,
+): Promise<HumanMatchEntry[]> {
+  const res = await fetch(
+    `${API}/api/decks/${encodeURIComponent(slug)}/human-history?limit=${limit}`,
+    { cache: "no-store", headers: { ...(await authHeaders()) } },
+  );
+  if (!res.ok) throw new Error(`fetchDeckHumanHistory failed: ${res.status}`);
   return res.json();
 }
 

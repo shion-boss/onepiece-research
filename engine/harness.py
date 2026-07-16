@@ -168,6 +168,8 @@ class GameResult:
     # Phase 2 audit (= ONEPIECE_AUDIT_INVARIANTS=1 時 のみ蓄積)
     audit_violations: list[dict] = field(default_factory=list)
     effect_events: list[dict] = field(default_factory=list)
+    # マリガン後の開始手札 card_id ([p0, p1])。 keep_logs=True 時のみ埋まる (= 分析用)。
+    opening_hands: list = field(default_factory=list)
 
 
 @dataclass
@@ -399,6 +401,13 @@ def run_matchup(
         # bonus 学習 用 fire logging を 初期化 (= compute_target_match_bonus が 各 leaf eval で 集計)
         if enable_fire_logging:
             state._fired_target_counts = [{}, {}]  # type: ignore[attr-defined]
+        # マリガン後の開始手札 (= players[0]/[1] の 5 枚) を記録 (= マリガン分析用、 keep_logs 時のみ)。
+        opening_hands: list = []
+        if keep_logs:
+            opening_hands = [
+                [getattr(c, "card_id", None) for c in state.players[0].hand],
+                [getattr(c, "card_id", None) for c in state.players[1].hand],
+            ]
         play_until_main(state)
         # first_player == 0 なら deck1 が先攻 (= AI1, analysis1)、 1 なら逆
         if first_player == 0:
@@ -537,6 +546,7 @@ def run_matchup(
             fire_counts=fire_counts,
             audit_violations=list(getattr(state, "audit_violations", []) or []),
             effect_events=list(getattr(state, "_effect_events", []) or []),
+            opening_hands=opening_hands,
         )
         report.games.append(result)
 

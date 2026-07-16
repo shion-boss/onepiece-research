@@ -221,6 +221,7 @@ export type CoreBuildRequest = {
   core_counts?: Record<string, number>;
   name?: string;
   seed?: number;
+  regulation?: "standard" | "extra";
 };
 
 export type CoreBuildResponse = {

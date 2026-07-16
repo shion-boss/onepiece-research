@@ -242,7 +242,7 @@ export function TerritoryBoard({
               selected != null ? (
                 <button
                   type="button"
-                  onClick={() => router.push(`/play?cell=${selected}`)}
+                  onClick={() => router.push(`/territory/play?cell=${selected}`)}
                   title={active.owner ? "占領者のデッキを操る AI と防衛戦" : "ランダム AI と対戦"}
                   className="mb-3 w-full rounded-[var(--radius)] bg-[color:var(--brand)] px-3 py-2.5 text-sm font-semibold text-white transition-[filter] hover:brightness-110"
                 >

@@ -70,7 +70,6 @@ function NewDeckPageContent() {
   useEffect(() => {
     if (!fromSlug) return;
     if (hydratedSlugRef.current === fromSlug) return;
-    hydratedSlugRef.current = fromSlug;
 
     let cancelled = false;
     (async () => {
@@ -101,12 +100,16 @@ function NewDeckPageContent() {
             addCard(card);
           }
         }
+        // 成功して初めて「このslugはロード済み」とマーク (= 途中キャンセルされた run は
+        // 主張しない → StrictMode 二重実行/タブ再利用でも生き残った run が確実にロードする)。
+        hydratedSlugRef.current = fromSlug;
         setFlash(`${detail.name ?? fromSlug} をロードしました (${detail.main.reduce((s, x) => s + x.count, 0)} 枚)`);
         setTimeout(() => setFlash(null), 3000);
       } catch (e) {
-        setFlash(`ロード失敗: ${e instanceof Error ? e.message : String(e)}`);
+        if (!cancelled) setFlash(`ロード失敗: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
-        if (!cancelled) setHydrating(false);
+        // 常に解除 (= cancelled でも stuck させない。 unmount 後の setState は no-op)。
+        setHydrating(false);
       }
     })();
     return () => {
@@ -152,6 +155,8 @@ function NewDeckPageContent() {
         leader: leader.card_id,
         core_cards: cores,
         name: name || undefined,
+        // 選択中の STD/EX を反映 (= standard は block②+ のみで埋める)。
+        regulation,
       });
       // 結果を store に流し込む (既存 main をリセット)
       const cardMap = new Map<string, Awaited<ReturnType<typeof fetchCard>>>();

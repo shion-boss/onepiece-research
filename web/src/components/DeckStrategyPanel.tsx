@@ -16,7 +16,10 @@ import type { DeckStrategy } from "@/lib/types";
 export function DeckStrategyPanel({ strategy }: { strategy: DeckStrategy }) {
   return (
     <section className="rounded-[var(--radius-lg)] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-4">
-      <h2 className="mb-3 text-lg font-semibold text-[color:var(--text-strong)]">戦略分析</h2>
+      <h2 className="mb-1 text-lg font-semibold text-[color:var(--text-strong)]">戦略概要（デッキ構成から）</h2>
+      <p className="mb-3 text-[11px] text-[color:var(--text-muted)]">
+        カード構成から即時に導いた骨格（対戦シミュレーション不要）。
+      </p>
 
       {/* サマリバッジ */}
       <div className="mb-3 flex flex-wrap gap-2 text-xs">

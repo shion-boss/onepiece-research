@@ -17,6 +17,9 @@ export function CardPreloader({
   deckSlugB,
   deckNameA,
   deckNameB,
+  leaderBOverride,
+  nameBOverride,
+  randomB,
   onComplete,
   title,
 }: {
@@ -24,6 +27,12 @@ export function CardPreloader({
   deckSlugB: string;
   deckNameA?: string;
   deckNameB?: string;
+  // 陣取り防衛戦: AI 側 (B) の実デッキは server 決定でフロントに無いが、 リーダーは既知。
+  // これを渡すと deckSlugB を fetch/表示せず、 このリーダーカードを B 側に出す (= 盤の防衛
+  // リーダーと一致)。 randomB=true は空きマス (ランダム AI) で、 相手不定のプレースホルダ表示。
+  leaderBOverride?: string | null;
+  nameBOverride?: string;
+  randomB?: boolean;
   onComplete: () => void;
   title?: string;
 }) {
@@ -41,15 +50,10 @@ export function CardPreloader({
     let cancelled = false;
     (async () => {
       try {
-        const [da, db] = await Promise.all([
-          fetchDeck(deckSlugA),
-          fetchDeck(deckSlugB),
-        ]);
-        if (cancelled) return;
         const buildInfo = (
           slug: string,
           nameOverride: string | undefined,
-          d: typeof da,
+          d: { leader: string; name?: string; main: { card_id: string }[] },
         ): DeckInfo => {
           const ids = new Set<string>();
           ids.add(d.leader);
@@ -61,12 +65,30 @@ export function CardPreloader({
             cardIds: [...ids],
           };
         };
+        // A (人間) は必ず fetch。 B は override/random ならフロントに実デッキが無いので
+        // fetch せず、 既知のリーダー (or 空プレースホルダ) だけを出す。
+        const da = await fetchDeck(deckSlugA);
+        if (cancelled) return;
         const infoA = buildInfo(deckSlugA, deckNameA, da);
-        const infoB = buildInfo(deckSlugB, deckNameB, db);
+        let infoB: DeckInfo;
+        if (randomB) {
+          infoB = { slug: "random", name: nameBOverride ?? "ランダム AI", leader: "", cardIds: [] };
+        } else if (leaderBOverride) {
+          infoB = {
+            slug: "defender",
+            name: nameBOverride ?? "防衛リーダー",
+            leader: leaderBOverride,
+            cardIds: [leaderBOverride],
+          };
+        } else {
+          const db = await fetchDeck(deckSlugB);
+          if (cancelled) return;
+          infoB = buildInfo(deckSlugB, deckNameB, db);
+        }
         setDecks([infoA, infoB]);
         const allIds = Array.from(
           new Set([...infoA.cardIds, ...infoB.cardIds]),
-        );
+        ).filter(Boolean);
         setTotal(allIds.length);
         setLoaded(0);
 
@@ -102,7 +124,7 @@ export function CardPreloader({
     return () => {
       cancelled = true;
     };
-  }, [deckSlugA, deckSlugB, deckNameA, deckNameB]);
+  }, [deckSlugA, deckSlugB, deckNameA, deckNameB, leaderBOverride, nameBOverride, randomB]);
 
   const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
 
@@ -129,12 +151,19 @@ export function CardPreloader({
             VS
           </div>
           <div className="flex flex-col items-center gap-2">
-            <CardImage
-              cardId={decks[1].leader}
-              alt={decks[1].name}
-              className="w-32 rounded-lg shadow-lg"
-              loading="eager"
-            />
+            {decks[1].leader ? (
+              <CardImage
+                cardId={decks[1].leader}
+                alt={decks[1].name}
+                className="w-32 rounded-lg shadow-lg"
+                loading="eager"
+              />
+            ) : (
+              // 空きマス (ランダム AI): 相手不定なのでプレースホルダ (=? マーク) を出す。
+              <div className="flex h-[179px] w-32 items-center justify-center rounded-lg border border-dashed text-3xl font-black text-zinc-400 shadow-lg dark:border-zinc-700 dark:text-zinc-600">
+                ?
+              </div>
+            )}
             <div className="text-center text-xs font-medium text-zinc-700 dark:text-zinc-300">
               {decks[1].name}
             </div>
