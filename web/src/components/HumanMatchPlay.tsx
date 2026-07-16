@@ -2042,9 +2042,12 @@ export function HumanMatchPlay({
             <div className="mt-3 text-base text-zinc-200">
               T{state.turn} で 試合 終了
             </div>
-            <div className="mt-2 text-sm font-semibold text-cyan-200">
-              この 1 戦も AI の学習データになりました — ご協力ありがとうございます
-            </div>
+            {/* 学習データの謝辞は通常の人間 vs AI のみ (= 陣取り挑戦では出さない)。 */}
+            {challengeCellId == null && (
+              <div className="mt-2 text-sm font-semibold text-cyan-200">
+                この 1 戦も AI の学習データになりました — ご協力ありがとうございます
+              </div>
+            )}
             {captureResult && (
               <div
                 className={
@@ -2057,9 +2060,20 @@ export function HumanMatchPlay({
                 {captureResult.captured
                   ? `マス #${(challenge?.cell_id ?? 0) + 1} を占領しました`
                   : captureResult.non_stakes
-                    ? "対戦中に別の挑戦者が先にこのマスを奪取したため、占領はできませんでした（この対戦も学習には使われます）"
+                    ? "対戦中に別の挑戦者が先にこのマスを奪取したため、占領はできませんでした"
                     : "このマスは占領できませんでした"}
               </div>
+            )}
+            {/* 陣取り挑戦は結果を見たら盤へ戻れるボタンを出す (overlay は pointer-events-none
+                なのでボタンだけ pointer-events-auto で復活)。 */}
+            {challengeCellId != null && (
+              <button
+                type="button"
+                onClick={() => router.push("/territory")}
+                className="pointer-events-auto mx-auto mt-5 block rounded-lg border border-white/40 bg-white/15 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-white/25"
+              >
+                陣取りボードへ戻る
+              </button>
             )}
           </motion.div>
         </div>
